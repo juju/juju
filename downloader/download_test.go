@@ -65,7 +65,6 @@ func (s *DownloadSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHost
 		downloader.NewHTTPBlobOpener(hostnameVerification),
 	)
 	status := <-d.Done()
-	defer os.Remove(status.File.Name())
 	defer status.File.Close()
 	c.Assert(status.Err, gc.IsNil)
 	c.Assert(status.File, gc.NotNil)
