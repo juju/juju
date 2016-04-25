@@ -110,20 +110,21 @@ func (dl *Download) run(req Request) {
 	}
 
 	if err == nil {
-		logger.Infof("download complete")
+		logger.Infof("download complete (%q)", req.URL)
 
 		if req.Verify != nil {
 			err = req.Verify(file)
 			if errors.IsNotValid(err) {
-				logger.Errorf("download from %s invalid: %v", req.URL, err)
+				logger.Errorf("download of %s invalid: %v", req.URL, err)
 			}
 			if _, err2 := file.Seek(0, os.SEEK_SET); err2 != nil {
-				logger.Errorf("failed to seek to beginning of file: %v", err)
+				logger.Errorf("failed to seek to beginning of file: %v", err2)
 				if err == nil {
 					err = errors.Trace(err2)
 				}
-			} else {
-				logger.Infof("download verified")
+			}
+			if err != nil {
+				logger.Infof("download verified (%q)", req.URL)
 			}
 		}
 	}
