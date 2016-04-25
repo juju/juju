@@ -300,8 +300,6 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 			}
 
 			nicInfo.CIDR = link.Subnet().CIDR()
-			// XXX this is a raw space name and should be
-			// translated
 			nicInfo.Address = network.NewAddressOnSpace(link.Subnet().Space(), link.IPAddress())
 			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet().ID()))
 			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))

@@ -963,12 +963,20 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		id:  5001,
 		mtu: 1500,
 	}
-	subnetPXE := fakeSubnet{
+	subnet1 := fakeSubnet{
 		id:         3,
 		space:      "default",
 		vlan:       vlan0,
 		gateway:    "10.20.19.2",
 		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	subnet2 := fakeSubnet{
+		id:         4,
+		space:      "freckles",
+		vlan:       vlan0,
+		gateway:    "192.168.1.1",
+		cidr:       "192.168.1.0/24",
 		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
 	}
 
@@ -983,8 +991,28 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 			links: []gomaasapi.Link{
 				&fakeLink{
 					id:        436,
-					subnet:    &subnetPXE,
+					subnet:    &subnet1,
 					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	deviceInterfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         93,
+			name:       "eth1",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "53:54:00:70:9b:ff",
+			vlan:       vlan0,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        480,
+					subnet:    &subnet2,
+					ipAddress: "192.168.1.127",
 					mode:      "static",
 				},
 			},
@@ -994,7 +1022,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	}
 	var env *maasEnviron
 	device := &fakeDevice{
-		interfaceSet: interfaces,
+		interfaceSet: deviceInterfaces,
 		systemID:     "foo",
 	}
 	controller := &fakeController{
@@ -1004,16 +1032,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 			interfaceSet: interfaces,
 			createDevice: device,
 		}},
-		allocateMachineMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string]gomaasapi.BlockDevice{},
-		},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
-				name: "freckles",
-				id:   4567,
-				subnets: []gomaasapi.Subnet{
-					fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "10.20.19.0/24"},
-				},
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet1, subnet2},
 			},
 		},
 		devices: []gomaasapi.Device{device},
@@ -1028,7 +1051,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		CIDR:              "10.20.19.0/24",
 		ProviderId:        "91",
 		ProviderSubnetId:  "3",
-		VLANTag:           0,
 		ProviderVLANId:    "5001",
 		ProviderAddressId: "436",
 		InterfaceName:     "eth0",
@@ -1043,24 +1065,20 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
-		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.20.19.0/24",
-		ProviderId:        "91",
-		ProviderSubnetId:  "3",
-		AvailabilityZones: nil,
+		MACAddress:        "53:54:00:70:9b:ff",
+		CIDR:              "192.168.1.0/24",
+		ProviderId:        "93",
+		ProviderSubnetId:  "4",
 		VLANTag:           0,
 		ProviderVLANId:    "5001",
-		ProviderAddressId: "436",
-		InterfaceName:     "eth0",
+		ProviderAddressId: "480",
+		InterfaceName:     "eth1",
 		InterfaceType:     "ethernet",
-		Disabled:          false,
-		NoAutoStart:       false,
 		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearchDomains:  nil,
+		Address:           network.NewAddressOnSpace("freckles", "192.168.1.127"),
+		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
