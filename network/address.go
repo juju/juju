@@ -91,22 +91,22 @@ const (
 // Address represents the location of a machine, including metadata
 // about what kind of location the address describes.
 type Address struct {
-	Value       string
-	Type        AddressType
-	NetworkName string
+	Value string
+	Type  AddressType
 	Scope
 	SpaceName
 	SpaceProviderId Id
 }
 
 // String returns a string representation of the address, in the form:
-// ""scope:address(network name)@space""; for example:
+// `<scope>:<address-value>@<space-name>(id:<space-provider-id)`; for example:
 //
-//	public:c2-54-226-162-124.compute-1.amazonaws.com(ec2network)@public-api
+//	public:c2-54-226-162-124.compute-1.amazonaws.com@public-api(id:42)
 //
-// If the scope is NetworkUnknown, the initial scope: prefix will be omitted. If
-// the NetworkName is blank, the (network name) suffix will be omitted. Finally,
-// if the SpaceName is empty the last '@space' part will be omitted as well.
+// If the scope is ScopeUnknown, the initial "<scope>:" prefix will be omitted.
+// If the SpaceName is blank, the "@<space-name>" suffix will be omitted.
+// Finally, if the SpaceProviderId is empty the suffix
+// "(id:<space-provider-id>)" part will be omitted as well.
 func (a Address) String() string {
 	var buf bytes.Buffer
 	if a.Scope != ScopeUnknown {
@@ -114,12 +114,6 @@ func (a Address) String() string {
 		buf.WriteByte(':')
 	}
 	buf.WriteString(a.Value)
-
-	if a.NetworkName != "" {
-		buf.WriteByte('(')
-		buf.WriteString(a.NetworkName)
-		buf.WriteByte(')')
-	}
 
 	var spaceFound bool
 	if a.SpaceName != "" {
@@ -151,12 +145,11 @@ func NewAddress(value string) Address {
 // NewScopedNamedAddress creates a new Address, deriving its type from the value.
 // TODO(dooferlad): Once NetworkName has gone strip that out and rename to
 // NewScopedAddressWithoutDeriveScope (better names may be available).
-func NewScopedNamedAddress(value, networkName string, scope Scope) Address {
+func NewScopedNamedAddress(value, _ string, scope Scope) Address {
 	addr := Address{
-		Value:       value,
-		Type:        DeriveAddressType(value),
-		NetworkName: networkName,
-		Scope:       scope,
+		Value: value,
+		Type:  DeriveAddressType(value),
+		Scope: scope,
 	}
 	return addr
 }
