@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -220,19 +219,13 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 
 	// Login as the machine agent of the created machine.
 	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
+	defer func() {
+		err := st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}()
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
-
-	// Now make sure it stops when connection is closed.
-	c.Assert(st.Close(), gc.IsNil)
-
-	// Sync, then wait for a bit to make sure the state is updated.
-	s.State.StartSync()
-	<-time.After(coretesting.ShortWait)
-	s.State.StartSync()
-
-	s.assertAlive(c, machine, false)
 }
 
 func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
@@ -244,26 +237,20 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 
 	// Login as the unit agent of the created unit.
 	st := s.OpenAPIAs(c, unit.Tag(), password)
+	defer func() {
+		err := st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}()
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)
-
-	// Now make sure it stops when connection is closed.
-	c.Assert(st.Close(), gc.IsNil)
-
-	// Sync, then wait for a bit to make sure the state is updated.
-	s.State.StartSync()
-	<-time.After(coretesting.ShortWait)
-	s.State.StartSync()
-
-	s.assertAlive(c, unit, false)
 }
 
-func (s *serverSuite) assertAlive(c *gc.C, entity presence.Presencer, isAlive bool) {
+func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bool) {
 	s.State.StartSync()
 	alive, err := entity.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, isAlive)
+	c.Assert(alive, gc.Equals, expectAlive)
 }
 
 func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
