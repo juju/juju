@@ -67,12 +67,14 @@ class TestAssess(TestCase):
     def test_user_grant_revoke(self):
         mock_client = Mock(spec=["juju", "wait_for_started"])
         assess_user_grant_revoke(mock_client)
-        #mock_client.juju.assert_called_once_with(
-        #    'deploy', ('local:trusty/my-charm',))
+        mock_client.juju.assert_called_once_with(
+            'deploy', ('local:trusty/my-charm',))
         mock_client.wait_for_started.assert_called_once_with()
         self.assertNotIn("TODO", self.log_stream.getvalue())
 
     def test_create_cloned_environment(self):
+
+    def test_register_user(self):
 
     def test_remove_user_permissions(self):
 

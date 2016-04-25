@@ -17,7 +17,6 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    scoped_environ,
     temp_dir,
 )
 
@@ -61,6 +60,26 @@ def remove_user_permissions(client, username, models=None, permissions='read'):
         log.warn(e.stderr)
 
 
+def register_user(username, env, register_cmd, juju_bin):
+    # needs support to passing register command with arguments
+    # refactor once supported, bug 1573099
+    try:
+        child = pexpect.spawn(juju_bin + register_cmd, env=env)
+        child.expect('(?i)name .*: ')
+        child.sendline(username + '_controller')
+        child.expect('(?i)password')
+        child.sendline(username + '_password')
+        child.expect('(?i)password')
+        child.sendline(username + '_password')
+        child.close()
+        if child.isalive():
+            raise AssertionError(
+                'Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+        raise AssertionError(
+            'Registering user failed: pexpect session timed out')
+
+
 def create_cloned_environment(client, username, cloned_juju_home):
     user_client = client.clone(env=client.env.clone())
     user_client.env.juju_home = cloned_juju_home
@@ -80,48 +99,12 @@ def assess_user_grant_revoke(client, juju_bin):
 
     log.debug("Testing read_user access")
     with temp_dir() as fake_home:
-        read_user_client = client.clone(env=client.env.clone())
-        read_user_client.env.juju_home = fake_home
-        read_user_env = read_user_client._shell_environ()
+        read_user_client, read_user_env = create_cloned_environment(
+            client, read_user, fake_home)
+        register_user(read_user, read_user_env, read_user_register, juju_bin)
 
-        with scoped_environ(read_user_env):
-            child = pexpect.spawn(juju_bin + read_user_register)
-
-        try:
-            #child = pexpect.spawn(juju_bin + read_user_register, env=read_user_env)
-            child.expect('(?i)name .*: ')
-            child.sendline(read_user + '_controller')
-            child.expect('(?i)password')
-            child.sendline(read_user + '_password')
-            child.expect('(?i)password')
-            child.sendline(read_user + '_password')
-            child.close()
-            if child.isalive():
-                raise AssertionError(
-                    'Registering user failed: pexpect session still alive')
-        except pexpect.TIMEOUT:
-            raise AssertionError(
-                'Registering user failed: pexpect session timed out')
-
-        # This has repeatedly failed when methodized, and thus is stuck inline
-        # needs support to passing register command with arguments
-        # refactor once supported, bug 1573099
-        #try:
-            #child = pexpect.spawn(juju_bin + read_user_register,
-                                  #env=read_user_env)
-            #child.expect('(?i)name .*: ')
-            #child.sendline(read_user + '_controller')
-            #child.expect('(?i)password')
-            #child.sendline(read_user + '_password')
-            #child.expect('(?i)password')
-            #child.sendline(read_user + '_password')
-            #child.close()
-            #if child.isalive():
-                #raise AssertionError(
-                    #'Registering user failed: pexpect session still alive')
-        #except pexpect.TIMEOUT:
-            #raise AssertionError(
-                #'Registering user failed: pexpect session timed out')
+        read_user_client.get_juju_output('show-user', include_e=False)
+        read_user_client.get_juju_output('show-controller', include_e=False)
 
         # assert we can show status
         try:
@@ -152,28 +135,10 @@ def assess_user_grant_revoke(client, juju_bin):
 
     log.debug("Testing write_user access")
     with temp_dir() as fake_home:
-        write_user_client = client.clone(env=client.env.clone())
-        write_user_client.env.juju_home = fake_home
-        write_user_env = write_user_client._shell_environ()
-
-        with scoped_environ(write_user_env):
-            child = pexpect.spawn(juju_bin + write_user_register)
-
-        try:
-            #child = pexpect.spawn(juju_bin + write_user_register, env=write_user_env)
-            child.expect('(?i)name .*: ')
-            child.sendline(write_user + '_controller')
-            child.expect('(?i)password')
-            child.sendline(write_user + '_password')
-            child.expect('(?i)password')
-            child.sendline(write_user + '_password')
-            child.close()
-            if child.isalive():
-                raise AssertionError(
-                    'Registering user failed: pexpect session still alive')
-        except pexpect.TIMEOUT:
-            raise AssertionError(
-                'Registering user failed: pexpect session timed out')
+        write_user_client, write_user_env = create_cloned_environment(
+            client, write_user, fake_home)
+        register_user(write_user, write_user_env,
+                      write_user_register, juju_bin)
 
         # assert we can show status
         try:
