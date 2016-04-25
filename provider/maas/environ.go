@@ -2295,8 +2295,13 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// XXX
-	primaryNIC := device.InterfaceSet()[0]
+	interface_set := device.InterfaceSet()
+	if len(interface_set) != 1 {
+		// Shouldn't be possible as machine.CreateDevice always returns us
+		// one interface.
+		return nil, errors.Errorf("unexpected number of interfaces inresponse from creating device: %v", interface_set)
+	}
+	primaryNIC := interface_set[0]
 
 	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
