@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type maas2EnvironSuite struct {
@@ -1076,4 +1077,65 @@ func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 	// Files have been cleaned up.
 	c.Check(file1.deleted, jc.IsTrue)
 	c.Check(file2.deleted, jc.IsTrue)
+}
+
+func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
+	env := suite.makeEnviron(c, newFakeController())
+	// Disable auto-uploading by setting the agent version.
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"agent-version": jujuversion.Current.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
+}
+
+func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
+	suite.setupFakeTools(c)
+	controller := newFakeController()
+	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
+	env := suite.makeEnviron(c, controller)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	// Since there are no nodes, the attempt to allocate one returns a
+	// 409: Conflict.
+	c.Check(err, gc.ErrorMatches, ".*cannot run instances.*")
+}
+
+func (suite *maas2EnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
+	// Add a dummy file to storage so we can use that to check the
+	// obtained source later.
+	env := suite.makeEnviron(c, newFakeControllerWithFiles(
+		&fakeFile{name: "agent-prefix-tools/filename", contents: makeRandomBytes(10)},
+	))
+	sources, err := envtools.GetMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, gc.HasLen, 0)
+}
+
+func (suite *maas2EnvironSuite) TestConstraintsValidator(c *gc.C) {
+	controller := newFakeController()
+	controller.bootResources = []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}}
+	env := suite.makeEnviron(c, controller)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
+}
+
+func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	controller := newFakeController()
+	controller.bootResources = []gomaasapi.BootResource{
+		&fakeBootResource{name: "trusty", architecture: "amd64"},
+		&fakeBootResource{name: "precise", architecture: "armhf"},
+	}
+	env := suite.makeEnviron(c, controller)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	cons := constraints.MustParse("arch=ppc64el")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
 }
