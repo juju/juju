@@ -293,7 +293,7 @@ class EnvJujuClient:
         elif re.match('^2\.0-(alpha3|beta[12])', version):
             client_class = EnvJujuClient2B2
         elif re.match('^2\.0-(beta[3-6])', version):
-            client_class = EnvJujuClient2B6
+            client_class = EnvJujuClient2B3
         # Delete this class when the add-model branch merges into master.
         elif re.match('^2\.0-(beta7)', version):
             client_class = EnvJujuClient2B7
@@ -1131,7 +1131,7 @@ class EnvJujuClient:
         return self.version.startswith('1.')
 
 
-class EnvJujuClient2B6(EnvJujuClient):
+class EnvJujuClient2B3(EnvJujuClient):
 
     def _add_model(self, model_name, config_file):
         self.controller_juju('create-model', (
@@ -1139,11 +1139,11 @@ class EnvJujuClient2B6(EnvJujuClient):
 
 
 # Delete this class when the add-model feature branch merges into master.
-class EnvJujuClient2B7(EnvJujuClient2B6):
+class EnvJujuClient2B7(EnvJujuClient2B3):
     """A shim to ease the transition to add-model from 2B6."""
 
 
-class EnvJujuClient2B2(EnvJujuClient2B6):
+class EnvJujuClient2B2(EnvJujuClient2B3):
 
     def get_bootstrap_args(self, upload_tools, config_filename,
                            bootstrap_series=None):

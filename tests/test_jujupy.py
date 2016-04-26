@@ -44,7 +44,7 @@ from jujupy import (
     EnvJujuClient2A1,
     EnvJujuClient2A2,
     EnvJujuClient2B2,
-    EnvJujuClient2B6,
+    EnvJujuClient2B3,
     EnvJujuClient2B7,
     ErroredUnit,
     GroupReporter,
@@ -1026,16 +1026,16 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta2')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta3')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta4')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta5')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta6')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient2B7)
@@ -2830,16 +2830,16 @@ class TestEnvJujuClient(ClientTest):
         self.assertFalse(client.is_juju1x())
 
 
-class TestEnvJujuClient2B6(ClientTest):
+class TestEnvJujuClient2B3(ClientTest):
 
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
             'kill-controller', 'create-model', ('-c', 'foo'))
 
     def do_add_model(self, jes_command, create_cmd, controller_option):
-        controller_client = EnvJujuClient2B6(JujuData('foo'), None, None)
+        controller_client = EnvJujuClient2B3(JujuData('foo'), None, None)
         model_data = JujuData('bar', {'type': 'foo'})
-        client = EnvJujuClient2B6(model_data, None, None)
+        client = EnvJujuClient2B3(model_data, None, None)
         with patch.object(client, 'get_jes_command',
                           return_value=jes_command):
                 with patch.object(controller_client, 'juju') as ccj_mock:
@@ -3167,16 +3167,16 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta2')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta3')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta4')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta5')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B6)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta6')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient2B7)
