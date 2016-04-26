@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -48,13 +47,11 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
 		return &s.distributor, nil
 	}
-	s.wordpress = s.AddTestingServiceWithNetworks(
+	s.wordpress = s.AddTestingService(
 		c,
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
-		[]string{"net1", "net2"},
 	)
-	s.wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		var err error

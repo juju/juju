@@ -102,8 +102,6 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
-	presence.Presencer
-	status.StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -1569,19 +1567,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 		return err
 	}
 
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
 	template := MachineTemplate{
-		Series:            u.doc.Series,
-		Constraints:       *cons,
-		Jobs:              []MachineJob{JobHostUnits},
-		RequestedNetworks: requestedNetworks,
+		Series:      u.doc.Series,
+		Constraints: *cons,
+		Jobs:        []MachineJob{JobHostUnits},
 	}
 	err = u.assignToNewMachine(template, host.Id, *cons.Container)
 	if err == machineNotCleanErr {
@@ -1611,14 +1600,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
@@ -1627,7 +1608,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Series:                u.doc.Series,
 		Constraints:           *cons,
 		Jobs:                  []MachineJob{JobHostUnits},
-		RequestedNetworks:     requestedNetworks,
 		Volumes:               storageParams.volumes,
 		VolumeAttachments:     storageParams.volumeAttachments,
 		Filesystems:           storageParams.filesystems,

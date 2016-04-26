@@ -114,11 +114,11 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 }
 
 // AddService adds a service for the specified charm to state.
-func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string, networks []string) {
+func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
 	owner := s.jcSuite.AdminUserTag(c)
-	_, err := s.jcSuite.State.AddService(state.AddServiceArgs{Name: serviceName, Owner: owner.String(), Charm: ch, Networks: networks})
+	_, err := s.jcSuite.State.AddService(state.AddServiceArgs{Name: serviceName, Owner: owner.String(), Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -154,12 +154,12 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 
 	// mysql is out of date
 	s.AddCharmWithRevision(c, "mysql", 22)
-	s.AddService(c, "mysql", "mysql", nil)
+	s.AddService(c, "mysql", "mysql")
 	s.AddUnit(c, "mysql", "1")
 
 	// wordpress is up to date
 	s.AddCharmWithRevision(c, "wordpress", 26)
-	s.AddService(c, "wordpress", "wordpress", nil)
+	s.AddService(c, "wordpress", "wordpress")
 	s.AddUnit(c, "wordpress", "2")
 	s.AddUnit(c, "wordpress", "2")
 	// wordpress/0 has a version, wordpress/1 is unknown
@@ -167,6 +167,6 @@ func (s *CharmSuite) SetupScenario(c *gc.C) {
 
 	// varnish is a charm that does not have a version in the mock store.
 	s.AddCharmWithRevision(c, "varnish", 5)
-	s.AddService(c, "varnish", "varnish", nil)
+	s.AddService(c, "varnish", "varnish")
 	s.AddUnit(c, "varnish", "3")
 }

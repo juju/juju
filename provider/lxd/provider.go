@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -106,4 +107,13 @@ func (environProvider) DetectRegions() ([]cloud.Region, error) {
 	// i.e. the local LXD daemon. We may later want to detect
 	// locally-configured remotes.
 	return []cloud.Region{{Name: "localhost"}}, nil
+}
+
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }

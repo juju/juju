@@ -7,8 +7,6 @@ package uniter
 
 import (
 	"fmt"
-	"net/url"
-	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -855,45 +853,6 @@ func (u *UniterAPIV3) CharmArchiveSha256(args params.CharmURLs) (params.StringRe
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// CharmArchiveURLs returns the URLS for the charm archive
-// (bundle) data for each charm url in the given parameters.
-func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error) {
-	apiHostPorts, err := u.st.APIHostPorts()
-	if err != nil {
-		return params.StringsResults{}, err
-	}
-	modelUUID := u.st.ModelUUID()
-	result := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.URLs)),
-	}
-	for i, curl := range args.URLs {
-		if _, err := charm.ParseURL(curl.URL); err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		urlPath := "/"
-		if modelUUID != "" {
-			urlPath = path.Join(urlPath, "model", modelUUID)
-		}
-		urlPath = path.Join(urlPath, "charms")
-		archiveURLs := make([]string, len(apiHostPorts))
-		for j, server := range apiHostPorts {
-			archiveURL := &url.URL{
-				Scheme: "https",
-				Host:   network.SelectInternalHostPort(server, false),
-				Path:   urlPath,
-			}
-			q := archiveURL.Query()
-			q.Set("url", curl.URL)
-			q.Set("file", "*")
-			archiveURL.RawQuery = q.Encode()
-			archiveURLs[j] = archiveURL.String()
-		}
-		result.Results[i].Result = archiveURLs
 	}
 	return result, nil
 }

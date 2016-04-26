@@ -65,6 +65,13 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authorizer.Tag = user
+	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelmanager = modelmanager
+}
+
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.model.users[1].SetErrors(
 		nil, state.NeverConnectedError("never connected"),
@@ -99,10 +106,10 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
+		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
 		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
-		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
@@ -115,13 +122,13 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bob@local")
+	s.setAPIUser(c, names.NewUserTag("bob@local"))
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 3)
 }
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("charlotte@local")
+	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte@local")
@@ -165,7 +172,7 @@ func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("nemo@local")
+	s.setAPIUser(c, names.NewUserTag("nemo@local"))
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 

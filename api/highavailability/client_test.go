@@ -27,12 +27,12 @@ type clientSuite struct {
 
 var _ = gc.Suite(&clientSuite{})
 
-type Killer interface {
-	Kill() error
+type KillerForTesting interface {
+	KillForTesting() error
 }
 
-func assertKill(c *gc.C, killer Killer) {
-	c.Assert(killer.Kill(), gc.IsNil)
+func assertKill(c *gc.C, killer KillerForTesting) {
+	c.Assert(killer.KillForTesting(), gc.IsNil)
 }
 
 func setAgentPresence(c *gc.C, s *jujutesting.JujuConnSuite, machineId string) *presence.Pinger {

@@ -100,7 +100,7 @@ endif
 # Install bash_completion
 install-etc:
 	@echo Installing bash completion
-	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-core /etc/bash_completion.d
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju2 /etc/bash_completion.d
 
 GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/... | grep -c "gopkg.in/check.v*")"
 check-deps:

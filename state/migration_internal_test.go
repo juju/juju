@@ -110,7 +110,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		legacyipaddressesC,
 
 		// The SSH host keys for each machine will be reported as each
-		// machiner starts up.
+		// machine agent starts up.
 		sshHostKeysC,
 	)
 
@@ -142,9 +142,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		ipAddressesC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
-		networksC,
-		networkInterfacesC,
-		requestedNetworksC,
 		subnetsC,
 		spacesC,
 
@@ -498,8 +495,6 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
-		// Networks is a deprecated constraint and not exported.
-		"Networks",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

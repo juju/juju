@@ -291,7 +291,7 @@ func (c *environConfig) secret() map[string]string {
 }
 
 // validate checks more complex LCD-specific config values.
-func (c environConfig) validate() error {
+func (c *environConfig) validate() error {
 	// All fields must be populated, even with just the default.
 	// TODO(ericsnow) Shouldn't configSchema support this?
 	for field := range configFields {

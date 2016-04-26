@@ -78,8 +78,6 @@ type DeployArgs struct {
 	// Placement directives on where the machines for the unit must be
 	// created.
 	Placement []*instance.Placement
-	// Networks contains names of networks to deploy on.
-	Networks []string
 	// Storage contains Constraints specifying how storage should be
 	// handled.
 	Storage map[string]storage.Constraints
@@ -90,12 +88,9 @@ type DeployArgs struct {
 	Resources map[string]string
 }
 
-// Deploy obtains the charm, either locally or from the charm store,
-// and deploys it. It allows the specification of requested networks
-// that must be present on the machines where the service is
-// deployed. Another way to specify networks to include/exclude is
-// using constraints. Placement directives, if provided, specify the
-// machine on which the charm is deployed.
+// Deploy obtains the charm, either locally or from the charm store, and deploys
+// it. Placement directives, if provided, specify the machine on which the charm
+// is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
 	deployArgs := params.ServicesDeploy{
 		Services: []params.ServiceDeploy{{
@@ -107,7 +102,6 @@ func (c *Client) Deploy(args DeployArgs) error {
 			ConfigYAML:       args.ConfigYAML,
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
-			Networks:         args.Networks,
 			Storage:          args.Storage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,

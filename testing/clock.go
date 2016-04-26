@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/testing"
 	"github.com/juju/utils/clock"
 )
 
@@ -193,4 +194,36 @@ func (a byTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 // removeFromSlice removes item at the specified index from the slice.
 func removeFromSlice(sl []alarm, index int) []alarm {
 	return append(sl[:index], sl[index+1:]...)
+}
+
+type StubClock struct {
+	*testing.Stub
+
+	ReturnNow       time.Time
+	ReturnAfter     <-chan time.Time
+	ReturnAfterFunc clock.Timer
+}
+
+func NewStubClock(stub *testing.Stub) *StubClock {
+	return &StubClock{
+		Stub: stub,
+	}
+}
+
+func (s *StubClock) Now() time.Time {
+	s.AddCall("Now")
+	s.NextErr() // pop one off
+	return s.ReturnNow
+}
+
+func (s *StubClock) After(d time.Duration) <-chan time.Time {
+	s.AddCall("After", d)
+	s.NextErr() // pop one off
+	return s.ReturnAfter
+}
+
+func (s *StubClock) AfterFunc(d time.Duration, f func()) clock.Timer {
+	s.AddCall("AfterFunc", d, f)
+	s.NextErr() // pop one off
+	return s.ReturnAfterFunc
 }

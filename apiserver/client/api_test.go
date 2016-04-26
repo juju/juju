@@ -318,7 +318,6 @@ var scenarioStatus = &params.FullStatus{
 			Scope:     "container",
 		},
 	},
-	Networks: map[string]params.NetworkStatus{},
 }
 
 // setUpScenario makes an environment scenario suitable for

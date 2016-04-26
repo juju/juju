@@ -189,7 +189,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,7 +341,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,7 +360,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -504,7 +504,7 @@ func lastLoginPointer(c *gc.C, user *state.User) *time.Time {
 }
 
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -523,7 +523,7 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -543,7 +543,7 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -565,8 +565,8 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, s.resources, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, jc.ErrorIsNil)

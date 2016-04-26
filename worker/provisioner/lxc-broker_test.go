@@ -120,7 +120,7 @@ func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the <rootfs>/etc/network path exists.
 	containertesting.EnsureLXCRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
@@ -401,8 +401,6 @@ func (s *lxcBrokerSuite) TestStartInstancePopulatesNetworkInfoWithAddressAllocat
 		MACAddress:       "aa:bb:cc:dd:ee:ff",
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		NetworkName:      network.DefaultPrivate,
-		ProviderId:       network.DefaultProviderId,
 	})
 }
 
@@ -996,8 +994,6 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		DNSSearchDomains: []string{""},
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		NetworkName:      network.DefaultPrivate,
-		ProviderId:       network.DefaultProviderId,
 	}})
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "GetContainerInterfaceInfo",
@@ -1018,8 +1014,6 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 		DNSSearchDomains: []string{""},
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		NetworkName:      network.DefaultPrivate,
-		ProviderId:       network.DefaultProviderId,
 	}})
 
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{

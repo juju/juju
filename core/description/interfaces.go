@@ -81,7 +81,6 @@ type User interface {
 type Address interface {
 	Value() string
 	Type() string
-	NetworkName() string
 	Scope() string
 	Origin() string
 }
@@ -143,10 +142,8 @@ type Machine interface {
 	// enough stuff set, like tools, and addresses etc.
 	Validate() error
 
-	// requested networks
 	// reboot doc
 	// block devices
-	// network interfaces
 	// port docs
 	// machine filesystems
 }
