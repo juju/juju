@@ -216,6 +216,7 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation'])
 
     _show_status = 'show-status'
+    _show_user = 'show-users'
 
     @classmethod
     def get_version(cls, juju_path=None):
@@ -540,6 +541,10 @@ class EnvJujuClient:
     def show_status(self):
         """Print the status to output."""
         self.juju(self._show_status, ('--format', 'yaml'))
+
+    def show_user(self):
+        """Print the users to output."""
+        self.juju(self._show_user, ('--format', 'yaml'))
 
     def get_status(self, timeout=60, raw=False, admin=False, *args):
         """Get the current status as a dict."""

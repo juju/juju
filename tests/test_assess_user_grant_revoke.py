@@ -74,10 +74,9 @@ class TestAssess(TestCase):
 
     def test_user_grant_revoke(self):
         mock_client = FakeJujuClient()
-        mock_bin = '/tmp/bin'
 
         mock_client.bootstrap()
-        assess_user_grant_revoke(mock_client, mock_bin)
+        assess_user_grant_revoke(mock_client)
         # mock_client.juju.assert_called_once_with('deploy',
         # ('local:wordpress',))
         mock_client.wait_for_started.assert_called_once_with()
@@ -98,10 +97,9 @@ class TestAssess(TestCase):
         username = 'fakeuser'
         mock_client = FakeJujuClient()
         env = mock_client._shell_environ()
-        cmd = ' register AaBbCc'
-        juju_bin = '/tmp/bin'
+        cmd = 'register AaBbCc'
 
-        register_user(username, env, cmd, juju_bin)
+        register_user(username, env, cmd)
 
     def test_remove_user_permissions(self):
         mock_client = FakeJujuClient()
@@ -166,9 +164,9 @@ class TestAssess(TestCase):
             self.log_stream.getvalue())
 
     def test__get_register_command(self):
-        output = str.join('User "x" added\nUser "x" granted read access ',
+        output = ''.join(['User "x" added\nUser "x" granted read access ',
                           'to model "y"\nPlease send this command to x:\n',
-                          '    juju register AaBbCc')
-        output_cmd = ' register AaBbCc'
+                          '    juju register AaBbCc'])
+        output_cmd = 'register AaBbCc'
         register_cmd = _get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)

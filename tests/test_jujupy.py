@@ -388,7 +388,6 @@ class FakeJujuClient(EnvJujuClient):
                 'default-series': 'angsty',
                 }, juju_home='foo')
         backend_state.name = env
-        self.feature_flags = set()
         self._backend = FakeBackend(backend_state)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env
@@ -401,6 +400,10 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def _jes_enabled(self):
         raise Exception
+
+    @property
+    def feature_flags(self):
+        return frozenset(self._backend._feature_flags)
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -449,8 +452,9 @@ class FakeJujuClient(EnvJujuClient):
         return get_cache_path(self.env.juju_home, models=True)
 
     def get_juju_output(self, command, *args, **kwargs):
-        return self._backend.get_juju_output(
-            command, args, model=self.env.environment, **kwargs)
+        if kwargs.pop('include_e', True):
+            kwargs['model'] = self.model_name
+        return self._backend.get_juju_output(command, args, **kwargs)
 
     def juju(self, cmd, args, check=True, include_e=True, timeout=None):
         # TODO: Use argparse or change all call sites to use functions.
