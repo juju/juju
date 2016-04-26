@@ -1512,7 +1512,9 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         """Deploy bundle using deployer for Juju 1.X version."""
         self.deployer(bundle, timeout=timeout)
 
-    def deployer(self, bundle, name=None, deploy_delay=10, timeout=3600):
+    def deployer(self, bundle_template, name=None, deploy_delay=10,
+                 timeout=3600):
+        bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
             '--deploy-delay', str(deploy_delay),
