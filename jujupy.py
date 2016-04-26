@@ -497,7 +497,7 @@ class EnvJujuClient:
                     self.env.environment))
 
     def _add_model(self, model_name, config_file):
-        self.controller_juju('create-model', (
+        self.controller_juju('add-model', (
             model_name, '--config', config_file))
 
     def destroy_model(self):

@@ -1311,7 +1311,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
-            'kill-controller', 'create-model', ('-c', 'foo'))
+            'kill-controller', 'add-model', ('-c', 'foo'))
 
     def do_add_model(self, jes_command, create_cmd, controller_option):
         controller_client = EnvJujuClient(JujuData('foo'), None, None)
@@ -2825,14 +2825,27 @@ class TestEnvJujuClient(ClientTest):
         self.assertFalse(client.is_juju1x())
 
 
-class TestEnvJujuClient2B6(TestEnvJujuClient):
+class TestEnvJujuClient2B6(ClientTest):
 
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
             'kill-controller', 'create-model', ('-c', 'foo'))
 
+    def do_add_model(self, jes_command, create_cmd, controller_option):
+        controller_client = EnvJujuClient2B6(JujuData('foo'), None, None)
+        model_data = JujuData('bar', {'type': 'foo'})
+        client = EnvJujuClient2B6(model_data, None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+                with patch.object(controller_client, 'juju') as ccj_mock:
+                    with observable_temp_file() as config_file:
+                        controller_client.add_model(model_data)
+        ccj_mock.assert_called_once_with(
+            create_cmd, controller_option + (
+                'bar', '--config', config_file.name), include_e=False)
 
-class TestEnvJujuClient2B2(TestEnvJujuClient2B6):
+
+class TestEnvJujuClient2B2(ClientTest):
 
     def test_get_bootstrap_args_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
