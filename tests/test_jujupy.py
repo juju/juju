@@ -545,12 +545,9 @@ class FakeJujuClient(EnvJujuClient):
     def get_juju_timings(self):
         pass
 
-    def _require_admin(self, operation):
-        model_state = self._backend.controller_state.models[self.model_name]
-        model_state.require_admin(operation)
-
     def backup(self):
-        self._require_admin('backup')
+        model_state = self._backend.controller_state.models[self.model_name]
+        model_state.require_admin('backup')
 
 
 class TestErroredUnit(TestCase):
