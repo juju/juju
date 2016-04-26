@@ -2655,6 +2655,7 @@ class TestEnvJujuClient(ClientTest):
                 '--constraints', 'mem=2G', '--no-browser',
                 'bundle:~juju-qa/some-lxd-bundle'),
             True, extra_env={'JUJU': '/juju'})
+
     def test_action_do(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
                                '1.23-series-arch', None)

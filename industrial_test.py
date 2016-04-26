@@ -22,8 +22,6 @@ from jujupy import (
     coalesce_agent_status,
     EnvJujuClient,
     get_machine_dns_name,
-    LXC_MACHINE,
-    LXD_MACHINE,
     SimpleEnvironment,
     uniquify_local,
     )
@@ -874,7 +872,7 @@ class AttemptSuite(SteppedStageAttempt):
         bs_manager = BootstrapManager(
             client.env.environment, bs_client, bs_client,
             bootstrap_host=None,
-            machines=[], series='xenial', agent_url=None,
+            machines=[], series=None, agent_url=None,
             agent_stream=self.agent_stream, region=None,
             log_dir=make_log_dir(self.log_dir), keep_env=True,
             permanent=jes_enabled, jes_enabled=bs_jes_enabled)
@@ -999,7 +997,7 @@ def run_single(args):
             steps_iter = suite.iter_steps(client)
             for step in steps_iter:
                 print(step)
-    except LoggedException as e:
+    except LoggedException:
         sys.exit(1)
 
 

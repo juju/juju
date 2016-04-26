@@ -1512,13 +1512,13 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_steps_1x(self):
         started_state = {'agent-state': 'started'}
         client = FakeEnvJujuClient()
-        with patch.object(FakeEnvJujuClient, 'supported_container_types',
+        with patch.object(EnvJujuClient, 'supported_container_types',
                           frozenset([KVM_MACHINE, LXC_MACHINE])):
-            self.do_iter_steps()
             self.do_iter_steps(client, LXC_MACHINE, started_state,
                                started_state)
 
-    def do_iter_steps(self, client, machine_type, machine_started, unit_started):
+    def do_iter_steps(self, client, machine_type, machine_started,
+                      unit_started):
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
