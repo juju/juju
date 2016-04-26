@@ -11,4 +11,6 @@ var (
 	WriteMetadataFiles            = &writeMetadataFiles
 	CurrentStreamsVersion         = currentStreamsVersion
 	MarshalToolsMetadataIndexJSON = marshalToolsMetadataIndexJSON
+	GetVersionFromJujud           = getVersionFromJujud
+	ExecCommand                   = &execCommand
 )
