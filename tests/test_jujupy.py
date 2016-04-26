@@ -388,6 +388,7 @@ class FakeJujuClient(EnvJujuClient):
                 'default-series': 'angsty',
                 }, juju_home='foo')
         backend_state.name = env
+        self.feature_flags = set()
         self._backend = FakeBackend(backend_state)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env

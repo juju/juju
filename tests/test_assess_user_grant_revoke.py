@@ -5,19 +5,31 @@ from mock import (
     Mock,
     patch,
     call,
-)
+    )
 import StringIO
 import subprocess
 
 from assess_user_grant_revoke import (
     assess_user_grant_revoke,
     parse_args,
+    create_cloned_environment,
+    register_user,
+    create_user_permissions,
+    remove_user_permissions,
+    _get_register_command,
     main,
-)
+    )
 from tests import (
     parse_error,
     TestCase,
-)
+    )
+
+from jujupy import (
+    JujuData,
+    )
+from tests.test_jujupy import (
+    FakeJujuClient,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -66,26 +78,31 @@ class TestAssess(TestCase):
 
     def test_user_grant_revoke(self):
         mock_client = Mock(spec=["juju", "wait_for_started"])
-        assess_user_grant_revoke(mock_client)
+        mock_bin = '/tmp/bin'
+        assess_user_grant_revoke(mock_client, mock_bin)
         mock_client.juju.assert_called_once_with(
-            'deploy', ('local:trusty/my-charm',))
+            'deploy', ('wordpress',))
         mock_client.wait_for_started.assert_called_once_with()
         self.assertNotIn("TODO", self.log_stream.getvalue())
 
     def test_create_cloned_environment(self):
+        mock_client = FakeJujuClient()
+        mock_client.bootstrap()
+        mock_client_env = mock_client._shell_environ()
+        cloned, cloned_env = create_cloned_environment(mock_client, 'fakehome')
+        self.assertIs(FakeJujuClient, type(cloned))
+        self.assertEqual(cloned.env.juju_home, 'fakehome')
+        self.assertNotEqual(cloned_env, mock_client_env)
+        self.assertEqual(cloned_env['JUJU_DATA'], 'fakehome' )
 
-    def test_register_user(self):
+    #def test_register_user(self):
 
-    def test_remove_user_permissions(self):
+    #def test_remove_user_permissions(self):
 
-    def test_create_user_permissions(self):
+    #def test_create_user_permissions(self):
 
     def test__get_register_command(self):
-        mock_call = Mock(spec=["get_version"])
-        mock_call._get_register_command.return_value = 'juju register AaBbCc'
-        ver = get_current_version(mock_call, '/tmp/bin')
-        self.assertEqual(ver, '2.0-beta4')
-
-        mock_client.get_version.return_value = '1.25.4-trusty-amd64'
-        ver = get_current_version(mock_client, '/tmp/bin')
-        self.assertEqual(ver, '1.25.4')
+        output ='User "bob" added\nUser "bob" granted read access to model "lxd"\nPlease send this command to bob:\n    juju register AaBbCc'
+        output_cmd = ' register AaBbCc'
+        register_cmd = _get_register_command(output)
+        self.assertEqual(register_cmd, output_cmd)

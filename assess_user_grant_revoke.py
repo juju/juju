@@ -71,7 +71,7 @@ def register_user(username, env, register_cmd, juju_bin):
         child.sendline(username + '_password')
         child.expect('(?i)password')
         child.sendline(username + '_password')
-        child.close()
+        child.wait()
         if child.isalive():
             raise AssertionError(
                 'Registering user failed: pexpect session still alive')
@@ -80,7 +80,7 @@ def register_user(username, env, register_cmd, juju_bin):
             'Registering user failed: pexpect session timed out')
 
 
-def create_cloned_environment(client, username, cloned_juju_home):
+def create_cloned_environment(client, cloned_juju_home):
     user_client = client.clone(env=client.env.clone())
     user_client.env.juju_home = cloned_juju_home
     user_client_env = user_client._shell_environ()
@@ -100,14 +100,14 @@ def assess_user_grant_revoke(client, juju_bin):
     log.debug("Testing read_user access")
     with temp_dir() as fake_home:
         read_user_client, read_user_env = create_cloned_environment(
-            client, read_user, fake_home)
+            client, fake_home)
         register_user(read_user, read_user_env, read_user_register, juju_bin)
-
-        read_user_client.get_juju_output('show-user', include_e=False)
-        read_user_client.get_juju_output('show-controller', include_e=False)
 
         # assert we can show status
         try:
+            read_user_client.get_juju_output('show-user', include_e=False)
+            read_user_client.get_juju_output('show-controller',
+                                             include_e=False)
             read_user_client.show_status()
         except subprocess.CalledProcessError:
             raise AssertionError(
@@ -115,7 +115,7 @@ def assess_user_grant_revoke(client, juju_bin):
 
         # assert we CAN NOT deploy
         try:
-            read_user_client.deploy('wordpress')
+            read_user_client.deploy('local:wordpress')
             raise AssertionError('assert_fail read-only user deployed charm')
         except subprocess.CalledProcessError:
             pass
@@ -136,30 +136,33 @@ def assess_user_grant_revoke(client, juju_bin):
     log.debug("Testing write_user access")
     with temp_dir() as fake_home:
         write_user_client, write_user_env = create_cloned_environment(
-            client, write_user, fake_home)
+            client, fake_home)
         register_user(write_user, write_user_env,
                       write_user_register, juju_bin)
 
         # assert we can show status
         try:
+            write_user_client.get_juju_output('show-user', include_e=False)
+            write_user_client.get_juju_output('show-controller',
+                                              include_e=False)
             write_user_client.show_status()
         except subprocess.CalledProcessError:
             raise AssertionError('assert_fail r/w user cannot see status')
 
         # assert we CAN deploy
         try:
-            write_user_client.deploy('wordpress')
+            write_user_client.deploy('local:wordpress')
         except subprocess.CalledProcessError:
-            raise AssertionError('assert_fail r/w user cannot deploy charm')
+            print('assert_fail r/w user cannot deploy charm')
 
         # remove all permissions
         log.debug("Revoking permissions from write_user")
-        remove_user_permissions(client, write_user)
+        remove_user_permissions(client, write_user, permissions='write')
 
         # we SHOULD be able to still see status
         log.debug("Testing write_user access")
         try:
-            write_user_client.list_models()
+            write_user_client.show_status()
         except subprocess.CalledProcessError:
             raise AssertionError(
                 'assert_fail read-only user cannot see status')
