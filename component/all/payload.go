@@ -82,7 +82,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, payload.ComponentName, 0)
+	caller := base.NewFacadeCallerForVersion(apiCaller, payload.ComponentName, 1)
 
 	listAPI := client.NewPublicClient(&facadeCaller{
 		FacadeCaller: caller,
