@@ -342,7 +342,7 @@ class FakeBackend:
             model_state = self.controller_state.models[model]
             if cmd == 'enable-ha':
                 model_state.enable_ha()
-            if (cmd, args[:1]) == ('set', ('dummy-source',)):
+            if (cmd, args[:1]) == ('set-config', ('dummy-source',)):
                 name, value = args[1].split('=')
                 if name == 'token':
                     model_state.token = value
@@ -529,10 +529,6 @@ class FakeJujuClient(EnvJujuClient):
             status_dict = model_state.get_status_dict()
         status_text = yaml.safe_dump(status_dict)
         return Status(status_dict, status_text)
-
-    def set_config(self, service, options):
-        option_strings = ['{}={}'.format(*item) for item in options.items()]
-        self.juju('set', (service,) + tuple(option_strings))
 
     def wait_for_workloads(self, timeout=600):
         pass
