@@ -27,8 +27,19 @@ var (
 
 // Context exposes useful functionality to fixture tests.
 type Context interface {
+
+	// WaitPinger() returns the first pinger started by the SUT that
+	// has not already been returned from this method.
 	WaitPinger() worker.Worker
+
+	// WaitAlarms() returns once the SUT has set (but not
+	// necessarily responded to) N alarms (e.g. calls to
+	// clock.After).
 	WaitAlarms(int)
+
+	// AdvanceClock() advances the SUT's clock by the duration. If
+	// you're testing alarms, be sure that you've waited for the
+	// relevant alarm to be set before you advance the clock.
 	AdvanceClock(time.Duration)
 }
 
@@ -90,11 +101,12 @@ type context struct {
 
 // WaitPinger is part of the Context interface.
 func (context *context) WaitPinger() worker.Worker {
+	context.c.Logf("waiting for pinger...")
 	select {
 	case pinger := <-context.starts:
 		return pinger
 	case <-context.timeout:
-		context.c.Fatalf("expected pinger never started")
+		context.c.Fatalf("timed out waiting for pinger")
 		return nil
 	}
 }
