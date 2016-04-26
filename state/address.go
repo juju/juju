@@ -150,28 +150,6 @@ func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	return networkHostsPorts(doc.APIHostPorts), nil
 }
 
-type DeployerConnectionValues struct {
-	StateAddresses []string
-	APIAddresses   []string
-}
-
-// DeployerConnectionInfo returns the address information necessary for the deployer.
-// The function does the expensive operations (getting stuff from mongo) just once.
-func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
-	addrs, err := st.controllerAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config, err := st.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &DeployerConnectionValues{
-		StateAddresses: appendPort(addrs, config.StatePort()),
-		APIAddresses:   appendPort(addrs, config.APIPort()),
-	}, nil
-}
-
 // address represents the location of a machine, including metadata
 // about what kind of location the address describes.
 //
