@@ -9,9 +9,9 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -108,30 +108,25 @@ var configureLXDBridge = func() error {
 	}
 	defer f.Close()
 
-	output, err := exec.Command("ip", "addr", "show").CombinedOutput()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	subnet, err := detectSubnet(string(output))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	existing, err := ioutil.ReadAll(f)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	result := editLXDBridgeFile(string(existing), subnet)
-	_, err = f.Seek(0, 0)
+	newBridgeCfg, err := bridgeConfiguration(string(existing))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	_, err = f.WriteString(result)
-	if err != nil {
-		return errors.Trace(err)
+	if newBridgeCfg != string(existing) {
+		_, err = f.Seek(0, 0)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = f.WriteString(newBridgeCfg)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	/* non-systemd systems don't have the lxd-bridge service, so this always fails */
@@ -139,46 +134,8 @@ var configureLXDBridge = func() error {
 	return exec.Command("service", "lxd", "restart").Run()
 }
 
-func detectSubnet(ipAddrOutput string) (string, error) {
-	max := 0
-
-	for _, line := range strings.Split(ipAddrOutput, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-
-		columns := strings.Split(trimmed, " ")
-
-		if len(columns) < 2 {
-			return "", errors.Trace(fmt.Errorf("invalid ip addr output line %s", line))
-		}
-
-		if columns[0] != "inet" {
-			continue
-		}
-
-		addr := columns[1]
-		if !strings.HasPrefix(addr, "10.0.") {
-			continue
-		}
-
-		tuples := strings.Split(addr, ".")
-		if len(tuples) < 4 {
-			return "", errors.Trace(fmt.Errorf("invalid ip addr %s", addr))
-		}
-
-		subnet, err := strconv.Atoi(tuples[2])
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-
-		if subnet > max {
-			max = subnet
-		}
-	}
-
-	return fmt.Sprintf("%d", max+1), nil
+var interfaceAddrs = func() ([]net.Addr, error) {
+	return net.InterfaceAddrs()
 }
 
 func editLXDBridgeFile(input string, subnet string) string {
@@ -266,4 +223,69 @@ func ensureDependencies(series string) error {
 	}
 
 	return err
+}
+
+func findAvailableSubnet() (string, error) {
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot get network interface addresses")
+	}
+	max := 0
+	for _, address := range addrs {
+		_, network, err := net.ParseCIDR(address.String())
+		if err != nil {
+			continue
+		}
+		if network.IP[0] != 10 || network.IP[1] != 0 {
+			continue
+		}
+		if subnet := int(network.IP[2]); subnet > max {
+			max = subnet
+		}
+	}
+	return fmt.Sprintf("%d", max+1), nil
+}
+
+func parseLXDBridgeConfigValues(input string, values map[string]string) {
+	for _, line := range strings.Split(input, "\n") {
+		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+
+		tokens := strings.Split(line, "=")
+
+		if tokens[0] == "" {
+			continue // no key
+		}
+
+		value := ""
+
+		if len(tokens) > 1 {
+			value = tokens[1]
+			if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+				value = strings.Trim(value, `"`)
+			}
+		}
+
+		values[tokens[0]] = value
+	}
+}
+
+// bridgeConfiguration ensures that input has a valid setting for
+// LXD_IPV4_ADDR, returning the existing input if is already set, and
+// allocating the next available subnet if it is not.
+func bridgeConfiguration(input string) (string, error) {
+	values := make(map[string]string)
+	parseLXDBridgeConfigValues(input, values)
+	ipAddr := net.ParseIP(values["LXD_IPV4_ADDR"])
+
+	if ipAddr == nil || ipAddr.To4() == nil {
+		subnet, err := findAvailableSubnet()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return editLXDBridgeFile(input, subnet), nil
+	} else {
+		return input, nil
+	}
 }
