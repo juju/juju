@@ -480,6 +480,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if err != nil {
 		panic(err.Error())
 	}
+	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
 	c.Assert(err, jc.ErrorIsNil)
@@ -494,6 +495,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		LeadershipTracker:    ctx.leaderTracker,
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
+		Downloader:           downloader,
 		MachineLock:          lock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
