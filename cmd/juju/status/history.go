@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
@@ -34,7 +34,8 @@ type statusHistoryCommand struct {
 	backlogSizeDays int
 	backlogDate     string
 	isoTime         bool
-	unitName        string
+	entityName      string
+	date            time.Time
 }
 
 var statusHistoryDoc = `
@@ -77,7 +78,7 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	case len(args) == 0:
 		return errors.Errorf("entity name is missing.")
 	default:
-		c.unitName = args[0]
+		c.entityName = args[0]
 	}
 	// If use of ISO time not specified on command line,
 	// check env var.
@@ -99,6 +100,14 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	if (!emptyDays && !emptySize) || (!emptyDays && !emptyDate) || (!emptySize && !emptyDate) {
 		return errors.Errorf("backlog size, backlog date and backlog days back cannot be specified together")
 	}
+	if c.backlogDate != "" {
+		var err error
+		c.date, err = time.Parse("2006-01-02", c.backlogDate)
+		if err != nil {
+			return errors.Annotate(err, "parsing backlog date")
+		}
+	}
+
 	kind := status.HistoryKind(c.outputContent)
 	if kind.Valid() {
 		return nil
@@ -112,17 +121,9 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer apiclient.Close()
-	var history *params.StatusHistoryResult
 	kind := status.HistoryKind(c.outputContent)
-	var date *time.Time
 	var delta *time.Duration
-	if c.backlogDate != "" {
-		t, err := time.Parse("2006-01-02", c.backlogDate)
-		if err != nil {
-			return errors.Annotate(err, "parsing backlog date")
-		}
-		date = &t
-	}
+
 	if c.backlogSizeDays != 0 {
 		t := time.Duration(c.backlogSizeDays*24) * time.Hour
 		delta = &t
@@ -130,19 +131,22 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	filterArgs := status.StatusHistoryFilter{
 		Size:  c.backlogSize,
 		Delta: delta,
-		Date:  date,
+		Date:  &c.date,
 	}
-	history, err = apiclient.StatusHistory(kind, c.unitName, filterArgs)
-	historyLen := len(history.History.Statuses)
+	var tag names.Tag
+	if kind == status.KindUnit || kind == status.KindWorkload || kind == status.KindUnitAgent {
+		tag = names.NewUnitTag(c.entityName)
+	} else {
+		tag = names.NewMachineTag(c.entityName)
+	}
+	statuses, err := apiclient.StatusHistory(kind, tag, filterArgs)
+	historyLen := len(statuses)
 	if err != nil {
 		if historyLen == 0 {
 			return errors.Trace(err)
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-	}
-	if history.Error != nil {
-		return history.Error
 	}
 
 	if historyLen == 0 {
@@ -151,22 +155,7 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 
 	table := [][]string{{"TIME", "TYPE", "STATUS", "MESSAGE"}}
 	lengths := []int{1, 1, 1, 1}
-	statuses := make(status.History, historyLen)
-	for i, s := range history.History.Statuses {
-		statuses[i] = status.DetailedStatus{
-			Status:  status.Status(s.Status),
-			Info:    s.Info,
-			Data:    s.Data,
-			Since:   s.Since,
-			Kind:    status.HistoryKind(s.Kind),
-			Version: s.Version,
-			Life:    s.Life,
-			Err:     s.Err,
-		}
-		if !statuses[i].Kind.Valid() {
-			logger.Warningf("history returned an unknown status kind %q", s.Kind)
-		}
-	}
+
 	statuses = statuses.SquashLogs(1)
 	statuses = statuses.SquashLogs(2)
 	statuses = statuses.SquashLogs(3)

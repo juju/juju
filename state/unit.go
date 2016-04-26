@@ -772,9 +772,15 @@ func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // where not separate entities.
-func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.SetStatus(agentStatus, info, data)
+	s := status.StatusInfo{
+		Status:  agentStatus.Status,
+		Message: agentStatus.Message,
+		Data:    agentStatus.Data,
+		Since:   agentStatus.Since,
+	}
+	return agent.SetStatus(s)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
@@ -825,16 +831,17 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
-	if !status.ValidWorkloadStatus(unitStatus) {
-		return errors.Errorf("cannot set invalid status %q", unitStatus)
+func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
+	if !status.ValidWorkloadStatus(unitStatus.Status) {
+		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
-		status:    unitStatus,
-		message:   info,
-		rawData:   data,
+		status:    unitStatus.Status,
+		message:   unitStatus.Message,
+		rawData:   unitStatus.Data,
+		updated:   unitStatus.Since,
 	})
 }
 

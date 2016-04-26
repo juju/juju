@@ -123,7 +123,13 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 }
 
 func (s *unitSuite) TestUnitStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(status.StatusMaintenance, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusMaintenance,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.wordpressUnit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.apiUnit.UnitStatus()

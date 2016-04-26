@@ -30,7 +30,7 @@ type StatusInfo struct {
 
 // StatusSetter represents a type whose status can be set.
 type StatusSetter interface {
-	SetStatus(status Status, info string, data map[string]interface{}) error
+	SetStatus(StatusInfo) error
 }
 
 // StatusGetter represents a type whose status can be read.

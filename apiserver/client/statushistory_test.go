@@ -73,14 +73,47 @@ func checkStatusInfo(c *gc.C, obtained []params.DetailedStatus, expected []statu
 }
 
 func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
+	tag := names.NewUnitTag("unit/1")
 	r := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Name:   "unit",
+			Tag:    tag,
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 0},
 		}}})
 	c.Assert(r.Results, gc.HasLen, 1)
-	c.Assert(r.Results[0].Error.Message, gc.Equals, "validating status history request filtering options: no criteria provided: not valid")
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: empty struct not valid")
+}
+
+func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
+	tag := names.NewUnitTag("unit/1")
+	now := time.Now()
+	r := s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Tag:    tag,
+			Kind:   status.KindUnit.String(),
+			Filter: params.StatusHistoryFilter{Size: 1, Date: &now},
+		}}})
+	c.Assert(r.Results, gc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Size and Date together not valid")
+
+	yesterday := time.Hour * 24
+	r = s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Tag:    tag,
+			Kind:   status.KindUnit.String(),
+			Filter: params.StatusHistoryFilter{Size: 1, Delta: &yesterday},
+		}}})
+	c.Assert(r.Results, gc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Size and Delta together not valid")
+
+	r = s.api.StatusHistory(params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Tag:    tag,
+			Kind:   status.KindUnit.String(),
+			Filter: params.StatusHistoryFilter{Date: &now, Delta: &yesterday},
+		}}})
+	c.Assert(r.Results, gc.HasLen, 1)
+	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Date and Delta together not valid")
 }
 
 func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
@@ -99,9 +132,10 @@ func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
+	tag := names.NewUnitTag("unit/0")
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Name:   "unit/0",
+			Tag:    tag,
 			Kind:   status.KindWorkload.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
@@ -129,9 +163,10 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
+	tag := names.NewUnitTag("unit/0")
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Name:   "unit/0",
+			Tag:    tag,
 			Kind:   status.KindUnitAgent.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
@@ -163,9 +198,10 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
+	tag := names.NewUnitTag("unit/0")
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Name:   "unit/0",
+			Tag:    tag,
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 3},
 		}}})

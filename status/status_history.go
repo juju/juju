@@ -22,11 +22,16 @@ func (f *StatusHistoryFilter) Validate() error {
 	s := f.Size > 0
 	t := f.Date != nil
 	d := f.Delta != nil
-	if !s && !t && !d {
-		return errors.NotValidf("no criteria provided:")
-	}
-	if (s && t) || (s && d) || (t && d) {
-		return errors.NotValidf("more than one criteria provided:")
+
+	switch {
+	case !(s || t || d):
+		return errors.NotValidf("empty struct")
+	case s && t:
+		return errors.NotValidf("Size and Date together")
+	case s && d:
+		return errors.NotValidf("Size and Delta together")
+	case t && d:
+		return errors.NotValidf("Date and Delta together")
 	}
 	return nil
 }
@@ -49,8 +54,9 @@ type DetailedStatus struct {
 	Since   *time.Time
 	Kind    HistoryKind
 	Version string
-	Life    string
-	Err     error
+	// TODO(perrito666) make sure this is not used and remove.
+	Life string
+	Err  error
 }
 
 // History holds many DetailedStatus,
@@ -81,6 +87,7 @@ func (h *History) SquashLogs(cycleSize int) History {
 		buffer = append(buffer, statuses[i])
 	}
 	result := []DetailedStatus{}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	var repeat int
 	var i int

@@ -38,23 +38,42 @@ func (s *StatusUnitAgentSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.agent.SetStatus(status.Status("vliegkat"), "orville", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Status("vliegkat"),
+		Message: "orville",
+		Since:   &now,
+	}
+	err := s.agent.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	err := s.agent.SetStatus(status.StatusError, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.agent.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *StatusUnitAgentSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.agent.SetStatus(status.StatusIdle, "something", map[string]interface{}{
-		"pew.pew": "zap",
-	})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "something",
+		Data: map[string]interface{}{
+			"pew.pew": "zap",
+		},
+		Since: &now,
+	}
+	err := s.agent.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -65,13 +84,20 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
-	err := s.agent.SetStatus(status.StatusIdle, "something", map[string]interface{}{
-		"$foo":    "bar",
-		"baz.qux": "ping",
-		"pong": map[string]interface{}{
-			"$unset": "txn-revno",
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "something",
+		Data: map[string]interface{}{
+			"$foo":    "bar",
+			"baz.qux": "ping",
+			"pong": map[string]interface{}{
+				"$unset": "txn-revno",
+			},
 		},
-	})
+		Since: &now,
+	}
+	err := s.agent.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	unit, err := s.State.Unit(s.unit.Name())
@@ -117,7 +143,13 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.agent.SetStatus(status.StatusIdle, "not really", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "not really",
+		Since:   &now,
+	}
+	err = s.agent.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: agent not found`)
 
 	statusInfo, err := s.agent.Status()
@@ -126,9 +158,16 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestGetSetErrorStatus(c *gc.C) {
-	err := s.agent.SetStatus(status.StatusError, "test-hook failed", map[string]interface{}{
-		"foo": "bar",
-	})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "test-hook failed",
+		Data: map[string]interface{}{
+			"foo": "bar",
+		},
+		Since: &now,
+	}
+	err := s.agent.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Agent error is reported as unit error.
@@ -154,7 +193,12 @@ func timeBeforeOrEqual(timeBefore, timeOther time.Time) bool {
 
 func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 	now := time.Now()
-	err := s.agent.SetStatus(status.StatusIdle, "", nil)
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.agent.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -163,7 +207,13 @@ func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
 
 	// Setting the same status a second time also updates the timestamp.
-	err = s.agent.SetStatus(status.StatusIdle, "", nil)
+	now = now.Add(1 * time.Second)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err = s.agent.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.agent.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +229,7 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryInitial(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
-	primeUnitAgentStatusHistory(c, s.agent, 5)
+	primeUnitAgentStatusHistory(c, s.agent, 5, 0)
 
 	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 10})
 	c.Check(err, jc.ErrorIsNil)
@@ -188,17 +238,17 @@ func (s *StatusUnitAgentSuite) TestStatusHistoryShort(c *gc.C) {
 	checkInitialUnitAgentStatus(c, history[5])
 	history = history[:5]
 	for i, statusInfo := range history {
-		checkPrimedUnitAgentStatus(c, statusInfo, 4-i)
+		checkPrimedUnitAgentStatus(c, statusInfo, 4-i, 0)
 	}
 }
 
 func (s *StatusUnitAgentSuite) TestStatusHistoryLong(c *gc.C) {
-	primeUnitAgentStatusHistory(c, s.agent, 25)
+	primeUnitAgentStatusHistory(c, s.agent, 25, 0)
 
 	history, err := s.agent.StatusHistory(status.StatusHistoryFilter{Size: 15})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(history, gc.HasLen, 15)
 	for i, statusInfo := range history {
-		checkPrimedUnitAgentStatus(c, statusInfo, 24-i)
+		checkPrimedUnitAgentStatus(c, statusInfo, 24-i, 0)
 	}
 }

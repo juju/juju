@@ -328,6 +328,7 @@ func prepareForBootstrap(
 }
 
 func tokenRefreshSender() *azuretesting.MockSender {
+	// lp:1558657
 	tokenRefreshSender := azuretesting.NewSenderWithValue(&autorestazure.Token{
 		AccessToken: "access-token",
 		ExpiresOn:   fmt.Sprint(time.Now().Add(time.Hour).Unix()),

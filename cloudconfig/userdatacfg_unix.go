@@ -275,6 +275,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		var metadataDir string
 		if len(w.icfg.CustomImageMetadata) > 0 {
 			metadataDir = path.Join(w.icfg.DataDir, "simplestreams")
+			// TODO(perrito666) 2016-05-02 lp:1558657
 			index, products, err := imagemetadata.MarshalImageMetadataJSON(w.icfg.CustomImageMetadata, nil, time.Now())
 			if err != nil {
 				return err

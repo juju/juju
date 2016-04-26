@@ -341,10 +341,10 @@ type EntityStatus struct {
 
 // EntityStatusArgs holds parameters for setting the status of a single entity.
 type EntityStatusArgs struct {
-	Tag    string                 `json:"tag"`
-	Status status.Status          `json:"status"`
-	Info   string                 `json:"info"`
-	Data   map[string]interface{} `json:"data"`
+	Tag    string                 `json:"Tag"`
+	Status string                 `json:"Status"`
+	Info   string                 `json:"Info"`
+	Data   map[string]interface{} `json:"Data"`
 }
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.

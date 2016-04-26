@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
@@ -50,8 +51,8 @@ func (s byTime) Less(i, j int) bool {
 }
 
 // unitStatusHistory returns a list of status history entries for unit agents or workloads.
-func (c *Client) unitStatusHistory(unitName string, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	unit, err := c.api.stateAccessor.Unit(unitName)
+func (c *Client) unitStatusHistory(unitTag names.UnitTag, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
+	unit, err := c.api.stateAccessor.Unit(unitTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -83,8 +84,8 @@ func (c *Client) unitStatusHistory(unitName string, filter status.StatusHistoryF
 }
 
 // machineStatusHistory returns status history for the given machine.
-func (c *Client) machineStatusHistory(machineName string, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
-	machine, err := c.api.stateAccessor.Machine(machineName)
+func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
+	machine, err := c.api.stateAccessor.Machine(machineTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,6 +104,8 @@ func (c *Client) machineStatusHistory(machineName string, filter status.StatusHi
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
 	results := params.StatusHistoryResults{}
+	// TODO(perrito666) the contents of the loop could be split into
+	// a oneHistory method for clarity.
 	for _, request := range request.Requests {
 		filter := status.StatusHistoryFilter{
 			Size:  request.Filter.Size,
@@ -111,7 +114,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		}
 		if err := filter.Validate(); err != nil {
 			history := params.StatusHistoryResult{
-				Error: common.ServerError(errors.Annotate(err, "validating status history request filtering options")),
+				Error: common.ServerError(errors.Annotate(err, "cannot validate status history filter")),
 			}
 			results.Results = append(results.Results, history)
 			continue
@@ -122,10 +125,15 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			hist []params.DetailedStatus
 		)
 		kind := status.HistoryKind(request.Kind)
+		err = errors.NotValidf("%q requires a unit, got %t", kind, request.Tag)
 		if kind == status.KindUnit || kind == status.KindWorkload || kind == status.KindUnitAgent {
-			hist, err = c.unitStatusHistory(request.Name, filter, kind)
+			if u, ok := request.Tag.(names.UnitTag); ok {
+				hist, err = c.unitStatusHistory(u, filter, kind)
+			}
 		} else {
-			hist, err = c.machineStatusHistory(request.Name, filter, kind)
+			if m, ok := request.Tag.(names.MachineTag); ok {
+				hist, err = c.machineStatusHistory(m, filter, kind)
+			}
 		}
 
 		if err == nil {
@@ -135,7 +143,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		results.Results = append(results.Results,
 			params.StatusHistoryResult{
 				History: params.History{Statuses: hist},
-				Error:   common.ServerError(errors.Annotatef(err, "fetching unit status history for %q", request.Name)),
+				Error:   common.ServerError(errors.Annotatef(err, "fetching status history for %q", request.Tag)),
 			})
 	}
 	return results

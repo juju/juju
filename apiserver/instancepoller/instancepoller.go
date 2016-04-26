@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -15,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("InstancePoller", 2, NewInstancePollerAPI)
+	common.RegisterStandardFacade("InstancePoller", 2, newInstancePollerAPI)
 }
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
@@ -30,6 +31,16 @@ type InstancePollerAPI struct {
 	resources     *common.Resources
 	authorizer    common.Authorizer
 	accessMachine common.GetAuthFunc
+	clock         clock.Clock
+}
+
+// newInstancePollerAPI wraps NewInstancePollerAPI for RegisterStandardFacade.
+func newInstancePollerAPI(
+	st *state.State,
+	resources *common.Resources,
+	authorizer common.Authorizer,
+) (*InstancePollerAPI, error) {
+	return NewInstancePollerAPI(st, resources, authorizer, clock.WallClock)
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
@@ -38,6 +49,7 @@ func NewInstancePollerAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
+	clock clock.Clock,
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthModelManager() {
@@ -86,6 +98,7 @@ func NewInstancePollerAPI(
 		resources:            resources,
 		authorizer:           authorizer,
 		accessMachine:        accessMachine,
+		clock:                clock,
 	}, nil
 }
 
@@ -190,7 +203,14 @@ func (a *InstancePollerAPI) SetInstanceStatus(args params.SetStatus) (params.Err
 	for i, arg := range args.Entities {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err == nil {
-			err = machine.SetInstanceStatus(arg.Status, arg.Info, arg.Data)
+			now := a.clock.Now()
+			s := status.StatusInfo{
+				Status:  status.Status(arg.Status),
+				Message: arg.Info,
+				Data:    arg.Data,
+				Since:   &now,
+			}
+			err = machine.SetInstanceStatus(s)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

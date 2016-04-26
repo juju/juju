@@ -156,7 +156,14 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Not(gc.Equals), status.StatusActive)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.wordpressService.SetStatus(status.StatusActive, message, map[string]interface{}{})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: message,
+		Data:    map[string]interface{}{},
+		Since:   &now,
+	}
+	err = s.wordpressService.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()

@@ -8,6 +8,7 @@ package params
 import (
 	"time"
 
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/instance"
@@ -134,7 +135,7 @@ type StatusHistoryRequest struct {
 	Kind   string              `json:"HistoryKind"`
 	Size   int                 `json:"Size"`
 	Filter StatusHistoryFilter `json:"Filter"`
-	Name   string              `json:"Name"`
+	Tag    names.Tag           `json:"Tag"`
 }
 
 // StatusHistoryRequests holds a slice of StatusHistoryArgs
@@ -156,7 +157,8 @@ type StatusHistoryResults struct {
 // StatusHistoryPruneArgs holds arguments for status history
 // prunning process.
 type StatusHistoryPruneArgs struct {
-	MaxLogsPerEntity int
+	MaxHistoryTime time.Duration `json:"MaxHistoryTime"`
+	MaxHistoryMB   int           `json:"MaxHistoryMB"`
 }
 
 // StatusResult holds an entity status, extra information, or an

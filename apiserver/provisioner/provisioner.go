@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1325,7 +1326,15 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		}
 		machine, err := p.getMachine(canAccess, mTag)
 		if err == nil {
-			err = machine.SetInstanceStatus(arg.Status, arg.Info, arg.Data)
+			// TODO(perrito666) 2016-05-02 lp:1558657
+			now := time.Now()
+			s := status.StatusInfo{
+				Status:  status.Status(arg.Status),
+				Message: arg.Info,
+				Data:    arg.Data,
+				Since:   &now,
+			}
+			err = machine.SetInstanceStatus(s)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

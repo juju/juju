@@ -134,6 +134,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
 
 func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
 	var output []UserInfo
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	var now = time.Now()
 	for _, info := range users {
 		outInfo := UserInfo{

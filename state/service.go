@@ -1553,16 +1553,17 @@ func (s *Service) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[string]interface{}) error {
-	if !status.ValidWorkloadStatus(serviceStatus) {
-		return errors.Errorf("cannot set invalid status %q", serviceStatus)
+func (s *Service) SetStatus(statusInfo status.StatusInfo) error {
+	if !status.ValidWorkloadStatus(statusInfo.Status) {
+		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
 	return setStatus(s.st, setStatusParams{
 		badge:     "service",
 		globalKey: s.globalKey(),
-		status:    serviceStatus,
-		message:   info,
-		rawData:   data,
+		status:    statusInfo.Status,
+		message:   statusInfo.Message,
+		rawData:   statusInfo.Data,
+		updated:   statusInfo.Since,
 	})
 }
 

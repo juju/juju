@@ -46,7 +46,7 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
+			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetStatus", args, &result)
