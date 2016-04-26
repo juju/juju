@@ -78,13 +78,21 @@ func NewDeployerAPI(
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	info, err := d.st.DeployerConnectionInfo()
-	if info != nil {
-		result = params.DeployerConnectionValues{
-			StateAddresses: info.StateAddresses,
-			APIAddresses:   info.APIAddresses,
-		}
+	stateAddrs, err := d.StateAddresses()
+	if err != nil {
+		return result, err
 	}
+
+	apiAddrs, err := d.APIAddresses()
+	if err != nil {
+		return result, err
+	}
+
+	result = params.DeployerConnectionValues{
+		StateAddresses: stateAddrs.Result,
+		APIAddresses:   apiAddrs.Result,
+	}
+
 	return result, err
 }
 

@@ -332,3 +332,25 @@ func (s *deployerSuite) TestCACert(c *gc.C) {
 		Result: []byte(s.State.CACert()),
 	})
 }
+
+func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
+	err := s.machine0.SetProviderAddresses(network.NewScopedAddress("0.1.2.3", network.ScopePublic),
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Default host port scope is public, so change the cloud-local one
+	hostPorts := network.NewHostPorts(1234, "0.1.2.3", "1.2.3.4")
+	hostPorts[1].Scope = network.ScopeCloudLocal
+
+	err = s.State.SetAPIHostPorts([][]network.HostPort{hostPorts})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := params.DeployerConnectionValues{
+		StateAddresses: []string{"1.2.3.4:1234"},
+		APIAddresses:   []string{"1.2.3.4:1234", "0.1.2.3:1234"},
+	}
+
+	result, err := s.deployer.ConnectionInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expected)
+}
