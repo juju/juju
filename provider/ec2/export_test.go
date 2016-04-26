@@ -212,7 +212,7 @@ var TestImagesData = map[string]string{
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
    "com.ubuntu.cloud:server:16.04:amd64": {
-     "release": "trusty",
+     "release": "xenial",
      "version": "16.04",
      "arch": "amd64",
      "versions": {
@@ -261,7 +261,7 @@ var TestImagesData = map[string]string{
              "id": "ami-00000135"
            }
          },
-         "pubname": "ubuntu-trusty-16.04-amd64-server-20121218",
+         "pubname": "ubuntu-xenial-16.04-amd64-server-20121218",
          "label": "release"
        }
      }
