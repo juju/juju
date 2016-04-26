@@ -315,7 +315,6 @@ var topicNames = []string{
 	"ec2-provider",
 	"global-options",
 	"glossary",
-	"hpcloud-provider",
 	"juju",
 	"juju-systems",
 	"local-provider",
