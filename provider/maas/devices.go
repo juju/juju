@@ -262,14 +262,21 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 
 	interfaceInfo := make([]network.InterfaceInfo, 0, len(interfaces))
 	for _, nic := range interfaces {
+		vlan_id := 0
+		vlan_vid := 0
+		vlan := nic.VLAN()
+		if vlan != nil {
+			vlan_id = vlan.ID()
+			vlan_vid = vlan.VID()
+		}
 		nicInfo := network.InterfaceInfo{
 			InterfaceName:       nic.Name(),
 			InterfaceType:       network.EthernetInterface,
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
-			VLANTag:             nic.VLAN().VID(),
+			VLANTag:             vlan_vid,
 			ProviderId:          network.Id(strconv.Itoa(nic.ID())),
-			ProviderVLANId:      network.Id(strconv.Itoa(nic.VLAN().ID())),
+			ProviderVLANId:      network.Id(strconv.Itoa(vlan_id)),
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
@@ -294,7 +301,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 				nicInfo.ConfigType = network.ConfigManual
 			}
 
-			if link.IPAddress() == "" {
+			if link.IPAddress() == "" || link.Subnet() == nil {
 				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name())
 				continue
 			}
