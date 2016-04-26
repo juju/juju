@@ -881,6 +881,14 @@ func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsRes
 		return params.StringsResults{}, err
 	}
 
+	// Make one list of all IPs for all controllers, then prioritize
+	// internal addresses.
+	mergedHostPorts := []network.HostPort{}
+	for _, server := range apiHostPorts {
+		mergedHostPorts = append(mergedHostPorts, server...)
+	}
+	prioritizedHostPorts := network.PrioritizeInternalHostPorts(mergedHostPorts, false)
+
 	modelUUID := u.st.ModelUUID()
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.URLs)),
@@ -895,25 +903,9 @@ func (u *UniterAPIV3) CharmArchiveURLs(args params.CharmURLs) (params.StringsRes
 			urlPath = path.Join(urlPath, "model", modelUUID)
 		}
 		urlPath = path.Join(urlPath, "charms")
-		archiveURLs := make([]string, len(apiHostPorts))
-		publicArchiveURLs := []string{}
-		for j, server := range apiHostPorts {
-			archiveURLs[j] = getArchiveURL(network.SelectInternalHostPort(server, false),
-				urlPath, curl)
-			externalHostPort := network.SelectPublicHostPort(server)
-			if externalHostPort != "" {
-				url := getArchiveURL(externalHostPort, urlPath, curl)
-
-				// If the controller only has public IPs, don't add it twice
-				if url != archiveURLs[j] {
-					publicArchiveURLs = append(publicArchiveURLs, url)
-				}
-			}
-		}
-		// Append the public URLs at the end so that internal addresses for all
-		// controllers are tried first.
-		if len(publicArchiveURLs) > 0 {
-			archiveURLs = append(archiveURLs, publicArchiveURLs...)
+		archiveURLs := make([]string, len(prioritizedHostPorts))
+		for j, hp := range prioritizedHostPorts {
+			archiveURLs[j] = getArchiveURL(hp, urlPath, curl)
 		}
 		result.Results[i].Result = archiveURLs
 	}
