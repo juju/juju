@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 """This testsuite is intended to test basic user permissions. Users
-   can be granted read or full priveleges by model. Revoking those
-   priveleges should remove them."""
+   can be granted read or full privileges by model. Revoking those
+   privileges should remove them.
+
+   A read permission user can see things such as status and
+   perform read-only commands. A write permission user has
+   equivalent powers as an admin"""
 
 from __future__ import print_function
 
