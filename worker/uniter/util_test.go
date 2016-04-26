@@ -31,6 +31,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
@@ -85,6 +86,7 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
+	apiConn                api.Connection
 	leaderClaimer          coreleadership.Claimer
 	leaderTracker          *mockLeaderTracker
 	charmDirGuard          *mockCharmDirGuard
@@ -150,12 +152,14 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	st := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
-	c.Assert(st, gc.NotNil)
+	apiConn := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
+	c.Assert(apiConn, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
-	ctx.api, err = st.Uniter()
+	api, err := apiConn.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.api, gc.NotNil)
+	c.Assert(api, gc.NotNil)
+	ctx.api = api
+	ctx.apiConn = apiConn
 	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
