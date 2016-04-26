@@ -1458,16 +1458,14 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 		Type:  network.HostName,
 		Scope: network.ScopePublic,
 	}, {
-		Value:       "10.0.0.1",
-		Type:        network.IPv4Address,
-		NetworkName: "internal",
-		Scope:       network.ScopeCloudLocal,
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
 	}}
 	server2Addresses := []network.Address{{
-		Value:       "::1",
-		Type:        network.IPv6Address,
-		NetworkName: "loopback",
-		Scope:       network.ScopeMachineLocal,
+		Value: "::1",
+		Type:  network.IPv6Address,
+		Scope: network.ScopeMachineLocal,
 	}}
 	stateAPIHostPorts := [][]network.HostPort{
 		network.AddressesWithPort(server1Addresses, 123),

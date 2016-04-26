@@ -537,9 +537,6 @@ type DebugLogParams struct {
 // the DebugLogParams are returned. It returns an error that satisfies
 // errors.IsNotImplemented when the API server does not support the
 // end-point.
-//
-// TODO(dimitern) We already have errors.IsNotImplemented - why do we
-// need to define a different error for this purpose here?
 func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	// The websocket connection just hangs if the server doesn't have the log
 	// end point. So do a version check, as version was added at the same time

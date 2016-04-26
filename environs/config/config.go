@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-var logger = loggo.GetLogger("juju.environs.local/share")
+var logger = loggo.GetLogger("juju.environs.config")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.

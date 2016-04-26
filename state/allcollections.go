@@ -297,7 +297,6 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "subnetid"},
 			}},
 		},
-		openedPortsC: {},
 		// TODO(dimitern): End of obsolete networking collections.
 		spacesC: {
 			indexes: []mgo.Index{{
@@ -329,6 +328,7 @@ func allCollections() collectionSchema {
 			}},
 		},
 		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 

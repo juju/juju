@@ -4371,26 +4371,23 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 
 	newHostPorts := [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}, {
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
 		Address: network.Address{
-			Value:       "0.6.1.2",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 5,
 	}}}
@@ -4403,10 +4400,9 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 
 	newHostPorts = [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv6Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 13,
 	}}}
@@ -4421,18 +4417,16 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 	hostPorts := [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}}}
@@ -4462,19 +4456,17 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.HostPort{{
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}
 	hostPorts1 := []network.HostPort{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}}
