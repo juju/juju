@@ -14,10 +14,10 @@ import (
 )
 
 var configHeader = `
+
 # This is the Juju config file, which you can use to specify multiple
-# environments in which to deploy. By default Juju ships with AWS
-# (default), HP Cloud, OpenStack, Azure, MaaS, Local and Manual
-# providers. See https://juju.ubuntu.com/docs for more information
+# environments in which to deploy. See https://juju.ubuntu.com/docs
+# for more information
 
 # An environment configuration must always specify at least the
 # following information:

@@ -46,7 +46,7 @@ func init() {
 
 var jujuDoc = `
 juju provides easy, intelligent service orchestration on top of cloud
-infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
+infrastructure providers such as Amazon EC2, MaaS, OpenStack, Windows
 Azure, or your local machine.
 
 https://juju.ubuntu.com/
@@ -91,8 +91,6 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		helptopics.OpenstackProvider, "openstack")
 	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
 		helptopics.EC2Provider, "ec2", "aws", "amazon")
-	jcmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
-		helptopics.HPCloud, "hpcloud", "hp-cloud")
 	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
 		helptopics.AzureProvider, "azure")
 	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",

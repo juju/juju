@@ -4,10 +4,10 @@
 # Retrieve the published juju-core debs for a specific release.
 # Extract the jujud from the packages.
 # Generate the streams data.
-# Publish to Canonistack, HP, AWS, and Azure.
+# Publish to Canonistack, AWS, and Azure.
 #
 # This script requires that the user has credentials to upload the tools
-# to Canonistack, HP Cloud, AWS, and Azure
+# to Canonistack, AWS, and Azure
 
 set -e
 
@@ -24,13 +24,12 @@ check_deps() {
     which swift || has_deps=0
     which s3cmd || has_deps=0
     test -f ~/.juju/canonistacktoolsrc || has_deps=0
-    test -f ~/.juju/hptoolsrc || has_deps=0
     test -f ~/.juju/awstoolsrc || has_deps=0
     test -f ~/.juju/azuretoolsrc || has_deps=0
     if [[ $has_deps == 0 ]]; then
         echo "Install lftp, python-swiftclient, and s3cmd"
         echo "Your ~/.juju dir must contain rc files to publish:"
-        echo "  canonistacktoolsrc, hptoolsrc, awstoolsrc, azuretoolsrc"
+        echo "  canonistacktoolsrc, awstoolsrc, azuretoolsrc"
         exit 2
     fi
 }
@@ -172,18 +171,6 @@ publish_to_canonistack() {
 }
 
 
-publish_to_hp() {
-    echo "Phase 6.2: Publish to HP Cloud."
-    cd $DESTINATION
-    source ~/.juju/hptoolsrc
-    ${GOPATH}/bin/juju --show-log \
-        sync-tools -e public-tools-hp --dev --source=${DEST_DIST}
-    # Support old tools location so that deployments can upgrade to new tools.
-    cd ${DEST_DIST}
-    swift upload juju-dist tools/*.tgz
-}
-
-
 publish_to_aws() {
     echo "Phase 6.3: Publish to AWS."
     cd $DESTINATION
@@ -256,6 +243,5 @@ generate_streams
 
 echo "Phase 6: Publishing tools."
 publish_to_canonistack
-publish_to_hp
 publish_to_aws
 publish_to_azure

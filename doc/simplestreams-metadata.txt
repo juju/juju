@@ -9,7 +9,7 @@ The necessary information is stored in a json metadata format called simplestrea
 The simplestreams format is used to describe related items in a structural fashion.
 See the Launchpad project lp:simplestreams for more details.
 
-For supported public clouds like Amazon, HP Cloud etc, no action is required by the
+For supported public clouds like Amazon, etc., no action is required by the
 end user so the following information is more for those interested in what happens
 under the covers. Those setting up a private cloud, or who want to change how things
 work (eg use a different Ubuntu image), need to pay closer attention.

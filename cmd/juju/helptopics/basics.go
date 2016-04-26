@@ -8,7 +8,7 @@ Juju -- devops distilled
 https://juju.ubuntu.com/
 
 Juju provides easy, intelligent service orchestration on top of environments
-such as Amazon EC2, HP Cloud, OpenStack, MaaS, or your own local machine.
+such as Amazon EC2, OpenStack, MaaS, or your own local machine.
 
 Basic commands:
   juju init             generate boilerplate configuration for juju environments
@@ -27,7 +27,7 @@ Basic commands:
 Provider information:
   juju help azure-provider       use on Windows Azure
   juju help ec2-provider         use on Amazon EC2
-  juju help hpcloud-provider     use on HP Cloud
   juju help local-provider       use on this computer
+  juju help maas-provider        use on MAAS
   juju help openstack-provider   use on OpenStack
 `
