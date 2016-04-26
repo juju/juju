@@ -30,7 +30,7 @@ func init() {
 	}
 }
 
-const FakeDefaultSeries = "trusty"
+var FakeDefaultSeries = config.FallbackLtsSeries
 
 // FakeVersionNumber is a valid version number that can be used in testing.
 var FakeVersionNumber = version.MustParse("1.99.0")
