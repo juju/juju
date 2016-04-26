@@ -313,12 +313,6 @@ class FakeBackend:
         self._backing_state.bootstrap(
                 env, commandline_config, self.is_feature_enabled('jes'))
 
-    def create_model(self, model_name, controller_state, config_file):
-        jes_enabled = self.is_feature_enabled('jes')
-        if not jes_enabled:
-            raise JESNotSupported()
-        self._backing_state = controller_state.create_model(model_name)
-
     def quickstart(self, env, bundle):
         self.backing_state.bootstrap(env, {}, self.is_feature_enabled('jes'))
         model_state = self.controller_state.models[env.environment]
