@@ -11,4 +11,3 @@ TAGS
 .emacs.desktop.lock
 *.test
 *.sw[nop]
-profile.cov
