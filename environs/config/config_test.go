@@ -1857,7 +1857,7 @@ func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
 	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
 		return "", fmt.Errorf("error")
 	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, testing.LatestLtsSeries)
+	c.Assert(config.LatestLtsSeries(), gc.Equals, "xenial")
 }
 
 func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
@@ -1866,41 +1866,6 @@ func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
 		return "series", nil
 	})
 	c.Assert(config.LatestLtsSeries(), gc.Equals, "series")
-}
-
-var distInfoErrorScript = `#!/bin/bash
-exit 127
-`
-
-func (s *ConfigSuite) TestFallbackLtsSeries(c *gc.C) {
-	gitjujutesting.PatchExecutable(c, s, "distro-info", distInfoErrorScript)
-	config.FallbackLtsSeries = config.LatestLtsSeries()
-	c.Assert(config.FallbackLtsSeries, gc.Equals, testing.LatestLtsSeries)
-	c.Assert(testing.FakeDefaultSeries, gc.Equals, testing.LatestLtsSeries)
-}
-
-var distInfoTrustyScript = `#!/bin/bash
-echo trusty
-`
-
-func (s *ConfigSuite) TestFallbackLtsToTrusty(c *gc.C) {
-	const want = "trusty"
-	gitjujutesting.PatchExecutable(c, s, "distro-info", distInfoTrustyScript)
-	config.FallbackLtsSeries = config.LatestLtsSeries()
-	c.Assert(config.FallbackLtsSeries, gc.Equals, want)
-	c.Assert(testing.FakeDefaultSeries, gc.Equals, want)
-}
-
-var distInfoInvalidScript = `#!/bin/bash
-echo notaseries
-`
-
-func (s *ConfigSuite) TestFallbackLtsInvalid(c *gc.C) {
-	gitjujutesting.PatchExecutable(c, s, "distro-info", distInfoInvalidScript)
-	config.FallbackLtsSeries = config.LatestLtsSeries()
-	c.Assert(config.FallbackLtsSeries, gc.Equals, testing.LatestLtsSeries)
-	c.Assert(testing.FakeDefaultSeries, gc.Equals, testing.LatestLtsSeries)
-
 }
 
 var caCert = `
