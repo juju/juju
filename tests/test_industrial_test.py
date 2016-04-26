@@ -1492,7 +1492,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 target = 'lxc:{}'.format(host)
                 service = 'ubuntu{}x{}'.format(host, container)
                 yield ('juju', '--show-log', 'deploy', '-m', 'steve',
-                       'angsty/ubuntu', '--to', target, service)
+                       'ubuntu', '--to', target, '--series', 'angsty', service)
 
     def predict_remove_machine_calls(self, deploy_many):
         total_guests = deploy_many.host_count * deploy_many.container_count

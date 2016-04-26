@@ -725,10 +725,11 @@ class DeployManyAttempt(SteppedStageAttempt):
             target = 'lxc:{}'.format(machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
+                # Work around bug #1540900: juju deploy ignores model
+                # default-series
                 series = client.env.config['default-series']
-                # Work around bug #1540900
-                charm = '{}/ubuntu'.format(series)
-                client.deploy(charm, service=service, to=target)
+                client.deploy('ubuntu', service=service, to=target,
+                              series=series)
                 service_names.append(service)
         timeout_start = datetime.now()
         yield results
