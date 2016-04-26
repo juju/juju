@@ -248,6 +248,9 @@ func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 }
 
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
+	if coretesting.FakeDefaultSeries != "xenial" {
+		c.Skip("Skipping systemd based test on non-systemd series")
+	}
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,6 +332,9 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 // using upstart which will be around until trusty is no longer supported.
 // TODO: BBB: remove when trusty is no longer supported
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
+	if coretesting.FakeDefaultSeries == "xenial" {
+		c.Skip("Skipping upstart based test on non-upstart based series")
+	}
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		BootstrapSeries: "trusty",
@@ -1037,7 +1043,14 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000133", "ami-00000135", "ami-00000139"})
+	var want []string
+	switch coretesting.FakeDefaultSeries {
+	case "xenial":
+		want = []string{"ami-00000133", "ami-00000135", "ami-00000139"}
+	case "trusty":
+		want = []string{"ami-00000034", "ami-00000133", "ami-00000135", "ami-00000139"}
+	}
+	c.Assert(image_ids, gc.DeepEquals, want)
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {

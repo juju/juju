@@ -159,9 +159,9 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 	makeImage("ami-00000135", "ssd", "hvm", "amd64", "16.04", "test"),
 
 	// 14.04:amd64
-	makeImage("ami-00000033", "ssd", "pv", "amd64", "14.04", "test"),
-	makeImage("ami-00000039", "ebs", "pv", "amd64", "14.04", "test"),
-	makeImage("ami-00000035", "ssd", "hvm", "amd64", "14.04", "test"),
+	makeImage("ami-00000133", "ssd", "pv", "amd64", "14.04", "test"),
+	makeImage("ami-00000139", "ebs", "pv", "amd64", "14.04", "test"),
+	makeImage("ami-00000135", "ssd", "hvm", "amd64", "14.04", "test"),
 
 	// 14.04:i386
 	makeImage("ami-00000034", "ssd", "pv", "i386", "14.04", "test"),
@@ -301,19 +301,19 @@ var TestImagesData = map[string]string{
              "root_store": "ssd",
              "virt": "pv",
              "region": "test",
-             "id": "ami-00000033"
+             "id": "ami-00000133"
            },
            "test1pessd": {
              "root_store": "ebs",
              "virt": "pv",
              "region": "test",
-             "id": "ami-00000039"
+             "id": "ami-00000139"
            },
            "test1he": {
              "root_store": "ssd",
              "virt": "hvm",
              "region": "test",
-             "id": "ami-00000035"
+             "id": "ami-00000135"
            }
          },
          "pubname": "ubuntu-trusty-14.04-amd64-server-20121218",
