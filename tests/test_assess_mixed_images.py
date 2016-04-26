@@ -69,8 +69,8 @@ class TestAssess(TestCase):
         assess_mixed_images(mock_client)
         self.assertEqual({
             'machines': {
-                '0': {'dns-name': '0.example.com'},
-                '1': {'dns-name': '1.example.com'},
+                '0': {'dns-name': '0.example.com', 'instance-id': '0'},
+                '1': {'dns-name': '1.example.com', 'instance-id': '1'},
                 },
             'services': {
                 'dummy-sink': {

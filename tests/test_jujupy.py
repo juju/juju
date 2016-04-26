@@ -248,6 +248,7 @@ class FakeEnvironmentState:
         for machine_id in self.machines:
             machine_dict = {}
             hostname = self.machine_host_names.get(machine_id)
+            machine_dict['instance-id'] = machine_id
             if hostname is not None:
                 machine_dict['dns-name'] = hostname
             machines[machine_id] = machine_dict
@@ -337,6 +338,14 @@ class FakeBackend:
     def get_admin_model_name(self):
         return self.controller_state.admin_model.name
 
+    def make_controller_dict(self, controller_name):
+        admin_model = self.controller_state.admin_model
+        server_id = list(admin_model.state_servers)[0]
+        server_hostname = admin_model.machine_host_names[server_id]
+        api_endpoint = '{}:23'.format(server_hostname)
+        return {controller_name: {'details': {'api-endpoints': [
+            api_endpoint]}}}
+
     def juju(self, cmd, args, model=None, timeout=None):
         if model is not None:
             model_state = self.controller_state.models[model]
@@ -390,7 +399,8 @@ class FakeBackend:
                 model_state.destroy_model()
 
     def get_juju_output(self, command, args, model=None, timeout=None):
-        model_state = self.controller_state.models[model]
+        if model is not None:
+            model_state = self.controller_state.models[model]
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
             return model_state.token
         if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
@@ -400,6 +410,8 @@ class FakeBackend:
             return yaml.safe_dump(model_state.model_config)
         if command == 'restore-backup':
             model_state.restore_backup()
+        if command == 'show-controller':
+            return yaml.safe_dump(self.make_controller_dict(args[0]))
         return ''
 
 
@@ -485,8 +497,9 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.set_feature('jes', False)
 
     def get_juju_output(self, command, *args, **kwargs):
-        return self._backend.get_juju_output(
-            command, args, model=self.model_name, **kwargs)
+        if kwargs.pop('include_e', True):
+            kwargs['model'] = self.model_name
+        return self._backend.get_juju_output(command, args, **kwargs)
 
     def juju(self, cmd, args, check=True, include_e=True, timeout=None):
         # TODO: Use argparse or change all call sites to use functions.
@@ -542,11 +555,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def backup(self):
         self._require_admin('backup')
-
-    def get_controller_members(self):
-        model_state = self._backend.controller_state.models[self.model_name]
-        return [Machine(s, {'instance-id': s})
-                for s in model_state.state_servers]
 
 
 class TestErroredUnit(TestCase):
