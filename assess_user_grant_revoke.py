@@ -35,7 +35,7 @@ log = logging.getLogger("assess_user_grant_revoke")
 def _get_register_command(output):
     for row in output.split('\n'):
         if 'juju register' in row:
-            return row.strip().replace("juju", "", 1).lstrip()
+            return row.replace("juju", "", 1).strip().lstrip()
 
 
 def create_user_permissions(client, username, models=None, permissions='read'):
@@ -51,15 +51,15 @@ def remove_user_permissions(client, username, models=None, permissions='read'):
     if models is None:
         models = client.env.environment
 
-    client.get_juju_output(
-        'revoke', username, models, '--acl', permissions, include_e=False)
+    client.juju('revoke', username, models, '--acl', permissions,
+                include_e=False)
 
 
 def register_user(username, env, register_cmd):
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     try:
-        child = pexpect.spawn('juju', register_cmd, env=env)
+        child = pexpect.spawn('juju', args=[register_cmd], env=env)
         child.expect('(?i)name .*: ')
         child.sendline(username + '_controller')
         child.expect('(?i)password')
