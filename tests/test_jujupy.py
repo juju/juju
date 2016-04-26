@@ -416,11 +416,11 @@ class FakeJujuClient(EnvJujuClient):
                  jes_enabled=False, version='2.0.0'):
         backend_state = FakeEnvironmentState()
         if env is None:
-            env = SimpleEnvironment('name', {
+            env = JujuData('name', {
                 'type': 'foo',
                 'default-series': 'angsty',
                 }, juju_home='foo')
-        backend_state.name = env
+        backend_state.name = env.environment
         self._backend = FakeBackend(backend_state)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env
@@ -433,6 +433,10 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def _jes_enabled(self):
         raise Exception
+
+    @property
+    def model_name(self):
+        return self.env.environment
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -454,7 +458,7 @@ class FakeJujuClient(EnvJujuClient):
         return '1.2-alpha3'
 
     def _acquire_state_client(self, state):
-        if state.name == self.env.environment:
+        if state.name == self.model_name:
             return self
         new_env = self.env.clone(model_name=state.name)
         new_client = self.clone(new_env)
@@ -482,12 +486,12 @@ class FakeJujuClient(EnvJujuClient):
 
     def get_juju_output(self, command, *args, **kwargs):
         return self._backend.get_juju_output(
-            command, args, model=self.env.environment, **kwargs)
+            command, args, model=self.model_name, **kwargs)
 
     def juju(self, cmd, args, check=True, include_e=True, timeout=None):
         # TODO: Use argparse or change all call sites to use functions.
         if include_e:
-            model = self.env.environment
+            model = self.model_name
         else:
             model = None
         return self._backend.juju(cmd, args, model, timeout)
@@ -505,7 +509,7 @@ class FakeJujuClient(EnvJujuClient):
 
     def create_environment(self, controller_client, config_file):
         self._backend.create_model(
-            self.env.environment, controller_client._backend.controller_state,
+            self.model_name, controller_client._backend.controller_state,
             config_file)
 
     def destroy_environment(self, force=True, delete_jenv=False):
@@ -517,7 +521,7 @@ class FakeJujuClient(EnvJujuClient):
     def get_status(self, admin=False):
         try:
             model_state = self._backend.controller_state.models[
-                self.env.environment]
+                self.model_name]
         except KeyError:
             # Really, this should raise, but that would break tests.
             status_dict = {'services': {}, 'machines': {}}
@@ -537,16 +541,14 @@ class FakeJujuClient(EnvJujuClient):
         pass
 
     def _require_admin(self, operation):
-        model_state = self._backend.controller_state.models[
-            self.env.environment]
+        model_state = self._backend.controller_state.models[self.model_name]
         model_state.require_admin(operation)
 
     def backup(self):
         self._require_admin('backup')
 
     def get_controller_members(self):
-        model_state = self._backend.controller_state.models[
-            self.env.environment]
+        model_state = self._backend.controller_state.models[self.model_name]
         return [Machine(s, {'instance-id': s})
                 for s in model_state.state_servers]
 
