@@ -725,7 +725,8 @@ class DeployManyAttempt(SteppedStageAttempt):
             target = 'lxc:{}'.format(machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
-                client.juju('deploy', ('--to', target, 'ubuntu', service))
+                client.deploy(to=target, charm='ubuntu',
+                              service=service)
                 service_names.append(service)
         timeout_start = datetime.now()
         yield results
