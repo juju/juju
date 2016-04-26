@@ -1492,7 +1492,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 target = 'lxc:{}'.format(host)
                 service = 'ubuntu{}x{}'.format(host, container)
                 yield ('juju', '--show-log', 'deploy', '-m', 'steve',
-                       'ubuntu', '--to', target, service)
+                       'angsty/ubuntu', '--to', target, service)
 
     def predict_remove_machine_calls(self, deploy_many):
         total_guests = deploy_many.host_count * deploy_many.container_count
@@ -1511,6 +1511,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
 
     def do_iter_steps(self, machine_started, unit_started):
         client = FakeEnvJujuClient()
+        client.env.config['default-series'] = 'angsty'
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
@@ -1614,6 +1615,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
+        client.env.config['default-series'] = 'angsty'
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
@@ -1664,6 +1666,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_step_add_machine_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
+        client.env.config['default-series'] = 'angsty'
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {

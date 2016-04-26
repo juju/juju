@@ -725,8 +725,10 @@ class DeployManyAttempt(SteppedStageAttempt):
             target = 'lxc:{}'.format(machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
-                client.deploy(to=target, charm='ubuntu',
-                              service=service)
+                series = client.env.config['default-series']
+                # Work around bug #1540900
+                charm = '{}/ubuntu'.format(series)
+                client.deploy(charm, service=service, to=target)
                 service_names.append(service)
         timeout_start = datetime.now()
         yield results
