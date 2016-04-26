@@ -5,6 +5,7 @@ package tools
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/juju/names"
@@ -211,7 +213,7 @@ type BundleToolsFunc func(w io.Writer, forceVersion *version.Number) (version.Bi
 // Override for testing.
 var BundleTools BundleToolsFunc = bundleTools
 
-// BundleTools bundles all the current juju tools in gzipped tar
+// bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 // If forceVersion is not nil, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
@@ -235,15 +237,10 @@ func bundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binar
 			return version.Binary{}, "", err
 		}
 	}
-	cmd := exec.Command(filepath.Join(dir, names.Jujud), "version")
-	out, err := cmd.CombinedOutput()
+
+	tvers, err = getVersionFromJujud(dir)
 	if err != nil {
-		return version.Binary{}, "", fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
-	}
-	tvs := strings.TrimSpace(string(out))
-	tvers, err = version.ParseBinary(tvs)
-	if err != nil {
-		return version.Binary{}, "", fmt.Errorf("invalid version %q printed by jujud", tvs)
+		return version.Binary{}, "", errors.Trace(err)
 	}
 
 	sha256hash, err := archiveAndSHA256(w, dir)
@@ -251,4 +248,25 @@ func bundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binar
 		return version.Binary{}, "", err
 	}
 	return tvers, sha256hash, err
+}
+
+var execCommand = exec.Command
+
+func getVersionFromJujud(dir string) (version.Binary, error) {
+	path := filepath.Join(dir, names.Jujud)
+	cmd := execCommand(path, "version")
+	stdout := &bytes.Buffer{}
+	both := &bytes.Buffer{}
+	cmd.Stdout = io.MultiWriter(stdout, both)
+	cmd.Stderr = both
+
+	if err := cmd.Run(); err != nil {
+		return version.Binary{}, errors.Errorf("cannot get version from %q: %v; %s", path, err, both)
+	}
+	tvs := strings.TrimSpace(stdout.String())
+	tvers, err := version.ParseBinary(tvs)
+	if err != nil {
+		return version.Binary{}, errors.Errorf("invalid version %q printed by jujud", tvs)
+	}
+	return tvers, nil
 }
