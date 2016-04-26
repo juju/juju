@@ -338,6 +338,7 @@ var distroLtsSeries = distroLtsSeriesFunc
 // distroLtsSeriesFunc returns the latest LTS series, if this information is
 // available on this system.
 func distroLtsSeriesFunc() (string, error) {
+	// return "trusty", nil
 	out, err := exec.Command("distro-info", "--lts").Output()
 	if err != nil {
 		return "", err
