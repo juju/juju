@@ -522,7 +522,7 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 
 	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "xenial")
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, testing.FakeDefaultSeries)
 }
 
 func (s *factorySuite) TestMakeModel(c *gc.C) {

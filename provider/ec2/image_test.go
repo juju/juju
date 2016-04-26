@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -194,10 +196,11 @@ var findInstanceSpecErrorTests = []struct {
 	cons   string
 	err    string
 }{
+
 	{
 		series: testing.FakeDefaultSeries,
 		arches: []string{"arm"},
-		err:    `no "xenial" images in test with arches \[arm\]`,
+		err:    strings.Join([]string{`no "`, testing.FakeDefaultSeries, `" images in test with arches \[arm\]`}, ""),
 	}, {
 		series: "raring",
 		arches: both,
