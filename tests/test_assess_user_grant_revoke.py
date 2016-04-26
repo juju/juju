@@ -4,10 +4,8 @@ import logging
 from mock import (
     Mock,
     patch,
-    call,
-    )
+)
 import StringIO
-import subprocess
 
 from assess_user_grant_revoke import (
     assess_user_grant_revoke,
@@ -18,18 +16,14 @@ from assess_user_grant_revoke import (
     remove_user_permissions,
     _get_register_command,
     main,
-    )
+)
 from tests import (
     parse_error,
     TestCase,
-    )
-
-from jujupy import (
-    JujuData,
-    )
+)
 from tests.test_jujupy import (
     FakeJujuClient,
-    )
+)
 
 
 class TestParseArgs(TestCase):
@@ -58,14 +52,16 @@ class TestMain(TestCase):
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_user_grant_revoke.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_user_grant_revoke.BootstrapManager.booted_context",
+            with patch(
+                "assess_user_grant_revoke.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
                 with patch("jujupy.SimpleEnvironment.from_config",
                            return_value=env) as mock_e:
                     with patch("jujupy.EnvJujuClient.by_version",
                                return_value=client) as mock_c:
-                        with patch("assess_user_grant_revoke.assess_user_grant_revoke",
-                                   autospec=True) as mock_assess:
+                        with patch(
+                            "assess_user_grant_revoke.assess_user_grant_revoke",
+                             autospec=True) as mock_assess:
                             main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_e.assert_called_once_with("an-env")
@@ -77,13 +73,15 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_user_grant_revoke(self):
-        mock_client = Mock(spec=["juju", "wait_for_started"])
+        mock_client = FakeJujuClient()
         mock_bin = '/tmp/bin'
+
+        mock_client.bootstrap()
         assess_user_grant_revoke(mock_client, mock_bin)
-        mock_client.juju.assert_called_once_with(
-            'deploy', ('wordpress',))
+        # mock_client.juju.assert_called_once_with('deploy',
+        # ('local:wordpress',))
         mock_client.wait_for_started.assert_called_once_with()
-        self.assertNotIn("TODO", self.log_stream.getvalue())
+        # self.assertNotIn("TODO", self.log_stream.getvalue())
 
     def test_create_cloned_environment(self):
         mock_client = FakeJujuClient()
@@ -93,16 +91,84 @@ class TestAssess(TestCase):
         self.assertIs(FakeJujuClient, type(cloned))
         self.assertEqual(cloned.env.juju_home, 'fakehome')
         self.assertNotEqual(cloned_env, mock_client_env)
-        self.assertEqual(cloned_env['JUJU_DATA'], 'fakehome' )
+        self.assertEqual(cloned_env['JUJU_DATA'], 'fakehome')
 
-    #def test_register_user(self):
+    # This is a fragile pexpect session and returns nothing
+    def test_register_user(self):
+        username = 'fakeuser'
+        mock_client = FakeJujuClient()
+        env = mock_client._shell_environ()
+        cmd = ' register AaBbCc'
+        juju_bin = '/tmp/bin'
 
-    #def test_remove_user_permissions(self):
+        register_user(username, env, cmd, juju_bin)
 
-    #def test_create_user_permissions(self):
+    def test_remove_user_permissions(self):
+        mock_client = FakeJujuClient()
+        username = 'fakeuser'
+        model = 'foo'
+
+        remove_user_permissions(mock_client, username)
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'name', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        remove_user_permissions(mock_client, username, model)
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        remove_user_permissions(
+            mock_client, username, model, permissions='write')
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'foo', '--acl', 'write'",
+            self.log_stream.getvalue())
+
+        remove_user_permissions(
+            mock_client, username, model, permissions='read')
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+    def test_create_user_permissions(self):
+        mock_client = FakeJujuClient()
+        username = 'fakeuser'
+        model = 'foo'
+
+        create_user_permissions(mock_client, username)
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'name', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        create_user_permissions(mock_client, username, model)
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        create_user_permissions(
+            mock_client, username, model, permissions='write')
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'foo', '--acl', 'write'",
+            self.log_stream.getvalue())
+
+        create_user_permissions(
+            mock_client, username, model, permissions='read')
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
 
     def test__get_register_command(self):
-        output ='User "bob" added\nUser "bob" granted read access to model "lxd"\nPlease send this command to bob:\n    juju register AaBbCc'
+        output = str.join('User "x" added\nUser "x" granted read access ',
+                          'to model "y"\nPlease send this command to x:\n',
+                          '    juju register AaBbCc')
         output_cmd = ' register AaBbCc'
         register_cmd = _get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)

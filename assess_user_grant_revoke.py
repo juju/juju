@@ -153,7 +153,7 @@ def assess_user_grant_revoke(client, juju_bin):
         try:
             write_user_client.deploy('local:wordpress')
         except subprocess.CalledProcessError:
-            print('assert_fail r/w user cannot deploy charm')
+            raise AssertionError('assert_fail r/w user cannot deploy charm')
 
         # remove all permissions
         log.debug("Revoking permissions from write_user")
@@ -165,9 +165,7 @@ def assess_user_grant_revoke(client, juju_bin):
             write_user_client.show_status()
         except subprocess.CalledProcessError:
             raise AssertionError(
-                'assert_fail read-only user cannot see status')
-
-    # add regression check for bug 1570594
+                'assert_fail read-only user cannot list models')
 
 
 def parse_args(argv):
