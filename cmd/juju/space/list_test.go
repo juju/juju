@@ -27,7 +27,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewListCommand(s.api)
+	s.command, _ = space.NewListCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -71,7 +71,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
 		// modelcmd.Wrap().
-		wrappedCommand, command := space.NewListCommand(s.api)
+		wrappedCommand, command := space.NewListCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)

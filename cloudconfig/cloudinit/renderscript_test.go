@@ -68,14 +68,16 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 		}
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil, nil)
+		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
-	icfg.Tools = &tools.Tools{
-		Version: vers,
-		URL:     "http://testing.invalid/tools.tar.gz",
-	}
+	err = icfg.SetTools(tools.List{
+		&tools.Tools{
+			Version: vers,
+			URL:     "http://testing.invalid/tools.tar.gz",
+		},
+	})
 	environConfig := testConfig(c, controller, vers)
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	c.Assert(err, jc.ErrorIsNil)

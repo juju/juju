@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
-	"github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/tools"
 )
 
 type environBrokerSuite struct {
@@ -49,7 +49,7 @@ func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 }
 
 func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
-	tools := []*tools.Tools{{
+	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 		URL:     "https://example.org",
 	}}
@@ -59,7 +59,10 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceConfig.Tools = tools[0]
+	err = instanceConfig.SetTools(coretools.List{
+		tools[0],
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	return environs.StartInstanceParams{
@@ -77,15 +80,6 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
-	startInstArgs := s.CreateStartInstanceArgs(c)
-	startInstArgs.InstanceConfig.Networks = []string{"someNetwork"}
-	_, err := s.Env.StartInstance(startInstArgs)
-
-	c.Assert(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
-}
-
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
@@ -99,7 +93,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
-	tools := []*tools.Tools{{
+	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
 		URL:     "https://example.org",
 	}, {
@@ -108,12 +102,15 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	}}
 	//setting tools to I386, but provider should update them to AMD64, because our fake simplestream server return only AMD 64 image
 	startInstArgs.Tools = tools
-	startInstArgs.InstanceConfig.Tools = tools[0]
+	err := startInstArgs.InstanceConfig.SetTools(coretools.List{
+		tools[0],
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	res, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
-	c.Assert(startInstArgs.InstanceConfig.Tools.Version.Arch, gc.Equals, arch.AMD64)
+	c.Assert(startInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.AMD64)
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {

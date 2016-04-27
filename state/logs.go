@@ -7,6 +7,7 @@
 package state
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -24,14 +25,22 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-const logsDB = "logs"
-const logsC = "logs"
+const (
+	logsDB     = "logs"
+	logsC      = "logs"
+	forwardedC = "forwarded"
+)
+
+// ErrNeverForwarded signals to the caller that the timestamp of a
+// previously forwarded log record could not be found.
+var ErrNeverForwarded = errors.Errorf("cannot find timestamp of the last forwarded record")
 
 // LoggingState describes the methods on State required for logging to
 // the database.
 type LoggingState interface {
 	ModelUUID() string
 	MongoSession() *mgo.Session
+	IsController() bool
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
@@ -47,11 +56,72 @@ func InitDbLogs(session *mgo.Session) error {
 	return nil
 }
 
+// lastSentDoc captures timestamp of the last log record forwarded
+// to a log sink.
+type lastSentDoc struct {
+	ID        string `bson:"_id"`
+	ModelUUID string `bson:"model-uuid"`
+	Sink      string `bson:"sink"`
+	Time      int64  `bson:"timestamp"`
+}
+
+// NewLastSentLogger returns a NewLastSentLogger struct that records and retrieves
+// the timestamps of the most recent log records forwarded to the log sink.
+func NewLastSentLogger(st LoggingState, sink string) *DbLoggerLastSent {
+	return &DbLoggerLastSent{
+		id:      fmt.Sprintf("%v#%v", st.ModelUUID(), sink),
+		model:   st.ModelUUID(),
+		sink:    sink,
+		session: st.MongoSession(),
+	}
+}
+
+// DBLoggerLastSent returns a struct that records and retrieves timestamps of the
+// most recent log records forwarded to the log sink.
+type DbLoggerLastSent struct {
+	session *mgo.Session
+	id      string
+	model   string
+	sink    string
+}
+
+// Set records the timestamp.
+func (logger *DbLoggerLastSent) Set(t time.Time) error {
+	collection := logger.session.DB(logsDB).C(forwardedC)
+	_, err := collection.UpsertId(
+		logger.id,
+		lastSentDoc{
+			ID:        logger.id,
+			ModelUUID: logger.model,
+			Sink:      logger.sink,
+			Time:      t.UnixNano(),
+		},
+	)
+	return errors.Trace(err)
+}
+
+// Get retrieves the timestamp.
+func (logger *DbLoggerLastSent) Get() (time.Time, error) {
+	zeroTime := time.Time{}
+	collection := logger.session.DB(logsDB).C(forwardedC)
+	var lastSent lastSentDoc
+	err := collection.FindId(logger.id).One(&lastSent)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return zeroTime, errors.Trace(ErrNeverForwarded)
+		}
+		return zeroTime, errors.Trace(err)
+	}
+	return time.Unix(0, lastSent.Time).UTC(), nil
+}
+
 // logDoc describes log messages stored in MongoDB.
 //
 // Single character field names are used for serialisation to save
 // space. These documents will be inserted 1000's of times and each
 // document includes the field names.
+// (alesstimec) It would be really nice if we could store Time as int64
+// for increased precision.
 type logDoc struct {
 	Id        bson.ObjectId `bson:"_id"`
 	Time      time.Time     `bson:"t"`
@@ -126,12 +196,13 @@ type LogTailer interface {
 // LogRecord defines a single Juju log message as returned by
 // LogTailer.
 type LogRecord struct {
-	Time     time.Time
-	Entity   string
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
+	Time      time.Time
+	Entity    string
+	Module    string
+	Location  string
+	Level     loggo.Level
+	Message   string
+	ModelUUID string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -146,6 +217,7 @@ type LogTailerParams struct {
 	IncludeModule []string
 	ExcludeModule []string
 	Oplog         *mgo.Collection // For testing only
+	AllModels     bool
 }
 
 // oplogOverlap is used to decide on the initial oplog timestamp to
@@ -167,7 +239,11 @@ var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
+func NewLogTailer(st LoggingState, params *LogTailerParams) (LogTailer, error) {
+	if !st.IsController() && params.AllModels {
+		return nil, errors.NewNotValid(nil, "not allowed to tail logs from all models: not a controller")
+	}
+
 	session := st.MongoSession().Copy()
 	t := &logTailer{
 		modelUUID: st.ModelUUID(),
@@ -184,7 +260,7 @@ func NewLogTailer(st LoggingState, params *LogTailerParams) LogTailer {
 		session.Close()
 		t.tomb.Done()
 	}()
-	return t
+	return t, nil
 }
 
 type logTailer struct {
@@ -308,7 +384,6 @@ func (t *logTailer) tailOplog() error {
 				}
 				continue
 			}
-
 			select {
 			case <-t.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
@@ -320,8 +395,10 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"e", t.modelUUID},
 		{"t", bson.M{"$gte": params.StartTime}},
+	}
+	if !params.AllModels {
+		sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
 		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": params.MinLevel}})
@@ -342,7 +419,6 @@ func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bso
 		sel = append(sel,
 			bson.DocElem{"m", bson.M{"$not": bson.RegEx{Pattern: makeModulePattern(params.ExcludeModule)}}})
 	}
-
 	if prefix != "" {
 		for i, elem := range sel {
 			sel[i].Name = prefix + elem.Name
@@ -419,12 +495,13 @@ func (s *objectIdSet) Length() int {
 
 func logDocToRecord(doc *logDoc) *LogRecord {
 	return &LogRecord{
-		Time:     doc.Time,
-		Entity:   doc.Entity,
-		Module:   doc.Module,
-		Location: doc.Location,
-		Level:    doc.Level,
-		Message:  doc.Message,
+		Time:      doc.Time,
+		Entity:    doc.Entity,
+		Module:    doc.Module,
+		Location:  doc.Location,
+		Level:     doc.Level,
+		Message:   doc.Message,
+		ModelUUID: doc.ModelUUID,
 	}
 }
 

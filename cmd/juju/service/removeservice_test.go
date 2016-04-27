@@ -46,8 +46,8 @@ func runRemoveService(c *gc.C, args ...string) error {
 
 func (s *RemoveServiceSuite) setupTestService(c *gc.C) {
 	// Destroy a service that exists.
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
-	err := runDeploy(c, "local:riak", "riak")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
+	err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -62,9 +62,9 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "metered")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
 	deploy := &DeployCommand{}
-	_, err := testing.RunCommand(c, modelcmd.Wrap(deploy), "local:metered")
+	_, err := testing.RunCommand(c, modelcmd.Wrap(deploy), ch, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	err = runRemoveService(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,4 +136,20 @@ func (s *RemoveCharmStoreCharmsSuite) TestRemoveAllocation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCalls(c, []jutesting.StubCall{{
 		"DeleteAllocation", []interface{}{testing.ModelTag.Id(), "metered"}}})
+}
+
+type mockBudgetAPIClient struct {
+	*jutesting.Stub
+}
+
+// CreateAllocation implements apiClient.
+func (c *mockBudgetAPIClient) CreateAllocation(budget, limit, model string, services []string) (string, error) {
+	c.MethodCall(c, "CreateAllocation", budget, limit, model, services)
+	return "Allocation created.", c.NextErr()
+}
+
+// DeleteAllocation implements apiClient.
+func (c *mockBudgetAPIClient) DeleteAllocation(model, service string) (string, error) {
+	c.MethodCall(c, "DeleteAllocation", model, service)
+	return "Allocation removed.", c.NextErr()
 }

@@ -171,7 +171,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 	assertTools := func() {
 		c.Check(results.Results, gc.HasLen, 1)
 		c.Assert(results.Results[0].Error, gc.IsNil)
-		agentTools := results.Results[0].Tools
+		agentTools := results.Results[0].ToolsList[0]
 		c.Check(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
 		c.Assert(agentTools.URL, gc.NotNil)
 	}

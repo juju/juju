@@ -28,7 +28,6 @@ const (
 	RootDisk     = "root-disk"
 	Tags         = "tags"
 	InstanceType = "instance-type"
-	Networks     = "networks"
 	Spaces       = "spaces"
 	VirtType     = "virt-type"
 )
@@ -80,15 +79,6 @@ type Value struct {
 	// negative values are accepted, and the difference is the latter
 	// have a "^" prefix to the name.
 	Spaces *[]string `json:"spaces,omitempty" yaml:"spaces,omitempty"`
-
-	// Networks, if not nil, holds a list of juju networks that
-	// should be available (or not) on the machine. Positive and
-	// negative values are accepted, and the difference is the latter
-	// have a "^" prefix to the name.
-	//
-	// TODO(dimitern): Drop this as soon as spaces can be used for
-	// deployments instead.
-	Networks *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
 
 	// VirtType, if not nil or empty, indicates that a machine must run the named
 	// virtual type. Only valid for clouds with multi-hypervisor support.
@@ -177,33 +167,6 @@ func (v *Value) HaveSpaces() bool {
 	return v.Spaces != nil && len(*v.Spaces) > 0
 }
 
-// TODO(dimitern): Drop the following 3 methods once spaces can be
-// used as deployment constraints.
-
-// IncludeNetworks returns a list of networks to include when starting
-// a machine, if specified.
-func (v *Value) IncludeNetworks() []string {
-	if v.Networks == nil {
-		return nil
-	}
-	return v.extractItems(*v.Networks, true)
-}
-
-// ExcludeNetworks returns a list of networks to exclude when starting
-// a machine, if specified. They are given in the networks constraint
-// with a "^" prefix to the name, which is stripped before returning.
-func (v *Value) ExcludeNetworks() []string {
-	if v.Networks == nil {
-		return nil
-	}
-	return v.extractItems(*v.Networks, false)
-}
-
-// HaveNetworks returns whether any network constraints were specified.
-func (v *Value) HaveNetworks() bool {
-	return v.Networks != nil && len(*v.Networks) > 0
-}
-
 // HasVirtType returns true if the constraints.Value specifies an virtual type.
 func (v *Value) HasVirtType() bool {
 	return v.VirtType != nil && *v.VirtType != ""
@@ -249,10 +212,6 @@ func (v Value) String() string {
 		s := strings.Join(*v.Spaces, ",")
 		strs = append(strs, "spaces="+s)
 	}
-	if v.Networks != nil {
-		s := strings.Join(*v.Networks, ",")
-		strs = append(strs, "networks="+s)
-	}
 	if v.VirtType != nil {
 		strs = append(strs, "virt-type="+string(*v.VirtType))
 	}
@@ -293,11 +252,6 @@ func (v Value) GoString() string {
 		values = append(values, fmt.Sprintf("Spaces: %q", *v.Spaces))
 	} else if v.Spaces != nil {
 		values = append(values, "Spaces: (*[]string)(nil)")
-	}
-	if v.Networks != nil && *v.Networks != nil {
-		values = append(values, fmt.Sprintf("Networks: %q", *v.Networks))
-	} else if v.Networks != nil {
-		values = append(values, "Networks: (*[]string)(nil)")
 	}
 	if v.VirtType != nil {
 		values = append(values, fmt.Sprintf("VirtType: %q", *v.VirtType))
@@ -441,8 +395,6 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setInstanceType(str)
 	case Spaces:
 		err = v.setSpaces(str)
-	case Networks:
-		err = v.setNetworks(str)
 	case VirtType:
 		err = v.setVirtType(str)
 	default:
@@ -494,16 +446,6 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			err = v.validateSpaces(spaces)
 			if err == nil {
 				v.Spaces = spaces
-			}
-		case Networks:
-			var networks *[]string
-			networks, err = parseYamlStrings("networks", val)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			err = v.validateNetworks(networks)
-			if err == nil {
-				v.Networks = networks
 			}
 		case VirtType:
 			v.VirtType = &vstr
@@ -618,31 +560,6 @@ func (v *Value) validateSpaces(spaces *[]string) error {
 		space := strings.TrimPrefix(name, "^")
 		if !names.IsValidSpace(space) {
 			return errors.Errorf("%q is not a valid space name", space)
-		}
-	}
-	return nil
-}
-
-func (v *Value) setNetworks(str string) error {
-	if v.Networks != nil {
-		return errors.Errorf("already set")
-	}
-	networks := parseCommaDelimited(str)
-	if err := v.validateNetworks(networks); err != nil {
-		return err
-	}
-	v.Networks = networks
-	return nil
-}
-
-func (v *Value) validateNetworks(networks *[]string) error {
-	if networks == nil {
-		return nil
-	}
-	for _, name := range *networks {
-		netName := strings.TrimPrefix(name, "^")
-		if !names.IsValidNetwork(netName) {
-			return errors.Errorf("%q is not a valid network name", netName)
 		}
 	}
 	return nil

@@ -16,10 +16,12 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -35,10 +37,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
 
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
@@ -69,8 +67,20 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 }
 
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) error {
-	args.InstanceConfig.Tools = args.Tools[0]
-	logger.Debugf("tools: %#v", args.InstanceConfig.Tools)
+	// TODO(natefinch): This is only correct so long as the lxd is running on
+	// the local machine.  If/when we support a remote lxd environment, we'll
+	// need to change this to match the arch of the remote machine.
+	tools, err := args.Tools.Match(tools.Filter{Arch: arch.HostArch()})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(tools) == 0 {
+		return errors.Errorf("No tools available for architecture %q", arch.HostArch())
+	}
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("tools: %#v", args.InstanceConfig.ToolsList())
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.ecfg.Config); err != nil {
 		return errors.Trace(err)
@@ -219,14 +229,22 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	userdata := string(uncompressed)
 
 	metadata := map[string]string{
-		metadataKeyIsState: metadataValueFalse,
-		// We store a gz snapshop of information that is used by
-		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
-		// for the instance.
+		// store the cloud-config userdata for cloud-init.
 		metadataKeyCloudInit: userdata,
 	}
-	if isController(args.InstanceConfig) {
-		metadata[metadataKeyIsState] = metadataValueTrue
+	for k, v := range args.InstanceConfig.Tags {
+		if !strings.HasPrefix(k, tags.JujuTagPrefix) {
+			// Since some metadata is interpreted by LXD,
+			// we cannot allow arbitrary tags to be passed
+			// in by the user. We currently only pass through
+			// Juju-defined tags.
+			//
+			// TODO(axw) 2016-04-11 #1568666
+			// We should reject non-juju tags in config validation.
+			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
+			continue
+		}
+		metadata[k] = v
 	}
 
 	return metadata, nil
@@ -259,8 +277,15 @@ func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances() ([]instance.Instance, error) {
-	instances, err := getInstances(env)
-	return instances, errors.Trace(err)
+	environInstances, err := env.allInstances()
+	instances := make([]instance.Instance, len(environInstances))
+	for i, inst := range environInstances {
+		if inst == nil {
+			continue
+		}
+		instances[i] = inst
+	}
+	return instances, err
 }
 
 // StopInstances implements environs.InstanceBroker.

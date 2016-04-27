@@ -166,5 +166,5 @@ func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadat
 // Export for patching in tests
 var PlaceNewMongo = placeNewMongo
 var MongoRestoreArgsForVersion = mongoRestoreArgsForVersion
-var RestorePath = &restorePath
+var RestorePath = &getMongorestorePath
 var RestoreArgsForVersion = &restoreArgsForVersion

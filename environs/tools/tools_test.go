@@ -177,13 +177,14 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 			c.Check(err, jc.Satisfies, errors.IsNotFound)
 			continue
 		}
-		expect := map[version.Binary]string{}
+		expect := map[version.Binary][]string{}
 		for _, expected := range test.expect {
 			// If the tools exist in custom, that's preferred.
-			var ok bool
-			if expect[expected], ok = custom[expected]; !ok {
-				expect[expected] = public[expected]
+			url, ok := custom[expected]
+			if !ok {
+				url = public[expected]
 			}
+			expect[expected] = append(expect[expected], url)
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}

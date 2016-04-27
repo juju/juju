@@ -12,10 +12,10 @@ var toolsTestsPlatformSpecific = []struct {
 	expectedErr error
 }{{
 	in:          "C:/home/foo",
-	expected:    "file://\\\\localhost\\C$/home/foo/tools",
+	expected:    "file://C:/home/foo/tools",
 	expectedErr: nil,
 }, {
 	in:          "C:/home/foo/tools",
-	expected:    "file://\\\\localhost\\C$/home/foo/tools",
+	expected:    "file://C:/home/foo/tools",
 	expectedErr: nil,
 }}

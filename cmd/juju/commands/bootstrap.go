@@ -91,7 +91,7 @@ Examples:
 
 See also: 
     add-credentials
-    create-model
+    add-model
     set-constraints`
 
 // defaultHostedModelName is the name of the hosted model created in each

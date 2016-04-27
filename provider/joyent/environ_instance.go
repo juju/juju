@@ -88,11 +88,6 @@ func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error 
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
@@ -109,7 +104,9 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err

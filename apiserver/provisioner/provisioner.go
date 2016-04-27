@@ -254,7 +254,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		// same image stream?)
 	}
 
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(config.Type()) {
 		// No need to even try checking the environ for support.
 		logger.Debugf("address allocation feature flag not enabled")
 		result.ManagerConfig = cfg
@@ -494,42 +494,6 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// RequestedNetworks returns the requested networks for each given
-// machine entity. Each entry in both lists is returned with its
-// provider specific id.
-func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.RequestedNetworksResults, error) {
-	result := params.RequestedNetworksResults{
-		Results: make([]params.RequestedNetworkResult, len(args.Entities)),
-	}
-	canAccess, err := p.getAuthFunc()
-	if err != nil {
-		return result, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			var networks []string
-			networks, err = machine.RequestedNetworks()
-			if err == nil {
-				// TODO(dimitern) For now, since network names and
-				// provider ids are the same, we return what we got
-				// from state. In the future, when networks can be
-				// added before provisioning, we should convert both
-				// slices from juju network names to provider-specific
-				// ids before returning them.
-				result.Results[i].Networks = networks
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
@@ -662,13 +626,27 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 	return result, nil
 }
 
+func (p *ProvisionerAPI) legacyAddressAllocationSupported() (bool, error) {
+	config, err := p.st.ModelConfig()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return environs.AddressAllocationEnabled(config.Type()), nil
+}
+
 // PrepareContainerInterfaceInfo allocates an address and returns
 // information to configure networking for a container. It accepts
 // container tags as arguments. If the address allocation feature flag
 // is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
-	params.MachineNetworkConfigResults, error) {
-	if environs.AddressAllocationEnabled() {
+	params.MachineNetworkConfigResults,
+	error,
+) {
+	supported, err := p.legacyAddressAllocationSupported()
+	if err != nil {
+		return params.MachineNetworkConfigResults{}, errors.Trace(err)
+	}
+	if supported {
 		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(true)")
 		return p.legacyPrepareOrGetContainerInterfaceInfo(args, true)
 	}
@@ -679,8 +657,14 @@ func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 // for a container. It accepts container tags as arguments. If the address
 // allocation feature flag is not enabled, it returns a NotSupported error.
 func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
-	params.MachineNetworkConfigResults, error) {
-	if environs.AddressAllocationEnabled() {
+	params.MachineNetworkConfigResults,
+	error,
+) {
+	supported, err := p.legacyAddressAllocationSupported()
+	if err != nil {
+		return params.MachineNetworkConfigResults{}, errors.Trace(err)
+	}
+	if supported {
 		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(false)")
 		return p.legacyPrepareOrGetContainerInterfaceInfo(args, false)
 	}
@@ -790,10 +774,10 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 			}
 			firstAddress := parentAddrs[0]
 			parentDeviceSubnet, err := firstAddress.Subnet()
-			if err != nil || parentDeviceSubnet == nil {
-				err = errors.Errorf(
-					"cannot get subnet %q used by address %q of host machine device %q: %v",
-					firstAddress.SubnetID(), firstAddress.Value(), parentDevice.Name(), err,
+			if err != nil {
+				err = errors.Annotatef(err,
+					"cannot get subnet %q used by address %q of host machine device %q",
+					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
 				)
 				result.Results[i].Error = common.ServerError(err)
 				preparedOK = false
@@ -868,7 +852,7 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 	var subnet *state.Subnet
 	var subnetInfo network.SubnetInfo
 	var interfaceInfo network.InterfaceInfo
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled(environ.Config().Type()) {
 		// We don't need a subnet unless we need to allocate a static IP.
 		subnet, subnetInfo, interfaceInfo, err = p.prepareAllocationNetwork(environ, instId)
 		if err != nil {
@@ -967,15 +951,11 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 			interfaceType = string(network.EthernetInterface)
 		}
 
-		// TODO(dimitern): Support allocating one address per NIC on
-		// the host, effectively creating the same number of NICs in
-		// the container.
 		result.Results[i] = params.MachineNetworkConfigResult{
 			Config: []params.NetworkConfig{{
 				DeviceIndex:      interfaceInfo.DeviceIndex,
 				MACAddress:       macAddress,
 				CIDR:             subnetInfo.CIDR,
-				NetworkName:      interfaceInfo.NetworkName,
 				ProviderId:       string(interfaceInfo.ProviderId),
 				ProviderSubnetId: string(subnetInfo.ProviderId),
 				VLANTag:          interfaceInfo.VLANTag,
@@ -987,7 +967,6 @@ func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
 				ConfigType:       string(network.ConfigStatic),
 				Address:          address.Value(),
 				GatewayAddress:   interfaceInfo.GatewayAddress.Value,
-				ExtraConfig:      interfaceInfo.ExtraConfig,
 			}},
 		}
 	}
@@ -1147,7 +1126,7 @@ func (p *ProvisionerAPI) allocateAddress(
 ) (*state.IPAddress, error) {
 	hostname := containerHostname(container.Tag())
 
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled(environ.Config().Type()) {
 		// Even if the address allocation feature flag is not enabled, we might
 		// be running on MAAS 1.8+ with devices support, which we can use to
 		// register containers getting IPs via DHCP. However, most of the usual

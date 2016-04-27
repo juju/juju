@@ -49,9 +49,6 @@ type kvmBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting kvm containers with networks is not supported yet")
-	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
@@ -64,6 +61,12 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = container.DefaultKvmBridge
 	}
 
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		kvmLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		machineId,
@@ -72,6 +75,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
+		config.ProviderType,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
@@ -84,14 +88,22 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// Unlike with LXC, we don't override the default MTU to use.
 	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
 
-	series := args.Tools.OneSeries()
-	args.InstanceConfig.MachineContainerType = instance.KVM
-	args.InstanceConfig.Tools = args.Tools[0]
-
-	config, err := broker.api.ContainerConfig()
+	// The provisioner worker will provide all tools it knows about
+	// (after applying explicitly specified constraints), which may
+	// include tools for architectures other than the host's.
+	//
+	// container/kvm only allows running container==host arch, so
+	// we constrain the tools to host arch here regardless of the
+	// constraints specified.
+	archTools, err := matchHostArchTools(args.Tools)
 	if err != nil {
-		kvmLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+
+	series := archTools.OneSeries()
+	args.InstanceConfig.MachineContainerType = instance.KVM
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	if err := instancecfg.PopulateInstanceConfig(
@@ -149,6 +161,7 @@ func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) err
 		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
+		broker.agentConfig.Value(agent.ProviderType),
 	)
 	return err
 }
@@ -162,7 +175,8 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger)
+		providerType := broker.agentConfig.Value(agent.ProviderType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger, providerType)
 	}
 	return nil
 }

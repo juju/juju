@@ -37,9 +37,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
 
 	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
@@ -100,7 +97,9 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = envTools[0]
+	if err := args.InstanceConfig.SetTools(envTools); err != nil {
+		return errors.Trace(err)
+	}
 	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 

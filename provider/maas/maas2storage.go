@@ -36,6 +36,9 @@ func (stor *maas2Storage) Get(name string) (io.ReadCloser, error) {
 	name = stor.prefixWithPrivateNamespace(name)
 	file, err := stor.maasController.GetFile(name)
 	if err != nil {
+		if gomaasapi.IsNoMatchError(err) {
+			return nil, errors.Wrap(err, errors.NotFoundf(name))
+		}
 		return nil, errors.Trace(err)
 	}
 	contents, err := file.ReadAll()

@@ -159,9 +159,9 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.Close()
+	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RemoveModel(s.State, st.ModelUUID())
+	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected = "fail"

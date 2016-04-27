@@ -245,7 +245,6 @@ func (i *importer) machine(m description.Machine) error {
 	// 2. construct enough MachineTemplate to pass into 'insertNewMachineOps'
 	//    - adds constraints doc
 	//    - adds status doc
-	//    - adds requested network doc
 	//    - adds machine block devices doc
 
 	// TODO: consider filesystems and volumes
@@ -267,9 +266,12 @@ func (i *importer) machine(m description.Machine) error {
 		Status:    status.StatusStarted,
 	}
 	cons := i.constraints(m.Constraints())
-	networks := []string{}
-	prereqOps, machineOp := i.st.baseNewMachineOps(mdoc, machineStatusDoc,
-		instanceStatusDoc, cons, networks)
+	prereqOps, machineOp := i.st.baseNewMachineOps(
+		mdoc,
+		machineStatusDoc,
+		instanceStatusDoc,
+		cons,
+	)
 
 	// 3. create op for adding in instance data
 	if instance := m.Instance(); instance != nil {
@@ -318,13 +320,13 @@ func (i *importer) machine(m description.Machine) error {
 
 func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 	var result []txn.Op
-	machineId := m.Id()
+	machineID := m.Id()
 
-	for _, ports := range m.NetworkPorts() {
-		networkName := ports.NetworkName()
+	for _, ports := range m.OpenedPorts() {
+		subnetID := ports.SubnetID()
 		doc := &portsDoc{
-			MachineID:   machineId,
-			NetworkName: networkName,
+			MachineID: machineID,
+			SubnetID:  subnetID,
 		}
 		for _, opened := range ports.OpenPorts() {
 			doc.Ports = append(doc.Ports, PortRange{
@@ -336,7 +338,7 @@ func (i *importer) machinePortsOps(m description.Machine) []txn.Op {
 		}
 		result = append(result, txn.Op{
 			C:      openedPortsC,
-			Id:     portsGlobalKey(machineId, networkName),
+			Id:     portsGlobalKey(machineID, subnetID),
 			Assert: txn.DocMissing,
 			Insert: doc,
 		})
@@ -458,7 +460,6 @@ func (i *importer) makeAddress(addr description.Address) address {
 	return address{
 		Value:       addr.Value(),
 		AddressType: addr.Type(),
-		NetworkName: addr.NetworkName(),
 		Scope:       addr.Scope(),
 		Origin:      addr.Origin(),
 	}
@@ -540,7 +541,6 @@ func (i *importer) service(s description.Service) error {
 		serviceDoc:  sdoc,
 		statusDoc:   statusDoc,
 		constraints: i.constraints(s.Constraints()),
-		// networks         TODO,
 		// storage          TODO,
 		settings:           s.Settings(),
 		settingsRefCount:   s.SettingsRefCount(),

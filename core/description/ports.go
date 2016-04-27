@@ -8,122 +8,122 @@ import (
 	"github.com/juju/schema"
 )
 
-type versionedNetworkPorts struct {
-	Version       int             `yaml:"version"`
-	NetworkPorts_ []*networkPorts `yaml:"network-ports"`
+type versionedOpenedPorts struct {
+	Version      int            `yaml:"version"`
+	OpenedPorts_ []*openedPorts `yaml:"opened-ports"`
 }
 
-type networkPorts struct {
-	NetworkName_ string      `yaml:"network-name"`
-	OpenPorts_   *portRanges `yaml:"open-ports"`
+type openedPorts struct {
+	SubnetID_    string      `yaml:"subnet-id"`
+	OpenedPorts_ *portRanges `yaml:"opened-ports"`
 }
 
-// NetworkPortsArgs is an argument struct used to add a set of opened port
-// ranges to a machine.
-type NetworkPortsArgs struct {
-	NetworkName string
-	OpenPorts   []PortRangeArgs
+// OpenedPortsArgs is an argument struct used to add a set of opened port ranges
+// to a machine.
+type OpenedPortsArgs struct {
+	SubnetID    string
+	OpenedPorts []PortRangeArgs
 }
 
-func newNetworkPorts(args NetworkPortsArgs) *networkPorts {
-	result := &networkPorts{NetworkName_: args.NetworkName}
-	result.setOpenPorts(nil)
-	for _, pargs := range args.OpenPorts {
-		result.OpenPorts_.add(pargs)
+func newOpenedPorts(args OpenedPortsArgs) *openedPorts {
+	result := &openedPorts{SubnetID_: args.SubnetID}
+	result.setOpenedPorts(nil)
+	for _, pargs := range args.OpenedPorts {
+		result.OpenedPorts_.add(pargs)
 	}
 	return result
 }
 
-// NetworkName implements NetworkPorts.
-func (n *networkPorts) NetworkName() string {
-	return n.NetworkName_
+// SubnetID implements OpenedPorts.
+func (p *openedPorts) SubnetID() string {
+	return p.SubnetID_
 }
 
-// OpenPorts implements NetworkPorts.
-func (n *networkPorts) OpenPorts() []PortRange {
+// OpenPorts implements OpenedPorts.
+func (p *openedPorts) OpenPorts() []PortRange {
 	var result []PortRange
-	for _, pr := range n.OpenPorts_.OpenPorts_ {
+	for _, pr := range p.OpenedPorts_.OpenedPorts_ {
 		result = append(result, pr)
 	}
 	return result
 }
 
-func (n *networkPorts) setOpenPorts(ports []*portRange) {
-	n.OpenPorts_ = &portRanges{
-		Version:    1,
-		OpenPorts_: ports,
+func (p *openedPorts) setOpenedPorts(ports []*portRange) {
+	p.OpenedPorts_ = &portRanges{
+		Version:      1,
+		OpenedPorts_: ports,
 	}
 }
 
-func importNetworkPorts(source map[string]interface{}) ([]*networkPorts, error) {
-	checker := versionedChecker("network-ports")
+func importOpenedPorts(source map[string]interface{}) ([]*openedPorts, error) {
+	checker := versionedChecker("opened-ports")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "network-ports version schema check failed")
+		return nil, errors.Annotatef(err, "opened-ports version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
 	version := int(valid["version"].(int64))
-	importFunc, ok := networkPortsDeserializationFuncs[version]
+	importFunc, ok := openedPortsDeserializationFuncs[version]
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["network-ports"].([]interface{})
-	return importNetworkPortsList(sourceList, importFunc)
+	sourceList := valid["opened-ports"].([]interface{})
+	return importOpenedPortsList(sourceList, importFunc)
 }
 
-func importNetworkPortsList(sourceList []interface{}, importFunc networkPortsDeserializationFunc) ([]*networkPorts, error) {
-	result := make([]*networkPorts, 0, len(sourceList))
+func importOpenedPortsList(sourceList []interface{}, importFunc openedPortsDeserializationFunc) ([]*openedPorts, error) {
+	result := make([]*openedPorts, 0, len(sourceList))
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
-			return nil, errors.Errorf("unexpected value for network-ports %d, %T", i, value)
+			return nil, errors.Errorf("unexpected value for opened-ports %d, %T", i, value)
 		}
 		ports, err := importFunc(source)
 		if err != nil {
-			return nil, errors.Annotatef(err, "network-ports %d", i)
+			return nil, errors.Annotatef(err, "opened-ports %d", i)
 		}
 		result = append(result, ports)
 	}
 	return result, nil
 }
 
-type networkPortsDeserializationFunc func(map[string]interface{}) (*networkPorts, error)
+type openedPortsDeserializationFunc func(map[string]interface{}) (*openedPorts, error)
 
-var networkPortsDeserializationFuncs = map[int]networkPortsDeserializationFunc{
-	1: importNetworkPortsV1,
+var openedPortsDeserializationFuncs = map[int]openedPortsDeserializationFunc{
+	1: importOpenedPortsV1,
 }
 
-func importNetworkPortsV1(source map[string]interface{}) (*networkPorts, error) {
+func importOpenedPortsV1(source map[string]interface{}) (*openedPorts, error) {
 	fields := schema.Fields{
-		"network-name": schema.String(),
-		"open-ports":   schema.StringMap(schema.Any()),
+		"subnet-id":    schema.String(),
+		"opened-ports": schema.StringMap(schema.Any()),
 	}
 
 	checker := schema.FieldMap(fields, nil) // no defaults
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "network-ports v1 schema check failed")
+		return nil, errors.Annotatef(err, "opened-ports v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
-	ports, err := importPortRanges(valid["open-ports"].(map[string]interface{}))
+	ports, err := importPortRanges(valid["opened-ports"].(map[string]interface{}))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := &networkPorts{
-		NetworkName_: valid["network-name"].(string),
+	result := &openedPorts{
+		SubnetID_: valid["subnet-id"].(string),
 	}
-	result.setOpenPorts(ports)
+	result.setOpenedPorts(ports)
 	return result, nil
 }
 
 type portRanges struct {
-	Version    int          `yaml:"version"`
-	OpenPorts_ []*portRange `yaml:"open-ports"`
+	Version      int          `yaml:"version"`
+	OpenedPorts_ []*portRange `yaml:"opened-ports"`
 }
 
 type portRange struct {
@@ -133,8 +133,8 @@ type portRange struct {
 	Protocol_ string `yaml:"protocol"`
 }
 
-// PortRangeArgs is an argument struct used to create a PortRange. This is
-// only done as part of creating NetworkPorts for a Machine.
+// PortRangeArgs is an argument struct used to create a PortRange. This is only
+// done as part of creating OpenedPorts for a Machine.
 type PortRangeArgs struct {
 	UnitName string
 	FromPort int
@@ -152,7 +152,7 @@ func newPortRange(args PortRangeArgs) *portRange {
 }
 
 func (p *portRanges) add(args PortRangeArgs) {
-	p.OpenPorts_ = append(p.OpenPorts_, newPortRange(args))
+	p.OpenedPorts_ = append(p.OpenedPorts_, newPortRange(args))
 }
 
 // UnitName implements PortRange.
@@ -176,7 +176,7 @@ func (p *portRange) Protocol() string {
 }
 
 func importPortRanges(source map[string]interface{}) ([]*portRange, error) {
-	checker := versionedChecker("open-ports")
+	checker := versionedChecker("opened-ports")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "port-range version schema check failed")
@@ -188,7 +188,7 @@ func importPortRanges(source map[string]interface{}) ([]*portRange, error) {
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["open-ports"].([]interface{})
+	sourceList := valid["opened-ports"].([]interface{})
 	return importPortRangeList(sourceList, importFunc)
 }
 

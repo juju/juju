@@ -108,6 +108,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This has been deprecated in 2.0, and should not contain any data
 		// we actually care about migrating.
 		legacyipaddressesC,
+
+		// The SSH host keys for each machine will be reported as each
+		// machine agent starts up.
+		sshHostKeysC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -138,9 +142,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		ipAddressesC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
-		networksC,
-		networkInterfacesC,
-		requestedNetworksC,
 		subnetsC,
 		spacesC,
 
@@ -178,10 +179,6 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// ServerUUID is recreated when the new model is created in the
 		// new controller (yay name changes).
 		"ServerUUID",
-		// Both of the times for dying and death are empty as the model
-		// is alive.
-		"TimeOfDying",
-		"TimeOfDeath",
 
 		"MigrationMode",
 		"Owner",
@@ -372,9 +369,9 @@ func (s *MigrationSuite) TestPortsDocFields(c *gc.C) {
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
-		// MachineId is implicit in the migration structure through containment.
+		// MachineID is implicit in the migration structure through containment.
 		"MachineID",
-		"NetworkName",
+		"SubnetID",
 		"Ports",
 		// TxnRevno isn't migrated.
 		"TxnRevno",
@@ -498,8 +495,6 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		"Container",
 		"Tags",
 		"Spaces",
-		// Networks is a deprecated constraint and not exported.
-		"Networks",
 	)
 	s.AssertExportedFields(c, constraintsDoc{}, fields)
 }

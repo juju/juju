@@ -19,7 +19,6 @@ const (
 
 	JujuModelEnvKey         = "JUJU_MODEL"
 	JujuXDGDataHomeEnvKey   = "JUJU_DATA"
-	JujuRepositoryEnvKey    = "JUJU_REPOSITORY"
 	JujuLoggingConfigEnvKey = "JUJU_LOGGING_CONFIG"
 	JujuFeatureFlagEnvKey   = "JUJU_DEV_FEATURE_FLAGS"
 

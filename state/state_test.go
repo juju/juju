@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -173,7 +172,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -1762,110 +1761,6 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 	}
 }
 
-var addNetworkErrorsTests = []struct {
-	args      state.NetworkInfo
-	expectErr string
-}{{
-	state.NetworkInfo{"", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "": name must be not empty`,
-}, {
-	state.NetworkInfo{"$-invalid-", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "\$-invalid-": invalid name`,
-}, {
-	state.NetworkInfo{"net2", "", "0.3.1.0/24", 0},
-	`cannot add network "net2": provider id must be not empty`,
-}, {
-	state.NetworkInfo{"net2", "provider-id", "invalid", 0},
-	`cannot add network "net2": invalid CIDR address: invalid`,
-}, {
-	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", -1},
-	`cannot add network "net2": invalid VLAN tag -1: must be between 0 and 4094`,
-}, {
-	state.NetworkInfo{"net2", "provider-id", "0.3.1.0/24", 9999},
-	`cannot add network "net2": invalid VLAN tag 9999: must be between 0 and 4094`,
-}, {
-	state.NetworkInfo{"net1", "provider-id", "0.3.1.0/24", 0},
-	`cannot add network "net1": network "net1" already exists`,
-}, {
-	state.NetworkInfo{"net42", "provider-net1", "0.3.1.0/24", 0},
-	`cannot add network "net42": network with provider id "provider-net1" already exists`,
-}}
-
-func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
-	includeNetworks := []string{"net1", "net2", "net3", "net4"}
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=net3,net4,^net5,^net6"),
-		RequestedNetworks: includeNetworks[:2], // net1, net2
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, netName := range includeNetworks {
-		stateNet, _ := addNetworkAndInterface(
-			c, s.State, machine,
-			netName, "provider-"+netName, fmt.Sprintf("0.%02d.2.0/24", i), 0, false,
-			fmt.Sprintf("aa:%02x:cc:dd:ee:f0", i), fmt.Sprintf("eth%d", i))
-
-		net, err := s.State.Network(netName)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(net, gc.DeepEquals, stateNet)
-		c.Check(net.Name(), gc.Equals, netName)
-		c.Check(string(net.ProviderId()), gc.Equals, "provider-"+netName)
-	}
-	_, err = s.State.Network("missing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
-
-	for i, test := range addNetworkErrorsTests {
-		c.Logf("test %d: %#v", i, test.args)
-		_, err := s.State.AddNetwork(test.args)
-		c.Check(err, gc.ErrorMatches, test.expectErr)
-		if strings.Contains(test.expectErr, "already exists") {
-			c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-		}
-	}
-}
-
-func (s *StateSuite) TestAllNetworks(c *gc.C) {
-	machine1, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=^net3,^net4"),
-		RequestedNetworks: []string{"net1", "net2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	machine2, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:            "quantal",
-		Jobs:              []state.MachineJob{state.JobHostUnits},
-		Constraints:       constraints.MustParse("networks=^net1,^net2"),
-		RequestedNetworks: []string{"net3", "net4"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	networks := []*state.Network{}
-	for i := 0; i < 4; i++ {
-		netName := fmt.Sprintf("net%d", i+1)
-		cidr := fmt.Sprintf("0.1.%d.0/24", i)
-		ifaceName := fmt.Sprintf("eth%d", i%2)
-		macAddress := fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i)
-		machine := machine1
-		if i >= 2 {
-			machine = machine2
-		}
-		network, _ := addNetworkAndInterface(
-			c, s.State, machine,
-			netName, "provider-"+netName, cidr, i, false,
-			macAddress, ifaceName)
-		networks = append(networks, network)
-
-		allNetworks, err := s.State.AllNetworks()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(allNetworks, gc.HasLen, len(networks))
-		c.Assert(allNetworks, jc.DeepEquals, networks)
-	}
-}
-
 func (s *StateSuite) TestAddService(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "haha/borken", Owner: s.Owner.String(), Charm: ch})
@@ -2475,7 +2370,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	env2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env2.Destroy(), jc.ErrorIsNil)
-	err = state.RemoveModel(s.State, st2.ModelUUID())
+	err = st2.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed env are reported in initial event.
@@ -2505,7 +2400,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	// Add a non-empty model: reported.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	factory.NewFactory(st1).MakeService(c, nil)
+	svc := factory.NewFactory(st1).MakeService(c, nil)
 	env, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
@@ -2518,7 +2413,11 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	err = state.RemoveModel(s.State, env.UUID())
+	err = svc.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.ProcessDyingModel()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(env.UUID())
 	wc.AssertNoChange()
@@ -3082,6 +2981,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	userModelKey := s.insertFakeModelDocs(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3094,6 +2994,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
 type attrs map[string]interface{}
@@ -3384,11 +3285,6 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewUserTag("arble"),
 }, {
-	tag: names.NewNetworkTag("missing"),
-	err: `network "missing" not found`,
-}, {
-	tag: names.NewNetworkTag("net1"),
-}, {
 	tag: names.NewActionTag("fedcba98-7654-4321-ba98-76543210beef"),
 	err: `action "fedcba98-7654-4321-ba98-76543210beef" not found`,
 }, {
@@ -3407,7 +3303,6 @@ var entityTypes = map[string]interface{}{
 	names.UnitTagKind:     (*state.Unit)(nil),
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
-	names.NetworkTagKind:  (*state.Network)(nil),
 	names.ActionTagKind:   (state.Action)(nil),
 }
 
@@ -3428,15 +3323,6 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db ser-vice2:server")
-	net1, err := s.State.AddNetwork(state.NetworkInfo{
-		Name:       "net1",
-		ProviderId: "provider-id",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(net1.Tag().String(), gc.Equals, "network-net1")
-	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
 	// model tag is dynamically generated
 	env, err := s.State.Model()
@@ -3534,20 +3420,6 @@ func (s *StateSuite) TestParseModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "models")
 	c.Assert(id, gc.Equals, env.UUID())
-}
-
-func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
-	net1, err := s.State.AddNetwork(state.NetworkInfo{
-		Name:       "net1",
-		ProviderId: "provider-id",
-		CIDR:       "0.1.2.0/24",
-		VLANTag:    0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, net1.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coll, gc.Equals, "networks")
-	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -4499,26 +4371,23 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 
 	newHostPorts := [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}, {
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
 		Address: network.Address{
-			Value:       "0.6.1.2",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 5,
 	}}}
@@ -4531,10 +4400,9 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 
 	newHostPorts = [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv6Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 13,
 	}}}
@@ -4549,18 +4417,16 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 	hostPorts := [][]network.HostPort{{{
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}}}
@@ -4590,19 +4456,17 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.HostPort{{
 		Address: network.Address{
-			Value:       "0.4.8.16",
-			Type:        network.IPv4Address,
-			NetworkName: "foo",
-			Scope:       network.ScopePublic,
+			Value: "0.4.8.16",
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		Port: 2,
 	}}
 	hostPorts1 := []network.HostPort{{
 		Address: network.Address{
-			Value:       "0.2.4.6",
-			Type:        network.IPv4Address,
-			NetworkName: "net",
-			Scope:       network.ScopeCloudLocal,
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}}

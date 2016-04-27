@@ -25,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -99,6 +100,7 @@ func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	s.PatchValue(&cert.KeyBits, 1024) // Use a shorter key for a faster TLS handshake.
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
@@ -449,10 +451,11 @@ func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRe
 	if sch, err := st.Charm(curl); err == nil {
 		return sch, nil
 	}
-	return addCharm(st, curl, ch)
+	return AddCharm(st, curl, ch)
 }
 
-func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
+// AddCharm adds the charm to state and storage.
+func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
 	var f *os.File
 	name := charm.Quote(curl.String())
 	switch ch := ch.(type) {

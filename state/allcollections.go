@@ -87,7 +87,10 @@ func allCollections() collectionSchema {
 
 		// This collection holds a convenient representation of the content of
 		// the simplestreams data source pointing to binaries required by juju.
-		toolsmetadataC: {global: true},
+		//
+		// Tools metadata is per-model, to allow multiple revisions of tools to
+		// be uploaded to different models without affecting other models.
+		toolsmetadataC: {},
 
 		// This collection holds a convenient representation of the content of
 		// the simplestreams data source pointing to Juju GUI archives.
@@ -246,6 +249,7 @@ func allCollections() collectionSchema {
 		instanceDataC:  {},
 		machinesC:      {},
 		rebootC:        {},
+		sshHostKeysC:   {},
 
 		// -----
 
@@ -293,27 +297,6 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "subnetid"},
 			}},
 		},
-		networkInterfacesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"model-uuid", "interfacename", "machineid"},
-				Unique: true,
-			}, {
-				Key:    []string{"model-uuid", "macaddress", "networkname"},
-				Unique: true,
-			}, {
-				Key: []string{"model-uuid", "machineid"},
-			}, {
-				Key: []string{"model-uuid", "networkname"},
-			}},
-		},
-		networksC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"model-uuid", "providerid"},
-				Unique: true,
-			}},
-		},
-		openedPortsC:       {},
-		requestedNetworksC: {},
 		// TODO(dimitern): End of obsolete networking collections.
 		spacesC: {
 			indexes: []mgo.Index{{
@@ -345,11 +328,16 @@ func allCollections() collectionSchema {
 			}},
 		},
 		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 
 		// These collections hold information associated with actions.
-		actionsC:             {},
+		actionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 		actionNotificationsC: {},
 
 		// -----
@@ -441,19 +429,17 @@ const (
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
-	networkInterfacesC       = "networkinterfaces"
-	networksC                = "networks"
 	openedPortsC             = "openedPorts"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
 	relationsC               = "relations"
-	requestedNetworksC       = "requestednetworks"
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
 	servicesC                = "services"
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"
+	sshHostKeysC             = "sshhostkeys"
 	spacesC                  = "spaces"
 	statusesC                = "statuses"
 	statusesHistoryC         = "statuseshistory"

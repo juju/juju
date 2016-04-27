@@ -15,6 +15,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 )
@@ -23,7 +24,7 @@ var usageListCredentialsSummary = `
 Lists credentials for a cloud.`[1:]
 
 var usageListCredentialsDetails = `
-Credentials are used with `[1:] + "`juju bootstrap`" + `  and ` + "`juju create-model`" + `.
+Credentials are used with `[1:] + "`juju bootstrap`" + `  and ` + "`juju add-model`" + `.
 An arbitrary "credential name" is used to represent credentials, which are 
 added either via ` + "`juju add-credential` or `juju autoload-credentials`" + `.
 Note that there can be multiple sets of credentials and thus multiple 
@@ -154,7 +155,7 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listCredentialsCommand) removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential) error {
-	cloud, err := c.cloudByNameFunc(cloudName)
+	cloud, err := common.CloudOrProvider(cloudName, c.cloudByNameFunc)
 	if err != nil {
 		return err
 	}

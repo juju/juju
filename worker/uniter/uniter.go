@@ -98,6 +98,10 @@ type Uniter struct {
 
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
+
+	// downloader is the downloader that should be used to get the charm
+	// archive.
+	downloader charm.Downloader
 }
 
 // UniterParams hold all the necessary parameters for a new Uniter.
@@ -106,6 +110,7 @@ type UniterParams struct {
 	UnitTag              names.UnitTag
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
+	Downloader           charm.Downloader
 	MachineLock          *fslock.Lock
 	CharmDirGuard        fortress.Guard
 	UpdateStatusSignal   func() <-chan time.Time
@@ -135,6 +140,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 		newOperationExecutor: uniterParams.NewOperationExecutor,
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
+		downloader:           uniterParams.Downloader,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -325,7 +331,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			case resolver.ErrTerminate:
 				err = u.terminate()
 			case resolver.ErrRestart:
+				// make sure we update the two values used above in
+				// creating LocalState.
 				charmURL = localState.CharmURL
+				charmModifiedVersion = localState.CharmModifiedVersion
 				// leave err assigned, causing loop to break
 			default:
 				// We need to set conflicted from here, because error
@@ -439,7 +448,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
-		charm.NewBundlesDir(u.paths.State.BundlesDir),
+		charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")
@@ -461,7 +470,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Deployer:       u.deployer,
 		RunnerFactory:  runnerFactory,
 		Callbacks:      &operationCallbacks{u},
-		StorageUpdater: u.storage,
 		Abort:          u.catacomb.Dying(),
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})

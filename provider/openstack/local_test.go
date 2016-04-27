@@ -331,11 +331,11 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
-			{Value: "10.0.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
-			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
-			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
-			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
-			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+			{Value: "10.0.0.1", Type: "ipv4", Scope: "public"},
+			{Value: "127.0.0.1", Type: "ipv4", Scope: "local-machine"},
+			{Value: "::face::000f", Type: "hostname", Scope: ""},
+			{Value: "127.10.0.1", Type: "ipv4", Scope: "public"},
+			{Value: "::dead:beef:f00d", Type: "ipv6", Scope: "public"},
 		})
 		bootstrapFinished = true
 		return nil
@@ -365,10 +365,10 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
-			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
-			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
-			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
-			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+			{Value: "127.0.0.1", Type: "ipv4", Scope: "local-machine"},
+			{Value: "::face::000f", Type: "hostname", Scope: ""},
+			{Value: "127.10.0.1", Type: "ipv4", Scope: "public"},
+			{Value: "::dead:beef:f00d", Type: "ipv6", Scope: "public"},
 		})
 		bootstrapFinished = true
 		return nil
@@ -927,7 +927,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "arm64", "ppc64el", "s390x"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
@@ -959,9 +959,12 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=arm64")
+
+	// i386 is a valid arch, but is no longer supported.  No image
+	// data was created for it for the test.
+	cons := constraints.MustParse("arch=i386")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
@@ -1488,7 +1491,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(t.env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(t.env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -1578,7 +1581,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(t.env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -1601,7 +1604,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(t.env, "1", params)
 	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
 }
 
@@ -1724,8 +1727,9 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 		openstack.InstanceServerDetail(instances[0]).Metadata,
 		jc.DeepEquals,
 		map[string]string{
-			"juju-model-uuid":    coretesting.ModelTag.Id(),
-			"juju-is-controller": "true",
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ModelTag.Id(),
+			"juju-is-controller":   "true",
 		},
 	)
 }
@@ -1743,9 +1747,10 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 			openstack.InstanceServerDetail(instances[0]).Metadata,
 			jc.DeepEquals,
 			map[string]string{
-				"juju-model-uuid":    coretesting.ModelTag.Id(),
-				"juju-is-controller": "true",
-				extraKey:             extraValue,
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ModelTag.Id(),
+				"juju-is-controller":   "true",
+				extraKey:               extraValue,
 			},
 		)
 	}

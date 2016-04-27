@@ -4,6 +4,7 @@
 package discoverspaces_test
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/names"
@@ -31,7 +32,31 @@ type WorkerSuite struct {
 	testing.JujuConnSuite
 
 	APIConnection api.Connection
-	API           *apidiscoverspaces.API
+	API           *checkingFacade
+
+	numCreateSpaceCalls uint32
+	numAddSubnetsCalls  uint32
+}
+
+type checkingFacade struct {
+	apidiscoverspaces.API
+
+	createSpacesCallback func()
+	addSubnetsCallback   func()
+}
+
+func (cf *checkingFacade) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	if cf.createSpacesCallback != nil {
+		cf.createSpacesCallback()
+	}
+	return cf.API.CreateSpaces(args)
+}
+
+func (cf *checkingFacade) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
+	if cf.addSubnetsCallback != nil {
+		cf.addSubnetsCallback()
+	}
+	return cf.API.AddSubnets(args)
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -43,7 +68,17 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
 	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	s.API = s.APIConnection.DiscoverSpaces()
+
+	realAPI := s.APIConnection.DiscoverSpaces()
+	s.API = &checkingFacade{
+		API: *realAPI,
+		createSpacesCallback: func() {
+			atomic.AddUint32(&s.numCreateSpaceCalls, 1)
+		},
+		addSubnetsCallback: func() {
+			atomic.AddUint32(&s.numAddSubnetsCalls, 1)
+		},
+	}
 }
 
 func (s *WorkerSuite) TearDownTest(c *gc.C) {
@@ -104,13 +139,19 @@ func (s *WorkerSuite) TestWorkerSupportsSpaceDiscoveryFalse(c *gc.C) {
 
 func (s *WorkerSuite) TestWorkerDiscoversSpaces(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
-	s.unlockCheck(c, s.assertDiscoveredSpaces)
+	s.unlockCheck(c, func(*gc.C) {
+		s.assertDiscoveredSpaces(c)
+		s.assertNumCalls(c, 1, 1)
+	})
 }
 
 func (s *WorkerSuite) TestWorkerIdempotent(c *gc.C) {
 	dummy.SetSupportsSpaceDiscovery(true)
 	s.unlockCheck(c, s.assertDiscoveredSpaces)
-	s.unlockCheck(c, s.assertDiscoveredSpaces)
+	s.unlockCheck(c, func(*gc.C) {
+		s.assertDiscoveredSpaces(c)
+		s.assertNumCalls(c, 2, 2)
+	})
 }
 
 func (s *WorkerSuite) TestWorkerIgnoresExistingSpacesAndSubnets(c *gc.C) {
@@ -156,7 +197,7 @@ func (s *WorkerSuite) startWorker(c *gc.C) (worker.Worker, gate.Lock) {
 	worker, err := discoverspaces.NewWorker(discoverspaces.Config{
 		Facade:   s.API,
 		Environ:  environ,
-		NewName:  discoverspaces.ConvertSpaceName,
+		NewName:  network.ConvertSpaceName,
 		Unlocker: lock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -242,4 +283,9 @@ func (s *WorkerSuite) assertDiscoveredSpaces(c *gc.C) {
 			c.Check(subnet.CIDR(), gc.Equals, expectedSubnet.CIDR)
 		}
 	}
+}
+
+func (s *WorkerSuite) assertNumCalls(c *gc.C, expectedNumCreateSpaceCalls, expectedNumAddSubnetsCalls int) {
+	c.Check(atomic.LoadUint32(&s.numCreateSpaceCalls), gc.Equals, uint32(expectedNumCreateSpaceCalls))
+	c.Check(atomic.LoadUint32(&s.numAddSubnetsCalls), gc.Equals, uint32(expectedNumAddSubnetsCalls))
 }

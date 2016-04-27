@@ -51,7 +51,7 @@ func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*envir
 	inst, hw, networkInfo, err := env.startInstance(
 		args.Placement,
 		args.Constraints,
-		args.InstanceConfig.Networks,
+		nil,
 		args.Tools,
 		args.InstanceConfig,
 	)

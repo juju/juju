@@ -128,9 +128,10 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	tgz, checksum := coretesting.TarGz(
 		coretesting.NewTarFile(jujunames.Jujud, 0777, "jujud contents "+vers))
 
-	tool, err := otherClient.UploadTools(bytes.NewReader(tgz), newVersion)
+	toolsList, err := otherClient.UploadTools(bytes.NewReader(tgz), newVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tool.SHA256, gc.Equals, checksum)
+	c.Assert(toolsList, gc.HasLen, 1)
+	c.Assert(toolsList[0].SHA256, gc.Equals, checksum)
 
 	toolStrg, err := otherState.ToolsStorage()
 	defer toolStrg.Close()

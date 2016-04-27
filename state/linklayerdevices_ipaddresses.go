@@ -33,11 +33,10 @@ type ipAddressDoc struct {
 	// MachineID is the ID of the machine this IP address's device belongs to.
 	MachineID string `bson:"machine-id"`
 
-	// SubnetID is the ID of the subnet this IP address belongs to. Must be
-	// empty for ConfigType LoopbackIPAddress or if the address Value refers
-	// to an unknown subnet (i.e. machine-local or other RFC 1918, like the
-	// 10.0.3.0/24 range for lxcbr0).
-	SubnetID string `bson:"subnet-id"`
+	// SubnetCIDR is the CIDR of the subnet this IP address belongs to. The CIDR
+	// will either match a known provider subnet or a machine-local subnet (like
+	// 10.0.3.0/24 or 127.0.0.0/8).
+	SubnetCIDR string `bson:"subnet-cidr"`
 
 	// ConfigMethod is the method used to configure this IP address.
 	ConfigMethod AddressConfigMethod `bson:"config-method"`
@@ -143,20 +142,16 @@ func (addr *Address) Device() (*LinkLayerDevice, error) {
 	return addr.machineProxy().LinkLayerDevice(addr.doc.DeviceName)
 }
 
-// SubnetID returns the ID of the subnet this IP address comes from. For a
-// LoopbackAddress, the subnet is always empty.
-func (addr *Address) SubnetID() string {
-	return addr.doc.SubnetID
+// SubnetCIDR returns the CIDR of the subnet this IP address comes from.
+func (addr *Address) SubnetCIDR() string {
+	return addr.doc.SubnetCIDR
 }
 
-// Subnet returns the Subnet this IP address comes from. Returns nil and no
-// error for a LoopbackAddress.
+// Subnet returns the Subnet this IP address comes from. Returns nil and
+// errors.NotFoundError if the address comes from an unknown subnet (i.e.
+// machine-local one).
 func (addr *Address) Subnet() (*Subnet, error) {
-	if addr.doc.SubnetID == "" {
-		return nil, nil
-	}
-
-	return addr.st.Subnet(addr.doc.SubnetID)
+	return addr.st.Subnet(addr.doc.SubnetCIDR)
 }
 
 // ConfigMethod returns the AddressConfigMethod used for this IP address.
@@ -238,9 +233,9 @@ func insertIPAddressDocOp(newDoc *ipAddressDoc) txn.Op {
 
 // updateIPAddressDocOp returns an operation updating the fields of existingDoc
 // with the respective values of those fields in newDoc. DocID, ModelUUID,
-// Value, SubnetID, MachineID, and DeviceName cannot be changed. ProviderID
-// cannot be changed once set. DNSServers and DNSSearchDomains are deleted when
-// nil. In all other cases newDoc values overwrites existingDoc values.
+// Value, MachineID, and DeviceName cannot be changed. ProviderID cannot be
+// changed once set. DNSServers and DNSSearchDomains are deleted when nil. In
+// all other cases newDoc values overwrites existingDoc values.
 func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 	changes := make(bson.M)
 	deletes := make(bson.M)
@@ -252,8 +247,8 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) txn.Op {
 		changes["config-method"] = newDoc.ConfigMethod
 	}
 
-	if existingDoc.SubnetID != newDoc.SubnetID {
-		changes["subnet-id"] = newDoc.SubnetID
+	if existingDoc.SubnetCIDR != newDoc.SubnetCIDR {
+		changes["subnet-cidr"] = newDoc.SubnetCIDR
 	}
 
 	if newDoc.DNSServers == nil {

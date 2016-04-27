@@ -24,13 +24,13 @@ func init() {
 }
 
 type ResourcesBundleSuite struct {
-	service.DeployRepoCharmStoreSuite
+	service.BundleDeployCharmStoreSuite
 }
 
 var _ = gc.Suite(&ResourcesBundleSuite{})
 
 func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
-	testcharms.UploadCharm(c, s.Client, "trusty/starsay-42", "starsay")
+	testcharms.UploadCharm(c, s.Client(), "trusty/starsay-42", "starsay")
 	bundleMeta := `
         services:
             starsay:
@@ -47,7 +47,7 @@ func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
 	lines := strings.Split(output, "\n")
 	expectedLines := strings.Split(strings.TrimSpace(`
 added charm cs:trusty/starsay-42
-service starsay deployed (charm: cs:trusty/starsay-42)
+service starsay deployed (charm cs:trusty/starsay-42 with the charm series "trusty")
 added resource install-resource
 added resource store-resource
 added resource upload-resource

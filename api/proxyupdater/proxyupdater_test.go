@@ -8,11 +8,12 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/workertest"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/names"
 )
 
@@ -58,6 +59,15 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 			NotifyWatcherId: "4242",
 		}},
 	}
+
+	fake := &struct {
+		watcher.NotifyWatcher
+	}{}
+	s.PatchValue(proxyupdater.NewNotifyWatcher, func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
+		c.Assert(result, gc.DeepEquals, res.Results[0])
+		return fake
+	})
+
 	args := []apitesting.CheckArgs{{
 		Facade:  "ProxyUpdater",
 		Method:  "WatchForProxyConfigAndAPIHostPortChanges",
@@ -66,9 +76,9 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	called, api := newAPI(c, args)
 
 	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges()
-	workertest.CleanKill(c, watcher)
 	c.Check(*called, jc.GreaterThan, 0)
 	c.Check(err, jc.ErrorIsNil)
+	c.Check(watcher, gc.Equals, fake)
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {

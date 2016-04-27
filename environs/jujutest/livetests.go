@@ -5,6 +5,7 @@ package jujutest
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
@@ -105,7 +106,8 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.CleanupSuite.SetUpTest(c)
 	t.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	storageDir := c.MkDir()
-	t.DefaultBaseURL = "file://" + storageDir + "/tools"
+	baseUrlPath := filepath.Join(storageDir, "tools")
+	t.DefaultBaseURL = utils.MakeFileURL(baseUrlPath)
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -711,7 +713,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "", "released", "quantal", "", true, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)

@@ -38,19 +38,20 @@ type clientSuite struct {
 	commontesting.BlockHelper
 }
 
-type Killer interface {
-	Kill() error
+type KillerForTesting interface {
+	KillForTesting() error
 }
 
 var _ = gc.Suite(&clientSuite{})
 
-func assertKill(c *gc.C, killer Killer) {
-	c.Assert(killer.Kill(), gc.IsNil)
+func assertKill(c *gc.C, killer KillerForTesting) {
+	c.Assert(killer.KillForTesting(), gc.IsNil)
 }
 
 var (
-	emptyCons     = constraints.Value{}
-	defaultSeries = ""
+	emptyCons      = constraints.Value{}
+	controllerCons = constraints.MustParse("mem=16G cpu-cores=16")
+	defaultSeries  = ""
 )
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
@@ -67,7 +68,11 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine("quantal", state.JobManageModel)
+	_, err = s.State.AddMachines(state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobManageModel},
+		Constraints: controllerCons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
@@ -179,7 +184,7 @@ func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		{},
+		controllerCons,
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}
@@ -187,6 +192,24 @@ func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
 		cons, err := m.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(cons, gc.DeepEquals, expectedCons[i])
+	}
+}
+
+func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
+	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	for _, m := range machines {
+		cons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cons, gc.DeepEquals, controllerCons)
 	}
 }
 
@@ -220,7 +243,7 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		{},
+		controllerCons,
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}
@@ -234,8 +257,12 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	machine1Cons := constraints.MustParse("mem=8G")
+	_, err := s.State.AddMachines(state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: machine1Cons,
+	})
 	s.pingers = append(s.pingers, s.setAgentPresence(c, "1"))
 
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -253,7 +280,11 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
-	expectedCons := []constraints.Value{{}, {}, {}}
+	expectedCons := []constraints.Value{
+		controllerCons,
+		machine1Cons,
+		{},
+	}
 	expectedPlacement := []string{"", "", ""}
 	for i, m := range machines {
 		cons, err := m.Constraints()

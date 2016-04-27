@@ -4,7 +4,10 @@
 package jujutest
 
 import (
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -73,7 +76,8 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 
 func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
-	t.DefaultBaseURL = "file://" + storageDir + "/tools"
+	baseUrlPath := filepath.Join(storageDir, "tools")
+	t.DefaultBaseURL = utils.MakeFileURL(baseUrlPath)
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)

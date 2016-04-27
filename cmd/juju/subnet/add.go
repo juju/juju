@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newAddCommand() cmd.Command {
+// NewAddCommand returns a command used to add an existing subnet to Juju.
+func NewAddCommand() cmd.Command {
 	return modelcmd.Wrap(&addCommand{})
 }
 
@@ -31,7 +32,7 @@ type addCommand struct {
 
 const addCommandDoc = `
 Adds an existing subnet to Juju, making it available for use. Unlike
-"juju subnet create", this command does not create a new subnet, so it
+"juju create-subnet", this command does not create a new subnet, so it
 is supported on a wider variety of clouds (where SDN features are not
 available, e.g. MAAS). The subnet will be associated with the given
 existing Juju network space.
@@ -50,7 +51,7 @@ zone(s) is required.
 // Info is defined on the cmd.Command interface.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-subnet",
 		Args:    "<CIDR>|<provider-id> <space> [<zone1> <zone2> ...]",
 		Purpose: "add an existing subnet to Juju",
 		Doc:     strings.TrimSpace(addCommandDoc),

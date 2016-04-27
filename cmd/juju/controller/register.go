@@ -31,8 +31,8 @@ import (
 )
 
 var errNoModels = errors.New(`
-There are no models available. You can create models with
-"juju create-model", or you can ask an administrator or owner
+There are no models available. You can add models with
+"juju add-model", or you can ask an administrator or owner
 of a model to grant access to that model with "juju grant".`[1:])
 
 // NewRegisterCommand returns a command to allow the user to register a controller.
@@ -63,9 +63,9 @@ began with the `[1:] + "`juju add-user`" + ` command. The latter prints out the 
 that is referred to in Usage.
 The user will be prompted for a password, which, once set, causes the 
 registration string to be voided. In order to start using Juju the user 
-can now either create a model or wait for a model to be shared with them.
+can now either add a model or wait for a model to be shared with them.
 Some machine providers will require the user to be in possession of 
-certain credentials in order to create a model.
+certain credentials in order to add a model.
 
 Examples:
 
@@ -160,9 +160,13 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err := c.store.UpdateController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
+	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
+	if err != nil {
+		return errors.Annotate(err, "marshalling temporary credential to JSON")
+	}
 	accountDetails := jujuclient.AccountDetails{
 		User:     registrationParams.userTag.Canonical(),
-		Password: registrationParams.newPassword,
+		Macaroon: string(macaroonJSON),
 	}
 	accountName := accountDetails.User
 	if err := c.store.UpdateAccount(

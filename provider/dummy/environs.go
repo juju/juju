@@ -188,7 +188,6 @@ type OpStartInstance struct {
 	Instance         instance.Instance
 	Constraints      constraints.Value
 	SubnetsToZones   map[network.Id][]string
-	Networks         []string
 	NetworkInfo      []network.InterfaceInfo
 	Volumes          []storage.Volume
 	Info             *mongo.MongoInfo
@@ -1120,7 +1119,7 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled("dummy") {
 		return false, errors.NotSupportedf("address allocation")
 	}
 
@@ -1138,7 +1137,7 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given subnet.
 func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled("dummy") {
 		// Any instId starting with "i-alloc-" when the feature flag is off will
 		// still work, in order to be able to test MAAS 1.8+ environment where
 		// we can use devices for containers.
@@ -1182,7 +1181,7 @@ func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, add
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled() {
+	if !environs.AddressAllocationEnabled("dummy") {
 		return errors.NotSupportedf("address allocation")
 	}
 
@@ -1229,7 +1228,6 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
 			ProviderSubnetId: network.Id("dummy-" + netName),
 			InterfaceType:    network.EthernetInterface,
-			NetworkName:      "juju-" + netName,
 			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
 			InterfaceName:    fmt.Sprintf("eth%d", i),
 			VLANTag:          i,
@@ -1256,7 +1254,6 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 		info = []network.InterfaceInfo{{
 			DeviceIndex:   0,
 			ProviderId:    network.Id("dummy-eth0"),
-			NetworkName:   "juju-public",
 			InterfaceName: "eth0",
 			MACAddress:    "aa:bb:cc:dd:ee:f0",
 			Disabled:      false,

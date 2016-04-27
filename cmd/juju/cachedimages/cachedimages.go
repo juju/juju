@@ -4,32 +4,9 @@
 package cachedimages
 
 import (
-	"github.com/juju/cmd"
-
 	"github.com/juju/juju/api/imagemanager"
 	"github.com/juju/juju/cmd/modelcmd"
 )
-
-const cachedimagesCommandDoc = `
-"juju cached-images" is used to manage the cached os images in
-the Juju model.
-`
-
-const cachedImagesCommandPurpose = "manage cached os images"
-
-// NewSuperCommand creates the user supercommand and registers the subcommands
-// that it supports.
-func NewSuperCommand() cmd.Command {
-	usercmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:        "cached-images",
-		Doc:         cachedimagesCommandDoc,
-		UsagePrefix: "juju",
-		Purpose:     cachedImagesCommandPurpose,
-	})
-	usercmd.Register(newDeleteCommand())
-	usercmd.Register(newListCommand())
-	return usercmd
-}
 
 // CachedImagesCommandBase is a helper base structure that has a method to get the
 // image manager client.

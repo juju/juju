@@ -102,8 +102,6 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
-	presence.Presencer
-	status.StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -834,92 +832,167 @@ func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]
 	})
 }
 
-// OpenPorts opens the given port range and protocol for the unit, if
-// it does not conflict with another already opened range on the
-// unit's assigned machine.
-func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
+// OpenPortsOnSubnet opens the given port range and protocol for the unit on the
+// given subnet, which can be empty. When non-empty, subnetID must refer to an
+// existing, alive subnet, otherwise an error is returned. Returns an error if
+// opening the requested range conflicts with another already opened range on
+// the same subnet and and the unit's assigned machine.
+func (u *Unit) OpenPortsOnSubnet(subnetID, protocol string, fromPort, toPort int) (err error) {
 	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q on subnet %q", ports, u, subnetID)
 
-	machineId, err := u.AssignedMachineId()
+	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
+	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
+		return errors.Trace(err)
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineID, subnetID)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
+		return errors.Annotate(err, "cannot get or create ports")
 	}
 
 	return machinePorts.OpenPorts(ports)
 }
 
-// ClosePorts closes the given port range and protocol for the unit.
-func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
+func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
+	if subnetID == "" {
+		return nil
+	} else if !names.IsValidSubnet(subnetID) {
+		return errors.Errorf("invalid subnet ID %q", subnetID)
+	}
+
+	subnet, err := u.st.Subnet(subnetID)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotatef(err, "getting subnet %q", subnetID)
+	} else if errors.IsNotFound(err) || subnet.Life() != Alive {
+		return errors.Errorf("subnet %q not found or not alive", subnetID)
+	}
+	return nil
+}
+
+// ClosePortsOnSubnet closes the given port range and protocol for the unit on
+// the given subnet, which can be empty. When non-empty, subnetID must refer to
+// an existing, alive subnet, otherwise an error is returned.
+func (u *Unit) ClosePortsOnSubnet(subnetID, protocol string, fromPort, toPort int) (err error) {
 	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q on subnet %q", ports, u, subnetID)
 
-	machineId, err := u.AssignedMachineId()
+	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
+	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
+		return errors.Trace(err)
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineID, subnetID)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
+		return errors.Annotate(err, "cannot get or create ports")
 	}
 
 	return machinePorts.ClosePorts(ports)
 }
 
+// OpenPorts opens the given port range and protocol for the unit, if it does
+// not conflict with another already opened range on the unit's assigned
+// machine.
+//
+// TODO(dimitern): This should be removed once we use OpenPortsOnSubnet across
+// the board, passing subnet IDs explicitly.
+func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
+	return u.OpenPortsOnSubnet("", protocol, fromPort, toPort)
+}
+
+// ClosePorts closes the given port range and protocol for the unit.
+//
+// TODO(dimitern): This should be removed once we use ClosePortsOnSubnet across
+// the board, passing subnet IDs explicitly.
+func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
+	return u.ClosePortsOnSubnet("", protocol, fromPort, toPort)
+}
+
+// OpenPortOnSubnet opens the given port and protocol for the unit on the given
+// subnet, which can be empty. When non-empty, subnetID must refer to an
+// existing, alive subnet, otherwise an error is returned.
+func (u *Unit) OpenPortOnSubnet(subnetID, protocol string, number int) error {
+	return u.OpenPortsOnSubnet(subnetID, protocol, number, number)
+}
+
+// ClosePortOnSubnet closes the given port and protocol for the unit on the given
+// subnet, which can be empty. When non-empty, subnetID must refer to an
+// existing, alive subnet, otherwise an error is returned.
+func (u *Unit) ClosePortOnSubnet(subnetID, protocol string, number int) error {
+	return u.ClosePortsOnSubnet(subnetID, protocol, number, number)
+}
+
 // OpenPort opens the given port and protocol for the unit.
+//
+// TODO(dimitern): This should be removed once we use OpenPort(s)OnSubnet across
+// the board, passing subnet IDs explicitly.
 func (u *Unit) OpenPort(protocol string, number int) error {
-	return u.OpenPorts(protocol, number, number)
+	return u.OpenPortOnSubnet("", protocol, number)
 }
 
 // ClosePort closes the given port and protocol for the unit.
+//
+// TODO(dimitern): This should be removed once we use ClosePortsOnSubnet across
+// the board, passing subnet IDs explicitly.
 func (u *Unit) ClosePort(protocol string, number int) error {
-	return u.ClosePorts(protocol, number, number)
+	return u.ClosePortOnSubnet("", protocol, number)
 }
 
-// OpenedPorts returns a slice containing the open port ranges of the
-// unit.
-func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
-	machineId, err := u.AssignedMachineId()
+// OpenedPortsOnSubnet returns a slice containing the open port ranges of the
+// unit on the given subnet ID, which can be empty. When subnetID is not empty,
+// it must refer to an existing, alive subnet, otherwise an error is returned.
+// Also, when no ports are yet open for the unit on that subnet, no error and
+// empty slice is returned.
+func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error) {
+	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getPorts(u.st, machineId, network.DefaultPublic)
+	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machinePorts, err := getPorts(u.st, machineID, subnetID)
 	result := []network.PortRange{}
-	if err == nil {
-		ports := machinePorts.PortsForUnit(u.Name())
-		for _, port := range ports {
-			result = append(result, network.PortRange{
-				Protocol: port.Protocol,
-				FromPort: port.FromPort,
-				ToPort:   port.ToPort,
-			})
-		}
-	} else {
-		if !errors.IsNotFound(err) {
-			return nil, errors.Annotatef(err, "failed getting ports for unit %q", u)
-		}
+	if errors.IsNotFound(err) {
+		return result, nil
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "failed getting ports for unit %q, subnet %q", u, subnetID)
+	}
+	ports := machinePorts.PortsForUnit(u.Name())
+	for _, port := range ports {
+		result = append(result, network.PortRange{
+			Protocol: port.Protocol,
+			FromPort: port.FromPort,
+			ToPort:   port.ToPort,
+		})
 	}
 	network.SortPortRanges(result)
 	return result, nil
+}
+
+// OpenedPorts returns a slice containing the open port ranges of the
+// unit.
+//
+// TODO(dimitern): This should be removed once we use OpenedPortsOnSubnet across
+// the board, passing subnet IDs explicitly.
+func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
+	return u.OpenedPortsOnSubnet("")
 }
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -1494,19 +1567,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 		return err
 	}
 
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
 	template := MachineTemplate{
-		Series:            u.doc.Series,
-		Constraints:       *cons,
-		Jobs:              []MachineJob{JobHostUnits},
-		RequestedNetworks: requestedNetworks,
+		Series:      u.doc.Series,
+		Constraints: *cons,
+		Jobs:        []MachineJob{JobHostUnits},
 	}
 	err = u.assignToNewMachine(template, host.Id, *cons.Container)
 	if err == machineNotCleanErr {
@@ -1536,14 +1600,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		return errors.Trace(err)
@@ -1552,7 +1608,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Series:                u.doc.Series,
 		Constraints:           *cons,
 		Jobs:                  []MachineJob{JobHostUnits},
-		RequestedNetworks:     requestedNetworks,
 		Volumes:               storageParams.volumes,
 		VolumeAttachments:     storageParams.volumeAttachments,
 		Filesystems:           storageParams.filesystems,

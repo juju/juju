@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-var logger = loggo.GetLogger("juju.environs.local/share")
+var logger = loggo.GetLogger("juju.environs.config")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.
@@ -1396,6 +1396,7 @@ func allDefaults() schema.Defaults {
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+		AutomaticallyRetryHooks:      true,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1746,17 +1747,17 @@ global or per instance security groups.`,
 		Group:     environschema.EnvironGroup,
 	},
 	FtpProxyKey: {
-		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY model variable",
+		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY environment variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	HttpProxyKey: {
-		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY model variable",
+		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	HttpsProxyKey: {
-		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY model variable",
+		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1916,7 +1917,6 @@ data of the store. (default false)`,
 	AutomaticallyRetryHooks: {
 		Description: "Determines whether the uniter should automatically retry failed hooks",
 		Type:        environschema.Tbool,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 }

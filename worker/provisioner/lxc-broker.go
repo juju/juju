@@ -80,9 +80,6 @@ type lxcBroker struct {
 
 // StartInstance is specified in the Broker interface.
 func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting lxc containers with networks is not supported yet")
-	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.InstanceConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
@@ -93,6 +90,12 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		bridgeDevice = container.DefaultLxcBridge
 	}
 
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		lxcLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
+	}
+
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
 		broker.api,
 		machineId,
@@ -101,6 +104,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		broker.enableNAT,
 		args.NetworkInfo,
 		lxcLogger,
+		config.ProviderType,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
@@ -116,27 +120,17 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// (after applying explicitly specified constraints), which may
 	// include tools for architectures other than the host's. We
 	// must constrain to the host's architecture for LXC.
-	arch := arch.HostArch()
-	archTools, err := args.Tools.Match(tools.Filter{
-		Arch: arch,
-	})
-	if err == tools.ErrNoMatches {
-		return nil, errors.Errorf(
-			"need tools for arch %s, only found %s",
-			arch,
-			args.Tools.Arches(),
-		)
+	archTools, err := matchHostArchTools(args.Tools)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	series := archTools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.LXC
-	args.InstanceConfig.Tools = archTools[0]
-
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		lxcLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
+		return nil, errors.Trace(err)
 	}
+
 	storageConfig := &container.StorageConfig{
 		AllowMount: config.AllowLXCLoopMounts,
 	}
@@ -193,6 +187,7 @@ func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) err
 		broker.enableNAT,
 		args.NetworkInfo,
 		lxcLogger,
+		broker.agentConfig.Value(agent.ProviderType),
 	)
 	return err
 }
@@ -206,7 +201,8 @@ func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
 			lxcLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxcLogger)
+		providerType := broker.agentConfig.Value(agent.ProviderType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxcLogger, providerType)
 	}
 	return nil
 }
@@ -488,50 +484,6 @@ var (
 	interfaceAddrs     = (*net.Interface).Addrs
 )
 
-// discoverIPv4InterfaceAddress returns the address for ifaceName
-// (e.g., br-eth1). This method is a stop-gap measure to unblock
-// master CI failures and will be removed once multi-NIC container
-// support is landed from the maas-spaces2 feature branch.
-func discoverIPv4InterfaceAddress(ifaceName string) (*network.Address, error) {
-	iface, err := netInterfaceByName(ifaceName)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get interface %q", ifaceName)
-	}
-
-	addrs, err := interfaceAddrs(iface)
-
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network addresses for interface %q", ifaceName)
-	}
-
-	for _, addr := range addrs {
-		// Check if it's an IP or a CIDR.
-
-		ip := net.ParseIP(addr.String())
-
-		if ip != nil && ip.To4() == nil {
-			logger.Debugf("skipping IPv6 address: %q", ip)
-			continue
-		}
-
-		if ip == nil {
-			// Try a CIDR.
-			ip, _, err = net.ParseCIDR(addr.String())
-			if ip != nil && ip.To4() == nil {
-				logger.Debugf("skipping IPv6 address: %q", ip)
-				continue
-			}
-			if err != nil {
-				return nil, errors.Annotatef(err, "cannot parse address %q", addr)
-			}
-		}
-		logger.Tracef("network interface %q has address %q", ifaceName, ip)
-		addr := network.NewAddress(ip.String())
-		return &addr, nil
-	}
-	return nil, errors.Errorf("no addresses found for %q", ifaceName)
-}
-
 func discoverPrimaryNIC() (string, network.Address, error) {
 	interfaces, err := netInterfaces()
 	if err != nil {
@@ -639,12 +591,6 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearchDomains = []string{searchDomain}
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
-		if finalIfaceInfo[i].NetworkName == "" {
-			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
-		}
-		if finalIfaceInfo[i].ProviderId == "" {
-			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
-		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,
@@ -677,10 +623,11 @@ func prepareOrGetContainerInterfaceInfo(
 	enableNAT bool,
 	startingNetworkInfo []network.InterfaceInfo,
 	log loggo.Logger,
+	providerType string,
 ) ([]network.InterfaceInfo, error) {
 	maintain := !allocateOrMaintain
 
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled(providerType) {
 		if maintain {
 			log.Debugf("running maintenance for container %q", machineID)
 		} else {
@@ -752,8 +699,9 @@ func maybeReleaseContainerAddresses(
 	instanceID instance.Id,
 	namespace string,
 	log loggo.Logger,
+	providerType string,
 ) {
-	if environs.AddressAllocationEnabled() {
+	if environs.AddressAllocationEnabled(providerType) {
 		// The addresser worker will take care of the addresses.
 		return
 	}
@@ -781,4 +729,19 @@ func maybeReleaseContainerAddresses(
 			containerTag.Id(), err,
 		)
 	}
+}
+
+// matchHostArchTools filters the given list of tools to the host architecture.
+func matchHostArchTools(allTools tools.List) (tools.List, error) {
+	arch := arch.HostArch()
+	archTools, err := allTools.Match(tools.Filter{Arch: arch})
+	if err == tools.ErrNoMatches {
+		return nil, errors.Errorf(
+			"need tools for arch %s, only found %s",
+			arch, allTools.Arches(),
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return archTools, nil
 }

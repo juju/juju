@@ -131,6 +131,23 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 	cfg.setSeries(series)
 	if bootstrap {
 		return cfg.setController()
+	} else {
+		// Non-controller machines fetch their tools from
+		// the controller.
+		icfg := (*instancecfg.InstanceConfig)(cfg)
+		toolsList := icfg.ToolsList()
+		for i, tools := range toolsList {
+			tools.URL = fmt.Sprintf(
+				"https://%s/%s/tools/%s",
+				cfg.APIInfo.Addrs[0],
+				testing.ModelTag.Id(),
+				tools.Version,
+			)
+			toolsList[i] = tools
+		}
+		if err := icfg.SetTools(toolsList); err != nil {
+			panic(err)
+		}
 	}
 
 	return cfg
@@ -196,7 +213,12 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 // setSeries sets the series-specific fields (Tools, Series, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
 func (cfg *testInstanceConfig) setSeries(series string) *testInstanceConfig {
-	cfg.Tools = newSimpleTools(fmt.Sprintf("1.2.3-%s-amd64", series))
+	err := ((*instancecfg.InstanceConfig)(cfg)).SetTools(tools.List{
+		newSimpleTools(fmt.Sprintf("1.2.3-%s-amd64", series)),
+	})
+	if err != nil {
+		panic(err)
+	}
 	cfg.Series = series
 	cfg.DataDir = jujuDataDir(series)
 	cfg.LogDir = jujuLogDir(series)
@@ -370,11 +392,11 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
 mkdir -p \$bin
 echo 'Fetching tools.*
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-quantal-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
@@ -419,11 +441,11 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
 mkdir -p \$bin
 echo 'Fetching tools.*
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-quantal-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
@@ -469,7 +491,7 @@ start jujud-machine-2-lxc-1
 		}),
 		inexactMatch: true,
 		expectScripts: `
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
 `,
 	},
 
@@ -728,7 +750,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(envConfig)
@@ -752,10 +774,22 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 			c.Logf("scripts[%d]: %q", i, script)
 		}
 	}
+	return scripts
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
+	scripts := s.bootstrapConfigScripts(c)
 	expected := "jujud bootstrap-state --data-dir '.*' --model-config '.*'" +
 		" --hosted-model-config '[^']*'" +
 		" --instance-id '.*' --bootstrap-constraints 'mem=4096M'" +
 		" --constraints 'mem=2048M' --show-log"
+	assertScriptMatch(c, scripts, expected, false)
+}
+
+func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *gc.C) {
+	s.SetFeatureFlags("special", "foo")
+	scripts := s.bootstrapConfigScripts(c)
+	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujud bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
@@ -1016,10 +1050,7 @@ var verifyTests = []struct {
 		cfg.CloudInitOutputLog = ""
 	}},
 	{"missing tools", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Tools = nil
-	}},
-	{"missing tools URL", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Tools = &tools.Tools{}
+		// This is handled directly in the loop.
 	}},
 	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = false
@@ -1078,11 +1109,13 @@ var verifyTests = []struct {
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
-	cfg := &instancecfg.InstanceConfig{
+	toolsList := tools.List{
+		newSimpleTools("9.9.9-quantal-arble"),
+	}
+	cfgWithoutTools := &instancecfg.InstanceConfig{
 		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
-		Tools:            newSimpleTools("9.9.9-quantal-arble"),
 		AuthorizedKeys:   "sshkey1",
 		Series:           "quantal",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
@@ -1109,6 +1142,10 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineNonce:            "FAKE_NONCE",
 		MachineAgentServiceName: "jujud-machine-99",
 	}
+	copied := *cfgWithoutTools
+	cfg := &copied
+	err := cfg.SetTools(toolsList)
+	c.Assert(err, jc.ErrorIsNil)
 	// check that the base configuration does not give an error
 	ci, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1124,6 +1161,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		c.Logf("test %d. %s", i, test.err)
 
 		cfg1 := *cfg
+		if test.err == "missing tools" {
+			cfg1 = *cfgWithoutTools
+		}
 		test.mutate(&cfg1)
 
 		udata, err = cloudconfig.NewUserdataConfig(&cfg1, ci)
@@ -1138,12 +1178,14 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}
+	instanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+		},
+	})
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig

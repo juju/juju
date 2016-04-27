@@ -72,8 +72,7 @@ func (h *charmsHandler) servePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
-	// TODO (bug #1499338 2015/09/24) authenticate this.
-	st, err := h.ctxt.stateForRequestUnauthenticated(r)
+	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
 	}

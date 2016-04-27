@@ -482,7 +482,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -581,7 +581,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -605,7 +605,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
@@ -743,7 +743,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 			subIDs[2]: []string{"zone4"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -760,7 +760,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 			subIDs[1]: []string{"zone3"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -776,7 +776,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 			subIDs[1]: []string{"zone3"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -794,7 +794,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 			subIDs[0]: []string{""},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -1126,6 +1126,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
+		InterfaceType:     network.EthernetInterface,
 		Address:           network.NewScopedAddress(addr, network.ScopeCloudLocal),
 		AvailabilityZones: zones,
 	}}
@@ -1301,6 +1302,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
+		{"juju-controller-uuid", coretesting.ModelTag.Id()},
 		{"juju-is-controller", "true"},
 	})
 }
@@ -1330,6 +1332,7 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0-root"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
+		{"juju-controller-uuid", coretesting.ModelTag.Id()},
 	})
 }
 

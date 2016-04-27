@@ -45,10 +45,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.New("instance configuration is nil")
 	}
 
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	if len(args.Tools) == 0 {
 		return nil, errors.New("tools not found")
 	}
@@ -63,7 +59,9 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Errorf("chosen architecture %v not present in %v", img.Arch, args.Tools.Arches())
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}

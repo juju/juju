@@ -11,12 +11,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -37,16 +40,18 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 	command := commands.NewJujuCommand(context)
 	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
 	c.Assert(command.Run(context), jc.ErrorIsNil)
+	loggo.RemoveWriter("warning")
 	return context
 }
 
-func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) {
+func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.Model {
 	modelManager := modelmanager.NewClient(s.APIState)
-	_, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
+	model, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
 		"name":       modelname,
 		"controller": isServer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	return model
 }
 
 func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, isServer bool) {
@@ -74,29 +79,73 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        LAST CONNECTION\n"+
-		"admin*     admin@local  just now\n"+
-		"new-model  admin@local  never connected\n"+
+		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"admin*     admin@local  available  just now\n"+
+		"new-model  admin@local  available  never connected\n"+
 		"\n")
 }
 
-func (s *cmdControllerSuite) TestCreateModelNormalUser(c *gc.C) {
-	s.createModelAdminUser(c, "new-model", false)
+func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
+	s.createModelNormalUser(c, "new-model", false)
+	context := s.run(c, "list-models", "--all")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"admin*     admin@local  available  just now\n"+
+		"new-model  test@local   available  never connected\n"+
+		"\n")
+}
+
+func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
+	context := s.run(c, "list-models", "--format=yaml")
+	c.Assert(testing.Stdout(context), gc.Matches, `
+models:
+- name: admin
+  model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  owner: admin@local
+  type: dummy
+  life: alive
+  status:
+    current: available
+    since: .*
+  users:
+    admin@local:
+      display-name: admin
+      access: write
+      last-connection: just now
+current-model: admin
+`[1:])
+}
+
+func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
+	modelInfo := s.createModelAdminUser(c, "new-model", false)
+	st, err := s.State.ForModel(names.NewModelTag(modelInfo.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetStatus(status.StatusDestroying, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Dead models still show up in the list. It's a lie to pretend they
+	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        LAST CONNECTION\n"+
-		"admin*     admin@local  just now\n"+
-		"new-model  admin@local  never connected\n"+
+		"NAME       OWNER        STATUS      LAST CONNECTION\n"+
+		"admin*     admin@local  available   just now\n"+
+		"new-model  admin@local  destroying  never connected\n"+
 		"\n")
 }
 
-func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
+func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "controller=false")
+	context := s.run(c, "add-model", "new-model", "authorized-keys=fake-key", "controller=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, "created model \"new-model\"\n")
+	c.Check(testing.Stderr(context), gc.Equals, "added model \"new-model\"\n")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.

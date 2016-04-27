@@ -66,7 +66,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if findToolsResult.Error != nil {
 		return nil, errors.Annotate(findToolsResult.Error, "finding tools")
 	}
-	tools := findToolsResult.List[0]
+	toolsList := findToolsResult.List
 
 	// Get the API connection info; attempt all API addresses.
 	apiHostPorts, err := st.APIHostPorts()
@@ -91,12 +91,6 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	// Find requested networks.
-	networks, err := machine.RequestedNetworks()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting requested networks for machine")
-	}
-
 	// Figure out if secure connections are supported.
 	info, err := st.StateServingInfo()
 	if err != nil {
@@ -104,7 +98,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	secureServerConnection := info.CAPrivateKey != ""
 	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(), "",
-		secureServerConnection, networks, mongoInfo, apiInfo,
+		secureServerConnection, mongoInfo, apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")
@@ -112,7 +106,9 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if dataDir != "" {
 		icfg.DataDir = dataDir
 	}
-	icfg.Tools = tools
+	if err := icfg.SetTools(toolsList); err != nil {
+		return nil, errors.Trace(err)
+	}
 	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "finishing instance config")

@@ -352,7 +352,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	var machineAddresses []network.Address
 	if publicIP != "" {
 		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
-		publicAddr.NetworkName = "public"
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
@@ -374,7 +373,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				addrtype = network.IPv6Address
 			}
 			machineAddr := network.NewScopedAddress(address.Address, networkScope)
-			machineAddr.NetworkName = netName
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
@@ -575,7 +573,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 }
 
 func (e *Environ) ControllerInstances() ([]instance.Id, error) {
-	// Find all instances tagged with tags.JujuController.
+	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.AllInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -583,7 +581,7 @@ func (e *Environ) ControllerInstances() ([]instance.Id, error) {
 	ids := make([]instance.Id, 0, 1)
 	for _, instance := range instances {
 		detail := instance.(*openstackInstance).getServerDetail()
-		if detail.Metadata[tags.JujuController] == "true" {
+		if detail.Metadata[tags.JujuIsController] == "true" {
 			ids = append(ids, instance.Id())
 		}
 	}
@@ -909,10 +907,6 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.Errorf("starting instances with networks is not supported yet.")
-	}
-
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
@@ -929,7 +923,9 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err

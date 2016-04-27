@@ -131,7 +131,7 @@ func (env *joyentEnviron) ControllerInstances() ([]instance.Id, error) {
 	filter.Set(tagKey("group"), "juju")
 	filter.Set(tagKey("model"), env.Config().Name())
 	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
-	filter.Set(tagKey(tags.JujuController), "true")
+	filter.Set(tagKey(tags.JujuIsController), "true")
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil || len(machines) == 0 {

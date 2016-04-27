@@ -33,13 +33,18 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", "", true, stateInfo, apiInfo)
 	if err != nil {
 		return nil, err
 	}
-	instanceConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	err = instanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return instanceConfig, nil

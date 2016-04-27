@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/tools"
 )
 
 // These values are fake GCE auth credentials for use in tests.
@@ -118,7 +118,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	tools := []*tools.Tools{{
+	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 		URL:     "https://example.org",
 	}}
@@ -128,7 +128,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceConfig.Tools = tools[0]
+	err = instanceConfig.SetTools(coretools.List(tools))
+	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})

@@ -31,6 +31,8 @@ type UserManagerAPI struct {
 	authorizer               common.Authorizer
 	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
 	check                    *common.BlockChecker
+	apiUser                  names.UserTag
+	isAdmin                  bool
 }
 
 func NewUserManagerAPI(
@@ -40,6 +42,16 @@ func NewUserManagerAPI(
 ) (*UserManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
+	}
+
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	// Pretty much all of the user manager methods have special casing for admin
+	// users, so look once when we start and remember if the user is an admin.
+	isAdmin, err := st.IsControllerAdministrator(apiUser)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	resource, ok := resources.Get("createLocalLoginMacaroon").(common.ValueResource)
@@ -55,22 +67,10 @@ func NewUserManagerAPI(
 		state:                    st,
 		authorizer:               authorizer,
 		createLocalLoginMacaroon: createLocalLoginMacaroon,
-		check: common.NewBlockChecker(st),
+		check:   common.NewBlockChecker(st),
+		apiUser: apiUser,
+		isAdmin: isAdmin,
 	}, nil
-}
-
-func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
-	// TODO(thumper): PERMISSIONS Change this permission check when we have
-	// real permissions. For now, only the owner of the initial environment is
-	// able to add users.
-	initialEnv, err := api.state.ControllerModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if user != initialEnv.Owner() {
-		return errors.Trace(common.ErrPerm)
-	}
-	return nil
 }
 
 // AddUser adds a user with a username, and either a password or
@@ -86,22 +86,17 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	if len(args.Users) == 0 {
 		return result, nil
 	}
-	loggedInUser, err := api.getLoggedInUser()
-	if err != nil {
-		return result, errors.Wrap(err, common.ErrPerm)
+	if !api.isAdmin {
+		return result, common.ErrPerm
 	}
-	// TODO(thumper): PERMISSIONS Change this permission check when we have
-	// real permissions. For now, only the owner of the initial model is
-	// able to add users.
-	if err := api.permissionCheck(loggedInUser); err != nil {
-		return result, errors.Trace(err)
-	}
+
 	for i, arg := range args.Users {
 		var user *state.User
+		var err error
 		if arg.Password != "" {
-			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
+			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUser.Id())
 		} else {
-			user, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, loggedInUser.Id())
+			user, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUser.Id())
 		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
@@ -129,7 +124,9 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 					result.Results[i].Error = common.ServerError(err)
 					break
 				}
-				err = modelmanager.ChangeModelAccess(api.state, modelTag, loggedInUser, userTag, params.GrantModelAccess, modelAccess)
+				err = modelmanager.ChangeModelAccess(
+					modelmanager.NewStateBackend(api.state), modelTag, api.apiUser,
+					userTag, params.GrantModelAccess, modelAccess, api.isAdmin)
 				if err != nil {
 					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)
 					result.Results[i].Error = common.ServerError(err)
@@ -178,15 +175,8 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	loggedInUser, err := api.getLoggedInUser()
-	if err != nil {
-		return result, errors.Wrap(err, common.ErrPerm)
-	}
-	// TODO(thumper): PERMISSIONS Change this permission check when we have
-	// real permissions. For now, only the owner of the initial environment is
-	// able to add users.
-	if err := api.permissionCheck(loggedInUser); err != nil {
-		return result, errors.Trace(err)
+	if !api.isAdmin {
+		return result, common.ErrPerm
 	}
 
 	for i, arg := range args.Entities {
@@ -264,28 +254,20 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
-	loggedInUser, err := api.getLoggedInUser()
-	if err != nil {
-		return result, common.ErrPerm
-	}
-	adminUser, err := api.checkAdminUser(loggedInUser)
-	if err != nil {
-		return result, common.ServerError(err)
-	}
 	for i, arg := range args.Changes {
-		if err := api.setPassword(loggedInUser, arg, adminUser); err != nil {
+		if err := api.setPassword(arg); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
 	return result, nil
 }
 
-func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.EntityPassword, adminUser bool) error {
+func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	user, err := api.getUser(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if loggedInUser != user.UserTag() && !adminUser {
+	if api.apiUser != user.UserTag() && !api.isAdmin {
 		return errors.Trace(common.ErrPerm)
 	}
 	if arg.Password == "" {
@@ -303,20 +285,12 @@ func (api *UserManagerAPI) CreateLocalLoginMacaroon(args params.Entities) (param
 	results := params.MacaroonResults{
 		Results: make([]params.MacaroonResult, len(args.Entities)),
 	}
-	loggedInUser, err := api.getLoggedInUser()
-	if err != nil {
-		return results, common.ErrPerm
-	}
-	adminUser, err := api.checkAdminUser(loggedInUser)
-	if err != nil {
-		return results, common.ServerError(err)
-	}
 	createLocalLoginMacaroon := func(arg params.Entity) (*macaroon.Macaroon, error) {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if loggedInUser != user.UserTag() && !adminUser {
+		if api.apiUser != user.UserTag() && !api.isAdmin {
 			return nil, errors.Trace(common.ErrPerm)
 		}
 		return api.createLocalLoginMacaroon(user.UserTag())
@@ -330,24 +304,4 @@ func (api *UserManagerAPI) CreateLocalLoginMacaroon(args params.Entities) (param
 		results.Results[i].Result = m
 	}
 	return results, nil
-}
-
-func (api *UserManagerAPI) checkAdminUser(userTag names.UserTag) (bool, error) {
-	err := api.permissionCheck(userTag)
-	switch errors.Cause(err) {
-	case nil:
-		return true, nil
-	case common.ErrPerm:
-		return false, nil
-	}
-	return false, errors.Trace(err)
-}
-
-func (api *UserManagerAPI) getLoggedInUser() (names.UserTag, error) {
-	switch tag := api.authorizer.GetAuthTag().(type) {
-	case names.UserTag:
-		return tag, nil
-	default:
-		return names.UserTag{}, errors.New("authorizer not a user")
-	}
 }

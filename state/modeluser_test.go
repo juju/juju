@@ -367,6 +367,11 @@ func (s *ModelUserSuite) TestIsControllerAdministrator(c *gc.C) {
 	isAdmin, err = s.State.IsControllerAdministrator(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
+
+	readonly := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
+	isAdmin, err = s.State.IsControllerAdministrator(readonly.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isAdmin, jc.IsFalse)
 }
 
 func (s *ModelUserSuite) TestIsControllerAdministratorFromOtherState(c *gc.C) {

@@ -21,7 +21,6 @@ import (
 
 type watcherSuite struct {
 	testing.BaseSuite
-	st         *state.State
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 }
@@ -30,15 +29,17 @@ var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.st = nil // none of the watcher facades use the State object
 	s.resources = common.NewResources()
+	s.AddCleanup(func(*gc.C) {
+		s.resources.StopAll()
+	})
 	s.authorizer = apiservertesting.FakeAuthorizer{}
 }
 
 func (s *watcherSuite) getFacade(c *gc.C, name string, version int, id string) interface{} {
 	factory, err := common.Facades.GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
-	facade, err := factory(s.st, s.resources, s.authorizer, id)
+	facade, err := factory(nil, s.resources, s.authorizer, id)
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
@@ -123,7 +124,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(s.st, s.resources, s.authorizer, id)
+	_, err = factory(nil, s.resources, s.authorizer, id)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
@@ -138,6 +139,10 @@ type fakeStringsWatcher struct {
 
 func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.ch
+}
+
+func (w *fakeStringsWatcher) Stop() error {
+	return nil
 }
 
 type fakeMigrationBackend struct {

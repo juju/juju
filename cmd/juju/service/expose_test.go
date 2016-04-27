@@ -43,8 +43,8 @@ func (s *ExposeSuite) assertExposed(c *gc.C, service string) {
 }
 
 func (s *ExposeSuite) TestExpose(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "some-service-name")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, ch, "some-service-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
@@ -61,8 +61,8 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 }
 
 func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "some-service-name")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, ch, "some-service-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)

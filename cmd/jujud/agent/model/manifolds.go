@@ -77,10 +77,6 @@ type ManifoldsConfig struct {
 	EntityStatusHistoryCount    uint
 	EntityStatusHistoryInterval time.Duration
 
-	// ModelRemoveDelay controls how long the model documents will be left
-	// lying around once the model has become dead.
-	ModelRemoveDelay time.Duration
-
 	// SpacesImportedGate will be unlocked when spaces are known to
 	// have been imported.
 	SpacesImportedGate gate.Lock
@@ -206,8 +202,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
-			ClockName:     clockName,
-			RemoveDelay:   config.ModelRemoveDelay,
 
 			NewFacade: undertaker.NewFacade,
 			NewWorker: undertaker.NewWorker,

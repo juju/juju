@@ -106,7 +106,7 @@ func (s *kvmBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
@@ -117,6 +117,10 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}, {
+		// non-host-arch tools should be filtered out by StartInstance
+		Version: version.MustParseBinary("2.3.4-quantal-arm64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-arm64.tgz",
 	}}
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
 		return nil
@@ -135,7 +139,7 @@ func (s *kvmBrokerSuite) maintainInstance(c *gc.C, machineId string) {
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
@@ -159,10 +163,10 @@ func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	kvm := s.startInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}, {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
-	}, {
-		FuncName: "ContainerConfig",
 	}})
 	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
 	s.assertInstances(c, kvm)
@@ -172,10 +176,10 @@ func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 	machineId := "1/kvm/0"
 	kvm := s.startInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
+		FuncName: "ContainerConfig",
+	}, {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
-	}, {
-		FuncName: "ContainerConfig",
 	}})
 	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
 	s.assertInstances(c, kvm)
@@ -286,8 +290,6 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:ff",
 		Address:          network.NewAddress("0.1.2.3"),
 		GatewayAddress:   network.NewAddress("0.1.2.1"),
-		NetworkName:      network.DefaultPrivate,
-		ProviderId:       network.DefaultProviderId,
 	})
 }
 
@@ -331,10 +333,6 @@ func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
 }
 
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
-	// This check in particular leads to tests just hanging
-	// indefinitely quite often on i386.
-	coretesting.SkipIfI386(c, "lp:1425569")
-
 	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Started)
@@ -345,10 +343,6 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
-	// This check in particular leads to tests just hanging
-	// indefinitely quite often on i386.
-	coretesting.SkipIfI386(c, "lp:1425569")
-
 	s.State.StartSync()
 	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
@@ -418,8 +412,9 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 }
 
 func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
-	coretesting.SkipIfI386(c, "lp:1425569")
-
+	if arch.NormaliseArch(runtime.GOARCH) != arch.AMD64 {
+		c.Skip("Test only enabled on amd64, see bug lp:1572145")
+	}
 	p := s.newKvmProvisioner(c)
 	defer stop(c, p)
 

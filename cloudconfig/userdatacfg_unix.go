@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014, 2015 Canonical Ltd.
+// Copyright 2012-2016 Canonical Ltd.
 // Copyright 2014, 2015 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -20,14 +20,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/version"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -100,7 +103,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 	)
 	switch w.os {
 	case os.Ubuntu:
-		if w.icfg.Tools != nil {
+		if (w.icfg.AgentVersion() != version.Binary{}) {
 			initSystem, err := service.VersionInitSystem(w.icfg.Series)
 			if err != nil {
 				return errors.Trace(err)
@@ -222,66 +225,21 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.setDataDirPermissions(),
 	)
 
+	// Make a directory for the tools to live in.
 	w.conf.AddScripts(
 		"bin="+shquote(w.icfg.JujuTools()),
 		"mkdir -p $bin",
 	)
 
-	// Make a directory for the tools to live in, then fetch the
-	// tools and unarchive them into it.
-	if strings.HasPrefix(w.icfg.Tools.URL, fileSchemePrefix) {
-		toolsData, err := ioutil.ReadFile(w.icfg.Tools.URL[len(fileSchemePrefix):])
-		if err != nil {
-			return err
-		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
-	} else {
-		curlCommand := curlCommand
-		var urls []string
-		if w.icfg.Bootstrap {
-			curlCommand += " --retry 10"
-			if w.icfg.DisableSSLHostnameVerification {
-				curlCommand += " --insecure"
-			}
-			urls = append(urls, w.icfg.Tools.URL)
-		} else {
-			for _, addr := range w.icfg.ApiHostAddrs() {
-				// TODO(axw) encode env UUID in URL when ModelTag
-				// is guaranteed to be available in APIInfo.
-				url := fmt.Sprintf("https://%s/tools/%s", addr, w.icfg.Tools.Version)
-				urls = append(urls, url)
-			}
-
-			// Don't go through the proxy when downloading tools from the controllers
-			curlCommand += ` --noproxy "*"`
-
-			// Our API server certificates are unusable by curl (invalid subject name),
-			// so we must disable certificate validation. It doesn't actually
-			// matter, because there is no sensitive information being transmitted
-			// and we verify the tools' hash after.
-			curlCommand += " --insecure"
-		}
-		curlCommand += " -o $bin/tools.tar.gz"
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s <%s>", curlCommand, urls))
-		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
+	// Fetch the tools and unarchive them into it.
+	if err := w.addDownloadToolsCmds(); err != nil {
+		return errors.Trace(err)
 	}
-	toolsJson, err := json.Marshal(w.icfg.Tools)
-	if err != nil {
-		return err
-	}
-
-	w.conf.AddScripts(
-		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.icfg.Tools.Version),
-		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
-			w.icfg.Tools.SHA256, w.icfg.Tools.Version),
-		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
-		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
-	)
 
 	// Don't remove tools tarball until after bootstrap agent
 	// runs, so it has a chance to add it to its catalogue.
 	defer w.conf.AddRunCmd(
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.Tools.Version),
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.AgentVersion()),
 	)
 
 	// We add the machine agent's configuration info
@@ -291,7 +249,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
 	machineTag := names.NewMachineTag(w.icfg.MachineId)
-	_, err = w.addAgentInfo(machineTag)
+	_, err := w.addAgentInfo(machineTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -349,9 +307,13 @@ func (w *unixConfigure) ConfigureJuju() error {
 		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
 			loggingOption = " --debug"
 		}
+		featureFlags := featureflag.AsEnvironmentValue()
+		if featureFlags != "" {
+			featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+		}
 		w.conf.AddScripts(
 			// The bootstrapping is always run with debug on.
-			w.icfg.JujuTools() + "/jujud bootstrap-state" +
+			featureFlags + w.icfg.JujuTools() + "/jujud bootstrap-state" +
 				" --data-dir " + shquote(w.icfg.DataDir) +
 				" --model-config " + shquote(base64yaml(w.icfg.Config.AllAttrs())) +
 				" --hosted-model-config " + shquote(base64yaml(w.icfg.HostedModelConfig)) +
@@ -365,6 +327,58 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	return w.addMachineAgentToBoot()
+}
+
+func (w unixConfigure) addDownloadToolsCmds() error {
+	tools := w.icfg.ToolsList()[0]
+	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
+		toolsData, err := ioutil.ReadFile(tools.URL[len(fileSchemePrefix):])
+		if err != nil {
+			return err
+		}
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+	} else {
+		curlCommand := curlCommand
+		var urls []string
+		for _, tools := range w.icfg.ToolsList() {
+			urls = append(urls, tools.URL)
+		}
+		if w.icfg.Bootstrap {
+			curlCommand += " --retry 10"
+			if w.icfg.DisableSSLHostnameVerification {
+				curlCommand += " --insecure"
+			}
+		} else {
+			// Don't go through the proxy when downloading tools from the controllers
+			curlCommand += ` --noproxy "*"`
+
+			// Our API server certificates are unusable by curl (invalid subject name),
+			// so we must disable certificate validation. It doesn't actually
+			// matter, because there is no sensitive information being transmitted
+			// and we verify the tools' hash after.
+			curlCommand += " --insecure"
+		}
+		curlCommand += " -o $bin/tools.tar.gz"
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s <%s>", curlCommand, urls))
+		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
+	}
+
+	w.conf.AddScripts(
+		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", tools.Version),
+		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
+			tools.SHA256, tools.Version),
+		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
+	)
+
+	toolsJson, err := json.Marshal(tools)
+	if err != nil {
+		return err
+	}
+	w.conf.AddScripts(
+		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
+	)
+
+	return nil
 }
 
 // setUpGUI fetches the Juju GUI archive and save it to the controller.

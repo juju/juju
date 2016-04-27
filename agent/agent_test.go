@@ -772,6 +772,7 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(addrs, gc.DeepEquals, []string{
 		"0.1.0.1:1111",
 		"0.1.0.2:1111",
+		"host.com:1111",
 		"0.2.0.1:2222",
 		"0.2.0.2:2222",
 		"0.4.0.1:4444",

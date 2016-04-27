@@ -81,7 +81,6 @@ type User interface {
 type Address interface {
 	Value() string
 	Type() string
-	NetworkName() string
 	Scope() string
 	Origin() string
 }
@@ -136,25 +135,23 @@ type Machine interface {
 	// TODO:
 	// Storage
 
-	NetworkPorts() []NetworkPorts
-	AddNetworkPorts(NetworkPortsArgs) NetworkPorts
+	OpenedPorts() []OpenedPorts
+	AddOpenedPorts(OpenedPortsArgs) OpenedPorts
 
 	// THINKING: Validate() error to make sure the machine has
 	// enough stuff set, like tools, and addresses etc.
 	Validate() error
 
-	// requested networks
 	// reboot doc
 	// block devices
-	// network interfaces
 	// port docs
 	// machine filesystems
 }
 
-// NetworkPorts represents a collection of port ranges that are open on
-// a particular network. NetworkPorts are always associated with a Machine.
-type NetworkPorts interface {
-	NetworkName() string
+// OpenedPorts represents a collection of port ranges that are open on a
+// particular subnet. OpenedPorts are always associated with a Machine.
+type OpenedPorts interface {
+	SubnetID() string
 	OpenPorts() []PortRange
 }
 

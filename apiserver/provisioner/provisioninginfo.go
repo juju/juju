@@ -65,13 +65,6 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(dimitern) Drop this once we only use spaces for
-	// deployments.
-	networks, err := m.RequestedNetworks()
-	if err != nil {
-		return nil, err
-	}
-
 	var jobs []multiwatcher.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
@@ -100,7 +93,6 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine) (*params.Provisio
 		Constraints:      cons,
 		Series:           m.Series(),
 		Placement:        m.Placement(),
-		Networks:         networks,
 		Jobs:             jobs,
 		Volumes:          volumes,
 		Tags:             tags,

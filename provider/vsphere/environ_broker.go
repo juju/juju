@@ -36,10 +36,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	img, err := findImageMetadata(env, args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -74,7 +70,9 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 		return err
 	}
 
-	args.InstanceConfig.Tools = envTools[0]
+	if err := args.InstanceConfig.SetTools(envTools); err != nil {
+		return errors.Trace(err)
+	}
 	return FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 

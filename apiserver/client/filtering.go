@@ -205,13 +205,6 @@ func buildServiceMatcherShims(s *state.Service, patterns ...string) (shims []clo
 	// Match on exposure.
 	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, s) })
 
-	// Match on network addresses.
-	networks, err := s.Networks()
-	if err != nil {
-		return nil, err
-	}
-	shims = append(shims, func() (bool, bool, error) { return matchSubnet(patterns, networks...) })
-
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
 	unitShims, err := buildShimsForUnit(s.AllUnits, patterns...)

@@ -111,9 +111,9 @@ type ModelCreateArgs struct {
 // Model holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
 type Model struct {
-	Name     string
-	UUID     string
-	OwnerTag string
+	Name     string `json:"Name"`
+	UUID     string `json:"UUID"`
+	OwnerTag string `json:"OwnerTag"`
 }
 
 // UserModel holds information about a model and the last
@@ -310,8 +310,8 @@ type LifeResults struct {
 	Results []LifeResult
 }
 
-// InstanceInfo holds a machine tag, provider-specific instance id, a
-// nonce, a list of networks and interfaces to set up.
+// InstanceInfo holds a machine tag, provider-specific instance id, a nonce, and
+// network config.
 type InstanceInfo struct {
 	Tag             string
 	InstanceId      instance.Id
@@ -323,10 +323,6 @@ type InstanceInfo struct {
 	VolumeAttachments map[string]VolumeAttachmentInfo
 
 	NetworkConfig []NetworkConfig
-
-	// TODO(dimitern): No longer used, drop at the end of this PoC.
-	Networks   []Network
-	Interfaces []NetworkInterface
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -397,7 +393,7 @@ type VersionResults struct {
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	Tools                          *tools.Tools
+	ToolsList                      tools.List
 	DisableSSLHostnameVerification bool
 	Error                          *Error
 }
@@ -568,7 +564,6 @@ type ProvisioningInfo struct {
 	Constraints      constraints.Value
 	Series           string
 	Placement        string
-	Networks         []string
 	Jobs             []multiwatcher.MachineJob
 	Volumes          []VolumeParams
 	Tags             map[string]string

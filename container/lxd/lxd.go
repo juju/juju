@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/lxc/lxd"
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -33,8 +34,8 @@ type containerManager struct {
 	name string
 	// A cached client.
 	client *lxdclient.Client
-	// Profiles that need to be deleted when the container is destroyed
-	createdProfiles []string
+	// Custom network profile
+	networkProfile string
 }
 
 // containerManager implements container.Manager.
@@ -83,6 +84,7 @@ func (manager *containerManager) CreateContainer(
 
 	defer func() {
 		if err != nil {
+			manager.deleteNetworkProfile()
 			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		}
 	}()
@@ -127,9 +129,22 @@ func (manager *containerManager) CreateContainer(
 
 	networkProfile := fmt.Sprintf("%s-network", name)
 
-	err = manager.createNetworkProfile(networkProfile, networkConfig)
-	if err != nil {
-		return
+	if len(networkConfig.Interfaces) > 0 || networkConfig.Device != "" {
+		if err = createNetworkProfile(manager.client, networkProfile); err != nil {
+			return
+		}
+
+		manager.networkProfile = networkProfile
+		if len(networkConfig.Interfaces) > 0 {
+			err = networkProfileAddMultipleInterfaces(manager.client, networkProfile, networkConfig.Interfaces)
+		} else {
+			err = networkProfileAddSingleInterface(manager.client, networkProfile, networkConfig.Device, networkConfig.MTU)
+		}
+		if err != nil {
+			return
+		}
+	} else {
+		networkProfile = "default"
 	}
 
 	spec := lxdclient.InstanceSpec{
@@ -151,7 +166,6 @@ func (manager *containerManager) CreateContainer(
 
 	callback(status.StatusRunning, "Container started", nil)
 	inst = &lxdInstance{name, manager.client}
-	manager.createdProfiles = append(manager.createdProfiles, networkProfile)
 	return
 }
 
@@ -163,14 +177,7 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 			return err
 		}
 	}
-
-	for _, profile := range manager.createdProfiles {
-		logger.Infof("deleting profile %q", profile)
-		if err := manager.client.ProfileDelete(profile); err != nil {
-			logger.Warningf("discarding profile delete error: %v", err)
-		}
-	}
-
+	manager.deleteNetworkProfile()
 	return errors.Trace(manager.client.RemoveInstances(manager.name, string(id)))
 }
 
@@ -213,27 +220,48 @@ func HasLXDSupport() bool {
 	return true
 }
 
-func (manager *containerManager) createNetworkProfile(profile string, networkConfig *container.NetworkConfig) error {
-	found, err := manager.client.HasProfile(profile)
+func nicProperties(parentDevice, deviceName, hwAddr string, mtu int) ([]string, error) {
+	var props = []string{"nictype=bridged"}
 
+	if parentDevice == "" {
+		return nil, errors.Errorf("invalid parent device")
+	} else {
+		props = append(props, fmt.Sprintf("parent=%v", parentDevice))
+	}
+
+	if deviceName == "" {
+		return nil, errors.Errorf("invalid device name")
+	} else {
+		props = append(props, fmt.Sprintf("name=%v", deviceName))
+	}
+
+	if hwAddr != "" {
+		props = append(props, fmt.Sprintf("hwaddr=%v", hwAddr))
+	}
+
+	if mtu > 0 {
+		props = append(props, fmt.Sprintf("mtu=%v", mtu))
+	}
+
+	return props, nil
+}
+
+func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, deviceName, hwAddr string, mtu int) (*lxd.Response, error) {
+	props, err := nicProperties(parentDevice, deviceName, hwAddr, mtu)
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
+	logger.Infof("adding nic device %q with properties %+v to profile %q", deviceName, props, profile)
+	return client.ProfileDeviceAdd(profile, deviceName, "nic", props)
+}
 
-	if found {
-		logger.Infof("deleting existing profile %q", profile)
-		if err := manager.client.ProfileDelete(profile); err != nil {
-			return err
-		}
-	}
+func networkProfileAddSingleInterface(client *lxdclient.Client, profile, deviceName string, mtu int) error {
+	_, err := addNetworkDeviceToProfile(client, profile, deviceName, "eth0", "", mtu)
+	return errors.Trace(err)
+}
 
-	if err := manager.client.CreateProfile(profile, nil); err != nil {
-		return err
-	}
-
-	logger.Infof("created new network profile %q", profile)
-
-	for _, v := range networkConfig.Interfaces {
+func networkProfileAddMultipleInterfaces(client *lxdclient.Client, profile string, interfaces []network.InterfaceInfo) error {
+	for _, v := range interfaces {
 		if v.InterfaceType == network.LoopbackInterface {
 			continue
 		}
@@ -242,28 +270,45 @@ func (manager *containerManager) createNetworkProfile(profile string, networkCon
 			return errors.Errorf("interface type %q not supported", v.InterfaceType)
 		}
 
-		var props = []string{}
-		props = append(props, "nictype=bridged")
-		props = append(props, fmt.Sprintf("parent=%v", v.ParentInterfaceName))
-		props = append(props, fmt.Sprintf("name=%v", v.InterfaceName))
-
-		if v.MACAddress != "" {
-			props = append(props, fmt.Sprintf("hwaddr=%v", v.MACAddress))
-		}
-
-		if v.MTU > 0 {
-			props = append(props, fmt.Sprintf("mtu=%v", v.MTU))
-		}
-
-		logger.Infof("adding nic device %q with properties %+v to profile %q",
-			v.InterfaceName, props, profile)
-
-		_, err := manager.client.ProfileDeviceAdd(profile, v.InterfaceName, "nic", props)
+		_, err := addNetworkDeviceToProfile(client, profile, v.ParentInterfaceName, v.InterfaceName, v.MACAddress, v.MTU)
 
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
 	return nil
+}
+
+func createNetworkProfile(client *lxdclient.Client, profile string) error {
+	found, err := client.HasProfile(profile)
+
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if found {
+		logger.Infof("deleting existing container profile %q", profile)
+		if err := client.ProfileDelete(profile); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	err = client.CreateProfile(profile, nil)
+
+	if err == nil {
+		logger.Infof("created new network container profile %q", profile)
+	}
+
+	return errors.Trace(err)
+}
+
+func (manager *containerManager) deleteNetworkProfile() {
+	if manager.client != nil && manager.networkProfile != "" {
+		logger.Infof("deleting container network profile %q", manager.networkProfile)
+		if err := manager.client.ProfileDelete(manager.networkProfile); err != nil {
+			logger.Warningf("discarding profile delete error: %v", err)
+		}
+		manager.networkProfile = ""
+	}
 }

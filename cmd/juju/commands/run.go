@@ -64,6 +64,8 @@ the unit.
 in the model.  If you specify --all you cannot provide additional
 targets.
 
+Since juju run creates actions, you can query for the status of commands
+started with juju run by calling "juju show-action-status --name juju-run".
 `
 
 func (c *runCommand) Info() *cmd.Info {
@@ -156,7 +158,7 @@ func ConvertActionResults(result params.ActionResult, query actionQuery) map[str
 	// We always want to have a string for stdout, but only show stderr,
 	// code and error if they are there.
 	if res, ok := result.Output["Stdout"].(string); ok {
-		values["Stdout"] = res
+		values["Stdout"] = strings.Replace(res, "\r\n", "\n", -1)
 		if res, ok := result.Output["StdoutEncoding"].(string); ok && res != "" {
 			values["Stdout.encoding"] = res
 		}
@@ -164,7 +166,7 @@ func ConvertActionResults(result params.ActionResult, query actionQuery) map[str
 		values["Stdout"] = ""
 	}
 	if res, ok := result.Output["Stderr"].(string); ok && res != "" {
-		values["Stderr"] = res
+		values["Stderr"] = strings.Replace(res, "\r\n", "\n", -1)
 		if res, ok := result.Output["StderrEncoding"].(string); ok && res != "" {
 			values["Stderr.encoding"] = res
 		}

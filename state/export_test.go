@@ -28,18 +28,17 @@ import (
 )
 
 const (
-	InstanceDataC      = instanceDataC
-	MachinesC          = machinesC
-	NetworkInterfacesC = networkInterfacesC
-	ServicesC          = servicesC
-	EndpointBindingsC  = endpointBindingsC
-	SettingsC          = settingsC
-	UnitsC             = unitsC
-	UsersC             = usersC
-	BlockDevicesC      = blockDevicesC
-	StorageInstancesC  = storageInstancesC
-	StatusesHistoryC   = statusesHistoryC
-	GUISettingsC       = guisettingsC
+	InstanceDataC     = instanceDataC
+	MachinesC         = machinesC
+	ServicesC         = servicesC
+	EndpointBindingsC = endpointBindingsC
+	SettingsC         = settingsC
+	UnitsC            = unitsC
+	UsersC            = usersC
+	BlockDevicesC     = blockDevicesC
+	StorageInstancesC = storageInstancesC
+	StatusesHistoryC  = statusesHistoryC
+	GUISettingsC      = guisettingsC
 )
 
 var (
@@ -146,12 +145,6 @@ func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.U
 
 func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag) *Service {
 	return addTestingService(c, st, series, name, ch, owner, nil, nil)
-}
-
-// TODO(dimitern): Drop this along with the remnants of requested networks in a
-// follow-up.
-func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
-	return addTestingService(c, st, "", name, ch, owner, nil, nil)
 }
 
 func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
@@ -377,19 +370,6 @@ func MultiEnvCollections() []string {
 
 func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
-}
-
-// This is a naive model destruction function, used to test model
-// watching after the client calls DestroyModel and the model doc is removed.
-// It is also used to test annotations.
-func RemoveModel(st *State, uuid string) error {
-	ops := []txn.Op{{
-		C:      modelsC,
-		Id:     uuid,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
-	return st.runTransaction(ops)
 }
 
 func SetModelLifeDead(st *State, modelUUID string) error {

@@ -17,7 +17,7 @@ import (
 func InitJujuXDGDataHome() error {
 	jujuXDGDataHome := osenv.JujuXDGDataHomeDir()
 	if jujuXDGDataHome == "" {
-		return errors.New("cannot determine juju data home, required model variables are not set")
+		return errors.New("cannot determine juju data home, required environment variables are not set")
 	}
 	osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 	charmrepo.CacheDir = osenv.JujuXDGDataHomePath("charmcache")

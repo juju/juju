@@ -18,6 +18,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -35,10 +36,17 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
 	}
-	s.st = &mockState{}
+	s.st = &mockState{
+		uuid: coretesting.ModelTag.Id(),
+	}
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
 		cfg:   coretesting.ModelConfig(c),
+		life:  state.Dying,
+		status: status.StatusInfo{
+			Status: status.StatusDestroying,
+			Since:  &time.Time{},
+		},
 		users: []*mockModelUser{{
 			userName: "admin",
 			access:   state.ModelAdminAccess,
@@ -52,7 +60,16 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			access:      state.ModelReadAccess,
 		}},
 	}
-	s.modelmanager = modelmanager.NewModelManagerAPIForTest(s.st, &s.authorizer, nil)
+	var err error
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, &s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
+	s.authorizer.Tag = user
+	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelmanager = modelmanager
 }
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
@@ -67,6 +84,11 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
 		DefaultSeries:  coretesting.FakeDefaultSeries,
+		Life:           params.Dying,
+		Status: params.EntityStatus{
+			Status: status.StatusDestroying,
+			Since:  &time.Time{},
+		},
 		Users: []params.ModelUserInfo{{
 			UserName:       "admin",
 			LastConnection: &time.Time{},
@@ -84,24 +106,29 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		}},
 	})
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"IsControllerAdministrator", []interface{}{names.NewUserTag("admin@local")}},
+		{"ModelUUID", nil},
+		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
+		{"Model", nil},
+		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Config", nil},
 		{"Users", nil},
+		{"Status", nil},
 		{"Owner", nil},
+		{"Life", nil},
 	})
 }
 
 func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bob@local")
+	s.setAPIUser(c, names.NewUserTag("bob@local"))
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 3)
 }
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("charlotte@local")
+	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte@local")
@@ -145,7 +172,7 @@ func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("nemo@local")
+	s.setAPIUser(c, names.NewUserTag("nemo@local"))
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `permission denied`)
 }
 
@@ -161,9 +188,20 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 
 type mockState struct {
 	gitjujutesting.Stub
+
+	common.APIHostPortsGetter
+	common.ModelConfigGetter
+	common.ToolsStorageGetter
+
+	uuid  string
 	model *mockModel
 	owner names.UserTag
 	users []*state.ModelUser
+}
+
+func (st *mockState) ModelUUID() string {
+	st.MethodCall(st, "ModelUUID")
+	return st.uuid
 }
 
 func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, error) {
@@ -186,21 +224,43 @@ func (st *mockState) ControllerModel() (*state.Model, error) {
 	return nil, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (*state.State, error) {
+func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) {
 	st.MethodCall(st, "ForModel", tag)
+	return st, st.NextErr()
+}
+
+func (st *mockState) Model() (modelmanager.Model, error) {
+	st.MethodCall(st, "Model")
+	return st.model, st.NextErr()
+}
+
+func (st *mockState) Close() error {
+	st.MethodCall(st, "Close")
+	return st.NextErr()
+}
+
+func (st *mockState) AddModelUser(spec state.ModelUserSpec) (*state.ModelUser, error) {
+	st.MethodCall(st, "AddModelUser", spec)
 	return nil, st.NextErr()
 }
 
-func (st *mockState) GetModel(tag names.ModelTag) (modelmanager.Model, error) {
-	st.MethodCall(st, "GetModel", tag)
-	return st.model, st.NextErr()
+func (st *mockState) RemoveModelUser(tag names.UserTag) error {
+	st.MethodCall(st, "RemoveModelUser", tag)
+	return st.NextErr()
+}
+
+func (st *mockState) ModelUser(tag names.UserTag) (*state.ModelUser, error) {
+	st.MethodCall(st, "ModelUser", tag)
+	return nil, st.NextErr()
 }
 
 type mockModel struct {
 	gitjujutesting.Stub
-	owner names.UserTag
-	cfg   *config.Config
-	users []*mockModelUser
+	owner  names.UserTag
+	life   state.Life
+	status status.StatusInfo
+	cfg    *config.Config
+	users  []*mockModelUser
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -212,6 +272,17 @@ func (m *mockModel) Owner() names.UserTag {
 	m.MethodCall(m, "Owner")
 	m.PopNoErr()
 	return m.owner
+}
+
+func (m *mockModel) Life() state.Life {
+	m.MethodCall(m, "Life")
+	m.PopNoErr()
+	return m.life
+}
+
+func (m *mockModel) Status() (status.StatusInfo, error) {
+	m.MethodCall(m, "Status")
+	return m.status, m.NextErr()
 }
 
 func (m *mockModel) Users() ([]common.ModelUser, error) {

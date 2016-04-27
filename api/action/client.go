@@ -49,6 +49,14 @@ func (c *Client) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	return results, err
 }
 
+// FindActionsByNames takes a list of action names and returns actions for
+// every name.
+func (c *Client) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
+	results := params.ActionsByNames{}
+	err := c.facade.FacadeCall("FindActionsByNames", arg, &results)
+	return results, err
+}
+
 // ListAll takes a list of Entities representing ActionReceivers and returns
 // all of the Actions that have been queued or run by each of those
 // Entities.

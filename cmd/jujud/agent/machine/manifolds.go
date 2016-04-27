@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -53,6 +54,11 @@ type ManifoldsConfig struct {
 	// AgentConfigChanged is set whenever the machine agent's config
 	// is updated.
 	AgentConfigChanged *voyeur.Value
+
+	// RootDir is the root directory that any worker that needs to
+	// access local filesystems should use as a base. In actual use it
+	// will be "" but it may be overriden in tests.
+	RootDir string
 
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
@@ -401,6 +407,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     machineactions.NewFacade,
 			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
+
+		hostKeyReporterName: ifFullyUpgraded(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			RootDir:       config.RootDir,
+			NewFacade:     hostkeyreporter.NewFacade,
+			NewWorker:     hostkeyreporter.NewWorker,
+		})),
 	}
 }
 
@@ -454,4 +468,5 @@ const (
 	toolsVersionCheckerName  = "tools-version-checker"
 	apiConfigWatcherName     = "api-config-watcher"
 	machineActionName        = "machine-action-runner"
+	hostKeyReporterName      = "host-key-reporter"
 )

@@ -6,11 +6,14 @@ package commands
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
@@ -35,6 +38,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
@@ -57,6 +61,43 @@ Azure, or your local machine.
 https://juju.ubuntu.com/
 `
 
+const juju1xCmdName = "juju-1"
+
+var usageHelp = `
+Usage: juju [help] <command>
+
+Summary:
+Juju is model & service management software designed to leverage the power
+of existing resource pools, particularly cloud-based ones. It has built-in
+support for cloud providers such as Amazon EC2, Google GCE, Microsoft
+Azure, OpenStack, and Rackspace. It also works very well with MAAS and
+LXD. Juju allows for easy installation and management of workloads on a
+chosen resource pool.
+
+See https://jujucharms.com/docs/stable/help for documentation.
+
+Common commands:
+
+    add-credential      Adds or replaces credentials for a cloud.
+    add-relation        Adds a relation between two services.
+    add-unit            Adds extra units of a deployed service.
+    add-user            Adds a Juju user to a controller.
+    bootstrap           Initializes a cloud environment.
+    add-model           Adds a hosted model.
+    deploy              Deploys a new service.
+    expose              Makes a service publicly available over the network.
+    list-controllers    Lists all controllers.
+    list-models         Lists models a user can access on a controller.
+    status              Displays the current status of Juju, services, and units.
+    switch              Selects or identifies the current controller and model.
+
+Example help commands:
+
+    `[1:] + "`juju help`" + `          This help page
+    ` + "`juju help commands`" + ` Lists all commands
+    ` + "`juju help deploy`" + `   Shows help for command 'deploy'
+`
+
 var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
 
 // Main registers subcommands for the juju executable, and hands over control
@@ -68,10 +109,16 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
+
+	if shouldWarnJuju1x() {
+		warnJuju1x()
+	}
+
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
+
 	for i := range x {
 		x[i] ^= 255
 	}
@@ -79,8 +126,43 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
+
 	jcmd := NewJujuCommand(ctx)
 	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+}
+
+func warnJuju1x() {
+	ver := "1.x"
+	out, err := execCommand(juju1xCmdName, "version").Output()
+	if err == nil {
+		v := strings.TrimSpace(string(out))
+		// parse so we can drop the series and arch
+		bin, err := version.ParseBinary(v)
+		if err == nil {
+			ver = bin.Number.String()
+		}
+	}
+	fmt.Fprintf(os.Stderr, `
+    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
+    with the command %s e.g. '%s switch'.
+    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+    `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+}
+
+var execCommand = exec.Command
+var execLookPath = exec.LookPath
+
+func shouldWarnJuju1x() bool {
+	if _, err := execLookPath(juju1xCmdName); err != nil {
+		return false
+	}
+	return osenv.Juju1xEnvConfigExists() &&
+		!juju2xConfigDataExists()
+}
+
+func juju2xConfigDataExists() bool {
+	_, err := os.Stat(osenv.JujuXDGDataHomeDir())
+	return err == nil
 }
 
 // NewJujuCommand ...
@@ -91,6 +173,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		MissingCallback:     RunPlugin,
 		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
 	})
+	jcmd.AddHelpTopic("basics", "Basic Help Summary", usageHelp)
 	registerCommands(jcmd, ctx)
 	return jcmd
 }
@@ -143,9 +226,13 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
-	r.Register(backups.NewSuperCommand())
-	r.RegisterSuperAlias("create-backup", "backups", "create", nil)
-	r.RegisterSuperAlias("restore-backup", "backups", "restore", nil)
+	r.Register(backups.NewCreateCommand())
+	r.Register(backups.NewDownloadCommand())
+	r.Register(backups.NewShowCommand())
+	r.Register(backups.NewListCommand())
+	r.Register(backups.NewRemoveCommand())
+	r.Register(backups.NewRestoreCommand())
+	r.Register(backups.NewUploadCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAddKeysCommand())
@@ -164,7 +251,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(user.NewLogoutCommand())
 
 	// Manage cached images
-	r.Register(cachedimages.NewSuperCommand())
+	r.Register(cachedimages.NewRemoveCommand())
+	r.Register(cachedimages.NewListCommand())
 
 	// Manage machines
 	r.Register(machine.NewAddCommand())
@@ -218,16 +306,24 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(storage.NewShowCommand())
 
 	// Manage spaces
-	r.Register(space.NewSuperCommand())
-	r.RegisterSuperAlias("add-space", "space", "create", nil)
-	r.RegisterSuperAlias("list-spaces", "space", "list", nil)
+	r.Register(space.NewAddCommand())
+	r.Register(space.NewListCommand())
+	if featureflag.Enabled(feature.PostNetCLIMVP) {
+		r.Register(space.NewRemoveCommand())
+		r.Register(space.NewUpdateCommand())
+		r.Register(space.NewRenameCommand())
+	}
 
 	// Manage subnets
-	r.Register(subnet.NewSuperCommand())
-	r.RegisterSuperAlias("add-subnet", "subnet", "add", nil)
+	r.Register(subnet.NewAddCommand())
+	r.Register(subnet.NewListCommand())
+	if featureflag.Enabled(feature.PostNetCLIMVP) {
+		r.Register(subnet.NewCreateCommand())
+		r.Register(subnet.NewRemoveCommand())
+	}
 
 	// Manage controllers
-	r.Register(controller.NewCreateModelCommand())
+	r.Register(controller.NewAddModelCommand())
 	r.Register(controller.NewDestroyCommand())
 	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
