@@ -301,20 +301,21 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 				nicInfo.ConfigType = network.ConfigManual
 			}
 
-			if link.IPAddress() == "" || link.Subnet() == nil {
+			subnet := link.Subnet()
+			if link.IPAddress() == "" || subnet == nil {
 				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name())
 				continue
 			}
 
-			nicInfo.CIDR = link.Subnet().CIDR()
-			nicInfo.Address = network.NewAddressOnSpace(link.Subnet().Space(), link.IPAddress())
-			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(link.Subnet().ID()))
+			nicInfo.CIDR = subnet.CIDR()
+			nicInfo.Address = network.NewAddressOnSpace(subnet.Space(), link.IPAddress())
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(subnet.ID()))
 			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
-			if link.Subnet().Gateway() != "" {
-				nicInfo.GatewayAddress = network.NewAddressOnSpace(link.Subnet().Space(), link.Subnet().Gateway())
+			if subnet.Gateway() != "" {
+				nicInfo.GatewayAddress = network.NewAddressOnSpace(subnet.Space(), subnet.Gateway())
 			}
-			if len(link.Subnet().DNSServers()) > 0 {
-				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet().Space(), link.Subnet().DNSServers()...)
+			if len(subnet.DNSServers()) > 0 {
+				nicInfo.DNSServers = network.NewAddressesOnSpace(subnet.Space(), subnet.DNSServers()...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
