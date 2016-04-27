@@ -18,15 +18,15 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// NewCreateModelCommand returns a command to create an model.
-func NewCreateModelCommand() cmd.Command {
-	return modelcmd.WrapController(&createModelCommand{
+// NewAddModelCommand returns a command to add a model.
+func NewAddModelCommand() cmd.Command {
+	return modelcmd.WrapController(&addModelCommand{
 		credentialStore: jujuclient.NewFileCredentialStore(),
 	})
 }
 
-// createModelCommand calls the API to create a new model.
-type createModelCommand struct {
+// addModelCommand calls the API to add a new model.
+type addModelCommand struct {
 	modelcmd.ControllerCommandBase
 	api             CreateModelAPI
 	credentialStore jujuclient.CredentialStore
@@ -40,8 +40,8 @@ type createModelCommand struct {
 	Config         common.ConfigFlag
 }
 
-const createModelHelpDoc = `
-This command will create another model within the current Juju
+const addModelHelpDoc = `
+This command will add another model within the current Juju
 Controller. The provider has to match, and the model config must
 specify all the required configuration values for the provider.
 
@@ -49,7 +49,7 @@ If configuration values are passed by both extra command line
 arguments and the --config option, the command line args take
 priority.
 
-If creating a model in a controller for which you are not the
+If adding a model in a controller for which you are not the
 administrator, the cloud credentials and authorized ssh keys must
 be specified. The credentials are specified using the argument
 --credential <cloud>:<credential>. The authorized ssh keys are
@@ -64,32 +64,32 @@ specified.
 
 Examples:
 
-    juju create-model new-model
+    juju add-model new-model
 
-    juju create-model new-model --config aws-creds.yaml --config image-stream=daily
+    juju add-model new-model --config aws-creds.yaml --config image-stream=daily
     
-    juju create-model new-model --credential aws:mysekrets --config authorized-keys="ssh-rsa ..."
+    juju add-model new-model --credential aws:mysekrets --config authorized-keys="ssh-rsa ..."
 
 See Also:
-    juju help model share
+    juju help grant
 `
 
-func (c *createModelCommand) Info() *cmd.Info {
+func (c *addModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create-model",
+		Name:    "add-model",
 		Args:    "<name> [--config key=[value] ...] [--credential <cloud>:<credential>]",
-		Purpose: "create an model within the Juju Model Server",
-		Doc:     strings.TrimSpace(createModelHelpDoc),
+		Purpose: "Add a model within the Juju Model Server",
+		Doc:     strings.TrimSpace(addModelHelpDoc),
 	}
 }
 
-func (c *createModelCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Owner, "owner", "", "the owner of the new model if not the current user")
-	f.StringVar(&c.CredentialSpec, "credential", "", "the name of the cloud and credentials the new model uses to create cloud resources")
-	f.Var(&c.Config, "config", "specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
+func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
+	f.StringVar(&c.CredentialSpec, "credential", "", "The name of the cloud and credentials the new model uses to create cloud resources")
+	f.Var(&c.Config, "config", "Specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
 }
 
-func (c *createModelCommand) Init(args []string) error {
+func (c *addModelCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("model name is required")
 	}
@@ -121,14 +121,14 @@ type CreateModelAPI interface {
 	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
-func (c *createModelCommand) getAPI() (CreateModelAPI, error) {
+func (c *addModelCommand) getAPI() (CreateModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
 	return c.NewModelManagerAPIClient()
 }
 
-func (c *createModelCommand) Run(ctx *cmd.Context) error {
+func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -191,15 +191,15 @@ func (c *createModelCommand) Run(ctx *cmd.Context) error {
 		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("created model %q", c.Name)
+		ctx.Infof("added model %q", c.Name)
 	} else {
-		ctx.Infof("created model %q for %q", c.Name, c.Owner)
+		ctx.Infof("added model %q for %q", c.Name, c.Owner)
 	}
 
 	return nil
 }
 
-func (c *createModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
+func (c *addModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
 	configValues := make(map[string]interface{})
 	for key, value := range serverSkeleton {
 		configValues[key] = value

@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -40,7 +42,8 @@ type baseProviderSuite struct {
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
 	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	toolsDir := filepath.Join(storageDir, "tools")
+	suite.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
 	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 

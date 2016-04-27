@@ -5,7 +5,6 @@ package charm
 
 import (
 	"errors"
-	"net/url"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -38,10 +37,6 @@ type BundleInfo interface {
 
 	// URL returns the charm URL identifying the bundle.
 	URL() *charm.URL
-
-	// ArchiveURLs returns the location(s) of the bundle data. ArchiveURLs
-	// may return multiple URLs; each should be tried until one succeeds.
-	ArchiveURLs() ([]*url.URL, error)
 
 	// ArchiveSha256 returns the hex-encoded SHA-256 digest of the bundle data.
 	ArchiveSha256() (string, error)

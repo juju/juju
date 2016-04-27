@@ -173,7 +173,7 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			createCharm{},
 			// don't serve charm
 			createUniter{},
-			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0": failed to download charm .* 404 Not Found`},
+			waitUniterDead{err: `preparing operation "install cs:quantal/wordpress-0": failed to download charm .* not found`},
 		),
 	})
 }

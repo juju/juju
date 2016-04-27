@@ -4,9 +4,6 @@
 package uniter_test
 
 import (
-	"fmt"
-	"net/url"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -45,21 +42,6 @@ func (s *charmSuite) TestString(c *gc.C) {
 
 func (s *charmSuite) TestURL(c *gc.C) {
 	c.Assert(s.apiCharm.URL(), gc.DeepEquals, s.wordpressCharm.URL())
-}
-
-func (s *charmSuite) TestArchiveURLs(c *gc.C) {
-	apiInfo := s.APIInfo(c)
-	url, err := url.Parse(fmt.Sprintf(
-		"https://0.1.2.3:1234/model/%s/charms?file=%s&url=%s",
-		apiInfo.ModelTag.Id(),
-		url.QueryEscape("*"),
-		url.QueryEscape(s.apiCharm.URL().String()),
-	))
-	c.Assert(err, jc.ErrorIsNil)
-	archiveURLs, err := s.apiCharm.ArchiveURLs()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(archiveURLs, gc.HasLen, 1)
-	c.Assert(archiveURLs[0], gc.DeepEquals, url)
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {

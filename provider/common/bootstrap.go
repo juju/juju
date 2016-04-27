@@ -317,19 +317,17 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 			done <- connectSSH(hc.client, address, hc.checkHostScript)
 		}()
 		select {
-		case <-hc.closed:
-			return hc, lastErr
 		case <-dying:
 			return hc, lastErr
 		case lastErr = <-done:
 			if lastErr == nil {
 				return hc, nil
-			} else {
-				logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 			}
+			logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 		}
 		select {
 		case <-hc.closed:
+			return hc, lastErr
 		case <-dying:
 		case <-time.After(hc.checkDelay):
 		}
@@ -403,7 +401,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 	return err
 }
 
-// waitSSH waits for the instance to be assigned a routable
+// WaitSSH waits for the instance to be assigned a routable
 // address, then waits until we can connect to it via SSH.
 //
 // waitSSH attempts on all addresses returned by the instance
