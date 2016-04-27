@@ -35,16 +35,14 @@ export GOPATH=$WORKSPACE/$JUJU_DIR
 JUJU_PACKAGE=$GOPATH/src/github.com/juju/juju
 CHARM_PACKAGE=$GOPATH/src/github.com/juju/charm
 # Add the charm package to the tree.
-#cp -r $HOME/eco-repos/src/github.com/juju/charm $CHARM_PACKAGE
 go get github.com/juju/charm/...
-
-# ^ Fails because uitest requires a git tree to make changes to.
 
 # If tree must be tampered with, then let it be us who do it to ensure
 # we understand what is not being tested.
 CSCLIENT="$GOPATH/src/gopkg.in/juju/charmrepo.v2-unstable/csclient/csclient.go"
-SERVER_URL="s,\"https://api.jujucharms.com/charmstore\",\"$STORE_URL\","
-sed -i -e "$SERVER_URL" $CSCLIENT
+API_URL=$(echo $STORE_URL | sed -e "s,//,//api.,")
+SERVER_PATTERN="s,https://api.jujucharms.com,$API_URL,"
+sed -i -e "$SERVER_PATTERN" $CSCLIENT
 for PACKAGE in $JUJU_PACKAGE $CHARM_PACKAGE; do
     cd $PACKAGE
     go install ./...
@@ -52,20 +50,12 @@ done
 cd $WORKSPACE
 ls $GOPATH/bin
 
-# SHORT_REVISION=$(echo $REVISION_ID|head -c7)
-# echo Building $BRANCH revision $SHORT_REVISION
-# branch_url=$(echo $BRANCH | sed -r 's,gitbranch:[^:]*:(github.com/[^/]+/juju),https://\1,')
-# $RELEASE_TOOLS/make-release-tarball.bash $SHORT_REVISION $branch_url
-# GO_DIR=$(ls -d tmp.*/juju-core_$VERSION)
-# export GOPATH=$WORKSPACE/$GO_DIR
-
-# ^ Fails because sees uncommitted changes made by the purge of
-#   undocumented deps and non-free files.
-
+# Get the releases Juju GUI.
 GUI_URL=$(sstream-query http://streams.canonical.com/juju/gui/streams/v1/index.json --output-format="%(item_url)s" | head -1)
 GUI_ARCHIVE=$(basename $GUI_URL)
 wget $GUI_URL
 
+# Create credentials for the TestJujuCore tests.
 export JUJU_DATA=$CLOUD_CITY/jes-homes/$JOB_NAME
 export JUJU_HOME=$JUJU_DATA
 test -d $JUJU_DATA && rm -r $JUJU_DATA
@@ -80,11 +70,12 @@ credentials:
       file: $CLOUD_CITY/gce-4f8322be6f89.json
 EOT
 
+# Setup juju-uitest from the local copy.
 cp -r $JUJU_UITEST $WORKSPACE/juju-uitest
 cd $WORKSPACE/juju-uitest
 make
 
-SUITE="not TestStorefront"
+#SUITE="not TestStorefront"
 SUITE="TestJujuCore"
 
 # ^ We require TestJujuCore. TestCharm is fast.
@@ -103,6 +94,7 @@ echo "devenv/bin/uitest --driver phantom \
     --url $STORE_URL" \
     "$SUITE"
 #    --juju-branch $REVISION_ID \
+#    --failfast --debug \
 set +x
 devenv/bin/uitest --driver phantom \
     -c google \
@@ -111,6 +103,5 @@ devenv/bin/uitest --driver phantom \
     --credentials $STORE_CREDENTIALS \
     --admin $STORE_ADMIN \
     --url $STORE_URL \
-    --failfast --debug \
     "$SUITE"
 
