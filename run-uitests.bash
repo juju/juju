@@ -85,6 +85,7 @@ cd $WORKSPACE/juju-uitest
 make
 
 SUITE="not TestStorefront"
+SUITE="TestJujuCore"
 
 # ^ We require TestJujuCore. TestCharm is fast.
 #   TestStorefront fails, maybe because of phantom. firefox reports
@@ -110,6 +111,6 @@ devenv/bin/uitest --driver phantom \
     --credentials $STORE_CREDENTIALS \
     --admin $STORE_ADMIN \
     --url $STORE_URL \
-    --failfast \
+    --failfast --debug \
     "$SUITE"
 
