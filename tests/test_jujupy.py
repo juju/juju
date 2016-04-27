@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient2A2,
     EnvJujuClient2B2,
     EnvJujuClient2B3,
-    EnvJujuClient2B7,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -976,7 +975,6 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-beta5'
             yield '2.0-beta6'
             yield '2.0-beta7'
-            yield '2.0-beta8'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -1038,11 +1036,8 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta6')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B7)
-            self.assertEqual(client.version, '2.0-beta7')
-            client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-beta8')
+            self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
@@ -2850,27 +2845,6 @@ class TestEnvJujuClient2B3(ClientTest):
                 'bar', '--config', config_file.name), include_e=False)
 
 
-# Delete this class when the add-model feature branch merges into master.
-class TestEnvJujuClient2B7(ClientTest):
-
-    def test_add_model_hypenated_controller(self):
-        self.do_add_model(
-            'kill-controller', 'create-model', ('-c', 'foo'))
-
-    def do_add_model(self, jes_command, create_cmd, controller_option):
-        controller_client = EnvJujuClient2B7(JujuData('foo'), None, None)
-        model_data = JujuData('bar', {'type': 'foo'})
-        client = EnvJujuClient2B7(model_data, None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value=jes_command):
-                with patch.object(controller_client, 'juju') as ccj_mock:
-                    with observable_temp_file() as config_file:
-                        controller_client.add_model(model_data)
-        ccj_mock.assert_called_once_with(
-            create_cmd, controller_option + (
-                'bar', '--config', config_file.name), include_e=False)
-
-
 class TestEnvJujuClient2B2(ClientTest):
 
     def test_get_bootstrap_args_bootstrap_series(self):
@@ -3117,7 +3091,6 @@ class TestEnvJujuClient1X(ClientTest):
             yield '2.0-beta5'
             yield '2.0-beta6'
             yield '2.0-beta7'
-            yield '2.0-beta8'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -3179,11 +3152,8 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta6')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient2B7)
-            self.assertEqual(client.version, '2.0-beta7')
-            client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
-            self.assertEqual(client.version, '2.0-beta8')
+            self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
