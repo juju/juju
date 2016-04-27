@@ -30,7 +30,7 @@ github.com/juju/testing	git	162fafccebf20a4207ab93d63b986c230e3f4d2e	2015-05-29T
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
 github.com/juju/utils	git	d300cfbfa10388047c779b60e50e7be533cc781d	2016-02-23T05:10:16Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
-golang.org/x/crypto	git	c57d4a71915a248dbad846d60825145062b4c18e	2015-03-27T05:11:19Z
+golang.org/x/crypto	git	285fb2ed20d1dc450fc743a1b3ff7c36bef372b9	2015-04-26T05:11:19Z
 golang.org/x/net	git	bb64f4dc73d4ab97978d5e1cb34515dcc570361b	2015-05-18T01:39:50Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
