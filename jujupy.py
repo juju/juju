@@ -216,7 +216,7 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation'])
 
     _show_status = 'show-status'
-    _show_user = 'show-users'
+    _show_user = 'show-user'
 
     @classmethod
     def get_version(cls, juju_path=None):

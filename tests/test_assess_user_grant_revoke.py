@@ -97,7 +97,7 @@ class TestAssess(TestCase):
         username = 'fakeuser'
         mock_client = FakeJujuClient()
         env = mock_client._shell_environ()
-        cmd = 'register AaBbCc'
+        cmd = 'juju register AaBbCc'
 
         register_user(username, env, cmd)
 
@@ -167,6 +167,6 @@ class TestAssess(TestCase):
         output = ''.join(['User "x" added\nUser "x" granted read access ',
                           'to model "y"\nPlease send this command to x:\n',
                           '    juju register AaBbCc'])
-        output_cmd = 'register AaBbCc'
+        output_cmd = 'juju register AaBbCc'
         register_cmd = _get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)

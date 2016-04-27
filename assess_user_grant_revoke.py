@@ -35,31 +35,31 @@ log = logging.getLogger("assess_user_grant_revoke")
 def _get_register_command(output):
     for row in output.split('\n'):
         if 'juju register' in row:
-            return row.replace("juju", "", 1).strip().lstrip()
+            return row.strip().lstrip()
 
 
 def create_user_permissions(client, username, models=None, permissions='read'):
     if models is None:
         models = client.env.environment
 
-    output = client.get_juju_output(
-            'add-user', username, '--models', models,
-            '--acl', permissions, include_e=False)
+    args = (username, '--models', models, '--acl', permissions)
+    output = client.get_juju_output('add-user', *args, include_e=False)
     return _get_register_command(output)
+
 
 def remove_user_permissions(client, username, models=None, permissions='read'):
     if models is None:
         models = client.env.environment
 
-    client.juju('revoke', username, models, '--acl', permissions,
-                include_e=False)
+    args = (username, models, '--acl', permissions)
+    client.juju('revoke', args, include_e=False)
 
 
 def register_user(username, env, register_cmd):
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     try:
-        child = pexpect.spawn('juju', args=[register_cmd], env=env)
+        child = pexpect.spawn(register_cmd, env=env)
         child.expect('(?i)name .*: ')
         child.sendline(username + '_controller')
         child.expect('(?i)password')
@@ -133,7 +133,7 @@ def assess_user_grant_revoke(client):
         write_user_client, write_user_env = create_cloned_environment(
             client, fake_home)
         register_user(write_user, write_user_env,
-                      write_user_register, juju_bin)
+                      write_user_register)
 
         # assert we can show status
         try:
@@ -168,7 +168,6 @@ def assess_user_grant_revoke(client):
             pass
         else:
             raise AssertionError('assert_fail read-only user deployed charm')
-
 
 
 def parse_args(argv):
