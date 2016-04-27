@@ -5,7 +5,9 @@ from mock import (
     Mock,
     patch,
 )
+from functools import partial
 import StringIO
+import pexpect
 
 from assess_user_grant_revoke import (
     assess_user_grant_revoke,
@@ -72,14 +74,51 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
+    class RegisterUserProcess:
+
+        @classmethod
+        def get_process(cls, username, expected_strings):
+            return partial(cls, username, expected_strings)
+
+        def __init__(self, sendline_str, expected_str, register_cmd, env):
+            self._expect_strings = expected_str
+            self._sendline_strings = sendline_str
+
+        def _check_string(self, string, string_list):
+            expected_string = string_list.pop(0)
+            if string != expected_string:
+                raise ValueError(
+                    'Expected {} got {}'.format(expected_string, string)
+                )
+
+        def expect(self, string):
+            self._check_string(string, self._expect_strings)
+
+        def sendline(self, string):
+            self._check_string(string, self._sendline_strings)
+
+        def isalive(self):
+            return False
+
     def test_user_grant_revoke(self):
         mock_client = FakeJujuClient()
-
         mock_client.bootstrap()
         assess_user_grant_revoke(mock_client)
+
         # mock_client.juju.assert_called_once_with('deploy',
         # ('local:wordpress',))
         mock_client.wait_for_started.assert_called_once_with()
+        mock_client.juju.assert_called_once_with('deploy', ('wordpress',))
+        mock_client.juju.assert_called_once_with('deploy', ('wordpress',))
+
+        #read_user_client.list_controllers()
+        #read_user_client.show_user()
+        #read_user_client.show_status()
+        mock_client.get_juju_output.assert_called_once_with('add-user', ('bob'))
+        mock_client.get_juju_output.assert_called_once_with('add-user', ('carol'))
+        mock_client.juju.assert_called_once_with('revoke', ('bob',))
+        mock_client.juju.assert_called_once_with('revoke', ('carol',))
+
         # self.assertNotIn("TODO", self.log_stream.getvalue())
 
     def test_create_cloned_environment(self):
@@ -92,14 +131,27 @@ class TestAssess(TestCase):
         self.assertNotEqual(cloned_env, mock_client_env)
         self.assertEqual(cloned_env['JUJU_DATA'], 'fakehome')
 
-    # This is a fragile pexpect session and returns nothing
     def test_register_user(self):
         username = 'fakeuser'
         mock_client = FakeJujuClient()
         env = mock_client._shell_environ()
         cmd = 'juju register AaBbCc'
 
-        register_user(username, env, cmd)
+        register_process = TestAssess.RegisterUserProcess.get_process(
+            [
+                username + '_controller',
+                username + '_password',
+                username + '_password',
+                pexpect.exceptions.EOF
+            ],
+            [
+                '(?i)name .*: ',
+                '(?i)password',
+                '(?i)password',
+                pexpect.exceptions.EOF,
+            ]
+        )
+        register_user(username, env, cmd, register_process=register_process)
 
     def test_remove_user_permissions(self):
         mock_client = FakeJujuClient()

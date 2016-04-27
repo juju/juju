@@ -55,11 +55,17 @@ def remove_user_permissions(client, username, models=None, permissions='read'):
     client.juju('revoke', args, include_e=False)
 
 
-def register_user(username, env, register_cmd):
+def register_user(username, env, register_cmd, register_process=pexpect.spawn):
+    """Register a user
+
+    :register_process: is a pexpect like callable that has the methods
+      'expect' and 'sendline'.
+
+    """
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     try:
-        child = pexpect.spawn(register_cmd, env=env)
+        child = register_process(register_cmd, env=env)
         child.expect('(?i)name .*: ')
         child.sendline(username + '_controller')
         child.expect('(?i)password')
