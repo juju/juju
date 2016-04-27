@@ -23,15 +23,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type createSuite struct {
+type addSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake  *fakeCreateClient
 	store *jujuclienttesting.MemStore
 }
 
-var _ = gc.Suite(&createSuite{})
+var _ = gc.Suite(&addSuite{})
 
-func (s *createSuite) SetUpTest(c *gc.C) {
+func (s *addSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeCreateClient{
 		model: params.Model{
@@ -65,12 +65,12 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *createSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	command, _ := controller.NewCreateModelCommandForTest(s.fake, s.store, s.store)
+func (s *addSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	command, _ := controller.NewAddModelCommandForTest(s.fake, s.store, s.store)
 	return testing.RunCommand(c, command, args...)
 }
 
-func (s *createSuite) TestInit(c *gc.C) {
+func (s *addSuite) TestInit(c *gc.C) {
 
 	for i, test := range []struct {
 		args   []string
@@ -101,7 +101,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, command := controller.NewCreateModelCommandForTest(nil, s.store, s.store)
+		wrappedCommand, command := controller.NewAddModelCommandForTest(nil, s.store, s.store)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
@@ -121,7 +121,7 @@ func (s *createSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *createSuite) TestCreateExistingName(c *gc.C) {
+func (s *addSuite) TestAddExistingName(c *gc.C) {
 	// If there's any model details existing, we just overwrite them. The
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
@@ -139,7 +139,7 @@ func (s *createSuite) TestCreateExistingName(c *gc.C) {
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
 
-func (s *createSuite) TestCredentialsPassedThrough(c *gc.C) {
+func (s *addSuite) TestCredentialsPassedThrough(c *gc.C) {
 	_, err := s.run(c, "test", "--credential", "aws:secrets")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -150,7 +150,7 @@ func (s *createSuite) TestCredentialsPassedThrough(c *gc.C) {
 	})
 }
 
-func (s *createSuite) TestComandLineConfigPassedThrough(c *gc.C) {
+func (s *addSuite) TestComandLineConfigPassedThrough(c *gc.C) {
 	_, err := s.run(c, "test", "--config", "account=magic", "--config", "cloud=special")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -158,7 +158,7 @@ func (s *createSuite) TestComandLineConfigPassedThrough(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "special")
 }
 
-func (s *createSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
+func (s *addSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
 	config := map[string]string{
 		"account": "magic",
 		"cloud":   "9",
@@ -176,7 +176,7 @@ func (s *createSuite) TestConfigFileValuesPassedThrough(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "9")
 }
 
-func (s *createSuite) TestConfigFileWithNestedMaps(c *gc.C) {
+func (s *addSuite) TestConfigFileWithNestedMaps(c *gc.C) {
 	nestedConfig := map[string]interface{}{
 		"account": "magic",
 		"cloud":   "9",
@@ -199,7 +199,7 @@ func (s *createSuite) TestConfigFileWithNestedMaps(c *gc.C) {
 	c.Assert(s.fake.config["nested"], jc.DeepEquals, nestedConfig)
 }
 
-func (s *createSuite) TestConfigFileFailsToConform(c *gc.C) {
+func (s *addSuite) TestConfigFileFailsToConform(c *gc.C) {
 	nestedConfig := map[int]interface{}{
 		9: "9",
 	}
@@ -218,7 +218,7 @@ func (s *createSuite) TestConfigFileFailsToConform(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unable to parse config: map keyed with non-string value`)
 }
 
-func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
+func (s *addSuite) TestConfigFileFormatError(c *gc.C) {
 	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	file.Write(([]byte)("not: valid: yaml"))
@@ -228,13 +228,13 @@ func (s *createSuite) TestConfigFileFormatError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unable to parse config: yaml: .*`)
 }
 
-func (s *createSuite) TestConfigFileDoesntExist(c *gc.C) {
+func (s *addSuite) TestConfigFileDoesntExist(c *gc.C) {
 	_, err := s.run(c, "test", "--config", "missing-file")
 	errMsg := ".*" + utils.NoSuchFileErrRegexp
 	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
-func (s *createSuite) TestConfigValuePrecedence(c *gc.C) {
+func (s *addSuite) TestConfigValuePrecedence(c *gc.C) {
 	config := map[string]string{
 		"account": "magic",
 		"cloud":   "9",
@@ -252,7 +252,7 @@ func (s *createSuite) TestConfigValuePrecedence(c *gc.C) {
 	c.Assert(s.fake.config["cloud"], gc.Equals, "special")
 }
 
-func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
+func (s *addSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 	s.fake.err = errors.New("bah humbug")
 
 	_, err := s.run(c, "test")
@@ -262,7 +262,7 @@ func (s *createSuite) TestCreateErrorRemoveConfigstoreInfo(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *createSuite) TestCreateStoresValues(c *gc.C) {
+func (s *addSuite) TestAddStoresValues(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -271,7 +271,7 @@ func (s *createSuite) TestCreateStoresValues(c *gc.C) {
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
 
-func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
+func (s *addSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	_, err := s.run(c, "test", "--owner", "zeus")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -283,7 +283,7 @@ func (s *createSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 }
 
 // fakeCreateClient is used to mock out the behavior of the real
-//  CreateModel command.
+// CreateModel command.
 type fakeCreateClient struct {
 	owner   string
 	account map[string]interface{}

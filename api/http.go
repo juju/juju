@@ -187,3 +187,30 @@ func bakeryError(err error) error {
 		},
 	}
 }
+
+// HTTPDoer exposes the functionality of httprequest.Client needed here.
+type HTTPDoer interface {
+	// Do sends the given request.
+	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
+}
+
+// openBlob streams the identified blob from the controller via the
+// provided HTTP client.
+func openBlob(httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadCloser, error) {
+	apiURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	apiURL.RawQuery = args.Encode()
+
+	req, err := http.NewRequest("GET", apiURL.String(), nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create HTTP request")
+	}
+
+	var resp *http.Response
+	if err := httpClient.Do(req, nil, &resp); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resp.Body, nil
+}

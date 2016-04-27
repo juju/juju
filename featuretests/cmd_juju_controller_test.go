@@ -85,7 +85,7 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 		"\n")
 }
 
-func (s *cmdControllerSuite) TestCreateModelNormalUser(c *gc.C) {
+func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
@@ -139,13 +139,13 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 		"\n")
 }
 
-func (s *cmdControllerSuite) TestCreateModel(c *gc.C) {
+func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	// The JujuConnSuite doesn't set up an ssh key in the fake home dir,
 	// so fake one on the command line.  The dummy provider also expects
 	// a config value for 'controller'.
-	context := s.run(c, "create-model", "new-model", "authorized-keys=fake-key", "controller=false")
+	context := s.run(c, "add-model", "new-model", "authorized-keys=fake-key", "controller=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, "created model \"new-model\"\n")
+	c.Check(testing.Stderr(context), gc.Equals, "added model \"new-model\"\n")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.

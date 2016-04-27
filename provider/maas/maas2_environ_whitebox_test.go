@@ -948,6 +948,295 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	c.Assert(result.NetworkInfo, jc.DeepEquals, expected)
 }
 
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C) {
+	vlan1 := fakeVLAN{
+		id:  5001,
+		mtu: 1500,
+	}
+	vlan2 := fakeVLAN{
+		id:  5002,
+		mtu: 1500,
+	}
+	subnet1 := fakeSubnet{
+		id:         3,
+		space:      "default",
+		vlan:       vlan1,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	subnet2 := fakeSubnet{
+		id:         4,
+		space:      "freckles",
+		vlan:       vlan2,
+		gateway:    "192.168.1.1",
+		cidr:       "192.168.1.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	deviceInterfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         93,
+			name:       "eth1",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "53:54:00:70:9b:ff",
+			vlan:       vlan2,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        480,
+					subnet:    &subnet2,
+					ipAddress: "192.168.1.127",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	var env *maasEnviron
+	device := &fakeDevice{
+		interfaceSet: deviceInterfaces,
+		systemID:     "foo",
+	}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{&fakeMachine{
+			systemID:     "1",
+			architecture: arch.HostArch(),
+			interfaceSet: interfaces,
+			createDevice: device,
+		}},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet1, subnet2},
+			},
+		},
+		devices: []gomaasapi.Device{device},
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	prepared := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:fe",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "91",
+		ProviderSubnetId:  "3",
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "436",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
+		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+	}}
+	result, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "53:54:00:70:9b:ff",
+		CIDR:              "192.168.1.0/24",
+		ProviderId:        "93",
+		ProviderSubnetId:  "4",
+		VLANTag:           0,
+		ProviderVLANId:    "5002",
+		ProviderAddressId: "480",
+		InterfaceName:     "eth1",
+		InterfaceType:     "ethernet",
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("freckles", "192.168.1.127"),
+		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+	}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
+	vlan1 := fakeVLAN{
+		id:  5001,
+		mtu: 1500,
+	}
+	vlan2 := fakeVLAN{
+		id:  5002,
+		mtu: 1500,
+	}
+	subnet1 := fakeSubnet{
+		id:         3,
+		space:      "freckles",
+		vlan:       vlan1,
+		gateway:    "10.20.19.2",
+		cidr:       "10.20.19.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+	subnet2 := fakeSubnet{
+		id:         4,
+		space:      "freckles",
+		vlan:       vlan2,
+		gateway:    "192.168.1.1",
+		cidr:       "192.168.1.0/24",
+		dnsServers: []string{"10.20.19.2", "10.20.19.3"},
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         91,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:fe",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        436,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.103",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+		&fakeInterface{
+			id:         92,
+			name:       "eth1",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "52:54:00:70:9b:ff",
+			vlan:       vlan2,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        437,
+					subnet:    &subnet2,
+					ipAddress: "192.168.1.4",
+					mode:      "static",
+				},
+			},
+		},
+	}
+	deviceInterfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			id:         93,
+			name:       "eth0",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "53:54:00:70:9b:ff",
+			vlan:       vlan1,
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:        480,
+					subnet:    &subnet1,
+					ipAddress: "10.20.19.127",
+					mode:      "static",
+				},
+			},
+			parents:  []string{},
+			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+		},
+	}
+	newInterface := &fakeInterface{
+		id:         94,
+		name:       "eth1",
+		type_:      "physical",
+		enabled:    true,
+		macAddress: "52:54:00:70:9b:f4",
+		vlan:       vlan2,
+		links: []gomaasapi.Link{
+			&fakeLink{
+				id:        481,
+				subnet:    &subnet2,
+				ipAddress: "192.168.1.127",
+				mode:      "static",
+			},
+		},
+	}
+	var env *maasEnviron
+	device := &fakeDevice{
+		interfaceSet: deviceInterfaces,
+		systemID:     "foo",
+		interface_:   newInterface,
+	}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{&fakeMachine{
+			systemID:     "1",
+			architecture: arch.HostArch(),
+			interfaceSet: interfaces,
+			createDevice: device,
+		}},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet1, subnet2},
+			},
+		},
+		devices: []gomaasapi.Device{device},
+	}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env = suite.makeEnviron(c, nil)
+
+	prepared := []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		MACAddress:        "53:54:00:70:9b:ff",
+		CIDR:              "10.20.19.0/24",
+		ProviderId:        "93",
+		ProviderSubnetId:  "3",
+		ProviderVLANId:    "5001",
+		ProviderAddressId: "480",
+		InterfaceName:     "eth0",
+		InterfaceType:     "ethernet",
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("freckles", "10.20.19.127"),
+		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("freckles", "10.20.19.2"),
+	}, {
+		DeviceIndex:       0,
+		MACAddress:        "52:54:00:70:9b:f4",
+		CIDR:              "192.168.1.0/24",
+		ProviderId:        "94",
+		ProviderSubnetId:  "4",
+		ProviderVLANId:    "5002",
+		ProviderAddressId: "481",
+		InterfaceName:     "eth1",
+		InterfaceType:     "ethernet",
+		ConfigType:        "static",
+		Address:           network.NewAddressOnSpace("freckles", "192.168.1.127"),
+		DNSServers:        network.NewAddressesOnSpace("freckles", "10.20.19.2", "10.20.19.3"),
+		MTU:               1500,
+		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
+	}}
+	result, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, prepared)
+}
+
 func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 	controller := newFakeController()
 	env := suite.makeEnviron(c, controller)

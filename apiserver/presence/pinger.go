@@ -74,35 +74,31 @@ func New(config Config) (*Worker, error) {
 	}
 	name := fmt.Sprintf("juju.apiserver.presence.%s", config.Identity)
 	w := &Worker{
-		config: config,
-		logger: loggo.GetLogger(name),
+		config:  config,
+		logger:  loggo.GetLogger(name),
+		running: make(chan struct{}),
 	}
-	ready := make(chan struct{})
-	// We make a copy of the variable so we can observe it being closed,
-	// while the worker function itself wants to change the variable to
-	// 'nil' so that it doesn't close it twice.
-	// See https://pad.lv/1574632
-	readyCopy := ready
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
-		Work: func() error {
-			// Run once to prime presence before diving into the loop.
-			pinger := w.startPinger()
-			if ready != nil {
-				close(ready)
-				ready = nil
-			}
-			if pinger != nil {
-				w.waitOnPinger(pinger)
-			}
-			return w.loop()
-		},
+		Work: w.loop,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	<-readyCopy
-	return w, nil
+
+	// To support unhappy assumptions in apiserver/server_test.go,
+	// we block New until at least one attempt to start a Pinger
+	// has been made. This preserves the apparent behaviour of an
+	// unwrapped Pinger under normal conditions.
+	select {
+	case <-w.catacomb.Dying():
+		if err := w.Wait(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.New("worker stopped abnormally without reporting an error")
+	case <-w.running:
+		return w, nil
+	}
 }
 
 // Worker creates a Pinger as configured, and recreates it as it fails
@@ -112,6 +108,7 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 	logger   loggo.Logger
+	running  chan struct{}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -135,53 +132,77 @@ func (w *Worker) Stop() error {
 // loop runs Pingers until w is stopped.
 func (w *Worker) loop() error {
 	var delay time.Duration
-	clock := w.config.Clock
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case <-clock.After(delay):
-			delay = 0
-			pinger := w.startPinger()
-			if pinger == nil {
-				// Failed to start.
-				delay = w.config.RetryDelay
-				continue
-			}
-			w.waitOnPinger(pinger)
+		case <-w.config.Clock.After(delay):
+			maybePinger := w.maybeStartPinger()
+			w.reportRunning()
+			w.waitPinger(maybePinger)
 		}
+		delay = w.config.RetryDelay
 	}
 }
 
-// startPinger starts a single Pinger. It returns nil if the pinger
-// could not be started.
-func (w *Worker) startPinger() Pinger {
-	w.logger.Debugf("starting pinger...")
+// maybeStartPinger starts and returns a new Pinger; or, if it
+// encounters an error, logs it and returns nil.
+func (w *Worker) maybeStartPinger() Pinger {
+	w.logger.Tracef("starting pinger...")
 	pinger, err := w.config.Start()
 	if err != nil {
-		w.logger.Errorf("pinger failed to start: %v", err)
+		w.logger.Errorf("cannot start pinger: %v", err)
 		return nil
 	}
-	w.logger.Debugf("pinger started")
+	w.logger.Tracef("pinger started")
 	return pinger
 }
 
-// waitOnPinger waits indefinitely for the given Pinger to complete,
-// stopping it only when the Worker is Kill()ed.
-func (w *Worker) waitOnPinger(pinger Pinger) {
-	// Start a goroutine that waits for the Worker to be stopped,
-	// and then stops the Pinger.  Note also that we ignore errors
-	// out of Stop(): they will be caught by the Pinger anyway, and
-	// we'll see them come out of Wait() below.
+// reportRunning is a foul hack designed to delay apparent worker start
+// until at least one ping has been delivered (or attempted). It only
+// exists to make various distant tests, which should ideally not be
+// depending on these implementation details, reliable.
+func (w *Worker) reportRunning() {
+	select {
+	case <-w.running:
+	default:
+		close(w.running)
+	}
+}
+
+// waitPinger waits for the death of either the pinger or the worker;
+// stops the pinger if necessary; and returns once the pinger is
+// finished. If pinger is nil, it returns immediately.
+func (w *Worker) waitPinger(pinger Pinger) {
+	if pinger == nil {
+		return
+	}
+
+	// Set up a channel that will last as long as this method call.
+	done := make(chan struct{})
+	defer close(done)
+
+	// Start a goroutine to stop the Pinger if the worker is killed.
+	// If the enclosing method completes, we know that the Pinger
+	// has already stopped, and we can return immediately.
+	//
+	// Note that we ignore errors out of Stop(), depending on the
+	// Pinger to manage errors properly and report them via Wait()
+	// below.
 	go func() {
-		<-w.catacomb.Dying()
-		pinger.Stop()
+		select {
+		case <-done:
+		case <-w.catacomb.Dying():
+			w.logger.Tracef("stopping pinger")
+			pinger.Stop()
+		}
 	}()
 
 	// Now, just wait for the Pinger to stop. It might be caused by
 	// the Worker's death, or it might have failed on its own; in
 	// any case, errors are worth recording, but we don't need to
 	// respond in any way because that's loop()'s responsibility.
+	w.logger.Tracef("waiting for pinger...")
 	if err := pinger.Wait(); err != nil {
 		w.logger.Errorf("pinger failed: %v", err)
 	}

@@ -1878,11 +1878,10 @@ func (environ *maasEnviron) subnetToSpaceIds() (map[string]network.Id, error) {
 // Space name is not filled in as the provider doesn't know the juju name for
 // the space.
 func (environ *maasEnviron) Spaces() ([]network.SpaceInfo, error) {
-	if environ.usingMAAS2() {
-		return environ.spaces2()
-	} else {
+	if !environ.usingMAAS2() {
 		return environ.spaces1()
 	}
+	return environ.spaces2()
 }
 
 func (environ *maasEnviron) spaces1() ([]network.SpaceInfo, error) {
@@ -2148,7 +2147,13 @@ func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, p
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
 	logger.Debugf("using prepared container info: %+v", preparedInfo)
+	if !env.usingMAAS2() {
+		return env.allocateContainerAddresses1(hostInstanceID, preparedInfo)
+	}
+	return env.allocateContainerAddresses2(hostInstanceID, preparedInfo)
+}
 
+func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	subnetCIDRToVLANID := make(map[string]string)
 	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
 	result, err := subnetsAPI.CallGet("", nil)
@@ -2231,6 +2236,103 @@ func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, p
 		logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
 	}
 	finalInterfaces, err := env.deviceInterfaceInfo(deviceID, nameToParentName)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get device interfaces")
+	}
+	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
+	return finalInterfaces, nil
+}
+
+func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	subnetCIDRToSubnet := make(map[string]gomaasapi.Subnet)
+	spaces, err := env.maasController.Spaces()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, space := range spaces {
+		for _, subnet := range space.Subnets() {
+			subnetCIDRToSubnet[subnet.CIDR()] = subnet
+		}
+	}
+
+	var primaryNICInfo network.InterfaceInfo
+	primaryNICName := "eth0"
+	for _, nic := range preparedInfo {
+		if nic.InterfaceName == primaryNICName {
+			primaryNICInfo = nic
+			break
+		}
+	}
+	if primaryNICInfo.InterfaceName == "" {
+		return nil, errors.Errorf("cannot find primary interface for container")
+	}
+	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
+
+	primaryNICSubnetCIDR := primaryNICInfo.CIDR
+	subnet, ok := subnetCIDRToSubnet[primaryNICSubnetCIDR]
+	if !ok {
+		return nil, errors.Errorf("primary NIC subnet %v not found", primaryNICSubnetCIDR)
+	}
+	primaryMACAddress := primaryNICInfo.MACAddress
+	args := gomaasapi.MachinesArgs{
+		AgentName: env.ecfg().maasAgentName(),
+		SystemIDs: []string{string(hostInstanceID)},
+	}
+	machines, err := env.maasController.Machines(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(machines) != 1 {
+		return nil, errors.Errorf("unexpected response fetching machine %v: %v", hostInstanceID, machines)
+	}
+	machine := machines[0]
+	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
+		MACAddress:    primaryMACAddress,
+		Subnet:        subnet,
+		InterfaceName: primaryNICName,
+	}
+	device, err := machine.CreateDevice(createDeviceArgs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	interface_set := device.InterfaceSet()
+	if len(interface_set) != 1 {
+		// Shouldn't be possible as machine.CreateDevice always returns us
+		// one interface.
+		return nil, errors.Errorf("unexpected number of interfaces inresponse from creating device: %v", interface_set)
+	}
+
+	nameToParentName := make(map[string]string)
+	for _, nic := range preparedInfo {
+		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
+		if nic.InterfaceName != primaryNICName {
+			subnet, ok := subnetCIDRToSubnet[nic.CIDR]
+			if !ok {
+				return nil, errors.Errorf("NIC %v subnet %v not found", nic.InterfaceName, nic.CIDR)
+			}
+			createdNIC, err := device.CreateInterface(
+				gomaasapi.CreateInterfaceArgs{
+					Name:       nic.InterfaceName,
+					MACAddress: nic.MACAddress,
+					VLAN:       subnet.VLAN(),
+				})
+			if err != nil {
+				return nil, errors.Annotate(err, "creating device interface")
+			}
+			logger.Debugf("created device interface: %+v", createdNIC)
+
+			linkArgs := gomaasapi.LinkSubnetArgs{
+				Mode:   gomaasapi.LinkModeStatic,
+				Subnet: subnet,
+			}
+			err = createdNIC.LinkSubnet(linkArgs)
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot link device interface to subnet")
+			}
+			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
+		}
+	}
+	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}

@@ -1,121 +1,86 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package downloader
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
+	"net/url"
 	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"launchpad.net/tomb"
 )
 
 var logger = loggo.GetLogger("juju.downloader")
 
-// Status represents the status of a completed download.
-type Status struct {
-	// File holds the downloaded data on success.
-	File *os.File
-	// Err describes any error encountered while downloading.
-	Err error
+// Downloader provides the functionality for downloading files.
+type Downloader struct {
+	// OpenBlob is the func used to gain access to the blob, whether
+	// through an HTTP request or some other means.
+	OpenBlob func(*url.URL) (io.ReadCloser, error)
 }
 
-// Download can download a file from the network.
-type Download struct {
-	tomb                 tomb.Tomb
-	done                 chan Status
-	hostnameVerification utils.SSLHostnameVerification
+// NewArgs holds the arguments to New().
+type NewArgs struct {
+	// HostnameVerification is that which should be used for the client.
+	// If it is disableSSLHostnameVerification then a non-validating
+	// client will be used.
+	HostnameVerification utils.SSLHostnameVerification
 }
 
-// New returns a new Download instance downloading from the given URL
-// to the given directory. If dir is empty, it defaults to
-// os.TempDir(). If disableSSLHostnameVerification is true then a non-
-// validating http client will be used.
-func New(url, dir string, hostnameVerification utils.SSLHostnameVerification) *Download {
-	d := &Download{
-		done:                 make(chan Status),
-		hostnameVerification: hostnameVerification,
+// New returns a new Downloader for the given args.
+func New(args NewArgs) *Downloader {
+	return &Downloader{
+		OpenBlob: NewHTTPBlobOpener(args.HostnameVerification),
 	}
-	go d.run(url, dir)
-	return d
 }
 
-// Stop stops any download that's in progress.
-func (d *Download) Stop() {
-	d.tomb.Kill(nil)
-	d.tomb.Wait()
+// Start starts a new download and returns it.
+func (dlr Downloader) Start(req Request) *Download {
+	dl := StartDownload(req, dlr.OpenBlob)
+	return dl
 }
 
-// Done returns a channel that receives a status when the download has
-// completed.  It is the receiver's responsibility to close and remove
-// the received file.
-func (d *Download) Done() <-chan Status {
-	return d.done
-}
-
-func (d *Download) run(url, dir string) {
-	defer d.tomb.Done()
-	// TODO(dimitern) 2013-10-03 bug #1234715
-	// Add a testing HTTPS storage to verify the
-	// disableSSLHostnameVerification behavior here.
-	file, err := download(url, dir, d.hostnameVerification)
+// Download starts a new download, waits for it to complete, and
+// returns the local name of the file.
+func (dlr Downloader) Download(req Request, abort <-chan struct{}) (filename string, err error) {
+	if err := os.MkdirAll(req.TargetDir, 0755); err != nil {
+		return "", errors.Trace(err)
+	}
+	dl := dlr.Start(req)
+	file, err := dl.Wait(abort)
+	if file != nil {
+		defer file.Close()
+	}
 	if err != nil {
-		err = fmt.Errorf("cannot download %q: %v", url, err)
+		return "", errors.Trace(err)
 	}
-	status := Status{
-		File: file,
-		Err:  err,
-	}
-	select {
-	case d.done <- status:
-	case <-d.tomb.Dying():
-		cleanTempFile(status.File)
-	}
+	return file.Name(), nil
 }
 
-func download(url, dir string, hostnameVerification utils.SSLHostnameVerification) (file *os.File, err error) {
-	if dir == "" {
-		dir = os.TempDir()
+// DownloadWithAlternates tries each of the provided requests until
+// one succeeds. If none succeed then the error from the most recent
+// attempt is returned. At least one request must be provided.
+func (dlr Downloader) DownloadWithAlternates(requests []Request, abort <-chan struct{}) (filename string, err error) {
+	if len(requests) == 0 {
+		return "", errors.New("no requests to try")
 	}
-	tempFile, err := ioutil.TempFile(dir, "inprogress-")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			cleanTempFile(tempFile)
+
+	for _, req := range requests {
+		filename, err = dlr.Download(req, abort)
+		if errors.IsNotValid(err) {
+			break
 		}
-	}()
-	// TODO(rog) make the download operation interruptible.
-	client := utils.GetHTTPClient(hostnameVerification)
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad http response: %v", resp.Status)
-	}
-	_, err = io.Copy(tempFile, resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := tempFile.Seek(0, 0); err != nil {
-		return nil, err
-	}
-	return tempFile, nil
-}
-
-func cleanTempFile(f *os.File) {
-	if f != nil {
-		f.Close()
-		if err := os.Remove(f.Name()); err != nil {
-			logger.Warningf("cannot remove temp file %q: %v", f.Name(), err)
+		if err == nil {
+			break
 		}
+		logger.Errorf("download request to %s failed: %v", req.URL, err)
+		// Try the next one.
 	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return filename, nil
 }
