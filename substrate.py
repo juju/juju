@@ -17,13 +17,15 @@ from jujuconfig import (
     translate_to_env,
 )
 from utility import (
-    print_now,
     temp_dir,
     until_timeout,
 )
 
 
 __metaclass__ = type
+
+
+log = logging.getLogger("substrate")
 
 
 LIBVIRT_DOMAIN_RUNNING = 'running'
@@ -41,7 +43,7 @@ class StillProvisioning(Exception):
 
 def terminate_instances(env, instance_ids):
     if len(instance_ids) == 0:
-        print_now("No instances to delete.")
+        log.info("No instances to delete.")
         return
     provider_type = env.config.get('type')
     environ = dict(os.environ)
@@ -66,7 +68,7 @@ def terminate_instances(env, instance_ids):
                     "This test does not support the %s provider"
                     % provider_type)
             return substrate.terminate_instances(instance_ids)
-    print_now("Deleting %s." % ', '.join(instance_ids))
+    log.info("Deleting %s." % ', '.join(instance_ids))
     subprocess.check_call(command_args, env=environ)
 
 
@@ -107,7 +109,7 @@ class AWSAccount:
             the specified instances.
         :return: an iterator of (group-id, group-name) tuples.
         """
-        logging.info('Listing security groups in use.')
+        log.info('Listing security groups in use.')
         reservations = self.client.get_all_instances(instance_ids=instance_ids)
         for reservation in reservations:
             for instance in reservation.instances:
@@ -146,7 +148,7 @@ class AWSAccount:
                                 'InvalidNetworkInterface.InUse',
                                 'InvalidNetworkInterfaceID.NotFound'):
                             raise
-                        logging.info(
+                        log.info(
                             'Failed to delete interface {!r}. {}'.format(
                                 interface.id, e.message))
                         unclean.update(g.id for g in interface.groups)
@@ -252,7 +254,7 @@ class JoyentAccount:
             raise StillProvisioning(provisioning)
 
     def _terminate_instance(self, machine_id):
-        logging.info('Stopping instance {}'.format(machine_id))
+        log.info('Stopping instance {}'.format(machine_id))
         self.client.stop_machine(machine_id)
         for ignored in until_timeout(30):
             stopping_machine = self.client._list_machines(machine_id)
@@ -261,7 +263,7 @@ class JoyentAccount:
             sleep(3)
         else:
             raise Exception('Instance did not stop: {}'.format(machine_id))
-        logging.info('Terminating instance {}'.format(machine_id))
+        log.info('Terminating instance {}'.format(machine_id))
         self.client.delete_machine(machine_id)
 
 
@@ -391,7 +393,7 @@ class MAASAccount:
         """Terminate the specified instances."""
         for instance in instance_ids:
             maas_system_id = instance.split('/')[5]
-            print_now('Deleting %s.' % instance)
+            log.info('Deleting %s.' % instance)
             subprocess.check_call(
                 ['maas', self.profile, 'node', 'release', maas_system_id])
 
@@ -578,7 +580,7 @@ def describe_instances(instances=None, running=False, job_name=None,
         command.extend(['--filter', 'instance-state-name=running'])
     if instances is not None:
         command.extend(instances)
-    logging.info(' '.join(command))
+    log.info(' '.join(command))
     return parse_euca(subprocess.check_output(command, env=env))
 
 
