@@ -666,8 +666,8 @@ class DeployManyAttempt(SteppedStageAttempt):
             ('ensure-machines', {
                 'title': 'Ensure sufficient machines', 'report_on': False}),
             ('deploy-many', {'title': 'deploy many'}),
-            ('remove-machine-many-lxc', {
-                'title': 'remove many machines (lxc)'}),
+            ('remove-machine-many-container', {
+                'title': 'remove many machines (container)'}),
             ('remove-machine-many-instance', {
                 'title': 'remove many machines (instance)'}),
             ])
@@ -721,8 +721,9 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         service_names = []
         machine_names = sorted(new_machines, key=int)
+        machine_type = client.preferred_container()
         for machine_name in machine_names:
-            target = 'lxc:{}'.format(machine_name)
+            target = '{}:{}'.format(machine_type, machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 # Work around bug #1540900: juju deploy ignores model
@@ -736,15 +737,15 @@ class DeployManyAttempt(SteppedStageAttempt):
         status = client.wait_for_started(start=timeout_start)
         results['result'] = True
         yield results
-        results = {'test_id': 'remove-machine-many-lxc'}
+        results = {'test_id': 'remove-machine-many-container'}
         yield results
         services = [status.status['services'][key] for key in service_names]
-        lxc_machines = set()
+        container_machines = set()
         for service in services:
             for unit in service['units'].values():
-                lxc_machines.add(unit['machine'])
+                container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
-        with wait_until_removed(client, lxc_machines):
+        with wait_until_removed(client, container_machines):
             yield results
         results['result'] = True
         yield results
@@ -991,14 +992,17 @@ def run_single(args):
         env, debug=args.debug)
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
-    for suite in args.suite:
-        factory = suites[suite]
-        upgrade_sequence = [upgrade_client.full_path, client.full_path]
-        suite = factory.factory(upgrade_sequence, args.log_dir,
-                                args.agent_stream)
-        steps_iter = suite.iter_steps(client)
-        for step in steps_iter:
-            print(step)
+    try:
+        for suite in args.suite:
+            factory = suites[suite]
+            upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            suite = factory.factory(upgrade_sequence, args.log_dir,
+                                    args.agent_stream)
+            steps_iter = suite.iter_steps(client)
+            for step in steps_iter:
+                print(step)
+    except LoggedException:
+        sys.exit(1)
 
 
 def main():

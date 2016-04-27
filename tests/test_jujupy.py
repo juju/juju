@@ -1562,6 +1562,14 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-bundle'), timeout=3600)
 
+    def test_deploy_bundle_template(self):
+        client = EnvJujuClient(JujuData('an_env', None),
+                               '1.23-series-arch', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
+        mock_juju.assert_called_with(
+            'deploy', ('bundle:~juju-qa/some-lxd-bundle'), timeout=3600)
+
     def test_upgrade_charm(self):
         env = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '2.34-74', None)
@@ -2653,6 +2661,17 @@ class TestEnvJujuClient(ClientTest):
             ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
+
+    def test_quickstart_template(self):
+        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
+                               '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-{container}-bundle')
+        mock.assert_called_with(
+            'quickstart', (
+                '--constraints', 'mem=2G', '--no-browser',
+                'bundle:~juju-qa/some-lxd-bundle'),
+            True, extra_env={'JUJU': '/juju'})
 
     def test_action_do(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -4418,6 +4437,18 @@ class TestEnvJujuClient1X(ClientTest):
             False
         )
 
+    def test_deploy_bundle_template(self):
+        client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
+                                 '1.23-series-arch', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
+        mock_juju.assert_called_with(
+            'deployer', (
+                '--debug', '--deploy-delay', '10', '--timeout', '3600',
+                '--config', 'bundle:~juju-qa/some-lxc-bundle',
+                ),
+            False)
+
     def test_deployer(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
@@ -4427,6 +4458,18 @@ class TestEnvJujuClient1X(ClientTest):
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
                          '3600', '--config', 'bundle:~juju-qa/some-bundle'),
             True
+        )
+
+    def test_deployer_template(self):
+        client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
+                                 '1.23-series-arch', None)
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
+            client.deployer('bundle:~juju-qa/some-{container}-bundle')
+        mock.assert_called_with(
+            'deployer', (
+                '--debug', '--deploy-delay', '10', '--timeout', '3600',
+                '--config', 'bundle:~juju-qa/some-lxc-bundle',
+                ), True
         )
 
     def test_deployer_with_bundle_name(self):
@@ -4473,6 +4516,17 @@ class TestEnvJujuClient1X(ClientTest):
             ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
+
+    def test_quickstart_template(self):
+        client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
+                                 '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-{container}-bundle')
+        mock.assert_called_with(
+            'quickstart', (
+                '--constraints', 'mem=2G', '--no-browser',
+                'bundle:~juju-qa/some-lxc-bundle'),
+            True, extra_env={'JUJU': '/juju'})
 
     def test_list_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
