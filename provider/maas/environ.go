@@ -2301,12 +2301,9 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		// one interface.
 		return nil, errors.Errorf("unexpected number of interfaces inresponse from creating device: %v", interface_set)
 	}
-	primaryNIC := interface_set[0]
 
-	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
-	for i, nic := range preparedInfo {
-		maasNICID := ""
+	for _, nic := range preparedInfo {
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
 		if nic.InterfaceName != primaryNICName {
 			subnet, ok := subnetCIDRToSubnet[nic.CIDR]
@@ -2322,7 +2319,6 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 			if err != nil {
 				return nil, errors.Annotate(err, "creating device interface")
 			}
-			maasNICID = strconv.Itoa(createdNIC.ID())
 			logger.Debugf("created device interface: %+v", createdNIC)
 
 			linkArgs := gomaasapi.LinkSubnetArgs{
@@ -2334,10 +2330,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 				return nil, errors.Annotate(err, "cannot link device interface to subnet")
 			}
 			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
-		} else {
-			maasNICID = strconv.Itoa(primaryNIC.ID())
 		}
-		deviceNICIDs[i] = maasNICID
 	}
 	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName)
 	if err != nil {

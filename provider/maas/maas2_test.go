@@ -394,6 +394,10 @@ func (v *fakeInterface) MACAddress() string {
 	return v.macAddress
 }
 
+func (v *fakeInterface) LinkSubnet(gomaasapi.LinkSubnetArgs) error {
+	return nil
+}
+
 type fakeLink struct {
 	gomaasapi.Link
 	id        int
@@ -470,6 +474,7 @@ type fakeDevice struct {
 	gomaasapi.Device
 	interfaceSet []gomaasapi.Interface
 	systemID     string
+	interface_   gomaasapi.Interface
 }
 
 func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
@@ -478,4 +483,9 @@ func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
 
 func (d *fakeDevice) SystemID() string {
 	return d.systemID
+}
+
+func (d *fakeDevice) CreateInterface(gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+	d.interfaceSet = append(d.interfaceSet, d.interface_)
+	return d.interface_, nil
 }
