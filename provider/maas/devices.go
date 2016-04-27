@@ -262,21 +262,21 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 
 	interfaceInfo := make([]network.InterfaceInfo, 0, len(interfaces))
 	for _, nic := range interfaces {
-		vlan_id := 0
-		vlan_vid := 0
+		vlanId := 0
+		vlanVid := 0
 		vlan := nic.VLAN()
 		if vlan != nil {
-			vlan_id = vlan.ID()
-			vlan_vid = vlan.VID()
+			vlanId = vlan.ID()
+			vlanVid = vlan.VID()
 		}
 		nicInfo := network.InterfaceInfo{
 			InterfaceName:       nic.Name(),
 			InterfaceType:       network.EthernetInterface,
 			MACAddress:          nic.MACAddress(),
 			MTU:                 nic.EffectiveMTU(),
-			VLANTag:             vlan_vid,
+			VLANTag:             vlanVid,
 			ProviderId:          network.Id(strconv.Itoa(nic.ID())),
-			ProviderVLANId:      network.Id(strconv.Itoa(vlan_id)),
+			ProviderVLANId:      network.Id(strconv.Itoa(vlanId)),
 			Disabled:            !nic.Enabled(),
 			NoAutoStart:         !nic.Enabled(),
 			ParentInterfaceName: nameToParentName[nic.Name()],
