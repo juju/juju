@@ -24,6 +24,9 @@ else
   new_juju=$(find $new_juju_dir -name juju)
   buildvars=$new_juju_dir/buildvars.json
 fi
+if [ "${both_new-}" == "true" ]; then
+  export PATH=$(dirname $new_juju):$PATH
+fi
 logs=$WORKSPACE/logs
 mkdir $logs
 $SCRIPTS/write_industrial_test_metadata.py $buildvars $environment \
