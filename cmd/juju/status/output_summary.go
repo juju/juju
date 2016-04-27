@@ -135,7 +135,7 @@ func (f *summaryFormatter) trackIp(ip net.IP) {
 		}
 	}
 
-	ipNet := net.IPNet{ip, ip.DefaultMask()}
+	ipNet := net.IPNet{IP: ip, Mask: ip.DefaultMask()}
 	f.ipAddrs = append(f.ipAddrs, ipNet)
 	f.netStrings = append(f.netStrings, ipNet.String())
 }
