@@ -39,36 +39,28 @@ const (
 	// account.
 	configAttrStorageAccountKey = "storage-account-key"
 
-	// configAttrControllerResourceGroup is the resource group
-	// corresponding to the controller environment. Each environment needs
-	// to know this because some resources are shared, and live in the
-	// controller environment's resource group.
-	configAttrControllerResourceGroup = "controller-resource-group"
-
 	// resourceNameLengthMax is the maximum length of resource
 	// names in Azure.
 	resourceNameLengthMax = 80
 )
 
 var configFields = schema.Fields{
-	configAttrLocation:                schema.String(),
-	configAttrEndpoint:                schema.String(),
-	configAttrStorageEndpoint:         schema.String(),
-	configAttrAppId:                   schema.String(),
-	configAttrSubscriptionId:          schema.String(),
-	configAttrTenantId:                schema.String(),
-	configAttrAppPassword:             schema.String(),
-	configAttrStorageAccount:          schema.String(),
-	configAttrStorageAccountKey:       schema.String(),
-	configAttrStorageAccountType:      schema.String(),
-	configAttrControllerResourceGroup: schema.String(),
+	configAttrLocation:           schema.String(),
+	configAttrEndpoint:           schema.String(),
+	configAttrStorageEndpoint:    schema.String(),
+	configAttrAppId:              schema.String(),
+	configAttrSubscriptionId:     schema.String(),
+	configAttrTenantId:           schema.String(),
+	configAttrAppPassword:        schema.String(),
+	configAttrStorageAccount:     schema.String(),
+	configAttrStorageAccountKey:  schema.String(),
+	configAttrStorageAccountType: schema.String(),
 }
 
 var configDefaults = schema.Defaults{
-	configAttrStorageAccount:          schema.Omit,
-	configAttrStorageAccountKey:       schema.Omit,
-	configAttrControllerResourceGroup: schema.Omit,
-	configAttrStorageAccountType:      string(storage.StandardLRS),
+	configAttrStorageAccount:     schema.Omit,
+	configAttrStorageAccountKey:  schema.Omit,
+	configAttrStorageAccountType: string(storage.StandardLRS),
 }
 
 var requiredConfigAttributes = []string{
@@ -79,13 +71,11 @@ var requiredConfigAttributes = []string{
 	configAttrLocation,
 	configAttrEndpoint,
 	configAttrStorageEndpoint,
-	configAttrControllerResourceGroup,
 }
 
 var immutableConfigAttributes = []string{
 	configAttrSubscriptionId,
 	configAttrTenantId,
-	configAttrControllerResourceGroup,
 	configAttrStorageAccount,
 	configAttrStorageAccountType,
 }
@@ -93,20 +83,18 @@ var immutableConfigAttributes = []string{
 var internalConfigAttributes = []string{
 	configAttrStorageAccount,
 	configAttrStorageAccountKey,
-	configAttrControllerResourceGroup,
 }
 
 type azureModelConfig struct {
 	*config.Config
-	token                   *azure.ServicePrincipalToken
-	subscriptionId          string
-	location                string // canonicalized
-	endpoint                string
-	storageEndpoint         string
-	storageAccount          string
-	storageAccountKey       string
-	storageAccountType      storage.AccountType
-	controllerResourceGroup string
+	token              *azure.ServicePrincipalToken
+	subscriptionId     string
+	location           string // canonicalized
+	endpoint           string
+	storageEndpoint    string
+	storageAccount     string
+	storageAccountKey  string
+	storageAccountType storage.AccountType
 }
 
 var knownStorageAccountTypes = []string{
@@ -191,7 +179,6 @@ Please choose a model name of no more than %d characters.`,
 	storageAccount, _ := validated[configAttrStorageAccount].(string)
 	storageAccountKey, _ := validated[configAttrStorageAccountKey].(string)
 	storageAccountType := validated[configAttrStorageAccountType].(string)
-	controllerResourceGroup := validated[configAttrControllerResourceGroup].(string)
 
 	if newCfg.FirewallMode() == config.FwGlobal {
 		// We do not currently support the "global" firewall mode.
@@ -229,7 +216,6 @@ Please choose a model name of no more than %d characters.`,
 		storageAccount,
 		storageAccountKey,
 		storage.AccountType(storageAccountType),
-		controllerResourceGroup,
 	}
 
 	return azureConfig, nil
