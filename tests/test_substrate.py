@@ -828,7 +828,7 @@ class TestMAASAccountFromConfig(TestCase):
         config = get_maas_env().config
         with patch('subprocess.check_call', autospec=True) as cc_mock:
             with maas_account_from_config(config) as maas:
-                self.assertIsInstance(maas, MAASAccount)
+                self.assertIs(type(maas), MAASAccount)
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
                 self.assertEqual(maas.oauth, 'a:password:string')
@@ -846,7 +846,7 @@ class TestMAASAccountFromConfig(TestCase):
         with patch('subprocess.check_call', autospec=True,
                    side_effect=[login_error, None, None]) as cc_mock:
             with maas_account_from_config(config) as maas:
-                self.assertIsInstance(maas, MAASAccount)
+                self.assertIs(type(maas), MAAS1Account)
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/1.0/')
                 self.assertEqual(maas.oauth, 'a:password:string')
