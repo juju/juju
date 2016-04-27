@@ -25,6 +25,7 @@ func NewLxdBroker(
 	agentConfig agent.Config,
 	namespace string,
 	enableNAT bool,
+	defaultMTU int,
 ) (environs.InstanceBroker, error) {
 	return &lxdBroker{
 		manager:     manager,
@@ -32,6 +33,7 @@ func NewLxdBroker(
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
+		defaultMTU:  defaultMTU,
 	}, nil
 }
 
@@ -41,6 +43,7 @@ type lxdBroker struct {
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
+	defaultMTU  int
 }
 
 func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -74,7 +77,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		args.NetworkInfo = preparedInfo
 	}
 
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
+	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may

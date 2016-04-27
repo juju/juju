@@ -93,6 +93,11 @@ const (
 	// config setting. Only non-zero, positive integer values will
 	// have effect.
 	DefaultLXCDefaultMTU = 0
+
+	// DefaultLXDDefaultMTU is the default value for "lxd-default-mtu"
+	// config setting. Only non-zero, positive integer values will
+	// have effect.
+	DefaultLXDDefaultMTU = 0
 )
 
 // TODO(katco-): Please grow this over time.
@@ -186,6 +191,11 @@ const (
 	// Machine Transmission Unit (MTU) setting of all network
 	// interfaces created for LXC containers. See also bug #1442257.
 	LXCDefaultMTU = "lxc-default-mtu"
+
+	// LXDDefaultMTU, when set to a positive integer, overrides the
+	// Machine Transmission Unit (MTU) setting of all network
+	// interfaces created for LXD containers.
+	LXDDefaultMTU = "lxd-default-mtu"
 
 	// CloudImageBaseURL allows a user to override the default url that the
 	// 'ubuntu-cloudimg-query' executable uses to find container images. This
@@ -679,6 +689,10 @@ func Validate(cfg, old *Config) error {
 		return errors.Errorf("%s: expected positive integer, got %v", LXCDefaultMTU, lxcDefaultMTU)
 	}
 
+	if lxdDefaultMTU, ok := cfg.LXDDefaultMTU(); ok && lxdDefaultMTU < 0 {
+		return errors.Errorf("%s: expected positive integer, got %v", LXDDefaultMTU, lxdDefaultMTU)
+	}
+
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
@@ -1160,6 +1174,16 @@ func (c *Config) LXCDefaultMTU() (int, bool) {
 	return v, ok
 }
 
+// LXDDefaultMTU reports whether the LXC provisioner should create a
+// containers with a specific MTU value for all network intefaces.
+func (c *Config) LXDDefaultMTU() (int, bool) {
+	v, ok := c.defined[LXDDefaultMTU].(int)
+	if !ok {
+		return DefaultLXDDefaultMTU, false
+	}
+	return v, ok
+}
+
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1320,6 +1344,7 @@ var alwaysOptional = schema.Defaults{
 	"apt-mirror":                 schema.Omit,
 	LxcClone:                     schema.Omit,
 	LXCDefaultMTU:                schema.Omit,
+	LXDDefaultMTU:                schema.Omit,
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
@@ -1438,6 +1463,7 @@ var immutableAttributes = []string{
 	"bootstrap-addresses-delay",
 	LxcClone,
 	LXCDefaultMTU,
+	LXDDefaultMTU,
 	"lxc-clone-aufs",
 	"prefer-ipv6",
 	IdentityURL,
@@ -1791,6 +1817,13 @@ global or per instance security groups.`,
 	LXCDefaultMTU: {
 		// default: the default MTU setting for the container
 		Description: `The MTU setting to use for network interfaces in LXC containers`,
+		Type:        environschema.Tint,
+		Immutable:   true,
+		Group:       environschema.EnvironGroup,
+	},
+	LXDDefaultMTU: {
+		// default: the default MTU setting for the container
+		Description: `The MTU setting to use for network interfaces in LXD containers`,
 		Type:        environschema.Tint,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,

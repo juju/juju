@@ -30,6 +30,12 @@ const (
 	// setting.
 	ConfigLXCDefaultMTU = "lxc-default-mtu"
 
+	// ConfigLXDDefaultMTU, if set to a positive integer (serialized
+	// as a string), will cause all network interfaces on all created
+	// LXD containers (not KVM/LXC instances) to use the given MTU
+	// setting.
+	ConfigLXDDefaultMTU = "lxd-default-mtu"
+
 	DefaultNamespace = "juju"
 )
 

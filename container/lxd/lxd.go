@@ -129,7 +129,7 @@ func (manager *containerManager) CreateContainer(
 
 	networkProfile := fmt.Sprintf("%s-network", name)
 
-	if len(networkConfig.Interfaces) > 0 || networkConfig.Device != "" {
+	if len(networkConfig.Interfaces) > 0 || networkConfig.Device != "" || networkConfig.MTU > 0 {
 		if err = createNetworkProfile(manager.client, networkProfile); err != nil {
 			return
 		}
@@ -138,7 +138,16 @@ func (manager *containerManager) CreateContainer(
 		if len(networkConfig.Interfaces) > 0 {
 			err = networkProfileAddMultipleInterfaces(manager.client, networkProfile, networkConfig.Interfaces)
 		} else {
-			err = networkProfileAddSingleInterface(manager.client, networkProfile, networkConfig.Device, networkConfig.MTU)
+			/* I don't know if this can actually happen: it seems
+			 * that lxdbr0 is always passed in as the device when
+			 * there is no configuration provided, but let's just
+			 * be extra defensive.
+			 */
+			device := networkConfig.Device
+			if device == "" {
+				device = lxdclient.DefaultLXDBridge
+			}
+			err = networkProfileAddSingleInterface(manager.client, networkProfile, device, networkConfig.MTU)
 		}
 		if err != nil {
 			return

@@ -41,6 +41,7 @@ type ContainerSetup struct {
 	addressableContainers bool
 	enableNAT             bool
 	lxcDefaultMTU         int
+	lxdDefaultMTU         int
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -256,6 +257,16 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		cs.lxcDefaultMTU = value
 	}
 
+	// Override default MTU for LXD NICs, if needed.
+	if mtu := managerConfig.PopValue(container.ConfigLXDDefaultMTU); mtu != "" {
+		value, err := strconv.Atoi(mtu)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		logger.Infof("setting MTU to %v for all LXD containers' interfaces", value)
+		cs.lxdDefaultMTU = value
+	}
+
 	// Enable IP forwarding and ARP proxying if needed.
 	if ipfwd := managerConfig.PopValue(container.ConfigIPForwarding); ipfwd != "" {
 		if err := setIPAndARPForwarding(true); err != nil {
@@ -327,6 +338,7 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.config,
 			namespace,
 			cs.enableNAT,
+			cs.lxdDefaultMTU,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new lxd broker")
