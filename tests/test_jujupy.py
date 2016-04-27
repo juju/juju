@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from contextlib import contextmanager
 import copy
 from datetime import (
@@ -399,6 +400,15 @@ class FakeBackend:
                 model = args[0]
                 model_state = self.controller_state.models[model]
                 model_state.destroy_model()
+            if cmd == 'add-model':
+                if not self.is_feature_enabled('jes'):
+                    raise JESNotSupported()
+                parser = ArgumentParser()
+                parser.add_argument('-c', '--controller')
+                parser.add_argument('--config')
+                parser.add_argument('model_name')
+                parsed = parser.parse_args(args)
+                self.controller_state.add_model(parsed.model_name)
 
     def get_juju_output(self, command, args, model=None, timeout=None):
         if model is not None:
@@ -523,13 +533,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def quickstart(self, bundle):
         self._backend.quickstart(self.env, bundle)
-
-    def add_model(self, env):
-        if not self.is_jes_enabled():
-            raise JESNotSupported()
-        model_state = self._backend.controller_state.add_model(
-            env.environment)
-        return self._acquire_state_client(model_state)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment()

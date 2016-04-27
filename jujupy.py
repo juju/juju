@@ -428,10 +428,12 @@ class EnvJujuClient:
         return tuple(args)
 
     def add_model(self, env):
-        model_client = self.clone(env)
-        with model_client._bootstrap_config() as config_file:
+        # Temporary clone to generate bootstrap config.
+        with self.clone(env)._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
-        return model_client
+        # Since it happens after _add_model, this copy will have a
+        # correctly-cloned backend.
+        return self.clone(env)
 
     def make_model_config(self):
         config_dict = make_safe_config(self)
