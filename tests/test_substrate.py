@@ -3,7 +3,6 @@ import json
 import os
 from subprocess import CalledProcessError
 from textwrap import dedent
-from unittest import TestCase
 
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
@@ -41,6 +40,7 @@ from substrate import (
     terminate_instances,
     verify_libvirt_domain,
     )
+from tests import TestCase
 
 
 def get_aws_env():
@@ -137,28 +137,27 @@ class TestTerminateInstances(TestCase):
     def test_terminate_aws(self):
         env = get_aws_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['foo', 'bar'])
+            terminate_instances(env, ['foo', 'bar'])
         environ = get_aws_environ(env)
         cc_mock.assert_called_with(
             ['euca-terminate-instances', 'foo', 'bar'], env=environ)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting foo, bar.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting foo, bar.\n')
 
     def test_terminate_aws_none(self):
         env = get_aws_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, [])
+            terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('No instances to delete.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO No instances to delete.\n')
 
     def test_terminate_maas(self):
         env = get_maas_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['/A/B/C/D/node-3d/'])
+            terminate_instances(env, ['/A/B/C/D/node-3d/'])
         expected = (
             ['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
              'a:password:string'],
@@ -169,50 +168,51 @@ class TestTerminateInstances(TestCase):
         expected = (['maas', 'logout', 'mas'],)
         self.assertEqual(expected, cc_mock.call_args_list[2][0])
         self.assertEqual(3, len(cc_mock.call_args_list))
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting /A/B/C/D/node-3d/.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting /A/B/C/D/node-3d/.\n')
 
     def test_terminate_maas_none(self):
         env = get_maas_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, [])
+            terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('No instances to delete.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO No instances to delete.\n')
 
     def test_terminate_openstack(self):
         env = get_openstack_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['foo', 'bar'])
+            terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
         environ.update(translate_to_env(env.config))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting foo, bar.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting foo, bar.\n')
 
     def test_terminate_openstack_none(self):
         env = get_openstack_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, [])
+            terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('No instances to delete.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO No instances to delete.\n')
 
     def test_terminate_rackspace(self):
         env = get_rax_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['foo', 'bar'])
+            terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
         environ.update(translate_to_env(env.config))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting foo, bar.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting foo, bar.\n')
 
     def test_terminate_joyent(self):
         with patch('substrate.JoyentAccount.terminate_instances') as ti_mock:
@@ -231,16 +231,15 @@ class TestTerminateInstances(TestCase):
              call(['lxc', 'delete', '--force', 'bar'])],
             cc_mock.mock_calls)
 
-    def test_terminate_uknown(self):
+    def test_terminate_unknown(self):
         env = SimpleEnvironment('foo', {'type': 'unknown'})
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                with self.assertRaisesRegexp(
-                        ValueError,
-                        'This test does not support the unknown provider'):
-                    terminate_instances(env, ['foo'])
+            with self.assertRaisesRegexp(
+                    ValueError,
+                    'This test does not support the unknown provider'):
+                terminate_instances(env, ['foo'])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.call_count, 0)
+        self.assertEqual(self.log_stream.getvalue(), '')
 
 
 class TestAWSAccount(TestCase):
