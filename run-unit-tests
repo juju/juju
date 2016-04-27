@@ -136,6 +136,9 @@ scp -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     ubuntu@$instance_name  <<EOT
 set -eux
+if  [[ -L /tmp ]]; then
+    export TMPDIR=\$(readlink -f /tmp)
+fi
 if [[ ! -f ~/.ssh/id_rsa ]]; then
     ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 fi

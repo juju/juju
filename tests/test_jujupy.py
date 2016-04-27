@@ -44,6 +44,7 @@ from jujupy import (
     EnvJujuClient2A1,
     EnvJujuClient2A2,
     EnvJujuClient2B2,
+    EnvJujuClient2B3,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -311,7 +312,7 @@ class FakeBackend:
         if bootstrap_series is not None:
             commandline_config['default-series'] = bootstrap_series
         self._backing_state.bootstrap(
-                env, commandline_config, self.is_feature_enabled('jes'))
+            env, commandline_config, self.is_feature_enabled('jes'))
 
     def quickstart(self, env, bundle):
         self.backing_state.bootstrap(env, {}, self.is_feature_enabled('jes'))
@@ -967,6 +968,10 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-beta1'
             yield '2.0-beta2'
             yield '2.0-beta3'
+            yield '2.0-beta4'
+            yield '2.0-beta5'
+            yield '2.0-beta6'
+            yield '2.0-beta7'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -1016,8 +1021,20 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta2')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta3')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2B3)
+            self.assertEqual(client.version, '2.0-beta4')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2B3)
+            self.assertEqual(client.version, '2.0-beta5')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2B3)
+            self.assertEqual(client.version, '2.0-beta6')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
@@ -1291,7 +1308,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
-            'kill-controller', 'create-model', ('-c', 'foo'))
+            'kill-controller', 'add-model', ('-c', 'foo'))
 
     def do_add_model(self, jes_command, create_cmd, controller_option):
         controller_client = EnvJujuClient(JujuData('foo'), None, None)
@@ -2805,6 +2822,26 @@ class TestEnvJujuClient(ClientTest):
         self.assertFalse(client.is_juju1x())
 
 
+class TestEnvJujuClient2B3(ClientTest):
+
+    def test_add_model_hypenated_controller(self):
+        self.do_add_model(
+            'kill-controller', 'create-model', ('-c', 'foo'))
+
+    def do_add_model(self, jes_command, create_cmd, controller_option):
+        controller_client = EnvJujuClient2B3(JujuData('foo'), None, None)
+        model_data = JujuData('bar', {'type': 'foo'})
+        client = EnvJujuClient2B3(model_data, None, None)
+        with patch.object(client, 'get_jes_command',
+                          return_value=jes_command):
+                with patch.object(controller_client, 'juju') as ccj_mock:
+                    with observable_temp_file() as config_file:
+                        controller_client.add_model(model_data)
+        ccj_mock.assert_called_once_with(
+            create_cmd, controller_option + (
+                'bar', '--config', config_file.name), include_e=False)
+
+
 class TestEnvJujuClient2B2(ClientTest):
 
     def test_get_bootstrap_args_bootstrap_series(self):
@@ -3047,6 +3084,10 @@ class TestEnvJujuClient1X(ClientTest):
             yield '2.0-beta1'
             yield '2.0-beta2'
             yield '2.0-beta3'
+            yield '2.0-beta4'
+            yield '2.0-beta5'
+            yield '2.0-beta6'
+            yield '2.0-beta7'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -3096,8 +3137,20 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B2)
             self.assertEqual(client.version, '2.0-beta2')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta3')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2B3)
+            self.assertEqual(client.version, '2.0-beta4')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2B3)
+            self.assertEqual(client.version, '2.0-beta5')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient2B3)
+            self.assertEqual(client.version, '2.0-beta6')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
