@@ -32,3 +32,10 @@ var SupportedLtsSeries = []string{"precise", "trusty", "xenial"}
 // LatestLtsSeries is the most recent of supported LTS series, i.e. the last
 // item in KnownLtsSeries.
 var LatestLtsSeries = SupportedLtsSeries[len(SupportedLtsSeries)-1]
+
+// TestLtsSeries is a constant for setting the default-series in testing
+// attributes across tests. This allows for divorcing the tests from that which
+// may be reported by the system they are running on. A change here will
+// definitely require updating all of the string literals throughout
+// cmd/juju/service/bundle_tests.go.
+const TestLtsSeries = "xenial"

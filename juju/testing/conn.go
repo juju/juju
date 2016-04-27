@@ -511,6 +511,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		"agent-version":  jujuversion.Current.String(),
 		"ca-cert":        testing.CACert,
 		"ca-private-key": testing.CAKey,
+		"default-series": testing.LatestLtsSeries,
 	})
 	// Add any custom attributes required.
 	for attr, val := range s.ConfigAttrs {
