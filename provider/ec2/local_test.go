@@ -247,7 +247,10 @@ func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 	return netenv
 }
 
-func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
+func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
+	if coretesting.FakeDefaultSeries != "xenial" {
+		c.Skip("Skipping systemd based test on non-systemd series")
+	}
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,11 +265,96 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
-	// check that the user data is configured to start zookeeper
-	// and the machine and provisioning agents.
-	// check that the user data is configured to only configure
-	// authorized SSH keys and set the log output; everything
-	// else happens after the machine is brought up.
+	// check that the user data is configured to and the machine and
+	// provisioning agents.  check that the user data is configured to only
+	// configure authorized SSH keys and set the log output; everything else
+	// happens after the machine is brought up.
+	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
+	c.Assert(inst, gc.NotNil)
+	addresses, err := insts[0].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
+	userData, err := utils.Gunzip(inst.UserData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
+		"output": map[interface{}]interface{}{
+			"all": "| tee -a /var/log/cloud-init-output.log",
+		},
+		"users": []interface{}{
+			map[interface{}]interface{}{
+				"name":        "ubuntu",
+				"lock_passwd": true,
+				"groups": []interface{}{"adm", "audio",
+					"cdrom", "dialout", "dip", "floppy",
+					"netdev", "plugdev", "sudo", "video"},
+				"shell":               "/bin/bash",
+				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
+			},
+		},
+		"runcmd": []interface{}{
+			"set -xe",
+			"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
+			"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
+			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
+		},
+	})
+
+	// check that a new instance will be started with a machine agent
+	inst1, hc := testing.AssertStartInstance(c, env, "1")
+	c.Check(*hc.Arch, gc.Equals, "amd64")
+	c.Check(*hc.Mem, gc.Equals, uint64(3840))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
+	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
+	c.Assert(inst, gc.NotNil)
+	userData, err = utils.Gunzip(inst.UserData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("second instance: UserData: %q", userData)
+	var userDataMap map[interface{}]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	CheckPackage(c, userDataMap, "curl", true)
+	CheckPackage(c, userDataMap, "mongodb-server", false)
+	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
+	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
+	// TODO check for provisioning agent
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = env.ControllerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+// TestUpstartBoostrapInstanceUserDataAndState is a test for legacy systems
+// using upstart which will be around until trusty is no longer supported.
+// TODO: BBB: remove when trusty is no longer supported
+func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
+	if coretesting.FakeDefaultSeries == "xenial" {
+		c.Skip("Skipping upstart based test on non-upstart based series")
+	}
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BootstrapSeries: "trusty",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceIds, gc.HasLen, 1)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.HasLen, 1)
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
+
+	// check that the user data is configured to and the machine and
+	// provisioning agents.  check that the user data is configured to only
+	// configure authorized SSH keys and set the log output; everything else
+	// happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
 	addresses, err := insts[0].Addresses()
@@ -955,7 +1043,14 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
+	var want []string
+	switch coretesting.FakeDefaultSeries {
+	case "xenial":
+		want = []string{"ami-00000133", "ami-00000135", "ami-00000139"}
+	case "trusty":
+		want = []string{"ami-00000034", "ami-00000133", "ami-00000135", "ami-00000139"}
+	}
+	c.Assert(image_ids, gc.DeepEquals, want)
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {

@@ -86,7 +86,7 @@ func SampleConfig() testing.Attrs {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
-		"default-series":            config.LatestLtsSeries(),
+		"default-series":            testing.FakeDefaultSeries,
 
 		"secret":      "pork",
 		"controller":  true,
