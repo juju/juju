@@ -272,9 +272,16 @@ class FakeEnvironmentState:
 
 class FakeBackend:
 
-    def __init__(self, backing_state):
+    def __init__(self, backing_state, feature_flags=None):
         self._backing_state = backing_state
-        self._feature_flags = set()
+        if feature_flags is None:
+            feature_flags = set()
+        self._feature_flags = feature_flags
+
+    def clone(self, backing_state=None):
+        if backing_state is None:
+            backing_state = self._backing_state
+        return self.__class__(backing_state, set(self._feature_flags))
 
     @property
     def backing_state(self):
@@ -452,7 +459,9 @@ class FakeJujuClient(EnvJujuClient):
             debug = self.debug
         client = self.__class__(env, full_path, debug,
                                 jes_enabled=self.is_jes_enabled())
-        client._backend = self._backend
+        model_name = env.environment
+        model_state = self._backend.controller_state.models.get(model_name)
+        client._backend = self._backend.clone(model_state)
         return client
 
     def pause(self, seconds):
