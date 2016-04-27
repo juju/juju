@@ -158,7 +158,7 @@ func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.Mock
 			SecurityRules: &rules,
 		},
 	})
-	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal"
+	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal-nsg"
 	return nsgSender
 }
 
@@ -369,8 +369,8 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
-		"juju-testenv-model-"+testing.ModelTag.Id(),
+		"resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
@@ -439,8 +439,8 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
-		"juju-testenv-model-"+testing.ModelTag.Id(),
+		"resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
@@ -508,7 +508,7 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 var internalSecurityGroupPath = path.Join(
 	"/subscriptions", fakeSubscriptionId,
 	"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
-	"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
+	"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
 )
 
 func securityRulePath(ruleName string) string {
