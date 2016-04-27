@@ -54,7 +54,7 @@ def terminate_instances(env, instance_ids):
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
-        with MAASAccount.manager_from_config(env.config) as substrate:
+        with maas_account_from_config(env.config) as substrate:
             substrate.terminate_instances(instance_ids)
         return
     elif provider_type == 'lxd':
@@ -362,22 +362,14 @@ class AzureAccount:
 
 
 class MAASAccount:
-    """Represent a Mass account."""
+    """Represent a MAAS 2.0 account."""
+
+    _API_PATH = 'api/2.0/'
 
     def __init__(self, profile, url, oauth):
         self.profile = profile
-        self.url = urlparse.urljoin(url, 'api/1.0/')
+        self.url = urlparse.urljoin(url, self._API_PATH)
         self.oauth = oauth
-
-    @classmethod
-    @contextmanager
-    def manager_from_config(cls, config):
-        """Create a ContextManager for a MaasAccount."""
-        manager = cls(
-            config['name'], config['maas-server'], config['maas-oauth'])
-        manager.login()
-        yield manager
-        manager.logout()
 
     def login(self):
         """Login with the maas cli."""
@@ -389,18 +381,22 @@ class MAASAccount:
         subprocess.check_call(
             ['maas', 'logout', self.profile])
 
+    def _machine_release_args(self, machine_id):
+        return ['maas', self.profile, 'machine', 'release', machine_id]
+
     def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         for instance in instance_ids:
             maas_system_id = instance.split('/')[5]
             log.info('Deleting %s.' % instance)
-            subprocess.check_call(
-                ['maas', self.profile, 'node', 'release', maas_system_id])
+            subprocess.check_call(self._machine_release_args(maas_system_id))
+
+    def _list_allocated_args(self):
+        return ['maas', self.profile, 'machines', 'list-allocated']
 
     def get_allocated_nodes(self):
         """Return a dict of allocated nodes with the hostname as keys."""
-        data = subprocess.check_output(
-            ['maas', self.profile, 'nodes', 'list-allocated'])
+        data = subprocess.check_output(self._list_allocated_args())
         nodes = json.loads(data)
         allocated = {node['hostname']: node for node in nodes}
         return allocated
@@ -415,6 +411,37 @@ class MAASAccount:
         ips = {k: v['ip_addresses'][0] for k, v in allocated.items()
                if v['ip_addresses']}
         return ips
+
+
+class MAAS1Account(MAASAccount):
+    """Represent a MAAS 1.X account."""
+
+    _API_PATH = 'api/1.0/'
+
+    def _list_allocated_args(self):
+        return ['maas', self.profile, 'nodes', 'list-allocated']
+
+    def _machine_release_args(self, machine_id):
+        return ['maas', self.profile, 'node', 'release', machine_id]
+
+
+@contextmanager
+def maas_account_from_config(config):
+    """Create a ContextManager for either a MAASAccount or a MAAS1Account.
+
+    As it's not possible to tell from the maas config which version of the api
+    to use, try 2.0 and if that fails on login fallback to 1.0 instead.
+    """
+    args = (config['name'], config['maas-server'], config['maas-oauth'])
+    manager = MAASAccount(*args)
+    try:
+        manager.login()
+    except subprocess.CalledProcessError:
+        log.info("Could not login with MAAS 2.0 API, trying 1.0")
+        manager = MAAS1Account(*args)
+        manager.login()
+    yield manager
+    manager.logout()
 
 
 class LXDAccount:
@@ -602,7 +629,7 @@ def resolve_remote_dns_names(env, remote_machines):
         # Only MAAS requires special handling at prsent.
         return
     # MAAS hostnames are not resolvable, but we can adapt them to IPs.
-    with MAASAccount.manager_from_config(env.config) as account:
+    with maas_account_from_config(env.config) as account:
         allocated_ips = account.get_allocated_ips()
     for remote in remote_machines:
         if remote.get_address() in allocated_ips:
