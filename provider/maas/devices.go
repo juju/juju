@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/gomaasapi"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -239,6 +240,82 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			}
 			if len(link.Subnet.DNSServers) > 0 {
 				nicInfo.DNSServers = network.NewAddressesOnSpace(link.Subnet.Space, link.Subnet.DNSServers...)
+			}
+
+			interfaceInfo = append(interfaceInfo, nicInfo)
+		}
+	}
+	logger.Debugf("device %q has interface info: %+v", deviceID, interfaceInfo)
+	return interfaceInfo, nil
+}
+
+func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName map[string]string) ([]network.InterfaceInfo, error) {
+	args := gomaasapi.DevicesArgs{SystemIDs: []string{deviceID}}
+	devices, err := env.maasController.Devices(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(devices) != 1 {
+		return nil, errors.Errorf("unexpected response requesting device %v: %v", deviceID, devices)
+	}
+	interfaces := devices[0].InterfaceSet()
+
+	interfaceInfo := make([]network.InterfaceInfo, 0, len(interfaces))
+	for _, nic := range interfaces {
+		vlanId := 0
+		vlanVid := 0
+		vlan := nic.VLAN()
+		if vlan != nil {
+			vlanId = vlan.ID()
+			vlanVid = vlan.VID()
+		}
+		nicInfo := network.InterfaceInfo{
+			InterfaceName:       nic.Name(),
+			InterfaceType:       network.EthernetInterface,
+			MACAddress:          nic.MACAddress(),
+			MTU:                 nic.EffectiveMTU(),
+			VLANTag:             vlanVid,
+			ProviderId:          network.Id(strconv.Itoa(nic.ID())),
+			ProviderVLANId:      network.Id(strconv.Itoa(vlanId)),
+			Disabled:            !nic.Enabled(),
+			NoAutoStart:         !nic.Enabled(),
+			ParentInterfaceName: nameToParentName[nic.Name()],
+		}
+
+		if len(nic.Links()) == 0 {
+			logger.Debugf("device %q interface %q has no links", deviceID, nic.Name())
+			interfaceInfo = append(interfaceInfo, nicInfo)
+			continue
+		}
+
+		for _, link := range nic.Links() {
+			mode := maasLinkMode(link.Mode())
+			switch mode {
+			case modeUnknown:
+				nicInfo.ConfigType = network.ConfigUnknown
+			case modeDHCP:
+				nicInfo.ConfigType = network.ConfigDHCP
+			case modeStatic, modeLinkUp:
+				nicInfo.ConfigType = network.ConfigStatic
+			default:
+				nicInfo.ConfigType = network.ConfigManual
+			}
+
+			subnet := link.Subnet()
+			if link.IPAddress() == "" || subnet == nil {
+				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name())
+				continue
+			}
+
+			nicInfo.CIDR = subnet.CIDR()
+			nicInfo.Address = network.NewAddressOnSpace(subnet.Space(), link.IPAddress())
+			nicInfo.ProviderSubnetId = network.Id(strconv.Itoa(subnet.ID()))
+			nicInfo.ProviderAddressId = network.Id(strconv.Itoa(link.ID()))
+			if subnet.Gateway() != "" {
+				nicInfo.GatewayAddress = network.NewAddressOnSpace(subnet.Space(), subnet.Gateway())
+			}
+			if len(subnet.DNSServers()) > 0 {
+				nicInfo.DNSServers = network.NewAddressesOnSpace(subnet.Space(), subnet.DNSServers()...)
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
