@@ -4,17 +4,24 @@
 package backups_test
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -91,6 +98,10 @@ func (*mockRestoreAPI) Close() error {
 	return nil
 }
 
+func (*mockRestoreAPI) RestoreReader(io.ReadSeeker, *params.BackupsMetadataResult, apibackups.ClientConnection) error {
+	return nil
+}
+
 type mockArchiveReader struct {
 	backups.ArchiveReader
 }
@@ -152,9 +163,43 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
 }
 
+func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C) {
+	metadata := params.BackupsMetadataResult{
+		CACert:       testing.CACert,
+		CAPrivateKey: testing.CAKey,
+	}
+	fakeEnv := fakeEnviron{}
+	s.command = backups.NewRestoreCommandForTest(
+		s.store, &mockRestoreAPI{},
+		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
+			return &mockArchiveReader{}, &metadata, nil
+		},
+		func(string, *params.BackupsMetadataResult) (environs.Environ, error) {
+			return fakeEnv, nil
+		})
+	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		return nil
+	})
+
+	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
+		CACert:                 testing.CACert,
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		APIEndpoints:           []string{"10.0.0.1:100"},
+		UnresolvedAPIEndpoints: []string{"10.0.0.1:100"},
+	})
+}
+
 type fakeInstance struct {
 	instance.Instance
 	id instance.Id
+}
+
+func (f fakeInstance) Addresses() ([]network.Address, error) {
+	return []network.Address{
+		{Value: "10.0.0.1"},
+	}, nil
 }
 
 type fakeEnviron struct {
@@ -168,4 +213,14 @@ func (f fakeEnviron) ControllerInstances() ([]instance.Id, error) {
 
 func (f fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return []instance.Instance{fakeInstance{id: "1"}}, nil
+}
+
+func (f fakeEnviron) AllInstances() ([]instance.Instance, error) {
+	return []instance.Instance{fakeInstance{id: "1"}}, nil
+}
+
+func (f fakeEnviron) Config() *config.Config {
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{"api-port": "100"})
+	cfg, _ := config.New(config.NoDefaults, attrs)
+	return cfg
 }

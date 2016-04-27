@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.cloud")
+var logger = loggo.GetLogger("juju.cmd.juju.common")
 
 // CloudOrProvider finds and returns cloud or provider.
 func CloudOrProvider(cloudName string, cloudByNameFunc func(string) (*cloud.Cloud, error)) (cloud *cloud.Cloud, err error) {
