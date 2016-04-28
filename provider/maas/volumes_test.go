@@ -78,12 +78,15 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	instance := maas2Instance{
 		machine: &fakeMachine{},
 		constraintMatches: gomaasapi.ConstraintMatches{
-			Storage: map[string]gomaasapi.BlockDevice{
-				"root": &fakeBlockDevice{name: "sda", path: "/dev/disk/by-dname/sda", size: 250059350016},
-				"1":    &fakeBlockDevice{name: "sdb", path: "/dev/disk/by-dname/sdb", size: 500059350016},
-				"2":    &fakeBlockDevice{name: "sdc", path: "/dev/disk/by-dname/sdc", size: 250362438230},
-				"3":    &fakeBlockDevice{name: "sdd", path: "/dev/disk/by-dname/sdd", size: 250362438230},
-				"4":    &fakeBlockDevice{name: "sde", path: "/dev/disk/by-dname/sde", size: 250362438230},
+			Storage: map[string][]gomaasapi.BlockDevice{
+				"root": {&fakeBlockDevice{name: "sda", path: "/dev/disk/by-dname/sda", size: 250059350016}},
+				"1":    {&fakeBlockDevice{name: "sdb", path: "/dev/disk/by-dname/sdb", size: 500059350016}},
+				"2": {
+					&fakeBlockDevice{name: "sdc", path: "/dev/disk/by-dname/sdc", size: 250362438230},
+					&fakeBlockDevice{name: "sdf", path: "/dev/disk/by-dname/sdf", size: 280362438231},
+				},
+				"3": {&fakeBlockDevice{name: "sdd", path: "/dev/disk/by-dname/sdd", size: 250362438230}},
+				"4": {&fakeBlockDevice{name: "sde", path: "/dev/disk/by-dname/sde", size: 250362438230}},
 			},
 		},
 	}
@@ -94,8 +97,8 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Expect 2 volumes - root volume is ignored.
-	c.Assert(volumes, gc.HasLen, 2)
-	c.Assert(attachments, gc.HasLen, 2)
+	c.Assert(volumes, gc.HasLen, 3)
+	c.Assert(attachments, gc.HasLen, 3)
 	c.Check(volumes, jc.SameContents, []storage.Volume{{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
@@ -110,25 +113,36 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 			Size:       238764,
 			Persistent: false,
 		},
+	}, {
+		names.NewVolumeTag("2"),
+		storage.VolumeInfo{
+			VolumeId:   "volume-2",
+			Size:       267374,
+			Persistent: false,
+		},
 	}})
-	c.Assert(attachments, jc.SameContents, []storage.VolumeAttachment{
-		{
-			names.NewVolumeTag("1"),
-			mTag,
-			storage.VolumeAttachmentInfo{
-				DeviceLink: "/dev/disk/by-dname/sdb",
-				ReadOnly:   false,
-			},
+	c.Assert(attachments, jc.SameContents, []storage.VolumeAttachment{{
+		names.NewVolumeTag("1"),
+		mTag,
+		storage.VolumeAttachmentInfo{
+			DeviceLink: "/dev/disk/by-dname/sdb",
+			ReadOnly:   false,
 		},
-		{
-			names.NewVolumeTag("2"),
-			mTag,
-			storage.VolumeAttachmentInfo{
-				DeviceLink: "/dev/disk/by-dname/sdc",
-				ReadOnly:   false,
-			},
+	}, {
+		names.NewVolumeTag("2"),
+		mTag,
+		storage.VolumeAttachmentInfo{
+			DeviceLink: "/dev/disk/by-dname/sdc",
+			ReadOnly:   false,
 		},
-	})
+	}, {
+		names.NewVolumeTag("2"),
+		mTag,
+		storage.VolumeAttachmentInfo{
+			DeviceLink: "/dev/disk/by-dname/sdf",
+			ReadOnly:   false,
+		},
+	}})
 }
 
 func (s *volumeSuite) TestInstanceVolumes(c *gc.C) {
