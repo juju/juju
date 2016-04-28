@@ -71,17 +71,20 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var agentPingerNeeded = true
-	var isUser bool
-	kind, err := names.TagKind(req.AuthTag)
-	if err != nil || kind != names.UserTagKind {
-		// Users are not rate limited, all other entities are
-		if !a.srv.limiter.Acquire() {
-			logger.Debugf("rate limiting for agent %s", req.AuthTag)
-			return fail, common.ErrTryAgain
+	isUser := true
+	kind := names.UserTagKind
+	var err error
+	if req.AuthTag != "" {
+		kind, err = names.TagKind(req.AuthTag)
+		if err != nil || kind != names.UserTagKind {
+			isUser = false
+			// Users are not rate limited, all other entities are.
+			if !a.srv.limiter.Acquire() {
+				logger.Debugf("rate limiting for agent %s", req.AuthTag)
+				return fail, common.ErrTryAgain
+			}
+			defer a.srv.limiter.Release()
 		}
-		defer a.srv.limiter.Release()
-	} else {
-		isUser = true
 	}
 
 	serverOnlyLogin := a.root.modelUUID == ""
