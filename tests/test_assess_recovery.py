@@ -68,10 +68,12 @@ class TestAssessRecovery(TestCase):
                 admin_model = client._backend.controller_state.admin_model
                 admin_model.remove_state_server(instance_id)
 
-        with patch('assess_recovery.terminate_instances',
-                   side_effect=terminate):
-            with patch('deploy_stack.wait_for_port', autospec=True):
-                yield
+        with patch('assess_recovery.wait_for_state_server_to_shutdown',
+                   autospec=True):
+            with patch('assess_recovery.terminate_instances',
+                       side_effect=terminate):
+                with patch('deploy_stack.wait_for_port', autospec=True):
+                    yield
 
     def test_backup(self):
         client = FakeJujuClient()
@@ -196,6 +198,14 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
              call('10.0.0.0', client, 'juju-aaaa-machine-0'),
              call('10.0.0.3', client, 'juju-dddd-machine-3')],
             wsss_mock.mock_calls)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Instrumenting node failure for member 2:'
+            ' juju-cccc-machine-2 at 10.0.0.2\n'
+            'INFO Instrumenting node failure for member 0:'
+            ' juju-aaaa-machine-0 at 10.0.0.0\n'
+            'INFO Instrumenting node failure for member 3:'
+            ' juju-dddd-machine-3 at 10.0.0.3\n')
 
     def test_delete_controller_members_leader_only(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
@@ -210,3 +220,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         ti_mock.assert_called_once_with(client.env, ['juju-dddd-machine-3'])
         wsss_mock.assert_called_once_with(
             '10.0.0.3', client, 'juju-dddd-machine-3')
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Instrumenting node failure for member 3:'
+            ' juju-dddd-machine-3 at 10.0.0.3\n')
