@@ -227,6 +227,16 @@ func ensureDependencies(series string) error {
 	return err
 }
 
+// findAvailableSubnet scans the list of interfaces on the machine
+// looking for 10.0.x.y networks and returns the first subnet not in
+// use having detected the highest subnet in use. The next subnet can
+// actually be lower if we overflowed 255 whilst seeking out the next
+// unused subnet. If all subnets in 10.0.x.0 are in use an error is
+// returned. If no interfaces are found that use a 10.0.X.0 subnet
+// then "0" is returned.
+//
+// TODO(frobware): this is not an ideal solution as it doesn't take
+// into account any static routes that may set up on the machine.
 func findAvailableSubnet() (string, error) {
 	addrs, err := interfaceAddrs()
 	if err != nil {
