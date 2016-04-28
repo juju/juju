@@ -20,17 +20,6 @@ type SSHProxyResult struct {
 	UseProxy bool `json:"use-proxy"`
 }
 
-// SSHTargets is used to specify one or more SSH destinations for
-// various APIs on the SSHClient facade.
-type SSHTargets struct {
-	Targets []SSHTarget `json:"targets"`
-}
-
-// SSHTarget specifies a single SSH target (see SSHTargets).
-type SSHTarget struct {
-	Target string `json:"target"`
-}
-
 // SSHAddressResults defines the response from various APIs on the
 // SSHClient facade.
 type SSHAddressResults struct {

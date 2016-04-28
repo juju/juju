@@ -5,6 +5,7 @@ package sshclient
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -34,8 +35,12 @@ func (facade *Facade) PrivateAddress(target string) (string, error) {
 }
 
 func (facade *Facade) addressCall(callName, target string) (string, error) {
+	entities, err := targetToEntities(target)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	var out params.SSHAddressResults
-	err := facade.caller.FacadeCall(callName, targetToArg(target), &out)
+	err = facade.caller.FacadeCall(callName, entities, &out)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -51,8 +56,12 @@ func (facade *Facade) addressCall(callName, target string) (string, error) {
 // PublicKeys returns the SSH public host keys for the SSH target
 // provided. The target may be provided as a machine ID or unit name.
 func (facade *Facade) PublicKeys(target string) ([]string, error) {
+	entities, err := targetToEntities(target)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var out params.SSHPublicKeysResults
-	err := facade.caller.FacadeCall("PublicKeys", targetToArg(target), &out)
+	err = facade.caller.FacadeCall("PublicKeys", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -76,9 +85,24 @@ func (facade *Facade) Proxy() (bool, error) {
 	return out.UseProxy, nil
 }
 
-func targetToArg(target string) params.SSHTargets {
-	return params.SSHTargets{
-		Targets: []params.SSHTarget{{target}},
+func targetToEntities(target string) (params.Entities, error) {
+	tag, err := targetToTag(target)
+	if err != nil {
+		return params.Entities{}, errors.Trace(err)
+	}
+	return params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}, nil
+}
+
+func targetToTag(target string) (names.Tag, error) {
+	switch {
+	case names.IsValidMachine(target):
+		return names.NewMachineTag(target), nil
+	case names.IsValidUnit(target):
+		return names.NewUnitTag(target), nil
+	default:
+		return nil, errors.NotValidf("target %q", target)
 	}
 }
 

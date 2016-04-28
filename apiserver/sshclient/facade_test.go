@@ -22,14 +22,24 @@ import (
 
 type facadeSuite struct {
 	testing.BaseSuite
-	backend    *mockBackend
-	authorizer *apiservertesting.FakeAuthorizer
-	facade     *sshclient.Facade
+	backend          *mockBackend
+	authorizer       *apiservertesting.FakeAuthorizer
+	facade           *sshclient.Facade
+	m0, uFoo, uOther string
 }
 
 var _ = gc.Suite(&facadeSuite{})
 
+func (s *facadeSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.m0 = names.NewMachineTag("0").String()
+	s.uFoo = names.NewUnitTag("foo/0").String()
+	s.uOther = names.NewUnitTag("other/1").String()
+}
+
 func (s *facadeSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
 	s.backend = new(mockBackend)
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	s.authorizer.Tag = names.NewUserTag("igor")
@@ -38,25 +48,21 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.facade = facade
 }
 
-func (s *facadeSuite) TestFailsWhenMachine(c *gc.C) {
+func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
 	_, err := sshclient.New(s.backend, nil, s.authorizer)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
-func (s *facadeSuite) TestFailsWhenUnit(c *gc.C) {
+func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
 	_, err := sshclient.New(s.backend, nil, s.authorizer)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
 func (s *facadeSuite) TestPublicAddress(c *gc.C) {
-	args := params.SSHTargets{
-		Targets: []params.SSHTarget{
-			{Target: "0"},
-			{Target: "foo/0"},
-			{Target: "other/1"},
-		},
+	args := params.Entities{
+		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
 	}
 	results, err := s.facade.PublicAddress(args)
 
@@ -69,19 +75,15 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForTarget", []interface{}{"0"}},
-		{"GetMachineForTarget", []interface{}{"foo/0"}},
-		{"GetMachineForTarget", []interface{}{"other/1"}},
+		{"GetMachineForEntity", []interface{}{s.m0}},
+		{"GetMachineForEntity", []interface{}{s.uFoo}},
+		{"GetMachineForEntity", []interface{}{s.uOther}},
 	})
 }
 
 func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
-	args := params.SSHTargets{
-		Targets: []params.SSHTarget{
-			{Target: "other/1"},
-			{Target: "0"},
-			{Target: "foo/0"},
-		},
+	args := params.Entities{
+		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
 	}
 	results, err := s.facade.PrivateAddress(args)
 
@@ -94,19 +96,15 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForTarget", []interface{}{"other/1"}},
-		{"GetMachineForTarget", []interface{}{"0"}},
-		{"GetMachineForTarget", []interface{}{"foo/0"}},
+		{"GetMachineForEntity", []interface{}{s.uOther}},
+		{"GetMachineForEntity", []interface{}{s.m0}},
+		{"GetMachineForEntity", []interface{}{s.uFoo}},
 	})
 }
 
 func (s *facadeSuite) TestPublicKeys(c *gc.C) {
-	args := params.SSHTargets{
-		Targets: []params.SSHTarget{
-			{Target: "0"},
-			{Target: "other/1"},
-			{Target: "foo/0"},
-		},
+	args := params.Entities{
+		Entities: []params.Entity{{s.m0}, {s.uOther}, {s.uFoo}},
 	}
 	results, err := s.facade.PublicKeys(args)
 
@@ -119,10 +117,10 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"GetMachineForTarget", []interface{}{"0"}},
+		{"GetMachineForEntity", []interface{}{s.m0}},
 		{"GetSSHHostKeys", []interface{}{names.NewMachineTag("0")}},
-		{"GetMachineForTarget", []interface{}{"other/1"}},
-		{"GetMachineForTarget", []interface{}{"foo/0"}},
+		{"GetMachineForEntity", []interface{}{s.uOther}},
+		{"GetMachineForEntity", []interface{}{s.uFoo}},
 		{"GetSSHHostKeys", []interface{}{names.NewMachineTag("1")}},
 	})
 }
@@ -163,23 +161,23 @@ func (backend *mockBackend) ModelConfig() (*config.Config, error) {
 	return conf, nil
 }
 
-func (backend *mockBackend) GetMachineForTarget(target string) (sshclient.SSHMachine, error) {
-	backend.stub.AddCall("GetMachineForTarget", target)
-	switch target {
-	case "0":
+func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSHMachine, error) {
+	backend.stub.AddCall("GetMachineForEntity", tagString)
+	switch tagString {
+	case names.NewMachineTag("0").String():
 		return &mockMachine{
 			tag:            names.NewMachineTag("0"),
 			publicAddress:  "1.1.1.1",
 			privateAddress: "2.2.2.2",
 		}, nil
-	case "foo/0":
+	case names.NewUnitTag("foo/0").String():
 		return &mockMachine{
 			tag:            names.NewMachineTag("1"),
 			publicAddress:  "3.3.3.3",
 			privateAddress: "4.4.4.4",
 		}, nil
 	}
-	return nil, errors.New("unknown target")
+	return nil, errors.New("unknown entity")
 }
 
 func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostKeys, error) {

@@ -16,7 +16,7 @@ import (
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
-	GetMachineForTarget(target string) (SSHMachine, error)
+	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 }
 
@@ -37,18 +37,23 @@ type backend struct {
 	*state.State
 }
 
-// GetMachineForTarget takes a machine ID or unit name and returns the
-// associated SSHMachine.
-func (b *backend) GetMachineForTarget(target string) (SSHMachine, error) {
-	switch {
-	case names.IsValidMachine(target):
-		machine, err := b.State.Machine(target)
+// GetMachineForEntity takes a machine or unit tag (as a string) and
+// returns the associated SSHMachine.
+func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
+	tag, err := names.ParseTag(tagString)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	switch tag := tag.(type) {
+	case names.MachineTag:
+		machine, err := b.State.Machine(tag.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return machine, nil
-	case names.IsValidUnit(target):
-		unit, err := b.State.Unit(target)
+	case names.UnitTag:
+		unit, err := b.State.Unit(tag.Id())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -62,6 +67,6 @@ func (b *backend) GetMachineForTarget(target string) (SSHMachine, error) {
 		}
 		return machine, nil
 	default:
-		return nil, errors.Errorf("unsupported target: %q", target)
+		return nil, errors.Errorf("unsupported entity: %q", tagString)
 	}
 }

@@ -28,30 +28,28 @@ func New(backend Backend, _ *common.Resources, authorizer common.Authorizer) (*F
 	return &Facade{backend: backend}, nil
 }
 
-// PublicAddress reports the best public network address for one or
-// more SSH targets. Targets may be provided as either a machine ID or
-// unit name.
-func (facade *Facade) PublicAddress(args params.SSHTargets) (params.SSHAddressResults, error) {
+// PublicAddress reports the preferred public network address for one
+// or more entities. Machines and units are suppored.
+func (facade *Facade) PublicAddress(args params.Entities) (params.SSHAddressResults, error) {
 	getter := func(m SSHMachine) (network.Address, error) { return m.PublicAddress() }
 	return facade.getAddresses(args, getter)
 }
 
-// PrivateAddress reports the best private network address for one or
-// more SSH targets. Targets may be provided as either a machine ID or
-// unit name.
-func (facade *Facade) PrivateAddress(args params.SSHTargets) (params.SSHAddressResults, error) {
+// PrivateAddress reports the preferred private network address for one or
+// more entities. Machines and units are supported.
+func (facade *Facade) PrivateAddress(args params.Entities) (params.SSHAddressResults, error) {
 	getter := func(m SSHMachine) (network.Address, error) { return m.PrivateAddress() }
 	return facade.getAddresses(args, getter)
 }
 
-func (facade *Facade) getAddresses(args params.SSHTargets, getter func(SSHMachine) (network.Address, error)) (
+func (facade *Facade) getAddresses(args params.Entities, getter func(SSHMachine) (network.Address, error)) (
 	params.SSHAddressResults, error,
 ) {
 	out := params.SSHAddressResults{
-		Results: make([]params.SSHAddressResult, len(args.Targets)),
+		Results: make([]params.SSHAddressResult, len(args.Entities)),
 	}
-	for i, target := range args.Targets {
-		machine, err := facade.backend.GetMachineForTarget(target.Target)
+	for i, entity := range args.Entities {
+		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
 			out.Results[i].Error = common.ServerError(common.ErrPerm)
 		} else {
@@ -66,15 +64,14 @@ func (facade *Facade) getAddresses(args params.SSHTargets, getter func(SSHMachin
 	return out, nil
 }
 
-// PublicKeys returns the public SSH hosts for one or more SSH
-// targets. Targets may be provided as either a machine ID or unit
-// name.
-func (facade *Facade) PublicKeys(args params.SSHTargets) (params.SSHPublicKeysResults, error) {
+// PublicKeys returns the public SSH hosts for one or more
+// entities. Machines and units are supported.
+func (facade *Facade) PublicKeys(args params.Entities) (params.SSHPublicKeysResults, error) {
 	out := params.SSHPublicKeysResults{
-		Results: make([]params.SSHPublicKeysResult, len(args.Targets)),
+		Results: make([]params.SSHPublicKeysResult, len(args.Entities)),
 	}
-	for i, target := range args.Targets {
-		machine, err := facade.backend.GetMachineForTarget(target.Target)
+	for i, entity := range args.Entities {
+		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
 			out.Results[i].Error = common.ServerError(common.ErrPerm)
 		} else {

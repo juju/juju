@@ -5,6 +5,7 @@ package sshclient_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,18 +33,20 @@ func (s *FacadeSuite) TestAddress(c *gc.C) {
 		return nil
 	})
 	facade := sshclient.NewFacade(apiCaller)
-	expectedTarget := []interface{}{params.SSHTargets{[]params.SSHTarget{{"foo/0"}}}}
+	expectedArg := []interface{}{params.Entities{[]params.Entity{{
+		names.NewUnitTag("foo/0").String(),
+	}}}}
 
 	public, err := facade.PublicAddress("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(public, gc.Equals, "1.1.1.1")
-	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PublicAddress", expectedTarget}})
+	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PublicAddress", expectedArg}})
 	stub.ResetCalls()
 
 	private, err := facade.PrivateAddress("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(private, gc.Equals, "1.1.1.1")
-	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PrivateAddress", expectedTarget}})
+	stub.CheckCalls(c, []jujutesting.StubCall{{"SSHClient.PrivateAddress", expectedArg}})
 }
 
 func (s *FacadeSuite) TestAddressError(c *gc.C) {
@@ -133,7 +136,9 @@ func (s *FacadeSuite) TestPublicKeys(c *gc.C) {
 	c.Check(keys, gc.DeepEquals, []string{"rsa", "dsa"})
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"SSHClient.PublicKeys",
-		[]interface{}{params.SSHTargets{[]params.SSHTarget{{"foo/0"}}}},
+		[]interface{}{params.Entities{[]params.Entity{{
+			Tag: names.NewUnitTag("foo/0").String(),
+		}}}},
 	}})
 }
 
