@@ -259,7 +259,9 @@ func findAvailableSubnet() (string, error) {
 	return "", errors.New("could not find unused subnet")
 }
 
-func parseLXDBridgeConfigValues(input string, values map[string]string) {
+func parseLXDBridgeConfigValues(input string) map[string]string {
+	values := make(map[string]string)
+
 	for _, line := range strings.Split(input, "\n") {
 		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
 			continue
@@ -282,14 +284,14 @@ func parseLXDBridgeConfigValues(input string, values map[string]string) {
 
 		values[tokens[0]] = value
 	}
+	return values
 }
 
 // bridgeConfiguration ensures that input has a valid setting for
 // LXD_IPV4_ADDR, returning the existing input if is already set, and
 // allocating the next available subnet if it is not.
 func bridgeConfiguration(input string) (string, error) {
-	values := make(map[string]string)
-	parseLXDBridgeConfigValues(input, values)
+	values := parseLXDBridgeConfigValues(input)
 	ipAddr := net.ParseIP(values["LXD_IPV4_ADDR"])
 
 	if ipAddr == nil || ipAddr.To4() == nil {

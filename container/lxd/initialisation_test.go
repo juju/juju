@@ -270,14 +270,12 @@ func (s *InitialiserSuite) TestParseLXDBridgeFileValues(c *gc.C) {
 		},
 	}} {
 		c.Logf("test #%d - %s", i, test.desc)
-		values := map[string]string{}
-		parseLXDBridgeConfigValues(test.content, values)
+		values := parseLXDBridgeConfigValues(test.content)
 		c.Check(values, gc.DeepEquals, test.expected)
 	}
 }
 
 func (s *InitialiserSuite) TestParseLXDBridgeFileValuesWithRealWorldContent(c *gc.C) {
-	values := map[string]string{}
 	expected := map[string]string{
 		"USE_LXD_BRIDGE":      "true",
 		"EXISTING_BRIDGE":     "",
@@ -296,7 +294,7 @@ func (s *InitialiserSuite) TestParseLXDBridgeFileValuesWithRealWorldContent(c *g
 		"LXD_IPV6_NAT":        "true",
 		"LXD_IPV6_PROXY":      "true",
 	}
-	parseLXDBridgeConfigValues(lxdBridgeContent, values)
+	values := parseLXDBridgeConfigValues(lxdBridgeContent)
 	c.Check(values, gc.DeepEquals, expected)
 }
 
@@ -333,9 +331,8 @@ func (s *InitialiserSuite) TestBridgeConfigurationWithNewSubnet(c *gc.C) {
 		"LXD_IPV6_PROXY":      "false",
 	}
 
-	actualValues := make(map[string]string)
 	result, err := bridgeConfiguration(`LXD_IPV4_ADDR=""`)
 	c.Assert(err, gc.IsNil)
-	parseLXDBridgeConfigValues(result, actualValues)
+	actualValues := parseLXDBridgeConfigValues(result)
 	c.Assert(expectedValues, gc.DeepEquals, actualValues)
 }
