@@ -118,15 +118,17 @@ var configureLXDBridge = func() error {
 		return errors.Trace(err)
 	}
 
-	if newBridgeCfg != string(existing) {
-		_, err = f.Seek(0, 0)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		_, err = f.WriteString(newBridgeCfg)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	if newBridgeCfg == string(existing) {
+		return nil
+	}
+
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = f.WriteString(newBridgeCfg)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	/* non-systemd systems don't have the lxd-bridge service, so this always fails */
