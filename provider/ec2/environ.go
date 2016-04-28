@@ -79,8 +79,10 @@ type environ struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
-	// cachedDefaultVpc caches the id of the ec2 default vpc
-	cachedDefaultVpc *defaultVpc
+	// cachedVPC holds information about the used VPC. It's either the default
+	// VPC for the used EC2 region, or a user-specified VPC using "vpc-id" or
+	// "force-vpc-id" config settings.
+	cachedVPC *vpcInfo
 }
 
 // Ensure EC2 provider supports environs.NetworkingEnviron.
@@ -88,11 +90,6 @@ var _ environs.NetworkingEnviron = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
-
-type defaultVpc struct {
-	hasDefaultVpc bool
-	id            network.Id
-}
 
 // AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
 var AssignPrivateIPAddress = assignPrivateIPAddress
@@ -132,38 +129,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.s3Unlocked = s3Client
 
 	return nil
-}
-
-func (e *environ) defaultVpc() (network.Id, bool, error) {
-	if e.cachedDefaultVpc != nil {
-		defaultVpc := e.cachedDefaultVpc
-		return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
-	}
-	ec2 := e.ec2()
-	resp, err := ec2.AccountAttributes("default-vpc")
-	if err != nil {
-		return "", false, errors.Trace(err)
-	}
-
-	hasDefault := true
-	defaultVpcId := ""
-
-	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
-		hasDefault = false
-		defaultVpcId = ""
-	} else {
-		defaultVpcId = resp.Attributes[0].Values[0]
-		if defaultVpcId == none {
-			hasDefault = false
-			defaultVpcId = ""
-		}
-	}
-	defaultVpc := &defaultVpc{
-		id:            network.Id(defaultVpcId),
-		hasDefaultVpc: hasDefault,
-	}
-	e.cachedDefaultVpc = defaultVpc
-	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -223,11 +188,11 @@ func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
 	if !environs.AddressAllocationEnabled(provider.EC2) {
 		return false, errors.NotSupportedf("address allocation")
 	}
-	_, hasDefaultVpc, err := e.defaultVpc()
+	_, isDefaultVPC, err := e.getVPC()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return hasDefaultVpc, nil
+	return isDefaultVPC, nil
 }
 
 var unsupportedConstraints = []string{
@@ -1147,7 +1112,6 @@ func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, er
 	//
 	// An EC2 API call is required to resolve the group name to an id, as
 	// VPC enabled accounts do not support name based filtering.
-	// TODO: Detect classic accounts and just filter by name for those.
 	groupName := e.jujuGroupName()
 	group, err := e.groupByName(groupName)
 	if err != nil {
@@ -1685,8 +1649,21 @@ var zeroGroup ec2.SecurityGroup
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	// Specify explicit VPC ID if needed (not for default VPC).
+	vpcID, isDefault, err := e.getVPC()
+	if err != nil {
+		return zeroGroup, errors.Trace(err)
+	}
+	usedVPCID := string(vpcID)
+	if vpcID == "" || isDefault {
+		// Default VPC groups and EC2-Classic groups can be treated
+		// the same way - using names rather than ids to refer to
+		// them.
+		usedVPCID = ""
+	}
+
 	ec2inst := e.ec2()
-	resp, err := ec2inst.CreateSecurityGroup("", name, "juju group")
+	resp, err := ec2inst.CreateSecurityGroup(usedVPCID, name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		return zeroGroup, err
 	}
@@ -1705,7 +1682,20 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 			return g, errors.Annotate(err, "tagging security group")
 		}
 	} else {
-		resp, err := ec2inst.SecurityGroups(ec2.SecurityGroupNames(name), nil)
+		var groups []ec2.SecurityGroup
+		f := ec2.NewFilter()
+		if usedVPCID != "" {
+			// AWS VPC API requires both of these filters (and no
+			// group names/ids set) for non-default EC2-VPC groups:
+			f.Add("vpc-id", usedVPCID)
+			f.Add("group-name", name)
+		} else {
+			// EC2-Classic or EC2-VPC with implicit default VPC need to use the
+			// GroupName.X arguments instead of the filters.
+			groups = ec2.SecurityGroupNames(name)
+		}
+
+		resp, err := ec2inst.SecurityGroups(groups, f)
 		if err != nil {
 			return zeroGroup, err
 		}
