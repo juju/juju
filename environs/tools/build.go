@@ -255,13 +255,12 @@ var execCommand = exec.Command
 func getVersionFromJujud(dir string) (version.Binary, error) {
 	path := filepath.Join(dir, names.Jujud)
 	cmd := execCommand(path, "version")
-	stdout := &bytes.Buffer{}
-	both := &bytes.Buffer{}
-	cmd.Stdout = io.MultiWriter(stdout, both)
-	cmd.Stderr = both
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return version.Binary{}, errors.Errorf("cannot get version from %q: %v; %s", path, err, both)
+		return version.Binary{}, errors.Errorf("cannot get version from %q: %v; %s", path, err, stderr.String()+stdout.String())
 	}
 	tvs := strings.TrimSpace(stdout.String())
 	tvers, err := version.ParseBinary(tvs)
