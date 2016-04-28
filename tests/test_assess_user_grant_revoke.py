@@ -25,6 +25,7 @@ from tests import (
 )
 from tests.test_jujupy import (
     FakeJujuClient,
+    FakeBackend,
 )
 
 
@@ -71,6 +72,33 @@ class TestMain(TestCase):
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 
+class FakeJujuClient(FakeJujuClient):
+    def get_juju_output(self, command, *args, **kwargs):
+        if command == ('add-user'):
+            if set(["--acl", "read"]).issubset(args):
+
+                username = args[0]
+                model = args[2]
+                return ''.join(['User "' + username + '" added\nUser "' + username + '" granted read access ',
+                          'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
+                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
+            elif set(["--acl", "write"]).issubset(args):
+                username = args[0]
+                model = args[2]
+                return ''.join(['User "' + username + '" added\nUser "' + username + '" granted read access ',
+                          'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
+                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
+
+    def juju(self, cmd, args, check=True, include_e=True, timeout=None):
+        if include_e:
+            model = self.env.environment
+        else:
+            model = None
+
+        if model is not None:
+            model_state = self.controller_state.models[model]
+            if cmd == 'deploy':
+                _require_admin(self.deploy(model_state, *args))
 
 class TestAssess(TestCase):
 
@@ -100,26 +128,21 @@ class TestAssess(TestCase):
         def isalive(self):
             return False
 
+
+
     def test_user_grant_revoke(self):
         mock_client = FakeJujuClient()
         mock_client.bootstrap()
-        assess_user_grant_revoke(mock_client)
 
-        # mock_client.juju.assert_called_once_with('deploy',
-        # ('local:wordpress',))
-        mock_client.wait_for_started.assert_called_once_with()
-        mock_client.juju.assert_called_once_with('deploy', ('wordpress',))
-        mock_client.juju.assert_called_once_with('deploy', ('wordpress',))
-
-        #read_user_client.list_controllers()
-        #read_user_client.show_user()
-        #read_user_client.show_status()
-        mock_client.get_juju_output.assert_called_once_with('add-user', ('bob'))
-        mock_client.get_juju_output.assert_called_once_with('add-user', ('carol'))
-        mock_client.juju.assert_called_once_with('revoke', ('bob',))
-        mock_client.juju.assert_called_once_with('revoke', ('carol',))
-
-        # self.assertNotIn("TODO", self.log_stream.getvalue())
+        with patch("assess_user_grant_revoke.register_user", return_value=True):
+            assess_user_grant_revoke(mock_client)
+            mock_client.wait_for_started.assert_called_once_with()
+            #mock_client.create_user_permissions.assert_called_with()
+            #mock_client.create_user_permissions.assert_called_with()
+            #mock_client.create_cloned_environment.assert_called_with()
+            #mock_client.create_cloned_environment.assert_called_with()
+            #mock_client.register_user.assert_called_with()
+            #mock_client.register_user.assert_called_with()
 
     def test_create_cloned_environment(self):
         mock_client = FakeJujuClient()
@@ -151,6 +174,7 @@ class TestAssess(TestCase):
                 pexpect.exceptions.EOF,
             ]
         )
+
         register_user(username, env, cmd, register_process=register_process)
 
     def test_remove_user_permissions(self):
