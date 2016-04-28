@@ -86,12 +86,6 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// If there is no cloud of type maas, show user message.
-	if !details.hasMAASTypeCloud() {
-		fmt.Fprintln(ctxt.Stderr, "No maas clouds configured.")
-	}
-	fmt.Fprintln(ctxt.Stderr, "Unsupported cloud types can still be used with the manual provider.")
 	return nil
 }
 
@@ -125,18 +119,6 @@ func (c *cloudList) all() map[string]*cloudDetails {
 	addAll(c.builtin)
 	addAll(c.personal)
 	return result
-}
-
-func (c *cloudList) hasMAASTypeCloud() bool {
-	findType := func(someClouds map[string]*cloudDetails) bool {
-		for _, aCloud := range someClouds {
-			if strings.EqualFold(aCloud.CloudType, "maas") {
-				return true
-			}
-		}
-		return false
-	}
-	return findType(c.public) || findType(c.builtin) || findType(c.personal)
 }
 
 func listCloudDetails() (*cloudList, error) {
