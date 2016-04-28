@@ -268,6 +268,21 @@ func (s *InitialiserSuite) TestParseLXDBridgeFileValues(c *gc.C) {
 			"c": "d",
 			"e": "f",
 		},
+	}, {
+		desc:    "comment with leading whitespace",
+		content: " #a=b\nc=d\ne=f",
+		expected: map[string]string{
+			"c": "d",
+			"e": "f",
+		},
+	}, {
+		desc:    "key/value pairs with leading and trailing whitespace",
+		content: " a=b\n c=d \ne=f ",
+		expected: map[string]string{
+			"a": "b",
+			"c": "d",
+			"e": "f",
+		},
 	}} {
 		c.Logf("test #%d - %s", i, test.desc)
 		values := parseLXDBridgeConfigValues(test.content)

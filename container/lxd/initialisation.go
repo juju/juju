@@ -263,6 +263,8 @@ func parseLXDBridgeConfigValues(input string) map[string]string {
 	values := make(map[string]string)
 
 	for _, line := range strings.Split(input, "\n") {
+		line = strings.TrimSpace(line)
+
 		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
 			continue
 		}
