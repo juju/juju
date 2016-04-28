@@ -1127,9 +1127,39 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 // AllInstancesByState returns all instances in the environment
 // with one of the specified instance states.
 func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, error) {
+	// NOTE(axw) we use security group filtering here because instances
+	// start out untagged. If Juju were to abort after starting an instance,
+	// but before tagging it, it would be leaked. We only need to do this
+	// for AllInstances, as it is the result of AllInstances that is used
+	// in "harvesting" unknown instances by the provisioner.
+	//
+	// One possible alternative is to modify ec2.RunInstances to allow the
+	// caller to specify ClientToken, and then format it like
+	//     <controller-uuid>:<model-uuid>:<machine-id>
+	//     (with base64-encoding to keep the size under the 64-byte limit)
+	//
+	// It is possible to filter on "client-token", and specify wildcards;
+	// therefore we could use client-token filters everywhere in the ec2
+	// provider instead of tags or security groups. The only danger is if
+	// we need to make non-idempotent calls to RunInstances for the machine
+	// ID. I don't think this is needed, but I am not confident enough to
+	// change this fundamental right now.
+	//
+	// An EC2 API call is required to resolve the group name to an id, as
+	// VPC enabled accounts do not support name based filtering.
+	// TODO: Detect classic accounts and just filter by name for those.
+	groupName := e.jujuGroupName()
+	group, err := e.groupByName(groupName)
+	if err != nil {
+		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			// If there's no group, then there cannot be any instances.
+			return nil, nil
+		}
+		return nil, errors.Trace(err)
+	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", states...)
-	e.addModelFilter(filter)
+	filter.Add("instance.group-id", group.Id)
 	return e.allInstances(filter)
 }
 
@@ -1151,6 +1181,9 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 
 // allControllerManagedInstances returns the IDs of all instances managed by
 // this environment's controller.
+//
+// Note that this requires that all instances are tagged; we cannot filter on
+// security groups, as we do not know the names of the models.
 func (e *environ) allControllerManagedInstances() ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
