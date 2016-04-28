@@ -190,10 +190,6 @@ class FakeEnvironmentState:
         self.remove_machine(machine_id)
         self.state_servers.remove(machine_id)
 
-    def bootstrap(self, env, commandline_config, separate_admin):
-        return self.controller.bootstrap(self, env, commandline_config,
-                                         separate_admin)
-
     def destroy_environment(self):
         self._clear()
         self.controller.state = 'destroyed'
@@ -319,11 +315,13 @@ class FakeBackend:
         commandline_config = {}
         if bootstrap_series is not None:
             commandline_config['default-series'] = bootstrap_series
-        self._backing_state.bootstrap(
-            env, commandline_config, self.is_feature_enabled('jes'))
+        self.controller_state.bootstrap(
+            self._backing_state, env, commandline_config,
+            self.is_feature_enabled('jes'))
 
     def quickstart(self, env, bundle):
-        self.backing_state.bootstrap(env, {}, self.is_feature_enabled('jes'))
+        self.controller_state.bootstrap(self._backing_state, env, {},
+                                        self.is_feature_enabled('jes'))
         model_state = self.controller_state.models[env.environment]
         model_state.deploy_bundle(bundle)
 
