@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	jc "github.com/juju/testing/checkers"
@@ -189,6 +190,38 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithExisting10xNetworks(c *gc.
 	subnet, err := findAvailableSubnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "5")
+}
+
+func (s *InitialiserSuite) TestFindAvailableSubnetUpperBoundInUse(c *gc.C) {
+	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
+		return testAddresses(c, "10.0.255.1/24")
+	})
+	subnet, err := findAvailableSubnet()
+	c.Assert(err, gc.IsNil)
+	c.Assert(subnet, gc.Equals, "0")
+}
+
+func (s *InitialiserSuite) TestFindAvailableSubnetUpperBoundAndLowerBoundInUse(c *gc.C) {
+	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
+		return testAddresses(c, "10.0.255.1/24", "10.0.0.1/24")
+	})
+	subnet, err := findAvailableSubnet()
+	c.Assert(err, gc.IsNil)
+	c.Assert(subnet, gc.Equals, "1")
+}
+
+func (s *InitialiserSuite) TestFindAvailableSubnetWithFull10xSubnet(c *gc.C) {
+	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
+		addrs := make([]net.Addr, 256)
+		for i := 0; i < 256; i++ {
+			subnet := fmt.Sprintf("10.0.%v.1/24", i)
+			addrs[i] = testFindSubnetAddr{subnet}
+		}
+		return addrs, nil
+	})
+	subnet, err := findAvailableSubnet()
+	c.Assert(err, gc.ErrorMatches, "could not find unused subnet")
+	c.Assert(subnet, gc.Equals, "")
 }
 
 func (s *InitialiserSuite) TestParseLXDBridgeFileValues(c *gc.C) {

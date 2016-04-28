@@ -230,7 +230,10 @@ func findAvailableSubnet() (string, error) {
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot get network interface addresses")
 	}
+
 	max := 0
+	usedSubnets := make(map[int]bool)
+
 	for _, address := range addrs {
 		_, network, err := net.ParseCIDR(address.String())
 		if err != nil {
@@ -239,11 +242,21 @@ func findAvailableSubnet() (string, error) {
 		if network.IP[0] != 10 || network.IP[1] != 0 {
 			continue
 		}
-		if subnet := int(network.IP[2]); subnet > max {
+		subnet := int(network.IP[2])
+		usedSubnets[subnet] = true
+		if subnet > max {
 			max = subnet
 		}
 	}
-	return fmt.Sprintf("%d", max+1), nil
+
+	for i := 0; i < 256; i++ {
+		max = (max + 1) % 256
+		if _, inUse := usedSubnets[max]; !inUse {
+			return fmt.Sprintf("%d", max), nil
+		}
+	}
+
+	return "", errors.New("could not find unused subnet")
 }
 
 func parseLXDBridgeConfigValues(input string, values map[string]string) {
