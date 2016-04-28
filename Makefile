@@ -107,7 +107,7 @@ ifeq ($(shell ifconfig lxdbr0 | grep -q "inet addr" && echo true),true)
 	@echo run "sudo scripts/setup-lxd.sh" to reconfigure IPv4 networking
 else
 	@echo Setting up IPv4 networking for LXD
-	@sudo scripts/setup-lxd.sh
+	@sudo scripts/setup-lxd.sh || true
 endif
 
 
