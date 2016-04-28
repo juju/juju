@@ -302,7 +302,6 @@ func bridgeConfiguration(input string) (string, error) {
 			return "", errors.Trace(err)
 		}
 		return editLXDBridgeFile(input, subnet), nil
-	} else {
-		return input, nil
 	}
+	return input, nil
 }
