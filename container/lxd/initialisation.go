@@ -268,6 +268,10 @@ func findNextAvailableIPv4Subnet() (string, error) {
 		}
 	}
 
+	if len(usedSubnets) == 0 {
+		return "0", nil
+	}
+
 	for i := 0; i < 256; i++ {
 		max = (max + 1) % 256
 		if _, inUse := usedSubnets[max]; !inUse {

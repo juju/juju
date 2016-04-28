@@ -153,7 +153,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithNoAddresses(c *gc.C) {
 	})
 	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
-	c.Assert(subnet, gc.Equals, "1")
+	c.Assert(subnet, gc.Equals, "0")
 }
 
 func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv6Only(c *gc.C) {
@@ -162,16 +162,16 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv6Only(c *gc.C) {
 	})
 	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
-	c.Assert(subnet, gc.Equals, "1")
+	c.Assert(subnet, gc.Equals, "0")
 }
 
-func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv4Only(c *gc.C) {
+func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv4OnlyAndNo10xSubnet(c *gc.C) {
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "192.168.1.64/24")
 	})
 	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
-	c.Assert(subnet, gc.Equals, "1")
+	c.Assert(subnet, gc.Equals, "0")
 }
 
 func (s *InitialiserSuite) TestFindAvailableSubnetWithInvalidCIDR(c *gc.C) {
