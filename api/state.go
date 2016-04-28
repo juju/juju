@@ -98,7 +98,7 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 		}
 	}
 
-	if tag == nil && result.UserInfo != nil {
+	if result.UserInfo != nil {
 		// This was a macaroon based user authentication.
 		tag, err = names.ParseTag(result.UserInfo.Identity)
 		if err != nil {
@@ -140,8 +140,7 @@ func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, s
 	return nil
 }
 
-// AuthTag returns the authentication tag stored in state.
-// This is only used for testing purposes.
+// AuthTag returns the tag of the authorized user of the state API connection.
 func (st *state) AuthTag() names.Tag {
 	return st.authTag
 }

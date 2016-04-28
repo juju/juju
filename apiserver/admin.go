@@ -73,8 +73,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	var agentPingerNeeded = true
 	isUser := true
 	kind := names.UserTagKind
-	var err error
 	if req.AuthTag != "" {
+		var err error
 		kind, err = names.TagKind(req.AuthTag)
 		if err != nil || kind != names.UserTagKind {
 			isUser = false
