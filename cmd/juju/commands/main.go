@@ -78,6 +78,7 @@ See https://jujucharms.com/docs/stable/help for documentation.
 
 Common commands:
 
+    add-cloud           Adds a user-defined cloud to Juju.
     add-credential      Adds or replaces credentials for a cloud.
     add-relation        Adds a relation between two services.
     add-unit            Adds extra units of a deployed service.
