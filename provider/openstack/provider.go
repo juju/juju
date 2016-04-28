@@ -60,11 +60,11 @@ var providerInstance *EnvironProvider = &EnvironProvider{
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 
-// Use shortAttempt to poll for short-term events.
-// TODO: This was kept to a long timeout because Nova needs more time than EC2.
-// For example, HP Cloud takes around 9.1 seconds (10 samples) to return a
-// BUILD(spawning) status. But storage delays are handled separately now, and
+// TODO: shortAttempt was kept to a long timeout because Nova needs
+// more time than EC2.  Storage delays are handled separately now, and
 // perhaps other polling attempts can time out faster.
+
+// shortAttempt is used when polling for short-term events in tests.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
@@ -1088,8 +1088,6 @@ func (e *Environ) StopInstances(ids ...instance.Id) error {
 
 func (e *Environ) isAliveServer(server nova.ServerDetail) bool {
 	switch server.Status {
-	// HPCloud uses "BUILD(spawning)" as an intermediate BUILD state
-	// once networking is available.
 	case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning, nova.StatusShutoff, nova.StatusSuspended:
 		return true
 	}

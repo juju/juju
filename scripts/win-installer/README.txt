@@ -4,7 +4,7 @@ This tutorial will show you how to get started with Juju, including installing, 
 
 * An Ubuntu, Windows or OSX machine to install the client on.
 
-* A model which can provide a new server with an Ubuntu cloud operating system image on-demand. This includes services such as Microsoft Azure, Amazon EC2, HP Cloud, or an OpenStack installation.
+* A model which can provide a new server with an Ubuntu cloud operating system image on-demand. This includes services such as Microsoft Azure, Amazon EC2, or an OpenStack installation.
 
 * An SSH key-pair. Juju expects to find ssh keys called id_rsa and id_rsa.pub in a .ssh folder in your home directory.
 
@@ -18,7 +18,7 @@ To generate an initial config file, you simply need to run:
 
 This causes the file to be written to your %LOCALAPPDATA%\Juju directory if an environments.yaml file does not already exist. It will also create the %LOCALAPPDATA%\Juju directory if that does not exist.
 
-This file will contain sample profiles for different types of cloud services, but you will need to edit the files to provide specific information for your cloud provider. Sections are created for Amazon (AWS) services, HPCloud and a generic OpenStack instance. For more specifics on what needs to be changed, see https://juju.ubuntu.com/docs/getting-started.html
+This file will contain sample profiles for different types of cloud services, but you will need to edit the files to provide specific information for your cloud provider. Sections are created for Amazon (AWS) services, and a generic OpenStack instance. For more specifics on what needs to be changed, see https://juju.ubuntu.com/docs/getting-started.html
 
 Testing your setup
 
@@ -29,7 +29,7 @@ The first thing to do is set up a bootstrap model. This is an instance in the cl
 
 > juju bootstrap
 
-Note: If you have multiple models configured, you can choose which one to address with a particular command by adding the -e switch followed by the model name, E.g. "-e hpcloud".
+Note: If you have multiple models configured, you can choose which one to address with a particular command by adding the -e switch followed by the model name, E.g. "-e aws".
 
 You may have to wait a few moments for this command to return, as it needs to perform various tasks and contact your cloud provider.
 
