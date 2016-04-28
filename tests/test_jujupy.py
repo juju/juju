@@ -116,9 +116,9 @@ class FakeControllerState:
         state.controller.state = 'created'
         return state
 
-    def bootstrap(self, default_model, env, commandline_config,
-                  separate_admin):
-        default_model.name = env.environment
+    def bootstrap(self, model_name, config, separate_admin):
+        default_model = self.add_model(model_name)
+        default_model.name = model_name
         if separate_admin:
             admin_model = default_model.controller.add_model('admin')
         else:
@@ -126,9 +126,9 @@ class FakeControllerState:
         self.admin_model = admin_model
         admin_model.state_servers.append(admin_model.add_machine())
         self.state = 'bootstrapped'
-        default_model.model_config = copy.deepcopy(env.config)
-        default_model.model_config.update(commandline_config)
+        default_model.model_config = copy.deepcopy(config)
         self.models[default_model.name] = default_model
+        return default_model
 
 
 class FakeEnvironmentState:
@@ -311,19 +311,22 @@ class FakeBackend:
             service_name = charm_name.split(':')[-1].split('/')[-1]
         model_state.deploy(charm_name, service_name)
 
-    def bootstrap(self, env, upload_tools=False, bootstrap_series=None):
-        commandline_config = {}
+    def bootstrap(self, model_name, config, upload_tools=False,
+                  bootstrap_series=None):
+        config = copy.deepcopy(config)
         if bootstrap_series is not None:
-            commandline_config['default-series'] = bootstrap_series
-        self.controller_state.bootstrap(
-            self._backing_state, env, commandline_config,
-            self.is_feature_enabled('jes'))
+            config['default-series'] = bootstrap_series
+        default_model = self.controller_state.bootstrap(
+            model_name, config, self.is_feature_enabled('jes'))
+        self._backing_state = default_model
 
-    def quickstart(self, env, bundle):
-        self.controller_state.bootstrap(self._backing_state, env, {},
-                                        self.is_feature_enabled('jes'))
-        model_state = self.controller_state.models[env.environment]
+    def quickstart(self, model_name, config, bundle):
+        default_model = self.controller_state.bootstrap(
+            model_name, config,
+            self.is_feature_enabled('jes'))
+        model_state = self.controller_state.models[model_name]
         model_state.deploy_bundle(bundle)
+        self._backing_state = default_model
 
     def destroy_environment(self):
         self.backing_state.destroy_environment()
@@ -523,14 +526,15 @@ class FakeJujuClient(EnvJujuClient):
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         self._backend.bootstrap(
-            self.env, upload_tools, bootstrap_series)
+            self.env.environment, self.env.config, upload_tools,
+            bootstrap_series)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
 
     def quickstart(self, bundle):
-        self._backend.quickstart(self.env, bundle)
+        self._backend.quickstart(self.env.environment, self.env.config, bundle)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment()
