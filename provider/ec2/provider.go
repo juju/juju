@@ -27,7 +27,7 @@ var providerInstance environProvider
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region"}
+	return []string{"region", "vpc-id", "force-vpc-id"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
@@ -87,11 +87,25 @@ func (p environProvider) PrepareForBootstrap(
 	if err != nil {
 		return nil, err
 	}
+
+	env := e.(*environ)
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e.(*environ)); err != nil {
+		if err := verifyCredentials(env); err != nil {
 			return nil, err
 		}
 	}
+
+	vpcID, isDefault, err := env.getVPC()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if isDefault {
+		ctx.Infof("Using default VPC %q for region %q", vpcID, env.ecfg().region())
+	} else {
+		ctx.Infof("Using non-default VPC %q in region %q", vpcID, env.ecfg().region())
+	}
+
 	return e, nil
 }
 

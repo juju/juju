@@ -25,15 +25,14 @@ type vpcInfo struct {
 func (e *environ) getVPC() (network.Id, bool, error) {
 	// Use the cached info, if available.
 	if e.cachedVPC != nil {
-		vpc := e.cachedVPC
-		return vpc.id, vpc.isDefault, nil
+		return e.cachedVPC.id, e.cachedVPC.isDefault, nil
 	}
+	ec2Client := e.ec2()
 
 	// No cache; verify if vpc-id is specified first and validate it.
 	vpcID := e.ecfg().vpcID()
 	forceVPCID := e.ecfg().forceVPCID()
 	region := e.ecfg().region()
-	ec2Client := e.ec2()
 
 	if vpcID == "" {
 		// Expect a default VPC to be available, but verify anyway.
@@ -48,19 +47,28 @@ func (e *environ) getVPC() (network.Id, bool, error) {
 		return e.cachedVPC.id, e.cachedVPC.isDefault, nil
 	}
 
-	if err != nil && errors.IsNotValid(err) && forceVPCID {
-		// VPC is unlikely to work, but the the user insist, so cache it and
-		// warn about the issue.
-		logger.Warningf("using possibly unsuitable VPC %q due to force-vpc-id", vpcID)
-		logger.Warningf("(ignoring VPC validation error: %v)", err)
-		e.cachedVPC = &vpcInfo{
-			id:        network.Id(vpcID),
-			isDefault: false, // cannot be a default VPC if it fails validation.
+	if errors.IsNotValid(err) {
+		if forceVPCID {
+			// VPC is unlikely to work, but the the user insist, so cache it and
+			// warn about the issue.
+			logger.Warningf("specified VPC %q does not meet minimum connectivity requirements (using anyway: force-vpc-id=true)", vpcID)
+			logger.Warningf("ignoring validation error: %v", err)
+			e.cachedVPC = &vpcInfo{
+				id:        network.Id(vpcID),
+				isDefault: false, // cannot be a default VPC if it fails validation.
+			}
+			return e.cachedVPC.id, e.cachedVPC.isDefault, nil
 		}
-		return e.cachedVPC.id, e.cachedVPC.isDefault, nil
+		return "", false, errors.Annotatef(
+			err,
+			"specified VPC %q does not meet minimum connectivity requirements",
+			vpcID,
+		)
+	} else if errors.IsNotFound(err) {
+		return "", false, errors.Annotate(err, "cannot find specified vpc-id")
 	}
 
-	return "", false, errors.Annotatef(err, "VPC %q is not suitable for Juju (and force-vpc-id is %v)", vpcID, forceVPCID)
+	return "", false, errors.Annotate(err, "unexpected error verifying the specified vpc-id")
 }
 
 // getDefaultVPC discovers whether the region has a default VPC and returns its ID and
@@ -116,21 +124,19 @@ func validateVPC(ec2Client *ec2.EC2, region, vpcID string) (*vpcInfo, error) {
 		return nil, errors.Errorf("invalid arguments: empty VPC ID, region, or nil client")
 	}
 
-	// Get all availability zones for the region with state
-	// "available".
-	vpcFilter := ec2.NewFilter()
-	vpcFilter.Add("vpc-id", vpcID)
-	vpcFilter.Add("state", "available")
-	vpcsResp, err := ec2Client.VPCs(nil, vpcFilter)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get VPC %q", vpcID)
+	// Get the VPC by ID and check its state is "available".
+	vpcsResp, err := ec2Client.VPCs([]string{vpcID}, nil)
+	if err != nil && ec2ErrCode(err) == "InvalidVpcID.NotFound" {
+		return nil, errors.NewNotFound(err, "")
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	}
 	switch numResults := len(vpcsResp.VPCs); numResults {
 	case 0:
-		return nil, errors.NewNotFound(nil, fmt.Sprintf("VPC %q not available or not found", vpcID))
+		return nil, errors.NotFoundf("VPC")
 	case 1:
 		if vpcState := vpcsResp.VPCs[0].State; vpcState != "available" {
-			return nil, errors.Errorf(`expected state "available" for VPC %q, got %q`, vpcID, vpcState)
+			return nil, errors.NotValidf("VPC state %q", vpcState)
 		}
 	default:
 		logger.Debugf("DescribeVpcs returned %#v", vpcsResp)
@@ -160,7 +166,7 @@ func validateVPC(ec2Client *ec2.EC2, region, vpcID string) (*vpcInfo, error) {
 		return nil, errors.Annotatef(err, "cannot get availability zones for region %q", region)
 	}
 	if len(zonesResp.Zones) < 1 {
-		return nil, errors.Errorf(`region %q has no availability zones with state  "available"`, region)
+		return nil, errors.Errorf(`region %q has no availability zones with state "available"`, region)
 	}
 
 	usableZones := set.NewStrings()
@@ -230,10 +236,10 @@ func validateVPC(ec2Client *ec2.EC2, region, vpcID string) (*vpcInfo, error) {
 	)
 
 	if potentiallyUsableSubnets.IsEmpty() {
-		return nil, errors.NewNotValid(nil, fmt.Sprintf(
-			"no public, available subnets found in VPC %q, suitable for a Juju controller instance",
-			vpcID,
-		))
+		return nil, errors.NewNotValid(
+			nil,
+			"no public subnets with state 'available' found to host a Juju controller instance",
+		)
 	}
 
 	// All good!
