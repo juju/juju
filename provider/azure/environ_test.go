@@ -156,6 +156,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.StringPtr("14.04-LTS")},
 		{Name: to.StringPtr("15.04")},
 		{Name: to.StringPtr("15.10")},
+		{Name: to.StringPtr("16.04-LTS")},
 	}
 
 	s.publicIPAddress = &network.PublicIPAddress{
@@ -589,12 +590,12 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			AvailableTools: makeToolsList("trusty"),
+			AvailableTools: makeToolsList(testing.FakeDefaultSeries),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "trusty")
+	c.Assert(result.Series, gc.Equals, testing.FakeDefaultSeries)
 
 	c.Assert(len(s.requests), gc.Equals, 17)
 
