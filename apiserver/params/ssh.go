@@ -40,8 +40,8 @@ type SSHAddressResults struct {
 // SSHAddressResult defines a single SSH address result (see
 // SSHAddressResults).
 type SSHAddressResult struct {
-	Error   *Error `json:"error"`
-	Address string `json:"address"`
+	Error   *Error `json:"error,omitempty"`
+	Address string `json:"address,omitempty"`
 }
 
 // SSHPublicKeysResults is used to return SSH public host keys for one
@@ -53,6 +53,6 @@ type SSHPublicKeysResults struct {
 // SSHPublicKeysResult is used to return the SSH public host keys for
 // one SSH target (see SSHPublicKeysResults).
 type SSHPublicKeysResult struct {
-	Error      *Error   `json:"error"`
-	PublicKeys []string `json:"public-keys"`
+	Error      *Error   `json:"error,omitempty"`
+	PublicKeys []string `json:"public-keys,omitempty"`
 }
