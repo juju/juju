@@ -15,13 +15,14 @@ from deploy_stack import (
     wait_for_state_server_to_shutdown,
 )
 from jujupy import (
-    make_client,
     parse_new_state_server_from_error,
 )
 from substrate import (
     terminate_instances,
 )
 from utility import (
+    add_basic_testing_arguments,
+    configure_logging,
     local_charm_path,
     LoggedException,
     print_now,
@@ -109,12 +110,10 @@ def restore_missing_state_server(client, admin_client, backup_file):
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser('Test recovery strategies.')
+    parser = ArgumentParser(description='Test recovery strategies.')
+    add_basic_testing_arguments(parser)
     parser.add_argument(
         '--charm-series', help='Charm series.', default='')
-    parser.add_argument(
-        '--debug', action='store_true', default=False,
-        help='Use --debug juju logging.')
     strategy = parser.add_argument_group('test strategy')
     strategy.add_argument(
         '--ha', action='store_const', dest='strategy', const='ha',
@@ -125,22 +124,7 @@ def parse_args(argv=None):
     strategy.add_argument(
         '--ha-backup', action='store_const', dest='strategy',
         const='ha-backup', help="Test backup/restore of HA.")
-    parser.add_argument('juju_path')
-    parser.add_argument('env_name')
-    parser.add_argument('logs', help='Directory to store logs in.')
-    parser.add_argument(
-        'temp_env_name', nargs='?',
-        help='Temporary environment name to use for this test.')
-    parser.add_argument(
-        '--agent-stream', help='Stream for retrieving agent binaries.')
-    parser.add_argument(
-        '--series', help='Name of the Ubuntu series to use.')
     return parser.parse_args(argv)
-
-
-def make_client_from_args(args):
-    return make_client(args.juju_path, args.debug, args.env_name,
-                       args.temp_env_name)
 
 
 @contextmanager
@@ -179,14 +163,9 @@ def assess_recovery(bs_manager, strategy, charm_series):
 
 def main(argv):
     args = parse_args(argv)
-    client = make_client_from_args(args)
-    jes_enabled = client.is_jes_enabled()
-    bs_manager = BootstrapManager(
-        client.env.environment, client, client, None, [], args.series,
-        agent_url=None, agent_stream=args.agent_stream, region=None,
-        log_dir=args.logs, keep_env=False, permanent=jes_enabled,
-        jes_enabled=jes_enabled)
-    with bs_manager.booted_context(upload_tools=False):
+    configure_logging(args.verbose)
+    bs_manager = BootstrapManager.from_args(args)
+    with bs_manager.booted_context(upload_tools=args.upload_tools):
         with detect_bootstrap_machine(bs_manager):
             assess_recovery(bs_manager, args.strategy, args.charm_series)
 
