@@ -320,10 +320,12 @@ func bridgeConfiguration(input string) (string, error) {
 	ipAddr := net.ParseIP(values["LXD_IPV4_ADDR"])
 
 	if ipAddr == nil || ipAddr.To4() == nil {
+		logger.Infof("LXD_IPV4_ADDR is not set; searching for unused subnet")
 		subnet, err := findNextAvailableIPv4Subnet()
 		if err != nil {
 			return "", errors.Trace(err)
 		}
+		logger.Infof("setting LXD_IPV4_ADDR=10.0.%s.1", subnet)
 		return editLXDBridgeFile(input, subnet), nil
 	}
 	return input, nil
