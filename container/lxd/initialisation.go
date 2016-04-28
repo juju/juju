@@ -237,6 +237,7 @@ func findAvailableSubnet() (string, error) {
 	for _, address := range addrs {
 		_, network, err := net.ParseCIDR(address.String())
 		if err != nil {
+			logger.Warningf("cannot parse address %q: %v (ignoring)", address.String(), err)
 			continue
 		}
 		if network.IP[0] != 10 || network.IP[1] != 0 {
