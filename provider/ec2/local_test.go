@@ -125,6 +125,8 @@ type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
 	config *s3test.Config
+
+	defaultVPC *amzec2.VPC
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -162,6 +164,10 @@ func (srv *localServer) startServer(c *gc.C) {
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
+
+	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	srv.defaultVPC = &defaultVPC
 }
 
 // addSpice adds some "spice" to the local server
@@ -178,11 +184,15 @@ func (srv *localServer) addSpice(c *gc.C) {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
+	const doNotRemoveDefaultZonesOrGroups = false
+	srv.ec2srv.Reset(doNotRemoveDefaultZonesOrGroups)
 	srv.ec2srv.Quit()
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
 	delete(aws.Regions, "test")
+
+	srv.defaultVPC = nil
 }
 
 // localServerSuite contains tests that run against a fake EC2 server
@@ -1170,6 +1180,10 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
+	// Remove the default VPC to trigger errors below.
+	c.Assert(t.srv.defaultVPC, gc.NotNil)
+	t.srv.ec2srv.RemoveVPC(t.srv.defaultVPC.Id)
+
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1197,9 +1211,6 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
-	// Simulate a default VPC exists.
-	t.srv.ec2srv.AddDefaultVPCAndSubnets()
-
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1416,7 +1427,6 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
-	t.srv.ec2srv.AddDefaultVPCAndSubnets()
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
