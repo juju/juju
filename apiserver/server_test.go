@@ -16,6 +16,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
@@ -262,10 +263,13 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 	xcert, err := cert.ParseCert(coretesting.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	pool.AddCert(xcert)
-	config.TlsConfig = &tls.Config{
-		RootCAs:    pool,
-		MaxVersion: tlsVersion,
+	config.TlsConfig = utils.SecureTLSConfig()
+	if tlsVersion > 0 {
+		// This is for testing only. Please don't muck with the maxtlsversion in
+		// production.
+		config.TlsConfig.MaxVersion = tlsVersion
 	}
+	config.TlsConfig.RootCAs = pool
 	return websocket.DialConfig(config)
 }
 

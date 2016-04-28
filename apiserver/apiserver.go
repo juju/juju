@@ -187,10 +187,8 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
-		MinVersion:   tls.VersionTLS10,
-	}
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{tlsCert}
 
 	stPool := cfg.StatePool
 	if stPool == nil {
