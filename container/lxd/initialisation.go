@@ -227,17 +227,22 @@ func ensureDependencies(series string) error {
 	return err
 }
 
-// findAvailableSubnet scans the list of interfaces on the machine
-// looking for 10.0.x.y networks and returns the first subnet not in
-// use having detected the highest subnet in use. The next subnet can
+// findNextAvailableIPv4Subnet scans the list of interfaces on the machine
+// looking for 10.0.0.0/16 networks and returns the next subnet not in
+// use, having first detected the highest subnet. The next subnet can
 // actually be lower if we overflowed 255 whilst seeking out the next
-// unused subnet. If all subnets in 10.0.x.0 are in use an error is
-// returned. If no interfaces are found that use a 10.0.X.0 subnet
-// then "0" is returned.
+// unused subnet. If all subnets are in use an error is returned.
 //
 // TODO(frobware): this is not an ideal solution as it doesn't take
-// into account any static routes that may set up on the machine.
-func findAvailableSubnet() (string, error) {
+// into account any static routes that may be set up on the machine.
+//
+// TODO(frobware): this only caters for IPv4 setups.
+func findNextAvailableIPv4Subnet() (string, error) {
+	_, ip10network, err := net.ParseCIDR("10.0.0.0/16")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	addrs, err := interfaceAddrs()
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot get network interface addresses")
@@ -247,12 +252,13 @@ func findAvailableSubnet() (string, error) {
 	usedSubnets := make(map[int]bool)
 
 	for _, address := range addrs {
-		_, network, err := net.ParseCIDR(address.String())
+		addr, network, err := net.ParseCIDR(address.String())
 		if err != nil {
 			logger.Warningf("cannot parse address %q: %v (ignoring)", address.String(), err)
 			continue
 		}
-		if network.IP[0] != 10 || network.IP[1] != 0 {
+		if !ip10network.Contains(addr) {
+			logger.Debugf("find available subnet, skipping %q", network.String())
 			continue
 		}
 		subnet := int(network.IP[2])
@@ -310,7 +316,7 @@ func bridgeConfiguration(input string) (string, error) {
 	ipAddr := net.ParseIP(values["LXD_IPV4_ADDR"])
 
 	if ipAddr == nil || ipAddr.To4() == nil {
-		subnet, err := findAvailableSubnet()
+		subnet, err := findNextAvailableIPv4Subnet()
 		if err != nil {
 			return "", errors.Trace(err)
 		}

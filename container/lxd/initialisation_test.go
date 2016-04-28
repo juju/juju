@@ -117,7 +117,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithInterfaceAddrsError(c *gc.
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return nil, errors.New("boom!")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.ErrorMatches, "cannot get network interface addresses: boom!")
 	c.Assert(subnet, gc.Equals, "")
 }
@@ -151,7 +151,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithNoAddresses(c *gc.C) {
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c)
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "1")
 }
@@ -160,7 +160,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv6Only(c *gc.C) {
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "fe80::aa8e:a275:7ae0:34af/64")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "1")
 }
@@ -169,7 +169,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv4Only(c *gc.C) {
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "192.168.1.64/24")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "1")
 }
@@ -180,7 +180,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithInvalidCIDR(c *gc.C) {
 			testFindSubnetAddr{"10.0.0.1"},
 			testFindSubnetAddr{"10.0.5.1/24"}}, nil
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "6")
 }
@@ -189,7 +189,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithIPv4AndExisting10xNetwork(
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "192.168.1.64/24", "10.0.0.1/24")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "1")
 }
@@ -198,7 +198,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithExisting10xNetworks(c *gc.
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "192.168.1.0/24", "10.0.4.1/24", "::1/128", "10.0.3.1/24", "fe80::aa8e:a275:7ae0:34af/64")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "5")
 }
@@ -207,7 +207,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetUpperBoundInUse(c *gc.C) {
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "10.0.255.1/24")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "0")
 }
@@ -216,7 +216,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetUpperBoundAndLowerBoundInUse(c
 	s.PatchValue(&interfaceAddrs, func() ([]net.Addr, error) {
 		return testAddresses(c, "10.0.255.1/24", "10.0.0.1/24")
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.IsNil)
 	c.Assert(subnet, gc.Equals, "1")
 }
@@ -230,7 +230,7 @@ func (s *InitialiserSuite) TestFindAvailableSubnetWithFull10xSubnet(c *gc.C) {
 		}
 		return addrs, nil
 	})
-	subnet, err := findAvailableSubnet()
+	subnet, err := findNextAvailableIPv4Subnet()
 	c.Assert(err, gc.ErrorMatches, "could not find unused subnet")
 	c.Assert(subnet, gc.Equals, "")
 }
