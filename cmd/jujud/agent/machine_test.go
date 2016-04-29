@@ -529,8 +529,11 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		Arch:   arch.HostArch(),
 		Series: "quantal", // to match the charm created below
 	}
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	// Prime agent with manage networking in additon to manage model to ensure the former is ignored.
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	envtesting.AssertUploadFakeToolsVersions(c, stor, usefulVersion)
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobManageNetworking)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
@@ -552,7 +555,7 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	// Create an exposed service, and add a unit.
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
-	err := svc.SetExposed()
+	err = svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(s.State, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -606,10 +609,12 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		Arch:   arch.HostArch(),
 		Series: "quantal", // to match the charm created below
 	}
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage,
-		s.Environ.Config().AgentStream(),
-		s.Environ.Config().AgentStream(),
+		c, stor,
 		usefulVersion,
 	)
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
@@ -683,8 +688,12 @@ func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
 		Arch:   arch.HostArch(),
 		Series: "quantal", // to match the charm created below
 	}
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
+		c, stor, usefulVersion)
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	calledChan := make(chan struct{}, 1)
 	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
@@ -749,9 +758,13 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 		Series: series.HostSeries(),
 	}
 	newVers.Patch++
+	stor, err := s.State.ToolsStorage()
+	defer stor.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
-	err := s.State.SetModelAgentVersion(newVers.Number)
+		c, stor, newVers)[0]
+	err = s.State.SetModelAgentVersion(newVers.Number)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{

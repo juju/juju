@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
@@ -77,7 +76,6 @@ type JujuConnSuite struct {
 	envtesting.ToolsFixture
 
 	DefaultToolsStorageDir string
-	DefaultToolsStorage    storage.Storage
 
 	State              *state.State
 	Environ            environs.Environ
@@ -272,12 +270,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Upload tools to both release and devel streams since config will dictate that we
 	// end up looking in both places.
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
-	s.DefaultToolsStorage = stor
+	envtesting.AssertUploadFakeToolsVersionsToSimplestreams(c, stor, "devel", "devel", versions...)
+	envtesting.AssertUploadFakeToolsVersionsToSimplestreams(c, stor, "released", "released", versions...)
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{MetadataDir: filepath.Join(s.DefaultToolsStorageDir)})
 	c.Assert(err, jc.ErrorIsNil)
 
 	getStater := environ.(GetStater)

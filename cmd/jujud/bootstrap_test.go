@@ -78,7 +78,7 @@ type BootstrapSuite struct {
 	bootstrapName                string
 	hostedModelUUID              string
 
-	toolsStorage storage.Storage
+	toolsDir storage.Storage
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -88,7 +88,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
-	s.toolsStorage = stor
+	s.toolsDir = stor
 
 	s.BaseSuite.SetUpSuite(c)
 	s.AddCleanup(func(*gc.C) {
@@ -794,7 +794,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
-	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
+	envtesting.RemoveFakeToolsMetadata(c, s.toolsDir)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil,
 		"--model-config", s.b64yamlControllerModelConfig,
@@ -806,7 +806,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We don't write metadata at bootstrap anymore.
-	simplestreamsMetadata, err := envtools.ReadMetadata(s.toolsStorage, "released")
+	simplestreamsMetadata, err := envtools.ReadMetadata(s.toolsDir, "released")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
@@ -1075,7 +1075,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
+	envtesting.MustUploadFakeToolsToDirectory(s.toolsDir, cfg.AgentStream(), cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceId = inst.Id()

@@ -32,7 +32,6 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -349,54 +348,17 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// the API server to search for the tools in simplestreams, fetch
 	// them, and then cache them in binarystorage.
 	vers := version.MustParseBinary("1.23.0-trusty-amd64")
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
+	stor, err := s.State.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer stor.Close()
+
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, vers)[0]
 	data := s.testDownload(c, tools, "")
 
 	metadata, cachedData := s.getToolsFromStorage(c, s.State, tools.Version.String())
 	c.Assert(metadata.Size, gc.Equals, tools.Size)
 	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
 	c.Assert(string(cachedData), gc.Equals, string(data))
-}
-
-func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
-	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
-	}
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version.String())
-}
-
-func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
-	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
-	}
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
-	sameSize := strings.Repeat("!", int(tools.Size))
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version.String())
 }
 
 func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
@@ -446,6 +408,8 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%d", len(data))
+	c.Logf("%d", tools.Size)
 	c.Assert(data, gc.HasLen, int(tools.Size))
 
 	hash := sha256.New()

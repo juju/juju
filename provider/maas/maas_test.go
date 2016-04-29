@@ -21,6 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -147,6 +148,14 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 		panic(err)
 	}
 	return env
+}
+
+func (suite *providerSuite) setupFakeTools(c *gc.C) {
+	storageDir := c.MkDir()
+	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeToolsToSimpleStreams(stor, "released", "released")
 }
 
 func (suite *providerSuite) addNode(jsonText string) instance.Id {
