@@ -337,7 +337,6 @@ def arg_parser():
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interface-to-bridge', help="interface to bridge", type=str, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
-    parser.add_argument('--quiet', help="Less verbose", action='store_true')
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -363,7 +362,7 @@ def main(args):
     # that argument is specified then args.bridge_name takes
     # precedence over any args.bridge_prefix.
 
-    if not args.quiet:
+    if args.activate:
         print("**** Original configuration")
         print_shell_cmd("cat {}".format(args.filename))
         print_shell_cmd("ip -d link show")
@@ -399,7 +398,7 @@ def main(args):
         print_stanzas(stanzas, f)
         f.close()
 
-    if not args.quiet:
+    if args.activate:
         print("**** New configuration")
         print_shell_cmd("cat {}".format(args.filename))
         print_shell_cmd("ip -d link show")

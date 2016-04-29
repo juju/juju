@@ -182,7 +182,7 @@ func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgeP
 		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
 	}
 
-	script := fmt.Sprintf("%q %q %s %s %s %q --quiet\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	script := fmt.Sprintf("%q %q %s %s %s %q\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
 	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
