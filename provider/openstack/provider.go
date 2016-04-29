@@ -18,6 +18,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
@@ -1418,7 +1419,7 @@ func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(e.ecfg()),
+		Series:        series.Preferred(e.ecfg()),
 		Region:        cloudSpec.Region,
 		Endpoint:      cloudSpec.Endpoint,
 		Architectures: arch.AllSupportedArches,

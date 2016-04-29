@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -171,7 +170,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		s.store = jujuclienttesting.NewMemStore()
 	}
 	if test.version != "" {
-		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
+		useVersion := strings.Replace(test.version, "%LTS%", series.LatestLts(), 1)
 		v := version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, v.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return v.Arch }))
@@ -759,7 +758,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() string { return config.LatestLtsSeries() })
+	s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.

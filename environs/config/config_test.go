@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -62,7 +63,7 @@ var sampleConfig = testing.Attrs{
 	"development":               false,
 	"state-port":                1234,
 	"api-port":                  4321,
-	"default-series":            config.LatestLtsSeries(),
+	"default-series":            series.LatestLts(),
 }
 
 type configTest struct {
@@ -1857,7 +1858,7 @@ func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
 	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
 		return "", fmt.Errorf("error")
 	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, "trusty")
+	c.Assert(series.LatestLts(), gc.Equals, "trusty")
 }
 
 func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
@@ -1865,7 +1866,7 @@ func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
 	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
 		return "series", nil
 	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, "series")
+	c.Assert(series.LatestLts(), gc.Equals, "series")
 }
 
 var caCert = `

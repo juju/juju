@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -134,6 +135,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	// JujuOSEnvSuite does not have a suite setup.
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	series.SetLatestLts("trusty")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {

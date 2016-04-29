@@ -9,6 +9,7 @@ import (
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -145,6 +146,6 @@ func (env *environ) MetadataLookupParams(region string) (*simplestreams.Metadata
 		Region:        region,
 		Endpoint:      gosigma.ResolveEndpoint(region),
 		Architectures: arch.AllSupportedArches,
-		Series:        config.PreferredSeries(env.ecfg),
+		Series:        series.Preferred(env.ecfg),
 	}, nil
 }

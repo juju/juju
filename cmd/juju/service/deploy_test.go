@@ -21,6 +21,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -501,7 +502,7 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 		supportedSeries: []string{"trusty", "precise"},
 		err:             `series "wily" not supported by charm, supported series are: trusty,precise`,
 	}, {
-		ltsSeries: config.LatestLtsSeries(),
+		ltsSeries: series.LatestLts(),
 		err:       `series .* not supported by charm, supported series are: .*`,
 	}, {
 		modelSeries: "xenial",
@@ -519,9 +520,9 @@ func (s *DeploySuite) TestCharmSeries(c *gc.C) {
 		message:         "with the user specified series %q",
 		force:           true,
 	}, {
-		ltsSeries:      config.LatestLtsSeries(),
+		ltsSeries:      series.LatestLts(),
 		force:          true,
-		expectedSeries: config.LatestLtsSeries(),
+		expectedSeries: series.LatestLts(),
 		message:        "with the latest LTS series %q",
 	}, {
 		ltsSeries:      "precise",

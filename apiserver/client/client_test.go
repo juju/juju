@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -463,7 +464,7 @@ func (s *clientSuite) TestClientModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
+	c.Assert(info.DefaultSeries, gc.Equals, series.Preferred(conf))
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())

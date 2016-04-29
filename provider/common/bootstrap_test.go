@@ -224,7 +224,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
+	c.Assert(result.Series, gc.Equals, series.Preferred(mocksConfig))
 }
 
 type neverRefreshes struct {

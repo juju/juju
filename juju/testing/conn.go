@@ -200,7 +200,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 
 func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {
 	prefVersion := template
-	prefVersion.Series = config.PreferredSeries(conf)
+	prefVersion.Series = series.Preferred(conf)
 	defaultVersion := template
 	if prefVersion.Series != testing.FakeDefaultSeries {
 		defaultVersion.Series = testing.FakeDefaultSeries

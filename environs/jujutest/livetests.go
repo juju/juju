@@ -480,7 +480,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	expectedVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: config.LatestLtsSeries(),
+		Series: series.LatestLts(),
 	}
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)

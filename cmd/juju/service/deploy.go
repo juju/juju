@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -530,7 +531,7 @@ func charmSeries(
 	}
 
 	// Use latest LTS.
-	latestLtsSeries := config.LatestLtsSeries()
+	latestLtsSeries := series.LatestLts()
 	if !force && !isSeriesSupported(latestLtsSeries, supportedSeries) {
 		return "", "", charm.NewUnsupportedSeriesError(latestLtsSeries, supportedSeries)
 	}

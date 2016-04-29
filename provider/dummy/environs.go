@@ -38,6 +38,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -86,7 +87,7 @@ func SampleConfig() testing.Attrs {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
-		"default-series":            config.LatestLtsSeries(),
+		"default-series":            series.LatestLts(),
 
 		"secret":      "pork",
 		"controller":  true,
@@ -674,7 +675,7 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	series := config.PreferredSeries(e.Config())
+	series := series.Preferred(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
 		return nil, err

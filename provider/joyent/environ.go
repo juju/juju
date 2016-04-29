@@ -10,6 +10,7 @@ import (
 
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -165,7 +166,7 @@ func (env *joyentEnviron) MetadataLookupParams(region string) (*simplestreams.Me
 		region = env.Ecfg().Region()
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(env.Ecfg()),
+		Series:        series.Preferred(env.Ecfg()),
 		Region:        region,
 		Endpoint:      env.Ecfg().sdcUrl(),
 		Architectures: []string{"amd64", "armhf"},

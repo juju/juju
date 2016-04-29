@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
@@ -300,49 +298,6 @@ func (method HarvestMode) HarvestDestroyed() bool {
 // Unknown returns whether or not the Unknown harvesting flag is set.
 func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
-}
-
-var latestLtsSeries string
-
-type HasDefaultSeries interface {
-	DefaultSeries() (string, bool)
-}
-
-// PreferredSeries returns the preferred series to use when a charm does not
-// explicitly specify a series.
-func PreferredSeries(cfg HasDefaultSeries) string {
-	if series, ok := cfg.DefaultSeries(); ok {
-		return series
-	}
-	return LatestLtsSeries()
-}
-
-func LatestLtsSeries() string {
-	if latestLtsSeries == "" {
-		series, err := distroLtsSeries()
-		if err != nil {
-			latestLtsSeries = fallbackLtsSeries
-		} else {
-			latestLtsSeries = series
-		}
-	}
-	return latestLtsSeries
-}
-
-var distroLtsSeries = distroLtsSeriesFunc
-
-// distroLtsSeriesFunc returns the latest LTS series, if this information is
-// available on this system.
-func distroLtsSeriesFunc() (string, error) {
-	out, err := exec.Command("distro-info", "--lts").Output()
-	if err != nil {
-		return "", err
-	}
-	series := strings.TrimSpace(string(out))
-	if !charm.IsValidSeries(series) {
-		return "", fmt.Errorf("not a valid LTS series: %q", series)
-	}
-	return series, nil
 }
 
 // Config holds an immutable environment configuration.

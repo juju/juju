@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/txn"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
@@ -322,7 +323,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 			Life:           params.Life(model.Life().String()),
 			Status:         common.EntityStatusFromState(status),
 			ProviderType:   cfg.Type(),
-			DefaultSeries:  config.PreferredSeries(cfg),
+			DefaultSeries:  series.Preferred(cfg),
 		}
 
 		authorizedOwner := m.authCheck(owner) == nil
