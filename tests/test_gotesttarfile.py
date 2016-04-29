@@ -71,7 +71,8 @@ class gotesttarfileTestCase(TestCase):
         self.assertEqual(0, returncode)
         self.assertEqual(run_mock.call_count, 2)
         args, kwargs = run_mock.call_args_list[0]
-        self.assertEqual((['go', 'test', './...'],), args)
+        self.assertEqual(
+            (['go', 'test', '-test.timeout=1200s', './...'],), args)
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
         self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
         run_mock.assert_called_with(['sudo', 'killall', '-SIGABRT', 'mongod'])
@@ -94,7 +95,8 @@ class gotesttarfileTestCase(TestCase):
         args, kwargs = run_mock.call_args_list[0]
         self.assertEqual(run_mock.call_count, 2)
         self.assertEqual(
-            (['powershell.exe', '-Command', 'go', 'test', './...'], ),
+            (['powershell.exe', '-Command', 'go', 'test',
+              '-test.timeout=1200s', './...'], ),
             args)
         self.assertEqual(r'C:\foo;C:\baz', kwargs['env'].get('Path'))
         self.assertEqual(None, kwargs['env'].get('PATH'))
