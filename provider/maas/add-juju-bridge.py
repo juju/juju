@@ -109,8 +109,7 @@ class LogicalInterface(object):
             # ip route replace will add missing routes or update existing ones.
             print_shell_cmd('ip route replace {} dev {bridge}'.format(route, **args))
 
-    # Returns an ordered set of stanzas to bridge this interface and a a list
-    # of ip commands to perform the bridging immediately.
+    # Returns an ordered set of stanzas to bridge this interface
     def bridge(self, prefix, bridge_name, add_auto_stanza):
         if bridge_name is None:
             bridge_name = prefix + self.name
