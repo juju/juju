@@ -233,8 +233,9 @@ var getBootstrapFuncs = func() BootstrapInterface {
 }
 
 var (
-	environsPrepare = environs.Prepare
-	environsDestroy = environs.Destroy
+	environsPrepare            = environs.Prepare
+	environsDestroy            = environs.Destroy
+	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
 
 var ambiguousCredentialError = errors.New(`
@@ -530,7 +531,7 @@ to clean up the model.`[1:])
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
-	return common.WaitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName)
+	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName)
 }
 
 // getRegion returns the cloud.Region to use, based on the specified
