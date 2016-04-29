@@ -1858,7 +1858,7 @@ func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
 	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
 		return "", fmt.Errorf("error")
 	})
-	c.Assert(series.LatestLts(), gc.Equals, "trusty")
+	c.Assert(series.LatestLts(), gc.Equals, "xenial")
 }
 
 func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {

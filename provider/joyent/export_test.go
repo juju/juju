@@ -49,6 +49,7 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
+			"com.ubuntu.cloud:server:16.04:amd64",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
@@ -68,7 +69,25 @@ var imagesData = `
   "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
   "datatype": "image-ids",
   "products": {
-    "com.ubuntu.cloud:server:14.04:amd64": {
+    "com.ubuntu.cloud:server:16.04:amd64": {
+      "release": "trusty",
+      "version": "16.04",
+      "arch": "amd64",
+      "versions": {
+        "20160216": {
+          "items": {
+            "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f": {
+              "region": "some-region",
+              "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f",
+              "virt": "kvm"
+            }
+          },
+          "pubname": "ubuntu-trusty-16.04-amd64-server-20160216",
+          "label": "release"
+        }
+      }
+    },
+	"com.ubuntu.cloud:server:14.04:amd64": {
       "release": "trusty",
       "version": "14.04",
       "arch": "amd64",

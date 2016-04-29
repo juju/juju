@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-// toolsLtsSeries records the known Ubuntu LTS series.
-var toolsLtsSeries = []string{"precise", "trusty"}
+// toolsltsseries records the known ubuntu lts series.
+var toolsLtsSeries = coretesting.SupportedLtsSeries
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
