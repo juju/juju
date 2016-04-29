@@ -1333,8 +1333,8 @@ func resourceName(tag names.Tag, envName string) string {
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *Environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	eUUID := e.Config().UUID()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", eUUID))
+	modelUUID := e.Config().UUID()
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", modelUUID))
 	return filter
 }
 
