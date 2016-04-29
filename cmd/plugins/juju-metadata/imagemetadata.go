@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -122,7 +123,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 		}
 		cfg := environ.Config()
 		if c.Series == "" {
-			c.Series = series.Preferred(cfg)
+			c.Series = config.PreferredSeries(cfg)
 		}
 	} else {
 		logger.Warningf("model could not be opened: %v", err)

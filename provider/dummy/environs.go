@@ -675,7 +675,7 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	series := series.Preferred(e.Config())
+	series := config.PreferredSeries(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
 		return nil, err

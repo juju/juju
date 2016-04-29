@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -99,7 +99,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		if err != nil {
 			return nil, err
 		}
-		p.Series = series.Preferred(conf)
+		p.Series = config.PreferredSeries(conf)
 	}
 
 	var placementDirective string

@@ -72,7 +72,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if args.BootstrapSeries != "" {
 		selectedSeries = args.BootstrapSeries
 	} else {
-		selectedSeries = series.Preferred(env.Config())
+		selectedSeries = config.PreferredSeries(env.Config())
 	}
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{
 		Series: selectedSeries,

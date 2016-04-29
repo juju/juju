@@ -17,6 +17,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
@@ -298,6 +299,19 @@ func (method HarvestMode) HarvestDestroyed() bool {
 // Unknown returns whether or not the Unknown harvesting flag is set.
 func (method HarvestMode) HarvestUnknown() bool {
 	return method&HarvestUnknown != 0
+}
+
+type HasDefaultSeries interface {
+	DefaultSeries() (string, bool)
+}
+
+// PreferredSeries returns the preferred series to use when a charm does not
+// explicitly specify a series.
+func PreferredSeries(cfg HasDefaultSeries) string {
+	if series, ok := cfg.DefaultSeries(); ok {
+		return series
+	}
+	return series.LatestLts()
 }
 
 // Config holds an immutable environment configuration.

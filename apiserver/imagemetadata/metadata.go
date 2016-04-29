@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/state"
@@ -183,7 +184,7 @@ func (api *API) parseMetadataFromParams(p params.CloudImageMetadata, env environ
 		result.Arch = "amd64"
 	}
 	if result.Series == "" {
-		result.Series = series.Preferred(env.Config())
+		result.Series = config.PreferredSeries(env.Config())
 	}
 	if result.Region == "" {
 		// If the env supports regions, use the env default.

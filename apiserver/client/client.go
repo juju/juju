@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api"
@@ -231,7 +230,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		if err != nil {
 			return nil, err
 		}
-		p.Series = series.Preferred(conf)
+		p.Series = config.PreferredSeries(conf)
 	}
 
 	var placementDirective string
@@ -352,7 +351,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	}
 
 	info := params.ModelInfo{
-		DefaultSeries:  series.Preferred(conf),
+		DefaultSeries:  config.PreferredSeries(conf),
 		ProviderType:   conf.Type(),
 		Name:           conf.Name(),
 		UUID:           env.UUID(),
