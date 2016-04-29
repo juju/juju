@@ -847,7 +847,10 @@ func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
 	}
 	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	client.Close()
+	defer client.Close()
+
+	// The auth tag has been correctly returned by the server.
+	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag("test@somewhere"))
 }
 
 func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
