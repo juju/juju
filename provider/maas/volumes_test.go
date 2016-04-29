@@ -96,7 +96,7 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		names.NewVolumeTag("2"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Expect 2 volumes - root volume is ignored.
+	// Expect 3 volumes - root volume is ignored.
 	c.Assert(volumes, gc.HasLen, 3)
 	c.Assert(attachments, gc.HasLen, 3)
 	c.Check(volumes, jc.SameContents, []storage.Volume{{
