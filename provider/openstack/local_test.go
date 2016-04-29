@@ -19,6 +19,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
@@ -518,6 +519,16 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 	}
 }
 
+func assertInstanceIds(c *gc.C, env environs.Environ, expected ...instance.Id) {
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	instIds := make([]instance.Id, len(insts))
+	for i, inst := range insts {
+		instIds[i] = inst.Id()
+	}
+	c.Assert(instIds, jc.SameContents, expected)
+}
+
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
 		"firewall-mode": config.FwInstance}))
@@ -529,12 +540,19 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
-	eUUID := env.Config().UUID()
-	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)})
+	cUUID := env.Config().ControllerUUID()
+	modelUUID := env.Config().UUID()
+	allSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, modelUUID, instanceName),
+	}
+	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	// The security group for this instance is now removed.
-	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", eUUID)})
+	assertSecurityGroups(c, env, []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+	})
 }
 
 // Due to bug #1300755 it can happen that the security group intended for
@@ -559,8 +577,12 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
-	eUUID := env.Config().UUID()
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
+	cUUID := env.Config().ControllerUUID()
+	modelUUID := env.Config().UUID()
+	allSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, modelUUID, instanceName),
+	}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -575,8 +597,12 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID := env.Config().UUID()
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-%v", eUUID, instanceName)}
+	cUUID := env.Config().ControllerUUID()
+	modelUUID := env.Config().UUID()
+	allSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, modelUUID, instanceName),
+	}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
@@ -591,12 +617,90 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	eUUID := env.Config().UUID()
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", eUUID), fmt.Sprintf("juju-%v-global", eUUID)}
+	cUUID := env.Config().ControllerUUID()
+	modelUUID := env.Config().UUID()
+	allSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+		fmt.Sprintf("juju-%v-%v-global", cUUID, modelUUID),
+	}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
+}
+
+func (s *localServerSuite) TestDestroyControllerModel(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"uuid": utils.MustNewUUID().String(),
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerCfg, err := config.New(config.NoDefaults, s.TestConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerEnv, err := environs.New(controllerCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerInstanceName := "100"
+	testing.AssertStartInstance(c, controllerEnv, controllerInstanceName)
+	hostedModelInstanceName := "200"
+	testing.AssertStartInstance(c, env, hostedModelInstanceName)
+	cUUID := env.Config().ControllerUUID()
+	modelUUID := env.Config().UUID()
+	allControllerSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, cUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, cUUID, controllerInstanceName),
+	}
+	allHostedModelSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, modelUUID, hostedModelInstanceName),
+	}
+	assertSecurityGroups(c, controllerEnv, append(
+		allControllerSecurityGroups, allHostedModelSecurityGroups...,
+	))
+
+	err = controllerEnv.Destroy()
+	c.Check(err, jc.ErrorIsNil)
+	assertSecurityGroups(c, controllerEnv, []string{"default"})
+	assertInstanceIds(c, env)
+	assertInstanceIds(c, controllerEnv)
+}
+
+func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"uuid": utils.MustNewUUID().String(),
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerCfg, err := config.New(config.NoDefaults, s.TestConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerEnv, err := environs.New(controllerCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerInstanceName := "100"
+	controllerInstance, _ := testing.AssertStartInstance(c, controllerEnv, controllerInstanceName)
+	hostedModelInstanceName := "200"
+	testing.AssertStartInstance(c, env, hostedModelInstanceName)
+	cUUID := env.Config().ControllerUUID()
+	modelUUID := env.Config().UUID()
+	allControllerSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, cUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, cUUID, controllerInstanceName),
+	}
+	allHostedModelSecurityGroups := []string{
+		"default", fmt.Sprintf("juju-%v-%v", cUUID, modelUUID),
+		fmt.Sprintf("juju-%v-%v-%v", cUUID, modelUUID, hostedModelInstanceName),
+	}
+	assertSecurityGroups(c, controllerEnv, append(
+		allControllerSecurityGroups, allHostedModelSecurityGroups...,
+	))
+
+	err = env.Destroy()
+	c.Check(err, jc.ErrorIsNil)
+	assertSecurityGroups(c, controllerEnv, allControllerSecurityGroups)
+	assertInstanceIds(c, env)
+	assertInstanceIds(c, controllerEnv, controllerInstance.Id())
 }
 
 var instanceGathering = []struct {
