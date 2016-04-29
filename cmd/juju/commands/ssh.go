@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/sshclient"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 )
 
 var usageSSHSummary = `
@@ -169,19 +170,14 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 // are false -- otherwise it returns true.
 func (c *SSHCommon) proxySSH() (bool, error) {
 	if _, err := c.ensureAPIClient(); err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
-	var cfg *config.Config
-	attrs, err := c.apiClient.ModelGet()
-	if err == nil {
-		cfg, err = config.New(config.NoDefaults, attrs)
-	}
+	proxy, err := c.apiClient.Proxy()
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
-	logger.Debugf("proxy-ssh is %v", cfg.ProxySSH())
-
-	return cfg.ProxySSH() || c.proxy, nil
+	logger.Debugf("proxy-ssh is %v", proxy)
+	return proxy || c.proxy, nil
 }
 
 func (c *SSHCommon) ensureAPIClient() (sshAPIClient, error) {
@@ -198,15 +194,15 @@ func (c *SSHCommon) initAPIClient() (sshAPIClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.apiClient = st.Client()
+	c.apiClient = sshclient.NewFacade(st)
 	c.apiAddr = st.Addr()
 	return c.apiClient, nil
 }
 
 type sshAPIClient interface {
-	ModelGet() (map[string]interface{}, error)
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
+	Proxy() (bool, error)
 	Close() error
 }
 

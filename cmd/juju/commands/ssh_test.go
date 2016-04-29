@@ -165,7 +165,7 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 			continue
 		}
 		c.Logf("checking %q", name)
-		c.Check(apiserver.IsMethodAllowedDuringUpgrade("Client", name), jc.IsTrue)
+		c.Check(apiserver.IsMethodAllowedDuringUpgrade("SSHClient", name), jc.IsTrue)
 	}
 }
 
