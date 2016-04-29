@@ -692,7 +692,7 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 
 		err = a.storage.AddStorageForUnit(u, one.StorageName, paramsToState(one.Constraints))
 		if err != nil {
-			result[i] = serverErr(errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+			result[i] = serverErr(err)
 		}
 	}
 	return params.ErrorResults{Results: result}, nil

@@ -469,7 +469,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	s.assertStorageExist(c, instancesBefore, "data")
 
 	context := runAddToUnit(c, u, "allecto=1")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stdout(context), gc.Equals, "added \"allecto\"\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
 	instancesAfter, err := s.State.AllStorageInstances()
@@ -495,7 +495,13 @@ func (s *cmdStorageSuite) assertStorageExist(c *gc.C,
 func (s *cmdStorageSuite) TestStorageAddToUnitUnitDoesntExist(c *gc.C) {
 	context := runAddToUnit(c, "fluffyunit/0", "allecto=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"allecto\": adding storage allecto for unit-fluffyunit-0: unit \"fluffyunit/0\" not found\n")
+	c.Assert(testing.Stderr(context), gc.Equals, "failed to add \"allecto\": unit \"fluffyunit/0\" not found\n")
+}
+
+func (s *cmdStorageSuite) TestStorageAddToUnitCollapseUnitErrors(c *gc.C) {
+	context := runAddToUnit(c, "fluffyunit/0", "allecto=1", "trial=1")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stderr(context), gc.Equals, "unit \"fluffyunit/0\" not found\n")
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitInvalidUnitName(c *gc.C) {
@@ -516,7 +522,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 
 	context := runAddToUnit(c, u, "nonstorage=1")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context), gc.Equals, "fail: storage \"nonstorage\": adding storage nonstorage for unit-storage-block-0: charm storage \"nonstorage\" not found\n")
+	c.Assert(testing.Stderr(context), gc.Equals, "failed to add \"nonstorage\": charm storage \"nonstorage\" not found\n")
 
 	instancesAfter, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
@@ -548,7 +554,7 @@ storage-filesystem/0 data/0          pending
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
 	context = runAddToUnit(c, u, "data=ebs,1G")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
+	c.Assert(testing.Stdout(context), gc.Equals, "added \"data\"\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
 	instancesAfter, err := s.State.AllStorageInstances()

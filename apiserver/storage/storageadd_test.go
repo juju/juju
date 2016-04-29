@@ -153,7 +153,7 @@ func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *gc.C) {
 	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 1)
-	c.Assert(failures.Results[0].Error.Error(), gc.Matches, "adding storage data for unit-mysql-0: sanity not found")
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, "sanity not found")
 
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }

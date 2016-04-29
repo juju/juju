@@ -30,7 +30,17 @@ var _ = gc.Suite(&addSuite{})
 func (s *addSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
-	s.mockAPI = &mockAddAPI{}
+	s.mockAPI = &mockAddAPI{
+		addToUnitFunc: func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+			result := make([]params.ErrorResult, len(storages))
+			for i, one := range storages {
+				if strings.HasPrefix(one.StorageName, "err") {
+					result[i].Error = common.ServerError(fmt.Errorf("test failure"))
+				}
+			}
+			return result, nil
+		},
+	}
 	s.args = nil
 }
 
@@ -78,31 +88,78 @@ func (s *addSuite) TestAddSuccess(c *gc.C) {
 	for i, t := range successTsts {
 		c.Logf("test %d for %q", i, t.args)
 		s.args = t.args
-		s.assertAddOutput(c, "", "")
+		s.assertAddOutput(c, "added \"data\"\n", "")
 	}
 }
 
 func (s *addSuite) TestAddOperationAborted(c *gc.C) {
 	s.args = []string{"tst/123", "data=676"}
-	s.mockAPI.abort = true
+	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+		return nil, errors.New("aborted")
+	}
 	s.assertAddErrorOutput(c, ".*aborted.*")
 }
 
 func (s *addSuite) TestAddFailure(c *gc.C) {
 	s.args = []string{"tst/123", "err=676"}
-	s.assertAddOutput(c, "", "fail: storage \"err\": test failure\n")
+	s.assertAddOutput(c, "", "failed to add \"err\": test failure\n")
 }
 
 func (s *addSuite) TestAddMixOrderPreserved(c *gc.C) {
+	expectedOut := `
+added "a"
+`[1:]
 	expectedErr := `
-fail: storage "err": test failure
-success: storage "a"`[1:]
+failed to add "err": test failure
+`[1:]
 
 	s.args = []string{"tst/123", "a=676", "err=676"}
-	s.assertAddOutput(c, "", expectedErr)
+	s.assertAddOutput(c, expectedOut, expectedErr)
 
 	s.args = []string{"tst/123", "err=676", "a=676"}
-	s.assertAddOutput(c, "", expectedErr)
+	s.assertAddOutput(c, expectedOut, expectedErr)
+}
+
+func (s *addSuite) TestAddMixConciseErrors(c *gc.C) {
+	expectedOut := `
+added "storage0"
+added "storage1"
+`[1:]
+	expectedErr := `
+failed to add "storage2": storage pool "barf" not found
+failed to add "storage42": storage "storage42" not found
+`[1:]
+
+	s.args = []string{"tst/123", "storage0=ebs", "storage2=barf", "storage1=123", "storage42=loop"}
+	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+		result := make([]params.ErrorResult, len(storages))
+		for i, one := range storages {
+			if one.StorageName == "storage2" {
+				result[i].Error = common.ServerError(fmt.Errorf(`storage pool "barf" not found`))
+			}
+			if one.StorageName == "storage42" {
+				result[i].Error = common.ServerError(fmt.Errorf(`storage "storage42" not found`))
+			}
+		}
+		return result, nil
+	}
+
+	s.assertAddOutput(c, expectedOut, expectedErr)
+}
+
+func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
+	expectedErr := `some unit error`
+
+	s.args = []string{"tst/123", "storage0=ebs", "storage2=barf", "storage1=123", "storage42=loop"}
+	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+		result := make([]params.ErrorResult, len(storages))
+		for i, _ := range storages {
+			result[i].Error = common.ServerError(errors.New(expectedErr))
+		}
+		return result, nil
+	}
+
+	s.assertAddOutput(c, "", fmt.Sprintf("%v\n", expectedErr))
 }
 
 func (s *addSuite) assertAddOutput(c *gc.C, expectedValid, expectedErr string) {
@@ -117,7 +174,7 @@ func (s *addSuite) assertAddOutput(c *gc.C, expectedValid, expectedErr string) {
 }
 
 type mockAddAPI struct {
-	abort bool
+	addToUnitFunc func(storages []params.StorageAddParams) ([]params.ErrorResult, error)
 }
 
 func (s mockAddAPI) Close() error {
@@ -125,14 +182,5 @@ func (s mockAddAPI) Close() error {
 }
 
 func (s mockAddAPI) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
-	if s.abort {
-		return nil, errors.New("aborted")
-	}
-	result := make([]params.ErrorResult, len(storages))
-	for i, one := range storages {
-		if strings.HasPrefix(one.StorageName, "err") {
-			result[i].Error = common.ServerError(fmt.Errorf("test failure"))
-		}
-	}
-	return result, nil
+	return s.addToUnitFunc(storages)
 }
