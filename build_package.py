@@ -114,7 +114,7 @@ bzr bd -S -- -us -uc
 DEBSIGN_TEMPLATE = 'debsign -p {gpgcmd} *.changes'
 
 
-UBUNTU_VERSION_TEMPLATE = '{version}-{date}+{build}~{0ubuntu1~{release}.{upatch}~juju1'
+UBUNTU_VERSION_TEMPLATE = '{version}-{date}+{build}~0ubuntu1~{release}.{upatch}~juju1'
 
 
 VERSION_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
