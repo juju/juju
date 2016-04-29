@@ -118,3 +118,11 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 	}
 	return result
 }
+
+func getCloudDetails() (map[string]*cloudDetails, error) {
+	result, err := listCloudDetails()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.all(), nil
+}
