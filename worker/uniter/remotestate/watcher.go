@@ -411,13 +411,19 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 
-		case id := <-w.commandChannel:
+		case id, ok := <-w.commandChannel:
+			if !ok {
+				return errors.New("commandChannel closed")
+			}
 			logger.Debugf("command enqueued: %v", id)
 			if err := w.commandsChanged(id); err != nil {
 				return err
 			}
 
-		case <-w.retryHookChannel:
+		case _, ok := <-w.retryHookChannel:
+			if !ok {
+				return errors.New("retryHookChannel closed")
+			}
 			logger.Debugf("retry hook timer triggered")
 			if err := w.retryHookTimerTriggered(); err != nil {
 				return err
