@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
@@ -107,10 +108,19 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(xcert)
-	tlsConfig := &tls.Config{
-		RootCAs:    pool,
-		ServerName: "juju-mongodb",
+	tlsConfig := utils.SecureTLSConfig()
+
+	// TODO(natefinch): revisit this when are full-time on mongo 3.
+	// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
+	moreSuites := []uint16{
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 	}
+
+	tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
+	tlsConfig.RootCAs = pool
+	tlsConfig.ServerName = "juju-mongodb"
+
 	dial := func(addr net.Addr) (net.Conn, error) {
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {

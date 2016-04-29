@@ -120,7 +120,7 @@ func parseActionResult(result params.ActionResult) (string, error) {
 		return tag.Id(), nil
 	}
 	if strings.Contains(stderr, "No such file or directory") {
-		return "", errors.New("not a metered charm")
+		return "", errors.New("not a locally-deployed metered charm")
 	}
 	return tag.Id(), nil
 }

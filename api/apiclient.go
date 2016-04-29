@@ -247,12 +247,12 @@ func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, 
 	if len(info.Addrs) == 0 {
 		return nil, nil, errors.New("no API addresses to connect to")
 	}
-	tlsConfig := &tls.Config{
-		// We want to be specific here (rather than just using "anything".
-		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
-		ServerName:         "juju-apiserver",
-		InsecureSkipVerify: opts.InsecureSkipVerify,
-	}
+	tlsConfig := utils.SecureTLSConfig()
+	// We want to be specific here (rather than just using "anything".
+	// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+	tlsConfig.ServerName = "juju-apiserver"
+	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
+
 	if !tlsConfig.InsecureSkipVerify {
 		certPool, err := CreateCertPool(info.CACert)
 		if err != nil {

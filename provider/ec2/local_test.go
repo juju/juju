@@ -12,9 +12,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
@@ -44,6 +47,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -117,6 +121,7 @@ type localServer struct {
 	// instances.
 	createRootDisks bool
 
+	client *amzec2.EC2
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
 	config *s3test.Config
@@ -140,6 +145,10 @@ func (srv *localServer) startServer(c *gc.C) {
 		S3LocationConstraint: true,
 	}
 	srv.addSpice(c)
+
+	region := aws.Regions["test"]
+	signer := aws.SignV4Factory(region.Name, "ec2")
+	srv.client = amzec2.New(aws.Auth{}, region, signer)
 
 	zones := make([]amzec2.AvailabilityZoneInfo, 3)
 	zones[0].Region = "test"
@@ -407,22 +416,117 @@ func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c
 	c.Assert(groupsFilteredForTerminatedInstances, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestDestroySecurityGroupInsistentlyError(c *gc.C) {
+func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	t.testDestroyModelDeleteSecurityGroupInsistentlyError(
+		c, env, "destroying managed environs: cannot delete security group .*: ",
+	)
+}
 
-	called := false
+func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+
+	cfg, err := env.Config().Apply(map[string]interface{}{"controller-uuid": "7e386e08-cba7-44a4-a76e-7c1633584210"})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err = environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	t.testDestroyModelDeleteSecurityGroupInsistentlyError(
+		c, env, "cannot delete environment security groups: cannot delete default security group: ",
+	)
+}
+
+func (t *localServerSuite) testDestroyModelDeleteSecurityGroupInsistentlyError(c *gc.C, env environs.Environ, errPrefix string) {
 	msg := "destroy security group error"
-	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error {
-		called = true
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
+		ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock,
+	) error {
 		return errors.New(msg)
 	})
+	err := env.Destroy()
+	c.Assert(err, gc.ErrorMatches, errPrefix+"destroy security group error")
+}
 
-	err = env.Destroy()
+func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *gc.C) {
+	controllerEnv := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), controllerEnv, bootstrap.BootstrapParams{})
+
+	// Create a hosted model environment with an instance and a volume.
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
+		"uuid":          "7e386e08-cba7-44a4-a76e-7c1633584210",
+		"firewall-mode": "global",
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-	c.Assert(c.GetTestLog(), jc.Contains, "WARNING juju.provider.ec2 provider failure: destroy security group error")
+	env, err := environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstance(c, env, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	ebsProvider := ec2.EBSProvider()
+	vs, err := ebsProvider.VolumeSource(env.Config(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
+		Tag:      names.NewVolumeTag("0"),
+		Size:     1024,
+		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			tags.JujuController: coretesting.ModelTag.Id(),
+			tags.JujuModel:      "7e386e08-cba7-44a4-a76e-7c1633584210",
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: inst.Id(),
+			},
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeResults, gc.HasLen, 1)
+	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
+
+	assertInstances := func(expect ...instance.Id) {
+		insts, err := env.AllInstances()
+		c.Assert(err, jc.ErrorIsNil)
+		ids := make([]instance.Id, len(insts))
+		for i, inst := range insts {
+			ids[i] = inst.Id()
+		}
+		c.Assert(ids, jc.SameContents, expect)
+	}
+	assertVolumes := func(expect ...string) {
+		volIds, err := vs.ListVolumes()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(volIds, jc.SameContents, expect)
+	}
+	assertGroups := func(expect ...string) {
+		groupsResp, err := t.srv.client.SecurityGroups(nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		names := make([]string, len(groupsResp.Groups))
+		for i, group := range groupsResp.Groups {
+			names[i] = group.Name
+		}
+		c.Assert(names, jc.SameContents, expect)
+	}
+
+	assertInstances(inst.Id())
+	assertVolumes(volumeResults[0].Volume.VolumeId)
+	assertGroups(
+		"default",
+		"juju-"+coretesting.ModelTag.Id(),
+		"juju-"+coretesting.ModelTag.Id()+"-0",
+		"juju-7e386e08-cba7-44a4-a76e-7c1633584210",
+		"juju-7e386e08-cba7-44a4-a76e-7c1633584210-global",
+	)
+
+	// Destroy the controller environment. This should destroy the hosted
+	// environment too.
+	err = controllerEnv.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertInstances()
+	assertVolumes()
+	assertGroups("default")
 }
 
 // splitAuthKeys splits the given authorized keys

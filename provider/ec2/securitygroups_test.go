@@ -4,8 +4,11 @@
 package ec2_test
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
@@ -17,7 +20,7 @@ type SecurityGroupSuite struct {
 	coretesting.BaseSuite
 
 	instanceStub *stubInstance
-	deleteFunc   func(inst ec2.SecurityGroupCleaner, group amzec2.SecurityGroup) error
+	deleteFunc   func(ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock) error
 }
 
 var _ = gc.Suite(&SecurityGroupSuite{})
@@ -38,7 +41,7 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{})
+	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, coretesting.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
@@ -47,22 +50,32 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *gc.C
 	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
 		return nil, &amzec2.Error{Code: "InvalidGroup.NotFound"}
 	}
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{})
+	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, coretesting.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
+	t0 := time.Time{}
+	clock := autoAdvancingClock{coretesting.NewClock(t0)}
 	count := 0
 	maxCalls := 4
+	expectedTimes := []time.Time{
+		t0,
+		t0.Add(time.Second),
+		t0.Add(3 * time.Second),
+		t0.Add(7 * time.Second),
+		t0.Add(15 * time.Second),
+	}
 	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
+		c.Assert(clock.Now(), gc.Equals, expectedTimes[count])
 		if count < maxCalls {
 			count++
 			return nil, &amzec2.Error{Code: "keep going"}
 		}
 		return nil, nil
 	}
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{})
+	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := make([]string, maxCalls+1)
@@ -70,6 +83,16 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 		expectedCalls[i] = "DeleteSecurityGroup"
 	}
 	s.instanceStub.CheckCallNames(c, expectedCalls...)
+}
+
+type autoAdvancingClock struct {
+	*coretesting.Clock
+}
+
+func (c autoAdvancingClock) After(d time.Duration) <-chan time.Time {
+	ch := c.Clock.After(d)
+	c.Advance(d)
+	return ch
 }
 
 type stubInstance struct {
