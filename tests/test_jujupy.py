@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from contextlib import contextmanager
 import copy
 from datetime import (
@@ -304,6 +305,8 @@ class FakeBackend:
         return 0
 
     def add_machines(self, model_state, args):
+        if len(args) == 0:
+            return model_state.add_machine()
         ssh_machines = [a[4:] for a in args if a.startswith('ssh:')]
         if len(ssh_machines) == len(args):
             return model_state.add_ssh_machines(ssh_machines)
@@ -318,7 +321,14 @@ class FakeBackend:
                 if name == 'token':
                     model_state.token = value
             if cmd == 'deploy':
-                self.deploy(model_state, *args)
+                parser = ArgumentParser()
+                parser.add_argument('charm_name')
+                parser.add_argument('service_name', nargs='?')
+                parser.add_argument('--to')
+                parser.add_argument('--series')
+                parsed = parser.parse_args(args)
+                self.deploy(model_state, parsed.charm_name,
+                            parsed.service_name, parsed.series)
             if cmd == 'destroy-service':
                 model_state.destroy_service(*args)
             if cmd == 'remove-service':
@@ -341,7 +351,11 @@ class FakeBackend:
             if cmd == 'add-machine':
                 return self.add_machines(model_state, args)
             if cmd == 'remove-machine':
-                (machine_id,) = args
+                parser = ArgumentParser()
+                parser.add_argument('machine_id')
+                parser.add_argument('--force', action='store_true')
+                parsed = parser.parse_args(args)
+                machine_id = parsed.machine_id
                 if '/' in machine_id:
                     model_state.remove_container(machine_id)
                 else:

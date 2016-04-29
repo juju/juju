@@ -672,12 +672,12 @@ class EnvJujuClient:
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False):
         args = [charm]
+        if service is not None:
+            args.extend([service])
         if to is not None:
             args.extend(['--to', to])
         if series is not None:
             args.extend(['--series', series])
-        if service is not None:
-            args.extend([service])
         if force is True:
             args.extend(['--force'])
         return self.juju('deploy', tuple(args))

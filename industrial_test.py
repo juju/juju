@@ -22,6 +22,8 @@ from jujupy import (
     coalesce_agent_status,
     EnvJujuClient,
     get_machine_dns_name,
+    LXC_MACHINE,
+    LXD_MACHINE,
     SimpleEnvironment,
     uniquify_local,
     )
@@ -745,7 +747,12 @@ class DeployManyAttempt(SteppedStageAttempt):
             for unit in service['units'].values():
                 container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
-        with wait_until_removed(client, container_machines):
+        remove_timeout = {
+            LXC_MACHINE: 30,
+            LXD_MACHINE: 60,
+        }[machine_type]
+        with wait_until_removed(client, container_machines,
+                                timeout=remove_timeout):
             yield results
         results['result'] = True
         yield results
