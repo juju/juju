@@ -575,11 +575,11 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
-	rinfo, err := st.RestoreInfoSetter()
+	status, err := st.RestoreInfo().Status()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
-	switch rinfo.Status() {
+	switch status {
 	case state.RestorePending:
 		a.PrepareRestore()
 	case state.RestoreInProgress:
