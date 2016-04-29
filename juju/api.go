@@ -141,7 +141,7 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 				args.ModelUUID, apiOpen,
 				stop, delay, args.DialOpts,
 			)
-			if err != nil {
+			if err != nil && errors.Cause(err) != errAborted {
 				// Errors are swallowed by parallel.Try, so we
 				// log the failure here to aid in debugging.
 				logger.Debugf("failed to connect via bootstrap config: %v", err)
