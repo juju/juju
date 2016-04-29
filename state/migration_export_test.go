@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"math/rand"
+	"runtime"
 	"time"
 
 	"github.com/juju/names"
@@ -65,6 +66,10 @@ func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, status
 		c.Logf("setting status for %v", entity)
 		err := entity.SetStatus(statusVal, "", map[string]interface{}{"index": count - i})
 		c.Assert(err, jc.ErrorIsNil)
+		if runtime.GOOS == "windows" {
+			// The default clock tick on Windows is 15.6 ms.
+			time.Sleep(20 * time.Millisecond)
+		}
 	}
 }
 
@@ -97,6 +102,7 @@ var _ = gc.Suite(&MigrationExportSuite{})
 
 func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {
 	for i, st := range history {
+		c.Logf("status history #%d: %s", i, st.Updated())
 		c.Check(st.Value(), gc.Equals, string(statusVal))
 		c.Check(st.Message(), gc.Equals, "")
 		c.Check(st.Data(), jc.DeepEquals, map[string]interface{}{"index": i + 1})
