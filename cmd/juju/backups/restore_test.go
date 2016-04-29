@@ -4,7 +4,6 @@
 package backups_test
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/juju/errors"
