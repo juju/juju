@@ -379,8 +379,6 @@ def main(args):
             else:
                 stanza = s.iface.bridge(args.bridge_prefix, args.bridge_name, add_auto_stanza)
                 stanzas.extend(stanza)
-                if args.activate:
-                    s.iface.bridge_now(args.bridge_name)
 
         elif not s.is_physical_interface:
             stanzas.append(s)
@@ -388,6 +386,11 @@ def main(args):
     if not args.activate:
         print_stanzas(stanzas)
         exit(0)
+
+    for s in config_parser.stanzas():
+        if s.is_logical_interface:
+            if not(args.interface_to_bridge and args.interface_to_bridge != s.iface.name):
+                s.iface.bridge_now(args.bridge_name)
 
     if args.one_time_backup:
         backup_file = "{}-before-add-juju-bridge".format(args.filename)
