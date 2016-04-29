@@ -49,6 +49,10 @@ const (
 	// installing mongo.
 	JujuMongoPackage = "juju-mongodb3.2"
 
+	// JujuMongoTooldPackage is the mongo package Juju uses when
+	// installing mongo tools to get mongodump etc.
+	JujuMongoToolsPackage = "juju-mongo-tools3.2"
+
 	// MMAPV1 is the default storage engine in mongo db up to 3.x
 	MMAPV1 StorageEngine = "mmapv1"
 
@@ -610,10 +614,10 @@ func packagesForSeries(series string) ([]string, []string) {
 	case "precise", "quantal", "raring", "saucy", "centos7":
 		return []string{"mongodb-server"}, []string{}
 	case "trusty", "wily", "xenial":
-		return []string{JujuMongoPackage}, []string{"juju-mongodb"}
+		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{"juju-mongodb"}
 	default:
 		// y and onwards
-		return []string{JujuMongoPackage}, []string{}
+		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
 	}
 }
 

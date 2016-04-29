@@ -330,14 +330,15 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 	tests := []installs{
 		{"precise", [][]string{{"--target-release", "precise-updates/cloud-tools", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb3.2"}}},
-		{"wily", [][]string{{"juju-mongodb3.2"}}},
-		{"xenial", [][]string{{"juju-mongodb3.2"}}},
+		{"trusty", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
+		{"wily", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
+		{"xenial", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
 	testing.PatchExecutableAsEchoArgs(c, s, "apt-get")
 	for _, test := range tests {
+		c.Logf("install for series %v", test.series)
 		dataDir := c.MkDir()
 		s.patchSeries(test.series)
 		err := mongo.EnsureServer(makeEnsureServerParams(dataDir))
