@@ -71,9 +71,9 @@ done
 if [[ $IS_LOCAL == "false" ]]; then
     # Download the buildvars and tartfile and lean the tarfile name.
     tarfile=$(
-        $SCRIPTS/s3ci.py get --config $CLOUD_CITY/juju-qa.s3cfg \
+        $SCRIPTS/s3ci.py get --config $JUJU_HOME/juju-qa.s3cfg \
         $REVISION_BUILD build-revision '.*.tar.gz' ./)
-    $SCRIPTS/s3ci.py get-summary --config $CLOUD_CITY/juju-qa.s3cfg \
+    $SCRIPTS/s3ci.py get-summary --config $JUJU_HOME/juju-qa.s3cfg \
         $REVISION_BUILD $AMI_IMAGE
 fi
 tarfile_path=$(readlink -f $tarfile)
