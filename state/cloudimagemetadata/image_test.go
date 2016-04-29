@@ -301,6 +301,7 @@ func (s *cloudImageMetadataSuite) assertMetadataRecorded(
 	}
 
 	// Compare maps by key; order of slices does not matter
+	c.Assert(groups, gc.HasLen, len(metadata))
 	for source, expectedMetadata := range groups {
 		c.Assert(metadata[source], jc.SameContents, expectedMetadata)
 	}
