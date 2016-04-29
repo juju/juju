@@ -5,7 +5,6 @@ package apiserver_test
 
 import (
 	"bufio"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"io"
@@ -108,7 +107,9 @@ func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, heade
 	config.Header = header
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
+	config.TlsConfig = utils.SecureTLSConfig()
+	config.TlsConfig.RootCAs = caCerts
+	config.TlsConfig.ServerName = "anything"
 	return config
 }
 
@@ -207,9 +208,9 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 		bclient.Client = client
 	} else {
 		// Configure the default client to skip verification/
-		bclient.Client.Transport = utils.NewHttpTLSTransport(&tls.Config{
-			InsecureSkipVerify: true,
-		})
+		tlsConfig := utils.SecureTLSConfig()
+		tlsConfig.InsecureSkipVerify = true
+		bclient.Client.Transport = utils.NewHttpTLSTransport(tlsConfig)
 	}
 	return func(req *http.Request) (*http.Response, error) {
 		var body io.ReadSeeker
