@@ -3,7 +3,6 @@ import json
 import os
 from subprocess import CalledProcessError
 from textwrap import dedent
-from unittest import TestCase
 
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
@@ -32,6 +31,8 @@ from substrate import (
     LXDAccount,
     make_substrate_manager,
     MAASAccount,
+    MAAS1Account,
+    maas_account_from_config,
     OpenStackAccount,
     parse_euca,
     run_instances,
@@ -41,6 +42,7 @@ from substrate import (
     terminate_instances,
     verify_libvirt_domain,
     )
+from tests import TestCase
 
 
 def get_aws_env():
@@ -137,82 +139,82 @@ class TestTerminateInstances(TestCase):
     def test_terminate_aws(self):
         env = get_aws_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['foo', 'bar'])
+            terminate_instances(env, ['foo', 'bar'])
         environ = get_aws_environ(env)
         cc_mock.assert_called_with(
             ['euca-terminate-instances', 'foo', 'bar'], env=environ)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting foo, bar.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting foo, bar.\n')
 
     def test_terminate_aws_none(self):
         env = get_aws_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, [])
+            terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('No instances to delete.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO No instances to delete.\n')
 
     def test_terminate_maas(self):
         env = get_maas_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['/A/B/C/D/node-3d/'])
+            terminate_instances(env, ['/A/B/C/D/node-3d/'])
         expected = (
-            ['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
+            ['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
              'a:password:string'],
         )
         self.assertEqual(expected, cc_mock.call_args_list[0][0])
-        expected = (['maas', 'mas', 'node', 'release', 'node-3d'],)
+        expected = (['maas', 'mas', 'machine', 'release', 'node-3d'],)
         self.assertEqual(expected, cc_mock.call_args_list[1][0])
         expected = (['maas', 'logout', 'mas'],)
         self.assertEqual(expected, cc_mock.call_args_list[2][0])
         self.assertEqual(3, len(cc_mock.call_args_list))
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting /A/B/C/D/node-3d/.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting /A/B/C/D/node-3d/.\n')
 
     def test_terminate_maas_none(self):
         env = get_maas_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, [])
+            terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('No instances to delete.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO No instances to delete.\n')
 
     def test_terminate_openstack(self):
         env = get_openstack_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['foo', 'bar'])
+            terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
         environ.update(translate_to_env(env.config))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting foo, bar.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting foo, bar.\n')
 
     def test_terminate_openstack_none(self):
         env = get_openstack_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, [])
+            terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('No instances to delete.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO No instances to delete.\n')
 
     def test_terminate_rackspace(self):
         env = get_rax_env()
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                terminate_instances(env, ['foo', 'bar'])
+            terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
         environ.update(translate_to_env(env.config))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
-        self.assertEqual(out_mock.write.mock_calls, [
-            call('Deleting foo, bar.'), call('\n')])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Deleting foo, bar.\n')
 
     def test_terminate_joyent(self):
         with patch('substrate.JoyentAccount.terminate_instances') as ti_mock:
@@ -231,16 +233,15 @@ class TestTerminateInstances(TestCase):
              call(['lxc', 'delete', '--force', 'bar'])],
             cc_mock.mock_calls)
 
-    def test_terminate_uknown(self):
+    def test_terminate_unknown(self):
         env = SimpleEnvironment('foo', {'type': 'unknown'})
         with patch('subprocess.check_call') as cc_mock:
-            with patch('sys.stdout') as out_mock:
-                with self.assertRaisesRegexp(
-                        ValueError,
-                        'This test does not support the unknown provider'):
-                    terminate_instances(env, ['foo'])
+            with self.assertRaisesRegexp(
+                    ValueError,
+                    'This test does not support the unknown provider'):
+                terminate_instances(env, ['foo'])
         self.assertEqual(cc_mock.call_count, 0)
-        self.assertEqual(out_mock.write.call_count, 0)
+        self.assertEqual(self.log_stream.getvalue(), '')
 
 
 class TestAWSAccount(TestCase):
@@ -675,20 +676,7 @@ class TestAzureAccount(TestCase):
         client.delete_hosted_service.assert_called_once_with('foo')
 
 
-class TestMAASAcount(TestCase):
-
-    @patch.object(MAASAccount, 'logout', autospec=True)
-    @patch.object(MAASAccount, 'login', autospec=True)
-    def test_manager_from_config(self, li_mock, lo_mock):
-        config = get_maas_env().config
-        with MAASAccount.manager_from_config(config) as account:
-            self.assertEqual(account.profile, 'mas')
-            self.assertEqual(account.url, 'http://10.0.10.10/MAAS/api/1.0/')
-            self.assertEqual(account.oauth, 'a:password:string')
-            # As the class object is patched, the mocked methods
-            # show that self is passed.
-            li_mock.assert_called_once_with(account)
-        lo_mock.assert_called_once_with(account)
+class TestMAASAccount(TestCase):
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
@@ -697,7 +685,7 @@ class TestMAASAcount(TestCase):
             config['name'], config['maas-server'], config['maas-oauth'])
         account.login()
         cc_mock.assert_called_once_with([
-            'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
+            'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
             'a:password:string'])
 
     @patch('subprocess.check_call', autospec=True)
@@ -716,14 +704,86 @@ class TestMAASAcount(TestCase):
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
         account.terminate_instances(instance_ids)
         cc_mock.assert_any_call(
+            ['maas', 'mas', 'machine', 'release', 'node-1d'])
+        cc_mock.assert_called_with(
+            ['maas', 'mas', 'machine', 'release', 'node-2d'])
+
+    def test_get_allocated_nodes(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        node = make_maas_node('maas-node-1.maas')
+        allocated_nodes_string = '[%s]' % json.dumps(node)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=allocated_nodes_string) as co_mock:
+            allocated = account.get_allocated_nodes()
+        co_mock.assert_called_once_with(
+            ['maas', 'mas', 'machines', 'list-allocated'])
+        self.assertEqual(node, allocated['maas-node-1.maas'])
+
+    def test_get_allocated_ips(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        node = make_maas_node('maas-node-1.maas')
+        allocated_nodes_string = '[%s]' % json.dumps(node)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=allocated_nodes_string) as co_mock:
+            ips = account.get_allocated_ips()
+        co_mock.assert_called_once_with(
+            ['maas', 'mas', 'machines', 'list-allocated'])
+        self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
+
+    def test_get_allocated_ips_empty(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        node = make_maas_node('maas-node-1.maas')
+        node['ip_addresses'] = []
+        allocated_nodes_string = '[%s]' % json.dumps(node)
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=allocated_nodes_string) as co_mock:
+            ips = account.get_allocated_ips()
+        co_mock.assert_called_once_with(
+            ['maas', 'mas', 'machines', 'list-allocated'])
+        self.assertEqual({}, ips)
+
+
+class TestMAAS1Account(TestCase):
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_login(self, cc_mock):
+        config = get_maas_env().config
+        account = MAAS1Account(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        account.login()
+        cc_mock.assert_called_once_with([
+            'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
+            'a:password:string'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_logout(self, cc_mock):
+        config = get_maas_env().config
+        account = MAAS1Account(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        account.logout()
+        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
+
+    @patch('subprocess.check_call', autospec=True)
+    def test_terminate_instances(self, cc_mock):
+        config = get_maas_env().config
+        account = MAAS1Account(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
+        account.terminate_instances(instance_ids)
+        cc_mock.assert_any_call(
             ['maas', 'mas', 'node', 'release', 'node-1d'])
         cc_mock.assert_called_with(
             ['maas', 'mas', 'node', 'release', 'node-2d'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_get_allocated_nodes(self, cc_mock):
+    def test_get_allocated_nodes(self):
         config = get_maas_env().config
-        account = MAASAccount(
+        account = MAAS1Account(
             config['name'], config['maas-server'], config['maas-oauth'])
         node = make_maas_node('maas-node-1.maas')
         allocated_nodes_string = '[%s]' % json.dumps(node)
@@ -734,30 +794,98 @@ class TestMAASAcount(TestCase):
             ['maas', 'mas', 'nodes', 'list-allocated'])
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_get_allocated_ips(self, cc_mock):
+    def test_get_allocated_ips(self):
         config = get_maas_env().config
-        account = MAASAccount(
+        account = MAAS1Account(
             config['name'], config['maas-server'], config['maas-oauth'])
         node = make_maas_node('maas-node-1.maas')
         allocated_nodes_string = '[%s]' % json.dumps(node)
         with patch('subprocess.check_output', autospec=True,
-                   return_value=allocated_nodes_string):
+                   return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
+        co_mock.assert_called_once_with(
+            ['maas', 'mas', 'nodes', 'list-allocated'])
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_get_allocated_ips_empty(self, cc_mock):
+    def test_get_allocated_ips_empty(self):
         config = get_maas_env().config
-        account = MAASAccount(
+        account = MAAS1Account(
             config['name'], config['maas-server'], config['maas-oauth'])
         node = make_maas_node('maas-node-1.maas')
         node['ip_addresses'] = []
         allocated_nodes_string = '[%s]' % json.dumps(node)
         with patch('subprocess.check_output', autospec=True,
-                   return_value=allocated_nodes_string):
+                   return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
+        co_mock.assert_called_once_with(
+            ['maas', 'mas', 'nodes', 'list-allocated'])
         self.assertEqual({}, ips)
+
+
+class TestMAASAccountFromConfig(TestCase):
+
+    def test_login_succeeds(self):
+        config = get_maas_env().config
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with maas_account_from_config(config) as maas:
+                self.assertIs(type(maas), MAASAccount)
+                self.assertEqual(maas.profile, 'mas')
+                self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
+                self.assertEqual(maas.oauth, 'a:password:string')
+                # The login call has happened on context manager enter, reset
+                # the mock after to verify the logout call.
+                cc_mock.assert_called_once_with([
+                    'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
+                    'a:password:string'])
+                cc_mock.reset_mock()
+        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
+
+    def test_login_fallback(self):
+        config = get_maas_env().config
+        login_error = CalledProcessError(1, ['maas', 'login'])
+        with patch('subprocess.check_call', autospec=True,
+                   side_effect=[login_error, None, None]) as cc_mock:
+            with maas_account_from_config(config) as maas:
+                self.assertIs(type(maas), MAAS1Account)
+                self.assertEqual(maas.profile, 'mas')
+                self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/1.0/')
+                self.assertEqual(maas.oauth, 'a:password:string')
+                # The first login attempt was with the 2.0 api, after which
+                # a 1.0 login succeeded.
+                self.assertEquals(cc_mock.call_args_list, [
+                    call(['maas', 'login', 'mas',
+                          'http://10.0.10.10/MAAS/api/2.0/',
+                          'a:password:string']),
+                    call(['maas', 'login', 'mas',
+                          'http://10.0.10.10/MAAS/api/1.0/',
+                          'a:password:string']),
+                ])
+                cc_mock.reset_mock()
+        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
+
+    def test_login_both_fail(self):
+        config = get_maas_env().config
+        login_error = CalledProcessError(1, ['maas', 'login'])
+        with patch('subprocess.check_call', autospec=True,
+                   side_effect=login_error) as cc_mock:
+            with self.assertRaises(CalledProcessError) as ctx:
+                with maas_account_from_config(config):
+                    self.fail('Should never get manager with failed login')
+        self.assertIs(ctx.exception, login_error)
+        self.assertEquals(cc_mock.call_args_list, [
+            call(['maas', 'login', 'mas',
+                  'http://10.0.10.10/MAAS/api/2.0/',
+                  'a:password:string']),
+            call(['maas', 'login', 'mas',
+                  'http://10.0.10.10/MAAS/api/1.0/',
+                  'a:password:string']),
+        ])
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
 
 
 class TestMakeSubstrateManager(TestCase):

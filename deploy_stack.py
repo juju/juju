@@ -650,9 +650,13 @@ class BootstrapManager:
             except BaseException as e:
                 logging.exception(e)
                 raise LoggedException(e)
+        except:
+            safe_print_status(self.client)
+            raise
+        else:
+            self.client.show_status()
         finally:
             try:
-                safe_print_status(self.client)
                 self.dump_all_logs()
             except KeyboardInterrupt:
                 pass

@@ -1495,7 +1495,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 target = '{}:{}'.format(machine_type, host)
                 service = 'ubuntu{}x{}'.format(host, container)
                 yield ('juju', '--show-log', 'deploy', '-m', 'steve',
-                       'ubuntu', '--to', target, '--series', 'angsty', service)
+                       'ubuntu', service, '--to', target, '--series', 'angsty')
 
     def predict_remove_machine_calls(self, deploy_many):
         total_guests = deploy_many.host_count * deploy_many.container_count
@@ -1725,6 +1725,23 @@ class TestDeployManyAttempt(JujuPyTestCase):
         calls = self.predict_add_machine_calls(deploy_many, LXD_MACHINE)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
+
+    def get_wait_until_removed_timeout(self, container_type):
+        deploy_many = DeployManyAttempt()
+        client = FakeJujuClient()
+        client.bootstrap()
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
+        with patch('industrial_test.wait_until_removed') as wur_mock:
+            with patch.object(client, 'preferred_container',
+                              return_value=container_type):
+                list(deploy_iter)
+        return wur_mock.mock_calls[0][2]['timeout']
+
+    def test_wait_until_removed_timeout_lxd(self):
+        self.assertEqual(60, self.get_wait_until_removed_timeout(LXD_MACHINE))
+
+    def test_wait_until_removed_timeout_lxc(self):
+        self.assertEqual(30, self.get_wait_until_removed_timeout(LXC_MACHINE))
 
 
 class TestBackupRestoreAttempt(JujuPyTestCase):
