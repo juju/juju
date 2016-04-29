@@ -362,12 +362,6 @@ def main(args):
     # that argument is specified then args.bridge_name takes
     # precedence over any args.bridge_prefix.
 
-    if args.activate:
-        print("**** Original configuration")
-        print_shell_cmd("cat {}".format(args.filename))
-        print_shell_cmd("ip -d link show")
-        print_shell_cmd("ip route show")
-
     for s in config_parser.stanzas():
         if s.is_logical_interface:
             add_auto_stanza = s.iface.name in physical_interfaces
@@ -387,6 +381,11 @@ def main(args):
         print_stanzas(stanzas)
         exit(0)
 
+    print("**** Original configuration")
+    print_shell_cmd("cat {}".format(args.filename))
+    print_shell_cmd("ip -d link show")
+    print_shell_cmd("ip route show")
+
     for s in config_parser.stanzas():
         if s.is_logical_interface:
             if not(args.interface_to_bridge and args.interface_to_bridge != s.iface.name):
@@ -401,11 +400,10 @@ def main(args):
         print_stanzas(stanzas, f)
         f.close()
 
-    if args.activate:
-        print("**** New configuration")
-        print_shell_cmd("cat {}".format(args.filename))
-        print_shell_cmd("ip -d link show")
-        print_shell_cmd("ip route show")
+    print("**** New configuration")
+    print_shell_cmd("cat {}".format(args.filename))
+    print_shell_cmd("ip -d link show")
+    print_shell_cmd("ip route show")
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
