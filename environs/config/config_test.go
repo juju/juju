@@ -1853,22 +1853,6 @@ func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	return s
 }
 
-func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
-	config.ResetCachedLtsSeries()
-	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
-		return "", fmt.Errorf("error")
-	})
-	c.Assert(series.LatestLts(), gc.Equals, "xenial")
-}
-
-func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
-	config.ResetCachedLtsSeries()
-	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
-		return "series", nil
-	})
-	c.Assert(series.LatestLts(), gc.Equals, "series")
-}
-
 var caCert = `
 -----BEGIN CERTIFICATE-----
 MIIBjDCCATigAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
