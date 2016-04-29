@@ -292,7 +292,7 @@ func (mi *maas2Instance) volumes(
 		validVolumes.Add(v.Id())
 	}
 
-	for label, device := range mi.constraintMatches.Storage {
+	for label, devices := range mi.constraintMatches.Storage {
 		// We don't explicitly allow the root volume to be specified yet.
 		if label == rootDiskLabel {
 			continue
@@ -302,26 +302,28 @@ func (mi *maas2Instance) volumes(
 			continue
 		}
 
-		volumeTag := names.NewVolumeTag(label)
-		vol := storage.Volume{
-			volumeTag,
-			storage.VolumeInfo{
-				VolumeId:   volumeTag.String(),
-				Size:       uint64(device.Size() / humanize.MiByte),
-				Persistent: false,
-			},
-		}
-		volumes = append(volumes, vol)
+		for _, device := range devices {
+			volumeTag := names.NewVolumeTag(label)
+			vol := storage.Volume{
+				volumeTag,
+				storage.VolumeInfo{
+					VolumeId:   volumeTag.String(),
+					Size:       uint64(device.Size() / humanize.MiByte),
+					Persistent: false,
+				},
+			}
+			volumes = append(volumes, vol)
 
-		attachment := storage.VolumeAttachment{
-			volumeTag,
-			mTag,
-			storage.VolumeAttachmentInfo{
-				DeviceLink: device.Path(),
-				ReadOnly:   false,
-			},
+			attachment := storage.VolumeAttachment{
+				volumeTag,
+				mTag,
+				storage.VolumeAttachmentInfo{
+					DeviceLink: device.Path(),
+					ReadOnly:   false,
+				},
+			}
+			attachments = append(attachments, attachment)
 		}
-		attachments = append(attachments, attachment)
 	}
 	return volumes, attachments, nil
 }
