@@ -84,7 +84,7 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
             print_now('Setting environ TMP and TEMP to:')
             print_now(env['TEMP'])
         command = ['powershell.exe', '-Command', go_cmd,
-                   'test', '-test.timeout=1200s', './...']
+                   'test', '-timeout=1200s', './...']
     else:
         command = [go_cmd, 'test', '-test.timeout=1200s', './...']
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))

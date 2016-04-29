@@ -96,7 +96,7 @@ class gotesttarfileTestCase(TestCase):
         self.assertEqual(run_mock.call_count, 2)
         self.assertEqual(
             (['powershell.exe', '-Command', 'go', 'test',
-              '-test.timeout=1200s', './...'], ),
+              '-timeout=1200s', './...'], ),
             args)
         self.assertEqual(r'C:\foo;C:\baz', kwargs['env'].get('Path'))
         self.assertEqual(None, kwargs['env'].get('PATH'))
