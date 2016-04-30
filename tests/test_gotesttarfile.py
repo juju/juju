@@ -72,7 +72,7 @@ class gotesttarfileTestCase(TestCase):
         self.assertEqual(run_mock.call_count, 2)
         args, kwargs = run_mock.call_args_list[0]
         self.assertEqual(
-            (['go', 'test', '-test.timeout=1200s', './...'],), args)
+            (['go', 'test', '-timeout=1200s', './...'],), args)
         self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
         self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
         run_mock.assert_called_with(['sudo', 'killall', '-SIGABRT', 'mongod'])

@@ -86,7 +86,7 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         command = ['powershell.exe', '-Command', go_cmd,
                    'test', '-timeout=1200s', './...']
     else:
-        command = [go_cmd, 'test', '-test.timeout=1200s', './...']
+        command = [go_cmd, 'test', '-timeout=1200s', './...']
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
         if verbose:
