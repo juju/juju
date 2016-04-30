@@ -64,10 +64,6 @@ const (
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
 
-	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
-	// obtain this information from the system.
-	fallbackLtsSeries string = "xenial"
-
 	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
 	DefaultNumaControlPolicy = false

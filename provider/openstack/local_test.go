@@ -1097,7 +1097,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny",
+		env, series.LatestLts(), "amd64", "instance-type=m1.tiny",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1114,7 +1114,7 @@ func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, coretesting.FakeDefaultSeries, "amd64", "virt-type="+testVirtType,
+		env, series.LatestLts(), "amd64", "virt-type="+testVirtType,
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1133,7 +1133,7 @@ func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, coretesting.FakeDefaultSeries, "amd64", "",
+		env, series.LatestLts(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1150,7 +1150,7 @@ func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, coretesting.FakeDefaultSeries, "amd64", "",
+		env, series.LatestLts(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1165,7 +1165,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		Arch: "amd64",
 	}}
 	_, err := openstack.FindInstanceSpec(
-		env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large",
+		env, series.LatestLts(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
@@ -1175,7 +1175,7 @@ func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1183,32 +1183,32 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := t.env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
 }
 

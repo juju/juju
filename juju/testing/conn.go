@@ -205,7 +205,8 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 // for amd64 are returned if that is not the current host's architecture.
 func DefaultVersions(conf *config.Config) []version.Binary {
 	var versions []version.Binary
-	defaultSeries := set.NewStrings(testing.SupportedLtsSeries...)
+	supported := series.SupportedLts()
+	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
 	defaultSeries.Add(series.HostSeries())
 	for _, s := range defaultSeries.Values() {

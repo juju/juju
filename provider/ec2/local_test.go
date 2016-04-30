@@ -219,7 +219,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
@@ -1089,7 +1089,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1097,7 +1097,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
 }
 
@@ -1105,28 +1105,28 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
@@ -1134,7 +1134,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = coretesting.FakeDefaultSeries
+	params.Series = series.LatestLts()
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)

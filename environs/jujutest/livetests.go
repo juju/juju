@@ -165,7 +165,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
+		_, err := sync.Upload(t.toolsStorage, "released", nil, series.LatestLts())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{

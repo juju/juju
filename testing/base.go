@@ -135,7 +135,7 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	// JujuOSEnvSuite does not have a suite setup.
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
-	series.SetLatestLts("trusty")
+	series.SetLatestLtsForTesting("xenial")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {

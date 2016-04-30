@@ -54,7 +54,7 @@ var findInstanceSpecTests = []struct {
 	storage []string
 }{
 	{
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		itype:  "m3.medium",
 		image:  "ami-00000133",
@@ -64,63 +64,63 @@ var findInstanceSpecTests = []struct {
 		itype:  "c1.medium",
 		image:  "ami-01000034",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "cpu-cores=4",
 		itype:  "m3.xlarge",
 		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "mem=10G",
 		itype:  "m3.xlarge",
 		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "mem=",
 		itype:  "m3.medium",
 		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "cpu-power=",
 		itype:  "m3.medium",
 		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "cpu-power=800",
 		itype:  "m3.xlarge",
 		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "instance-type=m1.medium cpu-power=200",
 		itype:  "m1.medium",
 		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "mem=2G root-disk=16384M",
 		itype:  "m3.medium",
 		image:  "ami-00000133",
 	}, {
-		series:  testing.FakeDefaultSeries,
+		series:  series.LatestLts(),
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "m3.large",
 		storage: []string{"ssd", "ebs"},
 		image:   "ami-00000133",
 	}, {
-		series:  testing.FakeDefaultSeries,
+		series:  series.LatestLts(),
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "m3.large",
 		storage: []string{"ebs", "ssd"},
 		image:   "ami-00000139",
 	}, {
-		series:  testing.FakeDefaultSeries,
+		series:  series.LatestLts(),
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "m3.large",
@@ -270,7 +270,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      testing.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
@@ -287,7 +287,7 @@ var findInstanceSpecErrorTests = []struct {
 	err    string
 }{
 	{
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"arm"},
 		err:    `no "xenial" images in test with arches \[arm\]`,
 	}, {
@@ -296,7 +296,7 @@ var findInstanceSpecErrorTests = []struct {
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[m3.large m3.xlarge c1.xlarge m3.2xlarge cc2.8xlarge\]`,
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"amd64"},
 		cons:   "instance-type=m1.small mem=4G",
 		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,

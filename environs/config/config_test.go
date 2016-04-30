@@ -1274,7 +1274,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
-		"default-series":            testing.FakeDefaultSeries,
+		"default-series":            series.LatestLts(),
 		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)

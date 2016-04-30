@@ -10,6 +10,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -29,9 +30,6 @@ func init() {
 		panic("FakeAuthKeys does not hold a valid authorized key: " + err.Error())
 	}
 }
-
-// FakeDefaultSeries is the default series for testing.
-var FakeDefaultSeries = LatestLtsSeries
 
 // FakeVersionNumber is a valid version number that can be used in testing.
 var FakeVersionNumber = version.MustParse("1.99.0")
@@ -56,7 +54,7 @@ func FakeConfig() Attrs {
 		"development":               false,
 		"state-port":                19034,
 		"api-port":                  17777,
-		"default-series":            FakeDefaultSeries,
+		"default-series":            series.LatestLts(),
 	}
 }
 

@@ -340,7 +340,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
@@ -404,9 +404,9 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", coretesting.FakeDefaultSeries)
+	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -414,12 +414,12 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", coretesting.FakeDefaultSeries)
+	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -429,9 +429,9 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", "lxc:"+machine.Id(), ch, "portlandia", "--series", coretesting.FakeDefaultSeries)
+	err = runDeploy(c, "--to", "lxc:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 
@@ -457,7 +457,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")

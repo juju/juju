@@ -22,6 +22,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -590,12 +591,12 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			AvailableTools: makeToolsList(testing.FakeDefaultSeries),
+			AvailableTools: makeToolsList(series.LatestLts()),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, testing.FakeDefaultSeries)
+	c.Assert(result.Series, gc.Equals, series.LatestLts())
 
 	c.Assert(len(s.requests), gc.Equals, 17)
 
