@@ -207,6 +207,8 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     sudo rm -rf /tmp/test-* || true
 fi
 
+make setup-lxd || true
+
 go test -i ./...
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
