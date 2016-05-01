@@ -76,6 +76,9 @@ func NewRestoreCommandForTest(
 		getEnvironFunc: getEnviron,
 		newAPIClientFunc: func() (RestoreAPI, error) {
 			return api, nil
+		},
+		waitForAgentFunc: func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error {
+			return nil
 		}}
 	if getEnviron == nil {
 		c.getEnvironFunc = func(controllerNme string, meta *params.BackupsMetadataResult) (environs.Environ, error) {

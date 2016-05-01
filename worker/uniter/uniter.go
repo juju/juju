@@ -219,10 +219,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		Clock: u.clock,
 	})
 	defer func() {
-		// Stop any send that might be pending
-		// before closing the channel
+		// Whenever we exit the uniter we want to stop a potentially
+		// running timer so it doesn't trigger for nothing.
 		retryHookTimer.Reset()
-		close(retryHookChan)
 	}()
 
 	restartWatcher := func() error {

@@ -197,18 +197,17 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err = updateAllMachines(args.PrivateAddress, machines); err != nil {
+	if err := updateAllMachines(args.PrivateAddress, machines); err != nil {
 		return nil, errors.Annotate(err, "cannot update agents")
-	}
-
-	info, err := st.RestoreInfoSetter()
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	// Mark restoreInfo as Finished so upon restart of the apiserver
 	// the client can reconnect and determine if we where succesful.
+	info := st.RestoreInfo()
 	err = info.SetStatus(state.RestoreFinished)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return backupMachine, errors.Annotate(err, "failed to set status to finished")
 }

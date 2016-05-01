@@ -98,6 +98,13 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 		}
 	}
 
+	if result.UserInfo != nil {
+		// This was a macaroon based user authentication.
+		tag, err = names.ParseTag(result.UserInfo.Identity)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	servers := params.NetworkHostsPorts(result.Servers)
 	err = st.setLoginResult(tag, result.ModelTag, result.ControllerTag, servers, result.Facades)
 	if err != nil {
@@ -131,6 +138,11 @@ func (st *state) setLoginResult(tag names.Tag, modelTag, controllerTag string, s
 
 	st.setLoggedIn()
 	return nil
+}
+
+// AuthTag returns the tag of the authorized user of the state API connection.
+func (st *state) AuthTag() names.Tag {
+	return st.authTag
 }
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be

@@ -107,6 +107,7 @@ func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apistate.AuthTag(), gc.Equals, tag)
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {

@@ -139,11 +139,10 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if newControllerName != "" {
 		// A controller was specified so see if we should use a local version.
 		newControllerName, err = modelcmd.ResolveControllerName(c.Store, newControllerName)
-		if err == nil {
-			newName = modelcmd.JoinModelName(newControllerName, modelName)
-		} else {
-			newName = c.Target
+		if err != nil {
+			return errors.Trace(err)
 		}
+		newName = modelcmd.JoinModelName(newControllerName, modelName)
 	} else {
 		if currentControllerName == "" {
 			return unknownSwitchTargetError(c.Target)

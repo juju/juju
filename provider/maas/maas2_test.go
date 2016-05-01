@@ -74,6 +74,8 @@ type fakeController struct {
 	allocateMachineArgsCheck func(gomaasapi.AllocateMachineArgs)
 
 	files []gomaasapi.File
+
+	devices []gomaasapi.Device
 }
 
 func newFakeController() *fakeController {
@@ -88,6 +90,10 @@ func newFakeControllerWithErrors(errors ...error) *fakeController {
 
 func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
 	return &fakeController{Stub: &testing.Stub{}, files: files}
+}
+
+func (c *fakeController) Devices(gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
+	return c.devices, nil
 }
 
 func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error) {
@@ -199,6 +205,7 @@ type fakeMachine struct {
 	architecture  string
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
+	createDevice  gomaasapi.Device
 }
 
 func (m *fakeMachine) Tags() []string {
@@ -247,6 +254,10 @@ func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
 
 func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 	return nil
+}
+
+func (m *fakeMachine) CreateDevice(gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
+	return m.createDevice, nil
 }
 
 type fakeZone struct {
@@ -363,6 +374,10 @@ func (v *fakeInterface) Type() string {
 	return v.type_
 }
 
+func (v *fakeInterface) EffectiveMTU() int {
+	return 1500
+}
+
 func (v *fakeInterface) Enabled() bool {
 	return v.enabled
 }
@@ -377,6 +392,10 @@ func (v *fakeInterface) Links() []gomaasapi.Link {
 
 func (v *fakeInterface) MACAddress() string {
 	return v.macAddress
+}
+
+func (v *fakeInterface) LinkSubnet(gomaasapi.LinkSubnetArgs) error {
+	return nil
 }
 
 type fakeLink struct {
@@ -449,4 +468,24 @@ func (bd fakeBlockDevice) Path() string {
 
 func (bd fakeBlockDevice) Size() uint64 {
 	return bd.size
+}
+
+type fakeDevice struct {
+	gomaasapi.Device
+	interfaceSet []gomaasapi.Interface
+	systemID     string
+	interface_   gomaasapi.Interface
+}
+
+func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
+	return d.interfaceSet
+}
+
+func (d *fakeDevice) SystemID() string {
+	return d.systemID
+}
+
+func (d *fakeDevice) CreateInterface(gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+	d.interfaceSet = append(d.interfaceSet, d.interface_)
+	return d.interface_, nil
 }

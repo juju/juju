@@ -541,7 +541,8 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV2(c *gc.C) {
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *gc.C) {
 	client := testEndpointResolver{}
 	url, err := openstack.GetVolumeEndpointURL(client, "east")
-	c.Assert(err, gc.ErrorMatches, `endpoint "volume" not found for "east" region`)
+	c.Assert(err, gc.ErrorMatches, `endpoint "volume" in region "east" not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(url, gc.IsNil)
 }
 

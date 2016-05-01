@@ -85,7 +85,7 @@ func (c *Client) RestoreReader(r io.ReadSeeker, meta *params.BackupsMetadataResu
 	backupId, err := c.Upload(r, *meta)
 	if err != nil {
 		finishErr := finishRestore(newClient)
-		logger.Errorf("could not exit restoring status: %v", finishErr)
+		logger.Errorf("could not clean up after failed backup upload: %v", finishErr)
 		return errors.Annotatef(err, "cannot upload backup file")
 	}
 	return c.restore(backupId, newClient)
@@ -140,14 +140,14 @@ func (c *Client) restore(backupId string, newClient ClientConnection) error {
 		}
 		if remoteError != nil || !isUpgradeInProgressErr(err) {
 			finishErr := finishRestore(newClient)
-			logger.Errorf("could not exit restoring status: %v", finishErr)
+			logger.Errorf("could not clean up after failed restore attempt: %v", finishErr)
 			return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 		}
 	}
 	if !cleanExit {
 		finishErr := finishRestore(newClient)
 		if finishErr != nil {
-			logger.Errorf("could not exit restoring status: %v", finishErr)
+			logger.Errorf("could not clean up failed restore: %v", finishErr)
 		}
 		return errors.Annotatef(err, "cannot perform restore: %v", remoteError)
 	}

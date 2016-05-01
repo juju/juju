@@ -69,5 +69,5 @@ func (s *defaultCredentialSuite) TestSetDefaultCredential(c *gc.C) {
 }
 
 func (s *defaultCredentialSuite) TestSetDefaultCredentialBuiltIn(c *gc.C) {
-	s.assertSetDefaultCredential(c, "maas")
+	s.assertSetDefaultCredential(c, "localhost")
 }

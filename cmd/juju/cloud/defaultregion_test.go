@@ -50,7 +50,11 @@ func (s *defaultRegionSuite) TestBadCloudName(c *gc.C) {
 }
 
 func (s *defaultRegionSuite) assertSetDefaultRegion(c *gc.C, cmd cmd.Command, store *jujuclienttesting.MemStore, cloud, errStr string) {
-	ctx, err := testing.RunCommand(c, cmd, cloud, "us-west-1")
+	s.assertSetCustomDefaultRegion(c, cmd, store, cloud, "us-west-1", errStr)
+}
+
+func (s *defaultRegionSuite) assertSetCustomDefaultRegion(c *gc.C, cmd cmd.Command, store *jujuclienttesting.MemStore, cloud, desiredDefault, errStr string) {
+	ctx, err := testing.RunCommand(c, cmd, cloud, desiredDefault)
 	output := testing.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
 	if errStr != "" {
@@ -60,8 +64,8 @@ func (s *defaultRegionSuite) assertSetDefaultRegion(c *gc.C, cmd cmd.Command, st
 		return
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(output, gc.Equals, fmt.Sprintf(`Default region in %s set to "us-west-1".`, cloud))
-	c.Assert(store.Credentials[cloud].DefaultRegion, gc.Equals, "us-west-1")
+	c.Assert(output, gc.Equals, fmt.Sprintf(`Default region in %s set to %q.`, cloud, desiredDefault))
+	c.Assert(store.Credentials[cloud].DefaultRegion, gc.Equals, desiredDefault)
 }
 
 func (s *defaultRegionSuite) TestSetDefaultRegion(c *gc.C) {
@@ -73,8 +77,8 @@ func (s *defaultRegionSuite) TestSetDefaultRegion(c *gc.C) {
 func (s *defaultRegionSuite) TestSetDefaultRegionBuiltIn(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	cmd := cloud.NewSetDefaultRegionCommandForTest(store)
-	// maas has no regions
-	s.assertSetDefaultRegion(c, cmd, store, "maas", `cloud maas has no regions`)
+	// Cloud 'localhost' is of type lxd.
+	s.assertSetCustomDefaultRegion(c, cmd, store, "localhost", "localhost", "")
 }
 
 func (s *defaultRegionSuite) TestOverwriteDefaultRegion(c *gc.C) {

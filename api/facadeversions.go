@@ -70,6 +70,7 @@ var facadeVersions = map[string]int{
 	"ServiceScaler":                1,
 	"Singular":                     1,
 	"Spaces":                       2,
+	"SSHClient":                    1,
 	"StatusHistory":                2,
 	"Storage":                      2,
 	"StorageProvisioner":           2,

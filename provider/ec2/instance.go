@@ -80,8 +80,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []network.PortRange) 
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	legacyName := inst.e.legacyMachineGroupName(machineId)
-	if err := inst.e.openPortsInGroup(name, legacyName, ports); err != nil {
+	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in security group %s: %v", name, ports)
@@ -94,8 +93,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []network.PortRange)
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	legacyName := inst.e.legacyMachineGroupName(machineId)
-	if err := inst.e.closePortsInGroup(name, legacyName, ports); err != nil {
+	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in security group %s: %v", name, ports)

@@ -84,8 +84,9 @@ func (s *addCredentialSuite) TestAddFromFileBadFilename(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestNoCredentialsRequired(c *gc.C) {
-	_, err := s.run(c, nil, "manual")
-	c.Assert(err, gc.ErrorMatches, `cloud "manual" does not require credentials`)
+	s.authTypes = nil
+	_, err := s.run(c, nil, "somecloud")
+	c.Assert(err, gc.ErrorMatches, `cloud "somecloud" does not require credentials`)
 }
 
 func (s *addCredentialSuite) createTestCredentialData(c *gc.C) string {
@@ -333,10 +334,10 @@ func (s *addCredentialSuite) TestAddMAASCredential(c *gc.C) {
 		},
 	}
 	stdin := strings.NewReader("fred\nauth:token\n")
-	_, err := s.run(c, stdin, "maas")
+	_, err := s.run(c, stdin, "somecloud")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
-		"maas": {
+		"somecloud": {
 			AuthCredentials: map[string]jujucloud.Credential{
 				"fred": jujucloud.NewCredential(jujucloud.OAuth1AuthType, map[string]string{
 					"maas-oauth": "auth:token",
