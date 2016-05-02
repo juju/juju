@@ -217,7 +217,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	utils.SetHome(home)
+	err = utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
@@ -566,7 +567,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	}
 
 	dummy.Reset(c)
-	utils.SetHome(s.oldHome)
+	err := utils.SetHome(s.oldHome)
+	c.Assert(err, jc.ErrorIsNil)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""
 	s.RootDir = ""

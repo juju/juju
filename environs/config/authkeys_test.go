@@ -29,14 +29,16 @@ func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	old := utils.Home()
 	newhome := c.MkDir()
-	utils.SetHome(newhome)
+	err := utils.SetHome(newhome)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		ssh.ClearClientKeys()
-		utils.SetHome(old)
+		err := utils.SetHome(old)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 
 	s.dotssh = filepath.Join(newhome, ".ssh")
-	err := os.Mkdir(s.dotssh, 0755)
+	err = os.Mkdir(s.dotssh, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
@@ -55,7 +56,8 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	}
 	s.oldHomeEnv = utils.Home()
 	s.oldJujuXDGDataHome = osenv.SetJujuXDGDataHome("")
-	utils.SetHome("")
+	err := utils.SetHome("")
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the feature flag set to be the requested initial set.
 	// This works for both windows and unix, even though normally
@@ -71,7 +73,8 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
-	utils.SetHome(s.oldHomeEnv)
+	err := utils.SetHome(s.oldHomeEnv)
+	c.Assert(err, jc.ErrorIsNil)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 }
 
