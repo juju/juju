@@ -182,6 +182,31 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(DEFAULT_SPB, args.branch)
         self.assertEqual('1', args.upatch)
         self.assertFalse(args.verbose)
+        self.assertIsNone(args.date)
+        self.assertIsNone(args.build)
+        self.assertIsNone(args.revid)
+
+    def test_get_args_daily_source(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args = get_args(
+                ['prog', 'source', 'my_1.25.0.tar.gz', '~/workspace', 'trusty',
+                 '123', '456', '--date', '20160502', '--build', '3065',
+                  '--revid', '4bbce805'])
+        self.assertEqual('source', args.command)
+        self.assertEqual('my_1.25.0.tar.gz', args.tar_file)
+        self.assertEqual('~/workspace', args.location)
+        self.assertEqual('trusty', args.series)
+        self.assertEqual(['123', '456'], args.bugs)
+        self.assertEqual('me@email', args.debemail)
+        self.assertEqual('me', args.debfullname)
+        self.assertIsNone(args.gpgcmd)
+        self.assertEqual(DEFAULT_SPB, args.branch)
+        self.assertEqual('1', args.upatch)
+        self.assertFalse(args.verbose)
+        self.assertEqual('20160502', args.date)
+        self.assertEqual('3065', args.build)
+        self.assertEqual('4bbce805', args.revid)
 
     def test_get_args_source_default_spb2_branch(self):
         shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
@@ -453,6 +478,25 @@ class BuildPackageTestCase(unittest.TestCase):
 
     @autopatch('build_package.sign_source_package')
     @autopatch('subprocess.check_call')
+    def test_create_daily_source_package(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
+            debemail='me@email', debfullname='me', verbose=False,
+            date='20160502', build='3065', revid='4bbce805')
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/source',
+            series='trusty',
+            ubuntu_version='1.2.3-20160502+3065+4bbce805~14.04',
+            message='New upstream stable point release. (LP #987)')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        self.assertEqual(0, ss_mock.call_count)
+
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
     def test_create_source_package_with_gpgcmd(self, cc_mock, ss_mock):
         create_source_package(
             '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
@@ -462,6 +506,26 @@ class BuildPackageTestCase(unittest.TestCase):
             spb='/juju-build-any-all/spb',
             source='/juju-build-trusty-all/source',
             series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
+            message='New upstream stable point release. (LP #987)')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        ss_mock.assert_called_with(
+            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
+
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
+    def test_create_daily_source_package_with_gpgcmd(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
+            debemail='me@email', debfullname='me', verbose=False,
+            date='20160502', build='3065', revid='4bbce805')
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/source',
+            series='trusty',
+            ubuntu_version='1.2.3-20160502+3065+4bbce805~14.04',
             message='New upstream stable point release. (LP #987)')
         env = make_deb_shell_env('me@email', 'me')
         cc_mock.assert_called_with(
