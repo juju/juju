@@ -418,8 +418,8 @@ def create_source_package(source_dir, spb, series, version,
     :param revid: The revid hash of the source.
     """
 
-    ubuntu_version = make_ubuntu_version(series, version, date,
-                                         build, revid, upatch)
+    ubuntu_version = make_ubuntu_version(series, version, upatch,
+                                         date, build, revid)
     message = make_changelog_message(version, bugs=bugs)
     source = os.path.join(source_dir, 'source')
     env = make_deb_shell_env(debemail, debfullname)
@@ -443,7 +443,7 @@ def build_source(tarfile_path, location, series, bugs,
     :param tarfile_path: The path to the upstream tarfile. to import.
     :param location: The path to the directory to build packages in.
     :param series: The series codename or list of series codenames.
-    :param revid: The revid hash of the source.
+    :param bugs: A list of Lp bug numbers the release fixes.
     :param gpgcmd: The path to a gpg signing command to sign with.
         Source packages will be signed when gpgcmd is not None.
     :param debemail: The email address to attribute the changelog entry to.
@@ -455,7 +455,7 @@ def build_source(tarfile_path, location, series, bugs,
     :param verbose: Increase the verbostiy of output.
     :param date: The date of the build.
     :param build: The build number in CI.
-    :param bugs: A list of Lp bug numbers the release fixes.
+    :param revid: The revid hash of the source.
     :return: the exit code (which is 0 or else an exception was raised).
     """
     if not isinstance(series, list):
