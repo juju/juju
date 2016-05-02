@@ -385,8 +385,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
-	currentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, bootstrappedControllerName("devcontroller"))
 	modelName, err := s.store.CurrentModel(currentController, "admin@local")
 	c.Assert(err, jc.ErrorIsNil)
@@ -508,10 +507,11 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
 	store := jujuclienttesting.NewStubStore()
-	store.SetErrors(errors.New("oh noes"))
+	store.SetErrors(nil, nil, nil, errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
+	store.CheckCallNames(c, "CurrentController", "CurrentAccount", "CurrentModel", "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
 }
 
@@ -548,7 +548,7 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, mo
 		ControllerUUID: "y",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelcmd.WriteCurrentController(controller)
+	err = s.store.SetCurrentController(controller)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.UpdateAccount(controller, account, jujuclient.AccountDetails{
 		User:     account,
@@ -580,8 +580,7 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
-	oldCurrentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	oldCurrentController := s.store.CurrentControllerName
 	c.Assert(oldCurrentController, gc.Equals, bootstrappedControllerName("olddevcontroller"))
 	oldCurrentAccount, err := s.store.CurrentAccount(oldCurrentController)
 	c.Assert(err, jc.ErrorIsNil)
@@ -603,8 +602,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	err := <-errc
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, expectedBootstrappedName))
-	currentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "local.devcontroller")
 	currentAccount, err := s.store.CurrentAccount(currentController)
 	c.Assert(err, jc.ErrorIsNil)

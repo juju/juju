@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -157,9 +156,14 @@ func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
 func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	// Plugins are run as model commands, and so require a current
 	// account and model.
-	err := modelcmd.WriteCurrentController("myctrl")
-	c.Assert(err, jc.ErrorIsNil)
 	store := jujuclient.NewFileClientStore()
+	err := store.UpdateController("myctrl", jujuclient.ControllerDetails{
+		ControllerUUID: testing.ModelTag.Id(),
+		CACert:         "fake",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = store.SetCurrentController("myctrl")
+	c.Assert(err, jc.ErrorIsNil)
 	err = store.UpdateAccount("myctrl", "admin@local", jujuclient.AccountDetails{
 		User:     "admin@local",
 		Password: "hunter2",

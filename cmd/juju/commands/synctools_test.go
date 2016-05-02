@@ -44,9 +44,8 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
-	err := modelcmd.WriteCurrentController("ctrl")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}

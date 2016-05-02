@@ -37,6 +37,7 @@ controllers:
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
+current-controller: local.mallards
 `
 
 func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
@@ -49,7 +50,9 @@ func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
 func (s *ControllersFileSuite) TestReadNoFile(c *gc.C) {
 	controllers, err := jujuclient.ReadControllersFile("nohere.yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllers, gc.IsNil)
+	c.Assert(controllers, gc.NotNil)
+	c.Assert(controllers.Controllers, gc.HasLen, 0)
+	c.Assert(controllers.CurrentController, gc.Equals, "")
 }
 
 func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {
@@ -62,17 +65,17 @@ func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {
 	c.Assert(controllers, gc.IsNil)
 }
 
-func parseControllers(c *gc.C) map[string]jujuclient.ControllerDetails {
+func parseControllers(c *gc.C) *jujuclient.Controllers {
 	controllers, err := jujuclient.ParseControllers([]byte(testControllersYAML))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
-	c.Assert(controllers["local.mark-test-prodstack"].UnresolvedAPIEndpoints, gc.HasLen, 2)
-	c.Assert(controllers["local.mallards"].APIEndpoints, gc.HasLen, 2)
+	c.Assert(controllers.Controllers["local.mark-test-prodstack"].UnresolvedAPIEndpoints, gc.HasLen, 2)
+	c.Assert(controllers.Controllers["local.mallards"].APIEndpoints, gc.HasLen, 2)
 	return controllers
 }
 
-func writeTestControllersFile(c *gc.C) map[string]jujuclient.ControllerDetails {
+func writeTestControllersFile(c *gc.C) *jujuclient.Controllers {
 	controllers := parseControllers(c)
 	err := jujuclient.WriteControllersFile(controllers)
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,15 +85,17 @@ func writeTestControllersFile(c *gc.C) map[string]jujuclient.ControllerDetails {
 func (s *ControllersFileSuite) TestParseControllerMetadata(c *gc.C) {
 	controllers := parseControllers(c)
 	var names []string
-	for name, _ := range controllers {
+	for name, _ := range controllers.Controllers {
 		names = append(names, name)
 	}
 	c.Assert(names, jc.SameContents,
-		[]string{"local.mark-test-prodstack", "local.mallards", "local.aws-test"})
+		[]string{"local.mark-test-prodstack", "local.mallards", "local.aws-test"},
+	)
+	c.Assert(controllers.CurrentController, gc.Equals, "local.mallards")
 }
 
 func (s *ControllersFileSuite) TestParseControllerMetadataError(c *gc.C) {
 	controllers, err := jujuclient.ParseControllers([]byte("fail me now"))
-	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.controllersCollection")
+	c.Assert(err, gc.ErrorMatches, "cannot unmarshal yaml controllers metadata: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `fail me...` into jujuclient.Controllers")
 	c.Assert(controllers, gc.IsNil)
 }

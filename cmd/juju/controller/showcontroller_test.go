@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -227,20 +226,18 @@ func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
 }
 
 func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
-	s.createTestClientStore(c)
+	store := s.createTestClientStore(c)
 
 	s.expectedOutput = `
 {"local.aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert"},"accounts":{"admin@local":{"user":"admin@local","models":{"admin":{"uuid":"ghi"}},"current-model":"admin"}}}}
 `[1:]
-	err := modelcmd.WriteCurrentController("local.aws-test")
-	c.Assert(err, jc.ErrorIsNil)
+	store.CurrentControllerName = "local.aws-test"
 	s.assertShowController(c, "--format", "json")
 }
 
 func (s *ShowControllerSuite) TestShowControllerNoArgsNoCurrent(c *gc.C) {
-	err := modelcmd.WriteCurrentController("")
-	c.Assert(err, jc.ErrorIsNil)
-
+	store := s.createTestClientStore(c)
+	store.CurrentControllerName = ""
 	s.expectedErr = regexp.QuoteMeta(`there is no active controller`)
 	s.assertShowControllerFailed(c)
 }
