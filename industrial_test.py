@@ -787,7 +787,7 @@ class BackupRestoreAttempt(SteppedStageAttempt):
             yield results
             wait_for_state_server_to_shutdown(host, admin_client, instance_id)
             yield results
-            with admin_client.juju_async('restore', (backup_file,)):
+            with admin_client.restore_backup(backup_file):
                 yield results
         finally:
             os.unlink(backup_file)
