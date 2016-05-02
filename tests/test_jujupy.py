@@ -1169,6 +1169,8 @@ class TestEnvJujuClient(ClientTest):
             'maas-server': 'foo',
             'manta-key-id': 'foo',
             'manta-user': 'foo',
+            'management-subscription-id': 'foo',
+            'management-certificate': 'foo',
             'name': 'foo',
             'password': 'foo',
             'prefer-ipv6': 'foo',

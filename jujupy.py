@@ -462,6 +462,8 @@ class EnvJujuClient:
             'location',
             'maas-oauth',
             'maas-server',
+            'management-certificate',
+            'management-subscription-id',
             'manta-key-id',
             'manta-user',
             'name',
