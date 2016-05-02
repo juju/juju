@@ -227,7 +227,8 @@ class BuildPackageTestCase(unittest.TestCase):
         bs_mock.assert_called_with(
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
             debemail='me@email', debfullname='me', gpgcmd=None,
-            branch=DEFAULT_SPB, upatch='1', verbose=False)
+            branch=DEFAULT_SPB, upatch='1', verbose=False,
+            date=None, build=None, revid=None)
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
