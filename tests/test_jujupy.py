@@ -5786,10 +5786,8 @@ class TestJujuData(TestCase):
                             'home').get_region())
 
     def test_get_region_old_azure(self):
-        with self.assertRaisesRegexp(
-                ValueError, 'Non-ARM Azure not supported.'):
-            JujuData('foo', {'type': 'azure', 'location': 'bar'},
-                     'home').get_region()
+        self.assertEqual('northeu', JujuData('foo', {
+            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
 
     def test_get_region_azure_arm(self):
         self.assertEqual('bar', JujuData('foo', {

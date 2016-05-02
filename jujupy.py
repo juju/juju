@@ -2103,7 +2103,7 @@ class JujuData(SimpleEnvironment):
         provider = self.config['type']
         if provider == 'azure':
             if 'tenant-id' not in self.config:
-                raise ValueError('Non-ARM Azure not supported.')
+                return self.config['location'].replace(' ', '').lower()
             return self.config['location']
         elif provider == 'joyent':
             matcher = re.compile('https://(.*).api.joyentcloud.com')
