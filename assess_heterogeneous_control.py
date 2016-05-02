@@ -9,6 +9,7 @@ import sys
 
 from jujupy import (
     EnvJujuClient,
+    EnvJujuClient1X,
     LXC_MACHINE,
     SimpleEnvironment,
     until_timeout,
@@ -46,13 +47,21 @@ def get_clients(initial, other, base_env, debug, agent_url):
         environment.config.pop('tools-metadata-url', None)
     initial_client = EnvJujuClient.by_version(environment, initial,
                                               debug=debug)
-    other_client = EnvJujuClient.by_version(environment, other, debug=debug)
+    other_client = EnvJujuClient.by_version(initial_client.env, other,
+                                            debug=debug)
     # System juju is assumed to be released and the best choice for tearing
     # down environments reliably.  (For example, 1.18.x cannot tear down
     # environments with alpha agent-versions.)
     released_client = EnvJujuClient.by_version(environment, debug=debug)
-    if released_client.env != initial_client.env:
-        released_client = initial_client
+    # If released_client is a different major version, it cannot tear down
+    # initial client, so use initial client for teardown.
+    if (isinstance(released_client, EnvJujuClient1X) !=
+        isinstance(initial_client, EnvJujuClient1X)):
+            released_client = initial_client
+    else:
+        # If system juju is used, ensure it has identical env to
+        # initial_client.
+        released_client.env = initial_client.env
     return initial_client, other_client, released_client
 
 
@@ -79,10 +88,9 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
 def run_context(bs_manager, other, upload_tools):
     try:
         bs_manager.keep_env = True
-        if other.env.juju_home != bs_manager.client.env.juju_home:
-            raise AssertionError('Juju home out of sync')
         with bs_manager.booted_context(upload_tools):
-            other.env.juju_home = bs_manager.client.env.juju_home
+            if other.env.juju_home != bs_manager.client.env.juju_home:
+                raise AssertionError('Juju home out of sync')
             yield
         # Test clean shutdown of an environment.
         callback_with_fallback(other, bs_manager.tear_down_client,
@@ -99,61 +107,55 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
     with run_context(bs_manager, other, upload_tools):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
-        if False:
-            if sys.platform != "win32":
-                # Currently, juju ssh is not working on Windows.
-                check_token(initial, token)
-                check_series(other)
-                other.juju('run', ('--all', 'uname -a'))
-            other.get_config('dummy-source')
-            other.get_model_config()
-            other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
-            status = other.get_status()
-            other.juju('unexpose', ('dummy-sink',))
-            status = other.get_status()
-            if status.status['services']['dummy-sink']['exposed']:
-                raise AssertionError('dummy-sink is still exposed')
-            status = other.get_status()
-            charm_path = local_charm_path(
-                charm='dummy-sink', juju_ver=other.version)
-            juju_with_fallback(other, released, 'deploy',
-                               (charm_path, 'sink2'))
-            other.wait_for_started()
-            other.juju('add-relation', ('dummy-source', 'sink2'))
-            status = other.get_status()
-            other.juju('expose', ('sink2',))
+        if sys.platform != "win32":
+            # Currently, juju ssh is not working on Windows.
+            check_token(initial, token)
+            check_series(other)
+            other.juju('run', ('--all', 'uname -a'))
+        other.get_config('dummy-source')
+        other.get_model_config()
+        other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
+        status = other.get_status()
+        other.juju('unexpose', ('dummy-sink',))
+        status = other.get_status()
+        if status.status['services']['dummy-sink']['exposed']:
+            raise AssertionError('dummy-sink is still exposed')
+        status = other.get_status()
+        charm_path = local_charm_path(
+            charm='dummy-sink', juju_ver=other.version)
+        juju_with_fallback(other, released, 'deploy',
+                           (charm_path, 'sink2'))
+        other.wait_for_started()
+        other.juju('add-relation', ('dummy-source', 'sink2'))
+        status = other.get_status()
+        other.juju('expose', ('sink2',))
+        status = other.get_status()
+        if 'sink2' not in status.status['services']:
+            raise AssertionError('Sink2 missing')
+        other.remove_service('sink2')
+        for ignored in until_timeout(30):
             status = other.get_status()
             if 'sink2' not in status.status['services']:
-                raise AssertionError('Sink2 missing')
-            other.remove_service('sink2')
-            for ignored in until_timeout(30):
-            status = other.get_status()
-            if 'sink2' not in status.status['services']:
-                raise AssertionError('Sink2 missing')
-            other.remove_service('sink2')
-            for ignored in until_timeout(30):
-                status = other.get_status()
-                if 'sink2' not in status.status['services']:
-                    break
-            else:
-                raise AssertionError('Sink2 not destroyed')
-            other.juju('add-relation', ('dummy-source', 'dummy-sink'))
-            status = other.get_status()
-            relations = status.status['services']['dummy-sink']['relations']
-            if not relations['source'] == ['dummy-source']:
-                raise AssertionError('source is not dummy-source.')
-            other.juju('expose', ('dummy-sink',))
-            status = other.get_status()
-            if not status.status['services']['dummy-sink']['exposed']:
-                raise AssertionError('dummy-sink is not exposed')
-            other.juju('add-unit', ('dummy-sink',))
-            if not has_agent(other, 'dummy-sink/1'):
-                raise AssertionError('dummy-sink/1 was not added.')
-            other.juju('remove-unit', ('dummy-sink/1',))
-            status = other.get_status()
-            if has_agent(other, 'dummy-sink/1'):
-                raise AssertionError('dummy-sink/1 was not removed.')
-        container_type = LXC_MACHINE
+                break
+        else:
+            raise AssertionError('Sink2 not destroyed')
+        other.juju('add-relation', ('dummy-source', 'dummy-sink'))
+        status = other.get_status()
+        relations = status.status['services']['dummy-sink']['relations']
+        if not relations['source'] == ['dummy-source']:
+            raise AssertionError('source is not dummy-source.')
+        other.juju('expose', ('dummy-sink',))
+        status = other.get_status()
+        if not status.status['services']['dummy-sink']['exposed']:
+            raise AssertionError('dummy-sink is not exposed')
+        other.juju('add-unit', ('dummy-sink',))
+        if not has_agent(other, 'dummy-sink/1'):
+            raise AssertionError('dummy-sink/1 was not added.')
+        other.juju('remove-unit', ('dummy-sink/1',))
+        status = other.get_status()
+        if has_agent(other, 'dummy-sink/1'):
+            raise AssertionError('dummy-sink/1 was not removed.')
+        container_type = other.preferred_container()
         other.juju('add-machine', (container_type,))
         status = other.get_status()
         container_machine, = set(k for k, v in status.agent_items() if
