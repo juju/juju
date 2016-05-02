@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"math/rand"
-	"runtime"
 	"time"
 
 	"github.com/juju/names"
@@ -38,10 +37,6 @@ type MigrationSuite struct {
 	ConnSuite
 }
 
-type statusSetter interface {
-	SetStatus(status.Status, string, map[string]interface{}) error
-}
-
 func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,15 +57,9 @@ func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
 }
 
 func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
-	for i := 0; i < count; i++ {
-		c.Logf("setting status for %v", entity)
-		err := entity.SetStatus(statusVal, "", map[string]interface{}{"index": count - i})
-		c.Assert(err, jc.ErrorIsNil)
-		if runtime.GOOS == "windows" {
-			// The default clock tick on Windows is 15.6 ms.
-			time.Sleep(20 * time.Millisecond)
-		}
-	}
+	primeStatusHistory(c, entity, statusVal, count, func(i int) map[string]interface{} {
+		return map[string]interface{}{"index": count - i}
+	})
 }
 
 func (s *MigrationSuite) makeServiceWithLeader(c *gc.C, serviceName string, count int, leader int) {
