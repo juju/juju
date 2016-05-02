@@ -1797,14 +1797,10 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 self.assertEqual(iterator.next(),
                                  {'test_id': 'back-up-restore'})
         pn_mock.assert_called_with('Closed.')
-        with patch('subprocess.Popen') as po_mock:
+        with patch.object(admin_client, 'restore_backup') as rb_mock:
             self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        assert_juju_call(
-            self, po_mock, admin_client, (
-                'juju', '--show-log', 'restore', '-m',
-                admin_client.env.environment,
-                os.path.abspath('juju-backup-24.tgz')))
-        po_mock.return_value.wait.return_value = 0
+        rb_mock.assert_called_once_with(
+            os.path.abspath('juju-backup-24.tgz'))
         with patch('os.unlink') as ul_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore'})
