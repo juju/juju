@@ -2836,6 +2836,10 @@ class TestEnvJujuClient(ClientTest):
         register_cmd = self._get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)
 
+    # Don't check the log when what you really want to know is
+    # whether a command was invoked.
+    # Patch out mock_client.juju and use assert_juju_call.
+
    def test_remove_user_permissions(self):
         mock_client = FakeJujuClient()
         username = 'fakeuser'

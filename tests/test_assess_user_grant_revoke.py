@@ -84,11 +84,13 @@ class TestAssess(TestCase):
             self._sendline_strings = sendline_str
 
         def _check_string(self, string, string_list):
-            expected_string = string_list.pop(0)
-            if string != expected_string:
-                raise ValueError(
-                    'Expected {} got {}'.format(expected_string, string)
-                )
+            #expected_string = string_list.pop(0)
+            for string in string_list:
+                expected_string = string_iter.next()
+                if string != expected_string:
+                    raise ValueError(
+                        'Expected {} got {}'.format(expected_string, string)
+                    )
 
         def expect(self, string):
             self._check_string(string, self._expect_strings)
