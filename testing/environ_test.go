@@ -23,7 +23,8 @@ type fakeHomeSuite struct {
 var _ = gc.Suite(&fakeHomeSuite{})
 
 func (s *fakeHomeSuite) SetUpTest(c *gc.C) {
-	utils.SetHome(home)
+	err := utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
 	os.Setenv("JUJU_DATA", jujuXDGDataHome)
 	osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 

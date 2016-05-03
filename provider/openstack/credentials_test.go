@@ -117,9 +117,11 @@ func (s *credentialsSuite) TestDetectCredentialsNovarc(c *gc.C) {
 	}
 	home := utils.Home()
 	dir := c.MkDir()
-	utils.SetHome(dir)
+	err := utils.SetHome(dir)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
-		utils.SetHome(home)
+		err := utils.SetHome(home)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 
 	content := `
@@ -130,7 +132,7 @@ EXPORT OS_USERNAME=bob
 OS_REGION_NAME=region  
 `[1:]
 	novarc := filepath.Join(dir, ".novarc")
-	err := ioutil.WriteFile(novarc, []byte(content), 0600)
+	err = ioutil.WriteFile(novarc, []byte(content), 0600)
 
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)

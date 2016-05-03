@@ -76,7 +76,7 @@ func (s *listSuite) TestListJSON(c *gc.C) {
 	c.Assert(out, gc.Matches, `.*{"aws":{"defined":"public","type":"ec2","auth-types":\["access-key"\].*`)
 }
 
-func (s *showSuite) TestListPreservesRegionOrder(c *gc.C) {
+func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {
 	ctx, err := testing.RunCommand(c, cloud.NewListCloudsCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	lines := strings.Split(testing.Stdout(ctx), "\n")

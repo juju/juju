@@ -59,9 +59,11 @@ func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 func (s *credentialsSuite) TestDetectCredentialsEnvironmentVariables(c *gc.C) {
 	home := utils.Home()
 	dir := c.MkDir()
-	utils.SetHome(dir)
+	err := utils.SetHome(dir)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
-		utils.SetHome(home)
+		err := utils.SetHome(home)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "key-id")
@@ -123,9 +125,11 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 	}
 	home := utils.Home()
 	dir := c.MkDir()
-	utils.SetHome(dir)
+	err := utils.SetHome(dir)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
-		utils.SetHome(home)
+		err := utils.SetHome(home)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 	s.assertDetectCredentialsKnownLocation(c, dir)
 }
