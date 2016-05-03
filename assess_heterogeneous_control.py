@@ -10,7 +10,6 @@ import sys
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
-    LXC_MACHINE,
     SimpleEnvironment,
     until_timeout,
     )
@@ -55,9 +54,11 @@ def get_clients(initial, other, base_env, debug, agent_url):
     released_client = EnvJujuClient.by_version(environment, debug=debug)
     # If released_client is a different major version, it cannot tear down
     # initial client, so use initial client for teardown.
-    if (isinstance(released_client, EnvJujuClient1X) !=
-        isinstance(initial_client, EnvJujuClient1X)):
-            released_client = initial_client
+    if (
+            isinstance(released_client, EnvJujuClient1X) !=
+            isinstance(initial_client, EnvJujuClient1X)
+            ):
+        released_client = initial_client
     else:
         # If system juju is used, ensure it has identical env to
         # initial_client.
