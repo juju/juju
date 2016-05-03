@@ -168,6 +168,22 @@ func (s *FacadeSuite) TestPublicKeysTargetError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
+func (s *FacadeSuite) TestPublicKeysNoKeys(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, arg)
+		c.Check(id, gc.Equals, "")
+		*result.(*params.SSHPublicKeysResults) = params.SSHPublicKeysResults{
+			Results: []params.SSHPublicKeysResult{{Error: common.ServerError(errors.NotFoundf("sorry"))}},
+		}
+		return nil
+	})
+	facade := sshclient.NewFacade(apiCaller)
+	keys, err := facade.PublicKeys("foo/0")
+	c.Check(keys, gc.IsNil)
+	c.Check(err, gc.Equals, sshclient.ErrNoKeys)
+}
+
 func (s *FacadeSuite) TestPublicKeysMissingResults(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
