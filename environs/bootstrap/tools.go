@@ -67,9 +67,18 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string)
 // including tools that may be locally built and then
 // uploaded. Tools that need to be built will have an
 // empty URL.
-func findAvailableTools(env environs.Environ, vers *version.Number, arch, series *string, upload bool) (coretools.List, error) {
+func findAvailableTools(
+	env environs.Environ,
+	vers *version.Number,
+	arch, series *string,
+	upload, canBuild bool,
+) (coretools.List, error) {
+	println(canBuild)
 	if upload {
 		// We're forcing an upload: ensure we can do so.
+		if !canBuild {
+			return nil, errors.New("cannot build tools to upload")
+		}
 		if err := validateUploadAllowed(env, arch, series); err != nil {
 			return nil, err
 		}
@@ -94,10 +103,10 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch, series
 	}
 
 	preferredStream := envtools.PreferredStream(vers, env.Config().Development(), env.Config().AgentStream())
-	if preferredStream == envtools.ReleasedStream || vers != nil {
+	if preferredStream == envtools.ReleasedStream || vers != nil || !canBuild {
 		// We are not running a development build, or agent-version
-		// was specified; the only tools available are the ones we've
-		// just found.
+		// was specified, or we cannot build any tools; the only tools
+		// available are the ones we've just found.
 		return toolsList, findToolsErr
 	}
 	// The tools located may not include the ones that the

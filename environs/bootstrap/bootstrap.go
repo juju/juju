@@ -72,8 +72,14 @@ type BootstrapParams struct {
 	Placement string
 
 	// UploadTools reports whether we should upload the local tools and
-	// override the environment's specified agent-version.
+	// override the environment's specified agent-version. It is an error
+	// to specify UploadTools with a nil BuildToolsTarball.
 	UploadTools bool
+
+	// BuildToolsTarball, if non-nil, is a function that may be used to
+	// build tools to upload. If this is nil, tools uploading will never
+	// take place.
+	BuildToolsTarball sync.BuildToolsTarballFunc
 
 	// MetadataDir is an optional path to a local directory containing
 	// tools and/or image metadata.
@@ -155,7 +161,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 	availableTools, err := findAvailableTools(
 		environ, args.AgentVersion, bootstrapConstraints.Arch,
-		bootstrapSeries, args.UploadTools,
+		bootstrapSeries, args.UploadTools, args.BuildToolsTarball != nil,
 	)
 	if errors.IsNotFound(err) {
 		return errors.New(noToolsMessage)
@@ -225,7 +231,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			continue
 		}
 		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
-		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
+		builtTools, err := args.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
 		if err != nil {
 			return errors.Annotate(err, "cannot upload bootstrap tools")
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -227,6 +228,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	args := bootstrap.BootstrapParams{
 		ModelConstraints:  c.constraints,
 		UploadTools:       c.uploadTools,
+		BuildToolsTarball: sync.BuildToolsTarball,
 		HostedModelConfig: hostedModelConfig,
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
