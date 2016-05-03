@@ -467,6 +467,8 @@ def build_source(tarfile_path, location, series, bugs,
         daily_tarfile_name = tarfile_name.replace(version, daily_version)
         tarfile_dir = os.path.dirname(tarfile_path)
         daily_tarfile_path = os.path.join(tarfile_dir, daily_tarfile_name)
+        #os.rename(tarfile_path, daily_tarfile_path)
+        os.rename(tarfile_name, daily_tarfile_name)
         tarfile_path = daily_tarfile_path
         tarfile_name = daily_tarfile_name
 
