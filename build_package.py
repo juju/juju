@@ -462,6 +462,14 @@ def build_source(tarfile_path, location, series, bugs,
         series = [series]
     tarfile_name = os.path.basename(tarfile_path)
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
+    if all([date, build, revid]):
+        daily_version = '{}~{}~{}~{}'.format(version, date, build, revid)
+        daily_tarfile_name = tarfile_name.replace(version, daily_version)
+        tarfile_dir = os.path.dirname(tarfile_path)
+        daily_tarfile_path = os.path.join(tarfile_dir, daily_tarfile_name)
+        os.rename(tarfile_path, daily_tarfile_path)
+        os.rename(tarfile_name, daily_tarfile_name)
+
     files = [SourceFile(None, None, tarfile_name, tarfile_path)]
     spb_dir = setup_local(
         location, 'any', 'all', files, verbose=verbose)
