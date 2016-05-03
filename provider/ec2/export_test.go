@@ -153,6 +153,7 @@ func makeImage(id, storage, virtType, arch, version, region string) *imagemetada
 }
 
 var TestImageMetadata = []*imagemetadata.ImageMetadata{
+	// LTS-dependent requires new entries upon new LTS release.
 	// 16.04:amd64
 	makeImage("ami-00000133", "ssd", "pv", "amd64", "16.04", "test"),
 	makeImage("ami-00000139", "ebs", "pv", "amd64", "16.04", "test"),
@@ -160,8 +161,6 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 
 	// 14.04:amd64
 	makeImage("ami-00000033", "ssd", "pv", "amd64", "14.04", "test"),
-	makeImage("ami-00000039", "ebs", "pv", "amd64", "14.04", "test"),
-	makeImage("ami-00000035", "ssd", "hvm", "amd64", "14.04", "test"),
 
 	// 14.04:i386
 	makeImage("ami-00000034", "ssd", "pv", "i386", "14.04", "test"),
@@ -177,6 +176,7 @@ var TestImageMetadata = []*imagemetadata.ImageMetadata{
 }
 
 var TestImagesData = map[string]string{
+	// LTS-dependent requires new/updated entries upon new LTS release.
 	"/streams/v1/index.json": `
         {
          "index": {
@@ -195,8 +195,6 @@ var TestImagesData = map[string]string{
             "com.ubuntu.cloud:server:16.04:amd64",
             "com.ubuntu.cloud:server:14.04:amd64",
             "com.ubuntu.cloud:server:14.04:i386",
-            "com.ubuntu.cloud:server:14.04:amd64",
-            "com.ubuntu.cloud:server:12.10:amd64",
             "com.ubuntu.cloud:server:12.10:i386",
             "com.ubuntu.cloud:server:13.04:i386"
            ],
@@ -273,48 +271,12 @@ var TestImagesData = map[string]string{
      "versions": {
        "20121218": {
          "items": {
-           "usee1pi": {
-             "root_store": "instance",
-             "virt": "pv",
-             "region": "us-east-1",
-             "id": "ami-00000011"
-           },
-           "usww1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "eu-west-1",
-             "id": "ami-00000016"
-           },
-           "apne1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "ap-northeast-1",
-             "id": "ami-00000026"
-           },
-           "apne1he": {
-             "root_store": "ssd",
-             "virt": "hvm",
-             "region": "ap-northeast-1",
-             "id": "ami-00000087"
-           },
            "test1peebs": {
              "root_store": "ssd",
              "virt": "pv",
              "region": "test",
              "id": "ami-00000033"
-           },
-           "test1pessd": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "region": "test",
-             "id": "ami-00000039"
-           },
-           "test1he": {
-             "root_store": "ssd",
-             "virt": "hvm",
-             "region": "test",
-             "id": "ami-00000035"
-           }
+			}
          },
          "pubname": "ubuntu-trusty-14.04-amd64-server-20121218",
          "label": "release"
@@ -333,12 +295,6 @@ var TestImagesData = map[string]string{
              "virt": "pv",
              "region": "test",
              "id": "ami-00000034"
-           },
-           "apne1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "ap-northeast-1",
-             "id": "ami-00000023"
            }
          },
          "pubname": "ubuntu-trusty-14.04-i386-server-20121218",

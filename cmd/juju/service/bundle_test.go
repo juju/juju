@@ -25,6 +25,11 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+// LTS-dependent requires new entry upon new LTS release. There are numerous
+// places "xenial" exists in strings throughout this file. If we update the
+// target in testing/base.go:SetupSuite we'll need to also update the entries
+// herein.
+
 // runDeployCommand executes the deploy command in order to deploy the given
 // charm or bundle. The deployment output and error are returned.
 func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {

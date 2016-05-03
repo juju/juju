@@ -129,17 +129,21 @@ type BaseSuite struct {
 	JujuOSEnvSuite
 }
 
+var oldLtsForTesting string
+
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	// JujuOSEnvSuite does not have a suite setup.
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
-	series.SetLatestLtsForTesting("xenial")
+	// LTS-dependent requires new entry upon new LTS release.
+	oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
 	// JujuOSEnvSuite does not have a suite teardown.
+	_ = series.SetLatestLtsForTesting(oldLtsForTesting)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
