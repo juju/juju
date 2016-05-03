@@ -1245,10 +1245,18 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, prepared)
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerSpacesError(c *gc.C) {
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSpacesError(c *gc.C) {
 	controller := &fakeController{spacesError: errors.New("boom")}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), []network.InterfaceInfo{{}})
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMissing(c *gc.C) {
+	controller := &fakeController{}
+	suite.injectController(controller)
+	env := suite.makeEnviron(c, nil)
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), []network.InterfaceInfo{{}})
+	c.Assert(err, gc.ErrorMatches, "cannot find primary interface for container")
 }
