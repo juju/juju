@@ -1185,7 +1185,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 			},
 		},
 	}
-	var env *maasEnviron
 	device := &fakeDevice{
 		interfaceSet: deviceInterfaces,
 		systemID:     "foo",
@@ -1208,8 +1207,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		devices: []gomaasapi.Device{device},
 	}
 	suite.injectController(controller)
-	suite.setupFakeTools(c)
-	env = suite.makeEnviron(c, nil)
+	env := suite.makeEnviron(c, nil)
 
 	prepared := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1245,4 +1243,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	result, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, prepared)
+}
+
+func (suite *maas2EnvironSuite) TestAllocateContainerSpacesError(c *gc.C) {
+	controller := &fakeController{spacesError: errors.New("boom")}
+	suite.injectController(controller)
+	env := suite.makeEnviron(c, nil)
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), []network.InterfaceInfo{{}})
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
