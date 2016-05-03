@@ -132,3 +132,19 @@ func (*StringForwarderSuite) TestRace(c *gc.C) {
 	count := forwarder.Stop()
 	c.Check(count, jc.GreaterThan, uint64(0))
 }
+
+func (*StringForwarderSuite) TestSchedulerSensitivity(c *gc.C) {
+	var wg sync.WaitGroup
+	f := func() {
+		defer wg.Done()
+		forwarder := stringforwarder.New(noopCallback)
+		forwarder.Forward("msg")
+		n := forwarder.Stop()
+		c.Check(n, gc.Equals, uint64(0))
+	}
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go f()
+	}
+	wg.Wait()
+}
