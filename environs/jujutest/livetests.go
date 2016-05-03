@@ -11,6 +11,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/charmrepo"
 
@@ -142,7 +143,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
+		_, err := sync.Upload(t.toolsStorage, "released", nil, series.LatestLts())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
@@ -453,7 +454,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
 	expectedVersion := version.Current
-	expectedVersion.Series = config.LatestLtsSeries()
+	expectedVersion.Series = series.LatestLts()
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)
 

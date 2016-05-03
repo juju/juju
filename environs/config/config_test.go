@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5/charmrepo"
 	"gopkg.in/juju/environschema.v1"
@@ -60,7 +61,7 @@ var sampleConfig = testing.Attrs{
 	"state-port":                1234,
 	"api-port":                  4321,
 	"syslog-port":               2345,
-	"default-series":            config.LatestLtsSeries(),
+	"default-series":            series.LatestLts(),
 }
 
 type configTest struct {
@@ -1408,7 +1409,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
-		"default-series":            testing.FakeDefaultSeries,
+		"default-series":            series.LatestLts(),
 		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -1963,22 +1964,6 @@ type specializedCharmRepo struct {
 func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	s.testMode = true
 	return s
-}
-
-func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
-	config.ResetCachedLtsSeries()
-	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
-		return "", fmt.Errorf("error")
-	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, "trusty")
-}
-
-func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
-	config.ResetCachedLtsSeries()
-	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
-		return "series", nil
-	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, "series")
 }
 
 var caCert = `

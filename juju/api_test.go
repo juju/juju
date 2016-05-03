@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -257,7 +258,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 			"name":                      "myenv",
 			"state-server":              true,
 			"authorized-keys":           "i-am-a-key",
-			"default-series":            config.LatestLtsSeries(),
+			"default-series":            series.LatestLts(),
 			"firewall-mode":             config.FwInstance,
 			"development":               false,
 			"ssl-hostname-verification": true,

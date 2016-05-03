@@ -14,6 +14,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/arch"
@@ -126,14 +127,18 @@ type BaseSuite struct {
 	JujuOSEnvSuite
 }
 
+var oldLtsForTesting string
+
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
+	_ = series.SetLatestLtsForTesting(oldLtsForTesting)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
@@ -91,7 +92,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LiveTests.SetUpTest(c)
 	t.BaseSuite.PatchValue(&version.Current, version.Binary{
 		Number: coretesting.FakeVersionNumber,
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Arch:   arch.AMD64,
 	})
 }

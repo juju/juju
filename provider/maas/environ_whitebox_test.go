@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -1408,7 +1408,7 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	placement := "zone=zone1"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1473,26 +1473,26 @@ func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	placement := "zone=zone2"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	env := s.makeEnviron()
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *environSuite) TestPrecheckInvalidPlacement(c *gc.C) {
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, "notzone=anything")
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, "notzone=anything")
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
 }
 
 func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, "assumed_node_name")
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, "assumed_node_name")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -6,6 +6,7 @@ package ec2
 import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -46,8 +47,81 @@ var findInstanceSpecTests = []struct {
 	storage []string
 }{
 	{
-		series: testing.FakeDefaultSeries,
-		arches: both,
+		series: "xenial",
+		arches: []string{"amd64"},
+		itype:  "m3.medium",
+		image:  "ami-00000133",
+	}, {
+		series: "quantal",
+		arches: []string{"i386"},
+		itype:  "c1.medium",
+		image:  "ami-01000034",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "cpu-cores=4",
+		itype:  "m3.xlarge",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "mem=10G",
+		itype:  "m3.xlarge",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "mem=",
+		itype:  "m3.medium",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "cpu-power=",
+		itype:  "m3.medium",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "cpu-power=800",
+		itype:  "m3.xlarge",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "instance-type=m1.medium cpu-power=200",
+		itype:  "m1.medium",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "mem=2G root-disk=16384M",
+		itype:  "m3.medium",
+		image:  "ami-00000133",
+	}, {
+		series:  "xenial",
+		arches:  []string{"amd64"},
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m3.large",
+		storage: []string{"ssd", "ebs"},
+		image:   "ami-00000133",
+	}, {
+		series:  "xenial",
+		arches:  []string{"amd64"},
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m3.large",
+		storage: []string{"ebs", "ssd"},
+		image:   "ami-00000139",
+	}, {
+		series:  "xenial",
+		arches:  []string{"amd64"},
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m3.large",
+		storage: []string{"ebs"},
+		image:   "ami-00000139",
+	}, {
+		series: "trusty",
+		arches: []string{"amd64"},
 		itype:  "m3.medium",
 		image:  "ami-00000033",
 	}, {
@@ -55,54 +129,6 @@ var findInstanceSpecTests = []struct {
 		arches: []string{"i386"},
 		itype:  "c1.medium",
 		image:  "ami-01000034",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-cores=4",
-		itype:  "m3.xlarge",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-cores=2 arch=i386",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "mem=10G",
-		itype:  "m3.xlarge",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "mem=",
-		itype:  "m3.medium",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-power=",
-		itype:  "m3.medium",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-power=800",
-		itype:  "m3.xlarge",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-power=500 arch=i386",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: []string{"i386"},
-		cons:   "cpu-power=400",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
 	}, {
 		series: "quantal",
 		arches: both,
@@ -116,46 +142,12 @@ var findInstanceSpecTests = []struct {
 		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: "trusty",
 		arches: []string{"i386"},
 		cons:   "instance-type=c1.medium",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: []string{"amd64"},
-		cons:   "instance-type=m1.medium cpu-power=200",
-		itype:  "m1.medium",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "mem=2G root-disk=16384M",
-		itype:  "m3.medium",
-		image:  "ami-00000033",
-	}, {
-		series:  testing.FakeDefaultSeries,
-		arches:  both,
-		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
-		storage: []string{"ssd", "ebs"},
-		image:   "ami-00000033",
-	}, {
-		series:  testing.FakeDefaultSeries,
-		arches:  both,
-		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
-		storage: []string{"ebs", "ssd"},
-		image:   "ami-00000039",
-	}, {
-		series:  testing.FakeDefaultSeries,
-		arches:  both,
-		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
-		storage: []string{"ebs"},
-		image:   "ami-00000039",
-	},
-}
+	}}
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, test := range findInstanceSpecTests {
@@ -188,7 +180,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 	}
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      testing.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
@@ -209,16 +201,16 @@ var findInstanceSpecErrorTests = []struct {
 		arches: both,
 		err:    `unknown version for series: "bad"`,
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"arm"},
-		err:    `no "trusty" images in test with arches \[arm\]`,
+		err:    `no "xenial" images in test with arches \[arm\]`,
 	}, {
 		series: "raring",
 		arches: both,
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[m3.large m3.xlarge c1.xlarge m3.2xlarge cc2.8xlarge\]`,
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: both,
 		cons:   "instance-type=m1.small mem=4G",
 		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,

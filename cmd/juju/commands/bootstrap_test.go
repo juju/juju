@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -250,7 +251,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutestin
 	)
 
 	if test.version != "" {
-		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
+		useVersion := strings.Replace(test.version, "%LTS%", series.LatestLts(), 1)
 		origVersion := version.Current
 		version.Current = version.MustParseBinary(useVersion)
 		restore = restore.Add(func() {
@@ -806,7 +807,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&version.Current.Series, config.LatestLtsSeries())
+	s.PatchValue(&version.Current.Series, series.LatestLts())
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.

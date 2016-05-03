@@ -4,7 +4,10 @@
 package commands
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -44,7 +47,7 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	err = runExpose(c, "some-service-name")
@@ -59,7 +62,7 @@ func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	// Block operation

@@ -4,10 +4,5 @@
 package config
 
 var (
-	DistroLtsSeries = &distroLtsSeries
-	ConfigSchema    = configSchema
+	ConfigSchema = configSchema
 )
-
-func ResetCachedLtsSeries() {
-	latestLtsSeries = ""
-}

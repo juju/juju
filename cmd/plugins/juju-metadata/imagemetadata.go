@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/series"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -128,7 +129,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no environment found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
-		c.Series = config.LatestLtsSeries()
+		c.Series = series.LatestLts()
 	}
 	if c.ImageId == "" {
 		return errors.Errorf("image id must be specified")

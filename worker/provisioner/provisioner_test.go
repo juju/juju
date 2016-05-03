@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -446,14 +447,14 @@ func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
 
 func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
 }
 
 func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
+	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, series.LatestLts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -882,7 +883,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
@@ -910,7 +911,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.KVM)
@@ -1195,7 +1196,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Volumes:     volumes,

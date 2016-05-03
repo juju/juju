@@ -12,13 +12,13 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -384,7 +384,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			// Substitute latest LTS for placeholder in expected series for uploaded tools
-			uploaded = strings.Replace(uploaded, "%LTS%", config.LatestLtsSeries(), 1)
+			uploaded = strings.Replace(uploaded, "%LTS%", series.LatestLts(), 1)
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}

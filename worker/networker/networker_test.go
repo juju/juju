@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -230,7 +231,7 @@ func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
 
 	// Create a new container.
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	lxcMachine, err := s.State.AddMachineInsideMachine(template, s.stateMachine.Id(), instance.LXC)

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
@@ -522,7 +523,7 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "trusty")
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, series.LatestLts())
 }
 
 func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
