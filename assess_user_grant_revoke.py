@@ -32,40 +32,12 @@ __metaclass__ = type
 log = logging.getLogger("assess_user_grant_revoke")
 
 
-def _get_register_command(output):
-    for row in output.split('\n'):
-        if 'juju register' in row:
-            return row.strip().lstrip()
-
-
-def create_user_permissions(client, username, models=None, permissions='read'):
-    if models is None:
-        models = client.env.environment
-
-    args = (username, '--models', models, '--acl', permissions)
-    output = client.get_juju_output('add-user', *args, include_e=False)
-    return _get_register_command(output)
-
-
-def remove_user_permissions(client, username, models=None, permissions='read'):
-    if models is None:
-        models = client.env.environment
-
-    args = (username, models, '--acl', permissions)
-    client.juju('revoke', args, include_e=False)
-
-
-def register_user(username, env, register_cmd, register_process=pexpect.spawn):
-    """Register a user
-
-    :register_process: is a pexpect like callable that has the methods
-      'expect' and 'sendline'.
-
-    """
+def register_user(username, environment, register_cmd,
+                  register_process=pexpect.spawn):
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     try:
-        child = register_process(register_cmd, env=env)
+        child = register_process(register_cmd, env=environment)
         child.expect('(?i)name .*: ')
         child.sendline(username + '_controller')
         child.expect('(?i)password')
@@ -80,12 +52,27 @@ def register_user(username, env, register_cmd, register_process=pexpect.spawn):
         raise AssertionError(
             'Registering user failed: pexpect session timed out')
 
-
 def create_cloned_environment(client, cloned_juju_home):
     user_client = client.clone(env=client.env.clone())
     user_client.env.juju_home = cloned_juju_home
     user_client_env = user_client._shell_environ()
     return user_client, user_client_env
+
+def assert_read(client, permission):
+    if permission is True:
+        self.assertTrue(client.show_user())
+        self.assertTrue(client.list_controllers())
+        self.assertTrue(client.show_status())
+    else:
+        self.assertFalse(client.show_user())
+        self.assertFalse(client.list_controllers())
+        self.assertFalse(client.show_status())
+
+def assert_write(client, permission):
+    if permission is True:
+        self.assertTrue(client.deploy('local:wordpress')
+    else:
+        self.assertFalse(client.deploy('local:wordpress')
 
 
 def assess_user_grant_revoke(client):
@@ -95,8 +82,8 @@ def assess_user_grant_revoke(client):
     log.debug("Creating Users")
     read_user = 'bob'
     write_user = 'carol'
-    read_user_register = create_user_permissions(client, read_user)
-    write_user_register = create_user_permissions(client, write_user)
+    read_user_register = client.create_user_permissions(read_user)
+    write_user_register = client.create_user_permissions(write_user)
 
     log.debug("Testing read_user access")
     with temp_dir() as fake_home:
@@ -104,76 +91,31 @@ def assess_user_grant_revoke(client):
             client, fake_home)
         register_user(read_user, read_user_env, read_user_register)
 
-        # assert we can show status
-        try:
-            read_user_client.list_controllers()
-            read_user_client.show_user()
-            read_user_client.show_status()
-        except subprocess.CalledProcessError:
-            raise AssertionError(
-                'assert_fail read-only user cannot see status')
-
-        # assert we CAN NOT deploy
-        try:
-            read_user_client.deploy('local:wordpress')
-        except subprocess.CalledProcessError:
-            pass
-        else:
-            raise AssertionError('assert_fail read-only user deployed charm')
+        assert_read(read_user, True)
+        assert_write(read_user, False)
 
         # remove all permissions
         log.debug("Revoking permissions from read_user")
-        remove_user_permissions(client, read_user)
+        client.remove_user_permissions(client, read_user)
 
-        # we SHOULD NOT be able to do anything
-        log.debug("Testing revoked read_user access")
-        try:
-            read_user_client.list_models()
-            raise AssertionError(
-                'assert_fail zero permissions user can see status')
-        except subprocess.CalledProcessError:
-            pass
+        assert_read(read_user, False)
+        assert_write(read_user, False)
 
     log.debug("Testing write_user access")
     with temp_dir() as fake_home:
         write_user_client, write_user_env = create_cloned_environment(
             client, fake_home)
-        register_user(write_user, write_user_env,
-                      write_user_register)
+        register_user(write_user, write_user_env, write_user_register)
 
-        # assert we can show status
-        try:
-            write_user_client.show_user()
-            write_user_client.list_controllers()
-            write_user_client.show_status()
-        except subprocess.CalledProcessError:
-            raise AssertionError('assert_fail r/w user cannot see status')
-
-        # assert we CAN deploy
-        try:
-            write_user_client.deploy('local:wordpress')
-        except subprocess.CalledProcessError:
-            raise AssertionError('assert_fail r/w user cannot deploy charm')
+        assert_read(read_user, True)
+        assert_write(read_user, True)
 
         # remove all permissions
         log.debug("Revoking permissions from write_user")
-        remove_user_permissions(client, write_user, permissions='write')
+        write_user_client.remove_user_permissions(write_user, permissions='write')
 
-        # we SHOULD be able to still see status
-        log.debug("Testing revoked write_user access")
-        try:
-            write_user_client.show_status()
-        except subprocess.CalledProcessError:
-            raise AssertionError(
-                'assert_fail read-only user cannot list models')
-
-        # we SHOULD NOT be able to deploy
-        try:
-            write_user_client.deploy('local:wordpress')
-        except subprocess.CalledProcessError:
-            pass
-        else:
-            raise AssertionError('assert_fail read-only user deployed charm')
+        assert_read(read_user, True)
+        assert_write(read_user, False)
 
 
 def parse_args(argv):

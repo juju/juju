@@ -360,14 +360,31 @@ class FakeBackend:
                 model_state.destroy_model()
 
     def get_juju_output(self, command, args, model=None, timeout=None):
-        model_state = self.controller_state.models[model]
-        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
-            return model_state.token
-        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
-            return 'Codename:\t{}\n'.format(
-                model_state.model_config['default-series'])
-        if command == 'get-model-config':
-            return yaml.safe_dump(model_state.model_config)
+        if command == ('add-user'):
+            if set(["--acl", "read"]).issubset(args):
+                username = args[0]
+                model = args[2]
+                return ''.join(['User "' + username + '" added\nUser "' +
+                               username + '" granted read access ',
+                               'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
+                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
+            elif set(["--acl", "write"]).issubset(args):
+                username = args[0]
+                model = args[2]
+                return ''.join(['User "' + username + '" added\nUser "' + username + '" granted read access ',
+                          'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
+                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
+        else:
+            model_state = self.controller_state.models[model]
+            if cmd == 'deploy':
+                _require_admin(self.deploy(model_state, *args))
+            if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+                return model_state.token
+            if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
+                return 'Codename:\t{}\n'.format(
+                    model_state.model_config['default-series'])
+            if command == 'get-model-config':
+                return yaml.safe_dump(model_state.model_config)
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -2811,6 +2828,76 @@ class TestEnvJujuClient(ClientTest):
             client.enable_feature('nomongo')
         self.assertEqual(str(ctx.exception), "Unknown feature flag: 'nomongo'")
 
+    def test__get_register_command(self):
+        output = ''.join(['User "x" added\nUser "x" granted read access ',
+                          'to model "y"\nPlease send this command to x:\n',
+                          '    juju register AaBbCc'])
+        output_cmd = 'juju register AaBbCc'
+        register_cmd = self._get_register_command(output)
+        self.assertEqual(register_cmd, output_cmd)
+
+   def test_remove_user_permissions(self):
+        mock_client = FakeJujuClient()
+        username = 'fakeuser'
+        model = 'foo'
+
+        remove_user_permissions(mock_client, username)
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'name', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        remove_user_permissions(mock_client, username, model)
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        remove_user_permissions(
+            mock_client, username, model, permissions='write')
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'foo', '--acl', 'write'",
+            self.log_stream.getvalue())
+
+        remove_user_permissions(
+            mock_client, username, model, permissions='read')
+        self.assertIn(
+            "'juju', '--show-log', 'revoke', 'fakeuser'," +
+            " 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+    def test_create_user_permissions(self):
+        mock_client = FakeJujuClient()
+        username = 'fakeuser'
+        model = 'foo'
+
+        create_user_permissions(mock_client, username)
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'name', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        create_user_permissions(mock_client, username, model)
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
+        create_user_permissions(
+            mock_client, username, model, permissions='write')
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'foo', '--acl', 'write'",
+            self.log_stream.getvalue())
+
+        create_user_permissions(
+            mock_client, username, model, permissions='read')
+        self.assertIn(
+            "'juju', '--show-log', 'add-user', 'fakeuser'," +
+            " '--models', 'foo', '--acl', 'read'",
+            self.log_stream.getvalue())
+
 
 class TestEnvJujuClient2B2(ClientTest):
 
@@ -4635,7 +4722,6 @@ class TestEnvJujuClient1X(ClientTest):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for juju get'):
                 client.get_service_config('foo')
-
 
 class TestUniquifyLocal(TestCase):
 

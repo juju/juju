@@ -216,7 +216,6 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation'])
 
     _show_status = 'show-status'
-    _show_user = 'show-user'
 
     @classmethod
     def get_version(cls, juju_path=None):
@@ -544,7 +543,7 @@ class EnvJujuClient:
 
     def show_user(self):
         """Print the users to output."""
-        self.juju(self._show_user, ('--format', 'yaml'), include_e=False)
+        self.juju('show-user', '--format', 'yaml'), include_e=False)
 
     def get_status(self, timeout=60, raw=False, admin=False, *args):
         """Get the current status as a dict."""
@@ -1118,6 +1117,27 @@ class EnvJujuClient:
 
     def add_subnet(self, subnet, space):
         self.juju('add-subnet', (subnet, space))
+
+    def _get_register_command(output):
+        for row in output.split('\n'):
+            if 'juju register' in row:
+                return row.strip().lstrip()
+        raise AssertionError('Juju register command not found in output')
+
+    def create_user_permissions(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions)
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
+
+    def remove_user_permissions(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+        self.juju('revoke', args, include_e=False)
 
 
 class EnvJujuClient2B2(EnvJujuClient):

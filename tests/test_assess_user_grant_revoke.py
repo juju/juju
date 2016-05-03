@@ -1,23 +1,22 @@
 """Tests for assess_user_grant_revoke module."""
 
 import logging
+from functools import partial
+import StringIO
+
+
 from mock import (
     Mock,
     patch,
 )
-from functools import partial
-import StringIO
 import pexpect
 
 from assess_user_grant_revoke import (
     assess_user_grant_revoke,
-    parse_args,
     create_cloned_environment,
-    register_user,
-    create_user_permissions,
-    remove_user_permissions,
-    _get_register_command,
     main,
+    parse_args,
+    register_user,
 )
 from tests import (
     parse_error,
@@ -72,34 +71,6 @@ class TestMain(TestCase):
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 
-class FakeJujuClient(FakeJujuClient):
-    def get_juju_output(self, command, *args, **kwargs):
-        if command == ('add-user'):
-            if set(["--acl", "read"]).issubset(args):
-
-                username = args[0]
-                model = args[2]
-                return ''.join(['User "' + username + '" added\nUser "' + username + '" granted read access ',
-                          'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
-                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
-            elif set(["--acl", "write"]).issubset(args):
-                username = args[0]
-                model = args[2]
-                return ''.join(['User "' + username + '" added\nUser "' + username + '" granted read access ',
-                          'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
-                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
-
-    def juju(self, cmd, args, check=True, include_e=True, timeout=None):
-        if include_e:
-            model = self.env.environment
-        else:
-            model = None
-
-        if model is not None:
-            model_state = self.controller_state.models[model]
-            if cmd == 'deploy':
-                _require_admin(self.deploy(model_state, *args))
-
 class TestAssess(TestCase):
 
     class RegisterUserProcess:
@@ -127,7 +98,6 @@ class TestAssess(TestCase):
 
         def isalive(self):
             return False
-
 
 
     def test_user_grant_revoke(self):
@@ -176,73 +146,3 @@ class TestAssess(TestCase):
         )
 
         register_user(username, env, cmd, register_process=register_process)
-
-    def test_remove_user_permissions(self):
-        mock_client = FakeJujuClient()
-        username = 'fakeuser'
-        model = 'foo'
-
-        remove_user_permissions(mock_client, username)
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'name', '--acl', 'read'",
-            self.log_stream.getvalue())
-
-        remove_user_permissions(mock_client, username, model)
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
-
-        remove_user_permissions(
-            mock_client, username, model, permissions='write')
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'foo', '--acl', 'write'",
-            self.log_stream.getvalue())
-
-        remove_user_permissions(
-            mock_client, username, model, permissions='read')
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
-
-    def test_create_user_permissions(self):
-        mock_client = FakeJujuClient()
-        username = 'fakeuser'
-        model = 'foo'
-
-        create_user_permissions(mock_client, username)
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'name', '--acl', 'read'",
-            self.log_stream.getvalue())
-
-        create_user_permissions(mock_client, username, model)
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
-
-        create_user_permissions(
-            mock_client, username, model, permissions='write')
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'foo', '--acl', 'write'",
-            self.log_stream.getvalue())
-
-        create_user_permissions(
-            mock_client, username, model, permissions='read')
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
-
-    def test__get_register_command(self):
-        output = ''.join(['User "x" added\nUser "x" granted read access ',
-                          'to model "y"\nPlease send this command to x:\n',
-                          '    juju register AaBbCc'])
-        output_cmd = 'juju register AaBbCc'
-        register_cmd = _get_register_command(output)
-        self.assertEqual(register_cmd, output_cmd)
