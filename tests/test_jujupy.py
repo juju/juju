@@ -330,6 +330,8 @@ class FakeBackend:
         return 0
 
     def add_machines(self, model_state, args):
+        if len(args) == 0:
+            return model_state.add_machine()
         ssh_machines = [a[4:] for a in args if a.startswith('ssh:')]
         if len(ssh_machines) == len(args):
             return model_state.add_ssh_machines(ssh_machines)
@@ -357,7 +359,14 @@ class FakeBackend:
                 if name == 'token':
                     model_state.token = value
             if cmd == 'deploy':
-                self.deploy(model_state, *args)
+                parser = ArgumentParser()
+                parser.add_argument('charm_name')
+                parser.add_argument('service_name', nargs='?')
+                parser.add_argument('--to')
+                parser.add_argument('--series')
+                parsed = parser.parse_args(args)
+                self.deploy(model_state, parsed.charm_name,
+                            parsed.service_name, parsed.series)
             if cmd == 'destroy-service':
                 model_state.destroy_service(*args)
             if cmd == 'remove-service':
@@ -380,7 +389,11 @@ class FakeBackend:
             if cmd == 'add-machine':
                 return self.add_machines(model_state, args)
             if cmd == 'remove-machine':
-                (machine_id,) = args
+                parser = ArgumentParser()
+                parser.add_argument('machine_id')
+                parser.add_argument('--force', action='store_true')
+                parsed = parser.parse_args(args)
+                machine_id = parsed.machine_id
                 if '/' in machine_id:
                     model_state.remove_container(machine_id)
                 else:
@@ -1162,6 +1175,8 @@ class TestEnvJujuClient(ClientTest):
             'maas-server': 'foo',
             'manta-key-id': 'foo',
             'manta-user': 'foo',
+            'management-subscription-id': 'foo',
+            'management-certificate': 'foo',
             'name': 'foo',
             'password': 'foo',
             'prefer-ipv6': 'foo',
@@ -1568,6 +1583,14 @@ class TestEnvJujuClient(ClientTest):
             client.deploy_bundle('bundle:~juju-qa/some-bundle')
         mock_juju.assert_called_with(
             'deploy', ('bundle:~juju-qa/some-bundle'), timeout=3600)
+
+    def test_deploy_bundle_template(self):
+        client = EnvJujuClient(JujuData('an_env', None),
+                               '1.23-series-arch', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
+        mock_juju.assert_called_with(
+            'deploy', ('bundle:~juju-qa/some-lxd-bundle'), timeout=3600)
 
     def test_upgrade_charm(self):
         env = EnvJujuClient(
@@ -2660,6 +2683,17 @@ class TestEnvJujuClient(ClientTest):
             ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
+
+    def test_quickstart_template(self):
+        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
+                               '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-{container}-bundle')
+        mock.assert_called_with(
+            'quickstart', (
+                '--constraints', 'mem=2G', '--no-browser',
+                'bundle:~juju-qa/some-lxd-bundle'),
+            True, extra_env={'JUJU': '/juju'})
 
     def test_action_do(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -4425,6 +4459,18 @@ class TestEnvJujuClient1X(ClientTest):
             False
         )
 
+    def test_deploy_bundle_template(self):
+        client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
+                                 '1.23-series-arch', None)
+        with patch.object(client, 'juju') as mock_juju:
+            client.deploy_bundle('bundle:~juju-qa/some-{container}-bundle')
+        mock_juju.assert_called_with(
+            'deployer', (
+                '--debug', '--deploy-delay', '10', '--timeout', '3600',
+                '--config', 'bundle:~juju-qa/some-lxc-bundle',
+                ),
+            False)
+
     def test_deployer(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
                                  '1.23-series-arch', None)
@@ -4434,6 +4480,18 @@ class TestEnvJujuClient1X(ClientTest):
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
                          '3600', '--config', 'bundle:~juju-qa/some-bundle'),
             True
+        )
+
+    def test_deployer_template(self):
+        client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
+                                 '1.23-series-arch', None)
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
+            client.deployer('bundle:~juju-qa/some-{container}-bundle')
+        mock.assert_called_with(
+            'deployer', (
+                '--debug', '--deploy-delay', '10', '--timeout', '3600',
+                '--config', 'bundle:~juju-qa/some-lxc-bundle',
+                ), True
         )
 
     def test_deployer_with_bundle_name(self):
@@ -4480,6 +4538,17 @@ class TestEnvJujuClient1X(ClientTest):
             ('--constraints', 'mem=2G', '--no-browser',
              'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
         )
+
+    def test_quickstart_template(self):
+        client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
+                                 '1.23-series-arch', '/juju')
+        with patch.object(EnvJujuClient1X, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-{container}-bundle')
+        mock.assert_called_with(
+            'quickstart', (
+                '--constraints', 'mem=2G', '--no-browser',
+                'bundle:~juju-qa/some-lxc-bundle'),
+            True, extra_env={'JUJU': '/juju'})
 
     def test_list_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
@@ -5725,10 +5794,8 @@ class TestJujuData(TestCase):
                             'home').get_region())
 
     def test_get_region_old_azure(self):
-        with self.assertRaisesRegexp(
-                ValueError, 'Non-ARM Azure not supported.'):
-            JujuData('foo', {'type': 'azure', 'location': 'bar'},
-                     'home').get_region()
+        self.assertEqual('northeu', JujuData('foo', {
+            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
 
     def test_get_region_azure_arm(self):
         self.assertEqual('bar', JujuData('foo', {
