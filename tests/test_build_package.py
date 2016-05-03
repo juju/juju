@@ -8,6 +8,7 @@ import os
 from StringIO import StringIO
 from textwrap import dedent
 import unittest
+from testscenarios import TestWithScenarios
 
 from build_package import (
     _JujuSeries,
@@ -43,6 +44,8 @@ from utils import (
     autopatch,
     temp_dir,
 )
+
+
 
 
 class JujuSeriesTestCase(unittest.TestCase):
@@ -165,95 +168,6 @@ class BuildPackageTestCase(unittest.TestCase):
         bb_mock.assert_called_with(
             'my.dsc', '~/workspace', 'trusty', 'i386', ppa=None, verbose=False)
 
-    def test_get_args_source(self):
-        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
-        with patch.dict('os.environ', shell_env):
-            args = get_args(
-                ['prog', 'source', 'my_1.25.0.tar.gz', '~/workspace', 'trusty',
-                 '123', '456'])
-        self.assertEqual('source', args.command)
-        self.assertEqual('my_1.25.0.tar.gz', args.tar_file)
-        self.assertEqual('~/workspace', args.location)
-        self.assertEqual('trusty', args.series)
-        self.assertEqual(['123', '456'], args.bugs)
-        self.assertEqual('me@email', args.debemail)
-        self.assertEqual('me', args.debfullname)
-        self.assertIsNone(args.gpgcmd)
-        self.assertEqual(DEFAULT_SPB, args.branch)
-        self.assertEqual('1', args.upatch)
-        self.assertFalse(args.verbose)
-        self.assertIsNone(args.date)
-        self.assertIsNone(args.build)
-        self.assertIsNone(args.revid)
-
-    def test_get_args_daily_source(self):
-        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
-        with patch.dict('os.environ', shell_env):
-            args = get_args(
-                ['prog', 'source', 'my_1.25.0.tar.gz', '~/workspace', 'trusty',
-                 '123', '456', '--date', '20160502', '--build', '3065',
-                  '--revid', '4bbce805'])
-        self.assertEqual('source', args.command)
-        self.assertEqual('my_1.25.0.tar.gz', args.tar_file)
-        self.assertEqual('~/workspace', args.location)
-        self.assertEqual('trusty', args.series)
-        self.assertEqual(['123', '456'], args.bugs)
-        self.assertEqual('me@email', args.debemail)
-        self.assertEqual('me', args.debfullname)
-        self.assertIsNone(args.gpgcmd)
-        self.assertEqual(DEFAULT_SPB, args.branch)
-        self.assertEqual('1', args.upatch)
-        self.assertFalse(args.verbose)
-        self.assertEqual('20160502', args.date)
-        self.assertEqual('3065', args.build)
-        self.assertEqual('4bbce805', args.revid)
-
-    def test_get_args_source_default_spb2_branch(self):
-        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
-        with patch.dict('os.environ', shell_env):
-            args = get_args(
-                ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace', 'trusty',
-                 '123', '456'])
-        self.assertEqual('source', args.command)
-        self.assertEqual('my_2.0-a.tar.gz', args.tar_file)
-        self.assertEqual(DEFAULT_SPB2, args.branch)
-
-    def test_get_args_source_with_branch(self):
-        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
-        with patch.dict('os.environ', shell_env):
-            args = get_args(
-                ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace', 'trusty',
-                 '123', '456', '--branch', '~/my-branch'])
-        self.assertEqual('source', args.command)
-        self.assertEqual('my_2.0-a.tar.gz', args.tar_file)
-        self.assertEqual('~/my-branch', args.branch)
-
-    def test_get_args_source_with_living(self):
-        with patch('build_package.juju_series.get_living_names', autospec=True,
-                   return_value=['precise', 'trusty']) as js_mock:
-            args = get_args(
-                ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
-                 '123', '456'])
-        self.assertEqual(['precise', 'trusty'], args.series)
-        self.assertEqual(1, js_mock.call_count)
-        args = get_args(
-            ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
-             '123', '456'])
-        self.assertEqual(juju_series.get_living_names(), args.series)
-
-    def test_main_source(self):
-        with patch('build_package.build_source', autospec=True,
-                   return_value=0) as bs_mock:
-            code = main([
-                'prog', 'source',
-                '--debemail', 'me@email', '--debfullname', 'me',
-                'my.tar.gz', '~/workspace', 'trusty', '123', '456'])
-        self.assertEqual(0, code)
-        bs_mock.assert_called_with(
-            'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
-            debemail='me@email', debfullname='me', gpgcmd=None,
-            branch=DEFAULT_SPB, upatch='1', verbose=False,
-            date=None, build=None, revid=None)
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
@@ -406,28 +320,6 @@ class BuildPackageTestCase(unittest.TestCase):
             found = move_debs(build_dir, workspace)
             self.assertFalse(found)
 
-    @autopatch('build_package.create_source_package')
-    @autopatch('build_package.create_source_package_branch',
-               return_value='./spb_path')
-    @autopatch('build_package.setup_local',
-               side_effect=['./spb_dir', './precise_dir', './trusty_dir'])
-    def test_build_source(self, sl_mock, spb_mock, csp_mock):
-        return_code = build_source(
-            './my_1.2.3.tar.gz', './workspace', ['precise', 'trusty'], ['987'],
-            debemail=None, debfullname=None, gpgcmd='my/gpg',
-            branch='lp:branch', upatch=None, verbose=False)
-        sl_mock.assert_any_call(
-            './workspace', 'any', 'all',
-            [SourceFile(None, None, 'my_1.2.3.tar.gz', './my_1.2.3.tar.gz')],
-            verbose=False)
-        spb_mock.assert_called_with(
-            './spb_dir', '1.2.3', 'my_1.2.3.tar.gz', 'lp:branch')
-        sl_mock.assert_any_call(
-            './workspace', 'precise', 'all', [], verbose=False)
-        sl_mock.assert_any_call(
-            './workspace', 'trusty', 'all', [], verbose=False)
-        self.assertEqual(0, return_code)
-
     @autopatch('subprocess.check_call')
     def test_create_source_package_branch(self, cc_mock):
         spb = create_source_package_branch(
@@ -458,80 +350,6 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(
             'New upstream stable point release. (LP #987, LP #876)',
             message)
-
-    @autopatch('build_package.sign_source_package')
-    @autopatch('subprocess.check_call')
-    def test_create_source_package(self, cc_mock, ss_mock):
-        create_source_package(
-            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
-            '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
-            debemail='me@email', debfullname='me', verbose=False)
-        script = BUILD_SOURCE_TEMPLATE.format(
-            spb='/juju-build-any-all/spb',
-            source='/juju-build-trusty-all/source',
-            series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
-            message='New upstream stable point release. (LP #987)')
-        env = make_deb_shell_env('me@email', 'me')
-        cc_mock.assert_called_with(
-            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
-        self.assertEqual(0, ss_mock.call_count)
-
-    @autopatch('build_package.sign_source_package')
-    @autopatch('subprocess.check_call')
-    def test_create_daily_source_package(self, cc_mock, ss_mock):
-        create_source_package(
-            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
-            '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
-            debemail='me@email', debfullname='me', verbose=False,
-            date='20160502', build='3065', revid='4bbce805')
-        script = BUILD_SOURCE_TEMPLATE.format(
-            spb='/juju-build-any-all/spb',
-            source='/juju-build-trusty-all/source',
-            series='trusty',
-            ubuntu_version='1.2.3-20160502+3065+4bbce805~14.04',
-            message='New upstream stable point release. (LP #987)')
-        env = make_deb_shell_env('me@email', 'me')
-        cc_mock.assert_called_with(
-            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
-        self.assertEqual(0, ss_mock.call_count)
-
-    @autopatch('build_package.sign_source_package')
-    @autopatch('subprocess.check_call')
-    def test_create_source_package_with_gpgcmd(self, cc_mock, ss_mock):
-        create_source_package(
-            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
-            '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
-            debemail='me@email', debfullname='me', verbose=False)
-        script = BUILD_SOURCE_TEMPLATE.format(
-            spb='/juju-build-any-all/spb',
-            source='/juju-build-trusty-all/source',
-            series='trusty', ubuntu_version='1.2.3-0ubuntu1~14.04.1~juju1',
-            message='New upstream stable point release. (LP #987)')
-        env = make_deb_shell_env('me@email', 'me')
-        cc_mock.assert_called_with(
-            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
-        ss_mock.assert_called_with(
-            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
-
-    @autopatch('build_package.sign_source_package')
-    @autopatch('subprocess.check_call')
-    def test_create_daily_source_package_with_gpgcmd(self, cc_mock, ss_mock):
-        create_source_package(
-            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
-            '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
-            debemail='me@email', debfullname='me', verbose=False,
-            date='20160502', build='3065', revid='4bbce805')
-        script = BUILD_SOURCE_TEMPLATE.format(
-            spb='/juju-build-any-all/spb',
-            source='/juju-build-trusty-all/source',
-            series='trusty',
-            ubuntu_version='1.2.3-20160502+3065+4bbce805~14.04',
-            message='New upstream stable point release. (LP #987)')
-        env = make_deb_shell_env('me@email', 'me')
-        cc_mock.assert_called_with(
-            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
-        ss_mock.assert_called_with(
-            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
 
     @autopatch('subprocess.check_call')
     def test_sign_source_package(self, cc_mock):
@@ -573,3 +391,255 @@ class BuildPackageTestCase(unittest.TestCase):
             package_version='1.25.0-0ubuntu1~16.04.1~juju1')
         self.assertEqual(0, code)
         self.assertEqual('xenial\n', so_mock.getvalue())
+
+
+class CreateBuildSource(TestWithScenarios):
+
+    scenarios = [
+        ('release',
+            {'date': None,
+             'build': None,
+             'revid': None,
+             'tarfile_name': 'my_1.2.3.tar.gz',
+             'tarfile_path': './my_1.2.3.tar.gz'
+             }),
+
+        ('daily',
+            {'date': '20160502',
+             'build': '3065',
+             'revid': '4bbce805',
+             'original_tarfile_name': 'my_1.2.3.tar.gz',
+             'tarfile_name': 'my_1.2.3~20160502~3065~4bbce805.tar.gz',
+             'tarfile_path': './my_1.2.3~20160502~3065~4bbce805.tar.gz'
+             }),
+        ('broken_daily',
+            {'date': None,
+             'build': '3065',
+             'revid': '4bbce805',
+             'tarfile_name': 'my_1.2.3.tar.gz',
+             'tarfile_path': './my_1.2.3.tar.gz'
+             })
+    ]
+
+    @autopatch('build_package.create_source_package')
+    @autopatch('build_package.create_source_package_branch',
+               return_value='./spb_path')
+    @autopatch('build_package.setup_local',
+               side_effect=['./spb_dir', './precise_dir', './trusty_dir'])
+    def test_build_source(self, sl_mock, spb_mock, csp_mock):
+        return_code = build_source(
+            './my_1.2.3.tar.gz', './workspace', ['precise', 'trusty'], ['987'],
+            debemail=None, debfullname=None, gpgcmd='my/gpg',
+            branch='lp:branch', upatch=None, verbose=False,
+            date=self.date, build=self.build, revid=self.revid)
+        sl_mock.assert_any_call(
+            './workspace', 'any', 'all',
+            [SourceFile(None, None, self.tarfile_name, self.tarfile_path)],
+            verbose=False)
+        spb_mock.assert_called_with(
+            './spb_dir', '1.2.3', self.tarfile_name, 'lp:branch')
+        sl_mock.assert_any_call(
+            './workspace', 'precise', 'all', [], verbose=False)
+        sl_mock.assert_any_call(
+            './workspace', 'trusty', 'all', [], verbose=False)
+        self.assertEqual(0, return_code)
+
+
+class CreateSourcePackageTests(TestWithScenarios):
+
+    scenarios = [
+        ('release',
+            {'date': None,
+             'build': None,
+             'revid': None,
+             'ubuntu_version': '1.2.3-0ubuntu1~14.04.1~juju1'
+             }),
+
+        ('daily',
+            {'date': '20160502',
+             'build': '3065',
+             'revid': '4bbce805',
+             'ubuntu_version': '1.2.3-20160502+3065+4bbce805~14.04'
+             }),
+         ('broken_daily',
+            {'date': None,
+             'build': '3065',
+             'revid': '4bbce805',
+             'ubuntu_version': '1.2.3-0ubuntu1~14.04.1~juju1'
+             })
+    ]
+
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
+    def test_create_source_package(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
+            debemail='me@email', debfullname='me', verbose=False,
+            date=self.date, build=self.build, revid=self.revid)
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/source',
+            series='trusty',
+            ubuntu_version=self.ubuntu_version,
+            message='New upstream stable point release. (LP #987)')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        self.assertEqual(0, ss_mock.call_count)
+
+
+    @autopatch('build_package.sign_source_package')
+    @autopatch('subprocess.check_call')
+    def test_create_source_package_with_gpgcmd(self, cc_mock, ss_mock):
+        create_source_package(
+            '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
+            '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
+            debemail='me@email', debfullname='me', verbose=False,
+            date=self.date, build=self.build, revid=self.revid)
+        script = BUILD_SOURCE_TEMPLATE.format(
+            spb='/juju-build-any-all/spb',
+            source='/juju-build-trusty-all/source',
+            series='trusty',
+            ubuntu_version=self.ubuntu_version,
+            message='New upstream stable point release. (LP #987)')
+        env = make_deb_shell_env('me@email', 'me')
+        cc_mock.assert_called_with(
+            [script], shell=True, cwd='/juju-build-trusty-all', env=env)
+        ss_mock.assert_called_with(
+            '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
+
+class GetArgsTests(TestWithScenarios):
+
+    scenarios = [
+        ('release',
+            {'date': None,
+             'build': None,
+             'revid': None
+             }),
+
+        ('daily',
+            {'date': '20160502',
+             'build': '3065',
+             'revid': '4bbce805'
+             }),
+         ('broken_daily',
+            {'date': None,
+             'build': '3065',
+             'revid': '4bbce805'
+             })
+    ]
+
+
+    def test_get_args_source(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args_list = ['prog', 'source', 'my_1.25.0.tar.gz', '~/workspace',
+                         'trusty', '123', '456']
+            if self.date:
+                args_list.append('--date')
+                args_list.append(self.date)
+            if self.build:
+                args_list.append('--build')
+                args_list.append(self.build)
+            if self.revid:
+                args_list.append('--revid')
+                args_list.append(self.revid)
+            args = get_args(args_list)
+        self.assertEqual('source', args.command)
+        self.assertEqual('my_1.25.0.tar.gz', args.tar_file)
+        self.assertEqual('~/workspace', args.location)
+        self.assertEqual('trusty', args.series)
+        self.assertEqual(['123', '456'], args.bugs)
+        self.assertEqual('me@email', args.debemail)
+        self.assertEqual('me', args.debfullname)
+        self.assertIsNone(args.gpgcmd)
+        self.assertEqual(DEFAULT_SPB, args.branch)
+        self.assertEqual('1', args.upatch)
+        self.assertFalse(args.verbose)
+        self.assertEqual(self.date, args.date)
+        self.assertEqual(self.build, args.build)
+        self.assertEqual(self.revid, args.revid)
+
+    def test_get_args_source_default_spb2_branch(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args_list =  ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace',
+                          'trusty', '123', '456']
+            if self.date:
+                args_list.append('--date')
+                args_list.append(self.date)
+            if self.build:
+                args_list.append('--build')
+                args_list.append(self.build)
+            if self.revid:
+                args_list.append('--revid')
+                args_list.append(self.revid)
+            args = get_args(args_list)
+        self.assertEqual('source', args.command)
+        self.assertEqual('my_2.0-a.tar.gz', args.tar_file)
+        self.assertEqual(DEFAULT_SPB2, args.branch)
+
+    def test_get_args_source_with_branch(self):
+        shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
+        with patch.dict('os.environ', shell_env):
+            args_list = ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace',
+                         'trusty', '123', '456', '--branch', '~/my-branch']
+            if self.date:
+                args_list.append('--date')
+                args_list.append(self.date)
+            if self.build:
+                args_list.append('--build')
+                args_list.append(self.build)
+            if self.revid:
+                args_list.append('--revid')
+                args_list.append(self.revid)
+            args = get_args(args_list)
+        self.assertEqual('source', args.command)
+        self.assertEqual('my_2.0-a.tar.gz', args.tar_file)
+        self.assertEqual('~/my-branch', args.branch)
+
+    def test_get_args_source_with_living(self):
+        with patch('build_package.juju_series.get_living_names', autospec=True,
+                   return_value=['precise', 'trusty']) as js_mock:
+            args_list = ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
+                         '123', '456']
+            if self.date:
+                args_list.append('--date')
+                args_list.append(self.date)
+            if self.build:
+                args_list.append('--build')
+                args_list.append(self.build)
+            if self.revid:
+                args_list.append('--revid')
+                args_list.append(self.revid)
+            args = get_args(args_list)
+        self.assertEqual(['precise', 'trusty'], args.series)
+        self.assertEqual(1, js_mock.call_count)
+        args = get_args(
+            ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
+             '123', '456'])
+        self.assertEqual(juju_series.get_living_names(), args.series)
+
+    def test_main_source(self):
+        with patch('build_package.build_source', autospec=True,
+                   return_value=0) as bs_mock:
+            args_list = ['prog', 'source', '--debemail', 'me@email',
+                         '--debfullname', 'me', 'my.tar.gz', '~/workspace',
+                         'trusty', '123', '456']
+            if self.date:
+                args_list.append('--date')
+                args_list.append(self.date)
+            if self.build:
+                args_list.append('--build')
+                args_list.append(self.build)
+            if self.revid:
+                args_list.append('--revid')
+                args_list.append(self.revid)
+            code = main(args_list)
+        self.assertEqual(0, code)
+        bs_mock.assert_called_with(
+            'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
+            debemail='me@email', debfullname='me', gpgcmd=None,
+            branch=DEFAULT_SPB, upatch='1', verbose=False,
+            date=self.date, build=self.build, revid=self.revid)
