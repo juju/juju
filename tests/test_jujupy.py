@@ -158,6 +158,10 @@ class FakeEnvironmentState:
     def state(self):
         return self.controller.state
 
+    def require_admin(self, operation):
+        if self.name != self.controller.admin_model.name:
+            raise AdminOperation(operation)
+
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
         self.machines.add(machine_id)
@@ -186,10 +190,6 @@ class FakeEnvironmentState:
         self.remove_machine(machine_id)
         self.state_servers.remove(machine_id)
 
-    def bootstrap(self, env, commandline_config, separate_admin):
-        return self.controller.bootstrap(self, env, commandline_config,
-                                         separate_admin)
-
     def destroy_environment(self):
         self._clear()
         self.controller.state = 'destroyed'
@@ -203,6 +203,19 @@ class FakeEnvironmentState:
         del self.controller.models[self.name]
         self._clear()
         self.controller.state = 'model-destroyed'
+
+    def restore_backup(self):
+        self.require_admin('restore')
+        if len(self.state_servers) > 0:
+            exc = subprocess.CalledProcessError('Operation not permitted', 1,
+                                                2)
+            exc.stderr = 'Operation not permitted'
+            raise exc
+
+    def enable_ha(self):
+        self.require_admin('enable-ha')
+        for n in range(2):
+            self.state_servers.append(self.add_machine())
 
     def deploy(self, charm_name, service_name):
         self.add_unit(service_name)
@@ -233,9 +246,12 @@ class FakeEnvironmentState:
         for machine_id in self.machines:
             machine_dict = {}
             hostname = self.machine_host_names.get(machine_id)
+            machine_dict['instance-id'] = machine_id
             if hostname is not None:
                 machine_dict['dns-name'] = hostname
             machines[machine_id] = machine_dict
+            if machine_id in self.state_servers:
+                machine_dict['controller-member-status'] = 'has-vote'
         for host, containers in self.containers.items():
             machines[host]['containers'] = dict((c, {}) for c in containers)
         services = {}
@@ -253,9 +269,16 @@ class FakeEnvironmentState:
 
 class FakeBackend:
 
-    def __init__(self, backing_state):
+    def __init__(self, backing_state, feature_flags=None):
         self._backing_state = backing_state
-        self._feature_flags = set()
+        if feature_flags is None:
+            feature_flags = set()
+        self._feature_flags = feature_flags
+
+    def clone(self, backing_state=None):
+        if backing_state is None:
+            backing_state = self._backing_state
+        return self.__class__(backing_state, set(self._feature_flags))
 
     @property
     def backing_state(self):
@@ -292,11 +315,13 @@ class FakeBackend:
         commandline_config = {}
         if bootstrap_series is not None:
             commandline_config['default-series'] = bootstrap_series
-        self._backing_state.bootstrap(
-            env, commandline_config, self.is_feature_enabled('jes'))
+        self.controller_state.bootstrap(
+            self._backing_state, env, commandline_config,
+            self.is_feature_enabled('jes'))
 
     def quickstart(self, env, bundle):
-        self.backing_state.bootstrap(env, {}, self.is_feature_enabled('jes'))
+        self.controller_state.bootstrap(self._backing_state, env, {},
+                                        self.is_feature_enabled('jes'))
         model_state = self.controller_state.models[env.environment]
         model_state.deploy_bundle(bundle)
 
@@ -313,10 +338,23 @@ class FakeBackend:
         (container_type,) = args
         model_state.add_container(container_type)
 
+    def get_admin_model_name(self):
+        return self.controller_state.admin_model.name
+
+    def make_controller_dict(self, controller_name):
+        admin_model = self.controller_state.admin_model
+        server_id = list(admin_model.state_servers)[0]
+        server_hostname = admin_model.machine_host_names[server_id]
+        api_endpoint = '{}:23'.format(server_hostname)
+        return {controller_name: {'details': {'api-endpoints': [
+            api_endpoint]}}}
+
     def juju(self, cmd, args, model=None, timeout=None):
         if model is not None:
             model_state = self.controller_state.models[model]
-            if (cmd, args[:1]) == ('set', ('dummy-source',)):
+            if cmd == 'enable-ha':
+                model_state.enable_ha()
+            if (cmd, args[:1]) == ('set-config', ('dummy-source',)):
                 name, value = args[1].split('=')
                 if name == 'token':
                     model_state.token = value
@@ -373,9 +411,19 @@ class FakeBackend:
                 model = args[0]
                 model_state = self.controller_state.models[model]
                 model_state.destroy_model()
+            if cmd == 'add-model':
+                if not self.is_feature_enabled('jes'):
+                    raise JESNotSupported()
+                parser = ArgumentParser()
+                parser.add_argument('-c', '--controller')
+                parser.add_argument('--config')
+                parser.add_argument('model_name')
+                parsed = parser.parse_args(args)
+                self.controller_state.add_model(parsed.model_name)
 
     def get_juju_output(self, command, args, model=None, timeout=None):
-        model_state = self.controller_state.models[model]
+        if model is not None:
+            model_state = self.controller_state.models[model]
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
             return model_state.token
         if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
@@ -383,6 +431,11 @@ class FakeBackend:
                 model_state.model_config['default-series'])
         if command == 'get-model-config':
             return yaml.safe_dump(model_state.model_config)
+        if command == 'restore-backup':
+            model_state.restore_backup()
+        if command == 'show-controller':
+            return yaml.safe_dump(self.make_controller_dict(args[0]))
+        return ''
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -398,11 +451,11 @@ class FakeJujuClient(EnvJujuClient):
                  jes_enabled=False, version='2.0.0'):
         backend_state = FakeEnvironmentState()
         if env is None:
-            env = SimpleEnvironment('name', {
+            env = JujuData('name', {
                 'type': 'foo',
                 'default-series': 'angsty',
                 }, juju_home='foo')
-        backend_state.name = env
+        backend_state.name = env.environment
         self._backend = FakeBackend(backend_state)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env
@@ -416,6 +469,10 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
+    @property
+    def model_name(self):
+        return self.env.environment
+
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
             full_path = self.full_path
@@ -423,8 +480,13 @@ class FakeJujuClient(EnvJujuClient):
             debug = self.debug
         client = self.__class__(env, full_path, debug,
                                 jes_enabled=self.is_jes_enabled())
-        client._backend = self._backend
+        model_name = env.environment
+        model_state = self._backend.controller_state.models.get(model_name)
+        client._backend = self._backend.clone(model_state)
         return client
+
+    def pause(self, seconds):
+        pass
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
@@ -433,7 +495,7 @@ class FakeJujuClient(EnvJujuClient):
         return '1.2-alpha3'
 
     def _acquire_state_client(self, state):
-        if state.name == self.env.environment:
+        if state.name == self.model_name:
             return self
         new_env = self.env.clone(model_name=state.name)
         new_client = self.clone(new_env)
@@ -459,17 +521,15 @@ class FakeJujuClient(EnvJujuClient):
     def disable_jes(self):
         self._backend.set_feature('jes', False)
 
-    def get_cache_path(self):
-        return get_cache_path(self.env.juju_home, models=True)
-
     def get_juju_output(self, command, *args, **kwargs):
-        return self._backend.get_juju_output(
-            command, args, model=self.env.environment, **kwargs)
+        if kwargs.pop('include_e', True):
+            kwargs['model'] = self.model_name
+        return self._backend.get_juju_output(command, args, **kwargs)
 
     def juju(self, cmd, args, check=True, include_e=True, timeout=None):
         # TODO: Use argparse or change all call sites to use functions.
         if include_e:
-            model = self.env.environment
+            model = self.model_name
         else:
             model = None
         return self._backend.juju(cmd, args, model, timeout)
@@ -485,29 +545,16 @@ class FakeJujuClient(EnvJujuClient):
     def quickstart(self, bundle):
         self._backend.quickstart(self.env, bundle)
 
-    def add_model(self, env):
-        if not self.is_jes_enabled():
-            raise JESNotSupported()
-        model_state = self._backend.controller_state.add_model(
-            env.environment)
-        return self._acquire_state_client(model_state)
-
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment()
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
 
-    def wait_for_deploy_started(self):
-        pass
-
-    def show_status(self):
-        pass
-
     def get_status(self, admin=False):
         try:
             model_state = self._backend.controller_state.models[
-                self.env.environment]
+                self.model_name]
         except KeyError:
             # Really, this should raise, but that would break tests.
             status_dict = {'services': {}, 'machines': {}}
@@ -516,56 +563,15 @@ class FakeJujuClient(EnvJujuClient):
         status_text = yaml.safe_dump(status_dict)
         return Status(status_dict, status_text)
 
-    def status_until(self, timeout):
-        yield self.get_status()
-
-    def set_config(self, service, options):
-        option_strings = ['{}={}'.format(*item) for item in options.items()]
-        self.juju('set', (service,) + tuple(option_strings))
-
-    def get_config(self, service):
-        pass
-
-    def deployer(self, bundle, name=None):
-        pass
-
     def wait_for_workloads(self, timeout=600):
         pass
 
     def get_juju_timings(self):
         pass
 
-    def _require_admin(self, operation):
-        if self.get_admin_client() != self:
-            raise AdminOperation(operation)
-
     def backup(self):
-        self._require_admin('backup')
-
-    def restore_backup(self, backup_file):
-        self._require_admin('restore')
-        model_state = self._backend.controller_state.models[
-            self.env.environment]
-        if len(model_state.state_servers) > 0:
-            exc = subprocess.CalledProcessError('Operation not permitted', 1,
-                                                2)
-            exc.stderr = 'Operation not permitted'
-            raise exc
-
-    def enable_ha(self):
-        self._require_admin('enable-ha')
-
-    def wait_for_ha(self):
-        self._require_admin('wait-for-ha')
-
-    def get_controller_leader(self):
-        return self.get_controller_members()[0]
-
-    def get_controller_members(self):
-        model_state = self._backend.controller_state.models[
-            self.env.environment]
-        return [Machine(s, {'instance-id': s})
-                for s in model_state.state_servers]
+        model_state = self._backend.controller_state.models[self.model_name]
+        model_state.require_admin('backup')
 
 
 class TestErroredUnit(TestCase):

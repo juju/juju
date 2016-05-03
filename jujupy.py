@@ -441,10 +441,12 @@ class EnvJujuClient:
         return tuple(args)
 
     def add_model(self, env):
-        model_client = self.clone(env)
-        with model_client._bootstrap_config() as config_file:
+        # Temporary clone to generate bootstrap config.
+        with self.clone(env)._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
-        return model_client
+        # Since it happens after _add_model, this copy will have a
+        # correctly-cloned backend.
+        return self.clone(env)
 
     def make_model_config(self):
         config_dict = make_safe_config(self)
@@ -928,6 +930,9 @@ class EnvJujuClient:
         """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
+    def pause(self, seconds):
+        pause(seconds)
+
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
@@ -946,7 +951,7 @@ class EnvJujuClient:
                         # juju claims HA is ready when the monogo replica sets
                         # are not. Juju is not fully usable. The replica set
                         # lag might be 5 minutes.
-                        pause(300)
+                        self.pause(300)
                         return
                 reporter.update(states)
             else:
