@@ -14,9 +14,8 @@ import (
 )
 
 type vpcInfo struct {
-	id                              network.Id
-	isDefault                       bool
-	suitableSubnetIDsForControllers []network.Id
+	id        network.Id
+	isDefault bool
 }
 
 // getVPC returns the VPC ID to use and whether it is the default VPC for the
@@ -25,6 +24,7 @@ type vpcInfo struct {
 func (e *environ) getVPC() (network.Id, bool, error) {
 	// Use the cached info, if available.
 	if e.cachedVPC != nil {
+		logger.Tracef("using cached VPC info %#v", e.cachedVPC)
 		return e.cachedVPC.id, e.cachedVPC.isDefault, nil
 	}
 	ec2Client := e.ec2()
@@ -36,6 +36,7 @@ func (e *environ) getVPC() (network.Id, bool, error) {
 
 	if vpcID == "" {
 		// Expect a default VPC to be available, but verify anyway.
+		logger.Tracef("assuming default VPC exists for region %q", region)
 		return e.getDefaultVPC(ec2Client)
 	}
 
@@ -98,6 +99,7 @@ func (e *environ) getDefaultVPC(ec2Client *ec2.EC2) (network.Id, bool, error) {
 		id:        network.Id(defaultVPCID),
 		isDefault: hasDefault,
 	}
+	logger.Tracef("caching default VPC info %#v", e.cachedVPC)
 	return e.cachedVPC.id, e.cachedVPC.isDefault, nil
 }
 
@@ -243,5 +245,6 @@ func validateVPC(ec2Client *ec2.EC2, region, vpcID string) (*vpcInfo, error) {
 	}
 
 	// All good!
+	logger.Tracef("caching validated VPC info %#v", vpc)
 	return vpc, nil
 }

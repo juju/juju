@@ -1466,6 +1466,7 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 	securityGroups := []ec2.SecurityGroup{}
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
+			logger.Debugf("instance %q has security groups %+v", inst.InstanceId, inst.SecurityGroups)
 			securityGroups = append(securityGroups, inst.SecurityGroups...)
 		}
 	}
@@ -1483,7 +1484,7 @@ func (e *environ) controllerSecurityGroups() ([]ec2.SecurityGroup, error) {
 	}
 	groups := make([]ec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
-		groups[i] = ec2.SecurityGroup{info.Id, info.Name}
+		groups[i] = ec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
 	return groups, nil
 }
@@ -1493,7 +1494,7 @@ func (e *environ) controllerSecurityGroups() ([]ec2.SecurityGroup, error) {
 func (e *environ) cleanEnvironmentSecurityGroups() error {
 	jujuGroup := e.jujuGroupName()
 	g, err := e.groupByName(jujuGroup)
-	if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+	if isNotFoundError(err) {
 		return nil
 	}
 	if err != nil {
@@ -1619,10 +1620,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		Clock:       clock,
 		Func: func() error {
 			_, err := inst.DeleteSecurityGroup(group)
-			if err == nil {
-				return nil
-			}
-			if isNotFoundError(err) {
+			if err == nil || isNotFoundError(err) {
 				return nil
 			}
 			return errors.Trace(err)
@@ -1753,11 +1751,14 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		}
 		logger.Debugf("created security group %q in VPC %q with ID %q", name, usedVPCID, g.Id)
 	} else {
-		var groups []ec2.SecurityGroup
-		f := ec2.NewFilter()
+		var (
+			groups []ec2.SecurityGroup
+			f      *ec2.Filter
+		)
 		if usedVPCID != "" {
 			// AWS VPC API requires both of these filters (and no
 			// group names/ids set) for non-default EC2-VPC groups:
+			f = ec2.NewFilter()
 			f.Add("vpc-id", usedVPCID)
 			f.Add("group-name", name)
 		} else {
@@ -1814,9 +1815,8 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	return g, nil
 }
 
-// permKey represents a permission for a group or an ip address range
-// to access the given range of ports. Only one of groupName or ipAddr
-// should be non-empty.
+// permKey represents a permission for a group or an ip address range to access
+// the given range of ports. Only one of groupId or ipAddr should be non-empty.
 type permKey struct {
 	protocol string
 	fromPort int

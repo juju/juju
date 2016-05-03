@@ -127,6 +127,7 @@ type localServer struct {
 	config *s3test.Config
 
 	defaultVPC *amzec2.VPC
+	zones      []amzec2.AvailabilityZoneInfo
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -164,6 +165,7 @@ func (srv *localServer) startServer(c *gc.C) {
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
+	srv.zones = zones
 
 	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,8 +186,7 @@ func (srv *localServer) addSpice(c *gc.C) {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
-	const doNotRemoveDefaultZonesOrGroups = false
-	srv.ec2srv.Reset(doNotRemoveDefaultZonesOrGroups)
+	srv.ec2srv.Reset(false)
 	srv.ec2srv.Quit()
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
@@ -749,6 +750,7 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 type mockAvailabilityZoneAllocations struct {
 	group  []instance.Id // input param
 	result []common.AvailabilityZoneInstances
+	zones  []string
 	err    error
 }
 
@@ -759,14 +761,24 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	return t.result, t.err
 }
 
+func (t *localServerSuite) makeMockAvailabilityZoneAllocations() *mockAvailabilityZoneAllocations {
+	mock := &mockAvailabilityZoneAllocations{
+		result: make([]common.AvailabilityZoneInstances, len(t.srv.zones)),
+		zones:  make([]string, len(t.srv.zones)),
+	}
+	for i, zone := range t.srv.zones {
+		mock.result[i].ZoneName = zone.Name
+		mock.zones[i] = zone.Name
+	}
+	return mock
+}
+
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{{ZoneName: "az1"}},
-	}
+	mock := t.makeMockAvailabilityZoneAllocations()
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// no distribution group specified
@@ -790,9 +802,8 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := mockAvailabilityZoneAllocations{
-		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
-	}
+	mock := t.makeMockAvailabilityZoneAllocations()
+	mock.err = fmt.Errorf("AvailabilityZoneAllocations failed")
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(errors.Cause(err), gc.Equals, mock.err)
@@ -864,11 +875,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{
-			{ZoneName: "az1"}, {ZoneName: "az2"},
-		},
-	}
+	mock := t.makeMockAvailabilityZoneAllocations()
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	var azArgs []string
@@ -882,7 +889,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 		regexp.QuoteMeta(runInstancesError.Message),
 		runInstancesError.Code,
 	))
-	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
+	c.Assert(azArgs, gc.DeepEquals, mock.zones)
 }
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
@@ -1014,11 +1021,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{
-			{ZoneName: "az1"}, {ZoneName: "az2"},
-		},
-	}
+	mock := t.makeMockAvailabilityZoneAllocations()
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// The first call to RunInstances fails with an error indicating the AZ
@@ -1033,9 +1036,9 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		return realRunInstances(e, ri)
 	})
 	inst, hwc := testing.AssertStartInstance(c, env, "1")
-	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
-	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
-	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
+	c.Assert(azArgs, gc.DeepEquals, mock.zones[:2])
+	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, mock.zones[1])
+	c.Check(*hwc.AvailabilityZone, gc.Equals, mock.zones[1])
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
@@ -1177,37 +1180,6 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := t.Prepare(c)
 	_, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
-}
-
-func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
-	// Remove the default VPC to trigger errors below.
-	c.Assert(t.srv.defaultVPC, gc.NotNil)
-	t.srv.ec2srv.RemoveVPC(t.srv.defaultVPC.Id)
-
-	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	instanceIds, err := env.ControllerInstances()
-	c.Assert(err, jc.ErrorIsNil)
-
-	instId := instanceIds[0]
-	addr := network.Address{Value: "8.0.0.4"}
-
-	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", &addr, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
-
-	// No network interface
-	err = env.AllocateAddress(instId, "", &addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
-
-	// Nil or empty address given.
-	err = env.AllocateAddress(instId, "", nil, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
-
-	err = env.AllocateAddress(instId, "", &network.Address{Value: ""}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {

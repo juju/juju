@@ -95,15 +95,17 @@ func (p environProvider) PrepareForBootstrap(
 		}
 	}
 
-	vpcID, isDefault, err := env.getVPC()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if isDefault {
-		ctx.Infof("Using default VPC %q for region %q", vpcID, env.ecfg().region())
-	} else {
-		ctx.Infof("Using non-default VPC %q in region %q", vpcID, env.ecfg().region())
+	vpcIDFromConfig := env.ecfg().vpcID()
+	if vpcIDFromConfig != "" {
+		vpcID, isDefault, err := env.getVPC()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if isDefault {
+			ctx.Infof("Using default VPC %q for region %q", vpcID, env.ecfg().region())
+		} else {
+			ctx.Infof("Using non-default VPC %q in region %q", vpcID, env.ecfg().region())
+		}
 	}
 
 	return e, nil
