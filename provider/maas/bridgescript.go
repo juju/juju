@@ -85,10 +85,9 @@ class LogicalInterface(object):
     def __str__(self):
         return self.name
 
-    def _bridge_cmds(self, bridge_name):
+    def bridge_now(self, bridge_name):
         # https://wiki.archlinux.org/index.php/Network_bridge
         # ip addr delete dev <interface name> <cidr>
-        cmds = []
         args = {
             'bridge': bridge_name,
             'parent': self.name,
@@ -102,50 +101,42 @@ class LogicalInterface(object):
             else:
                 args[option[0]] = option[1]
 
-        cmds.append('ip link add name {bridge} type bridge'.format(**args))
-        cmds.append('ip link set {bridge} up'.format(**args))
-        cmds.append('ip link set {parent} master {bridge}'.format(**args))
+        # Save routes
+        routes = check_shell_cmd('ip route show dev {parent}'.format(**args))
+
+        print_shell_cmd('ip link add name {bridge} type bridge'.format(**args))
+        print_shell_cmd('ip link set {bridge} up'.format(**args))
+        print_shell_cmd('ip link set {parent} master {bridge}'.format(**args))
 
         if 'address' in args:
-            cmds.append('ip addr delete dev {parent} {address}'.format(**args))
+            print_shell_cmd('ip addr delete dev {parent} {address}'.format(**args))
 
             cmd = 'ip addr add dev {bridge} {address}'
             if 'netmask' in args:
                 cmd += '/{netmask}'
 
-            cmds.append(cmd.format(**args))
+            print_shell_cmd(cmd.format(**args))
 
-        return cmds
+        for route in routes.splitlines():
+            # ip route replace will add missing routes or update existing ones.
+            print_shell_cmd('ip route replace {} dev {bridge}'.format(route, **args))
 
-    # Returns an ordered set of stanzas to bridge this interface and a a list
-    # of ip commands to perform the bridging immediately.
+    # Returns an ordered set of stanzas to bridge this interface
     def bridge(self, prefix, bridge_name, add_auto_stanza):
         if bridge_name is None:
             bridge_name = prefix + self.name
 
         # Note: the testing order here is significant.
         if not self.is_active or self.is_bridged:
-            return self._bridge_unchanged(add_auto_stanza), []
+            return self._bridge_unchanged(add_auto_stanza)
         elif self.is_alias:
-            return (
-                self._bridge_alias(add_auto_stanza),
-                self._bridge_cmds(bridge_name)
-            )
+            return self._bridge_alias(add_auto_stanza)
         elif self.is_vlan:
-            return (
-                self._bridge_vlan(bridge_name, add_auto_stanza),
-                self._bridge_cmds(bridge_name)
-            )
+            return self._bridge_vlan(bridge_name, add_auto_stanza)
         elif self.is_bonded:
-            return (
-                self._bridge_bond(bridge_name, add_auto_stanza),
-                self._bridge_cmds(bridge_name)
-            )
+            return self._bridge_bond(bridge_name, add_auto_stanza)
         else:
-            return (
-                self._bridge_device(bridge_name),
-                self._bridge_cmds(bridge_name)
-            )
+            return self._bridge_device(bridge_name)
 
     def _bridge_device(self, bridge_name):
         s1 = IfaceStanza(self.name, self.family, "manual", [])
@@ -387,16 +378,13 @@ def main(args):
         if s.is_logical_interface:
             add_auto_stanza = s.iface.name in physical_interfaces
 
-            if (args.interface_to_bridge and args.interface_to_bridge != s.iface.name):
+            if args.interface_to_bridge and args.interface_to_bridge != s.iface.name:
                 if add_auto_stanza:
                     stanzas.append(AutoStanza(s.iface.name))
                 stanzas.append(s)
             else:
-                stanza, cmds = s.iface.bridge(args.bridge_prefix, args.bridge_name, add_auto_stanza)
+                stanza = s.iface.bridge(args.bridge_prefix, args.bridge_name, add_auto_stanza)
                 stanzas.extend(stanza)
-                if args.activate:
-                    for cmd in cmds:
-                        print_shell_cmd(cmd)
 
         elif not s.is_physical_interface:
             stanzas.append(s)
@@ -405,14 +393,20 @@ def main(args):
         print_stanzas(stanzas)
         exit(0)
 
+    print("**** Original configuration")
+    print_shell_cmd("cat {}".format(args.filename))
+    print_shell_cmd("ip -d link show")
+    print_shell_cmd("ip route show")
+
+    for s in config_parser.stanzas():
+        if s.is_logical_interface:
+            if not(args.interface_to_bridge and args.interface_to_bridge != s.iface.name):
+                s.iface.bridge_now(args.bridge_name)
+
     if args.one_time_backup:
         backup_file = "{}-before-add-juju-bridge".format(args.filename)
         if not os.path.isfile(backup_file):
             shutil.copy2(args.filename, backup_file)
-
-    print("**** Original configuration")
-    print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ip -d link show")
 
     with open(args.filename, 'w') as f:
         print_stanzas(stanzas, f)
@@ -421,6 +415,7 @@ def main(args):
     print("**** New configuration")
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ip -d link show")
+    print_shell_cmd("ip route show")
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
