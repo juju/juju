@@ -73,13 +73,17 @@ class LogicalInterface(object):
     def __str__(self):
         return self.name
 
-    def bridge_now(self, bridge_name):
+    def bridge_now(self, prefix, bridge_name):
         # https://wiki.archlinux.org/index.php/Network_bridge
         # ip addr delete dev <interface name> <cidr>
+        if bridge_name is None:
+            bridge_name = prefix + self.name
+
         args = {
             'bridge': bridge_name,
             'parent': self.name,
         }
+
         for o in self.options:
             if o.startswith('vlan') or o.startswith('bond'):
                 continue
@@ -88,6 +92,13 @@ class LogicalInterface(object):
                 args[option[0]] = ""
             else:
                 args[option[0]] = option[1]
+
+        addr = check_shell_cmd('ip -d addr show {parent}'.format(**args))
+        flags = re.search('<(.*?)>', addr).group(1).split(',')
+        for exclude_flag in ['LOOPBACK', 'SLAVE']:
+            if exclude_flag in flags:
+                # Don't bridge the loopback interface or slaves of bonds.
+                return
 
         # Save routes
         routes = check_shell_cmd('ip route show dev {parent}'.format(**args))
@@ -383,13 +394,13 @@ def main(args):
 
     print("**** Original configuration")
     print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ip -d link show")
+    print_shell_cmd("ip -d addr show")
     print_shell_cmd("ip route show")
 
     for s in config_parser.stanzas():
         if s.is_logical_interface:
             if not(args.interface_to_bridge and args.interface_to_bridge != s.iface.name):
-                s.iface.bridge_now(args.bridge_name)
+                s.iface.bridge_now(args.bridge_prefix, args.bridge_name)
 
     if args.one_time_backup:
         backup_file = "{}-before-add-juju-bridge".format(args.filename)
@@ -402,7 +413,7 @@ def main(args):
 
     print("**** New configuration")
     print_shell_cmd("cat {}".format(args.filename))
-    print_shell_cmd("ip -d link show")
+    print_shell_cmd("ip -d addr show")
     print_shell_cmd("ip route show")
 
 # This script re-renders an interfaces(5) file to add a bridge to
