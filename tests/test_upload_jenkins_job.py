@@ -384,6 +384,25 @@ class TestS3Uploader(TestCase):
         self.assertEqual(s3_mock.store.mock_calls, calls)
         jenkins_mock.artifacts.assert_called_once_with()
 
+    def test_upload_artifacts_file_ext(self):
+
+        def artifacts_fake():
+            for filename, i in zip(['foo.log', 'bar.svg', 'result.json'],
+                                   xrange(1, 4)):
+                yield filename, "artifact data {}".format(i)
+        _, _, s3_mock, jenkins_mock = self._make_upload_artifacts(BUILD_NUM)
+        jenkins_mock.artifacts.return_value = artifacts_fake()
+        h = S3Uploader(s3_mock, jenkins_mock,
+                       artifact_file_ext=['.json', '.svg'])
+        h.upload_artifacts()
+        calls = [
+            call('1277-log-bar.svg', 'artifact data 2',
+                 headers={'Content-Type': 'image/svg+xml'}),
+            call('1277-log-result.json', 'artifact data 3',
+                 headers={'Content-Type': 'application/json'})]
+        self.assertEqual(s3_mock.store.mock_calls, calls)
+        jenkins_mock.artifacts.assert_called_once_with()
+
     def _make_upload_artifacts(self, file_prefix):
         filename = '{}-log-filename'.format(file_prefix)
         headers = {"Content-Type": "application/octet-stream"}
@@ -573,9 +592,17 @@ class OtherTests(TestCase):
     def test_get_args_default(self):
         args = get_args([JOB_NAME, str(BUILD_NUM), BUCKET, DIRECTORY])
         self.assertEqual(args, Namespace(
-            all=False, build_number=1277, jenkins_job=JOB_NAME, latest=False,
-            password=None, s3_bucket=BUCKET, s3_directory=DIRECTORY,
-            unique_id=None, user=None, no_prefixes=False))
+            all=False, artifact_file_ext=None, build_number=1277,
+            jenkins_job=JOB_NAME, latest=False, password=None,
+            s3_bucket=BUCKET, s3_directory=DIRECTORY, unique_id=None,
+            user=None, no_prefixes=False))
+
+    def test_get_args_artifact_file_ext(self):
+        args = get_args([JOB_NAME, str(BUILD_NUM), BUCKET, DIRECTORY,
+                         '--artifact-file-ext', '.svg', '.json',
+                         '--unique-id', '1234'])
+        self.assertEqual(args.artifact_file_ext, ['.svg', '.json'])
+        self.assertEqual(args.unique_id, '1234')
 
     def test_get_s3_access(self):
         path = '/u/home'
