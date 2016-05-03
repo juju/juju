@@ -1682,6 +1682,29 @@ class TestBootContext(FakeHomeTestCase):
                 pass
         self.assertEqual('steve', client.env.config['region'])
 
+    def test_status_error_raises(self):
+        """An error on final show-status propogates so an assess will fail."""
+        error = subprocess.CalledProcessError(1, ['juju'], '')
+        cc_mock = self.addContext(patch('subprocess.check_call', autospec=True,
+                                        side_effect=[None, error]))
+        client = EnvJujuClient(JujuData(
+            'foo', {'type': 'paas', 'region': 'qux'}), '1.23', 'path')
+        with self.bc_context(client, 'log_dir', jes='kill-controller'):
+            with observable_temp_file() as config_file:
+                with self.assertRaises(subprocess.CalledProcessError) as ctx:
+                    with boot_context('bar', client, None, [], None, None,
+                                      None, 'log_dir', keep_env=False,
+                                      upload_tools=False):
+                        pass
+                self.assertIs(ctx.exception, error)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'bootstrap', '--constraints',
+            'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
+            '--default-model', 'bar', '--agent-version', '1.23'), 0)
+        assert_juju_call(self, cc_mock, client, (
+            'juju', '--show-log', 'show-status', '-m', 'bar',
+            '--format', 'yaml'), 1)
+
 
 class TestDeployJobParseArgs(FakeHomeTestCase):
 

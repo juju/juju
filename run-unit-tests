@@ -70,11 +70,11 @@ done
 
 if [[ $IS_LOCAL == "false" ]]; then
     # Download the buildvars and tartfile and lean the tarfile name.
-    downloaded=$(
-        $SCRIPTS/jujuci.py get -b $REVISION_BUILD build-revision '*' ./)
-    tarfile=$(basename $(echo "$downloaded" | grep -F tar.gz))
-    $SCRIPTS/jujuci.py get-build-vars \
-        --summary --env $AMI_IMAGE $REVISION_BUILD
+    tarfile=$(
+        $SCRIPTS/s3ci.py get --config $JUJU_HOME/juju-qa.s3cfg \
+        $REVISION_BUILD build-revision '.*.tar.gz' ./)
+    $SCRIPTS/s3ci.py get-summary --config $JUJU_HOME/juju-qa.s3cfg \
+        $REVISION_BUILD $AMI_IMAGE
 fi
 tarfile_path=$(readlink -f $tarfile)
 tarfile_basename=$(basename $tarfile)
@@ -207,6 +207,8 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     sudo rm -rf /tmp/test-* || true
 fi
 
+make setup-lxd || true
+
 go test -i ./...
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
@@ -241,11 +243,14 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     rm -rf /home/ubuntu/$juju_version
-    rm -rf /tmp/adduser-*
-    rm -rf /tmp/go-*
-    rm -rf /tmp/gocheck-*
-    rm -rf /tmp/juju-*
-    rm -rf /tmp/test-*
+    rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/go-* || true
+    rm -rf /tmp/gocheck-* || true
+    rm -rf /tmp/gui-* || true
+    rm -rf /tmp/pprof-* || true
+    rm -rf /tmp/juju-* || true
+    rm -rf /tmp/test-* || true
+    rm -rf /tmp/gui-* || true
 EOT
 else
     set +e
