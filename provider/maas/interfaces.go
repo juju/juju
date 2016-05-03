@@ -242,11 +242,15 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			nicType = network.VLAN_8021QInterface
 		}
 
+		vlanTag := 0
+		if iface.VLAN() != nil {
+			vlanTag = iface.VLAN().VID()
+		}
 		nicInfo := network.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress(),
 			ProviderId:          network.Id(fmt.Sprintf("%v", iface.ID())),
-			VLANTag:             iface.VLAN().VID(),
+			VLANTag:             vlanTag,
 			InterfaceName:       iface.Name(),
 			InterfaceType:       nicType,
 			ParentInterfaceName: parentName,
