@@ -46,8 +46,6 @@ from utils import (
 )
 
 
-
-
 class JujuSeriesTestCase(unittest.TestCase):
 
     def test_init(self):
@@ -167,7 +165,6 @@ class BuildPackageTestCase(unittest.TestCase):
         self.assertEqual(0, code)
         bb_mock.assert_called_with(
             'my.dsc', '~/workspace', 'trusty', 'i386', ppa=None, verbose=False)
-
 
     @autopatch('build_package.move_debs', return_value=True)
     @autopatch('build_package.teardown_lxc', return_value=True)
@@ -426,12 +423,16 @@ class CreateBuildSource(TestWithScenarios):
                return_value='./spb_path')
     @autopatch('build_package.setup_local',
                side_effect=['./spb_dir', './precise_dir', './trusty_dir'])
-    def test_build_source(self, sl_mock, spb_mock, csp_mock):
+    @autopatch('build_package.os.rename', return_value=True)
+    def test_build_source_test(self, os_mock, sl_mock, spb_mock, csp_mock):
         return_code = build_source(
             './my_1.2.3.tar.gz', './workspace', ['precise', 'trusty'], ['987'],
             debemail=None, debfullname=None, gpgcmd='my/gpg',
             branch='lp:branch', upatch=None, verbose=False,
             date=self.date, build=self.build, revid=self.revid)
+        if self.original_tarfile_name:
+            os_mock.assert_called_with(self.original_tarfile_name,
+                                       self.tarfile_name)
         sl_mock.assert_any_call(
             './workspace', 'any', 'all',
             [SourceFile(None, None, self.tarfile_name, self.tarfile_path)],
@@ -461,7 +462,7 @@ class CreateSourcePackageTests(TestWithScenarios):
              'revid': '4bbce805',
              'ubuntu_version': '1.2.3-20160502+3065+4bbce805~14.04'
              }),
-         ('broken_daily',
+        ('broken_daily',
             {'date': None,
              'build': '3065',
              'revid': '4bbce805',
@@ -488,7 +489,6 @@ class CreateSourcePackageTests(TestWithScenarios):
             [script], shell=True, cwd='/juju-build-trusty-all', env=env)
         self.assertEqual(0, ss_mock.call_count)
 
-
     @autopatch('build_package.sign_source_package')
     @autopatch('subprocess.check_call')
     def test_create_source_package_with_gpgcmd(self, cc_mock, ss_mock):
@@ -509,6 +509,7 @@ class CreateSourcePackageTests(TestWithScenarios):
         ss_mock.assert_called_with(
             '/juju-build-trusty-all', '/my/gpgcmd', 'me@email', 'me')
 
+
 class GetArgsTests(TestWithScenarios):
 
     scenarios = [
@@ -523,13 +524,12 @@ class GetArgsTests(TestWithScenarios):
              'build': '3065',
              'revid': '4bbce805'
              }),
-         ('broken_daily',
+        ('broken_daily',
             {'date': None,
              'build': '3065',
              'revid': '4bbce805'
              })
     ]
-
 
     def test_get_args_source(self):
         shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
@@ -564,8 +564,8 @@ class GetArgsTests(TestWithScenarios):
     def test_get_args_source_default_spb2_branch(self):
         shell_env = {'DEBEMAIL': 'me@email', 'DEBFULLNAME': 'me'}
         with patch.dict('os.environ', shell_env):
-            args_list =  ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace',
-                          'trusty', '123', '456']
+            args_list = ['prog', 'source', 'my_2.0-a.tar.gz', '~/workspace',
+                         'trusty', '123', '456']
             if self.date:
                 args_list.append('--date')
                 args_list.append(self.date)
@@ -602,8 +602,8 @@ class GetArgsTests(TestWithScenarios):
     def test_get_args_source_with_living(self):
         with patch('build_package.juju_series.get_living_names', autospec=True,
                    return_value=['precise', 'trusty']) as js_mock:
-            args_list = ['prog', 'source', 'my.tar.gz', '~/workspace', 'LIVING',
-                         '123', '456']
+            args_list = ['prog', 'source', 'my.tar.gz', '~/workspace',
+                         'LIVING', '123', '456']
             if self.date:
                 args_list.append('--date')
                 args_list.append(self.date)
