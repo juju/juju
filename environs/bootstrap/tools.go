@@ -73,7 +73,6 @@ func findAvailableTools(
 	arch, series *string,
 	upload, canBuild bool,
 ) (coretools.List, error) {
-	println(canBuild)
 	if upload {
 		// We're forcing an upload: ensure we can do so.
 		if !canBuild {
