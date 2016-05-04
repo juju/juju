@@ -534,7 +534,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		if len(subnetIDsForZone) > 0 {
 			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
 			logger.Infof(
-				"selected random subnet %d from all matching in zone %q: %v",
+				"selected random subnet %q from all matching in zone %q: %v",
 				runArgs.SubnetId, zone, subnetIDsForZone,
 			)
 		} else if errors.IsNotFound(subnetErr) {
