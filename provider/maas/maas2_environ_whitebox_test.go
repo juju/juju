@@ -1242,8 +1242,10 @@ func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 	env := suite.makeEnviron(c, controller)
 	stor := env.Storage()
 	c.Check(stor, gc.NotNil)
-	// The Storage object is really a maasStorage.
+
+	// The Storage object is really a maas2Storage.
 	specificStorage := stor.(*maas2Storage)
+
 	// Its environment pointer refers back to its environment.
 	c.Check(specificStorage.environ, gc.Equals, env)
 	c.Check(specificStorage.maasController, gc.Equals, controller)
@@ -1257,7 +1259,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	controller.machines = []gomaasapi.Machine{machine}
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
-		Storage: map[string]gomaasapi.BlockDevice{},
+		Storage: make(map[string]gomaasapi.BlockDevice),
 	}
 
 	env := suite.makeEnviron(c, controller)
