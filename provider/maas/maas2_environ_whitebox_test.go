@@ -1269,3 +1269,33 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceSu
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
 	c.Assert(err, gc.ErrorMatches, "primary NIC subnet  not found")
 }
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *gc.C) {
+	subnet := fakeSubnet{
+		id:      3,
+		space:   "freckles",
+		gateway: "10.20.19.2",
+		cidr:    "10.20.19.0/24",
+	}
+	checkMachinesArgs := func(args gomaasapi.MachinesArgs) {
+		c.Assert(args.SystemIDs, jc.DeepEquals, []string{"1"})
+	}
+	controller := &fakeController{
+		machinesError:     errors.New("boom"),
+		machinesArgsCheck: checkMachinesArgs,
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet},
+			},
+		},
+	}
+	suite.injectController(controller)
+	env := suite.makeEnviron(c, nil)
+	prepared := []network.InterfaceInfo{
+		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
+	}
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
