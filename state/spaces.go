@@ -48,6 +48,11 @@ func (s *Space) Name() string {
 	return s.doc.Name
 }
 
+// IsPublic returns whether the space is public or not.
+func (s *Space) IsPublic() bool {
+	return s.doc.IsPublic
+}
+
 // ProviderId returns the provider id of the space. This will be the empty
 // string except on substrates that directly support spaces.
 func (s *Space) ProviderId() network.Id {

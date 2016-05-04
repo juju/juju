@@ -130,6 +130,13 @@ type ModelParams struct {
 	CloudRegion   string
 }
 
+type SpaceParams struct {
+	Name       string
+	ProviderID network.Id
+	Subnets    []string
+	IsPublic   bool
+}
+
 // RandomSuffix adds a random 5 character suffix to the presented string.
 func (*Factory) RandomSuffix(prefix string) string {
 	result := prefix
@@ -581,4 +588,18 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+// MakeSpace will create a new space with the specified params. If the space
+// name is not set, a unique space name is created.
+func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
+	if params == nil {
+		params = new(SpaceParams)
+	}
+	if params.Name == "" {
+		params.Name = uniqueString("space-")
+	}
+	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.Subnets, params.IsPublic)
+	c.Assert(err, jc.ErrorIsNil)
+	return space
 }
