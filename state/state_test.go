@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -133,14 +134,14 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
 func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
-	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(st.ModelTag(), gc.Equals, s.modelTag)
@@ -150,7 +151,7 @@ func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -159,7 +160,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -3170,7 +3171,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, info, statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.Policy(nil))
 	if err == nil {
 		err = st.Close()
 	}
@@ -3884,7 +3885,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3932,7 +3933,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4673,7 +4674,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		},
 	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, mongoInfo, cfg, statetesting.NewDialOpts(), nil)
+	st, err := state.Initialize(owner, mongoInfo, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

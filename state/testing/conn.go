@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -23,7 +24,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 		cfg = testing.ModelConfig(c)
 	}
 	mgoInfo := NewMongoInfo()
-	dialOpts := NewDialOpts()
+	dialOpts := mongotest.DialOpts()
 
 	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
 	c.Assert(err, jc.ErrorIsNil)
@@ -38,14 +39,6 @@ func NewMongoInfo() *mongo.MongoInfo {
 			Addrs:  []string{jujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-	}
-}
-
-// NewDialOpts returns configuration parameters for
-// connecting to the testing controller.
-func NewDialOpts() mongo.DialOpts {
-	return mongo.DialOpts{
-		Timeout: testing.LongWait,
 	}
 }
 
