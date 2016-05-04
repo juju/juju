@@ -397,6 +397,8 @@ class CreateBuildSource(TestWithScenarios):
             {'date': None,
              'build': None,
              'revid': None,
+             'version': '1.2.3',
+             'original_tarfile_name': None,
              'tarfile_name': 'my_1.2.3.tar.gz',
              'tarfile_path': './my_1.2.3.tar.gz'
              }),
@@ -405,6 +407,7 @@ class CreateBuildSource(TestWithScenarios):
             {'date': '20160502',
              'build': '3065',
              'revid': '4bbce805',
+             'version': '1.2.3~20160502~3065~4bbce805',
              'original_tarfile_name': 'my_1.2.3.tar.gz',
              'tarfile_name': 'my_1.2.3~20160502~3065~4bbce805.tar.gz',
              'tarfile_path': './my_1.2.3~20160502~3065~4bbce805.tar.gz'
@@ -413,6 +416,8 @@ class CreateBuildSource(TestWithScenarios):
             {'date': None,
              'build': '3065',
              'revid': '4bbce805',
+             'version': '1.2.3',
+             'original_tarfile_name': None,
              'tarfile_name': 'my_1.2.3.tar.gz',
              'tarfile_path': './my_1.2.3.tar.gz'
              })
@@ -430,7 +435,7 @@ class CreateBuildSource(TestWithScenarios):
             debemail=None, debfullname=None, gpgcmd='my/gpg',
             branch='lp:branch', upatch=None, verbose=False,
             date=self.date, build=self.build, revid=self.revid)
-        if self.original_tarfile_name:
+        if self.original_tarfile_name is not None:
             os_mock.assert_called_with(self.original_tarfile_name,
                                        self.tarfile_name)
         sl_mock.assert_any_call(
@@ -438,7 +443,7 @@ class CreateBuildSource(TestWithScenarios):
             [SourceFile(None, None, self.tarfile_name, self.tarfile_path)],
             verbose=False)
         spb_mock.assert_called_with(
-            './spb_dir', '1.2.3', self.tarfile_name, 'lp:branch')
+            './spb_dir', self.version, self.tarfile_name, 'lp:branch')
         sl_mock.assert_any_call(
             './workspace', 'precise', 'all', [], verbose=False)
         sl_mock.assert_any_call(

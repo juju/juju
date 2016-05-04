@@ -470,6 +470,7 @@ def build_source(tarfile_path, location, series, bugs,
         os.rename(tarfile_name, daily_tarfile_name)
         tarfile_path = daily_tarfile_path
         tarfile_name = daily_tarfile_name
+        version = daily_version
 
     files = [SourceFile(None, None, tarfile_name, tarfile_path)]
     spb_dir = setup_local(
