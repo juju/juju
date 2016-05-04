@@ -1277,8 +1277,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 		gateway: "10.20.19.2",
 		cidr:    "10.20.19.0/24",
 	}
+	var env *maasEnviron
 	checkMachinesArgs := func(args gomaasapi.MachinesArgs) {
-		c.Assert(args.SystemIDs, jc.DeepEquals, []string{"1"})
+		expected := gomaasapi.MachinesArgs{
+			AgentName: env.ecfg().maasAgentName(),
+			SystemIDs: []string{"1"},
+		}
+		c.Assert(args, jc.DeepEquals, expected)
 	}
 	controller := &fakeController{
 		machinesError:     errors.New("boom"),
@@ -1292,7 +1297,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 		},
 	}
 	suite.injectController(controller)
-	env := suite.makeEnviron(c, nil)
+	env = suite.makeEnviron(c, nil)
 	prepared := []network.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
 	}
