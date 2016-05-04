@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -88,12 +89,37 @@ func (c *scpCommand) Init(args []string) error {
 	return nil
 }
 
+// Run resolves c.Target to a machine, or host of a unit and
+// forks ssh with c.Args, if provided.
+func (c *scpCommand) Run(ctx *cmd.Context) error {
+	err := c.initRun()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer c.cleanupRun()
+
+	args, targets, err := expandArgs(c.Args, c.resolveTarget)
+	if err != nil {
+		return err
+	}
+
+	options, err := c.getSSHOptions(false, targets...)
+	if err != nil {
+		return err
+	}
+
+	return ssh.Copy(args, options)
+}
+
 // expandArgs takes a list of arguments and looks for ones in the form of
 // 0:some/path or service/0:some/path, and translates them into
 // ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
 // the rest verbatim on to scp
-func expandArgs(args []string, userHostFromTarget func(string) (string, string, error)) ([]string, error) {
+func expandArgs(args []string, resolveTarget func(string) (*resolvedTarget, error)) (
+	[]string, []*resolvedTarget, error,
+) {
 	outArgs := make([]string, len(args))
+	var targets []*resolvedTarget
 	for i, arg := range args {
 		v := strings.SplitN(arg, ":", 2)
 		if strings.HasPrefix(arg, "-") || len(v) <= 1 {
@@ -101,32 +127,12 @@ func expandArgs(args []string, userHostFromTarget func(string) (string, string, 
 			outArgs[i] = arg
 			continue
 		}
-		user, host, err := userHostFromTarget(v[0])
+		target, err := resolveTarget(v[0])
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		outArgs[i] = user + "@" + net.JoinHostPort(host, v[1])
+		outArgs[i] = target.user + "@" + net.JoinHostPort(target.host, v[1])
+		targets = append(targets, target)
 	}
-	return outArgs, nil
-}
-
-// Run resolves c.Target to a machine, or host of a unit and
-// forks ssh with c.Args, if provided.
-func (c *scpCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.apiClient, err = c.initAPIClient()
-	if err != nil {
-		return err
-	}
-	defer c.apiClient.Close()
-
-	options, err := c.getSSHOptions(false)
-	if err != nil {
-		return err
-	}
-	args, err := expandArgs(c.Args, c.userHostFromTarget)
-	if err != nil {
-		return err
-	}
-	return ssh.Copy(args, options)
+	return outArgs, targets, nil
 }

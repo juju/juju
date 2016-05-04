@@ -4,7 +4,10 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -14,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"launchpad.net/gnuflag"
 
@@ -21,22 +25,39 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// SSHCommon provides common methods for sshCommand, SCPCommand and DebugHooksCommand.
+// SSHCommon implements functionality shared by sshCommand, SCPCommand
+// and DebugHooksCommand.
 type SSHCommon struct {
 	modelcmd.ModelCommandBase
-	proxy     bool
-	pty       bool
-	Target    string
-	Args      []string
-	apiClient sshAPIClient
-	apiAddr   string
+	proxy          bool
+	pty            bool
+	Target         string
+	Args           []string
+	apiClient      sshAPIClient
+	apiAddr        string
+	knownHostsPath string
 }
 
 type sshAPIClient interface {
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
+	PublicKeys(target string) ([]string, error)
 	Proxy() (bool, error)
 	Close() error
+}
+
+type resolvedTarget struct {
+	user   string
+	entity string
+	host   string
+}
+
+func (t *resolvedTarget) userHost() string {
+	return t.user + "@" + t.host
+}
+
+func (t *resolvedTarget) isAgent() bool {
+	return targetIsAgent(t.entity)
 }
 
 // attemptStarter is an interface corresponding to utils.AttemptStrategy
@@ -64,6 +85,118 @@ func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.pty, "pty", true, "Enable pseudo-tty allocation")
 }
 
+// initRun initializes the API connection if required, and determines
+// whether SSH proxying is required. It must be called at the of the
+// command's Run method.
+//
+// The apiClient, apiAddr and proxy fields are initialized after this
+// call.
+func (c *SSHCommon) initRun() error {
+	if err := c.ensureAPIClient(); err != nil {
+		return errors.Trace(err)
+	}
+	if proxy, err := c.proxySSH(); err != nil {
+		return errors.Trace(err)
+	} else {
+		c.proxy = proxy
+	}
+	return nil
+}
+
+// cleanupRun removes the temporary SSH known_hosts file (if one was
+// created) and closes the API connection. It must be called at the
+// end of the command's Run (i.e. as a defer).
+func (c *SSHCommon) cleanupRun() {
+	if c.knownHostsPath != "" {
+		os.Remove(c.knownHostsPath)
+		c.knownHostsPath = ""
+	}
+	if c.apiClient != nil {
+		c.apiClient.Close()
+		c.apiClient = nil
+	}
+}
+
+// getSSHOptions configures SSH options based on command line
+// arguments and the SSH targets specified.
+func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
+	var options ssh.Options
+
+	knownHostsPath, err := c.generateKnownHosts(targets)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if knownHostsPath != "" {
+		options.SetKnownHostsFile(knownHostsPath)
+		options.EnableStrictHostKeyChecking()
+	} else {
+		// XXX this should only be done if the user asks for it
+		options.SetKnownHostsFile("/dev/null")
+	}
+
+	if enablePty {
+		options.EnablePTY()
+	}
+
+	if c.proxy {
+		if err := c.setProxyCommand(&options); err != nil {
+			return nil, err
+		}
+	}
+
+	return &options, nil
+}
+
+// generateKnownHosts takes the provided targets, retrieves the SSH
+// public host keys for them and generates a temporary known_hosts
+// file for them.
+func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error) {
+	knownHosts := newKnownHostsBuilder()
+	for _, target := range targets {
+		if target.isAgent() {
+			keys, err := c.apiClient.PublicKeys(target.entity)
+			if err == sshclient.ErrNoKeys {
+				continue
+			} else if err != nil {
+				return "", errors.Annotatef(err, "retrieving SSH host keys for %q", target.entity)
+			}
+			knownHosts.add(target.host, keys)
+		}
+	}
+
+	if knownHosts.size() == 0 {
+		// No public keys to write so exit early.
+		return "", nil
+	}
+
+	f, err := ioutil.TempFile("", "ssh_known_hosts")
+	if err != nil {
+		return "", errors.Annotate(err, "creating known hosts file")
+	}
+	defer f.Close()
+	c.knownHostsPath = f.Name() // Record for later deletion
+	if knownHosts.write(f); err != nil {
+		return "", errors.Trace(err)
+	}
+	return c.knownHostsPath, nil
+}
+
+// proxySSH returns false if both c.proxy and
+// the proxy-ssh environment configuration
+// are false -- otherwise it returns true.
+func (c *SSHCommon) proxySSH() (bool, error) {
+	if c.proxy {
+		// No need to check the API if
+		return true, nil
+	}
+	proxy, err := c.apiClient.Proxy()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	logger.Debugf("proxy-ssh is %v", proxy)
+	return proxy, nil
+}
+
 // setProxyCommand sets the proxy command option.
 func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	apiServerHost, _, err := net.SplitHostPort(c.apiAddr)
@@ -74,97 +207,57 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 	if err != nil {
 		return fmt.Errorf("failed to get juju executable path: %v", err)
 	}
+
+	// XXX set --disable-host-checks here
+	// TODO(mjs) - it would be much nicer to use the host keys for the API servers here. XXX
 	options.SetProxyCommand(juju, "ssh", "--proxy=false", "--pty=false", apiServerHost, "nc", "%h", "%p")
 	return nil
 }
 
-// getSSHOptions configures and returns SSH options and proxy settings.
-func (c *SSHCommon) getSSHOptions(enablePty bool) (*ssh.Options, error) {
-	var options ssh.Options
-
-	// TODO(waigani) do not save fingerprint only until this bug is addressed:
-	// lp:892552. Also see lp:1334481.
-	options.SetKnownHostsFile("/dev/null")
-	if enablePty {
-		options.EnablePTY()
-	}
-	var err error
-	if c.proxy, err = c.proxySSH(); err != nil {
-		return nil, err
-	} else if c.proxy {
-		if err := c.setProxyCommand(&options); err != nil {
-			return nil, err
-		}
-	}
-	return &options, nil
-}
-
-// proxySSH returns false if both c.proxy and
-// the proxy-ssh environment configuration
-// are false -- otherwise it returns true.
-func (c *SSHCommon) proxySSH() (bool, error) {
-	if _, err := c.ensureAPIClient(); err != nil {
-		return false, errors.Trace(err)
-	}
-	proxy, err := c.apiClient.Proxy()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	logger.Debugf("proxy-ssh is %v", proxy)
-	return proxy || c.proxy, nil
-}
-
-func (c *SSHCommon) ensureAPIClient() (sshAPIClient, error) {
+func (c *SSHCommon) ensureAPIClient() error {
 	if c.apiClient != nil {
-		return c.apiClient, nil
+		return nil
 	}
-	return c.initAPIClient()
+	return errors.Trace(c.initAPIClient())
 }
 
 // initAPIClient initialises the API connection.
-// It is the caller's responsibility to close the connection.
-func (c *SSHCommon) initAPIClient() (sshAPIClient, error) {
-	st, err := c.NewAPIRoot()
+func (c *SSHCommon) initAPIClient() error {
+	conn, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, err
+		return errors.Trace(err)
 	}
-	c.apiClient = sshclient.NewFacade(st)
-	c.apiAddr = st.Addr()
-	return c.apiClient, nil
+	c.apiClient = sshclient.NewFacade(conn)
+	c.apiAddr = conn.Addr()
+	return nil
 }
 
-func (c *SSHCommon) userHostFromTarget(target string) (user, host string, err error) {
-	if i := strings.IndexRune(target, '@'); i != -1 {
-		user = target[:i]
-		target = target[i+1:]
-	} else {
-		user = "ubuntu"
-	}
+func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
+	out := new(resolvedTarget)
+	out.user, out.entity = splitUserTarget(target)
 
-	// If the target is neither a machine nor a unit,
-	// assume it's a hostname and try it directly.
-	if !names.IsValidMachine(target) && !names.IsValidUnit(target) {
-		return user, target, nil
+	// If the target is neither a machine nor a unit assume it's a
+	// hostname and try it directly.
+	if !targetIsAgent(out.entity) {
+		out.host = out.entity
+		return out, nil
 	}
 
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
-	if _, err := c.ensureAPIClient(); err != nil {
-		return "", "", err
-	}
+	var err error
 	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
-		var addr string
 		if c.proxy {
-			addr, err = c.apiClient.PrivateAddress(target)
+			out.host, err = c.apiClient.PrivateAddress(out.entity)
 		} else {
-			addr, err = c.apiClient.PublicAddress(target)
+			out.host, err = c.apiClient.PublicAddress(out.entity)
 		}
 		if err == nil {
-			return user, addr, nil
+			return out, nil
 		}
 	}
-	return "", "", err
+	return nil, err
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that
@@ -178,4 +271,53 @@ func (c *SSHCommon) AllowInterspersedFlags() bool {
 // executable, or an error if it could not be found.
 var getJujuExecutable = func() (string, error) {
 	return exec.LookPath(os.Args[0])
+}
+
+func targetIsAgent(target string) bool {
+	return names.IsValidMachine(target) || names.IsValidUnit(target)
+}
+
+func splitUserTarget(target string) (string, string) {
+	if i := strings.IndexRune(target, '@'); i != -1 {
+		return target[:i], target[i+1:]
+	}
+	return "ubuntu", target
+}
+
+func newKnownHostsBuilder() *knownHostsBuilder {
+	return &knownHostsBuilder{
+		seen: set.NewStrings(),
+	}
+}
+
+// knownHostsBuilder supports the construction of a SSH known_hosts file.
+type knownHostsBuilder struct {
+	lines []string
+	seen  set.Strings
+}
+
+func (b *knownHostsBuilder) add(host string, keys []string) {
+	if b.seen.Contains(host) {
+		return
+	}
+	b.seen.Add(host)
+	for _, key := range keys {
+		b.lines = append(b.lines, host+" "+key+"\n")
+	}
+}
+
+func (b *knownHostsBuilder) write(w io.Writer) error {
+	bufw := bufio.NewWriter(w)
+	for _, line := range b.lines {
+		_, err := bufw.WriteString(line)
+		if err != nil {
+			return errors.Annotate(err, "writing known hosts file")
+		}
+	}
+	bufw.Flush()
+	return nil
+}
+
+func (b *knownHostsBuilder) size() int {
+	return len(b.lines)
 }

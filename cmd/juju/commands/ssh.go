@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -72,26 +73,23 @@ func (c *sshCommand) Init(args []string) error {
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
-	if c.apiClient == nil {
-		// If the apClient is not already opened and it is opened
-		// by ensureAPIClient, then close it when we're done.
-		defer func() {
-			if c.apiClient != nil {
-				c.apiClient.Close()
-				c.apiClient = nil
-			}
-		}()
+	err := c.initRun()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	options, err := c.getSSHOptions(c.pty)
+	defer c.cleanupRun()
+
+	target, err := c.resolveTarget(c.Target)
 	if err != nil {
 		return err
 	}
 
-	user, host, err := c.userHostFromTarget(c.Target)
+	options, err := c.getSSHOptions(c.pty, target)
 	if err != nil {
 		return err
 	}
-	cmd := ssh.Command(user+"@"+host, c.Args, options)
+
+	cmd := ssh.Command(target.userHost(), c.Args, options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr

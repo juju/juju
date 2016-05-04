@@ -118,12 +118,11 @@ func (c *debugHooksCommand) validateHooks() error {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.apiClient, err = c.initAPIClient()
+	err := c.initRun()
 	if err != nil {
 		return err
 	}
-	defer c.apiClient.Close()
+	defer c.cleanupRun()
 	err = c.validateHooks()
 	if err != nil {
 		return err
