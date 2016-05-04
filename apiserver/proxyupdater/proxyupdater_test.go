@@ -4,6 +4,8 @@
 package proxyupdater_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
 	"github.com/juju/testing"
@@ -64,17 +65,27 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
 	// and WatchAPIHostPorts. Check that they are both called and we get the
-	s.facade.WatchForProxyConfigAndAPIHostPortChanges(s.oneEntity())
-
-	// Verify the watcher resource was registered.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
+	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(s.oneEntity())
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	s.state.Stub.CheckCallNames(c,
 		"WatchForModelConfigChanges",
 		"WatchAPIHostPorts",
 	)
+
+	// Verify the watcher resource was registered.
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get(result.Results[0].NotifyWatcherId)
+	watcher, ok := resource.(state.NotifyWatcher)
+	c.Assert(ok, jc.IsTrue)
+
+	// Verify the initial event was consumed.
+	select {
+	case <-watcher.Changes():
+		c.Fatalf("initial event never consumed")
+	case <-time.After(coretesting.ShortWait):
+	}
 }
 
 func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
@@ -168,8 +179,8 @@ func (sb *stubBackend) SetUp(c *gc.C) {
 		"http-proxy":  "http proxy",
 		"https-proxy": "https proxy",
 	}
-	sb.hpWatcher = workertest.NewFakeWatcher(2, 2)
-	sb.confWatcher = workertest.NewFakeWatcher(2, 2)
+	sb.hpWatcher = workertest.NewFakeWatcher(1, 1)
+	sb.confWatcher = workertest.NewFakeWatcher(1, 1)
 }
 
 func (sb *stubBackend) Kill() {
