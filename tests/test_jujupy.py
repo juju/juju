@@ -2840,7 +2840,7 @@ class TestEnvJujuClient(ClientTest):
     # whether a command was invoked.
     # Patch out mock_client.juju and use assert_juju_call.
 
-   def test_remove_user_permissions(self):
+    def test_remove_user_permissions(self):
         mock_client = FakeJujuClient()
         username = 'fakeuser'
         model = 'foo'

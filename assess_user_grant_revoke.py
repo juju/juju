@@ -10,6 +10,7 @@
 from __future__ import print_function
 
 import argparse
+from collections import namedtuple
 import logging
 import subprocess
 import sys
@@ -52,27 +53,55 @@ def register_user(username, environment, register_cmd,
         raise AssertionError(
             'Registering user failed: pexpect session timed out')
 
+
 def create_cloned_environment(client, cloned_juju_home):
     user_client = client.clone(env=client.env.clone())
     user_client.env.juju_home = cloned_juju_home
     user_client_env = user_client._shell_environ()
     return user_client, user_client_env
 
+
 def assert_read(client, permission):
-    if permission is True:
-        self.assertTrue(client.show_user())
-        self.assertTrue(client.list_controllers())
-        self.assertTrue(client.show_status())
+    if permission:
+        try:
+            client.show_status()
+        except subprocess.CalledProcessError:
+            raise
     else:
-        self.assertFalse(client.show_user())
-        self.assertFalse(client.list_controllers())
-        self.assertFalse(client.show_status())
+        try:
+            client.show_status()
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError('User checked status without read permission')
+
 
 def assert_write(client, permission):
-    if permission is True:
-        self.assertTrue(client.deploy('local:wordpress')
+    if permission:
+        try:
+            client.deploy('local:wordpress')
+        except subprocess.CalledProcessError:
+            raise
     else:
-        self.assertFalse(client.deploy('local:wordpress')
+        try:
+            client.deploy('local:wordpress')
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            raise AssertionError('User deployed without write permission')
+
+
+def assert_user_permissions(user, user_client):
+    expect = iter(user.expect)
+    assert_read(user_client, expect.next())
+    assert_write(user_client, expect.next())
+
+    log.debug("Revoking %s permissions" % user.permissions)
+    user_client.remove_user_permissions(user.name,
+                                        permissions=user.permissions)
+
+    assert_read(user_client, expect.next())
+    assert_write(user_client, expect.next())
 
 
 def assess_user_grant_revoke(client):
@@ -80,42 +109,20 @@ def assess_user_grant_revoke(client):
     client.wait_for_started()
 
     log.debug("Creating Users")
-    read_user = 'bob'
-    write_user = 'carol'
-    read_user_register = client.create_user_permissions(read_user)
-    write_user_register = client.create_user_permissions(write_user)
+    user = namedtuple('user', ['name', 'permissions', 'expect'])
+    read_user = user('read-only user', 'read', [True, False, False, False])
+    write_user = user('admin user', 'write', [True, True, True, False])
+    users = [read_user, write_user]
 
-    log.debug("Testing read_user access")
-    with temp_dir() as fake_home:
-        read_user_client, read_user_env = create_cloned_environment(
-            client, fake_home)
-        register_user(read_user, read_user_env, read_user_register)
-
-        assert_read(read_user, True)
-        assert_write(read_user, False)
-
-        # remove all permissions
-        log.debug("Revoking permissions from read_user")
-        client.remove_user_permissions(client, read_user)
-
-        assert_read(read_user, False)
-        assert_write(read_user, False)
-
-    log.debug("Testing write_user access")
-    with temp_dir() as fake_home:
-        write_user_client, write_user_env = create_cloned_environment(
-            client, fake_home)
-        register_user(write_user, write_user_env, write_user_register)
-
-        assert_read(read_user, True)
-        assert_write(read_user, True)
-
-        # remove all permissions
-        log.debug("Revoking permissions from write_user")
-        write_user_client.remove_user_permissions(write_user, permissions='write')
-
-        assert_read(read_user, True)
-        assert_write(read_user, False)
+    for user in users:
+        log.debug("Testing %s user" % user.permissions)
+        user_register_string = client.create_user_permissions(
+            user.name, permissions=user.permissions)
+        with temp_dir() as fake_home:
+            user_client, user_env = create_cloned_environment(
+                client, fake_home)
+            register_user(user, user_env, user_register_string)
+            assert_user_permissions(user, user_client)
 
 
 def parse_args(argv):

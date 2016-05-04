@@ -12,6 +12,8 @@ from mock import (
 import pexpect
 
 from assess_user_grant_revoke import (
+    assert_read,
+    assert_write,
     assess_user_grant_revoke,
     create_cloned_environment,
     main,
@@ -80,17 +82,14 @@ class TestAssess(TestCase):
             return partial(cls, username, expected_strings)
 
         def __init__(self, sendline_str, expected_str, register_cmd, env):
-            self._expect_strings = expected_str
-            self._sendline_strings = sendline_str
+            self._expect_strings = iter(expected_str)
+            self._sendline_strings = iter(sendline_str)
 
         def _check_string(self, string, string_list):
-            #expected_string = string_list.pop(0)
-            for string in string_list:
-                expected_string = string_iter.next()
-                if string != expected_string:
-                    raise ValueError(
-                        'Expected {} got {}'.format(expected_string, string)
-                    )
+            if string != next(string_list):
+                raise ValueError(
+                    'Expected {} got {}'.format(expected_string, string)
+                )
 
         def expect(self, string):
             self._check_string(string, self._expect_strings)

@@ -543,7 +543,7 @@ class EnvJujuClient:
 
     def show_user(self):
         """Print the users to output."""
-        self.juju('show-user', '--format', 'yaml'), include_e=False)
+        self.juju('show-user', ('--format', 'yaml'), include_e=False)
 
     def get_status(self, timeout=60, raw=False, admin=False, *args):
         """Get the current status as a dict."""
@@ -1118,7 +1118,7 @@ class EnvJujuClient:
     def add_subnet(self, subnet, space):
         self.juju('add-subnet', (subnet, space))
 
-    def _get_register_command(output):
+    def _get_register_command(self, output):
         for row in output.split('\n'):
             if 'juju register' in row:
                 return row.strip().lstrip()
