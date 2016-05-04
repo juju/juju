@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -144,7 +145,7 @@ LXC_BRIDGE="ignored"`[1:])
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, m, err := agentbootstrap.InitializeState(
 		adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg,
-		mongo.DefaultDialOpts(), environs.NewStatePolicy(),
+		mongotest.DialOpts(), environs.NewStatePolicy(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -232,7 +233,7 @@ LXC_BRIDGE="ignored"`[1:])
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(newCfg.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(newCfg.Model(), info, mongotest.DialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
@@ -254,7 +255,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	c.Assert(available, jc.IsFalse)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongotest.DialOpts(), environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -302,12 +303,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, _, err := agentbootstrap.InitializeState(
 		adminUser, cfg, envCfg, hostedModelConfigAttrs, mcfg,
-		mongo.DefaultDialOpts(), state.Policy(nil),
+		mongotest.DialOpts(), state.Policy(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
-	st, _, err = agentbootstrap.InitializeState(adminUser, cfg, envCfg, nil, mcfg, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, _, err = agentbootstrap.InitializeState(adminUser, cfg, envCfg, nil, mcfg, mongotest.DialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
@@ -351,7 +352,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(modelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

@@ -58,6 +58,10 @@ type DialOpts struct {
 
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a controller.
+//
+// NOTE(axw) these options are inappropriate for tests in CI,
+// as CI tends to run on machines with slow I/O (or thrashed
+// I/O with limited IOPs). For tests, use mongotest.DialOpts().
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		Timeout:       defaultDialTimeout,

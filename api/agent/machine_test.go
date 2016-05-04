@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -180,7 +181,7 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
