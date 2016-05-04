@@ -167,6 +167,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	groups := amzec2.SecurityGroupNames(
 		ec2.JujuGroupName(t.Env),
 		ec2.MachineGroupName(t.Env, "98"),
+		ec2.MachineGroupName(t.Env, "99"),
 	)
 	info := make([]amzec2.SecurityGroupInfo, len(groups))
 
@@ -200,7 +201,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
-	oldMachineGroup := createGroup(c, ec2conn, groups[1].Name, "old machine group")
+	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances(inst1.Id())
@@ -239,7 +240,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
-	c.Check(groups[1].Id, gc.Equals, oldMachineGroup.Id)
+	c.Check(groups[2].Id, gc.Equals, oldMachineGroup.Id)
 
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{string(inst0.Id()), string(inst1.Id())}, nil)
@@ -254,7 +255,9 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
 			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, false, msg)
 		case inst1.Id():
+			c.Assert(hasSecurityGroup(inst, groups[2]), gc.Equals, true, msg)
 			c.Assert(hasSecurityGroup(inst, groups[1]), gc.Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
