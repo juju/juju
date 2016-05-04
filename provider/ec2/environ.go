@@ -531,12 +531,20 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
 		}
 
-		if len(subnetIDsForZone) > 0 {
+		if len(subnetIDsForZone) > 1 {
+			// With multiple equally suitable subnets, picking one at random
+			// will allow for better instance spread within the same zone, and
+			// still work correctly if we happen to pick a constrained subnet
+			// (we'll just treat this the same way we treat constrained zones
+			// and retry).
 			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
 			logger.Infof(
 				"selected random subnet %q from all matching in zone %q: %v",
 				runArgs.SubnetId, zone, subnetIDsForZone,
 			)
+		} else if len(subnetIDsForZone) == 1 {
+			runArgs.SubnetId = subnetIDsForZone[0]
+			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		} else if errors.IsNotFound(subnetErr) {
 			logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", zone)
 			continue
