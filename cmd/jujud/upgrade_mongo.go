@@ -632,6 +632,9 @@ func satisfyPrerequisites(operatingsystem string) error {
 	if err := pacman.Install(mongo.JujuMongoPackage); err != nil {
 		return errors.Annotatef(err, "cannot install %v", mongo.JujuMongoPackage)
 	}
+	if err := pacman.Install(mongo.JujuMongoToolsPackage); err != nil {
+		return errors.Annotatef(err, "cannot install %v", mongo.JujuMongoToolsPackage)
+	}
 	return nil
 }
 

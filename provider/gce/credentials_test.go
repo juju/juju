@@ -114,12 +114,14 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 	}
 	home := utils.Home()
 	dir := c.MkDir()
-	utils.SetHome(dir)
+	err := utils.SetHome(dir)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
-		utils.SetHome(home)
+		err := utils.SetHome(home)
+		c.Assert(err, jc.ErrorIsNil)
 	})
 	path := filepath.Join(dir, ".config", "gcloud")
-	err := os.MkdirAll(path, 0700)
+	err = os.MkdirAll(path, 0700)
 	c.Assert(err, jc.ErrorIsNil)
 	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
 	s.assertDetectCredentialsKnownLocation(c, jsonpath)

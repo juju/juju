@@ -38,8 +38,11 @@ type Firewaller interface {
 	// Ports returns the port ranges opened for the whole environment.
 	Ports() ([]network.PortRange, error)
 
-	// Implementations shoud delete all global security groups.
-	DeleteGlobalGroups() error
+	// Implementations are expected to delete all security groups for the
+	// environment. If the environment corresponds to a controller model,
+	// then the implementation should also delete security groups for the
+	// hosted models.
+	DeleteAllGroups() error
 
 	// Implementations should return list of security groups, that belong to given instances.
 	GetSecurityGroups(ids ...instance.Id) ([]string, error)
@@ -224,20 +227,29 @@ func (c *defaultFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, err
 	return securityGroupNames, nil
 }
 
-// DeleteGlobalGroups implements Firewaller interface.
-func (c *defaultFirewaller) DeleteGlobalGroups() error {
+// DeleteAllGroups implements Firewaller interface.
+func (c *defaultFirewaller) DeleteAllGroups() error {
 	novaClient := c.environ.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
 		return errors.Annotate(err, "cannot list security groups")
 	}
-	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", c.jujuGroupName()))
+
+	var prefix string
+	if cfg := c.environ.Config(); cfg.UUID() == cfg.ControllerUUID() {
+		// Delete all security groups managed by the controller.
+		prefix = c.jujuControllerGroupPrefix()
+	} else {
+		// Delete all security groups for the model.
+		prefix = c.jujuModelGroupPrefix()
+	}
+
+	re, err := regexp.Compile("^" + regexp.QuoteMeta(prefix))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	globalGroupName := c.globalGroupName()
 	for _, group := range securityGroups {
-		if re.MatchString(group.Name) || group.Name == globalGroupName {
+		if re.MatchString(group.Name) {
 			deleteSecurityGroup(novaClient, group.Name, group.Id)
 		}
 	}
@@ -421,6 +433,7 @@ func (c *defaultFirewaller) portsInGroup(name string) (portRanges []network.Port
 	network.SortPortRanges(portRanges)
 	return portRanges, nil
 }
+
 func (c *defaultFirewaller) globalGroupName() string {
 	return fmt.Sprintf("%s-global", c.jujuGroupName())
 }
@@ -431,5 +444,14 @@ func (c *defaultFirewaller) machineGroupName(machineId string) string {
 
 func (c *defaultFirewaller) jujuGroupName() string {
 	cfg := c.environ.Config()
-	return fmt.Sprintf("juju-%v", cfg.UUID())
+	return fmt.Sprintf("juju-%v-%v", cfg.ControllerUUID(), cfg.UUID())
+}
+
+func (c *defaultFirewaller) jujuModelGroupPrefix() string {
+	return c.jujuGroupName()
+}
+
+func (c *defaultFirewaller) jujuControllerGroupPrefix() string {
+	cfg := c.environ.Config()
+	return fmt.Sprintf("juju-%v-", cfg.ControllerUUID())
 }

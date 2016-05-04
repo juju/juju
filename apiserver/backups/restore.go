@@ -44,10 +44,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	}
 
-	info, err := a.st.RestoreInfoSetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	info := a.st.RestoreInfo()
 	// Signal to current state and api server that restore will begin
 	err = info.SetStatus(state.RestoreInProgress)
 	if err != nil {
@@ -102,29 +99,37 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// After restoring, the api server needs a forced restart, tomb will not work
 	// this is because we change all of juju configuration files and mongo too.
 	// Exiting with 0 would prevent upstart to respawn the process
+
+	// NOTE(fwereade): the apiserver needs to be restarted, yes, but
+	// this approach is completely broken. The only place it's ever
+	// ok to use os.Exit is in a main() func that's *so* simple as to
+	// be reasonably left untested.
+	//
+	// And passing os.Exit in wouldn't make this any better either,
+	// just using it subverts the expectations of *everything* else
+	// running in the process.
 	os.Exit(1)
 	return nil
 }
 
 // PrepareRestore implements the server side of Backups.PrepareRestore.
 func (a *API) PrepareRestore() error {
-	info, err := a.st.RestoreInfoSetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	info := a.st.RestoreInfo()
 	logger.Infof("entering restore preparation mode")
 	return info.SetStatus(state.RestorePending)
 }
 
 // FinishRestore implements the server side of Backups.FinishRestore.
 func (a *API) FinishRestore() error {
-	info, err := a.st.RestoreInfoSetter()
+	info := a.st.RestoreInfo()
+	currentStatus, err := info.Status()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	currentStatus := info.Status()
 	if currentStatus != state.RestoreFinished {
-		info.SetStatus(state.RestoreFailed)
+		if err := info.SetStatus(state.RestoreFailed); err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Errorf("Restore did not finish succesfuly")
 	}
 	logger.Infof("Succesfully restored")

@@ -17,11 +17,14 @@ import (
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewRestoreCommand returns a command used to restore a backup.
@@ -32,6 +35,7 @@ func NewRestoreCommand() cmd.Command {
 		return restoreCmd.newClient()
 	}
 	restoreCmd.getArchiveFunc = getArchive
+	restoreCmd.waitForAgentFunc = common.WaitForAgentInitialisation
 	return modelcmd.Wrap(restoreCmd)
 }
 
@@ -48,6 +52,7 @@ type restoreCommand struct {
 	newAPIClientFunc func() (RestoreAPI, error)
 	getEnvironFunc   func(string, *params.BackupsMetadataResult) (environs.Environ, error)
 	getArchiveFunc   func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
+	waitForAgentFunc func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
 }
 
 // RestoreAPI is used to invoke various API calls.
@@ -145,6 +150,18 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 		return nil, errors.Trace(err)
 	}
 
+	// We may have previous controller metadata. We need to update that so it
+	// will contain the new CA Cert and UUID required to connect to the newly
+	// bootstrapped controller API.
+	details := jujuclient.ControllerDetails{
+		ControllerUUID: cfg.ControllerUUID(),
+		CACert:         meta.CACert,
+	}
+	err = store.UpdateController(controllerName, details)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Get the local admin user so we can use the password as the admin secret.
 	var adminSecret string
 	account, err := store.AccountByName(controllerName, environs.AdminUser)
@@ -211,12 +228,23 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	args := bootstrap.BootstrapParams{
 		ModelConstraints:  c.constraints,
 		UploadTools:       c.uploadTools,
+		BuildToolsTarball: sync.BuildToolsTarball,
 		HostedModelConfig: hostedModelConfig,
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
-	return nil
+
+	// New controller is bootstrapped, so now record the API address so
+	// we can connect.
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.ControllerName(), env)
+	if err != nil {
+		errors.Trace(err)
+	}
+	// To avoid race conditions when running scripted bootstraps, wait
+	// for the controller's machine agent to be ready to accept commands
+	// before exiting this bootstrap command.
+	return c.waitForAgentFunc(ctx, &c.ModelCommandBase, c.ControllerName())
 }
 
 func (c *restoreCommand) newClient() (*backups.Client, error) {

@@ -13,6 +13,9 @@ type environProviderCredentials struct{}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	// TODO (anastasiamac 2016-04-14) When/If this value changes,
+	// verify that juju/juju/cloud/clouds.go#BuiltInClouds
+	// with lxd type are up to-date.
 	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 

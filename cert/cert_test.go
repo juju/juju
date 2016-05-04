@@ -16,6 +16,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
@@ -237,14 +238,13 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 	var clientState tls.ConnectionState
 	done := make(chan error)
 	go func() {
-		config := tls.Config{
-			Certificates: []tls.Certificate{{
-				Certificate: [][]byte{srvCert.Raw},
-				PrivateKey:  srvKey,
-			}},
-		}
+		config := utils.SecureTLSConfig()
+		config.Certificates = []tls.Certificate{{
+			Certificate: [][]byte{srvCert.Raw},
+			PrivateKey:  srvKey,
+		}}
 
-		conn := tls.Server(p1, &config)
+		conn := tls.Server(p1, config)
 		defer conn.Close()
 		data, err := ioutil.ReadAll(conn)
 		c.Assert(err, jc.ErrorIsNil)
@@ -252,10 +252,10 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 		close(done)
 	}()
 
-	clientConn := tls.Client(p0, &tls.Config{
-		ServerName: "anyServer",
-		RootCAs:    clientCertPool,
-	})
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.ServerName = "anyServer"
+	tlsConfig.RootCAs = clientCertPool
+	clientConn := tls.Client(p0, tlsConfig)
 	defer clientConn.Close()
 
 	_, err := clientConn.Write([]byte(msg))

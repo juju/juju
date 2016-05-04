@@ -122,8 +122,14 @@ type region struct {
 	StorageEndpoint string `yaml:"storage-endpoint,omitempty"`
 }
 
-// BuiltInProviderNames work out of the box.
-var BuiltInProviderNames = []string{"lxd", "manual", "maas"}
+// BuiltInClouds work out of the box.
+var BuiltInClouds = map[string]Cloud{
+	"localhost": {
+		Type:      "lxd",
+		AuthTypes: []AuthType{EmptyAuthType},
+		Regions:   []Region{{Name: "localhost"}},
+	},
+}
 
 // CloudByName returns the cloud with the specified name.
 // If there exists no cloud with the specified name, an
@@ -144,6 +150,9 @@ func CloudByName(name string) (*Cloud, error) {
 		return nil, errors.Trace(err)
 	}
 	if cloud, ok := clouds[name]; ok {
+		return &cloud, nil
+	}
+	if cloud, ok := BuiltInClouds[name]; ok {
 		return &cloud, nil
 	}
 	return nil, errors.NotFoundf("cloud %s", name)

@@ -251,14 +251,16 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	utils.SetHome(home)
+	err = utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 	aws.Regions["configtest"] = configTestRegion
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	utils.SetHome(s.savedHome)
+	err := utils.SetHome(s.savedHome)
+	c.Assert(err, jc.ErrorIsNil)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")

@@ -55,8 +55,8 @@ func (c *rackspaceFirewaller) Ports() ([]network.PortRange, error) {
 	return nil, errors.NotSupportedf("Ports")
 }
 
-// DeleteGlobalGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) DeleteGlobalGroups() error {
+// DeleteAllGroups implements OpenstackFirewaller interface.
+func (c *rackspaceFirewaller) DeleteAllGroups() error {
 	return nil
 }
 

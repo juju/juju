@@ -180,6 +180,10 @@ type Connection interface {
 	// keeping it for now, but it's not apparently used anywhere else.
 	AllFacadeVersions() map[string][]int
 
+	// AuthTag returns the tag of the authorized user of the state API
+	// connection.
+	AuthTag() names.Tag
+
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.
 	// Client in particular is intimately coupled with State -- and the others

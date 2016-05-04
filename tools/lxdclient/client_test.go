@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
+// +build go1.3,linux
 
 package lxdclient
 
@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	jujuos "github.com/juju/utils/os"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 )
@@ -21,6 +22,13 @@ type ConnectSuite struct {
 }
 
 var _ = gc.Suite(&ConnectSuite{})
+
+func (cs *ConnectSuite) SetUpSuite(c *gc.C) {
+	cs.IsolationSuite.SetUpSuite(c)
+	if jujuos.HostOS() != jujuos.Ubuntu {
+		c.Skip("lxd is only supported on Ubuntu at the moment")
+	}
+}
 
 func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	f, err := ioutil.TempFile("", "juju-lxd-remote-test")

@@ -82,6 +82,13 @@ func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *gc.C) {
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "a-controller\n")
 }
 
+func (s *SwitchSimpleSuite) TestUnknownControllerNameReturnsError(c *gc.C) {
+	s.addController(c, "a-controller")
+	s.currentController = "a-controller"
+	_, err := s.run(c, "another-controller:modela")
+	c.Assert(err, gc.ErrorMatches, "controller another-controller not found")
+}
+
 func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
 	s.addController(c, "a-controller")
 	s.currentController = "a-controller"
