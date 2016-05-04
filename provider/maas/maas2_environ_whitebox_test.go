@@ -1304,3 +1304,44 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c *gc.C) {
+	subnet := fakeSubnet{
+		id:      3,
+		space:   "freckles",
+		gateway: "10.20.19.2",
+		cidr:    "10.20.19.0/24",
+	}
+	var env *maasEnviron
+	checkCreateDeviceArgs := func(args gomaasapi.CreateMachineDeviceArgs) {
+		subnet := args.Subnet
+		c.Assert(subnet.CIDR(), gc.Equals, "10.20.19.0/24")
+		expected := gomaasapi.CreateMachineDeviceArgs{
+			Subnet:        subnet,
+			MACAddress:    "DEADBEEF",
+			InterfaceName: "eth0",
+		}
+		c.Assert(args, jc.DeepEquals, expected)
+	}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{&fakeMachine{
+			systemID:              "1",
+			createDeviceError:     errors.New("boom"),
+			createDeviceArgsCheck: checkCreateDeviceArgs,
+		}},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet},
+			},
+		},
+	}
+	suite.injectController(controller)
+	env = suite.makeEnviron(c, nil)
+	prepared := []network.InterfaceInfo{
+		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
+	}
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
