@@ -750,7 +750,6 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 type mockAvailabilityZoneAllocations struct {
 	group  []instance.Id // input param
 	result []common.AvailabilityZoneInstances
-	zones  []string
 	err    error
 }
 
@@ -761,24 +760,14 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	return t.result, t.err
 }
 
-func (t *localServerSuite) makeMockAvailabilityZoneAllocations() *mockAvailabilityZoneAllocations {
-	mock := &mockAvailabilityZoneAllocations{
-		result: make([]common.AvailabilityZoneInstances, len(t.srv.zones)),
-		zones:  make([]string, len(t.srv.zones)),
-	}
-	for i, zone := range t.srv.zones {
-		mock.result[i].ZoneName = zone.Name
-		mock.zones[i] = zone.Name
-	}
-	return mock
-}
-
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := t.makeMockAvailabilityZoneAllocations()
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{ZoneName: "az1"}},
+	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// no distribution group specified
@@ -802,8 +791,9 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := t.makeMockAvailabilityZoneAllocations()
-	mock.err = fmt.Errorf("AvailabilityZoneAllocations failed")
+	mock := mockAvailabilityZoneAllocations{
+		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
+	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(errors.Cause(err), gc.Equals, mock.err)
@@ -875,7 +865,11 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := t.makeMockAvailabilityZoneAllocations()
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{
+			{ZoneName: "az1"}, {ZoneName: "az2"},
+		},
+	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	var azArgs []string
@@ -889,7 +883,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 		regexp.QuoteMeta(runInstancesError.Message),
 		runInstancesError.Code,
 	))
-	c.Assert(azArgs, gc.DeepEquals, mock.zones)
+	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
@@ -1021,7 +1015,11 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := t.makeMockAvailabilityZoneAllocations()
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{
+			{ZoneName: "az1"}, {ZoneName: "az2"},
+		},
+	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// The first call to RunInstances fails with an error indicating the AZ
@@ -1036,9 +1034,9 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		return realRunInstances(e, ri)
 	})
 	inst, hwc := testing.AssertStartInstance(c, env, "1")
-	c.Assert(azArgs, gc.DeepEquals, mock.zones[:2])
-	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, mock.zones[1])
-	c.Check(*hwc.AvailabilityZone, gc.Equals, mock.zones[1])
+	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
+	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
+	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
@@ -1437,7 +1435,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(result, jc.IsFalse)
 
 	// this value won't change normally, the change here is to
@@ -1446,7 +1444,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	result, err = env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(result, jc.IsFalse)
 }
 
@@ -1456,7 +1454,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(result, jc.IsFalse)
 }
 
