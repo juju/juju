@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
@@ -510,6 +511,7 @@ to clean up the model.`[1:])
 		BootstrapImage:       c.BootstrapImage,
 		Placement:            c.Placement,
 		UploadTools:          c.UploadTools,
+		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
 		HostedModelConfig:    hostedModelConfig,
