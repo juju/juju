@@ -71,7 +71,7 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 		Results: []params.SSHAddressResult{
 			{Address: "1.1.1.1"},
 			{Address: "3.3.3.3"},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("entity")},
 		},
 	})
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
@@ -90,7 +90,7 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
 		Results: []params.SSHAddressResult{
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("entity")},
 			{Address: "2.2.2.2"},
 			{Address: "4.4.4.4"},
 		},
@@ -112,7 +112,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 	c.Check(results, gc.DeepEquals, params.SSHPublicKeysResults{
 		Results: []params.SSHPublicKeysResult{
 			{PublicKeys: []string{"rsa0", "dsa0"}},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("entity")},
 			{PublicKeys: []string{"rsa1", "dsa1"}},
 		},
 	})
@@ -177,7 +177,7 @@ func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSH
 			privateAddress: "4.4.4.4",
 		}, nil
 	}
-	return nil, errors.New("unknown entity")
+	return nil, errors.NotFoundf("entity")
 }
 
 func (backend *mockBackend) GetSSHHostKeys(tag names.MachineTag) (state.SSHHostKeys, error) {
