@@ -106,7 +106,7 @@ func (p environProvider) PrepareForBootstrap(
 			return nil, errors.Trace(err)
 		}
 
-		ctx.Infof("Using VPC %q inr region %q", vpcID, env.ecfg().region())
+		ctx.Infof("Using VPC %q in region %q", vpcID, env.ecfg().region())
 	}
 
 	return e, nil
