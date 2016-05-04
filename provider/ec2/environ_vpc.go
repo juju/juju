@@ -7,9 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
+
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -166,7 +167,7 @@ func findFirstPublicSubnet(subnets []ec2.Subnet) (*ec2.Subnet, error) {
 
 func getVPCInternetGateway(apiClient vpcAPIClient, vpc *ec2.VPC) (*ec2.InternetGateway, error) {
 	filter := ec2.NewFilter()
-	filter.Add("vpc-id", vpc.Id)
+	filter.Add("attachment.vpc-id", vpc.Id)
 	response, err := apiClient.InternetGateways(nil, filter)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unexpected AWS response getting Internet Gateway of VPC %q", vpc.Id)
