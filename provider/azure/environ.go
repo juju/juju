@@ -1127,11 +1127,11 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups() error {
 	// Deleting groups can take a long time, so make sure they are
 	// deleted in parallel.
 	var wg sync.WaitGroup
-	wg.Add(len(*result.Value))
 	errs := make([]error, len(*result.Value))
 	for i, group := range *result.Value {
 		groupName := to.String(group.Name)
 		logger.Debugf("  - deleting resource group %q", groupName)
+		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			if err := env.deleteResourceGroup(groupName); err != nil {
