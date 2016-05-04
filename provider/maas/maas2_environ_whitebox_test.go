@@ -1259,7 +1259,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	controller.machines = []gomaasapi.Machine{machine}
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
-		Storage: make(map[string]gomaasapi.BlockDevice),
+		Storage: make(map[string][]gomaasapi.BlockDevice),
 	}
 
 	env := suite.makeEnviron(c, controller)
