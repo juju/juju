@@ -40,6 +40,7 @@ func NewModel(args ModelArgs) Model {
 	m.setMachines(nil)
 	m.setServices(nil)
 	m.setRelations(nil)
+	m.setSpaces(nil)
 	return m
 }
 
@@ -79,6 +80,7 @@ type model struct {
 	Machines_  machines  `yaml:"machines"`
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
+	Spaces_    spaces    `yaml:"spaces"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -87,8 +89,8 @@ type model struct {
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
 	// TODO:
-	// Spaces
-	// Storage
+	// Subnets
+	// Storage...
 }
 
 func (m *model) Tag() names.ModelTag {
@@ -237,6 +239,29 @@ func (m *model) setRelations(relationList []*relation) {
 	}
 }
 
+// Spaces implements Model.
+func (m *model) Spaces() []Space {
+	var result []Space
+	for _, space := range m.Spaces_.Spaces_ {
+		result = append(result, space)
+	}
+	return result
+}
+
+// AddSpace implements Model.
+func (m *model) AddSpace(args SpaceArgs) Space {
+	space := newSpace(args)
+	m.Spaces_.Spaces_ = append(m.Spaces_.Spaces_, space)
+	return space
+}
+
+func (m *model) setSpaces(spaceList []*space) {
+	m.Spaces_ = spaces{
+		Version: 1,
+		Spaces_: spaceList,
+	}
+}
+
 // Sequences implements Model.
 func (m *model) Sequences() map[string]int {
 	return m.Sequences_
@@ -353,6 +378,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
+		"spaces":       schema.StringMap(schema.Any()),
 		"sequences":    schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -428,6 +454,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "relations")
 	}
 	result.setRelations(relations)
+
+	spaceMap := valid["spaces"].(map[string]interface{})
+	spaces, err := importSpaces(spaceMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "spaces")
+	}
+	result.setSpaces(spaces)
 
 	return result, nil
 }
