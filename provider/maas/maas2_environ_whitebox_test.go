@@ -1260,3 +1260,12 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMi
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), []network.InterfaceInfo{{}})
 	c.Assert(err, gc.ErrorMatches, "cannot find primary interface for container")
 }
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceSubnetMissing(c *gc.C) {
+	controller := &fakeController{}
+	suite.injectController(controller)
+	env := suite.makeEnviron(c, nil)
+	prepared := []network.InterfaceInfo{{InterfaceName: "eth0"}}
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, gc.ErrorMatches, "primary NIC subnet  not found")
+}
