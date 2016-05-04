@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
@@ -34,12 +34,10 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
 
 const (
-	none                        = "none"
 	invalidParameterValue       = "InvalidParameterValue"
 	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
 
@@ -80,17 +78,9 @@ type environ struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
-	// cachedVPC holds information about the used VPC. It's either the default
-	// VPC for the used EC2 region, or a user-specified VPC using "vpc-id"
-	// config setting.
-	cachedVPC *vpcInfo
+	allocationMutex     sync.Mutex
+	allocationSupported *bool
 }
-
-// Ensure EC2 provider supports environs.NetworkingEnviron.
-var _ environs.NetworkingEnviron = (*environ)(nil)
-var _ simplestreams.HasRegion = (*environ)(nil)
-var _ state.Prechecker = (*environ)(nil)
-var _ state.InstanceDistributor = (*environ)(nil)
 
 // AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
 var AssignPrivateIPAddress = assignPrivateIPAddress
@@ -190,14 +180,28 @@ func (e *environ) SupportsSpaceDiscovery() (bool, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled(provider.EC2) {
-		return false, errors.NotSupportedf("address allocation")
+	e.allocationMutex.Lock()
+	defer e.allocationMutex.Unlock()
+
+	if e.allocationSupported == nil {
+		var notSupported bool
+		e.allocationSupported = &notSupported
+
+		if environs.AddressAllocationEnabled(provider.EC2) {
+			defaultVPCID, err := findDefaultVPCID(e.ec2())
+			if err == nil {
+				logger.Infof("legacy address allocation supported with default VPC %q", defaultVPCID)
+				*e.allocationSupported = true
+			} else if errors.IsNotFound(err) {
+				logger.Infof("legacy address allocation not supported without a default VPC")
+			}
+		}
 	}
-	_, isDefaultVPC, err := e.getVPC()
-	if err != nil {
-		return false, errors.Trace(err)
+
+	if *e.allocationSupported {
+		return true, nil
 	}
-	return isDefaultVPC, nil
+	return false, errors.NotSupportedf("address allocation")
 }
 
 var unsupportedConstraints = []string{
@@ -418,7 +422,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		if err != nil {
 			return nil, err
 		}
-		if placement.availabilityZone.State != "available" {
+		if placement.availabilityZone.State != availableState {
 			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
@@ -500,25 +504,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// distributed across AZs, but only within subnets of the space constraint.
 	//
 	// TODO(dimitern): This should be done in a provider-independant way.
-	zonesToSubnets := make(map[string]string, len(args.SubnetsToZones))
-	var spaceSubnetIDs []string
-	for subnetID, zones := range args.SubnetsToZones {
-		// EC2-specific: subnets can only be in a single zone, hence the
-		// zones slice will always contain exactly one element when
-		// SubnetsToZones is populated.
-		zone := zones[0]
-		sid := string(subnetID)
-		zonesToSubnets[zone] = sid
-		spaceSubnetIDs = append(spaceSubnetIDs, sid)
-	}
-
-	// TODO(dimitern): For the network model MVP we only respect the
-	// first positive (a.k.a. "included") space specified in the
-	// constraints. Once we support any given list of positive or
-	// negative (prefixed with "^") spaces, fix this approach.
-	var spaceName string
-	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 0 {
-		spaceName = spaces[0]
+	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 1 {
+		logger.Infof("ignoring all but the first positive space from constraints: %v", spaces)
 	}
 
 	var instResp *ec2.RunInstancesResp
@@ -532,87 +519,36 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		ImageId:             spec.Image.Id,
 	}
 
-	vpcID, _, err := e.getVPC()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	usedVPCID := string(vpcID)
-	if vpcID != "" {
-		// With non-default VPC we need to specify SubnetId in
-		// addition (or instead of) AvailZone, so get the VPC subnets
-		// matching the chosen availabilityZones first.
-		zonesSet := set.NewStrings(availabilityZones...)
-		combinedZoneNamesAndSubnetIds := set.NewStrings()
-		subnetsZones := set.NewStrings()
-		f := ec2.NewFilter()
-		f.Add("vpc-id", usedVPCID)
-		f.Add("state", "available")
-		subnetsResp, err := e.ec2().Subnets(nil, f)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot match VPC %q subnets to zones", usedVPCID)
-		}
-		for _, subnet := range subnetsResp.Subnets {
-			subnetsZones.Add(subnet.AvailZone)
-			pair := fmt.Sprintf("%s:%s", subnet.AvailZone, subnet.Id)
-			combinedZoneNamesAndSubnetIds.Add(pair)
-			logger.Debugf(
-				"will try using subnet %q in VPC %q, zone %q",
-				subnet.Id, usedVPCID, subnet.AvailZone,
-			)
-		}
-		if combinedZoneNamesAndSubnetIds.IsEmpty() {
-			return nil, errors.Errorf(
-				"no usable subnets in VPC %q and zones: %s",
-				usedVPCID, strings.Join(zonesSet.SortedValues(), ", "),
-			)
-		}
-		// Now replace availabilityZones with the zone:subnetId pairs.
-		availabilityZones = combinedZoneNamesAndSubnetIds.SortedValues()
-		logger.Debugf("usable AZ:subnet pairs: %v", availabilityZones)
-	}
-
-	for _, zoneNameOrZoneNameAndSubnetIdPair := range availabilityZones {
+	for _, zone := range availabilityZones {
 		runArgs := commonRunArgs
-		zone := zoneNameOrZoneNameAndSubnetIdPair
+		runArgs.AvailZone = zone
 
-		// In case we're using a non-default VPC, availabilityZones
-		// contains zone:subnetId pairs instead of zone names.
-		if strings.Contains(zoneNameOrZoneNameAndSubnetIdPair, ":") {
-			parts := strings.SplitN(zoneNameOrZoneNameAndSubnetIdPair, ":", 2)
-			if len(parts) != 2 {
-				return nil, errors.Errorf("unexpected AZ/subnet combination: %q (len %d)", zoneNameOrZoneNameAndSubnetIdPair, len(parts))
-			}
-			runArgs.AvailZone = parts[0]
-			runArgs.SubnetId = parts[1]
-		} else if subnetID, found := zonesToSubnets[zone]; found {
-			// Use SubnetId explicitly here so the instance ends up in the
-			// right space.
-			runArgs.SubnetId = subnetID
-		} else if spaceName != "" {
-			// Ignore AZs not matching any subnet of the space in constraints.
+		var subnetIDsForZone []string
+		var subnetErr error
+		if e.ecfg().vpcID() != "" && !args.Constraints.HaveSpaces() {
+			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone)
+		} else if e.ecfg().vpcID() == "" && args.Constraints.HaveSpaces() {
+			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
+		}
+
+		if len(subnetIDsForZone) > 0 {
+			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
 			logger.Infof(
-				"skipping zone %q: not associated with any of space %q's subnets %q",
-				zone, spaceName, strings.Join(spaceSubnetIDs, ", "),
+				"selected random subnet %d from all matching in zone %q: %v",
+				runArgs.SubnetId, zone, subnetIDsForZone,
 			)
+		} else if errors.IsNotFound(subnetErr) {
+			logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", zone)
 			continue
-		} else {
-			// No space constraint specified, just use the usual zone
-			// distribution without an explicit SubnetId.
-			runArgs.AvailZone = zone
+		} else if subnetErr != nil {
+			return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", zone)
 		}
 
 		instResp, err = runInstances(e.ec2(), runArgs)
-		if err == nil {
+		if err == nil || !isZoneOrSubnetConstrainedError(err) {
 			break
 		}
-		if runArgs.SubnetId != "" && isSubnetConstrainedError(err) {
-			subID := runArgs.SubnetId
-			logger.Infof("%q (in zone %q, VPC %q) is constrained, try another subnet", subID, usedVPCID, zone)
-			continue
-		} else if !isZoneConstrainedError(err) {
-			// Something else went wrong - bail out.
-			break
-		}
+
 		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
 
@@ -628,6 +564,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: &instResp.Instances[0],
 	}
 	instAZ, instSubnet := inst.Instance.AvailZone, inst.Instance.SubnetId
+	usedVPCID := e.ecfg().vpcID()
 	logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, usedVPCID)
 
 	// Tag instance, for accounting and identification.
@@ -747,11 +684,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 // with the given name including rules and other details.
 func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
 	// Non-default VPC does not support name-based group lookups.
-	vpcID, _, err := e.getVPC()
-	if err != nil {
-		return ec2.SecurityGroupInfo{}, errors.Trace(err)
-	}
-	usedVPCID := string(vpcID)
+	usedVPCID := e.ecfg().vpcID()
 
 	var f *ec2.Filter
 	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
@@ -1723,11 +1656,7 @@ var zeroGroup ec2.SecurityGroup
 // the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	// Specify explicit VPC ID if needed (not for default VPC).
-	vpcID, _, err := e.getVPC()
-	if err != nil {
-		return zeroGroup, errors.Trace(err)
-	}
-	usedVPCID := string(vpcID)
+	usedVPCID := e.ecfg().vpcID()
 
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(usedVPCID, name, "juju group")
@@ -1871,6 +1800,10 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		ps = append(ps, ipp)
 	}
 	return
+}
+
+func isZoneOrSubnetConstrainedError(err error) bool {
+	return isZoneConstrainedError(err) || isSubnetConstrainedError(err)
 }
 
 // isZoneConstrainedError reports whether or not the error indicates
