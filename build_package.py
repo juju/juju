@@ -115,6 +115,7 @@ DEBSIGN_TEMPLATE = 'debsign -p {gpgcmd} *.changes'
 
 
 UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
+DAILY_VERSION_TEMPLATE = '{version}-{date}+{build}+{revid}~{release}'
 
 
 VERSION_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
@@ -317,18 +318,28 @@ def create_source_package_branch(build_dir, version, tarfile, branch):
     return spb
 
 
-def make_ubuntu_version(series, version, upatch=1):
+def make_ubuntu_version(series, version, upatch=1,
+                        date=None, build=None, revid=None):
     """Return an Ubuntu package version.
 
     :param series: The series codename.
     :param version: The upstream version.
     :param upatch: The package patch number for cases where a packaging rules
         are updated and the package rebuilt.
+    :param date: The date of the build.
+    :param build: The build number in CI.
+    :param revid: The revid hash of the source.
     :return: An Ubuntu version string.
     """
     release = juju_series.get_version(series)
-    return UBUNTU_VERSION_TEMPLATE.format(
-        version=version, release=release, upatch=upatch)
+    # if daily params are set, we make daily build
+    if all([date, build, revid]):
+        return DAILY_VERSION_TEMPLATE.format(
+            version=version, release=release, upatch=upatch,
+            date=date, build=build, revid=revid)
+    else:
+        return UBUNTU_VERSION_TEMPLATE.format(
+            version=version, release=release, upatch=upatch)
 
 
 def make_changelog_message(version, bugs=None):
@@ -382,8 +393,9 @@ def sign_source_package(source_dir, gpgcmd, debemail, debfullname):
 
 
 def create_source_package(source_dir, spb, series, version,
-                          upatch='1', bugs=None, gpgcmd=None,
-                          debemail=None, debfullname=None, verbose=False):
+                          upatch='1', bugs=None, gpgcmd=None, debemail=None,
+                          debfullname=None, verbose=False,
+                          date=None, build=None, revid=None):
     """Create a series source package from a source package branch.
 
     The new source package can be used to create series source packages.
@@ -401,8 +413,13 @@ def create_source_package(source_dir, spb, series, version,
     :param debemail: The email address to attribute the changelog entry to.
     :param debfullname: The name to attribute the changelog entry to.
     :param verbose: Increase the information about the work performed.
+    :param date: The date of the build.
+    :param build: The build number in CI.
+    :param revid: The revid hash of the source.
     """
-    ubuntu_version = make_ubuntu_version(series, version, upatch)
+
+    ubuntu_version = make_ubuntu_version(series, version, upatch,
+                                         date, build, revid)
     message = make_changelog_message(version, bugs=bugs)
     source = os.path.join(source_dir, 'source')
     env = make_deb_shell_env(debemail, debfullname)
@@ -416,7 +433,8 @@ def create_source_package(source_dir, spb, series, version,
 
 def build_source(tarfile_path, location, series, bugs,
                  debemail=None, debfullname=None, gpgcmd=None,
-                 branch=None, upatch=1, verbose=False):
+                 branch=None, upatch=1, verbose=False,
+                 date=None, build=None, revid=None):
     """Build one or more series source packages from a new release tarfile.
 
     The packages are unsigned by default, but providing the path to a gpgcmd,
@@ -435,12 +453,25 @@ def build_source(tarfile_path, location, series, bugs,
     :param upatch: The package patch number for cases where a packaging rules
         are updated and the package rebuilt.
     :param verbose: Increase the verbostiy of output.
+    :param date: The date of the build.
+    :param build: The build number in CI.
+    :param revid: The revid hash of the source.
     :return: the exit code (which is 0 or else an exception was raised).
     """
     if not isinstance(series, list):
         series = [series]
     tarfile_name = os.path.basename(tarfile_path)
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
+    if all([date, build, revid]):
+        daily_version = '{}~{}~{}~{}'.format(version, date, build, revid)
+        daily_tarfile_name = tarfile_name.replace(version, daily_version)
+        tarfile_dir = os.path.dirname(tarfile_path)
+        daily_tarfile_path = os.path.join(tarfile_dir, daily_tarfile_name)
+        os.rename(tarfile_name, daily_tarfile_name)
+        tarfile_path = daily_tarfile_path
+        tarfile_name = daily_tarfile_name
+        version = daily_version
+
     files = [SourceFile(None, None, tarfile_name, tarfile_path)]
     spb_dir = setup_local(
         location, 'any', 'all', files, verbose=verbose)
@@ -448,9 +479,10 @@ def build_source(tarfile_path, location, series, bugs,
     for a_series in series:
         build_dir = setup_local(location, a_series, 'all', [], verbose=verbose)
         create_source_package(
-            build_dir, spb, a_series, version, upatch=upatch, bugs=bugs,
-            gpgcmd=gpgcmd, debemail=debemail, debfullname=debfullname,
-            verbose=verbose)
+            build_dir, spb, a_series, version,
+            upatch=upatch, bugs=bugs, gpgcmd=gpgcmd,
+            debemail=debemail, debfullname=debfullname, verbose=verbose,
+            date=date, build=build, revid=revid)
     return 0
 
 
@@ -473,7 +505,8 @@ def main(argv):
             args.tar_file, args.location, args.series, args.bugs,
             debemail=args.debemail, debfullname=args.debfullname,
             gpgcmd=args.gpgcmd, branch=args.branch, upatch=args.upatch,
-            verbose=args.verbose)
+            verbose=args.verbose,
+            date=args.date, build=args.build, revid=args.revid)
     elif args.command == 'binary':
         exitcode = build_binary(
             args.dsc, args.location, args.series, args.arch,
@@ -509,6 +542,12 @@ def get_args(argv=None):
     src_parser.add_argument("location", help="The location to build in.")
     src_parser.add_argument(
         'series', help="The destination Ubuntu release or LIVING for all.")
+    src_parser.add_argument(
+        '--date', default=None, help="A datestamp to apply to the build")
+    src_parser.add_argument(
+        '--build', default=None, help="The build number from CI")
+    src_parser.add_argument(
+        '--revid', default=None, help="The short hash for revid")
     src_parser.add_argument(
         'bugs', nargs='*', help="Bugs this version will fix in the release.")
     bin_parser = subparsers.add_parser('binary', help='Build a binary package')
