@@ -204,8 +204,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 2*len(sources); i++ {
 		messages = append(messages,
-			jc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
-			jc.SimpleMessage{loggo.TRACE, `cannot load index .*`})
+			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},
+			jc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
 	}
 	c.Check(tw.Log(), jc.LogMatches, messages)
 }
