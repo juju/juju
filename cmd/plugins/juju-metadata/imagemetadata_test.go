@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -72,6 +72,8 @@ var seriesVersions map[string]string = map[string]string{
 	"precise": "12.04",
 	"raring":  "13.04",
 	"trusty":  "14.04",
+	"wily":    "15.10",
+	"xenial":  "16.04",
 }
 
 type expectedMetadata struct {
@@ -169,7 +171,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
-		series: config.LatestLtsSeries(),
+		series: series.LatestLts(),
 		arch:   "arch",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)

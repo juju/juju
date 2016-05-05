@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
@@ -2867,7 +2868,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -2883,7 +2884,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -2966,7 +2967,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -3083,7 +3084,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, coretesting.FakeDefaultSeries, apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
 		}

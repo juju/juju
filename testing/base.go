@@ -14,6 +14,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/arch"
@@ -121,6 +122,7 @@ func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
 // NOTE: there will be many tests that fail when you try to change
 // to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
+	oldLtsForTesting string
 	testing.CleanupSuite
 	testing.LoggingSuite
 	JujuOSEnvSuite
@@ -131,9 +133,11 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	s.oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
+	_ = series.SetLatestLtsForTesting(s.oldLtsForTesting)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }

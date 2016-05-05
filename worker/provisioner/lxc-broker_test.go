@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -1060,7 +1061,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	_, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
@@ -1077,7 +1078,7 @@ func (s *lxcProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.LXC)
@@ -1100,7 +1101,7 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 	defaultTools := version.Binary{
 		Number: version.Current.Number,
 		Arch:   arch.HostArch(),
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 	}
 
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", defaultTools)

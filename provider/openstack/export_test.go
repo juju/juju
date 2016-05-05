@@ -108,6 +108,7 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
+			"com.ubuntu.cloud:server:16.04:amd64",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:14.04:i386",
 			"com.ubuntu.cloud:server:14.04:ppc64el",
@@ -126,6 +127,43 @@ var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
+   "com.ubuntu.cloud:server:16.04:amd64": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "amd64",
+     "versions": {
+       "20161218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20161111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-amd64-server-20161111",
+         "label": "release"
+       }
+     }
+   },
    "com.ubuntu.cloud:server:14.04:amd64": {
      "release": "trusty",
      "version": "14.04",

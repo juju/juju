@@ -18,6 +18,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
@@ -1441,7 +1442,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 
 	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      "West US",
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1466,7 +1467,7 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 			Endpoint:   "https://management.core.windows.net/",
 		},
 	}
-	s.makeTestMetadata(c, coretesting.FakeDefaultSeries, "North Europe", images)
+	s.makeTestMetadata(c, series.LatestLts(), "North Europe", images)
 	return env
 }
 
@@ -1480,7 +1481,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(
 	}
 	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      "North Europe",
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)

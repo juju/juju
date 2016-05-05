@@ -37,6 +37,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
@@ -88,7 +89,7 @@ func SampleConfig() testing.Attrs {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
-		"default-series":            config.LatestLtsSeries(),
+		"default-series":            series.LatestLts(),
 
 		"secret":       "pork",
 		"state-server": true,

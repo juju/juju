@@ -17,6 +17,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 	"gopkg.in/juju/charm.v5/charmrepo"
@@ -98,7 +99,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm not found in \".*\": local:%s/unknown-123", series.LatestLts()))
 }
 
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
@@ -113,7 +114,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
@@ -149,7 +150,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 }
 
@@ -157,7 +158,7 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/logging-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/logging-1", series.LatestLts()))
 	s.AssertService(c, "logging", curl, 0, 0)
 }
 
@@ -197,7 +198,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -220,7 +221,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "storage-block")
 	err = runDeploy(c, "local:storage-block", "--storage", "data=loop-pool,1G")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/storage-block-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/storage-block-1", series.LatestLts()))
 	service, _ := s.AssertService(c, "storage-block", curl, 1, 0)
 
 	cons, err := service.StorageConstraints()
@@ -244,7 +245,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runDeploy(c, "local:dummy", "-n", "1", "--to", "valid")
@@ -270,7 +271,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "dummy", curl, 13, 0)
 }
 
@@ -295,7 +296,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +306,7 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
@@ -320,7 +321,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +340,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), "local:logging")
@@ -611,7 +612,7 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "dummy", curl, 1, 0)
 	c.Assert(called, jc.IsFalse)
 }

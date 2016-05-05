@@ -13,6 +13,7 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	awsec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
 	gc "gopkg.in/check.v1"
@@ -81,7 +82,7 @@ func (s *ebsVolumeSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&version.Current, version.Binary{
 		Number: testing.FakeVersionNumber,
-		Series: testing.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Arch:   arch.AMD64,
 	})
 	s.srv.startServer(c)

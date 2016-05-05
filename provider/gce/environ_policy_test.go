@@ -6,13 +6,13 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/testing"
 )
 
 type environPolSuite struct {
@@ -24,7 +24,7 @@ var _ = gc.Suite(&environPolSuite{})
 func (s *environPolSuite) TestPrecheckInstance(c *gc.C) {
 	cons := constraints.Value{}
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -36,7 +36,7 @@ func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
 
 	cons := constraints.Value{}
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
@@ -49,7 +49,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=amd64 root-disk=1G")
 	placement := "zone=home-zone"
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -60,7 +60,7 @@ func (s *environPolSuite) TestPrecheckInstanceFullAPI(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -68,7 +68,7 @@ func (s *environPolSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1.invalid")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, gc.ErrorMatches, `.*invalid GCE instance type.*`)
 }
@@ -76,7 +76,7 @@ func (s *environPolSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1 root-disk=1G")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -84,7 +84,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1 arch=i386")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -96,7 +96,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 
 	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -108,7 +108,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 
 	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, gc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
 }
@@ -120,7 +120,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 
 	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
