@@ -258,7 +258,10 @@ func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
+		BootstrapSeries: "xenial",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
@@ -336,7 +339,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 
 // TestUpstartBoostrapInstanceUserDataAndState is a test for legacy systems
 // using upstart which will be around until trusty is no longer supported.
-// TODO: BBB: remove when trusty is no longer supported
+// TODO(redir): BBB: remove when trusty is no longer supported
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
