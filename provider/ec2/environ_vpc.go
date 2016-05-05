@@ -45,7 +45,7 @@ type vpcAPIClient interface {
 //    table of the VPC.
 // 6. None of the the VPC's subnets have the MapPublicIPOnLaunch attribute set.
 //
-// With the force-vpc-id config setting set to true, the provider can ignore a
+// With the vpc-id-force config setting set to true, the provider can ignore a
 // NotValidError. NotFoundError cannot be ignored, while unexpected API
 // responses and errors could be retried.
 func validateVPC(apiClient vpcAPIClient, vpcID string) error {

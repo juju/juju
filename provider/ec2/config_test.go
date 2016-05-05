@@ -179,7 +179,7 @@ var configTests = []configTest{
 		forceVPCID: false,
 	}, {
 		config: attrs{
-			"force-vpc-id": "nonsense",
+			"vpc-id-force": "nonsense",
 		},
 		err:        `.*expected bool, got string\("nonsense"\)`,
 		vpcID:      "",
@@ -187,7 +187,7 @@ var configTests = []configTest{
 	}, {
 		config: attrs{
 			"vpc-id":       "vpc-anything",
-			"force-vpc-id": 999,
+			"vpc-id-force": 999,
 		},
 		err:        `.*expected bool, got int\(999\)`,
 		vpcID:      "",
@@ -195,9 +195,9 @@ var configTests = []configTest{
 	}, {
 		config: attrs{
 			"vpc-id":       "",
-			"force-vpc-id": true,
+			"vpc-id-force": true,
 		},
-		err:        `.*cannot use force-vpc-id without specifying vpc-id as well`,
+		err:        `.*cannot use vpc-id-force without specifying vpc-id as well`,
 		vpcID:      "",
 		forceVPCID: true,
 	}, {
@@ -209,27 +209,27 @@ var configTests = []configTest{
 	}, {
 		config: attrs{
 			"vpc-id":       "vpc-some-id",
-			"force-vpc-id": true,
+			"vpc-id-force": true,
 		},
 		vpcID:      "vpc-some-id",
 		forceVPCID: true,
 	}, {
 		config: attrs{
 			"vpc-id":       "vpc-abcd",
-			"force-vpc-id": false,
+			"vpc-id-force": false,
 		},
 		vpcID:      "vpc-abcd",
 		forceVPCID: false,
 	}, {
 		config: attrs{
 			"vpc-id":       "vpc-unchanged",
-			"force-vpc-id": true,
+			"vpc-id-force": true,
 		},
 		change: attrs{
 			"vpc-id":       "vpc-unchanged",
-			"force-vpc-id": false,
+			"vpc-id-force": false,
 		},
-		err:        `.*cannot change force-vpc-id from true to false`,
+		err:        `.*cannot change vpc-id-force from true to false`,
 		vpcID:      "vpc-unchanged",
 		forceVPCID: true,
 	}, {
@@ -265,7 +265,7 @@ var configTests = []configTest{
 	}, {
 		config: attrs{
 			"vpc-id":       "vpc-foo",
-			"force-vpc-id": true,
+			"vpc-id-force": true,
 		},
 		change:     attrs{},
 		vpcID:      "vpc-foo",

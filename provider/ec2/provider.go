@@ -27,7 +27,7 @@ var providerInstance environProvider
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region", "vpc-id", "force-vpc-id"}
+	return []string{"region", "vpc-id", "vpc-id-force"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
@@ -102,7 +102,7 @@ Juju requirements:
 A default VPC already satisfies all of the requirements above. If you
 still want to use the VPC, try running 'juju bootstrap' again with:
 
-  --config vpc-id=%s --config force-vpc-id=true
+  --config vpc-id=%s --config vpc-id-force=true
 
 to force Juju to bypass the requirements check (NOT recommended unless
 you understand the implications, most importantly: not being able to
@@ -122,7 +122,7 @@ Error details`[1:]
 
 	vpcPossiblyUnsuitableButForcedWarning = `
 WARNING! The specified vpc-id does not satisfy the minimum Juju requirements,
-but will be used anyway because force-vpc-id=true is also specified.
+but will be used anyway because vpc-id-force=true is also specified.
 
 `[1:]
 )

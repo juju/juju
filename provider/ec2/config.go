@@ -41,7 +41,7 @@ var configSchema = environschema.Fields{
 		Group:       environschema.AccountGroup,
 		Immutable:   true,
 	},
-	"force-vpc-id": {
+	"vpc-id-force": {
 		Description: "Force Juju to use the AWS VPC ID specified with vpc-id, when it fails the minimum validation criteria. Not accepted without vpc-id",
 		Type:        environschema.Tbool,
 		Group:       environschema.AccountGroup,
@@ -62,7 +62,7 @@ var configDefaults = schema.Defaults{
 	"secret-key":   "",
 	"region":       "us-east-1",
 	"vpc-id":       "",
-	"force-vpc-id": false,
+	"vpc-id-force": false,
 }
 
 type environConfig struct {
@@ -87,7 +87,7 @@ func (c *environConfig) vpcID() string {
 }
 
 func (c *environConfig) forceVPCID() bool {
-	return c.attrs["force-vpc-id"].(bool)
+	return c.attrs["vpc-id-force"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -134,7 +134,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if vpcID := ecfg.vpcID(); vpcID != "" && !strings.HasPrefix(vpcID, "vpc-") {
 		return nil, fmt.Errorf("vpc-id: %q is not a valid AWS VPC ID", vpcID)
 	} else if vpcID == "" && ecfg.forceVPCID() {
-		return nil, fmt.Errorf("cannot use force-vpc-id without specifying vpc-id as well")
+		return nil, fmt.Errorf("cannot use vpc-id-force without specifying vpc-id as well")
 	}
 
 	if old != nil {
@@ -147,8 +147,8 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 			return nil, fmt.Errorf("cannot change vpc-id from %q to %q", vpcID, ecfg.vpcID())
 		}
 
-		if forceVPCID, _ := attrs["force-vpc-id"].(bool); forceVPCID != ecfg.forceVPCID() {
-			return nil, fmt.Errorf("cannot change force-vpc-id from %v to %v", forceVPCID, ecfg.forceVPCID())
+		if forceVPCID, _ := attrs["vpc-id-force"].(bool); forceVPCID != ecfg.forceVPCID() {
+			return nil, fmt.Errorf("cannot change vpc-id-force from %v to %v", forceVPCID, ecfg.forceVPCID())
 		}
 	}
 
