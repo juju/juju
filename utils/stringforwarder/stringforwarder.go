@@ -75,7 +75,7 @@ func (f *StringForwarder) loop(callback func(string)) {
 		for !f.stopped && f.current == nil {
 			f.cond.Wait()
 		}
-		if f.stopped {
+		if f.current == nil {
 			return
 		}
 		f.invokeCallback(callback, *f.current)
