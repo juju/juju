@@ -605,12 +605,47 @@ const (
 
 type stubVPCAPIClient struct {
 	*testing.Stub
+	vpcAPIClient // embedded mostly for documentation
 
 	attributesResponse  *ec2.AccountAttributesResp
 	vpcsResponse        *ec2.VPCsResp
 	subnetsResponse     *ec2.SubnetsResp
 	gatewaysResponse    *ec2.InternetGatewaysResp
 	routeTablesResponse *ec2.RouteTablesResp
+}
+
+// AccountAttributes implements vpcAPIClient and is used to test finding the
+// default VPC from the "default-vpc"" attribute.
+func (s *stubVPCAPIClient) AccountAttributes(attributeNames ...string) (*ec2.AccountAttributesResp, error) {
+	s.Stub.AddCall("AccountAttributes", makeArgsFromStrings(attributeNames...)...)
+	return s.attributesResponse, s.Stub.NextErr()
+}
+
+// VPCs implements vpcAPIClient and is used to test getting the details of a
+// VPC.
+func (s *stubVPCAPIClient) VPCs(ids []string, filter *ec2.Filter) (*ec2.VPCsResp, error) {
+	s.Stub.AddCall("VPCs", ids, filter)
+	return s.vpcsResponse, s.Stub.NextErr()
+}
+
+// Subnets implements vpcAPIClient and is used to test getting a VPC's subnets.
+func (s *stubVPCAPIClient) Subnets(ids []string, filter *ec2.Filter) (*ec2.SubnetsResp, error) {
+	s.Stub.AddCall("Subnets", ids, filter)
+	return s.subnetsResponse, s.Stub.NextErr()
+}
+
+// InternetGateways implements vpcAPIClient and is used to test getting the
+// attached IGW of a VPC.
+func (s *stubVPCAPIClient) InternetGateways(ids []string, filter *ec2.Filter) (*ec2.InternetGatewaysResp, error) {
+	s.Stub.AddCall("InternetGateways", ids, filter)
+	return s.gatewaysResponse, s.Stub.NextErr()
+}
+
+// RouteTables implements vpcAPIClient and is used to test getting all route
+// tables of a VPC, alond with their routes.
+func (s *stubVPCAPIClient) RouteTables(ids []string, filter *ec2.Filter) (*ec2.RouteTablesResp, error) {
+	s.Stub.AddCall("RouteTables", ids, filter)
+	return s.routeTablesResponse, s.Stub.NextErr()
 }
 
 func (s *stubVPCAPIClient) SetAttributesResponse(attributeNameToValues map[string][]string) {
@@ -627,12 +662,6 @@ func (s *stubVPCAPIClient) SetAttributesResponse(attributeNameToValues map[strin
 		s.attributesResponse.Attributes = append(s.attributesResponse.Attributes, attribute)
 	}
 }
-
-func (s *stubVPCAPIClient) AccountAttributes(attributeNames ...string) (*ec2.AccountAttributesResp, error) {
-	s.Stub.AddCall("AccountAttributes", makeArgsFromStrings(attributeNames...)...)
-	return s.attributesResponse, s.Stub.NextErr()
-}
-
 func (s *stubVPCAPIClient) CheckSingleAccountAttributesCall(c *gc.C, attributeNames ...string) {
 	s.Stub.CheckCallNames(c, "AccountAttributes")
 	s.Stub.CheckCall(c, 0, "AccountAttributes", makeArgsFromStrings(attributeNames...)...)
@@ -651,11 +680,6 @@ func (s *stubVPCAPIClient) SetVPCsResponse(numResults int, state string, isDefau
 		vpc.IsDefault = isDefault
 		s.vpcsResponse.VPCs[i] = *vpc
 	}
-}
-
-func (s *stubVPCAPIClient) VPCs(ids []string, filter *ec2.Filter) (*ec2.VPCsResp, error) {
-	s.Stub.AddCall("VPCs", ids, filter)
-	return s.vpcsResponse, s.Stub.NextErr()
 }
 
 func (s *stubVPCAPIClient) CheckSingleVPCsCall(c *gc.C, vpcID string) {
@@ -683,11 +707,6 @@ func (s *stubVPCAPIClient) SetSubnetsResponse(numResults int, zone string, mapPu
 	}
 }
 
-func (s *stubVPCAPIClient) Subnets(ids []string, filter *ec2.Filter) (*ec2.SubnetsResp, error) {
-	s.Stub.AddCall("Subnets", ids, filter)
-	return s.subnetsResponse, s.Stub.NextErr()
-}
-
 func (s *stubVPCAPIClient) CheckSingleSubnetsCall(c *gc.C, vpc *ec2.VPC) {
 	var nilIDs []string
 	filter := ec2.NewFilter()
@@ -711,11 +730,6 @@ func (s *stubVPCAPIClient) SetGatewaysResponse(numResults int, attachmentState s
 	}
 }
 
-func (s *stubVPCAPIClient) InternetGateways(ids []string, filter *ec2.Filter) (*ec2.InternetGatewaysResp, error) {
-	s.Stub.AddCall("InternetGateways", ids, filter)
-	return s.gatewaysResponse, s.Stub.NextErr()
-}
-
 func (s *stubVPCAPIClient) CheckSingleInternetGatewaysCall(c *gc.C, vpc *ec2.VPC) {
 	var nilIDs []string
 	filter := ec2.NewFilter()
@@ -735,11 +749,6 @@ func (s *stubVPCAPIClient) SetRouteTablesResponse(tables ...*ec2.RouteTable) {
 	for i := range s.routeTablesResponse.Tables {
 		s.routeTablesResponse.Tables[i] = *tables[i]
 	}
-}
-
-func (s *stubVPCAPIClient) RouteTables(ids []string, filter *ec2.Filter) (*ec2.RouteTablesResp, error) {
-	s.Stub.AddCall("RouteTables", ids, filter)
-	return s.routeTablesResponse, s.Stub.NextErr()
 }
 
 func (s *stubVPCAPIClient) CheckSingleRouteTablesCall(c *gc.C, vpc *ec2.VPC) {
