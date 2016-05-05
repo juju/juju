@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -736,7 +737,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// It is set just below.
 		st, err := state.Initialize(
 			names.NewUserTag("admin@local"), info, cfg,
-			mongo.DefaultDialOpts(), estate.statePolicy)
+			mongotest.DialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}

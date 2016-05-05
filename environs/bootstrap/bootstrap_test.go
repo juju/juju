@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
@@ -252,7 +253,11 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-stream": "proposed"})
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BuildToolsTarball: func(*version.Number, string) (*sync.BuiltTools, error) {
+			return &sync.BuiltTools{Dir: c.MkDir()}, nil
+		},
+	})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
 	c.Assert(err, jc.ErrorIsNil)
@@ -269,7 +274,11 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"development": true})
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		BuildToolsTarball: func(*version.Number, string) (*sync.BuiltTools, error) {
+			return &sync.BuiltTools{Dir: c.MkDir()}, nil
+		},
+	})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
 	c.Assert(err, jc.ErrorIsNil)

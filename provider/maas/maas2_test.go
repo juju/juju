@@ -208,6 +208,17 @@ type fakeMachine struct {
 	createDevice          gomaasapi.Device
 	createDeviceError     error
 	createDeviceArgsCheck func(gomaasapi.CreateMachineDeviceArgs)
+
+	*testing.Stub
+}
+
+func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
+	return &fakeMachine{
+		Stub:         &testing.Stub{},
+		systemID:     systemID,
+		architecture: architecture,
+		statusName:   statusName,
+	}
 }
 
 func (m *fakeMachine) Tags() []string {
@@ -255,7 +266,8 @@ func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
 }
 
 func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
-	return nil
+	m.MethodCall(m, "Start", args)
+	return m.NextErr()
 }
 
 func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {

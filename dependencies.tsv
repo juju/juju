@@ -19,10 +19,10 @@ github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:3
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-03-12T17:00:16Z
-github.com/juju/gomaasapi	git	4e9c3d73d60b291a6f81f459f3f34e85098929d5	2016-04-29T11:27:26Z
+github.com/juju/gomaasapi	git	5bd7212f416a2d801e4a39800b66e1ee4461c42e	2016-05-03T13:03:30Z
 github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
-github.com/juju/httprequest	git	89d547093c45e293599088cc63e805c6f1205dc0	2016-03-02T10:09:58Z
+github.com/juju/httprequest	git	796aaafaf712f666df58d31a482c51233038bf9f	2016-05-03T15:03:27Z
 github.com/juju/idmclient	git	1995850da11150fb9247e43c6089e54eaeaae44a	2016-04-01T13:35:05Z
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
@@ -60,7 +60,7 @@ gopkg.in/juju/charmrepo.v2-unstable	git	c457416da598dffa665fc75aeb5c7265ff1273c0
 gopkg.in/juju/charmstore.v5-unstable	git	745fa1ca2260cdc9dd5a6df6282da51776baa59f	2016-04-12T11:34:55Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v1	git	a60359df348ef2ca40ec3bcd58a01de54f05658e	2016-02-11T10:02:50Z
-gopkg.in/macaroon-bakery.v1	git	fddb3dcd74806133259879d033fdfe92f9e67a8a	2016-04-01T12:14:21Z
+gopkg.in/macaroon-bakery.v1	git	c8e0209b0f4e48e8603ab0ae2477445f9443fbdc	2016-05-03T12:38:55Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	4d04138ffef2791c479c0c8bbffc30b34081b8d9	2015-10-26T16:34:53Z
 gopkg.in/natefinch/lumberjack.v2	git	514cbda263a734ae8caac038dadf05f8f3f9f738	2016-01-25T11:17:49Z

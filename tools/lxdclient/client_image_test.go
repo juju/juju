@@ -277,9 +277,12 @@ func (s *imageSuite) TestEnsureImageExistsNotPresentInFirstRemote(c *gc.C) {
 }
 
 func (s *imageSuite) TestEnsureImageExistsCallbackIncludesSourceURL(c *gc.C) {
-	calls := make(chan string, 20)
+	calls := make(chan string, 1)
 	callback := func(message string) {
-		calls <- message
+		select {
+		case calls <- message:
+		default:
+		}
 	}
 	connector := MakeConnector(s.Stub, s.remoteWithTrusty)
 	raw := &stubClient{

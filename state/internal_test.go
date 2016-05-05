@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/testing"
 )
 
@@ -47,10 +48,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			CACert: testing.CACert,
 		},
 	}
-	// Copied from NewDialOpts (due to import loops).
-	dialopts := mongo.DialOpts{
-		Timeout: testing.LongWait,
-	}
+	dialopts := mongotest.DialOpts()
 	st, err := Initialize(s.owner, info, testing.ModelConfig(c), dialopts, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st

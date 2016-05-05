@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -263,7 +264,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 
-	r.PatchValue(&mongoDefaultDialOpts, statetesting.NewDialOpts)
+	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
 	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return nil })
 	st, err = newStateConnection(st.ModelTag(), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)

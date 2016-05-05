@@ -55,12 +55,13 @@ func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
 		result = params.NotifyWatchResult{
 			NotifyWatcherId: api.resources.Register(watch),
 		}
+	} else {
+		result.Error = common.ServerError(watcher.EnsureErr(watch))
 	}
-	result.Error = common.ServerError(watcher.EnsureErr(watch))
 	return result
 }
 
-// WatchChanges watches for cleanups to be perfomed in state
+// WatchForProxyConfigAndAPIHostPortChanges watches for cleanups to be perfomed in state
 func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -70,8 +71,9 @@ func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params
 	for i := range args.Entities {
 		if errors.Results[i].Error == nil {
 			results.Results[i] = api.oneWatch()
+		} else {
+			results.Results[i].Error = errors.Results[i].Error
 		}
-		results.Results[i].Error = errors.Results[i].Error
 	}
 
 	return results

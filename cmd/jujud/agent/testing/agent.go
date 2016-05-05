@@ -28,6 +28,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -244,7 +245,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(config.Model(), info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(config.Model(), info, mongotest.DialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }

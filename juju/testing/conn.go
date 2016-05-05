@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -375,7 +376,7 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	modelTag := names.NewModelTag(config.UUID())
 
 	mongoInfo.Password = password
-	opts := mongo.DefaultDialOpts()
+	opts := mongotest.DialOpts()
 	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
