@@ -373,10 +373,11 @@ type GetMetadataParams struct {
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 
 	for _, source := range sources {
-		logger.Tracef("searching for metadata in datasource %q", source.Description())
+		logger.Debugf("searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !params.OnlySigned {
+			logger.Debugf("falling back to search for unsigned metadata in datasource %q", source.Description())
 			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
 		}
 		if err == nil {
@@ -407,15 +408,18 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	resolveInfo.Signed = signed
 	indexPath := makeIndexPath(defaultIndexPath)
 
+	logger.Debugf("looking for data index using path %s", indexPath)
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	cons := params.LookupConstraint
 
 	indexRef, indexURL, err := fetchIndex(
 		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
 	)
+	logger.Debugf("looking for data index using URL %s", indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+		logger.Debugf("%s not accessed, actual error: %v", indexPath, err)
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
-		logger.Tracef("%s not found, trying legacy index path: %s", indexPath, legacyIndexPath)
+		logger.Debugf("trying legacy index path: %s", legacyIndexPath)
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = fetchIndex(
 			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
@@ -423,9 +427,7 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	}
 	resolveInfo.IndexURL = indexURL
 	if err != nil {
-		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
-			logger.Tracef("cannot load index %q: %v", indexURL, err)
-		}
+		logger.Debugf("cannot load index %q: %v", indexURL, err)
 		return nil, resolveInfo, err
 	}
 	logger.Debugf("read metadata index at %q", indexURL)
@@ -465,7 +467,7 @@ func fetchIndex(source DataSource, indexPath string, mirrorsPath string, cloudSp
 func fetchData(source DataSource, path string, requireSigned bool) (data []byte, dataURL string, err error) {
 	rc, dataURL, err := source.Fetch(path)
 	if err != nil {
-		logger.Tracef("fetchData failed for %q: %v", dataURL, err)
+		logger.Debugf("fetchData failed for %q: %v", dataURL, err)
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	defer rc.Close()
@@ -475,7 +477,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 		data, err = ioutil.ReadAll(rc)
 	}
 	if err != nil {
-		return nil, dataURL, fmt.Errorf("cannot read URL data, %v", err)
+		return nil, dataURL, errors.Annotatef(err, "cannot read data for source %q at URL %v", source.Description(), dataURL)
 	}
 	return data, dataURL, nil
 }
@@ -523,7 +525,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
-			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)
+			logger.Debugf("no mirror information available for %s: %v", cloudSpec, err)
 		}
 	}
 
@@ -616,7 +618,7 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 		return "", newNoMatchingProductsError("index file has no data for product name(s) %q", prodIds)
 	}
 
-	logger.Tracef("candidate matches for products %q are %v", prodIds, candidates)
+	logger.Debugf("candidate matches for products %q are %v", prodIds, candidates)
 
 	// Pick arbitrary match.
 	return candidates[0].ProductsFilePath, nil
@@ -929,7 +931,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint
 	if err != nil {
 		return nil, err
 	}
-	logger.Tracef("finding products at path %q", productFilesPath)
+	logger.Debugf("finding products at path %q", productFilesPath)
 	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read product data, %v", err)
@@ -967,7 +969,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("metadata: %v", metadata)
+	logger.Tracef("metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err

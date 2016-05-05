@@ -182,9 +182,10 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if _, err := os.Stat(dir); err != nil {
 			return err
 		}
+		publicKey, _ := simplestreams.UserPublicSigningKey()
 		params.Sources = []simplestreams.DataSource{
-			simplestreams.NewURLDataSource(
-				"local metadata directory", "file://"+dir, utils.VerifySSLHostnames),
+			simplestreams.NewURLSignedDataSource(
+				"local metadata directory", "file://"+dir, publicKey, utils.VerifySSLHostnames),
 		}
 	}
 	params.Stream = c.stream
