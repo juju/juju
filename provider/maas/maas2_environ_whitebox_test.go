@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
@@ -1021,6 +1022,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	}
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{&fakeMachine{
+			Stub:         &jt.Stub{},
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
@@ -1182,6 +1184,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	}
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{&fakeMachine{
+			Stub:         &jt.Stub{},
 			systemID:     "1",
 			architecture: arch.HostArch(),
 			interfaceSet: interfaces,
@@ -1303,22 +1306,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 		cidr:    "10.20.19.0/24",
 	}
 	var env *maasEnviron
-	checkCreateDeviceArgs := func(args gomaasapi.CreateMachineDeviceArgs) {
-		subnet := args.Subnet
-		c.Assert(subnet.CIDR(), gc.Equals, "10.20.19.0/24")
-		expected := gomaasapi.CreateMachineDeviceArgs{
-			Subnet:        subnet,
-			MACAddress:    "DEADBEEF",
-			InterfaceName: "eth0",
-		}
-		c.Assert(args, jc.DeepEquals, expected)
+	machine := &fakeMachine{
+		Stub:     &jt.Stub{},
+		systemID: "1",
 	}
+	machine.SetErrors(errors.New("boom"))
 	controller := &fakeController{
-		machines: []gomaasapi.Machine{&fakeMachine{
-			systemID:              "1",
-			createDeviceError:     errors.New("boom"),
-			createDeviceArgsCheck: checkCreateDeviceArgs,
-		}},
+		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
 				name:    "freckles",
@@ -1334,6 +1328,20 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	}
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
+	calls := machine.Calls()
+	c.Assert(calls, gc.HasLen, 1)
+	args := calls[0].Args
+	c.Assert(args, gc.HasLen, 1)
+	maasArgs, ok := args[0].(gomaasapi.CreateMachineDeviceArgs)
+	c.Assert(ok, jc.IsTrue)
+	subnetArg := maasArgs.Subnet
+	c.Assert(subnetArg.CIDR(), gc.Equals, "10.20.19.0/24")
+	expected := gomaasapi.CreateMachineDeviceArgs{
+		Subnet:        subnetArg,
+		MACAddress:    "DEADBEEF",
+		InterfaceName: "eth0",
+	}
+	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
 func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {

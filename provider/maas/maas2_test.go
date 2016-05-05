@@ -194,20 +194,18 @@ func (r *fakeBootResource) Architecture() string {
 
 type fakeMachine struct {
 	gomaasapi.Machine
-	zoneName              string
-	hostname              string
-	systemID              string
-	ipAddresses           []string
-	statusName            string
-	statusMessage         string
-	cpuCount              int
-	memory                int
-	architecture          string
-	interfaceSet          []gomaasapi.Interface
-	tags                  []string
-	createDevice          gomaasapi.Device
-	createDeviceError     error
-	createDeviceArgsCheck func(gomaasapi.CreateMachineDeviceArgs)
+	zoneName      string
+	hostname      string
+	systemID      string
+	ipAddresses   []string
+	statusName    string
+	statusMessage string
+	cpuCount      int
+	memory        int
+	architecture  string
+	interfaceSet  []gomaasapi.Interface
+	tags          []string
+	createDevice  gomaasapi.Device
 
 	*testing.Stub
 }
@@ -271,13 +269,8 @@ func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
 }
 
 func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
-	if m.createDeviceArgsCheck != nil {
-		m.createDeviceArgsCheck(args)
-	}
-	if m.createDeviceError != nil {
-		return nil, m.createDeviceError
-	}
-	return m.createDevice, nil
+	m.MethodCall(m, "CreateDevice", args)
+	return m.createDevice, m.NextErr()
 }
 
 type fakeZone struct {
