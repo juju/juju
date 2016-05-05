@@ -488,6 +488,8 @@ type fakeDevice struct {
 	interfaceSet []gomaasapi.Interface
 	systemID     string
 	interface_   gomaasapi.Interface
+
+	*testing.Stub
 }
 
 func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
@@ -498,7 +500,8 @@ func (d *fakeDevice) SystemID() string {
 	return d.systemID
 }
 
-func (d *fakeDevice) CreateInterface(gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+func (d *fakeDevice) CreateInterface(args gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+	d.MethodCall(d, "CreateInterface", args)
 	d.interfaceSet = append(d.interfaceSet, d.interface_)
-	return d.interface_, nil
+	return d.interface_, d.NextErr()
 }

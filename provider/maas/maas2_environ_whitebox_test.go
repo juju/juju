@@ -1181,6 +1181,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		interfaceSet: deviceInterfaces,
 		systemID:     "foo",
 		interface_:   newInterface,
+		Stub:         &jt.Stub{},
 	}
 	controller := &fakeController{
 		machines: []gomaasapi.Machine{&fakeMachine{
@@ -1393,12 +1394,15 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 		space:   "freckles",
 		gateway: "10.20.20.2",
 		cidr:    "10.20.20.0/24",
+		vlan:    fakeVLAN{vid: 66},
 	}
 	var env *maasEnviron
 	device := &fakeDevice{
+		Stub:         &jt.Stub{},
 		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
 		systemID:     "foo",
 	}
+	device.SetErrors(errors.New("boom"))
 	machine := &fakeMachine{
 		Stub:         &jt.Stub{},
 		systemID:     "1",
@@ -1421,7 +1425,19 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
-	c.Assert(err, gc.ErrorMatches, "NIC eth1 subnet 10.20.20.0/24 not found")
+	c.Assert(err, gc.ErrorMatches, "creating device interface: boom")
+	calls := device.Calls()
+	c.Assert(calls, gc.HasLen, 1)
+	args := calls[0].Args
+	c.Assert(args, gc.HasLen, 1)
+	maasArgs, ok := args[0].(gomaasapi.CreateInterfaceArgs)
+	c.Assert(ok, jc.IsTrue)
+	expected := gomaasapi.CreateInterfaceArgs{
+		MACAddress: "DEADBEEE",
+		Name:       "eth1",
+		VLAN:       subnet2.VLAN(),
+	}
+	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
 func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
