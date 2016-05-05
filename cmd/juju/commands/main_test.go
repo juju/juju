@@ -211,7 +211,8 @@ func (s *MainSuite) TestFirstRun2xFrom1x(c *gc.C) {
 	stdout, err := os.OpenFile(filepath.Join(oldhome, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	runMain(stderr, stdout, []string{"juju", "version"})
+	rc := runMain(stderr, stdout, []string{"juju", "version"})
+	c.Check(rc, gc.Equals, 0)
 
 	_, err = stderr.Seek(0, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -252,7 +253,8 @@ func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 	stdout, err := os.OpenFile(filepath.Join(oldhome, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	runMain(stderr, stdout, []string{"juju", "version"})
+	rc := runMain(stderr, stdout, []string{"juju", "version"})
+	c.Check(rc, gc.Equals, 0)
 
 	_, err = stderr.Seek(0, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,7 +288,8 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	stdout, err := os.OpenFile(filepath.Join(outdir, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	runMain(stderr, stdout, []string{"juju", "version"})
+	rc := runMain(stderr, stdout, []string{"juju", "version"})
+	c.Check(rc, gc.Equals, 0)
 
 	_, err = stderr.Seek(0, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,7 +298,7 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	c.Assert(string(output), gc.Equals, "")
 }
 
-func runMain(stderr, stdout *os.File, args []string) {
+func runMain(stderr, stdout *os.File, args []string) int {
 	// we don't use patchvalue here because we need these reset as soon as we
 	// leave this function, so we don't interfere with test output later.
 	origErr := os.Stderr
@@ -305,7 +308,7 @@ func runMain(stderr, stdout *os.File, args []string) {
 	os.Stderr = stderr
 	os.Stdout = stdout
 
-	Main(args)
+	return Main(args)
 }
 
 // This is a test helper that only runs after getting executed by
