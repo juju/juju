@@ -16,7 +16,6 @@ import (
 const (
 	activeState           = "active"
 	availableState        = "available"
-	attachedState         = "attached"
 	localRouteGatewayID   = "local"
 	defaultRouteCIDRBlock = "0.0.0.0/0"
 	defaultVPCIDNone      = "none"
@@ -82,7 +81,7 @@ func validateVPC(apiClient vpcAPIClient, vpcID string) error {
 		return errors.Trace(err)
 	}
 
-	if err := checkInternetGatewayIsAttached(gateway); err != nil {
+	if err := checkInternetGatewayIsAvailable(gateway); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -184,8 +183,8 @@ func getVPCInternetGateway(apiClient vpcAPIClient, vpc *ec2.VPC) (*ec2.InternetG
 	return &gateway, nil
 }
 
-func checkInternetGatewayIsAttached(gateway *ec2.InternetGateway) error {
-	if state := gateway.AttachmentState; state != attachedState {
+func checkInternetGatewayIsAvailable(gateway *ec2.InternetGateway) error {
+	if state := gateway.AttachmentState; state != availableState {
 		return errors.NotValidf("VPC with Internet Gateway %q in unexpected state %q", gateway.Id, state)
 	}
 

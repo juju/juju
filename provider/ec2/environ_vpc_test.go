@@ -300,11 +300,11 @@ func (s *vpcSuite) TestGetVPCInternetGatewaySuccess(c *gc.C) {
 }
 
 func (s *vpcSuite) TestCheckInternetGatewayIsAttached(c *gc.C) {
-	attachedIGW := makeEC2InternetGateway(anyGatewayID, attachedState)
-	c.Check(checkInternetGatewayIsAttached(attachedIGW), jc.ErrorIsNil)
+	availableIGW := makeEC2InternetGateway(anyGatewayID, availableState)
+	c.Check(checkInternetGatewayIsAvailable(availableIGW), jc.ErrorIsNil)
 
 	pendingIGW := makeEC2InternetGateway(anyGatewayID, "pending")
-	err := checkInternetGatewayIsAttached(pendingIGW)
+	err := checkInternetGatewayIsAvailable(pendingIGW)
 	c.Assert(err, gc.ErrorMatches, `VPC with Internet Gateway "igw-anything" in unexpected state "pending" not valid`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -335,7 +335,7 @@ func (s *vpcSuite) TestGetVPCRouteTablesUnexpectedAWSError(c *gc.C) {
 func (s *vpcSuite) TestGetVPCRouteTablesSuccess(c *gc.C) {
 	givenVPC := makeEC2VPC("vpc-given", anyState)
 	givenVPC.CIDRBlock = "0.1.0.0/16"
-	givenGateway := makeEC2InternetGateway("igw-given", attachedState)
+	givenGateway := makeEC2InternetGateway("igw-given", availableState)
 
 	s.stubAPI.SetRouteTablesResponse(
 		makeEC2RouteTable("rtb-other", notMainRouteTable, []string{"subnet-1", "subnet-2"}, nil),
@@ -756,7 +756,7 @@ func (s *stubVPCAPIClient) PrepareValidateVPCResponses() {
 	s.SetVPCsResponse(1, availableState, notDefaultVPC)
 	s.vpcsResponse.VPCs[0].CIDRBlock = "0.1.0.0/16"
 	s.SetSubnetsResponse(1, anyZone, withPublicIPOnLaunch)
-	s.SetGatewaysResponse(1, attachedState)
+	s.SetGatewaysResponse(1, availableState)
 	onlyDefaultAndLocalRoutes := makeEC2Routes(
 		s.gatewaysResponse.InternetGateways[0].Id,
 		s.vpcsResponse.VPCs[0].CIDRBlock,
