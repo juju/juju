@@ -464,6 +464,21 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
+	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+
+	_, newSt := s.importModel(c)
+	defer newSt.Close()
+
+	imported, err := newSt.Space(space.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(imported.Name(), gc.Equals, space.Name())
+	c.Assert(imported.ProviderId(), gc.Equals, space.ProviderId())
+	c.Assert(imported.IsPublic(), gc.Equals, space.IsPublic())
+}
+
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
 	newModel, newSt := s.importModel(c)
 	defer newSt.Close()

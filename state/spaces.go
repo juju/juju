@@ -87,15 +87,13 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		return nil, errors.NewNotValid(nil, "invalid space name")
 	}
 
-	spaceID := st.docID(name)
 	var modelLocalProviderID string
 	if providerId != "" {
+		// WTH? Why are we doing this? It is so wrong.
 		modelLocalProviderID = st.docID(string(providerId))
 	}
 
 	spaceDoc := spaceDoc{
-		DocID:      spaceID,
-		ModelUUID:  st.ModelUUID(),
 		Life:       Alive,
 		Name:       name,
 		IsPublic:   isPublic,
@@ -105,7 +103,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     spaceID,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: spaceDoc,
 	}}
@@ -239,7 +237,7 @@ func (s *Space) Refresh() error {
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.FindId(s.doc.DocID).One(&doc)
+	err := spaces.FindId(s.doc.Name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("space %q", s)
 	} else if err != nil {
