@@ -31,32 +31,24 @@ func TestSuite(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func (s *suite) TestSocketpath(c *gc.C) {
-	got := socketpath()
-	want := filepath.Join(os.TempDir(), fmt.Sprintf("pprof.pprof.test.%d", os.Getpid()))
+func (s *suite) TestFilename(c *gc.C) {
+	got := Filename
+	want := fmt.Sprintf("pprof.pprof.test.%d", os.Getpid())
 	c.Assert(got, gc.Equals, want)
 }
 
-func (s *suite) TestSocketPathIsUnixAddr(c *gc.C) {
-	path := socketpath()
-	addr, err := net.ResolveUnixAddr("unix", path)
-	c.Assert(err, gc.IsNil)
-	c.Assert(addr.Name, gc.Equals, path)
-	c.Assert(addr.Net, gc.Equals, "unix")
-}
-
 func (s *suite) TestPprofStartReturnsNonNilShutdownFn(c *gc.C) {
-	stop := Start()
+	stop := Start(filepath.Join(c.MkDir(), Filename))
 	c.Assert(stop, gc.NotNil)
 	defer stop()
 }
 
 func (s *suite) TestPprofStart(c *gc.C) {
-	path := socketpath()
+	path := filepath.Join(c.MkDir(), Filename)
 	_, err := os.Stat(path)
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 
-	stop := Start()
+	stop := Start(path)
 	_, err = os.Stat(path)
 	c.Assert(err, gc.IsNil)
 
@@ -67,7 +59,7 @@ func (s *suite) TestPprofStart(c *gc.C) {
 }
 
 func (s *suite) TestPprofStartWithExistingSocketFile(c *gc.C) {
-	path := socketpath()
+	path := filepath.Join(c.MkDir(), Filename)
 	w, err := os.Create(path)
 	c.Assert(err, gc.IsNil)
 
@@ -75,7 +67,7 @@ func (s *suite) TestPprofStartWithExistingSocketFile(c *gc.C) {
 	err = w.Close() // can ignore error from w.Write
 	c.Assert(err, gc.IsNil)
 
-	stop := Start()
+	stop := Start(path)
 	defer stop()
 	fi, err := os.Stat(path)
 	c.Assert(err, gc.IsNil)
@@ -90,8 +82,8 @@ type pprofSuite struct {
 var _ = gc.Suite(&pprofSuite{})
 
 func (s *pprofSuite) SetUpSuite(c *gc.C) {
-	s.stop = Start()
-	s.path = socketpath()
+	s.path = filepath.Join(c.MkDir(), Filename)
+	s.stop = Start(s.path)
 }
 
 func (s *pprofSuite) TearDownSuite(c *gc.C) {
