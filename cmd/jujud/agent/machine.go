@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -210,9 +211,9 @@ func (a *machineAgentCmd) Init(args []string) error {
 }
 
 // Run instantiates a MachineAgent and runs it.
-func (a *machineAgentCmd) Run(c *cmd.Context) error {
+func (a *machineAgentCmd) Run(*cmd.Context) error {
 	machineAgent := a.machineAgentFactory(a.machineId)
-	return machineAgent.Run(c)
+	return machineAgent.Run()
 }
 
 // SetFlags adds the requisite flags to run this command.
@@ -232,30 +233,39 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 // MachineAgentFactoryFn returns a function which instantiates a
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
+	exec utils.CommandRunner,
+	clock clock.Clock,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	rootDir string,
+	containerDeathTimeout time.Duration,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
+			exec,
+			clock,
 			machineId,
 			agentConfWriter,
 			bufferedLogs,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			looputil.NewLoopDeviceManager(),
 			rootDir,
+			containerDeathTimeout,
 		)
 	}
 }
 
 // NewMachineAgent instantiates a new MachineAgent.
 func NewMachineAgent(
+	exec utils.CommandRunner,
+	clock clock.Clock,
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
+	containerDeathTimeout time.Duration,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:                   machineId,
@@ -267,6 +277,9 @@ func NewMachineAgent(
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
+		exec:                        exec,
+		clock:                       clock,
+		containerDeathTimeout: containerDeathTimeout,
 	}
 }
 
@@ -275,14 +288,17 @@ func NewMachineAgent(
 type MachineAgent struct {
 	AgentConfigWriter
 
-	tomb             tomb.Tomb
-	machineId        string
-	runner           worker.Runner
-	rootDir          string
-	bufferedLogs     logsender.LogRecordCh
-	configChangedVal *voyeur.Value
-	upgradeComplete  gate.Lock
-	workersStarted   chan struct{}
+	tomb                  tomb.Tomb
+	machineId             string
+	runner                worker.Runner
+	rootDir               string
+	bufferedLogs          logsender.LogRecordCh
+	configChangedVal      *voyeur.Value
+	upgradeComplete       gate.Lock
+	workersStarted        chan struct{}
+	exec                  utils.CommandRunner
+	clock                 clock.Clock
+	containerDeathTimeout time.Duration
 
 	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
 	restoreMode bool
@@ -375,7 +391,7 @@ func (a *MachineAgent) upgradeCertificateDNSNames() error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(*cmd.Context) error {
+func (a *MachineAgent) Run() error {
 
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -418,10 +434,10 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		err = a.uninstallAgent()
 	case worker.ErrRebootMachine:
 		logger.Infof("Caught reboot error")
-		err = a.executeRebootOrShutdown(params.ShouldReboot)
+		err = a.executeRebootOrShutdown(a.exec, a.clock, params.ShouldReboot, a.containerDeathTimeout)
 	case worker.ErrShutdownMachine:
 		logger.Infof("Caught shutdown error")
-		err = a.executeRebootOrShutdown(params.ShouldShutdown)
+		err = a.executeRebootOrShutdown(a.exec, a.clock, params.ShouldShutdown, a.containerDeathTimeout)
 	}
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
@@ -466,31 +482,47 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 	}
 }
 
-func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
-	// At this stage, all API connections would have been closed
-	// We need to reopen the API to clear the reboot flag after
-	// scheduling the reboot. It may be cleaner to do this in the reboot
-	// worker, before returning the ErrRebootMachine.
+func (a *MachineAgent) executeRebootOrShutdown(
+	exec utils.CommandRunner,
+	clock clock.Clock,
+	action params.RebootAction,
+	timeout time.Duration,
+) error {
+
+	// At this stage, all API connections would have been closed We
+	// need to reopen the API to clear the reboot flag after
+	// scheduling the reboot. It may be cleaner to do this in the
+	// reboot worker, before returning the ErrRebootMachine.
 	conn, err := apicaller.OnlyConnect(a, apicaller.APIOpen)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
 	}
 
-	// block until all units/containers are ready, and reboot/shutdown
-	finalize, err := reboot.NewRebootWaiter(conn, a.CurrentConfig())
-	if err != nil {
-		return errors.Trace(err)
+	newContainerManager := func(
+		t instance.ContainerType,
+		c container.ManagerConfig,
+	) (container.ContainerManager, error) {
+		return factory.NewContainerManager(t, c, nil)
 	}
 
-	logger.Infof("Reboot: Executing reboot")
-	err = finalize.ExecuteReboot(action)
+	quit := make(chan struct{})
+	defer close(quit)
+	teardown, err := container.ContainerTeardown(clock, newContainerManager, a.CurrentConfig(), timeout, quit)
 	if err != nil {
-		logger.Infof("Reboot: Error executing reboot: %v", err)
 		return errors.Trace(err)
 	}
-	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
-	// so the agent will simply exit without error pending reboot/shutdown.
+	teardownOrTimeout := container.ContainerTeardownOrTimeout(clock, teardown, timeout)
+
+	logger.Infof("Reboot: Executing reboot")
+	const rebootDelay = 15 * time.Second
+	if err := reboot.ExecuteReboot(exec, conn.Reboot, rebootDelay, action, teardownOrTimeout); err != nil {
+		return errors.Annotate(err, "cannot reboot machine")
+	}
+
+	// On windows, the shutdown command is asynchronous. We return
+	// ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
 	return worker.ErrRebootMachine
 }
 
