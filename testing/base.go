@@ -122,23 +122,22 @@ func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
 // NOTE: there will be many tests that fail when you try to change
 // to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
+	oldLtsForTesting string
 	testing.CleanupSuite
 	testing.LoggingSuite
 	JujuOSEnvSuite
 }
-
-var oldLtsForTesting string
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
-	oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
+	s.oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
-	_ = series.SetLatestLtsForTesting(oldLtsForTesting)
+	_ = series.SetLatestLtsForTesting(s.oldLtsForTesting)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }

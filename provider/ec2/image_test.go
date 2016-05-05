@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
@@ -203,7 +205,7 @@ var findInstanceSpecErrorTests = []struct {
 	}, {
 		series: series.LatestLts(),
 		arches: []string{"arm"},
-		err:    `no "xenial" images in test with arches \[arm\]`,
+		err:    fmt.Sprintf(`no \%q\ images in test with arches \[arm\]`, series.LatestLts()),
 	}, {
 		series: "raring",
 		arches: both,
