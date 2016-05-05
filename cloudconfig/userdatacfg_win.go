@@ -217,6 +217,7 @@ func addDownloadToolsCmds(ser string, certificate string, toolsList tools.List) 
 		cmds = []string{
 			`$WebClient = New-Object System.Net.WebClient`,
 			`[System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}`,
+			`[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12`,
 		}
 		getDownloadFileCmd = func(url string) string {
 			return fmt.Sprintf(`$WebClient.DownloadFile('%s', "$binDir\tools.tar.gz");`, url)
