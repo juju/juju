@@ -254,7 +254,7 @@ func (z *ec2AvailabilityZone) Name() string {
 }
 
 func (z *ec2AvailabilityZone) Available() bool {
-	return z.AvailabilityZoneInfo.State == "available"
+	return z.AvailabilityZoneInfo.State == availableState
 }
 
 // AvailabilityZones returns a slice of availability zones
