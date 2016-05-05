@@ -36,59 +36,11 @@ func (s *UtilsSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
 	c.Assert(supports, jc.IsFalse)
 }
 
-/// fakeContainerAgentConfig
-
-type fakeContainerAgentConfig struct {
-	tag   func() names.Tag
-	value func(string) string
-}
-
-func (f fakeContainerAgentConfig) Tag() names.Tag {
-	if f.tag != nil {
-		return f.tag()
-	}
-	return nil
-}
-
-func (f fakeContainerAgentConfig) Value(value string) string {
-	if f.value != nil {
-		return f.value(value)
-	}
-	return ""
-}
-
-/// fakeContainerManager
-
-func newContainerManagerFn(manager ContainerManager) NewContainerManagerFn {
-	return func(instance.ContainerType, ManagerConfig) (ContainerManager, error) {
-		return manager, nil
-	}
-}
-
-type fakeContainerManager struct {
-	listContainers func() ([]instance.Instance, error)
-	isInitialized  func() bool
-}
-
-func (f fakeContainerManager) ListContainers() ([]instance.Instance, error) {
-	if f.listContainers != nil {
-		return f.listContainers()
-	}
-	return nil, nil
-}
-
-func (f fakeContainerManager) IsInitialized() bool {
-	if f.isInitialized != nil {
-		return f.isInitialized()
-	}
-	return true
-}
-
 /// Unit tests
 
-var _ = gc.Suite(&UnitTestSuite{})
-
 type UnitTestSuite struct{}
+
+var _ = gc.Suite(&UnitTestSuite{})
 
 func (s *UnitTestSuite) TestValidateAgentConfig_ErrIfNotMachineTag(c *gc.C) {
 	cfg := fakeContainerAgentConfig{
@@ -156,8 +108,7 @@ func (s *UnitTestSuite) TestContainerTeardown_StopsWhenQuitSignaled(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(ok, gc.Equals, false)
 	case <-time.After(1 * time.Microsecond):
-		c.Error("the teardown channel should be closed")
-		c.Fail()
+		c.Fatal("the teardown channel should be closed")
 	}
 }
 
@@ -198,9 +149,9 @@ func (s *UnitTestSuite) TestContainerTeardown_SignalsTeardown(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(ok, gc.Equals, true)
 	case <-time.After(2 * time.Second):
-		c.Error("the teardown channel should be closed")
-		c.Fail()
+		c.Fatal("the teardown channel should be closed")
 	}
+	testing.LongWait
 }
 
 func (s *UnitTestSuite) TestContainerTeardown_SignalsError(c *gc.C) {
@@ -211,8 +162,6 @@ func (s *UnitTestSuite) TestContainerTeardown_SignalsError(c *gc.C) {
 	}
 	newContainerManager := newContainerManagerFn(
 		fakeContainerManager{
-			// Wait until this is called once before waiting on the
-			// teardown channel.
 			listContainers: func() ([]instance.Instance, error) {
 				return nil, errors.New("foo")
 			},
@@ -229,8 +178,7 @@ func (s *UnitTestSuite) TestContainerTeardown_SignalsError(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, "failed to list containers: foo")
 		c.Check(ok, gc.Equals, true)
 	case <-time.After(10 * time.Second):
-		c.Error("the teardown channel should be closed")
-		c.Fail()
+		c.Fatal("the teardown channel should be closed")
 	}
 }
 
@@ -242,6 +190,6 @@ func (s *UnitTestSuite) TestContainerTeardownOrTimeout_TimesOut(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, "timeout reached waiting for containers to shutdown")
 		c.Check(ok, gc.Equals, true)
 	case <-time.After(10 * time.Second):
-		c.Error("expected the timeout channel to be signalled")
+		c.Fatal("expected the timeout channel to be signalled")
 	}
 }

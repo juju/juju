@@ -16,8 +16,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	apiagent "github.com/juju/juju/api/agent"
-	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
@@ -38,8 +36,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
+	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/metricsmanager"
+	rebootapi "github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -228,6 +228,28 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 		Name:    "machine",
 		Purpose: "run a juju machine agent",
 	}
+}
+
+// TODO(katco): In a subsequent patch, MachineAgentConfig will expand
+// into a type which will be passed into the machine agent and its
+// factory. Trying to keep this patch constrainted.
+
+// MachineAgentConfig represents all of the runtime parameters a
+// MachineAgent requires to run. The member variables are exposed as
+// functions to allow modules down the stack to re-use this type
+// without directly importing this package by declaring an interface
+// with only the functions they require declared.
+type MachineAgentConfig struct {
+	exec  utils.CommandRunner
+	clock clock.Clock
+}
+
+func (c MachineAgentConfig) Exec() utils.CommandRunner {
+	return c.exec
+}
+
+func (c MachineAgentConfig) Clock() clock.Clock {
+	return c.clock
 }
 
 // MachineAgentFactoryFn returns a function which instantiates a
@@ -434,14 +456,88 @@ func (a *MachineAgent) Run() error {
 		err = a.uninstallAgent()
 	case worker.ErrRebootMachine:
 		logger.Infof("Caught reboot error")
-		err = a.executeRebootOrShutdown(a.exec, a.clock, params.ShouldReboot, a.containerDeathTimeout)
+		err = a.executeRebootOrShutdown(params.ShouldReboot, a.containerDeathTimeout)
 	case worker.ErrShutdownMachine:
 		logger.Infof("Caught shutdown error")
-		err = a.executeRebootOrShutdown(a.exec, a.clock, params.ShouldShutdown, a.containerDeathTimeout)
+		err = a.executeRebootOrShutdown(params.ShouldShutdown, a.containerDeathTimeout)
 	}
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
 	return err
+}
+
+func (a *MachineAgent) executeRebootOrShutdown(
+	action params.RebootAction,
+	containerDeathTimeout time.Duration,
+) error {
+	ctx := MachineAgentConfig{exec: a.exec, clock: a.clock}
+	agentAdapter := AgentRebootAdapter{agent: a}
+
+	if err := reboot.ExecuteRebootOrShutdown(
+		ctx,
+		&agentAdapter,
+		a.CurrentConfig(),
+		action,
+		containerDeathTimeout,
+	); err != nil {
+		return errors.Trace(err)
+	}
+
+	// On windows, the shutdown command is asynchronous. We return
+	// ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
+	return worker.ErrRebootMachine
+}
+
+type AgentRebootAdapter struct {
+	agent        *MachineAgent
+	conn         api.Connection
+	rebootFacade rebootapi.State
+}
+
+func (a *AgentRebootAdapter) Open() error {
+	if a.conn == nil {
+		conn, err := apicaller.OnlyConnect(a.agent, apicaller.APIOpen)
+		if err != nil {
+			return errors.Annotatef(err, "cannot open the reboot facade for the agent")
+		}
+		a.conn = conn
+	}
+	rebootFacade, err := a.conn.Reboot()
+	if err != nil {
+		return err
+	}
+	a.rebootFacade = rebootFacade
+
+	return nil
+}
+
+func (a *AgentRebootAdapter) ClearReboot() error {
+	if err := a.emitProvisionErrorIfNotOpen(); err != nil {
+		return err
+	}
+	return a.rebootFacade.ClearReboot()
+}
+
+func (a *AgentRebootAdapter) RequestReboot() error {
+	if err := a.emitProvisionErrorIfNotOpen(); err != nil {
+		return err
+	}
+	return a.rebootFacade.RequestReboot()
+}
+
+func (a *AgentRebootAdapter) Close() error {
+	if a.conn == nil {
+		return nil
+	}
+	return a.conn.Close()
+}
+
+func (a *AgentRebootAdapter) emitProvisionErrorIfNotOpen() error {
+	if a.rebootFacade == nil {
+		return errors.NotProvisionedf("adapter is not open")
+	}
+	return nil
 }
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
@@ -480,50 +576,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		}
 		return engine, nil
 	}
-}
-
-func (a *MachineAgent) executeRebootOrShutdown(
-	exec utils.CommandRunner,
-	clock clock.Clock,
-	action params.RebootAction,
-	timeout time.Duration,
-) error {
-
-	// At this stage, all API connections would have been closed We
-	// need to reopen the API to clear the reboot flag after
-	// scheduling the reboot. It may be cleaner to do this in the
-	// reboot worker, before returning the ErrRebootMachine.
-	conn, err := apicaller.OnlyConnect(a, apicaller.APIOpen)
-	if err != nil {
-		logger.Infof("Reboot: Error connecting to state")
-		return errors.Trace(err)
-	}
-
-	newContainerManager := func(
-		t instance.ContainerType,
-		c container.ManagerConfig,
-	) (container.ContainerManager, error) {
-		return factory.NewContainerManager(t, c, nil)
-	}
-
-	quit := make(chan struct{})
-	defer close(quit)
-	teardown, err := container.ContainerTeardown(clock, newContainerManager, a.CurrentConfig(), timeout, quit)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	teardownOrTimeout := container.ContainerTeardownOrTimeout(clock, teardown, timeout)
-
-	logger.Infof("Reboot: Executing reboot")
-	const rebootDelay = 15 * time.Second
-	if err := reboot.ExecuteReboot(exec, conn.Reboot, rebootDelay, action, teardownOrTimeout); err != nil {
-		return errors.Annotate(err, "cannot reboot machine")
-	}
-
-	// On windows, the shutdown command is asynchronous. We return
-	// ErrRebootMachine so the agent will simply exit without error
-	// pending reboot/shutdown.
-	return worker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {

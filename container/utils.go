@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/worker"
 )
 
 var RunningInContainer = func() bool {
@@ -30,30 +31,34 @@ func ContainersSupported() bool {
 	return !RunningInContainer()
 }
 
-func ContainerTeardownOrTimeout(clock clock.Clock, teardown <-chan error, timeout time.Duration) <-chan error {
-	teardownOrTimeout := make(chan error)
-	go func() {
-		select {
-		case err := <-teardown:
-			teardownOrTimeout <- err
-		case <-clock.After(timeout):
-			teardownOrTimeout <- errors.New("timeout reached waiting for containers to shutdown")
-		}
-	}()
-	return teardownOrTimeout
-}
-
 type ContainerAgentConfig interface {
 	Tag() names.Tag
 	Value(string) string
 }
 
-func ContainerTeardown(
+type RunningContainersFn func() ([]instance.Instance, error)
+
+func WaitForContainerTeardownWorker(
 	clock clock.Clock,
 	newContainerManager NewContainerManagerFn,
 	agentConfig ContainerAgentConfig,
-	quit <-chan struct{},
-) (<-chan error, error) {
+) (worker.Worker, error) {
+	workerCallFn, err := WaitForContainerTeardownWorkerCallFn(clock, newContainerManager, agentConfig)
+	if err != nil {
+		return nil, err
+	}
+	return worker.NewPeriodicWorker(
+		workerCallFn,
+		1*time.Second,
+		worker.NewTimer,
+	), nil
+}
+
+func WaitForContainerTeardownWorkerCallFn(
+	clock clock.Clock,
+	newContainerManager NewContainerManagerFn,
+	agentConfig ContainerAgentConfig,
+) (worker.PeriodicWorkerCall, error) {
 	if err := validateAgentConfig(agentConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -61,30 +66,14 @@ func ContainerTeardown(
 		return runningContainers(agentConfig, newContainerManager)
 	}
 
-	teardownComplete := make(chan error)
-	go func() {
-		defer close(teardownComplete)
-		for {
-			containers, err := runningContainers()
-			if err != nil || len(containers) == 0 {
-				teardownComplete <- err
-				return
-			}
-			logger.Infof("Waiting for containers to shutdown: %v", containers)
-
-			select {
-			case <-quit:
-				logger.Infof("No longer waiting for containers to shutdown")
-				// Rather than sending a signal on the channel, allow
-				// the defer to close it to indicate that we quit, we
-				// didn't successfully tear down.
-				return
-			case <-clock.After(1 * time.Second):
-			}
+	return func(<-chan struct{}) error {
+		containers, err := runningContainers()
+		if len(containers) == 0 {
+			return worker.ErrKilled
 		}
-	}()
-
-	return teardownComplete, nil
+		logger.Infof("Waiting for containers to shutdown: %v", containers)
+		return err
+	}, nil
 }
 
 func validateAgentConfig(agentConfig ContainerAgentConfig) error {
