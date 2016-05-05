@@ -78,55 +78,6 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	return p.PrepareForCreateEnvironment(cfg)
 }
 
-var (
-	vpcNotUsableErrorPrefix = `
-Juju cannot use the given vpc-id for bootstrapping a controller
-instance. Please, double check the given VPC ID is correct, and that
-the VPC contains at least one subnet.
-
-Error details`[1:]
-
-	vpcNotRecommendedErrorPrefix = `
-The given vpc-id does not meet one or more of the following minimum
-Juju requirements:
-
-1. VPC should be in "available" state and contain one or more subnets.
-2. An Internet Gateway (IGW) should be attached to the VPC.
-3. The main route table of the VPC should have both a default route
-   to the attached IGW and a local route matching the VPC CIDR block.
-4. At least one of the VPC subnets should have MapPublicIPOnLaunch
-   attribute enabled (i.e. at least one subnet needs to be 'public').
-5. All subnets should be implicitly associated to the VPC main route
-   table, rather than explicitly to per-subnet route tables.
-
-A default VPC already satisfies all of the requirements above. If you
-still want to use the VPC, try running 'juju bootstrap' again with:
-
-  --config vpc-id=%s --config vpc-id-force=true
-
-to force Juju to bypass the requirements check (NOT recommended unless
-you understand the implications, most importantly: not being able to
-access the Juju controller, likely causing bootstrap to fail, or trying
-to deploy exposed workloads on instances started in private or isolated
-subnets.
-
-Error details`[1:]
-
-	cannotValidateVPCErrorPrefix = `
-Juju could not verify whether the given vpc-id meets the minumum Juju
-connectivity requirements. Please, double check the VPC ID is correct,
-you have a working connection to the Internet, your AWS credentials are
-sufficient to access VPC features, or simply retry bootstrapping again.
-
-Error details`[1:]
-
-	vpcNotRecommendedButForcedWarning = `
-WARNING! The specified vpc-id does not satisfy the minimum Juju requirements,
-but will be used anyway because vpc-id-force=true is also specified.
-
-`[1:]
-)
-
 // PrepareForBootstrap is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForBootstrap(
 	ctx environs.BootstrapContext,
@@ -148,8 +99,6 @@ func (p environProvider) PrepareForBootstrap(
 	if vpcID != "" {
 		err := validateVPC(env.ec2(), vpcID)
 		switch {
-		case err == nil:
-			// All good!
 		case isVPCNotUsableError(err):
 			// VPC missing or has no subnets at all.
 			return nil, errors.Annotate(err, vpcNotUsableErrorPrefix)

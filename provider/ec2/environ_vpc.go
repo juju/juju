@@ -21,6 +21,55 @@ const (
 	defaultVPCIDNone      = "none"
 )
 
+var (
+	vpcNotUsableErrorPrefix = `
+Juju cannot use the given vpc-id for bootstrapping a controller
+instance. Please, double check the given VPC ID is correct, and that
+the VPC contains at least one subnet.
+
+Error details`[1:]
+
+	vpcNotRecommendedErrorPrefix = `
+The given vpc-id does not meet one or more of the following minimum
+Juju requirements:
+
+1. VPC should be in "available" state and contain one or more subnets.
+2. An Internet Gateway (IGW) should be attached to the VPC.
+3. The main route table of the VPC should have both a default route
+   to the attached IGW and a local route matching the VPC CIDR block.
+4. At least one of the VPC subnets should have MapPublicIPOnLaunch
+   attribute enabled (i.e. at least one subnet needs to be 'public').
+5. All subnets should be implicitly associated to the VPC main route
+   table, rather than explicitly to per-subnet route tables.
+
+A default VPC already satisfies all of the requirements above. If you
+still want to use the VPC, try running 'juju bootstrap' again with:
+
+  --config vpc-id=%s --config vpc-id-force=true
+
+to force Juju to bypass the requirements check (NOT recommended unless
+you understand the implications: most importantly, not being able to
+access the Juju controller, likely causing bootstrap to fail, or trying
+to deploy exposed workloads on instances started in private or isolated
+subnets).
+
+Error details`[1:]
+
+	cannotValidateVPCErrorPrefix = `
+Juju could not verify whether the given vpc-id meets the minumum Juju
+connectivity requirements. Please, double check the VPC ID is correct,
+you have a working connection to the Internet, your AWS credentials are
+sufficient to access VPC features, or simply retry bootstrapping again.
+
+Error details`[1:]
+
+	vpcNotRecommendedButForcedWarning = `
+WARNING! The specified vpc-id does not satisfy the minimum Juju requirements,
+but will be used anyway because vpc-id-force=true is also specified.
+
+`[1:]
+)
+
 // vpcNotUsableError indicates a user-specified VPC cannot be used either
 // because it is missing or because it contains no subnets.
 type vpcNotUsableError struct {
@@ -47,7 +96,7 @@ func isVPCNotUsableError(err error) bool {
 
 // vpcNotRecommendedError indicates a user-specified VPC is unlikely to be
 // suitable for hosting a Juju controller instance and/or exposed workloads, due
-// to not satisfying the mininum requirements descrived in validateVPC()'s doc
+// to not satisfying the mininum requirements described in validateVPC()'s doc
 // comment. Users can still force Juju to use such a VPC by passing
 // 'vpc-id-force=true' setting.
 type vpcNotRecommendedError struct {
@@ -70,10 +119,26 @@ func isVPCNotRecommendedError(err error) bool {
 
 // vpcAPIClient defines a subset of the goamz API calls needed to validate a VPC.
 type vpcAPIClient interface {
+	// AccountAttributes, called with the "default-vpc" attribute. is used to
+	// find the ID of the region's default VPC (if any).
 	AccountAttributes(attributeNames ...string) (*ec2.AccountAttributesResp, error)
+
+	// VPCs is used to get details for the VPC being validated, including
+	// whether it exists, is available, and its CIDRBlock and IsDefault fields.
 	VPCs(ids []string, filter *ec2.Filter) (*ec2.VPCsResp, error)
+
+	// Subnets is used to get a list of all subnets of the validated VPC (if
+	// any),including their Id, AvailZone, and MapPublicIPOnLaunch fields.
 	Subnets(ids []string, filter *ec2.Filter) (*ec2.SubnetsResp, error)
+
+	// InternetGateways is used to get details of the Internet Gateway (IGW)
+	// attached to the validated VPC (if any), its Id to check against routes,
+	// and whether it's available.
 	InternetGateways(ids []string, filter *ec2.Filter) (*ec2.InternetGatewaysResp, error)
+
+	// RouteTables is used to find the main route table of the VPC (if any),
+	// whether it includes a default route to the attached IGW, a local route to
+	// the VPC CIDRBlock, and any per-subnet route tables.
 	RouteTables(ids []string, filter *ec2.Filter) (*ec2.RouteTablesResp, error)
 }
 
@@ -96,6 +161,13 @@ type vpcAPIClient interface {
 // With the vpc-id-force config setting set to true, the provider can ignore a
 // vpcNotRecommendedError. A vpcNotUsableError cannot be ignored, while
 // unexpected API responses and errors could be retried.
+//
+// The above minimal requirements allow Juju to work out-of-the-box with most
+// common (and officially documented by AWS) VPC setups, easy try out with AWS
+// Console / VPC Wizard / CLI. Detecting VPC setups indicating intentional
+// customization by experienced users, protecting beginners from bad Juju-UX due
+// to broken VPC setup, while still allowing power users to override that and
+// continue (but knowing what that implies).
 func validateVPC(apiClient vpcAPIClient, vpcID string) error {
 	if vpcID == "" || apiClient == nil {
 		return errors.Errorf("invalid arguments: empty VPC ID or nil client")
@@ -119,6 +191,10 @@ func validateVPC(apiClient vpcAPIClient, vpcID string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// TODO(dimitern): Rather than just logging that, use publicSubnet.Id or
+	// even publicSubnet.AvailZone as default bootstrap placement directive, so
+	// the controller would be reachable.
 	logger.Infof(
 		"found subnet %q (%s) in AZ %q, suitable for a Juju controller instance",
 		publicSubnet.Id, publicSubnet.CIDRBlock, publicSubnet.AvailZone,
@@ -263,6 +339,10 @@ func findVPCMainRouteTable(routeTables []ec2.RouteTable) (*ec2.RouteTable, error
 		}
 
 		for _, association := range table.Associations {
+			// TODO(dimitern): Of all the requirements, this seems like the most
+			// strict and likely to push users to use vpc-id-force=true. On the
+			// other hand, having to deal with more than the main route table's
+			// routes will likely overcomplicate the routes checks that follow.
 			if subnetID := association.SubnetId; subnetID != "" {
 				return nil, vpcNotRecommendedf("subnet %q not associated with VPC %q main route table", subnetID, table.VPCId)
 			}
