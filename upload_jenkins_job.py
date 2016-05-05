@@ -175,15 +175,18 @@ class S3Uploader:
     Uploads the result of a Jenkins job to S3.
     """
 
-    def __init__(self, s3, jenkins_build, unique_id=None, no_prefixes=False):
+    def __init__(self, s3, jenkins_build, unique_id=None, no_prefixes=False,
+                 artifact_file_ext=None):
         self.s3 = s3
         self.jenkins_build = jenkins_build
         self.unique_id = unique_id
         self.no_prefixes = no_prefixes
+        self.artifact_file_ext = artifact_file_ext
 
     @classmethod
     def factory(cls, credentials, jenkins_job, build_number, bucket,
-                directory, unique_id=None, no_prefixes=False):
+                directory, unique_id=None, no_prefixes=False,
+                artifact_file_ext=None):
         """
         Creates S3Uploader.
         :param credentials: Jenkins credential
@@ -191,6 +194,8 @@ class S3Uploader:
         :param build_number: Jenkins build number
         :param bucket: S3 bucket name
         :param directory: S3 directory name
+        :param artifact_file_ext: List of artifact file extentions. If set,
+        only artifact with these ejections will be uploaded.
         :rtype: S3Uploader
         """
         s3 = S3.factory(bucket, directory)
@@ -199,7 +204,8 @@ class S3Uploader:
             credentials=credentials, job_name=jenkins_job,
             build_number=build_number)
         return cls(s3, jenkins_build,
-                   unique_id=unique_id, no_prefixes=no_prefixes)
+                   unique_id=unique_id, no_prefixes=no_prefixes,
+                   artifact_file_ext=artifact_file_ext)
 
     def upload(self):
         """Uploads Jenkins job results, console logs and artifacts to S3.
@@ -280,6 +286,9 @@ class S3Uploader:
 
     def upload_artifacts(self):
         for filename, content in self.jenkins_build.artifacts():
+            if self.artifact_file_ext:
+                if os.path.splitext(filename)[1] not in self.artifact_file_ext:
+                    continue
             filename = self._create_filename(filename)
             headers = self.make_headers(filename)
             self.s3.store(filename, content, headers=headers)
@@ -329,6 +338,10 @@ def get_args(argv=None):
     parser.add_argument(
         '--no-prefixes', action='store_true', default=False,
         help='Do not add prefixes to file names; the s3_directory is unique.')
+    parser.add_argument(
+        '--artifact-file-ext', nargs='+',
+        help='Artifacts include file extentions. If set, only files with '
+             'these extentions will be uploaded.')
     add_credential_args(parser)
     args = parser.parse_args(argv)
     args.all = False
@@ -350,7 +363,7 @@ def main(argv=None):
     uploader = S3Uploader.factory(
         cred, args.jenkins_job, args.build_number, args.s3_bucket,
         args.s3_directory, unique_id=args.unique_id,
-        no_prefixes=args.no_prefixes)
+        no_prefixes=args.no_prefixes, artifact_file_ext=args.artifact_file_ext)
     if args.build_number:
         print('Uploading build number {:d}.'.format(args.build_number))
         uploader.upload()

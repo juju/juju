@@ -9,6 +9,7 @@ import sys
 
 from jujupy import (
     EnvJujuClient,
+    EnvJujuClient1X,
     SimpleEnvironment,
     until_timeout,
     )
@@ -45,13 +46,23 @@ def get_clients(initial, other, base_env, debug, agent_url):
         environment.config.pop('tools-metadata-url', None)
     initial_client = EnvJujuClient.by_version(environment, initial,
                                               debug=debug)
-    other_client = EnvJujuClient.by_version(environment, other, debug=debug)
+    other_client = EnvJujuClient.by_version(initial_client.env, other,
+                                            debug=debug)
     # System juju is assumed to be released and the best choice for tearing
     # down environments reliably.  (For example, 1.18.x cannot tear down
     # environments with alpha agent-versions.)
     released_client = EnvJujuClient.by_version(environment, debug=debug)
-    if released_client.env != initial_client.env:
+    # If released_client is a different major version, it cannot tear down
+    # initial client, so use initial client for teardown.
+    if (
+            isinstance(released_client, EnvJujuClient1X) !=
+            isinstance(initial_client, EnvJujuClient1X)
+            ):
         released_client = initial_client
+    else:
+        # If system juju is used, ensure it has identical env to
+        # initial_client.
+        released_client.env = initial_client.env
     return initial_client, other_client, released_client
 
 
@@ -145,15 +156,16 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         status = other.get_status()
         if has_agent(other, 'dummy-sink/1'):
             raise AssertionError('dummy-sink/1 was not removed.')
-        other.juju('add-machine', ('lxc',))
+        container_type = other.preferred_container()
+        other.juju('add-machine', (container_type,))
         status = other.get_status()
-        lxc_machine, = set(k for k, v in status.agent_items() if
-                           k.endswith('/lxc/0'))
-        lxc_holder = lxc_machine.split('/')[0]
-        other.juju('remove-machine', (lxc_machine,))
-        wait_until_removed(other, lxc_machine)
-        other.juju('remove-machine', (lxc_holder,))
-        wait_until_removed(other, lxc_holder)
+        container_machine, = set(k for k, v in status.agent_items() if
+                                 k.endswith('/{}/0'.format(container_type)))
+        container_holder = container_machine.split('/')[0]
+        other.juju('remove-machine', (container_machine,))
+        wait_until_removed(other, container_machine)
+        other.juju('remove-machine', (container_holder,))
+        wait_until_removed(other, container_holder)
 
 # suppress nosetests
 test_control_heterogeneous.__test__ = False

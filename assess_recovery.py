@@ -15,16 +15,16 @@ from deploy_stack import (
     wait_for_state_server_to_shutdown,
 )
 from jujupy import (
-    make_client,
     parse_new_state_server_from_error,
 )
 from substrate import (
     terminate_instances,
 )
 from utility import (
+    add_basic_testing_arguments,
+    configure_logging,
     local_charm_path,
     LoggedException,
-    print_now,
 )
 
 
@@ -34,13 +34,16 @@ __metaclass__ = type
 running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 
+log = logging.getLogger("assess_recovery")
+
+
 def deploy_stack(client, charm_series):
     """"Deploy a simple stack, state-server and ubuntu."""
     charm = local_charm_path(
         charm='ubuntu', juju_ver=client.version, series=charm_series)
     client.deploy(charm, series=charm_series)
     client.wait_for_started().status
-    print_now("%s is ready to testing" % client.env.environment)
+    log.info("%s is ready to testing", client.env.environment)
 
 
 def restore_present_state_server(admin_client, backup_file):
@@ -48,14 +51,13 @@ def restore_present_state_server(admin_client, backup_file):
     try:
         output = admin_client.restore_backup(backup_file)
     except CalledProcessError as e:
-        print_now(
+        log.info(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
         match = running_instance_pattern.search(e.stderr)
         if match is None:
-            print_now("WARNING: Could not find the instance_id in output:")
-            print_now(e.stderr)
-            print_now("")
+            log.warning("Could not find the instance_id in output:\n%s\n",
+                        e.stderr)
             return None
         return match.group(1)
     else:
@@ -81,7 +83,7 @@ def delete_controller_members(client, leader_only=False):
     for machine in members:
         instance_id = machine.info.get('instance-id')
         host = machine.info.get('dns-name')
-        print_now("Instrumenting node failure for member {}: {} at {}".format(
+        log.info("Instrumenting node failure for member {}: {} at {}".format(
                   machine.machine_id, instance_id, host))
         terminate_instances(client.env, [instance_id])
         wait_for_state_server_to_shutdown(host, client, instance_id)
@@ -91,30 +93,26 @@ def delete_controller_members(client, leader_only=False):
 
 def restore_missing_state_server(client, admin_client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
-    print_now("Starting restore.")
+    log.info("Starting restore.")
     try:
         output = admin_client.restore_backup(backup_file)
     except CalledProcessError as e:
-        print_now('Call of juju restore exited with an error\n')
-        print_now('Call: {} \n'.format(e.cmd))
-        message = 'Restore failed: \n%s' % e.stderr
-        print_now(message)
-        print_now('\n')
-        logging.exception(e)
+        log.info('Call of juju restore exited with an error\n')
+        log.info('Call:  %r\n', e.cmd)
+        log.info('Restore failed: \n%s\n', e.stderr)
+        log.exception(e)
         raise LoggedException(e)
-    print_now(output)
+    log.info(output)
     admin_client.wait_for_started(600).status
-    print_now("%s restored" % client.env.environment)
-    print_now("PASS")
+    log.info("%s restored", client.env.environment)
+    log.info("PASS")
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser('Test recovery strategies.')
+    parser = ArgumentParser(description='Test recovery strategies.')
+    add_basic_testing_arguments(parser)
     parser.add_argument(
         '--charm-series', help='Charm series.', default='')
-    parser.add_argument(
-        '--debug', action='store_true', default=False,
-        help='Use --debug juju logging.')
     strategy = parser.add_argument_group('test strategy')
     strategy.add_argument(
         '--ha', action='store_const', dest='strategy', const='ha',
@@ -125,22 +123,7 @@ def parse_args(argv=None):
     strategy.add_argument(
         '--ha-backup', action='store_const', dest='strategy',
         const='ha-backup', help="Test backup/restore of HA.")
-    parser.add_argument('juju_path')
-    parser.add_argument('env_name')
-    parser.add_argument('logs', help='Directory to store logs in.')
-    parser.add_argument(
-        'temp_env_name', nargs='?',
-        help='Temporary environment name to use for this test.')
-    parser.add_argument(
-        '--agent-stream', help='Stream for retrieving agent binaries.')
-    parser.add_argument(
-        '--series', help='Name of the Ubuntu series to use.')
     return parser.parse_args(argv)
-
-
-def make_client_from_args(args):
-    return make_client(args.juju_path, args.debug, args.env_name,
-                       args.temp_env_name)
 
 
 @contextmanager
@@ -179,14 +162,9 @@ def assess_recovery(bs_manager, strategy, charm_series):
 
 def main(argv):
     args = parse_args(argv)
-    client = make_client_from_args(args)
-    jes_enabled = client.is_jes_enabled()
-    bs_manager = BootstrapManager(
-        client.env.environment, client, client, None, [], args.series,
-        agent_url=None, agent_stream=args.agent_stream, region=None,
-        log_dir=args.logs, keep_env=False, permanent=jes_enabled,
-        jes_enabled=jes_enabled)
-    with bs_manager.booted_context(upload_tools=False):
+    configure_logging(args.verbose)
+    bs_manager = BootstrapManager.from_args(args)
+    with bs_manager.booted_context(upload_tools=args.upload_tools):
         with detect_bootstrap_machine(bs_manager):
             assess_recovery(bs_manager, args.strategy, args.charm_series)
 

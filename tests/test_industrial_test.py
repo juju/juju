@@ -51,6 +51,9 @@ from jujupy import (
     EnvJujuClient1X,
     get_timeout_prefix,
     JujuData,
+    KVM_MACHINE,
+    LXC_MACHINE,
+    LXD_MACHINE,
     SimpleEnvironment,
     Status,
     _temp_env,
@@ -272,9 +275,12 @@ class FakeStepAttempt:
     def iter_steps(self, client):
         yield self.stage.as_result()
         if self.new_path is not None and client.full_path == self.new_path:
-            yield self.stage.as_result(self.result[0][2])
+            result_value = self.result[0][2]
         else:
-            yield self.stage.as_result(self.result[0][1])
+            result_value = self.result[0][1]
+        if isinstance(result_value, BaseException):
+            raise result_value
+        yield self.stage.as_result(result_value)
 
 
 class FakeAttemptClass:
@@ -1162,10 +1168,8 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             ('bar-id', {'title': 'Bar title', 'report_on': False})]))
 
 
-class FakeEnvJujuClient(EnvJujuClient):
-
-    def __init__(self, name='steve'):
-        super(FakeEnvJujuClient, self).__init__(
+def FakeEnvJujuClient(name='steve'):
+    return EnvJujuClient(
             JujuData(name, {'type': 'fake', 'region': 'regionx'}),
             '1.2', '/jbin/juju')
 
@@ -1433,15 +1437,19 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
+        admin_client = client.get_admin_client()
         ensure_av = EnsureAvailabilityAttempt()
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         self.assertEqual(ensure_iter.next(), {
             'test_id': 'ensure-availability-n3'})
         with patch('subprocess.check_call') as cc_mock:
-            self.assertEqual(ensure_iter.next(), {
-                'test_id': 'ensure-availability-n3'})
+            with patch.object(client, 'get_admin_client',
+                              return_value=admin_client, autospec=True):
+                self.assertEqual(ensure_iter.next(), {
+                    'test_id': 'ensure-availability-n3'})
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'enable-ha', '-m', 'steve', '-n', '3'))
+            'juju', '--show-log', 'enable-ha', '-m',
+            admin_client.env.environment, '-n', '3'))
         status = {
             'machines': {
                 '0': {'controller-member-status': 'has-vote'},
@@ -1450,7 +1458,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 },
             'services': {},
         }
-        with patch_status(client, status) as gs_mock:
+        with patch_status(admin_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
         gs_mock.assert_called_once_with(admin=True)
@@ -1461,7 +1469,10 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         ensure_iter.next()
         with patch('subprocess.check_call'):
-            ensure_iter.next()
+            admin_client = client.get_admin_client()
+            with patch.object(client, 'get_admin_client',
+                              return_value=admin_client, autospec=True):
+                ensure_iter.next()
         status = {
             'machines': {
                 '0': {'state-server-member-status': 'has-vote'},
@@ -1469,7 +1480,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 },
             'services': {},
         }
-        with patch_status(client, status) as gs_mock:
+        with patch_status(admin_client, status) as gs_mock:
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()
@@ -1478,13 +1489,13 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
 class TestDeployManyAttempt(JujuPyTestCase):
 
-    def predict_add_machine_calls(self, deploy_many):
+    def predict_add_machine_calls(self, deploy_many, machine_type):
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
-                target = 'lxc:{}'.format(host)
+                target = '{}:{}'.format(machine_type, host)
                 service = 'ubuntu{}x{}'.format(host, container)
-                yield ('juju', '--show-log', 'deploy', '-m', 'steve', '--to',
-                       target, 'ubuntu', service)
+                yield ('juju', '--show-log', 'deploy', '-m', 'steve',
+                       'ubuntu', service, '--to', target, '--series', 'angsty')
 
     def predict_remove_machine_calls(self, deploy_many):
         total_guests = deploy_many.host_count * deploy_many.container_count
@@ -1493,12 +1504,28 @@ class TestDeployManyAttempt(JujuPyTestCase):
                    '--force', str(guest))
 
     def test_iter_steps(self):
+        machine_started = {'juju-status': {'current': 'idle'}}
+        unit_started = {'agent-status': {'current': 'idle'}}
         client = FakeEnvJujuClient()
+        client.env.config['default-series'] = 'angsty'
+        self.do_iter_steps(client, LXD_MACHINE, machine_started, unit_started)
+
+    def test_iter_steps_1x(self):
+        started_state = {'agent-state': 'started'}
+        client = FakeEnvJujuClient()
+        with patch.object(EnvJujuClient, 'supported_container_types',
+                          frozenset([KVM_MACHINE, LXC_MACHINE])):
+            client.env.config['default-series'] = 'angsty'
+            self.do_iter_steps(client, LXC_MACHINE, started_state,
+                               started_state)
+
+    def do_iter_steps(self, client, machine_type, machine_started,
+                      unit_started):
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
-            'machines': {'0': {'agent-state': 'started'}},
+            'machines': {'0': dict(machine_started)},
             'services': {},
         }
         with patch_status(client, status):
@@ -1510,7 +1537,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 'juju', '--show-log', 'add-machine', '-m', 'steve'), index)
 
         status = {
-            'machines': dict((str(x), {'agent-state': 'started'})
+            'machines': dict((str(x), dict(machine_started))
                              for x in range(deploy_many.host_count + 1)),
             'services': {},
         }
@@ -1531,20 +1558,23 @@ class TestDeployManyAttempt(JujuPyTestCase):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'deploy-many'})
 
-        calls = self.predict_add_machine_calls(deploy_many)
+        calls = self.predict_add_machine_calls(deploy_many, machine_type)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
         service_names = []
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
                 service_names.append('ubuntu{}x{}'.format(host, container))
-        services = dict((service_name, {
-            'units': {
-                'foo': {'machine': str(num + 100), 'agent-state': 'started'}
-                }})
-            for num, service_name in enumerate(service_names))
+        services = {}
+        for num, service_name in enumerate(service_names):
+            foo = {'machine': str(num + 100)}
+            foo.update(unit_started)
+            units = {
+                'foo': foo,
+                }
+            services[service_name] = {'units': units}
         status = {
-            'machines': {'0': {'agent-state': 'started'}},
+            'machines': {'0': dict(machine_started)},
             'services': services,
         }
         with patch_status(client, status):
@@ -1552,23 +1582,23 @@ class TestDeployManyAttempt(JujuPyTestCase):
                              {'test_id': 'deploy-many', 'result': True})
 
         self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'remove-machine-many-lxc'})
+                         {'test_id': 'remove-machine-many-container'})
         with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(
                     deploy_iter.next(),
-                    {'test_id': 'remove-machine-many-lxc'})
+                    {'test_id': 'remove-machine-many-container'})
         calls = self.predict_remove_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
         statuses = [
-            {'machines': {'100': {'agent-state': 'started'}}, 'services': {}},
+            {'machines': {'100': dict(machine_started)}, 'services': {}},
             {'machines': {}, 'services': {}},
         ]
         with patch_status(client, *statuses) as status_mock:
             self.assertEqual(
                 deploy_iter.next(),
-                {'test_id': 'remove-machine-many-lxc', 'result': True})
+                {'test_id': 'remove-machine-many-container', 'result': True})
         self.assertEqual(2, status_mock.call_count)
         self.assertEqual(deploy_iter.next(), {
             'test_id': 'remove-machine-many-instance'})
@@ -1582,7 +1612,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 str(num + 1)), num)
 
         statuses = [
-            {'machines': {'1': {'agent-state': 'started'}}, 'services': {}},
+            {'machines': {'1': dict(machine_started)}, 'services': {}},
             {'machines': {}, 'services': {}},
         ]
         with patch_status(client, *statuses) as status_mock:
@@ -1594,6 +1624,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
+        client.env.config['default-series'] = 'angsty'
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
@@ -1644,6 +1675,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_step_add_machine_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
+        client.env.config['default-series'] = 'angsty'
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
@@ -1690,9 +1722,26 @@ class TestDeployManyAttempt(JujuPyTestCase):
         self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
         with patch('subprocess.check_call') as mock_cc:
             self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
-        calls = self.predict_add_machine_calls(deploy_many)
+        calls = self.predict_add_machine_calls(deploy_many, LXD_MACHINE)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
+
+    def get_wait_until_removed_timeout(self, container_type):
+        deploy_many = DeployManyAttempt()
+        client = FakeJujuClient()
+        client.bootstrap()
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
+        with patch('industrial_test.wait_until_removed') as wur_mock:
+            with patch.object(client, 'preferred_container',
+                              return_value=container_type):
+                list(deploy_iter)
+        return wur_mock.mock_calls[0][2]['timeout']
+
+    def test_wait_until_removed_timeout_lxd(self):
+        self.assertEqual(60, self.get_wait_until_removed_timeout(LXD_MACHINE))
+
+    def test_wait_until_removed_timeout_lxc(self):
+        self.assertEqual(30, self.get_wait_until_removed_timeout(LXC_MACHINE))
 
 
 class TestBackupRestoreAttempt(JujuPyTestCase):
@@ -1705,13 +1754,17 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
     def test_iter_steps(self):
         br_attempt = BackupRestoreAttempt()
         client = FakeEnvJujuClient()
-        client.env = get_aws_env()
+        aws_env = get_aws_env()
+        client.env.environment = aws_env.environment
+        client.env.config = aws_env.config
+        client.env.juju_home = aws_env.juju_home
+        admin_client = client.get_admin_client()
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
 
         def check_output(*args, **kwargs):
             if args == (('juju', '--show-log', 'create-backup', '-m',
-                         'baz',),):
+                         admin_client.env.environment,),):
                 return 'juju-backup-24.tgz'
             self.assertEqual([], args)
         initial_status = {
@@ -1722,16 +1775,20 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         }
         iterator = iter_steps_validate_info(self, br_attempt, client)
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        with patch_status(client, initial_status) as gs_mock:
+        with patch_status(admin_client, initial_status) as gs_mock:
             with patch('subprocess.check_output',
                        side_effect=check_output) as co_mock:
                 with patch('subprocess.check_call') as cc_mock:
-                    with patch('sys.stdout'):
-                        self.assertEqual(
-                            iterator.next(),
-                            {'test_id': 'back-up-restore'})
+                    with patch.object(client, 'get_admin_client',
+                                      return_value=admin_client,
+                                      autospec=True):
+                        with patch('sys.stdout'):
+                            self.assertEqual(
+                                iterator.next(),
+                                {'test_id': 'back-up-restore'})
         assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'create-backup', '-m', 'baz'), 0)
+            'juju', '--show-log', 'create-backup', '-m',
+            admin_client.env.environment), 0)
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
@@ -1740,13 +1797,10 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 self.assertEqual(iterator.next(),
                                  {'test_id': 'back-up-restore'})
         pn_mock.assert_called_with('Closed.')
-        with patch('subprocess.Popen') as po_mock:
+        with patch.object(admin_client, 'restore_backup') as rb_mock:
             self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        assert_juju_call(
-            self, po_mock, client, (
-                'juju', '--show-log', 'restore', '-m', 'baz',
-                os.path.abspath('juju-backup-24.tgz')))
-        po_mock.return_value.wait.return_value = 0
+        rb_mock.assert_called_once_with(
+            os.path.abspath('juju-backup-24.tgz'))
         with patch('os.unlink') as ul_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore'})
@@ -1757,7 +1811,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 },
             'services': {},
         }
-        with patch_status(client, final_status) as gs_mock:
+        with patch_status(admin_client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
         gs_mock.assert_called_once_with()
@@ -2151,3 +2205,16 @@ class TestAttemptSuite(TestCase):
             {'test_id': 'substrate-clean'},
             {'test_id': 'substrate-clean', 'result': True},
             ], steps)
+
+    def test__iter_bs_manager_steps_teardown_in_runtime(self):
+        fake_bootstrap = FakeAttemptClass('fake-bootstrap', '1', '2')
+        fake_1 = FakeAttemptClass('fake-1', Exception('fake exception'), '2')
+        factory = AttemptSuiteFactory([fake_1],
+                                      bootstrap_attempt=fake_bootstrap)
+        attempt_suite = AttemptSuite(factory, None, None, None)
+        client = FakeJujuClient()
+        bs_manager = FakeBootstrapManager(client, keep_env=True)
+        with self.assertRaisesRegexp(Exception, 'fake exception'):
+            list(attempt_suite._iter_bs_manager_steps(
+                bs_manager, client, fake_bootstrap(), True))
+        self.assertIs(True, bs_manager.torn_down)

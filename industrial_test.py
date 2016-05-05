@@ -18,8 +18,12 @@ from deploy_stack import (
     )
 from jujupy import (
     AgentsNotStarted,
+    AGENTS_READY,
+    coalesce_agent_status,
     EnvJujuClient,
     get_machine_dns_name,
+    LXC_MACHINE,
+    LXD_MACHINE,
     SimpleEnvironment,
     uniquify_local,
     )
@@ -612,9 +616,10 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'ensure-availability-n3'}
         yield results
-        client.enable_ha()
+        admin_client = client.get_admin_client()
+        admin_client.enable_ha()
         yield results
-        client.wait_for_ha()
+        admin_client.wait_for_ha()
         results['result'] = True
         yield results
 
@@ -663,8 +668,8 @@ class DeployManyAttempt(SteppedStageAttempt):
             ('ensure-machines', {
                 'title': 'Ensure sufficient machines', 'report_on': False}),
             ('deploy-many', {'title': 'deploy many'}),
-            ('remove-machine-many-lxc', {
-                'title': 'remove many machines (lxc)'}),
+            ('remove-machine-many-container', {
+                'title': 'remove many machines (container)'}),
             ('remove-machine-many-instance', {
                 'title': 'remove many machines (instance)'}),
             ])
@@ -701,7 +706,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         stuck_new_machines = [
             k for k, v in new_status.iter_new_machines(old_status)
-            if v.get('agent-state') != 'started']
+            if coalesce_agent_status(v) not in AGENTS_READY]
         for machine in stuck_new_machines:
             client.juju('remove-machine', ('--force', machine))
             client.juju('add-machine', ())
@@ -718,26 +723,36 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         service_names = []
         machine_names = sorted(new_machines, key=int)
+        machine_type = client.preferred_container()
         for machine_name in machine_names:
-            target = 'lxc:{}'.format(machine_name)
+            target = '{}:{}'.format(machine_type, machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
-                client.juju('deploy', ('--to', target, 'ubuntu', service))
+                # Work around bug #1540900: juju deploy ignores model
+                # default-series
+                series = client.env.config['default-series']
+                client.deploy('ubuntu', service=service, to=target,
+                              series=series)
                 service_names.append(service)
         timeout_start = datetime.now()
         yield results
         status = client.wait_for_started(start=timeout_start)
         results['result'] = True
         yield results
-        results = {'test_id': 'remove-machine-many-lxc'}
+        results = {'test_id': 'remove-machine-many-container'}
         yield results
         services = [status.status['services'][key] for key in service_names]
-        lxc_machines = set()
+        container_machines = set()
         for service in services:
             for unit in service['units'].values():
-                lxc_machines.add(unit['machine'])
+                container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
-        with wait_until_removed(client, lxc_machines):
+        remove_timeout = {
+            LXC_MACHINE: 30,
+            LXD_MACHINE: 60,
+        }[machine_type]
+        with wait_until_removed(client, container_machines,
+                                timeout=remove_timeout):
             yield results
         results['result'] = True
         yield results
@@ -762,20 +777,21 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'back-up-restore'}
         yield results
-        backup_file = client.backup()
+        admin_client = client.get_admin_client()
+        backup_file = admin_client.backup()
         try:
-            status = client.get_status()
+            status = admin_client.get_status()
             instance_id = status.get_instance_id('0')
-            host = get_machine_dns_name(client, '0')
-            terminate_instances(client.env, [instance_id])
+            host = get_machine_dns_name(admin_client, '0')
+            terminate_instances(admin_client.env, [instance_id])
             yield results
-            wait_for_state_server_to_shutdown(host, client, instance_id)
+            wait_for_state_server_to_shutdown(host, admin_client, instance_id)
             yield results
-            with client.juju_async('restore', (backup_file,)):
+            with admin_client.restore_backup(backup_file):
                 yield results
         finally:
             os.unlink(backup_file)
-        with wait_for_started(client):
+        with wait_for_started(admin_client):
             yield results
         results['result'] = True
         yield results
@@ -883,34 +899,37 @@ class AttemptSuite(SteppedStageAttempt):
             if result['result'] is False:
                 return
             yield self.attempt_list.prepare_suite.as_result()
-            with bs_manager.runtime_context(machines):
-                # Switch from bootstrap client to real client, in case test
-                # steps (i.e. upgrade) make bs_client unable to tear down.
-                bs_manager.client = client
-                bs_manager.tear_down_client = client
-                bs_manager.jes_enabled = jes_enabled
-                attempts = [
-                    a.factory(self.upgrade_sequence, self.agent_stream)
-                    for a in self.attempt_list.attempt_list]
-                yield self.attempt_list.prepare_suite.as_result(True)
-                for attempt in attempts:
-                    for result in attempt.iter_steps(client):
-                        yield result
-                    # If the last step of a SteppedStageAttempt is False, stop
-                    if result['result'] is False:
-                        return
-                # We don't want BootstrapManager.tear_down to run-- we want
-                # DesstroyEnvironmentAttempt.  But we do need BootstrapManager
-                # to finish up before we run DestroyEnvironmentAttempt.
-                bs_manager.keep_env = True
             try:
+                with bs_manager.runtime_context(machines):
+                    # Switch from bootstrap client to real client, in case test
+                    # steps (i.e. upgrade) make bs_client unable to tear down.
+                    bs_manager.client = client
+                    bs_manager.tear_down_client = client
+                    bs_manager.jes_enabled = jes_enabled
+                    attempts = [
+                        a.factory(self.upgrade_sequence, self.agent_stream)
+                        for a in self.attempt_list.attempt_list]
+                    yield self.attempt_list.prepare_suite.as_result(True)
+                    for attempt in attempts:
+                        for result in attempt.iter_steps(client):
+                            yield result
+                        # If the last step of a SteppedStageAttempt is False,
+                        # stop
+                        if result['result'] is False:
+                            return
+                # We don't want BootstrapManager.tear_down to run-- we
+                # want DestroyEnvironmentAttempt.  But we do need
+                # BootstrapManager to finish up before we run
+                # DestroyEnvironmentAttempt, so we do this outside
+                # runtime_context.
                 for result in DestroyEnvironmentAttempt().iter_steps(client):
                     yield result
             except:
+                # If we get here, DestroyEnvironmentAttempt either failed or
+                # never ran.  Do a manual teardown to leave the environment
+                # clean.
                 bs_manager.tear_down()
                 raise
-            finally:
-                bs_manager.keep_env = False
 
 
 suites = {
@@ -980,14 +999,17 @@ def run_single(args):
         env, debug=args.debug)
     client = EnvJujuClient.by_version(
         env,  args.new_juju_path, debug=args.debug)
-    for suite in args.suite:
-        factory = suites[suite]
-        upgrade_sequence = [upgrade_client.full_path, client.full_path]
-        suite = factory.factory(upgrade_sequence, args.log_dir,
-                                args.agent_stream)
-        steps_iter = suite.iter_steps(client)
-        for step in steps_iter:
-            print(step)
+    try:
+        for suite in args.suite:
+            factory = suites[suite]
+            upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            suite = factory.factory(upgrade_sequence, args.log_dir,
+                                    args.agent_stream)
+            steps_iter = suite.iter_steps(client)
+            for step in steps_iter:
+                print(step)
+    except LoggedException:
+        sys.exit(1)
 
 
 def main():

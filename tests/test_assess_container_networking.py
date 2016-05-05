@@ -10,6 +10,9 @@ from mock import (
 from jujupy import (
     EnvJujuClient,
     JujuData,
+    KVM_MACHINE,
+    LXC_MACHINE,
+    LXD_MACHINE,
     SimpleEnvironment,
     Status,
 )
@@ -430,7 +433,8 @@ class TestMain(FakeHomeTestCase):
     def test_bootstrap_required(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
-        client.version = "1.25.5"
+        client.supported_container_types = frozenset([KVM_MACHINE,
+                                                      LXC_MACHINE])
         with patch("assess_container_networking.assess_container_networking",
                    autospec=True) as mock_assess:
             with self.patch_bootstrap_manager() as mock_bc:
@@ -440,7 +444,7 @@ class TestMain(FakeHomeTestCase):
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
+        mock_assess.assert_called_once_with(client, [KVM_MACHINE, "lxc"])
         self.assertEqual(ret, 0)
 
     def test_clean_existing_env(self):
@@ -448,7 +452,8 @@ class TestMain(FakeHomeTestCase):
                 "--clean-environment"]
         client = Mock(spec=["enable_feature", "env", "get_status",
                             "is_jes_enabled", "wait_for", "wait_for_started"])
-        client.version = "1.25.5"
+        client.supported_container_types = frozenset([KVM_MACHINE,
+                                                      LXC_MACHINE])
         client.get_status.return_value = Status.from_text("""
             machines:
                 "0":
@@ -471,7 +476,8 @@ class TestMain(FakeHomeTestCase):
                 "--clean-environment"]
         client = Mock(spec=["bootstrap", "enable_feature", "env", "get_status",
                             "is_jes_enabled", "wait_for", "wait_for_started"])
-        client.version = "1.25.5"
+        client.supported_container_types = frozenset([KVM_MACHINE,
+                                                      LXC_MACHINE])
         client.get_status.side_effect = [
             Exception("Timeout"),
             Status.from_text("""
@@ -500,7 +506,8 @@ class TestMain(FakeHomeTestCase):
                 "--clean-environment"]
         client = Mock(spec=["enable_feature", "env", "get_status",
                             "is_jes_enabled", "wait_for", "wait_for_started"])
-        client.version = "1.25.5"
+        client.supported_container_types = frozenset([KVM_MACHINE,
+                                                      LXC_MACHINE])
         client.get_status.side_effect = [
             Status.from_text("""
                 machines:
@@ -528,6 +535,8 @@ class TestMain(FakeHomeTestCase):
                 "--machine-type=lxd"]
         client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
         client.version = "1.25.5"
+        client.supported_container_types = frozenset([LXC_MACHINE,
+                                                      KVM_MACHINE])
         with self.patch_main(argv, client, logging.DEBUG):
             with self.assertRaises(Exception) as exc_ctx:
                 jcnet.main(argv)
@@ -541,7 +550,8 @@ class TestMain(FakeHomeTestCase):
     def test_lxd_tested_on_juju_2(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         client = Mock(spec=["bootstrap", "enable_feature", "is_jes_enabled"])
-        client.version = "2.0-beta3"
+        client.supported_container_types = frozenset([
+            LXD_MACHINE, KVM_MACHINE, LXC_MACHINE])
         with patch("assess_container_networking.assess_container_networking",
                    autospec=True) as mock_assess:
             with self.patch_bootstrap_manager() as mock_bc:
@@ -551,5 +561,6 @@ class TestMain(FakeHomeTestCase):
         client.bootstrap.assert_called_once_with(False)
         self.assertEqual("", self.log_stream.getvalue())
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, ["kvm", "lxc", "lxd"])
+        mock_assess.assert_called_once_with(client, [
+            KVM_MACHINE, LXC_MACHINE, LXD_MACHINE])
         self.assertEqual(ret, 0)

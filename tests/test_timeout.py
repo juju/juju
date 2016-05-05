@@ -81,7 +81,7 @@ class TestRunCommand(TestCase):
             sleep_mock.mock_calls, [call(0.1), call(0.1)])
 
     def test_duration_elapsed(self):
-        start = datetime.datetime(2015, 01, 01)
+        start = datetime.datetime(2015, 1, 1)
         middle = start + datetime.timedelta(seconds=57.4)
         end = start + datetime.timedelta(seconds=57.6)
         with self.patch_po() as (po_mock, poll_mock, sleep_mock):
