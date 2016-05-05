@@ -47,7 +47,7 @@ func (s *vpcSuite) TestValidateVPCWhenVPCIDNotFound(c *gc.C) {
 	s.stubAPI.SetErrors(makeVPCNotFoundError("foo"))
 
 	err := validateVPC(s.stubAPI, anyVPCID)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
 
 	s.stubAPI.CheckCallNames(c, "VPCs")
 }
@@ -57,7 +57,7 @@ func (s *vpcSuite) TestValidateVPCWhenVPCHasNoSubnets(c *gc.C) {
 	s.stubAPI.SetSubnetsResponse(noResults, anyZone, noPublicIPOnLaunch)
 
 	err := validateVPC(s.stubAPI, anyVPCID)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
 
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets")
 }
@@ -65,35 +65,35 @@ func (s *vpcSuite) TestValidateVPCWhenVPCNotAvailable(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetVPCsResponse(1, "bad-state", notDefaultVPC)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "VPCs")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "VPCs")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoPublicSubnets(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetSubnetsResponse(1, anyZone, noPublicIPOnLaunch)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "Subnets")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "Subnets")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoGateway(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetGatewaysResponse(noResults, anyState)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "InternetGateways")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "InternetGateways")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoAttachedGateway(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetGatewaysResponse(1, "pending")
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "InternetGateways")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "InternetGateways")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoRouteTables(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetRouteTablesResponse() // no route tables at all
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "RouteTables")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "RouteTables")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoMainRouteTable(c *gc.C) {
@@ -102,7 +102,7 @@ func (s *vpcSuite) TestValidateVPCWhenVPCHasNoMainRouteTable(c *gc.C) {
 		makeEC2RouteTable(anyTableID, notMainRouteTable, nil, nil),
 	)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "RouteTables")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "RouteTables")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasMainRouteTableWithoutRoutes(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *vpcSuite) TestValidateVPCWhenVPCHasMainRouteTableWithoutRoutes(c *gc.C)
 		makeEC2RouteTable(anyTableID, mainRouteTable, nil, nil),
 	)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c, "RouteTables")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "RouteTables")
 }
 
 func (s *vpcSuite) TestValidateVPCSuccess(c *gc.C) {
@@ -128,7 +128,7 @@ func (s *vpcSuite) TestGetVPCByIDWithMissingID(c *gc.C) {
 
 	vpc, err := getVPCByID(s.stubAPI, "foo")
 	c.Assert(err, gc.ErrorMatches, `The vpc ID 'foo' does not exist \(InvalidVpcID.NotFound\)`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
 	c.Check(vpc, gc.IsNil)
 
 	s.stubAPI.CheckSingleVPCsCall(c, "foo")
@@ -149,7 +149,7 @@ func (s *vpcSuite) TestGetVPCByIDNoResults(c *gc.C) {
 
 	vpc, err := getVPCByID(s.stubAPI, "vpc-42")
 	c.Assert(err, gc.ErrorMatches, `VPC "vpc-42" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
 	c.Check(vpc, gc.IsNil)
 
 	s.stubAPI.CheckSingleVPCsCall(c, "vpc-42")
@@ -198,8 +198,8 @@ func (s *vpcSuite) TestCheckVPCIsAvailable(c *gc.C) {
 
 	notAvailableVPC := makeEC2VPC(anyVPCID, anyState)
 	err := checkVPCIsAvailable(notAvailableVPC)
-	c.Assert(err, gc.ErrorMatches, `VPC with unexpected state "any state" not valid`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, `VPC has unexpected state "any state"`)
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 }
 
 func (s *vpcSuite) TestGetVPCSubnetUnexpectedAWSError(c *gc.C) {
@@ -219,7 +219,7 @@ func (s *vpcSuite) TestGetVPCSubnetsNoResults(c *gc.C) {
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	subnets, err := getVPCSubnets(s.stubAPI, anyVPC)
 	c.Assert(err, gc.ErrorMatches, `no subnets found for VPC "vpc-anything"`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
 	c.Check(subnets, gc.IsNil)
 
 	s.stubAPI.CheckSingleSubnetsCall(c, anyVPC)
@@ -249,8 +249,8 @@ func (s *vpcSuite) TestFindFirstPublicSubnetNoneFound(c *gc.C) {
 	s.stubAPI.SetSubnetsResponse(3, anyZone, noPublicIPOnLaunch)
 
 	subnet, err := findFirstPublicSubnet(s.stubAPI.subnetsResponse.Subnets)
-	c.Assert(err, gc.ErrorMatches, "VPC without any public subnets not valid")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, "VPC contains no public subnets")
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	c.Check(subnet, gc.IsNil)
 }
 
@@ -259,8 +259,8 @@ func (s *vpcSuite) TestGetVPCInternetGatewayNoResults(c *gc.C) {
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	gateway, err := getVPCInternetGateway(s.stubAPI, anyVPC)
-	c.Assert(err, gc.ErrorMatches, `VPC without Internet Gateway not valid`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, `VPC has no Internet Gateway attached`)
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	c.Check(gateway, gc.IsNil)
 
 	s.stubAPI.CheckSingleInternetGatewaysCall(c, anyVPC)
@@ -299,14 +299,14 @@ func (s *vpcSuite) TestGetVPCInternetGatewaySuccess(c *gc.C) {
 	s.stubAPI.CheckSingleInternetGatewaysCall(c, anyVPC)
 }
 
-func (s *vpcSuite) TestCheckInternetGatewayIsAttached(c *gc.C) {
+func (s *vpcSuite) TestCheckInternetGatewayIsAvailable(c *gc.C) {
 	availableIGW := makeEC2InternetGateway(anyGatewayID, availableState)
 	c.Check(checkInternetGatewayIsAvailable(availableIGW), jc.ErrorIsNil)
 
 	pendingIGW := makeEC2InternetGateway(anyGatewayID, "pending")
 	err := checkInternetGatewayIsAvailable(pendingIGW)
-	c.Assert(err, gc.ErrorMatches, `VPC with Internet Gateway "igw-anything" in unexpected state "pending" not valid`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, `VPC has Internet Gateway "igw-anything" in unexpected state "pending"`)
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 }
 
 func (s *vpcSuite) TestGetVPCRouteTablesNoResults(c *gc.C) {
@@ -314,8 +314,8 @@ func (s *vpcSuite) TestGetVPCRouteTablesNoResults(c *gc.C) {
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	tables, err := getVPCRouteTables(s.stubAPI, anyVPC)
-	c.Assert(err, gc.ErrorMatches, `VPC without any route tables not valid`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, `VPC has no route tables`)
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	c.Check(tables, gc.IsNil)
 
 	s.stubAPI.CheckSingleRouteTablesCall(c, anyVPC)
@@ -359,7 +359,7 @@ func (s *vpcSuite) TestFindVPCMainRouteTableWithMainAndPerSubnetTables(c *gc.C) 
 
 	mainTable, err := findVPCMainRouteTable(givenTables)
 	c.Assert(err, gc.ErrorMatches, `subnet "subnet-1" not associated with VPC "vpc-anything" main route table`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	c.Check(mainTable, gc.IsNil)
 }
 
@@ -371,8 +371,8 @@ func (s *vpcSuite) TestFindVPCMainRouteTableWithOnlyNonAssociatedTables(c *gc.C)
 	}
 
 	mainTable, err := findVPCMainRouteTable(givenTables)
-	c.Assert(err, gc.ErrorMatches, "VPC without associated main route table not valid")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, gc.ErrorMatches, "VPC has no associated main route table")
+	c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	c.Check(mainTable, gc.IsNil)
 }
 
@@ -404,8 +404,8 @@ func (s *vpcSuite) TestCheckVPCRouteTableRoutesWithNoDefaultRoute(c *gc.C) {
 
 	checkFailed := func() {
 		err := checkVPCRouteTableRoutes(vpc, table, gateway)
-		c.Assert(err, gc.ErrorMatches, `missing default route via gateway "igw-anything" not valid`)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Assert(err, gc.ErrorMatches, `missing default route via gateway "igw-anything"`)
+		c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	}
 	checkFailed()
 
@@ -425,8 +425,8 @@ func (s *vpcSuite) TestCheckVPCRouteTableRoutesWithDefaultButNoLocalRoutes(c *gc
 
 	checkFailed := func() {
 		err := checkVPCRouteTableRoutes(vpc, table, gateway)
-		c.Assert(err, gc.ErrorMatches, `missing local route with destination "0.1.0.0/16" not valid`)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Assert(err, gc.ErrorMatches, `missing local route with destination "0.1.0.0/16"`)
+		c.Check(err, jc.Satisfies, isVPCNotRecommendedError)
 	}
 	checkFailed()
 
@@ -768,9 +768,9 @@ func (s *stubVPCAPIClient) PrepareValidateVPCResponses() {
 	)
 }
 
-func (s *stubVPCAPIClient) CallValidateVPCAndCheckCallsUpToExpectingNotValidError(c *gc.C, lastExpectedCallName string) {
+func (s *stubVPCAPIClient) CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c *gc.C, lastExpectedCallName string) {
 	err := validateVPC(s, anyVPCID)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.Satisfies, isVPCNotRecommendedError)
 
 	allCalls := []string{"VPCs", "Subnets", "InternetGateways", "RouteTables"}
 	var expectedCalls []string

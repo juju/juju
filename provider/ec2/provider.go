@@ -79,14 +79,14 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 }
 
 var (
-	vpcUnusableErrorPrefix = `
+	vpcNotUsableErrorPrefix = `
 Juju cannot use the given vpc-id for bootstrapping a controller
 instance. Please, double check the given VPC ID is correct, and that
 the VPC contains at least one subnet.
 
 Error details`[1:]
 
-	vpcPossiblyUnsuitableErrorPrefix = `
+	vpcNotRecommendedErrorPrefix = `
 The given vpc-id does not meet one or more of the following minimum
 Juju requirements:
 
@@ -120,7 +120,7 @@ sufficient to access VPC features, or simply retry bootstrapping again.
 
 Error details`[1:]
 
-	vpcPossiblyUnsuitableButForcedWarning = `
+	vpcNotRecommendedButForcedWarning = `
 WARNING! The specified vpc-id does not satisfy the minimum Juju requirements,
 but will be used anyway because vpc-id-force=true is also specified.
 
@@ -150,15 +150,15 @@ func (p environProvider) PrepareForBootstrap(
 		switch {
 		case err == nil:
 			// All good!
-		case errors.IsNotFound(err):
+		case isVPCNotUsableError(err):
 			// VPC missing or has no subnets at all.
-			return nil, errors.Annotate(err, vpcUnusableErrorPrefix)
-		case errors.IsNotValid(err):
+			return nil, errors.Annotate(err, vpcNotUsableErrorPrefix)
+		case isVPCNotRecommendedError(err):
 			// VPC does not meet minumum validation criteria.
 			if !forceVPCID {
-				return nil, errors.Annotatef(err, vpcPossiblyUnsuitableErrorPrefix, vpcID)
+				return nil, errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
 			}
-			ctx.Infof(vpcPossiblyUnsuitableButForcedWarning)
+			ctx.Infof(vpcNotRecommendedButForcedWarning)
 		case err != nil:
 			// Anything else unexpected while validating the VPC.
 			return nil, errors.Annotate(err, cannotValidateVPCErrorPrefix)
