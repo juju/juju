@@ -1344,6 +1344,43 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMissing(c *gc.C) {
+	subnet := fakeSubnet{
+		id:      3,
+		space:   "freckles",
+		gateway: "10.20.19.2",
+		cidr:    "10.20.19.0/24",
+	}
+	var env *maasEnviron
+	device := &fakeDevice{
+		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
+		systemID:     "foo",
+	}
+	machine := &fakeMachine{
+		Stub:         &jt.Stub{},
+		systemID:     "1",
+		createDevice: device,
+	}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{machine},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet},
+			},
+		},
+	}
+	suite.injectController(controller)
+	env = suite.makeEnviron(c, nil)
+	prepared := []network.InterfaceInfo{
+		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
+		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
+	}
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, gc.ErrorMatches, "NIC eth1 subnet 10.20.20.0/24 not found")
+}
+
 func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 	controller := newFakeController()
 	env := suite.makeEnviron(c, controller)
