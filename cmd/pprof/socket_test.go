@@ -40,7 +40,7 @@ func (s *suite) TestFilename(c *gc.C) {
 func (s *suite) TestPprofStartReturnsNonNilShutdownFn(c *gc.C) {
 	stop := Start(filepath.Join(c.MkDir(), Filename))
 	c.Assert(stop, gc.NotNil)
-	defer stop()
+	c.Assert(stop(), jc.ErrorIsNil)
 }
 
 func (s *suite) TestPprofStart(c *gc.C) {
@@ -50,10 +50,10 @@ func (s *suite) TestPprofStart(c *gc.C) {
 
 	stop := Start(path)
 	_, err = os.Stat(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(path)
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 }
@@ -61,16 +61,16 @@ func (s *suite) TestPprofStart(c *gc.C) {
 func (s *suite) TestPprofStartWithExistingSocketFile(c *gc.C) {
 	path := filepath.Join(c.MkDir(), Filename)
 	w, err := os.Create(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w.Write([]byte("not a socket"))
 	err = w.Close() // can ignore error from w.Write
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stop := Start(path)
 	defer stop()
 	fi, err := os.Stat(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fi.Mode()&os.ModeSocket != 0, jc.IsTrue)
 }
 
@@ -87,19 +87,20 @@ func (s *pprofSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *pprofSuite) TearDownSuite(c *gc.C) {
-	s.stop()
+	err := s.stop()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *pprofSuite) call(c *gc.C, url string) []byte {
 	conn, err := net.Dial("unix", s.path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 
 	_, err = fmt.Fprintf(conn, "GET %s HTTP/1.0\r\n\r\n", url)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	buf, err := ioutil.ReadAll(conn)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return buf
 }
 
@@ -120,7 +121,7 @@ func (s *pprofSuite) TestGoroutineProfile(c *gc.C) {
 // contain some HTTP preamble that should be ignored.
 func matches(c *gc.C, b []byte, regex string) {
 	re, err := regexp.Compile(regex)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	r := bytes.NewReader(b)
 	sc := bufio.NewScanner(r)
 	for sc.Scan() {
