@@ -102,7 +102,7 @@ install-etc:
 	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju2 /etc/bash_completion.d
 
 setup-lxd:
-ifeq ($(shell ifconfig lxdbr0 | grep -q "inet addr" && echo true),true)
+ifeq ($(shell ifconfig lxdbr0 2>&1 | grep -q "inet addr" && echo true),true)
 	@echo IPv4 networking is already setup for LXD.
 	@echo run "sudo scripts/setup-lxd.sh" to reconfigure IPv4 networking
 else
