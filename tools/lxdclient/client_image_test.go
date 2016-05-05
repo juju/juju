@@ -13,6 +13,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
 )
 
 type imageSuite struct {
@@ -300,7 +302,9 @@ func (s *imageSuite) TestEnsureImageExistsCallbackIncludesSourceURL(c *gc.C) {
 	select {
 	case message := <-calls:
 		c.Check(message, gc.Matches, "copying image for ubuntu-trusty from https://match: \\d+%")
-	default:
+	case <-time.After(coretesting.LongWait):
+		// The callbacks are made asynchronously, and so may not
+		// have happened by the time EnsureImageExists exits.
 		c.Fatalf("no messages received")
 	}
 }
