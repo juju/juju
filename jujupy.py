@@ -2059,10 +2059,16 @@ class JujuData(SimpleEnvironment):
         return juju_data
 
     def load_yaml(self):
-        with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
-            self.credentials = yaml.safe_load(f)
-        with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-            self.clouds = yaml.safe_load(f)
+        try:
+            with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
+                self.credentials = yaml.safe_load(f)
+        except IOError:
+            self.credentials = {}
+        try:
+            with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
+                self.clouds = yaml.safe_load(f)
+        except IOError:
+            self.clouds = {}
 
     @classmethod
     def from_config(cls, name):
