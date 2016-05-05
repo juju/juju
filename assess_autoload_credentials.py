@@ -38,11 +38,11 @@ def test_autoload_credentials_stores_details(juju_bin):
             juju_bin, tmp_dir, JujuData.from_config('local')
         )
 
-        env_changes, expected_details = aws_test_details()
+        env_var_changes, expected_details = aws_test_details()
 
-        extra_environment = get_fake_environment(user, tmp_dir)
-        extra_environment.update(env_changes)
-        run_autoload_credentials(client, extra_environment)
+        extra_env_var = get_fake_environment(user, tmp_dir)
+        env_var_changes.update(extra_env_var)
+        run_autoload_credentials(client, env_var_changes)
 
         local_config.load_yaml()
 
