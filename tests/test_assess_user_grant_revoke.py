@@ -108,8 +108,8 @@ class TestAssess(TestCase):
         with patch("assess_user_grant_revoke.register_user", return_value=True):
             assess_user_grant_revoke(mock_client)
             mock_client.wait_for_started.assert_called_once_with()
-            #mock_client.create_user_permissions.assert_called_with()
-            #mock_client.create_user_permissions.assert_called_with()
+            #mock_client.add_user.assert_called_with()
+            #mock_client.add_user.assert_called_with()
             #mock_client.create_cloned_environment.assert_called_with()
             #mock_client.create_cloned_environment.assert_called_with()
             #mock_client.register_user.assert_called_with()

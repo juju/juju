@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from base64 import b64encode
 from contextlib import contextmanager
 import copy
 from datetime import (
@@ -6,6 +7,7 @@ from datetime import (
     timedelta,
 )
 import errno
+from hashlib import sha512
 from itertools import count
 import logging
 import os
@@ -435,21 +437,20 @@ class FakeBackend:
             model_state.restore_backup()
         if command == 'show-controller':
             return yaml.safe_dump(self.make_controller_dict(args[0]))
-	if command == ('add-user'):
-            if set(["--acl", "read"]).issubset(args):
-                username = args[0]
-                model = args[2]
-                return ''.join(['User "' + username + '" added\nUser "' +
-                               username + '" granted read access ',
-                               'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
-                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
-            elif set(["--acl", "write"]).issubset(args):
-                username = args[0]
-                model = args[2]
-                return ''.join(['User "' + username + '" added\nUser "' + username + '" granted read access ',
-                          'to model "' + model + '"\nPlease send this command to ' + username + ':\n',
-                          '    juju register MD4TA2JvYjAVExMxMC4yMDguNTYuMTUyOjE3MDcwBCAQh15-rV4xh11SPEkkM3bommDBscCQ7AX77Z4FwBc1VQA='])
-        return ''
+        if command == ('add-user'):
+            permissions = 'read'
+            if set(["--acl", "write"]).issubset(args):
+                permissions = 'write'
+            username = args[0]
+            model = args[2]
+            code = b64encode(sha512(username).digest())
+            info_string = \
+                'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
+                .format(username, username, permissions, model)
+            register_string = \
+                'Please send this command to {}\n    juju register {}' \
+                .format(username, code)
+            return info_string + register_string
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -486,6 +487,10 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def model_name(self):
         return self.env.environment
+
+    @property
+    def feature_flags(self):
+        return frozenset(self._backend._feature_flags)
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -586,6 +591,12 @@ class FakeJujuClient(EnvJujuClient):
     def backup(self):
         model_state = self._backend.controller_state.models[self.model_name]
         model_state.require_admin('backup')
+
+    def _get_register_command(self, output):
+        for row in output.split('\n'):
+            if 'juju register' in row:
+                return row.strip().lstrip()
+        raise AssertionError('Juju register command not found in output')
 
 
 class TestErroredUnit(TestCase):
@@ -2884,74 +2895,67 @@ class TestEnvJujuClient(ClientTest):
                           'to model "y"\nPlease send this command to x:\n',
                           '    juju register AaBbCc'])
         output_cmd = 'juju register AaBbCc'
-        register_cmd = self._get_register_command(output)
+        mock_client = FakeJujuClient()
+        register_cmd = mock_client._get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)
 
-    # Don't check the log when what you really want to know is
-    # whether a command was invoked.
-    # Patch out mock_client.juju and use assert_juju_call.
-
-    def test_remove_user_permissions(self):
+    def test_revoke(self):
         mock_client = FakeJujuClient()
         username = 'fakeuser'
         model = 'foo'
+        controller = 'bar'
+        default_permissions = 'read'
+        default_model = mock_client.model_name
+        default_controller = mock_client.env.controller.name
 
-        remove_user_permissions(mock_client, username)
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'name', '--acl', 'read'",
-            self.log_stream.getvalue())
+        with patch.object(mock_client, 'juju', return_value=True):
+            mock_client.revoke(username)
+            mock_client.juju.assert_called_with('revoke',
+                                                (username, default_model,
+                                                 '--acl', default_permissions,
+                                                 '-c', default_controller),
+                                                include_e=False)
 
-        remove_user_permissions(mock_client, username, model)
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
+            mock_client.revoke(username, model)
+            mock_client.juju.assert_called_with('revoke',
+                                                (username, model,
+                                                 '--acl', default_permissions,
+                                                 '-c', default_controller),
+                                                include_e=False)
 
-        remove_user_permissions(
-            mock_client, username, model, permissions='write')
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'foo', '--acl', 'write'",
-            self.log_stream.getvalue())
+            mock_client.revoke(username, model, permissions='write')
+            mock_client.juju.assert_called_with('revoke',
+                                                (username, model,
+                                                 '--acl', 'write',
+                                                 '-c', default_controller),
+                                                include_e=False)
 
-        remove_user_permissions(
-            mock_client, username, model, permissions='read')
-        self.assertIn(
-            "'juju', '--show-log', 'revoke', 'fakeuser'," +
-            " 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
+            mock_client.revoke(username, controller=controller)
+            mock_client.juju.assert_called_with('revoke',
+                                                (username, default_model,
+                                                 '--acl', default_permissions,
+                                                 '-c', controller),
+                                                include_e=False)
 
-    def test_create_user_permissions(self):
+    def test_add_user(self):
         mock_client = FakeJujuClient()
         username = 'fakeuser'
         model = 'foo'
+        controller = 'bar'
+        permissions = 'write'
 
-        create_user_permissions(mock_client, username)
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'name', '--acl', 'read'",
-            self.log_stream.getvalue())
+        output = mock_client.add_user(username)
+        self.assertTrue(output.startswith('juju register'))
 
-        create_user_permissions(mock_client, username, model)
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
+        output = mock_client.add_user(username, model)
+        self.assertTrue(output.startswith('juju register'))
 
-        create_user_permissions(
-            mock_client, username, model, permissions='write')
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'foo', '--acl', 'write'",
-            self.log_stream.getvalue())
+        output = mock_client.add_user(username, model, controller)
+        self.assertTrue(output.startswith('juju register'))
 
-        create_user_permissions(
-            mock_client, username, model, permissions='read')
-        self.assertIn(
-            "'juju', '--show-log', 'add-user', 'fakeuser'," +
-            " '--models', 'foo', '--acl', 'read'",
-            self.log_stream.getvalue())
+        output = mock_client.add_user(username, model, controller, permissions)
+        self.assertTrue(output.startswith('juju register'))
+
 
 class TestEnvJujuClient2B3(ClientTest):
 

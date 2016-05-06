@@ -1165,9 +1165,11 @@ class EnvJujuClient:
                  models=None, controller=None, permissions='read'):
         if models is None:
             models = self.env.environment
-        args = (username, '--models', models, '--acl', permissions)
         if controller is None:
-            args = args + ('-c', self.env.controller.name)
+            controller = self.env.controller.name
+
+        args = (username, '--models', models, '--acl', permissions)
+        args = args + ('-c', controller)
 
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
@@ -1176,9 +1178,11 @@ class EnvJujuClient:
                models=None, controller=None, permissions='read'):
         if models is None:
             models = self.env.environment
-        args = (username, models, '--acl', permissions)
         if controller is None:
-            args = args + ('-c', self.env.controller.name)
+            controller = self.env.controller.name
+
+        args = (username, models, '--acl', permissions)
+        args = args + ('-c', controller)
 
         self.juju('revoke', args, include_e=False)
 
