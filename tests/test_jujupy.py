@@ -451,7 +451,7 @@ class FakeBackend:
                 'Please send this command to {}\n    juju register {}' \
                 .format(username, code)
             return info_string + register_string
-
+        return ''
 
 class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
