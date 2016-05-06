@@ -55,25 +55,26 @@ class TestMain(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_user_grant_revoke.assess_user_grant_revoke",
-                autospec=True) as mock_assess:
-            with patch("assess_user_grant_revoke.configure_logging",
-                    autospec=True) as mock_cl:
-                with patch(
-                    "assess_user_grant_revoke.BootstrapManager.booted_context",
-                           autospec=True) as mock_bc:
-                    with patch("jujupy.SimpleEnvironment.from_config",
-                               return_value=env) as mock_e:
-                        with patch("jujupy.EnvJujuClient.by_version",
-                                   return_value=client) as mock_c:
-                            main(argv)
+        with patch("assess_user_grant_revoke.BootstrapManager.booted_context",
+                   autospec=True) as mock_bc:
+            with patch("assess_user_grant_revoke.assess_user_grant_revoke",
+                       autospec=True) as mock_assess:
+                with patch("assess_user_grant_revoke.configure_logging",
+                           autospec=True) as mock_cl:
+                        with patch("jujupy.SimpleEnvironment.from_config",
+                                   return_value=env) as mock_e:
+                            with patch("jujupy.EnvJujuClient.by_version",
+                                       return_value=client) as mock_c:
+                                main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 
+
 class TestAsserts(TestCase):
+
     def test_assert_user_permissions(self):
         user = namedtuple('user', ['name', 'permissions', 'expect'])
         read_user = user('readuser', 'read', [True, False, False, False])
@@ -85,11 +86,11 @@ class TestAsserts(TestCase):
             mock_admin_client = FakeJujuClient()
             with patch("jujupy.EnvJujuClient.revoke", return_value=True):
                 with patch("assess_user_grant_revoke.assert_read",
-                    return_value=True) as read_mock:
+                           return_value=True) as read_mock:
                     with patch("assess_user_grant_revoke.assert_write",
-                        return_value=True) as write_mock:
+                               return_value=True) as write_mock:
                         assert_user_permissions(user, mock_client,
-                            mock_admin_client)
+                                                mock_admin_client)
                         self.assertEqual(read_mock.call_count, 2)
                         self.assertEqual(write_mock.call_count, 2)
 
@@ -98,7 +99,7 @@ class TestAsserts(TestCase):
         with patch.object(mock_client, 'show_status', return_value=True):
             assert_read(mock_client, True)
         with patch.object(mock_client, 'show_status', return_value=False,
-            side_effect = CalledProcessError(None, None, None)):
+                          side_effect=CalledProcessError(None, None, None)):
             assert_read(mock_client, False)
 
     def test_assert_write(self):
@@ -106,8 +107,9 @@ class TestAsserts(TestCase):
         with patch.object(mock_client, 'deploy', return_value=True):
             assert_write(mock_client, True)
         with patch.object(mock_client, 'deploy', return_value=False,
-            side_effect = CalledProcessError(None, None, None)):
+                          side_effect=CalledProcessError(None, None, None)):
             assert_write(mock_client, False)
+
 
 class TestAssess(TestCase):
 
@@ -122,7 +124,8 @@ class TestAssess(TestCase):
             self._sendline_strings = iter(sendline_str)
 
         def _check_string(self, string, string_list):
-            if string != next(string_list):
+            expected_string = next(string_list)
+            if string != expected_string:
                 raise ValueError(
                     'Expected {} got {}'.format(expected_string, string)
                 )
@@ -136,7 +139,6 @@ class TestAssess(TestCase):
         def isalive(self):
             return False
 
-
     def test_user_grant_revoke(self):
         mock_client = FakeJujuClient()
         mock_client.bootstrap()
@@ -146,9 +148,9 @@ class TestAssess(TestCase):
         write_user = user('adminuser', 'write', [True, True, True, False])
 
         with patch("assess_user_grant_revoke.register_user",
-            return_value=True) as reg_mock:
+                   return_value=True) as reg_mock:
             with patch("assess_user_grant_revoke.assert_user_permissions",
-                autospec=True) as perm_mock:
+                       autospec=True) as perm_mock:
                 assess_user_grant_revoke(mock_client)
 
                 self.assertEqual(reg_mock.call_count, 2)
