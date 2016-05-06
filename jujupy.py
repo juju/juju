@@ -1161,19 +1161,25 @@ class EnvJujuClient:
                 return row.strip().lstrip()
         raise AssertionError('Juju register command not found in output')
 
-    def create_user_permissions(self, username, models=None, permissions='read'):
+    def add_user(self, username,
+                 models=None, controller=None, permissions='read'):
         if models is None:
             models = self.env.environment
-
         args = (username, '--models', models, '--acl', permissions)
+        if controller is None:
+            args = args + ('-c', self.env.controller.name)
+
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
 
-    def remove_user_permissions(self, username, models=None, permissions='read'):
+    def revoke(self, username,
+               models=None, controller=None, permissions='read'):
         if models is None:
             models = self.env.environment
-
         args = (username, models, '--acl', permissions)
+        if controller is None:
+            args = args + ('-c', self.env.controller.name)
+
         self.juju('revoke', args, include_e=False)
 
 

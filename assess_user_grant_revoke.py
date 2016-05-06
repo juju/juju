@@ -91,38 +91,37 @@ def assert_write(client, permission):
             raise AssertionError('User deployed without write permission')
 
 
-def assert_user_permissions(user, user_client):
+def assert_user_permissions(user, user_client, admin_client):
     expect = iter(user.expect)
     assert_read(user_client, expect.next())
     assert_write(user_client, expect.next())
 
-    log.debug("Revoking %s permissions" % user.permissions)
-    user_client.remove_user_permissions(user.name,
-                                        permissions=user.permissions)
+    log.debug("Revoking %s permission from %s" % (user.permissions, user.name))
+    admin_client.revoke(user.name, permissions=user.permissions)
 
     assert_read(user_client, expect.next())
     assert_write(user_client, expect.next())
 
 
-def assess_user_grant_revoke(client):
+def assess_user_grant_revoke(admin_client):
     # Wait for the deployment to finish.
-    client.wait_for_started()
+    admin_client.wait_for_started()
 
     log.debug("Creating Users")
     user = namedtuple('user', ['name', 'permissions', 'expect'])
-    read_user = user('read-only user', 'read', [True, False, False, False])
-    write_user = user('admin user', 'write', [True, True, True, False])
+    read_user = user('readuser', 'read', [True, False, False, False])
+    write_user = user('adminuser', 'write', [True, True, True, False])
     users = [read_user, write_user]
 
     for user in users:
-        log.debug("Testing %s user" % user.permissions)
-        user_register_string = client.create_user_permissions(
+        log.debug("Testing %s" % user.name)
+        user_register_string = admin_client.add_user(
             user.name, permissions=user.permissions)
         with temp_dir() as fake_home:
             user_client, user_env = create_cloned_environment(
-                client, fake_home)
-            register_user(user, user_env, user_register_string)
-            assert_user_permissions(user, user_client)
+                admin_client, fake_home)
+            register_user(user.name, user_env, user_register_string)
+            assert_user_permissions(user, user_client, admin_client)
 
 
 def parse_args(argv):
