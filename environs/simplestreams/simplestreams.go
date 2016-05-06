@@ -1047,6 +1047,10 @@ func UserPublicSigningKey() (string, error) {
 	b, err := ioutil.ReadFile(signingKeyFile)
 	if os.IsNotExist(err) {
 		logger.Errorf("reading file %v %v", signingKeyFile, err)
+		// After long discussions and debate, it has been deemed
+		// that this is a perfectly acceptable swallowing of the error.
+		// Providing own key is optional and we return public signing key
+		// if none defined.
 		return "", nil
 	}
 	if err != nil {
