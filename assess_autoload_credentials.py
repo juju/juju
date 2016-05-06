@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import argparse
 import logging
-import os
 import pexpect
 import sys
 
@@ -13,7 +12,6 @@ from jujupy import EnvJujuClient, JujuData
 from utility import (
     configure_logging,
     enforce_juju_path,
-    ensure_dir,
     temp_dir,
 )
 
@@ -34,20 +32,20 @@ def assess_autoload_credentials(juju_bin):
 def test_autoload_credentials_stores_details(juju_bin):
     user = 'testing_user'
     with temp_dir() as tmp_dir:
-        local_config, client = get_juju_client(
-            juju_bin, tmp_dir, JujuData.from_config('local')
+        client = EnvJujuClient.by_version(
+            JujuData('local', juju_home=tmp_dir), juju_bin, False
         )
 
         env_var_changes, expected_details = aws_test_details()
+        # Inject well known username.
+        env_var_changes.update({'USER': user})
 
-        extra_env_var = get_fake_environment(user, tmp_dir)
-        env_var_changes.update(extra_env_var)
         run_autoload_credentials(client, env_var_changes)
 
-        local_config.load_yaml()
+        client.env.load_yaml()
 
-        assert_credential_file_contains_expected_results(
-            local_config.credentials,
+        assert_credentials_contains_expected_results(
+            client.env.credentials,
             user,
             expected_details
         )
@@ -57,7 +55,7 @@ def test_autoload_credentials_updates_existing(juju_bin):
     pass
 
 
-def assert_credential_file_contains_expected_results(
+def assert_credentials_contains_expected_results(
         credentials, user, expected
 ):
     details = credentials['credentials']['aws'][user]
@@ -73,42 +71,22 @@ def assert_credential_file_contains_expected_results(
             )
 
 
-def get_juju_client(juju_bin, tmp_dir, config):
-    juju_home = os.path.join(tmp_dir, 'juju')
-    ensure_dir(juju_home)
-    config.juju_home = juju_home
-    client = EnvJujuClient.by_version(config, juju_bin, False)
-    return config, client
-
-
-def get_fake_environment(user, tmpdir):
-    """Return a dictionary setting up a fake environment.
-
-    :param user: Username to set $USER to
-    :para tmpdir: Directory path to use for $XDG_DATA_HOME.
-
-    """
-    return dict(
-        XDG_DATA_HOME=tmpdir,
-        USER=user,
-    )
-
-
-def run_autoload_credentials(juju_client, envvars):
+def run_autoload_credentials(client, envvars):
     """Execute the command 'juju autoload-credentials'.
 
     Simple interaction, calls juju autoload-credentials selects the first
     option and then quits.
 
-    :param juju_client: A EnvJujuClient from which juju will be called.
+    :param client: EnvJujuClient from which juju will be called.
     :param envvars: Dictionary containing environment variables to be used
       during execution.
       Note. Must contain a value for USER.
 
     """
     # Get juju path from client as we need to use it interactively.
-    cmd = '{juju} autoload-credentials'.format(juju=juju_client.full_path)
-    process = pexpect.spawn(cmd, env=envvars)
+    process = client.expect(
+        'autoload-credentials', extra_env=envvars, include_e=False
+    )
     process.expect(
         '.*1. aws credential "{}" \(new\).*'.format(envvars['USER'])
     )

@@ -62,36 +62,3 @@ class TestHelpers(TestCase):
                 'secret-key': secret_key
             }
         )
-
-    def test_get_fake_environment_returns_populated_dict(self):
-        user = 'test_user'
-        tmp_dir = 'temporary/directory/path'
-        env = aac.get_fake_environment(user, tmp_dir)
-
-        self.assertDictEqual(env, dict(USER=user, XDG_DATA_HOME=tmp_dir))
-
-    def test_get_juju_client_sets_juju_home_with_config(self):
-        juju_path = '/path/to/juju'
-
-        with temp_dir() as tmp_dir:
-            with patch('jujupy.EnvJujuClient.by_version'):
-                config, client = aac.get_juju_client(
-                    juju_path, tmp_dir, Mock()
-                )
-                self.assertEqual(
-                    config.juju_home,
-                    os.path.join(tmp_dir, 'juju')
-                )
-
-    def test_get_juju_client_returns_EnvJujuClient(self):
-        juju_path = '/path/to/juju'
-
-        with temp_dir() as tmp_dir:
-            with patch('jujupy.EnvJujuClient.by_version') as envclient_creator:
-                config_object = Mock()
-                config, client = aac.get_juju_client(
-                    juju_path, tmp_dir, config_object
-                )
-                envclient_creator.assert_called_once_with(
-                    config_object, juju_path, False
-                )
