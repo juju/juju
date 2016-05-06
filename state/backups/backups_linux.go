@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 func ensureMongoService(agentConfig agent.Config) error {
@@ -60,7 +61,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) {
+func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (names.Tag, error) {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
@@ -75,12 +76,16 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	defer workspace.Close()
 
 	// TODO(perrito666) Create a compatibility table of sorts.
-	version := meta.Origin.Version
+	vers := meta.Origin.Version
+	if vers.Major != 2 {
+		return nil, errors.Errorf("Juju version %v cannot restore backups made using Juju version %v", version.Current.Minor, vers)
+	}
 	backupMachine := names.NewMachineTag(meta.Origin.Machine)
 
-	if err := mongo.StopService(); err != nil {
-		return nil, errors.Annotate(err, "cannot stop mongo to replace files")
-	}
+	//logger.Debugf("stopping mongo service for restore")
+	//if err := mongo.StopService(); err != nil {
+	//	return nil, errors.Annotate(err, "cannot stop mongo to replace files")
+	//}
 
 	// delete all the files to be replaced
 	if err := PrepareMachineForRestore(); err != nil {
@@ -91,7 +96,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if err := workspace.UnpackFilesBundle(filesystemRoot()); err != nil {
 		return nil, errors.Annotate(err, "cannot obtain system files from backup")
 	}
-	logger.Infof("placed new files")
+	logger.Infof("placed new restore files")
 
 	var agentConfig agent.ConfigSetterWriter
 	// The path for the config file might change if the tag changed
@@ -113,7 +118,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if err := agentConfig.Write(); err != nil {
 		return nil, errors.Annotate(err, "cannot write new agent configuration")
 	}
-	logger.Infof("wrote new agent config")
+	logger.Infof("wrote new agent config for restore")
 
 	if backupMachine.Id() != "0" {
 		logger.Infof("extra work needed backup belongs to %q machine", backupMachine.String())
@@ -143,18 +148,22 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		return nil, errors.Annotate(err, "failed to reinstall service for juju-db")
 	}
 
-	logger.Infof("new mongo will be restored")
-	// Restore mongodb from backup
-	if err := placeNewMongoService(workspace.DBDumpDir, version); err != nil {
-		return nil, errors.Annotate(err, "error restoring state from backup")
-	}
-
-	// Re-start replicaset with the new value for server address
 	dialInfo, err := newDialInfo(args.PrivateAddress, agentConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot produce dial information")
 	}
 
+	logger.Infof("new mongo will be restored")
+	// Restore mongodb from backup
+	restorer, err := NewDBRestorer(dialInfo)
+	if err != nil {
+		return nil, errors.Annotate(err, "error preparing for restore")
+	}
+	if err := restorer.Restore(workspace.DBDumpDir); err != nil {
+		return nil, errors.Annotate(err, "error restoring state from backup")
+	}
+
+	// Re-start replicaset with the new value for server address
 	logger.Infof("restarting replicaset")
 	memberHostPort := net.JoinHostPort(args.PrivateAddress, strconv.Itoa(ssi.StatePort))
 	err = resetReplicaSet(dialInfo, memberHostPort)

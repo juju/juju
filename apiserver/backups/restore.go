@@ -21,6 +21,7 @@ var bootstrapNode = names.NewMachineTag("0")
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
+	logger.Infof("Starting server side restore")
 
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
@@ -69,13 +70,29 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		NewInstSeries:  machine.Series(),
 	}
 
-	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
+	session := a.st.MongoSession().Copy()
+	defer session.Close()
+
+	// Don't go if HA isn't ready.
+	err = waitUntilReady(session, 60)
+	if err != nil {
+		return errors.Annotatef(err, "HA not ready; try again later")
+	}
+
+	mgoInfo := a.st.MongoConnectionInfo()
+	logger.Infof("mongo info from state %+v", mgoInfo)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	oldTagString, err := backup.Restore(p.BackupId, dbInfo, restoreArgs)
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
 	// A backup can be made of any component of an ha array.
-	// The files in a backup dont contain purely relativized paths.
+	// The files in a backup don't contain purely relativized paths.
 	// If the backup is made of the bootstrap node (machine 0) the
 	// recently created machine will have the same paths and therefore
 	// the startup scripts will fit the new juju. If the backup belongs

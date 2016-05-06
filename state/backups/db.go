@@ -11,9 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"github.com/juju/version"
+	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -225,64 +224,56 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 	return databases, nil
 }
 
-// mongoRestoreArgsForVersion returns a string slice containing the args to be used
-// to call mongo restore since these can change depending on the backup method.
-// Version 0: a dump made with --db, stopping the controller.
-// Version 1: a dump made with --oplog with a running controller.
-// TODO (perrito666) change versions to use metadata version
-func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
-	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
-	switch {
-	case ver.Major == 1 && ver.Minor < 22:
-		return []string{"--drop", "--journal", "--dbpath", dbDir, dumpPath}, nil
-	case ver.Major == 1 && ver.Minor >= 22,
-		ver.Major == 2:
-		return []string{"--drop", "--journal", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
-	default:
-		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
-	}
-}
-
 var getMongorestorePath = func() (string, error) {
 	return getMongoToolPath(restoreName, os.Stat, exec.LookPath)
 }
 
-var restoreArgsForVersion = mongoRestoreArgsForVersion
-
-// placeNewMongoService wraps placeNewMongo with the proper service stopping
-// and starting before dumping the new mongo db, it is mainly to easy testing
-// of placeNewMongo.
-func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
-	err := mongo.StopService()
-	if err != nil {
-		return errors.Annotate(err, "failed to stop mongo")
-	}
-
-	if err := placeNewMongo(newMongoDumpPath, ver); err != nil {
-		return errors.Annotate(err, "cannot place new mongo")
-	}
-	err = mongo.StartService()
-	return errors.Annotate(err, "failed to start mongo")
+// DBDumper is any type that dumps something to a dump dir.
+type DBRestorer interface {
+	// Dump something to dumpDir.
+	Restore(dumpDir string) error
 }
 
-// placeNewMongo tries to use mongorestore to replace an existing
-// mongo with the dump in newMongoDumpPath returns an error if its not possible.
-func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
-	mongoRestore, err := getMongorestorePath()
+type mongoRestorer32 struct {
+	*mgo.DialInfo
+	// binPath is the path to the dump executable.
+	binPath string
+}
+
+// NewDBDumper returns a new value with a Dump method for dumping the
+// juju state database.
+func NewDBRestorer(dialInfo *mgo.DialInfo) (DBRestorer, error) {
+	mongorestorePath, err := getMongorestorePath()
 	if err != nil {
-		return errors.Annotate(err, "mongorestore not available")
+		return nil, errors.Annotate(err, "mongorestrore not available")
 	}
 
-	mgoRestoreArgs, err := restoreArgsForVersion(ver, newMongoDumpPath)
-	if err != nil {
-		return errors.Errorf("cannot restore this backup version")
+	restorer := mongoRestorer32{
+		DialInfo: dialInfo,
+		binPath:  mongorestorePath,
 	}
+	return &restorer, nil
+}
 
-	err = runCommandFn(mongoRestore, mgoRestoreArgs...)
-
-	if err != nil {
-		return errors.Annotate(err, "failed to restore database dump")
+func (md *mongoRestorer32) options(dumpDir string) []string {
+	options := []string{
+		"--ssl",
+		"--authenticationDatabase", "admin",
+		"--host", md.Addrs[0],
+		"--username", md.Username,
+		"--password", md.Password,
+		"--drop",
+		"--oplogReplay",
+		dumpDir,
 	}
+	return options
+}
 
+func (md *mongoRestorer32) Restore(dumpDir string) error {
+	options := md.options(dumpDir)
+	logger.Infof("restoring database with params %v", options)
+	if err := runCommandFn(md.binPath, options...); err != nil {
+		return errors.Annotate(err, "error restoring database")
+	}
 	return nil
 }

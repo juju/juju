@@ -21,59 +21,6 @@ type mongoRestoreSuite struct {
 	testing.BaseSuite
 }
 
-func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion121(c *gc.C) {
-	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
-	versionNumber := version.Number{}
-	versionNumber.Major = 1
-	versionNumber.Minor = 21
-	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.HasLen, 5)
-	c.Assert(args[0:5], jc.DeepEquals, []string{
-		"--drop",
-		"--journal",
-		"--dbpath",
-		dir,
-		"/some/fake/path",
-	})
-}
-
-func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion122(c *gc.C) {
-	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
-	versionNumber := version.Number{}
-	versionNumber.Major = 1
-	versionNumber.Minor = 22
-	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.HasLen, 6)
-	c.Assert(args[0:6], jc.DeepEquals, []string{
-		"--drop",
-		"--journal",
-		"--oplogReplay",
-		"--dbpath",
-		dir,
-		"/some/fake/path",
-	})
-}
-
-func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion2(c *gc.C) {
-	dir := filepath.Join(agent.DefaultPaths.DataDir, "db")
-	versionNumber := version.Number{}
-	versionNumber.Major = 2
-	versionNumber.Minor = 0
-	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(args, gc.HasLen, 6)
-	c.Assert(args[0:6], jc.DeepEquals, []string{
-		"--drop",
-		"--journal",
-		"--oplogReplay",
-		"--dbpath",
-		dir,
-		"/some/fake/path",
-	})
-}
-
 func (s *mongoRestoreSuite) TestMongoRestoreArgsForOldVersion(c *gc.C) {
 	versionNumber := version.Number{}
 	versionNumber.Major = 0
@@ -82,7 +29,7 @@ func (s *mongoRestoreSuite) TestMongoRestoreArgsForOldVersion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
 }
 
-func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
+func (s *mongoRestoreSuite) TestRestoreDatabase(c *gc.C) {
 	var argsVersion version.Number
 	var newMongoDumpPath string
 	ranArgs := make([][]string, 0, 3)

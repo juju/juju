@@ -23,7 +23,7 @@ var (
 	// the server is upgrading.
 	restoreStrategy = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Min:   10,
+		Min:   1,
 	}
 )
 

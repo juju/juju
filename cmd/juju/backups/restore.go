@@ -303,7 +303,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		err = client.Restore(c.backupId, c.newClient)
 	}
 	if err != nil {
-		return nil
+		return err
 	}
 	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", target)
 	return nil

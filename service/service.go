@@ -203,6 +203,7 @@ var installStartRetryAttempts = utils.AttemptStrategy{
 // InstallAndStart installs the provided service and tries starting it.
 // The first few Start failures are ignored.
 func InstallAndStart(svc ServiceActions) error {
+	logger.Infof("Installing and starting service %+v", svc)
 	if err := svc.Install(); err != nil {
 		return errors.Trace(err)
 	}
