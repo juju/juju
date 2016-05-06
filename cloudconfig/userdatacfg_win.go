@@ -202,7 +202,7 @@ func addDownloadToolsCmds(ser string, certificate string, toolsList tools.List) 
 		if err != nil {
 			return nil, err
 		}
-		caCert := base64.URLEncoding.EncodeToString(parsedCert.Raw)
+		caCert := base64.StdEncoding.EncodeToString(parsedCert.Raw)
 		cmds = []string{fmt.Sprintf(`$cacert = "%s"`, caCert),
 			`$cert_bytes = $cacert | %{ ,[System.Text.Encoding]::UTF8.GetBytes($_) }`,
 			`$cert = new-object System.Security.Cryptography.X509Certificates.X509Certificate2(,$cert_bytes)`,
