@@ -1,12 +1,10 @@
 """Tests for assess_autoload_credentials module."""
 
 import logging
-import os
 import StringIO
-from mock import patch, Mock
+from mock import patch
 from tests import TestCase, parse_error
 
-from utility import temp_dir
 import assess_autoload_credentials as aac
 
 
@@ -38,12 +36,15 @@ class TestHelpers(TestCase):
     def test_get_aws_environment_supplies_all_keys(self):
         access_key = 'access_key'
         secret_key = 'secret_key'
+        username = 'username'
 
-        env = aac.get_aws_environment(access_key, secret_key)
+        env = aac.get_aws_environment(username, access_key, secret_key)
 
         self.assertDictEqual(
             env,
             dict(
+                QUESTION_CLOUD_NAME=username,
+                SAVE_CLOUD_NAME='aws',
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key
             )
@@ -52,14 +53,21 @@ class TestHelpers(TestCase):
     def test_aws_test_details_returns_correct_expected_details(self):
         access_key = 'test_access_key'
         secret_key = 'test_secret_key'
-        env, expected = aac.aws_test_details(access_key, secret_key)
+        username = 'user'
+        env, expected = aac.aws_test_details(username, access_key, secret_key)
 
         self.assertDictEqual(
             expected,
             {
-                'auth-type': 'access-key',
-                'access-key': access_key,
-                'secret-key': secret_key
+                'credentials': {
+                    'aws': {
+                        username: {
+                            'auth-type': 'access-key',
+                            'access-key': access_key,
+                            'secret-key': secret_key,
+                        }
+                    }
+                }
             }
         )
 

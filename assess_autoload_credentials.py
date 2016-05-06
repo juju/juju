@@ -24,19 +24,29 @@ log = logging.getLogger("assess_autoload_credentials")
 
 def assess_autoload_credentials(juju_bin):
 
-    test_autoload_credentials_stores_details(juju_bin)
+    test_autoload_credentials_stores_details(juju_bin, aws_test_details)
 
     test_autoload_credentials_updates_existing(juju_bin)
 
 
-def test_autoload_credentials_stores_details(juju_bin):
+def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
+    """Test covering loading and storing credentials using autoload-credentials
+
+    :param juju_bin: The full path to the juju binary to use for the test run.
+    :para cloud_details_fn: A callable that takes the argument 'user' that
+      returns a tuple of:
+        (dict -> environment variable changse,
+        dict -> expected credential details)
+      used to setup creation of credential details & comparison of the result.
+
+    """
     user = 'testing_user'
     with temp_dir() as tmp_dir:
         client = EnvJujuClient.by_version(
             JujuData('local', juju_home=tmp_dir), juju_bin, False
         )
 
-        env_var_changes, expected_details = aws_test_details(user=user)
+        env_var_changes, expected_details = cloud_details_fn(user=user)
         # Inject well known username.
         env_var_changes.update({'USER': user})
 
@@ -76,7 +86,8 @@ def run_autoload_credentials(client, envvars):
     :param client: EnvJujuClient from which juju will be called.
     :param envvars: Dictionary containing environment variables to be used
       during execution.
-      Note. Must contain a value for USER.
+      Note. Must contain a value for QUESTION_CLOUD_NAME to match against.
+      Note. Must contain a value for SAVE_CLOUD_NAME to save against.
 
     """
     # Get juju path from client as we need to use it interactively.
@@ -84,16 +95,20 @@ def run_autoload_credentials(client, envvars):
         'autoload-credentials', extra_env=envvars, include_e=False
     )
     process.expect(
-        '.*1. aws credential "{}" \(new\).*'.format(envvars['USER'])
+        '.*1. \w+ credential "{}" \(new\).*'.format(
+            envvars['QUESTION_CLOUD_NAME']
+        )
     )
     process.sendline('1')
 
     process.expect(
-        'Enter cloud to which the credential belongs, or Q to quit \[aws\]'
+        'Enter cloud to which the credential belongs, or Q to quit.*'
     )
-    process.sendline()
+    process.sendline(envvars['SAVE_CLOUD_NAME'])
     process.expect(
-        'Saved aws credential "{}" to cloud aws'.format(envvars['USER'])
+        'Saved aws credential "{}" to cloud \w+'.format(
+            envvars['QUESTION_CLOUD_NAME']
+        )
     )
     process.sendline('q')
     process.expect(pexpect.EOF)
@@ -104,7 +119,7 @@ def run_autoload_credentials(client, envvars):
 
 
 def aws_test_details(user, access_key='access_key', secret_key='secret_key'):
-    env_var_changes = get_aws_environment(access_key, secret_key)
+    env_var_changes = get_aws_environment(user, access_key, secret_key)
 
     # Build credentials yaml file-like datastructure.
     expected_details = {
@@ -122,11 +137,16 @@ def aws_test_details(user, access_key='access_key', secret_key='secret_key'):
     return env_var_changes, expected_details
 
 
-def get_aws_environment(access_key, secret_key):
+def get_aws_environment(user, access_key, secret_key):
     """Return a dictionary containing keys suitable for AWS env vars.
 
     """
-    return dict(AWS_ACCESS_KEY_ID=access_key, AWS_SECRET_ACCESS_KEY=secret_key)
+    return dict(
+        SAVE_CLOUD_NAME='aws',
+        QUESTION_CLOUD_NAME=user,
+        AWS_ACCESS_KEY_ID=access_key,
+        AWS_SECRET_ACCESS_KEY=secret_key
+    )
 
 
 def parse_args(argv):
