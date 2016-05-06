@@ -62,3 +62,25 @@ class TestHelpers(TestCase):
                 'secret-key': secret_key
             }
         )
+
+
+class TestAssertCredentialsContainsExpectedResults(TestCase):
+
+    def test_does_not_raise_when_credentials_match(self):
+        cred_actual = dict(key='value')
+        cred_expected = dict(key='value')
+
+        aac.assert_credentials_contains_expected_results(
+            cred_actual, cred_expected
+        )
+
+    def test_raises_when_credentials_do_not_match(self):
+        cred_actual = dict(key='value')
+        cred_expected = dict(key='value', another_key='extra')
+
+        self.assertRaises(
+            ValueError,
+            aac.assert_credentials_contains_expected_results,
+            cred_actual,
+            cred_expected,
+        )

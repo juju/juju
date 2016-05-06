@@ -36,7 +36,7 @@ def test_autoload_credentials_stores_details(juju_bin):
             JujuData('local', juju_home=tmp_dir), juju_bin, False
         )
 
-        env_var_changes, expected_details = aws_test_details()
+        env_var_changes, expected_details = aws_test_details(user=user)
         # Inject well known username.
         env_var_changes.update({'USER': user})
 
@@ -46,7 +46,6 @@ def test_autoload_credentials_stores_details(juju_bin):
 
         assert_credentials_contains_expected_results(
             client.env.credentials,
-            user,
             expected_details
         )
 
@@ -56,19 +55,16 @@ def test_autoload_credentials_updates_existing(juju_bin):
 
 
 def assert_credentials_contains_expected_results(
-        credentials, user, expected
+        credentials, expected_credentials
 ):
-    details = credentials['credentials']['aws'][user]
-
-    for content in expected.keys():
-        if expected[content] != details[content]:
-            raise ValueError(
-                'Expected {} but have {} for key: {}'.format(
-                    expected[content],
-                    details[content],
-                    content
-                )
+    if credentials != expected_credentials:
+        raise ValueError(
+            'Actual credentials do not match expected credentials.\n'
+            'Expected: {expected}\nGot: {got}\n'.format(
+                expected=expected_credentials,
+                got=credentials
             )
+        )
 
 
 def run_autoload_credentials(client, envvars):
@@ -107,16 +103,23 @@ def run_autoload_credentials(client, envvars):
         raise AssertionError('juju process failed to terminate')
 
 
-def aws_test_details(access_key='access_key', secret_key='secret_key'):
-    env_changes = get_aws_environment(access_key, secret_key)
+def aws_test_details(user, access_key='access_key', secret_key='secret_key'):
+    env_var_changes = get_aws_environment(access_key, secret_key)
 
+    # Build credentials yaml file-like datastructure.
     expected_details = {
-        'auth-type': 'access-key',
-        'access-key': access_key,
-        'secret-key': secret_key,
+        'credentials': {
+            'aws': {
+                user: {
+                    'auth-type': 'access-key',
+                    'access-key': access_key,
+                    'secret-key': secret_key,
+                }
+            }
+        }
     }
 
-    return env_changes, expected_details
+    return env_var_changes, expected_details
 
 
 def get_aws_environment(access_key, secret_key):
