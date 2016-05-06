@@ -39,11 +39,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	statelease "github.com/juju/juju/state/lease"
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -79,17 +76,19 @@ type State struct {
 	database      Database
 	policy        Policy
 
-	// TODO(fwereade): move these out of state and make them independent
-	// workers on which state depends.
-	watcher  *watcher.Watcher
-	pwatcher *presence.Watcher
-	// leadershipManager keeps track of units' service leadership leases
-	// within this environment.
-	leadershipClient  corelease.Client
-	leadershipManager *lease.Manager
-	// singularManager keeps track of which controller machine is responsible
-	// for managing this state's environment.
-	singularManager *lease.Manager
+	// leadershipClient exposes units' service leadership leases
+	// within this environment. It's only used unsafely as far as
+	// I'm aware. XXX create bug
+	leadershipClient corelease.Client
+
+	// workers is responsible for keeping the various sub-workers
+	// available by starting new ones as they fail. It doesn't do
+	// that yet, but having a type that cllects them together is the
+	// first step.
+	//
+	// note that the allManager stuff below probably ought to be
+	// folded in as well, but that feels like its own task.
+	workers Workers
 
 	// mu guards allManager, allModelManager & allModelWatcherBacking
 	mu                     sync.Mutex
@@ -243,17 +242,6 @@ func (st *State) start(controllerTag names.ModelTag) error {
 		return errors.Annotatef(err, "cannot create leadership lease client")
 	}
 	st.leadershipClient = leadershipClient
-	logger.Infof("starting leadership lease manager")
-	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: leadershipSecretary{},
-		Client:    leadershipClient,
-		Clock:     clock,
-		MaxSleep:  time.Minute,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership lease manager")
-	}
-	st.leadershipManager = leadershipManager
 
 	singularClient, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         clientId,
@@ -265,23 +253,25 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create singular lease client")
 	}
-	logger.Infof("starting singular lease manager")
-	singularManager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: singularSecretary{st.modelTag.Id()},
-		Client:    singularClient,
-		Clock:     clock,
-		MaxSleep:  time.Minute,
+
+	logger.Infof("starting standard state workers")
+	workers, err := newDumbWorkers(dumbWorkersConfig{
+		modelTag:           st.modelTag,
+		clock:              clock,
+		leadershipClient:   leadershipClient,
+		singularClient:     singularClient,
+		presenceCollection: st.getPresenceCollection(),
+		txnLogCollection:   st.getTxnLogCollection(),
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create singular lease manager")
+		return errors.Annotatef(err, "cannot create standard state workers")
 	}
-	st.singularManager = singularManager
+	st.workers = workers
 
 	logger.Infof("creating cloud image metadata storage")
 	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.ModelUUID(), cloudimagemetadataC, datastore)
 
-	logger.Infof("starting presence watcher")
-	st.pwatcher = presence.NewWatcher(st.getPresence(), st.modelTag)
+	logger.Infof("started state for %s successfully", st.modelTag)
 	return nil
 }
 
@@ -338,9 +328,16 @@ func (st *State) EnsureModelRemoved() error {
 	return nil
 }
 
-// getPresence returns the presence m.
-func (st *State) getPresence() *mgo.Collection {
+// getPresenceCollection returns the raw mongodb presence collection,
+// which is needed to interact with the state/presence package.
+func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
+}
+
+// getTxnLogCollection returns the raw mongodb txns collection, which is
+// needed to interact with the state/watcher package.
+func (st *State) getTxnLogCollection() *mgo.Collection {
+	return st.session.DB(jujuDB).C(txnLogC)
 }
 
 // newDB returns a database connection using a new session, along with
@@ -2162,8 +2159,8 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.watcher.StartSync()
-	st.pwatcher.Sync()
+	st.workers.TxnWatcher().StartSync()
+	st.workers.PresenceWatcher().Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password

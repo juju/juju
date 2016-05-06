@@ -533,8 +533,8 @@ func stateWatcherDeadError(err error) error {
 
 func (w *lifecycleWatcher) loop() error {
 	in := make(chan watcher.Change)
-	w.st.watcher.WatchCollectionWithFilter(w.collName, in, w.filter)
-	defer w.st.watcher.UnwatchCollection(w.collName, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(w.collName, in, w.filter)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(w.collName, in)
 	ids, err := w.initial()
 	if err != nil {
 		return err
@@ -550,8 +550,8 @@ func (w *lifecycleWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			updates, ok := collect(ch, in, w.tomb.Dying())
 			if !ok {
@@ -639,8 +639,8 @@ func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change)
 
 func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollectionWithFilter(minUnitsC, ch, w.st.isForStateEnv)
-	defer w.st.watcher.UnwatchCollection(minUnitsC, ch)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(minUnitsC, ch, w.st.isForStateEnv)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(minUnitsC, ch)
 	serviceNames, err := w.initial()
 	if err != nil {
 		return err
@@ -650,8 +650,8 @@ func (w *minUnitsWatcher) loop() (err error) {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case change := <-ch:
 			if err = w.merge(serviceNames, change); err != nil {
 				return err
@@ -837,8 +837,8 @@ func (w *RelationScopeWatcher) loop() error {
 	filter := func(id interface{}) bool {
 		return strings.HasPrefix(id.(string), fullPrefix)
 	}
-	w.st.watcher.WatchCollectionWithFilter(relationScopesC, in, filter)
-	defer w.st.watcher.UnwatchCollection(relationScopesC, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(relationScopesC, in, filter)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(relationScopesC, in)
 	info, err := w.initialInfo()
 	if err != nil {
 		return err
@@ -847,8 +847,8 @@ func (w *RelationScopeWatcher) loop() error {
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case ch := <-in:
@@ -952,7 +952,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 			return err
 		}
 		changes.Departed = remove(changes.Departed, name)
-		w.st.watcher.Watch(settingsC, docID, revno, w.updates)
+		w.st.workers.TxnWatcher().Watch(settingsC, docID, revno, w.updates)
 		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
@@ -962,7 +962,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		if changes.Changed != nil {
 			delete(changes.Changed, name)
 		}
-		w.st.watcher.Unwatch(settingsC, docID, w.updates)
+		w.st.workers.TxnWatcher().Unwatch(settingsC, docID, w.updates)
 		w.watching.Remove(docID)
 	}
 	return nil
@@ -982,7 +982,7 @@ func remove(strs []string, s string) []string {
 func (w *relationUnitsWatcher) finish() {
 	watcher.Stop(w.sw, &w.tomb)
 	for _, watchedValue := range w.watching.Values() {
-		w.st.watcher.Unwatch(settingsC, watchedValue, w.updates)
+		w.st.workers.TxnWatcher().Unwatch(settingsC, watchedValue, w.updates)
 	}
 	close(w.updates)
 	close(w.out)
@@ -997,8 +997,8 @@ func (w *relationUnitsWatcher) loop() (err error) {
 	)
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c, ok := <-w.sw.Changes():
@@ -1133,7 +1133,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 		changes = append(changes, unitName)
 		if doc.Life != Dead {
 			w.life[unitName] = doc.Life
-			w.st.watcher.Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
+			w.st.workers.TxnWatcher().Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
 		}
 	}
 	return changes, nil
@@ -1162,7 +1162,7 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 			changes = append(changes, name)
 		}
 		delete(w.life, name)
-		w.st.watcher.Unwatch(unitsC, w.st.docID(name), w.in)
+		w.st.workers.TxnWatcher().Unwatch(unitsC, w.st.docID(name), w.in)
 	}
 	return changes, nil
 }
@@ -1188,9 +1188,9 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	switch {
 	case known && gone:
 		delete(w.life, name)
-		w.st.watcher.Unwatch(unitsC, unitDocID, w.in)
+		w.st.workers.TxnWatcher().Unwatch(unitsC, unitDocID, w.in)
 	case !known && !gone:
-		w.st.watcher.Watch(unitsC, unitDocID, doc.TxnRevno, w.in)
+		w.st.workers.TxnWatcher().Watch(unitsC, unitDocID, doc.TxnRevno, w.in)
 		w.life[name] = doc.Life
 	case known && life != doc.Life:
 		w.life[name] = doc.Life
@@ -1211,11 +1211,11 @@ func (w *unitsWatcher) loop(coll, id string) error {
 		return err
 	}
 
-	w.st.watcher.Watch(coll, id, revno, w.in)
+	w.st.workers.TxnWatcher().Watch(coll, id, revno, w.in)
 	defer func() {
-		w.st.watcher.Unwatch(coll, id, w.in)
+		w.st.workers.TxnWatcher().Unwatch(coll, id, w.in)
 		for name := range w.life {
-			w.st.watcher.Unwatch(unitsC, w.st.docID(name), w.in)
+			w.st.workers.TxnWatcher().Unwatch(unitsC, w.st.docID(name), w.in)
 		}
 	}()
 	changes, err := w.initial()
@@ -1226,8 +1226,8 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-w.in:
@@ -1293,8 +1293,8 @@ func (w *ModelConfigWatcher) loop() (err error) {
 	cfg := &config.Config{}
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case settings, ok := <-sw.Changes():
@@ -1367,16 +1367,16 @@ func (w *settingsWatcher) loop(key string) (err error) {
 		return err
 	}
 
-	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
-	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
+	w.st.workers.TxnWatcher().Watch(settingsC, w.st.docID(key), revno, ch)
+	defer w.st.workers.TxnWatcher().Unwatch(settingsC, w.st.docID(key), ch)
 	out := w.out
 	if revno == -1 {
 		out = nil
 	}
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
@@ -1575,16 +1575,16 @@ func (w *docWatcher) loop(docKeys []docKey) error {
 		if err != nil {
 			return err
 		}
-		w.st.watcher.Watch(coll.Name(), k.docId, txnRevno, in)
-		defer w.st.watcher.Unwatch(coll.Name(), k.docId, in)
+		w.st.workers.TxnWatcher().Watch(coll.Name(), k.docId, txnRevno, in)
+		defer w.st.workers.TxnWatcher().Unwatch(coll.Name(), k.docId, in)
 	}
 	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
@@ -1671,14 +1671,14 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		// Unit was removed or unassigned from w.machine.
 		if known {
 			delete(w.known, unitName)
-			w.st.watcher.Unwatch(unitsC, w.st.docID(unitName), w.in)
+			w.st.workers.TxnWatcher().Unwatch(unitsC, w.st.docID(unitName), w.in)
 			if life != Dead && !hasString(pending, unitName) {
 				pending = append(pending, unitName)
 			}
 			for _, subunitName := range doc.Subordinates {
 				if sublife, subknown := w.known[subunitName]; subknown {
 					delete(w.known, subunitName)
-					w.st.watcher.Unwatch(unitsC, w.st.docID(subunitName), w.in)
+					w.st.workers.TxnWatcher().Unwatch(unitsC, w.st.docID(subunitName), w.in)
 					if sublife != Dead && !hasString(pending, subunitName) {
 						pending = append(pending, subunitName)
 					}
@@ -1688,7 +1688,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 		return pending, nil
 	}
 	if !known {
-		w.st.watcher.Watch(unitsC, doc.DocID, doc.TxnRevno, w.in)
+		w.st.workers.TxnWatcher().Watch(unitsC, doc.DocID, doc.TxnRevno, w.in)
 		pending = append(pending, unitName)
 	} else if life != doc.Life && !hasString(pending, unitName) {
 		pending = append(pending, unitName)
@@ -1708,7 +1708,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 func (w *machineUnitsWatcher) loop() error {
 	defer func() {
 		for unit := range w.known {
-			w.st.watcher.Unwatch(unitsC, w.st.docID(unit), w.in)
+			w.st.workers.TxnWatcher().Unwatch(unitsC, w.st.docID(unit), w.in)
 		}
 	}()
 
@@ -1719,8 +1719,8 @@ func (w *machineUnitsWatcher) loop() error {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
-	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
+	w.st.workers.TxnWatcher().Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	defer w.st.workers.TxnWatcher().Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	changes, err := w.updateMachine([]string(nil))
 	if err != nil {
 		return err
@@ -1728,8 +1728,8 @@ func (w *machineUnitsWatcher) loop() error {
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-machineCh:
@@ -1800,14 +1800,14 @@ func (w *machineAddressesWatcher) loop() error {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
-	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
+	w.st.workers.TxnWatcher().Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	defer w.st.workers.TxnWatcher().Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-machineCh:
@@ -1858,16 +1858,16 @@ func (w *cleanupWatcher) Changes() <-chan struct{} {
 
 func (w *cleanupWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
-	w.st.watcher.WatchCollectionWithFilter(cleanupsC, in, w.st.isForStateEnv)
-	defer w.st.watcher.UnwatchCollection(cleanupsC, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(cleanupsC, in, w.st.isForStateEnv)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(cleanupsC, in)
 
 	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
@@ -1932,8 +1932,8 @@ func (w *actionStatusWatcher) loop() error {
 		in      <-chan watcher.Change = w.source
 		out     chan<- []string       = w.sink
 	)
-	w.st.watcher.WatchCollectionWithFilter(actionsC, w.source, w.st.isForStateEnv)
-	defer w.st.watcher.UnwatchCollection(actionsC, w.source)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(actionsC, w.source, w.st.isForStateEnv)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(actionsC, w.source)
 
 	changes, err := w.initial()
 	if err != nil {
@@ -1944,8 +1944,8 @@ func (w *actionStatusWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			updates, ok := collect(ch, in, w.tomb.Dying())
 			if !ok {
@@ -2143,8 +2143,8 @@ func (w *collectionWatcher) loop() error {
 		out     = (chan<- []string)(w.sink)
 	)
 
-	w.st.watcher.WatchCollectionWithFilter(w.col, w.source, w.filter)
-	defer w.st.watcher.UnwatchCollection(w.col, w.source)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(w.col, w.source, w.filter)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(w.col, w.source)
 
 	changes, err := w.initial()
 	if err != nil {
@@ -2155,8 +2155,8 @@ func (w *collectionWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			updates, ok := collect(ch, in, w.tomb.Dying())
 			if !ok {
@@ -2443,16 +2443,16 @@ func (w *openedPortsWatcher) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.st.watcher.WatchCollectionWithFilter(openedPortsC, in, w.st.isForStateEnv)
-	defer w.st.watcher.UnwatchCollection(openedPortsC, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(openedPortsC, in, w.st.isForStateEnv)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(openedPortsC, in)
 
 	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			if err = w.merge(changes, ch); err != nil {
 				return errors.Trace(err)
@@ -2552,15 +2552,15 @@ func (w *rebootWatcher) loop() error {
 		w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
 		return false
 	}
-	w.st.watcher.WatchCollectionWithFilter(rebootC, in, filter)
-	defer w.st.watcher.UnwatchCollection(rebootC, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(rebootC, in, filter)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(rebootC, in)
 	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case ch := <-in:
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
@@ -2611,8 +2611,8 @@ func (w *blockDevicesWatcher) loop() error {
 		return errors.Trace(err)
 	}
 	changes := make(chan watcher.Change)
-	w.st.watcher.Watch(blockDevicesC, docID, revno, changes)
-	defer w.st.watcher.Unwatch(blockDevicesC, docID, changes)
+	w.st.workers.TxnWatcher().Watch(blockDevicesC, docID, revno, changes)
+	defer w.st.workers.TxnWatcher().Unwatch(blockDevicesC, docID, changes)
 	blockDevices, err := w.st.blockDevices(w.machineId)
 	if err != nil {
 		return errors.Trace(err)
@@ -2620,8 +2620,8 @@ func (w *blockDevicesWatcher) loop() error {
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-changes:
@@ -2680,8 +2680,8 @@ func (w *migrationActiveWatcher) loop() error {
 		}
 		return false
 	}
-	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
-	defer w.st.watcher.UnwatchCollection(w.collName, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(w.collName, in, filter)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(w.collName, in)
 
 	var out chan<- struct{}
 
@@ -2696,8 +2696,8 @@ func (w *migrationActiveWatcher) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case change := <-in:
 			// Ignore removals from the collection.
 			if change.Revno == -1 {
@@ -2768,16 +2768,16 @@ func (w *migrationStatusWatcher) loop() error {
 		_, err := w.st.strictLocalID(id.(string))
 		return err == nil
 	}
-	w.st.watcher.WatchCollectionWithFilter(w.collName, in, filter)
-	defer w.st.watcher.UnwatchCollection(w.collName, in)
+	w.st.workers.TxnWatcher().WatchCollectionWithFilter(w.collName, in, filter)
+	defer w.st.workers.TxnWatcher().UnwatchCollection(w.collName, in)
 
 	out := w.sink // out set so that initial event is sent.
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.st.workers.TxnWatcher().Dead():
+			return stateWatcherDeadError(w.st.workers.TxnWatcher().Err())
 		case change := <-in:
 			if change.Revno == -1 {
 				return errors.New("model migration status disappeared (shouldn't happen)")

@@ -1008,14 +1008,14 @@ func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollectionWithFilter(c.name, in, b.filterEnv)
+		b.st.workers.TxnWatcher().WatchCollectionWithFilter(c.name, in, b.filterEnv)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.UnwatchCollection(c.name, in)
+		b.st.workers.TxnWatcher().UnwatchCollection(c.name, in)
 	}
 }
 
@@ -1082,14 +1082,14 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 // Watch watches all the collections.
 func (b *allModelWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.name, in)
+		b.st.workers.TxnWatcher().WatchCollection(c.name, in)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.UnwatchCollection(c.name, in)
+		b.st.workers.TxnWatcher().UnwatchCollection(c.name, in)
 	}
 }
 
