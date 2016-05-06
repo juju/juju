@@ -1,18 +1,20 @@
 """Tests for assess_user_grant_revoke module."""
 
-import logging
+from collections import namedtuple
 from functools import partial
-import StringIO
-
-
+import logging
 from mock import (
     Mock,
     patch,
 )
+import StringIO
+from subprocess import CalledProcessError
+
 import pexpect
 
 from assess_user_grant_revoke import (
     assert_read,
+    assert_user_permissions,
     assert_write,
     assess_user_grant_revoke,
     create_cloned_environment,
@@ -26,7 +28,6 @@ from tests import (
 )
 from tests.test_jujupy import (
     FakeJujuClient,
-    FakeBackend,
 )
 
 
@@ -54,24 +55,59 @@ class TestMain(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_user_grant_revoke.configure_logging",
-                   autospec=True) as mock_cl:
-            with patch(
-                "assess_user_grant_revoke.BootstrapManager.booted_context",
-                       autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
-                               return_value=client) as mock_c:
-                        with patch(
-                            "assess_user_grant_revoke.assess_user_grant_revoke",
-                             autospec=True) as mock_assess:
+        with patch("assess_user_grant_revoke.assess_user_grant_revoke",
+                autospec=True) as mock_assess:
+            with patch("assess_user_grant_revoke.configure_logging",
+                    autospec=True) as mock_cl:
+                with patch(
+                    "assess_user_grant_revoke.BootstrapManager.booted_context",
+                           autospec=True) as mock_bc:
+                    with patch("jujupy.SimpleEnvironment.from_config",
+                               return_value=env) as mock_e:
+                        with patch("jujupy.EnvJujuClient.by_version",
+                                   return_value=client) as mock_c:
                             main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
+
+class TestAsserts(TestCase):
+    def test_assert_user_permissions(self):
+        user = namedtuple('user', ['name', 'permissions', 'expect'])
+        read_user = user('readuser', 'read', [True, False, False, False])
+        write_user = user('adminuser', 'write', [True, True, True, False])
+        users = [read_user, write_user]
+
+        for user in users:
+            mock_client = FakeJujuClient()
+            mock_admin_client = FakeJujuClient()
+            with patch("jujupy.EnvJujuClient.revoke", return_value=True):
+                with patch("assess_user_grant_revoke.assert_read",
+                    return_value=True) as read_mock:
+                    with patch("assess_user_grant_revoke.assert_write",
+                        return_value=True) as write_mock:
+                        assert_user_permissions(user, mock_client,
+                            mock_admin_client)
+                        self.assertEqual(read_mock.call_count, 2)
+                        self.assertEqual(write_mock.call_count, 2)
+
+    def test_assert_read(self):
+        mock_client = FakeJujuClient()
+        with patch.object(mock_client, 'show_status', return_value=True):
+            assert_read(mock_client, True)
+        with patch.object(mock_client, 'show_status', return_value=False,
+            side_effect = CalledProcessError(None, None, None)):
+            assert_read(mock_client, False)
+
+    def test_assert_write(self):
+        mock_client = FakeJujuClient()
+        with patch.object(mock_client, 'deploy', return_value=True):
+            assert_write(mock_client, True)
+        with patch.object(mock_client, 'deploy', return_value=False,
+            side_effect = CalledProcessError(None, None, None)):
+            assert_write(mock_client, False)
 
 class TestAssess(TestCase):
 
@@ -105,15 +141,27 @@ class TestAssess(TestCase):
         mock_client = FakeJujuClient()
         mock_client.bootstrap()
 
-        with patch("assess_user_grant_revoke.register_user", return_value=True):
-            assess_user_grant_revoke(mock_client)
-            mock_client.wait_for_started.assert_called_once_with()
-            #mock_client.add_user.assert_called_with()
-            #mock_client.add_user.assert_called_with()
-            #mock_client.create_cloned_environment.assert_called_with()
-            #mock_client.create_cloned_environment.assert_called_with()
-            #mock_client.register_user.assert_called_with()
-            #mock_client.register_user.assert_called_with()
+        user = namedtuple('user', ['name', 'permissions', 'expect'])
+        read_user = user('readuser', 'read', [True, False, False, False])
+        write_user = user('adminuser', 'write', [True, True, True, False])
+
+        with patch("assess_user_grant_revoke.register_user",
+            return_value=True) as reg_mock:
+            with patch("assess_user_grant_revoke.assert_user_permissions",
+                autospec=True) as perm_mock:
+                assess_user_grant_revoke(mock_client)
+
+                self.assertEqual(reg_mock.call_count, 2)
+                self.assertEqual(perm_mock.call_count, 2)
+
+                read_user_call, write_user_call = perm_mock.call_args_list
+                read_user_args, read_user_kwargs = read_user_call
+                write_user_args, write_user_kwargs = write_user_call
+
+                self.assertEqual(read_user_args[0], read_user)
+                self.assertEqual(read_user_args[2], mock_client)
+                self.assertEqual(write_user_args[0], write_user)
+                self.assertEqual(write_user_args[2], mock_client)
 
     def test_create_cloned_environment(self):
         mock_client = FakeJujuClient()
