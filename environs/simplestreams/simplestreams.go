@@ -120,6 +120,8 @@ type MetadataCatalog struct {
 	Arch       string `json:"arch,omitempty"`
 	RegionName string `json:"region,omitempty"`
 	Endpoint   string `json:"endpoint,omitempty"`
+	Storage    string `json:"root_store,omitempty"`
+	VirtType   string `json:"virt,omitempty"`
 
 	// Items is a mapping from version to an ItemCollection,
 	// where the version is the date the items were produced,
@@ -135,6 +137,8 @@ type ItemCollection struct {
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`
+	Storage    string                 `json:"root_store,omitempty"`
+	VirtType   string                 `json:"virt,omitempty"`
 }
 
 // These structs define the model used for metadata indices.
