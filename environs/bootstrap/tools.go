@@ -116,9 +116,9 @@ func findAvailableTools(env environs.Environ, vers *version.Number, arch *string
 // can be built locally, for series of the same OS.
 func locallyBuildableTools() (buildable coretools.List) {
 	for _, series := range version.SupportedSeries() {
-		//		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Current.OS {
-		//			continue
-		//		}
+		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Current.OS {
+			continue
+		}
 		binary := version.Binary{
 			Number: version.Current.Number,
 			Series: series,
@@ -126,7 +126,7 @@ func locallyBuildableTools() (buildable coretools.List) {
 			OS:     version.Current.OS,
 		}
 		// Increment the build number so we know it's a development build.
-		//		binary.Build++
+		binary.Build++
 		buildable = append(buildable, &coretools.Tools{Version: binary})
 	}
 	return buildable

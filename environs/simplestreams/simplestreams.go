@@ -13,9 +13,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	//	"os"
+	"os"
 	"path"
-	//	"path/filepath"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -24,7 +24,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	//	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")
@@ -1041,42 +1041,16 @@ const SimplestreamsPublicKeyFile = "publicsimplestreamskey"
 
 // UserPublicSigningKey returns the public signing key (if defined).
 func UserPublicSigningKey() (string, error) {
-	//	signingKeyFile := filepath.Join(agent.DefaultConfDir, SimplestreamsPublicKeyFile)
-	//	b, err := ioutil.ReadFile(signingKeyFile)
-	//	logger.Errorf("FIND ME %v", err)
-	//	if os.IsNotExist(err) {
-	//		return "", nil
-	//	}
-	//	if err != nil {
-	//		return "", errors.Annotatef(err, "invalid public key file: %s", signingKeyFile)
-	//	}
-	//	return string(b), nil
-	return `-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v1
-
-mQENBFStm2IBCACyp8ayW/1D5Qta2mgz7YrD6lY9eKID8YTIQEAnGf1SPQL9iBKR
-I7EAAzOqeBlHsPRwUOUw7fv7YFmm8XQTqyj/e5zbe89OLrC08qrgZL0p83ejR1J+
-P/7q4LT8bD0DxYFJ+VzvFTlOOCHhofi3NykgCu7FmJroTJX9NKwrfQptSyYfLq9T
-1zH30eGp7vtv9QwypAivxRq43dwtcDUameQNdDmgwx5mqUxHXkH7V+yWJqZW+Rw6
-YCQmUc8RrtTrkoRRMLBwB7gQRWGJnwuyNDgVF3ZHSJxH3W1vTSqzgWckfLg2a/Yg
-2kYcop94qZUvLRvUfJoK5CRBbl08XZfSN1PVABEBAAGJATcEHwECACEFAlStm2IX
-DIARgSee7n7In7eBcCra95Ni2kSi0dsCBwAACgkQa0knIBmuGVLIZAgAowYVL3b3
-sJeq0juwP2zYpewr/HOpxnzl5CJ6IqwKl678WbH2gGuIkGjpvM27j1So4uTOBFIP
-3vrBDoIsk5/TZ3KnBcSrP2nBvz/jGRIFnivavs0GfXBINDX5RHhF0FD14f6M61Hx
-1+1mC3qBr8BC7b4OT0zR/v070Ii21WAcu4gerGFsK5Ib0E2RbnumW4BM0sOoE9lK
-MgnNuyg4QQ7XVPPztLN0R6dwrUOjBBmUvHFLR5dO5pe0E3a8NqpzaT9TgT9Z/a3O
-ZoycFoxgy9gD7kcTSm2rPd2/BRVxienB7sNGHA6X9Md9cXMJLk5/wJ1SyEUaqwTm
-lgK8UoUl9+qX7LQ4Q2Fub25pY2FsIEp1anUgUUEgQm90IDxhYXJvbi5iZW50bGV5
-K2NqcWFAY2Fub25pY2FsLmNvbT6JAVoEEwECAEQFAlStm2ICGwMFCQlmAYAGCwkI
-BwMCBhUIAgkKCwQWAgMBAh4BAheAGxhoa3A6Ly9rZXlzZXJ2ZXIudWJ1bnR1LmNv
-bQAKCRBrSScgGa4ZUlqZB/9zOnPS1gjvdpxoGdbLu1YIa/uNCCzdSa8eq1TvakjI
-sM/Y3JSXAKAF+dDo4naFSnXTtIQJ+vxRM1qelDFLCDcWCFZj83F1H557CcvrQlN5
-k1qlDTx5GB+NEj2ssuLcLJxFYzxvhI0/jvNVj6fU6jRsBXnMBU588+ls5/Hfj1Cf
-WYSWC8laPz1ynk+oGSqh6Zt8PH+qSHyfTA+wvrt+NAateLhyC9O7+8d7B4yZ3bJk
-qca5Uif8XtE40Ryp/ER8HtV30yEJXdOwuSCh/GcWr5xznkmMeEcyuxkDhCQwhwj5
-eCegY4pbZcnZMlkubEEVVM/B3BnbaMUxfcaGdW8135Rt
-=8Jlc
------END PGP PUBLIC KEY BLOCK-----`, nil
+	signingKeyFile := filepath.Join(agent.DefaultConfDir, SimplestreamsPublicKeyFile)
+	b, err := ioutil.ReadFile(signingKeyFile)
+	if os.IsNotExist(err) {
+		logger.Errorf("reading file %v %v", signingKeyFile, err)
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Annotatef(err, "invalid public key file: %s", signingKeyFile)
+	}
+	return string(b), nil
 }
 
 // SimplestreamsJujuPublicKey is the public key required to
