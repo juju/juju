@@ -1,0 +1,30 @@
+#!/bin/bash
+set -eu
+usage() {
+    cat <<EOT
+usage: $0 BRANCH [REPO_PATH]"
+Build the specified juju branch to a package.  Intended for manual testing.
+
+BRANCH is the branch to build.
+REPO_PATH is end of the github repo URL.  It defaults to juju/juju.
+
+Packages are built for the current machine's series and the amd64 architecture.
+DEBEMAIL and DEBFULLNAME are derived from "bzr whoami".
+EOT
+exit 1
+}
+test $# -eq 3 || usage
+set -x
+
+TOOLS_DIR=$(dirname $(readlink -f $0))
+PATH=$TOOLS_DIR:$PATH
+BRANCH=$1
+REPO=https://github.com/${2-juju/juju}
+DEBEMAIL=$(bzr whoami --email -d $TOOLS_DIR)
+DEBFULLNAME=$(bzr whoami -d $TOOLS_DIR|sed 's/ *<.*>//')
+SERIES=$(lsb_release --codename -s)
+export PATH DEBEMAIL DEBFULLNAME
+make-release-tarball.bash $BRANCH $REPO
+build_package.py -v source ./juju-core_*.tar.gz ./ $SERIES 999999999
+build_package.py -v binary juju-build-$SERIES-all/juju-core_*.dsc \
+  ./build-binary-$SERIES-amd64 $SERIES amd64
