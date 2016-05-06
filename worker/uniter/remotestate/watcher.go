@@ -109,7 +109,14 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	snapshot := w.current
 	snapshot.Relations = make(map[int]RelationSnapshot)
 	for id, relationSnapshot := range w.current.Relations {
-		snapshot.Relations[id] = relationSnapshot
+		relationSnapshotCopy := RelationSnapshot{
+			Life:    relationSnapshot.Life,
+			Members: make(map[string]int64),
+		}
+		for name, version := range relationSnapshot.Members {
+			relationSnapshotCopy.Members[name] = version
+		}
+		snapshot.Relations[id] = relationSnapshotCopy
 	}
 	snapshot.Storage = make(map[names.StorageTag]StorageSnapshot)
 	for tag, storageSnapshot := range w.current.Storage {
