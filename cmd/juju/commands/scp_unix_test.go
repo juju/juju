@@ -52,8 +52,12 @@ var scpTests = []struct {
 			knownHosts:      "0",
 		},
 	}, {
-		about: "scp from current dir to machine 1 (no keys available)",
+		about: "scp when no keys available",
 		args:  []string{"foo", "1:"},
+		error: `retrieving SSH host keys for "1": no keys available`,
+	}, {
+		about: "scp when no keys available, with --no-host-key-checks",
+		args:  []string{"--no-host-key-checks", "foo", "1:"},
 		expected: argsSpec{
 			args:            "foo ubuntu@1.public:",
 			hostKeyChecking: false,
@@ -140,6 +144,25 @@ var scpTests = []struct {
 		about: "scp with no such machine",
 		args:  []string{"5:foo", "bar"},
 		error: `machine 5 not found`,
+	}, {
+		about: "scp from arbitrary host name to current dir",
+		args:  []string{"some.host:foo", "."},
+		expected: argsSpec{
+			args:            "ubuntu@some.host:foo .",
+			hostKeyChecking: true,
+		},
+	}, {
+		about: "scp with arbitrary host name and an entity",
+		args:  []string{"some.host:foo", "0:"},
+		error: `can't determine host keys for all targets: consider --no-host-key-checks`,
+	}, {
+		about: "scp with arbitrary host name and an entity, --no-host-key-checks",
+		args:  []string{"--no-host-key-checks", "some.host:foo", "0:"},
+		expected: argsSpec{
+			args:            "ubuntu@some.host:foo ubuntu@0.public:",
+			hostKeyChecking: false,
+			knownHosts:      "null",
+		},
 	},
 }
 

@@ -29,13 +29,14 @@ import (
 // and DebugHooksCommand.
 type SSHCommon struct {
 	modelcmd.ModelCommandBase
-	proxy          bool
-	pty            bool
-	Target         string
-	Args           []string
-	apiClient      sshAPIClient
-	apiAddr        string
-	knownHostsPath string
+	proxy           bool
+	pty             bool
+	noHostKeyChecks bool
+	Target          string
+	Args            []string
+	apiClient       sshAPIClient
+	apiAddr         string
+	knownHostsPath  string
 }
 
 type sshAPIClient interface {
@@ -83,6 +84,7 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
 	f.BoolVar(&c.pty, "pty", true, "Enable pseudo-tty allocation")
+	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 
 // initRun initializes the API connection if required, and determines
@@ -122,16 +124,21 @@ func (c *SSHCommon) cleanupRun() {
 func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	var options ssh.Options
 
-	knownHostsPath, err := c.generateKnownHosts(targets)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if knownHostsPath != "" {
-		options.SetKnownHostsFile(knownHostsPath)
-		options.EnableStrictHostKeyChecking()
-	} else {
-		// XXX this should only be done if the user asks for it
+	if c.noHostKeyChecks {
 		options.SetKnownHostsFile("/dev/null")
+	} else {
+		options.EnableStrictHostKeyChecking()
+		knownHostsPath, err := c.generateKnownHosts(targets)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if knownHostsPath != "" {
+			// There might not be a custom known_hosts file if the SSH
+			// targets are specified using arbitrary hostnames or
+			// addresses. In this case, the user's personal
+			// known_hosts file is used.
+			options.SetKnownHostsFile(knownHostsPath)
+		}
 	}
 
 	if enablePty {
@@ -152,16 +159,23 @@ func (c *SSHCommon) getSSHOptions(enablePty bool, targets ...*resolvedTarget) (*
 // file for them.
 func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error) {
 	knownHosts := newKnownHostsBuilder()
+	agentCount := 0
+	nonAgentCount := 0
 	for _, target := range targets {
 		if target.isAgent() {
+			agentCount++
 			keys, err := c.apiClient.PublicKeys(target.entity)
-			if err == sshclient.ErrNoKeys {
-				continue
-			} else if err != nil {
+			if err != nil {
 				return "", errors.Annotatef(err, "retrieving SSH host keys for %q", target.entity)
 			}
 			knownHosts.add(target.host, keys)
+		} else {
+			nonAgentCount++
 		}
+	}
+
+	if agentCount > 0 && nonAgentCount > 0 {
+		return "", errors.New("can't determine host keys for all targets: consider --no-host-key-checks")
 	}
 
 	if knownHosts.size() == 0 {
@@ -208,9 +222,20 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		return fmt.Errorf("failed to get juju executable path: %v", err)
 	}
 
-	// XXX set --disable-host-checks here
-	// TODO(mjs) - it would be much nicer to use the host keys for the API servers here. XXX
-	options.SetProxyCommand(juju, "ssh", "--proxy=false", "--pty=false", apiServerHost, "nc", "%h", "%p")
+	// TODO(mjs) 2016-05-09 LP #1579592 - It would be good to check the
+	// host key of the controller machine being used for proxying
+	// here. This isn't too serious as all traffic passing through the
+	// controller host is encrypted and the host key of the ultimate
+	// target host is verified but it would still be better to perform
+	// this extra level of checking.
+	options.SetProxyCommand(
+		juju, "ssh",
+		"--proxy=false",
+		"--no-host-key-checks",
+		"--pty=false",
+		apiServerHost,
+		"nc", "%h", "%p",
+	)
 	return nil
 }
 

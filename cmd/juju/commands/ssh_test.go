@@ -21,14 +21,15 @@ type SSHSuite struct {
 }
 
 var sshTests = []struct {
-	about    string
-	args     []string
-	expected argsSpec
+	about       string
+	args        []string
+	expected    argsSpec
+	expectedErr string
 }{
 	{
-		"connect to machine 0",
-		[]string{"0"},
-		argsSpec{
+		about: "connect to machine 0",
+		args:  []string{"0"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       true,
@@ -36,9 +37,9 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to machine 0 and pass extra arguments",
-		[]string{"0", "uname", "-a"},
-		argsSpec{
+		about: "connect to machine 0 and pass extra arguments",
+		args:  []string{"0", "uname", "-a"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       true,
@@ -46,9 +47,9 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to machine 0 with no pseudo-tty",
-		[]string{"--pty=false", "0"},
-		argsSpec{
+		about: "connect to machine 0 with no pseudo-tty",
+		args:  []string{"--pty=false", "0"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       false,
@@ -56,9 +57,14 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to machine 1 which has no SSH host keys",
-		[]string{"1"},
-		argsSpec{
+		about:       "connect to machine 1 which has no SSH host keys",
+		args:        []string{"1"},
+		expectedErr: `retrieving SSH host keys for "1": no keys available`,
+	},
+	{
+		about: "connect to machine 1 which has no SSH host keys, no host key checks",
+		args:  []string{"--no-host-key-checks", "1"},
+		expected: argsSpec{
 			hostKeyChecking: false,
 			knownHosts:      "null",
 			enablePty:       true,
@@ -66,9 +72,19 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to unit mysql/0",
-		[]string{"mysql/0"},
-		argsSpec{
+		about: "connect to arbitrary (non-entity) hostname",
+		args:  []string{"foo@some.host"},
+		expected: argsSpec{
+			// Strict host key checking but with the user's own known_hosts
+			hostKeyChecking: true,
+			enablePty:       true,
+			args:            "foo@some.host",
+		},
+	},
+	{
+		about: "connect to unit mysql/0",
+		args:  []string{"mysql/0"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       true,
@@ -76,9 +92,9 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to unit mysql/0 as the mongo user",
-		[]string{"mongo@mysql/0"},
-		argsSpec{
+		about: "connect to unit mysql/0 as the mongo user",
+		args:  []string{"mongo@mysql/0"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       true,
@@ -86,9 +102,9 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to unit mysql/0 and pass extra arguments",
-		[]string{"mysql/0", "ls", "/"},
-		argsSpec{
+		about: "connect to unit mysql/0 and pass extra arguments",
+		args:  []string{"mysql/0", "ls", "/"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       true,
@@ -96,9 +112,9 @@ var sshTests = []struct {
 		},
 	},
 	{
-		"connect to unit mysql/0 with proxy",
-		[]string{"--proxy=true", "mysql/0"},
-		argsSpec{
+		about: "connect to unit mysql/0 with proxy",
+		args:  []string{"--proxy=true", "mysql/0"},
+		expected: argsSpec{
 			hostKeyChecking: true,
 			knownHosts:      "0",
 			enablePty:       true,
@@ -115,10 +131,14 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
 
 		ctx, err := coretesting.RunCommand(c, newSSHCommand(), t.args...)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(coretesting.Stderr(ctx), gc.Equals, "")
-		stdout := coretesting.Stdout(ctx)
-		t.expected.check(c, stdout)
+		if t.expectedErr != "" {
+			c.Check(err, gc.ErrorMatches, t.expectedErr)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+			stdout := coretesting.Stdout(ctx)
+			t.expected.check(c, stdout)
+		}
 	}
 }
 
@@ -188,6 +208,7 @@ func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
 
 func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	m := s.Factory.MakeMachine(c, nil)
+	s.setKeys(c, m)
 
 	called := 0
 	attemptStarter := &callbackAttemptStarter{next: func() bool {
