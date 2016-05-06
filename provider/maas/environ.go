@@ -241,7 +241,8 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	// version.
 	apiVersion := apiVersion2
 	controller, err := GetMAAS2Controller(ecfg.maasServer(), ecfg.maasOAuth())
-	if gomaasapi.IsUnsupportedVersionError(err) {
+	switch {
+	case gomaasapi.IsUnsupportedVersionError(err):
 		apiVersion = apiVersion1
 		authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion1)
 		if err != nil {
@@ -255,9 +256,9 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
 			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
 		}
-	} else if err != nil {
+	case err != nil:
 		return errors.Trace(err)
-	} else {
+	default:
 		env.maasController = controller
 	}
 	env.apiVersion = apiVersion
