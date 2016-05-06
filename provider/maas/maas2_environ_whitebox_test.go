@@ -57,12 +57,6 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	return NewEnviron(cfg)
 }
 
-func (suite *maas2EnvironSuite) TestNewEnvironWithoutFeatureFlag(c *gc.C) {
-	suite.SetFeatureFlags()
-	_, err := suite.getEnvWithServer(c)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
 func (suite *maas2EnvironSuite) TestNewEnvironWithController(c *gc.C) {
 	env, err := suite.getEnvWithServer(c)
 	c.Assert(err, jc.ErrorIsNil)
