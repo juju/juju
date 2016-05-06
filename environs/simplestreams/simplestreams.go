@@ -112,6 +112,8 @@ type CloudMetadata struct {
 	ContentId  string                        `json:"content_id"`
 	RegionName string                        `json:"region,omitempty"`
 	Endpoint   string                        `json:"endpoint,omitempty"`
+	Storage    string                        `json:"root_store,omitempty"`
+	VirtType   string                        `json:"virt,omitempty"`
 }
 
 type MetadataCatalog struct {
