@@ -329,6 +329,9 @@ class Juju2Backend:
                 raise e
         return sub_output
 
+    def pause(self, seconds):
+        pause(seconds)
+
 
 class Juju2A2Backend(Juju2Backend):
 
@@ -1079,9 +1082,6 @@ class EnvJujuClient:
         """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
-    def pause(self, seconds):
-        pause(seconds)
-
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
@@ -1100,7 +1100,7 @@ class EnvJujuClient:
                         # juju claims HA is ready when the monogo replica sets
                         # are not. Juju is not fully usable. The replica set
                         # lag might be 5 minutes.
-                        self.pause(300)
+                        self._backend.pause(300)
                         return
                 reporter.update(states)
             else:

@@ -447,6 +447,9 @@ class FakeBackend:
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         return ''
 
+    def pause(self, seconds):
+        pass
+
 
 class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
@@ -495,9 +498,6 @@ class FakeJujuClient(EnvJujuClient):
         model_state = self._backend.controller_state.models.get(model_name)
         client._backend = self._backend.clone(model_state)
         return client
-
-    def pause(self, seconds):
-        pass
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
