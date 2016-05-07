@@ -479,7 +479,6 @@ class FakeJujuClient(EnvJujuClient):
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=backend)
         self.bootstrap_replaces = {}
-        self._separate_admin = jes_enabled
 
     def _get_env(self, env):
         return env
