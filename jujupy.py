@@ -241,6 +241,28 @@ class Juju2Backend:
         env['JUJU_DATA'] = juju_home
         return env
 
+    def full_args(self, command, args, model, timeout,
+                  timeout_path, debug):
+        if model is not None:
+            e_arg = ('-m', model)
+        else:
+            e_arg = ()
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = get_timeout_prefix(timeout, timeout_path)
+        logging = '--debug' if debug else '--show-log'
+
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
+        # we split the command here so that the caller can control where the -m
+        # model flag goes.  Everything in the command string is put before the
+        # -m flag.
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
 
 class Juju2ABackend(Juju2Backend):
 
@@ -267,6 +289,29 @@ class Juju2A1Backend(Juju2ABackend):
         env['JUJU_HOME'] = juju_home
         del env['JUJU_DATA']
         return env
+
+    def full_args(self, command, args, model, timeout,
+                  timeout_path, debug):
+        if model is None:
+            e_arg = ()
+        else:
+            # In 1.x terminology, "model" is "environment".
+            e_arg = ('-e', model)
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = get_timeout_prefix(timeout, timeout_path)
+        logging = '--debug' if debug else '--show-log'
+
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
+        # we split the command here so that the caller can control where the -e
+        # <env> flag goes.  Everything in the command string is put before the
+        # -e flag.
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
 
 class EnvJujuClient:
@@ -407,28 +452,15 @@ class EnvJujuClient:
 
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
-        # sudo is not needed for devel releases.
         if admin:
-            e_arg = ('-m', self.get_admin_model_name())
+            model = self.get_admin_model_name()
         elif self.env is None or not include_e:
-            e_arg = ()
+            model = None
         else:
-            e_arg = ('-m', self.env.environment)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, basestring):
-            args = (args,)
-        # we split the command here so that the caller can control where the -e
-        # <env> flag goes.  Everything in the command string is put before the
-        # -e flag.
-        command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+            model = self.env.environment
+        # sudo is not needed for devel releases.
+        return self._backend.full_args(command, args, model, timeout,
+                                       self._timeout_path, self.debug)
 
     @staticmethod
     def _get_env(env):
@@ -1365,29 +1397,6 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
 
-    def _full_args(self, command, sudo, args,
-                   timeout=None, include_e=True, admin=False):
-        # sudo is not needed for devel releases.
-        # admin is ignored. only environment exists.
-        if self.env is None or not include_e:
-            e_arg = ()
-        else:
-            e_arg = ('-e', self.env.environment)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, basestring):
-            args = (args,)
-        # we split the command here so that the caller can control where the -e
-        # <env> flag goes.  Everything in the command string is put before the
-        # -e flag.
-        command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
     def remove_service(self, service):
         self.juju('destroy-service', (service,))
