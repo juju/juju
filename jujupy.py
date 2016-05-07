@@ -1402,7 +1402,6 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
 
-
     def remove_service(self, service):
         self.juju('destroy-service', (service,))
 
