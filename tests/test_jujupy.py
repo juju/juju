@@ -2638,7 +2638,8 @@ class TestEnvJujuClient(ClientTest):
     def test_get_juju_timings(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
-        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        client._backend.juju_timings = {("juju", "op1"): [1],
+                                        ("juju", "op2"): [2]}
         flattened_timings = client.get_juju_timings()
         expected = {"juju op1": [1], "juju op2": [2]}
         self.assertEqual(flattened_timings, expected)
@@ -4458,7 +4459,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        client._backend.juju_timings = {("juju", "op1"): [1],
+                                        ("juju", "op2"): [2]}
         flattened_timings = client.get_juju_timings()
         expected = {"juju op1": [1], "juju op2": [2]}
         self.assertEqual(flattened_timings, expected)

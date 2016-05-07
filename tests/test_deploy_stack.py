@@ -188,7 +188,8 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_dump_juju_timings(self):
         env = JujuData('foo', {'type': 'bar'})
         client = EnvJujuClient(env, None, None)
-        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        client._backend.juju_timings = {("juju", "op1"): [1],
+                                        ("juju", "op2"): [2]}
         expected = {"juju op1": [1], "juju op2": [2]}
         with temp_dir() as fake_dir:
             dump_juju_timings(client, fake_dir)

@@ -212,6 +212,7 @@ class Juju2Backend:
         self.feature_flags = set()
         self.debug = debug
         self._timeout_path = get_timeout_path()
+        self.juju_timings = {}
 
     @property
     def version(self):
@@ -221,13 +222,14 @@ class Juju2Backend:
     def full_path(self):
         return self._full_path
 
+    def _get_attr_tuple(self):
+        return (self._version, self._full_path, self.feature_flags,
+                self.debug, self.juju_timings)
+
     def __eq__(self, other):
         if type(self) != type(other):
             return False
-        return (
-            (self._version, self._full_path, self.feature_flags, self.debug) ==
-            (other._version, other._full_path, other.feature_flags,
-             other.debug))
+        return self._get_attr_tuple() == other._get_attr_tuple()
 
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
@@ -492,7 +494,6 @@ class EnvJujuClient:
                     env.juju_home = get_juju_home()
             else:
                 env.juju_home = juju_home
-        self.juju_timings = {}
 
     @property
     def version(self):
@@ -767,7 +768,7 @@ class EnvJujuClient:
         # search env['PATH']
         with scoped_environ(env):
             rval = call_func(args)
-        self.juju_timings.setdefault(args, []).append(
+        self._backend.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
 
@@ -777,7 +778,7 @@ class EnvJujuClient:
 
     def get_juju_timings(self):
         stringified_timings = {}
-        for command, timings in self.juju_timings.items():
+        for command, timings in self._backend.juju_timings.items():
             stringified_timings[' '.join(command)] = timings
         return stringified_timings
 
