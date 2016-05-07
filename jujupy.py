@@ -203,6 +203,22 @@ def temp_yaml_file(yaml_dict):
         os.unlink(temp_file.name)
 
 
+class Juju2Backend:
+    """A Juju backend referring to a specific juju 2 binary."""
+
+    def __init__(self, full_path, version):
+        self._version = version
+        self._full_path = full_path
+
+    @property
+    def version(self):
+        return self._version
+
+    @property
+    def full_path(self):
+        return self._full_path
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -320,15 +336,24 @@ class EnvJujuClient:
         """
         if env is None:
             env = self.env
+        # backend refers to an executable's location and version.  Since these
+        # should not change, treat backend as immutable.
+        backend = self._backend
         if version is None:
             version = self.version
+        else:
+            backend = None
         if full_path is None:
             full_path = self.full_path
+        else:
+            backend = None
+        if backend is None:
+            backend = self._backend.__class__(full_path, version)
         if debug is None:
             debug = self.debug
         if cls is None:
             cls = self.__class__
-        other = cls(env, version, full_path, debug=debug)
+        other = cls(env, version, full_path, debug=debug, _backend=backend)
         other.feature_flags.update(
             self.feature_flags.intersection(other.used_feature_flags))
         return other
@@ -369,10 +394,18 @@ class EnvJujuClient:
             env = JujuData.from_env(env)
         return env
 
-    def __init__(self, env, version, full_path, juju_home=None, debug=False):
+    def __init__(self, env, version, full_path, juju_home=None, debug=False,
+                 _backend=None):
         self.env = self._get_env(env)
-        self.version = version
-        self.full_path = full_path
+        if _backend is None:
+            _backend = Juju2Backend(full_path, version)
+        self._backend = _backend
+        if version != _backend.version:
+            raise ValueError('Version mismatch: {} {}'.format(
+                version, _backend.version))
+        if full_path != _backend.full_path:
+            raise ValueError('Path mismatch: {} {}'.format(
+                full_path, _backend.full_path))
         self.debug = debug
         self.feature_flags = set()
         if env is not None:
@@ -383,6 +416,14 @@ class EnvJujuClient:
                 env.juju_home = juju_home
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
+
+    @property
+    def version(self):
+        return self._backend.version
+
+    @property
+    def full_path(self):
+        return self._backend.full_path
 
     def _shell_environ(self):
         """Generate a suitable shell environment.

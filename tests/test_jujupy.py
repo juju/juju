@@ -55,6 +55,7 @@ from jujupy import (
     jes_home_path,
     JESByDefault,
     JESNotSupported,
+    Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
@@ -269,11 +270,13 @@ class FakeEnvironmentState:
 
 class FakeBackend:
 
-    def __init__(self, backing_state, feature_flags=None):
+    def __init__(self, backing_state, feature_flags=None, version=None,
+                 full_path=None):
         self._backing_state = backing_state
         if feature_flags is None:
             feature_flags = set()
         self._feature_flags = feature_flags
+        self.version = version
 
     def clone(self, backing_state=None):
         if backing_state is None:
@@ -459,14 +462,13 @@ class FakeJujuClient(EnvJujuClient):
                 'default-series': 'angsty',
                 }, juju_home='foo')
         backend_state.name = env.environment
-        self._backend = FakeBackend(backend_state)
+        self._backend = FakeBackend(backend_state, version=version,
+                                    full_path=full_path)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env
-        self.full_path = full_path
         self.debug = debug
         self.bootstrap_replaces = {}
         self._separate_admin = jes_enabled
-        self.version = version
 
     @property
     def _jes_enabled(self):
@@ -623,6 +625,14 @@ class TestTempYamlFile(TestCase):
         with temp_yaml_file({'foo': 'bar'}) as yaml_file:
             with open(yaml_file) as f:
                 self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
+
+
+class TestJuju2Backend(TestCase):
+
+    def test_juju2_backend(self):
+        backend = Juju2Backend('/bin/path', '2.0')
+        self.assertEqual('/bin/path', backend.full_path)
+        self.assertEqual('2.0', backend.version)
 
 
 class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
@@ -949,7 +959,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
-        client.version = '1.20-beta1-series-arch'
+        client = client.clone(version='1.20-beta1-series-arch')
         self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
 
     def test_upgrade_juju_nonlocal(self):
@@ -1092,6 +1102,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client1.full_path, client2.full_path)
         self.assertIs(client1.debug, client2.debug)
         self.assertEqual(client1.feature_flags, client2.feature_flags)
+        self.assertIs(client1._backend, client2._backend)
 
     def test_clone_changed(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
@@ -3080,7 +3091,7 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
-        client.version = '1.20-beta1-series-arch'
+        client = client.clone(version='1.20-beta1-series-arch')
         self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
 
     def test_upgrade_juju_nonlocal(self):
