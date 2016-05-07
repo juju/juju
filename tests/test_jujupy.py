@@ -357,16 +357,17 @@ class FakeBackend:
         return {controller_name: {'details': {'api-endpoints': [
             api_endpoint]}}}
 
-    def juju(self, cmd, args, model=None, timeout=None):
+    def juju(self, command, args, used_feature_flags,
+             juju_home, model=None, check=True, timeout=None, extra_env=None):
         if model is not None:
             model_state = self.controller_state.models[model]
-            if cmd == 'enable-ha':
+            if command == 'enable-ha':
                 model_state.enable_ha()
-            if (cmd, args[:1]) == ('set-config', ('dummy-source',)):
+            if (command, args[:1]) == ('set-config', ('dummy-source',)):
                 name, value = args[1].split('=')
                 if name == 'token':
                     model_state.token = value
-            if cmd == 'deploy':
+            if command == 'deploy':
                 parser = ArgumentParser()
                 parser.add_argument('charm_name')
                 parser.add_argument('service_name', nargs='?')
@@ -375,28 +376,28 @@ class FakeBackend:
                 parsed = parser.parse_args(args)
                 self.deploy(model_state, parsed.charm_name,
                             parsed.service_name, parsed.series)
-            if cmd == 'destroy-service':
+            if command == 'destroy-service':
                 model_state.destroy_service(*args)
-            if cmd == 'remove-service':
+            if command == 'remove-service':
                 model_state.destroy_service(*args)
-            if cmd == 'add-relation':
+            if command == 'add-relation':
                 if args[0] == 'dummy-source':
                     model_state.relations[args[1]] = {'source': [args[0]]}
-            if cmd == 'expose':
+            if command == 'expose':
                 (service,) = args
                 model_state.exposed.add(service)
-            if cmd == 'unexpose':
+            if command == 'unexpose':
                 (service,) = args
                 model_state.exposed.remove(service)
-            if cmd == 'add-unit':
+            if command == 'add-unit':
                 (service,) = args
                 model_state.add_unit(service)
-            if cmd == 'remove-unit':
+            if command == 'remove-unit':
                 (unit_id,) = args
                 model_state.remove_unit(unit_id)
-            if cmd == 'add-machine':
+            if command == 'add-machine':
                 return self.add_machines(model_state, args)
-            if cmd == 'remove-machine':
+            if command == 'remove-machine':
                 parser = ArgumentParser()
                 parser.add_argument('machine_id')
                 parser.add_argument('--force', action='store_true')
@@ -407,19 +408,19 @@ class FakeBackend:
                 else:
                     model_state.remove_machine(machine_id)
         else:
-            if cmd == 'kill-controller':
+            if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
                     return
                 model = args[0]
                 model_state = self.controller_state.models[model]
                 model_state.kill_controller()
-            if cmd == 'destroy-model':
+            if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
                 model = args[0]
                 model_state = self.controller_state.models[model]
                 model_state.destroy_model()
-            if cmd == 'add-model':
+            if command == 'add-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
                 parser = ArgumentParser()
@@ -531,14 +532,6 @@ class FakeJujuClient(EnvJujuClient):
         if kwargs.pop('include_e', True):
             kwargs['model'] = self.model_name
         return self._backend.get_juju_output(command, args, **kwargs)
-
-    def juju(self, cmd, args, check=True, include_e=True, timeout=None):
-        # TODO: Use argparse or change all call sites to use functions.
-        if include_e:
-            model = self.model_name
-        else:
-            model = None
-        return self._backend.juju(cmd, args, model, timeout)
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         self._backend.bootstrap(
