@@ -288,6 +288,21 @@ class Juju2Backend:
             (time.time() - start_time))
         return rval
 
+    @contextmanager
+    def juju_async(self, command, args, used_feature_flags,
+                   juju_home, model=None, timeout=None):
+        full_args = self.full_args(command, args, model, timeout)
+        log.info(' '.join(args))
+        env = self.shell_environ(used_feature_flags, juju_home)
+        # Mutate os.environ instead of supplying env parameter so Windows can
+        # search env['PATH']
+        with scoped_environ(env):
+            proc = subprocess.Popen(full_args)
+        yield proc
+        retcode = proc.wait()
+        if retcode != 0:
+            raise subprocess.CalledProcessError(retcode, full_args)
+
     def get_juju_output(self, command, args, used_feature_flags,
                         juju_home, model=None, timeout=None):
         args = self.full_args(command, args, model, timeout)
@@ -500,15 +515,18 @@ class EnvJujuClient:
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
+    def _cmd_model(self, include_e, admin):
+        if admin:
+            return self.get_admin_model_name()
+        elif self.env is None or not include_e:
+            return None
+        else:
+            return self.model_name
+
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
-        if admin:
-            model = self.get_admin_model_name()
-        elif self.env is None or not include_e:
-            model = None
-        else:
-            model = self.model_name
         # sudo is not needed for devel releases.
+        model = self._cmd_model(include_e, admin)
         return self._backend.full_args(command, args, model, timeout)
 
     @staticmethod
@@ -712,12 +730,8 @@ class EnvJujuClient:
         that <command> may be a space delimited list of arguments. The -e
         <environment> flag will be placed after <command> and before args.
         """
-        if kwargs.get('admin', False):
-            model = self.get_admin_model_name()
-        elif self.env is None or not kwargs.get('include_e', True):
-            model = None
-        else:
-            model = self.model_name
+        model = self._cmd_model(kwargs.get('include_e', True),
+                                kwargs.get('admin', False))
         timeout = kwargs.get('timeout')
         return self._backend.get_juju_output(
             command, args, self.used_feature_flags, self.env.juju_home,
@@ -788,10 +802,7 @@ class EnvJujuClient:
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
-        if self.env is None or not include_e:
-            model = None
-        else:
-            model = self.model_name
+        model = self._cmd_model(include_e, admin=False)
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env)
@@ -806,20 +817,10 @@ class EnvJujuClient:
             stringified_timings[' '.join(command)] = timings
         return stringified_timings
 
-    @contextmanager
     def juju_async(self, command, args, include_e=True, timeout=None):
-        full_args = self._full_args(command, False, args, include_e=include_e,
-                                    timeout=timeout)
-        log.info(' '.join(args))
-        env = self._shell_environ()
-        # Mutate os.environ instead of supplying env parameter so Windows can
-        # search env['PATH']
-        with scoped_environ(env):
-            proc = subprocess.Popen(full_args)
-        yield proc
-        retcode = proc.wait()
-        if retcode != 0:
-            raise subprocess.CalledProcessError(retcode, full_args)
+        model = self._cmd_model(include_e, admin=False)
+        return self._backend.juju_async(command, args, self.used_feature_flags,
+                                        self.env.juju_home, model, timeout)
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False):
