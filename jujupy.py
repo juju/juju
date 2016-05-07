@@ -210,6 +210,7 @@ class Juju2Backend:
         self._version = version
         self._full_path = full_path
         self.feature_flags = set()
+        self._timeout_path = get_timeout_path()
 
     @property
     def version(self):
@@ -241,8 +242,7 @@ class Juju2Backend:
         env['JUJU_DATA'] = juju_home
         return env
 
-    def full_args(self, command, args, model, timeout,
-                  timeout_path, debug):
+    def full_args(self, command, args, model, timeout, debug):
         if model is not None:
             e_arg = ('-m', model)
         else:
@@ -250,7 +250,7 @@ class Juju2Backend:
         if timeout is None:
             prefix = ()
         else:
-            prefix = get_timeout_prefix(timeout, timeout_path)
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
         logging = '--debug' if debug else '--show-log'
 
         # If args is a string, make it a tuple. This makes writing commands
@@ -290,8 +290,7 @@ class Juju2A1Backend(Juju2ABackend):
         del env['JUJU_DATA']
         return env
 
-    def full_args(self, command, args, model, timeout,
-                  timeout_path, debug):
+    def full_args(self, command, args, model, timeout, debug):
         if model is None:
             e_arg = ()
         else:
@@ -300,7 +299,7 @@ class Juju2A1Backend(Juju2ABackend):
         if timeout is None:
             prefix = ()
         else:
-            prefix = get_timeout_prefix(timeout, timeout_path)
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
         logging = '--debug' if debug else '--show-log'
 
         # If args is a string, make it a tuple. This makes writing commands
@@ -460,7 +459,7 @@ class EnvJujuClient:
             model = self.env.environment
         # sudo is not needed for devel releases.
         return self._backend.full_args(command, args, model, timeout,
-                                       self._timeout_path, self.debug)
+                                       self.debug)
 
     @staticmethod
     def _get_env(env):
@@ -491,7 +490,6 @@ class EnvJujuClient:
             else:
                 env.juju_home = juju_home
         self.juju_timings = {}
-        self._timeout_path = get_timeout_path()
 
     @property
     def version(self):
