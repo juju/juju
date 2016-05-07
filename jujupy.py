@@ -536,6 +536,10 @@ class EnvJujuClient:
     def debug(self):
         return self._backend.debug
 
+    @property
+    def model_name(self):
+        return self.env.environment
+
     def _shell_environ(self):
         """Generate a suitable shell environment.
 

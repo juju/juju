@@ -476,10 +476,6 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
-    @property
-    def model_name(self):
-        return self.env.environment
-
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
             full_path = self.full_path
