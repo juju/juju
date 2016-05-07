@@ -465,13 +465,20 @@ class FakeJujuClient(EnvJujuClient):
                 'type': 'foo',
                 'default-series': 'angsty',
                 }, juju_home='foo')
+        juju_home = env.juju_home
+        if juju_home is None:
+            juju_home = 'foo'
         backend_state.name = env.environment
-        self._backend = FakeBackend(backend_state, version=version,
-                                    full_path=full_path, debug=debug)
-        self._backend.set_feature('jes', jes_enabled)
-        self.env = env
+        backend = FakeBackend(backend_state, version=version,
+                              full_path=full_path, debug=debug)
+        backend.set_feature('jes', jes_enabled)
+        super(FakeJujuClient, self).__init__(
+            env, version, full_path, juju_home, debug, _backend=backend)
         self.bootstrap_replaces = {}
         self._separate_admin = jes_enabled
+
+    def _get_env(self, env):
+        return env
 
     @property
     def _jes_enabled(self):
