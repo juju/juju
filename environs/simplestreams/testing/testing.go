@@ -101,7 +101,11 @@ var imageData = map[string]string{
 		   "format": "products:1.0",
 		   "products": [
 			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.04:arm"
+ 			"com.ubuntu.cloud:server:12.10:amd64",
+ 			"com.ubuntu.cloud:server:13.04:amd64",
+ 			"com.ubuntu.cloud:server:14.04:amd64",
+ 			"com.ubuntu.cloud:server:14.10:amd64",
+ 			"com.ubuntu.cloud:server:12.04:arm"
 		   ],
 		   "path": "streams/v1/image_metadata.json"
 		  },
@@ -429,6 +433,8 @@ var imageData = map[string]string{
  "content_id": "com.ubuntu.cloud:released:aws",
  "region": "nz-east-1",
  "endpoint": "https://anywhere",
+ "root_store": "ebs",
+ "virt": "pv", 
  "products": {
   "com.ubuntu.cloud:server:14.04:amd64": {
    "release": "trusty",
@@ -444,6 +450,58 @@ var imageData = map[string]string{
       }
      },
      "pubname": "ubuntu-trusty-14.04-amd64-server-20140118",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:13.04:amd64": {
+   "release": "raring",
+   "version": "13.04",
+   "arch": "amd64",
+   "versions": {
+    "20160318": {
+     "items": {
+      "nzww1pe": {
+       "id": "ami-36745463"
+      }
+     },
+     "pubname": "ubuntu-utopic-13.04-amd64-server-20160318",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:14.10:amd64": {
+   "release": "utopic",
+   "version": "14.10",
+   "arch": "amd64",
+   "root_store": "ebs",
+   "virt": "pv",
+   "versions": {
+    "20160218": {
+     "items": {
+      "nzww1pe": {
+       "id": "ami-36745463"
+      }
+     },
+     "pubname": "ubuntu-utopic-14.10-amd64-server-20160218",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:12.10:amd64": {
+   "release": "quantal",
+   "version": "12.10",
+   "arch": "amd64",
+   "versions": {
+    "20160118": {
+     "items": {
+      "nzww1pe": {
+       "id": "ami-36745463"
+      }
+     },
+     "root_store": "ebs",
+     "virt": "pv",
+     "pubname": "ubuntu-quantal-12.10-amd64-server-20160118",
      "label": "release"
     }
    }
