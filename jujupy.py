@@ -496,8 +496,6 @@ class EnvJujuClient:
         """
         if env is None:
             env = self.env
-        # backend refers to an executable's location and version.  Since these
-        # should not change, treat backend as immutable.
         if version is None:
             version = self.version
         if full_path is None:
