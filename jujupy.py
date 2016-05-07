@@ -266,20 +266,20 @@ class Juju2Backend:
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
 
-class Juju2ABackend(Juju2Backend):
+class Juju2A2Backend(Juju2Backend):
 
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
 
         For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
         """
-        env = super(Juju2ABackend, self).shell_environ(used_feature_flags,
+        env = super(Juju2A2Backend, self).shell_environ(used_feature_flags,
                                                        juju_home)
         env['JUJU_HOME'] = juju_home
         return env
 
 
-class Juju2A1Backend(Juju2ABackend):
+class Juju2A1Backend(Juju2A2Backend):
 
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
@@ -1338,7 +1338,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
     def __init__(self, env, version, full_path, juju_home=None, debug=False,
                  _backend=None):
         if _backend is None:
-            _backend = Juju2ABackend(full_path, version, set(), debug)
+            _backend = Juju2A2Backend(full_path, version, set(), debug)
         super(EnvJujuClient2A2, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
 
