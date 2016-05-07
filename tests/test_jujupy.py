@@ -430,7 +430,8 @@ class FakeBackend:
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
 
-    def get_juju_output(self, command, args, model=None, timeout=None):
+    def get_juju_output(self, command, args, used_feature_flags,
+                        juju_home, model=None, timeout=None):
         if model is not None:
             model_state = self.controller_state.models[model]
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
@@ -523,11 +524,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def disable_jes(self):
         self._backend.set_feature('jes', False)
-
-    def get_juju_output(self, command, *args, **kwargs):
-        if kwargs.pop('include_e', True):
-            kwargs['model'] = self.model_name
-        return self._backend.get_juju_output(command, args, **kwargs)
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         self._backend.bootstrap(
