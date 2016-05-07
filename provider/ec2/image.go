@@ -29,11 +29,13 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 	for _, image := range images {
 		imagesByStorage[image.Storage] = append(imagesByStorage[image.Storage], image)
 	}
+	logger.Debugf("images by storage type %+v", imagesByStorage)
 	// If a storage constraint has been specified, use that or else default to ssd.
 	storageTypes := []string{ssdStorage}
 	if ic != nil && len(ic.Storage) > 0 {
 		storageTypes = ic.Storage
 	}
+	logger.Debugf("filtering storage types %+v", storageTypes)
 	// Return the first set of images for which we have a storage type match.
 	for _, storageType := range storageTypes {
 		if len(imagesByStorage[storageType]) > 0 {
@@ -60,7 +62,10 @@ func findInstanceSpec(
 		Arches:    ic.Arches,
 		Stream:    stream,
 	})
+	logger.Debugf("image constraints: %v", ic)
+
 	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
+	logger.Debugf("found %d image(s) with err %v", len(matchingImages), err)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +73,7 @@ func findInstanceSpec(
 		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
 	suitableImages := filterImages(matchingImages, ic)
+	logger.Debugf("found %d suitable image(s)", len(suitableImages))
 	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
