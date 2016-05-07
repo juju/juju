@@ -434,7 +434,8 @@ var imageData = map[string]string{
  "region": "nz-east-1",
  "endpoint": "https://anywhere",
  "root_store": "ebs",
- "virt": "pv", "products": {
+ "virt": "pv", 
+ "products": {
   "com.ubuntu.cloud:server:14.04:amd64": {
    "release": "trusty",
    "version": "14.04",
