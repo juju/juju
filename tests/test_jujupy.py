@@ -283,7 +283,8 @@ class FakeBackend:
     def clone(self, backing_state=None):
         if backing_state is None:
             backing_state = self._backing_state
-        return self.__class__(backing_state, set(self._feature_flags))
+        return self.__class__(backing_state, set(self._feature_flags),
+                              self.version, self.full_path, self.debug)
 
     @property
     def backing_state(self):
@@ -502,9 +503,6 @@ class FakeJujuClient(EnvJujuClient):
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
 
-    def get_matching_agent_version(self):
-        return '1.2-alpha3'
-
     def _acquire_state_client(self, state):
         if state.name == self.model_name:
             return self
@@ -525,12 +523,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
-
-    def enable_jes(self):
-        self._backend.set_feature('jes', True)
-
-    def disable_jes(self):
-        self._backend.set_feature('jes', False)
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         self._backend.bootstrap(
@@ -4858,7 +4850,8 @@ def stub_bootstrap(client):
 class TestMakeSafeConfig(TestCase):
 
     def test_default(self):
-        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}),
+                                version='1.2-alpha3-asdf-asdf')
         config = make_safe_config(client)
         self.assertEqual({
             'name': 'foo',
