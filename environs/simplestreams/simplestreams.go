@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -1044,6 +1045,13 @@ const SimplestreamsPublicKeyFile = "publicsimplestreamskey"
 func UserPublicSigningKey() (string, error) {
 	signingKeyFile := filepath.Join(agent.DefaultConfDir, SimplestreamsPublicKeyFile)
 	b, err := ioutil.ReadFile(signingKeyFile)
+	if os.IsNotExist(err) {
+		// TODO (anastasiamac 2016-05-07)
+		// We should not swallow this error
+		// but propagate it up to the caller.
+		// Bug #1579279
+		return "", nil
+	}
 	if err != nil {
 		return "", errors.Annotatef(err, "invalid public key file: %s", signingKeyFile)
 	}
