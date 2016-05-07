@@ -226,6 +226,48 @@ class Juju2Backend:
             (self._version, self._full_path, self.feature_flags) ==
             (other._version, other._full_path, other.feature_flags))
 
+    def shell_environ(self, used_feature_flags, juju_home):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        flags = self.feature_flags.intersection(used_feature_flags)
+        if flags:
+            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
+        env['JUJU_DATA'] = juju_home
+        return env
+
+
+class Juju2ABackend(Juju2Backend):
+
+    def shell_environ(self, used_feature_flags, juju_home):
+        """Generate a suitable shell environment.
+
+        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
+        """
+        env = super(Juju2ABackend, self).shell_environ(used_feature_flags,
+                                                       juju_home)
+        env['JUJU_HOME'] = juju_home
+        return env
+
+
+class Juju2A1Backend(Juju2ABackend):
+
+    def shell_environ(self, used_feature_flags, juju_home):
+        """Generate a suitable shell environment.
+
+        For 2.0-alpha1 and earlier set only JUJU_HOME and not JUJU_DATA.
+        """
+        env = super(Juju2A1Backend, self).shell_environ(used_feature_flags,
+                                                        juju_home)
+        env['JUJU_HOME'] = juju_home
+        del env['JUJU_DATA']
+        return env
+
 
 class EnvJujuClient:
 
@@ -440,15 +482,8 @@ class EnvJujuClient:
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = dict(os.environ)
-        if self.full_path is not None:
-            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
-                                          os.pathsep, env['PATH'])
-        flags = self.feature_flags.intersection(self.used_feature_flags)
-        if flags:
-            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        env['JUJU_DATA'] = self.env.juju_home
-        return env
+        return self._backend.shell_environ(self.used_feature_flags,
+                                           self.env.juju_home)
 
     def add_ssh_machines(self, machines):
         for count, machine in enumerate(machines):
@@ -1263,20 +1298,18 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
 class EnvJujuClient2A2(EnvJujuClient2B2):
     """Drives Juju 2.0-alpha2 clients."""
 
+    def __init__(self, env, version, full_path, juju_home=None, debug=False,
+                 _backend=None):
+        if _backend is None:
+            _backend = Juju2ABackend(full_path, version, set())
+        super(EnvJujuClient2A2, self).__init__(
+            env, version, full_path, juju_home, debug, _backend=_backend)
+
     @classmethod
     def _get_env(cls, env):
         if isinstance(env, JujuData):
             raise ValueError(
                 'JujuData cannot be used with {}'.format(cls.__name__))
-        return env
-
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
-
-        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
-        """
-        env = super(EnvJujuClient2A2, self)._shell_environ()
-        env['JUJU_HOME'] = self.env.juju_home
         return env
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
@@ -1322,6 +1355,13 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
 
     _show_status = 'status'
 
+    def __init__(self, env, version, full_path, juju_home=None, debug=False,
+                 _backend=None):
+        if _backend is None:
+            _backend = Juju2A1Backend(full_path, version, set())
+        super(EnvJujuClient2A1, self).__init__(
+            env, version, full_path, juju_home, debug, _backend=_backend)
+
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
 
@@ -1348,16 +1388,6 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
         # -e flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
-
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
-
-        For 2.0-alpha1 and earlier set only JUJU_HOME and not JUJU_DATA.
-        """
-        env = super(EnvJujuClient2A1, self)._shell_environ()
-        env['JUJU_HOME'] = self.env.juju_home
-        del env['JUJU_DATA']
-        return env
 
     def remove_service(self, service):
         self.juju('destroy-service', (service,))
