@@ -206,9 +206,10 @@ def temp_yaml_file(yaml_dict):
 class Juju2Backend:
     """A Juju backend referring to a specific juju 2 binary."""
 
-    def __init__(self, full_path, version):
+    def __init__(self, full_path, version, feature_flags):
         self._version = version
         self._full_path = full_path
+        self.feature_flags = set()
 
     @property
     def version(self):
@@ -217,6 +218,13 @@ class Juju2Backend:
     @property
     def full_path(self):
         return self._full_path
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        return (
+            (self._version, self._full_path, self.feature_flags) ==
+            (other._version, other._full_path, other.feature_flags))
 
 
 class EnvJujuClient:
@@ -338,17 +346,11 @@ class EnvJujuClient:
             env = self.env
         # backend refers to an executable's location and version.  Since these
         # should not change, treat backend as immutable.
-        backend = self._backend
         if version is None:
             version = self.version
-        else:
-            backend = None
         if full_path is None:
             full_path = self.full_path
-        else:
-            backend = None
-        if backend is None:
-            backend = self._backend.__class__(full_path, version)
+        backend = self._backend.__class__(full_path, version, set())
         if debug is None:
             debug = self.debug
         if cls is None:
@@ -398,7 +400,7 @@ class EnvJujuClient:
                  _backend=None):
         self.env = self._get_env(env)
         if _backend is None:
-            _backend = Juju2Backend(full_path, version)
+            _backend = Juju2Backend(full_path, version, set())
         self._backend = _backend
         if version != _backend.version:
             raise ValueError('Version mismatch: {} {}'.format(
@@ -424,6 +426,14 @@ class EnvJujuClient:
     @property
     def full_path(self):
         return self._backend.full_path
+
+    @property
+    def feature_flags(self):
+        return self._backend.feature_flags
+
+    @feature_flags.setter
+    def feature_flags(self, feature_flags):
+        self._backend.feature_flags = feature_flags
 
     def _shell_environ(self):
         """Generate a suitable shell environment.

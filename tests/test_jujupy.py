@@ -277,6 +277,7 @@ class FakeBackend:
             feature_flags = set()
         self._feature_flags = feature_flags
         self.version = version
+        self.full_path = full_path
 
     def clone(self, backing_state=None):
         if backing_state is None:
@@ -630,7 +631,7 @@ class TestTempYamlFile(TestCase):
 class TestJuju2Backend(TestCase):
 
     def test_juju2_backend(self):
-        backend = Juju2Backend('/bin/path', '2.0')
+        backend = Juju2Backend('/bin/path', '2.0', set())
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
 
@@ -723,6 +724,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         self.assertEqual(client1.version, client2.version)
         self.assertEqual(client1.full_path, client2.full_path)
         self.assertIs(client1.debug, client2.debug)
+        self.assertEqual(client1._backend, client2._backend)
 
     def test_clone_changed(self):
         client1 = self.client_class(
@@ -1102,7 +1104,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client1.full_path, client2.full_path)
         self.assertIs(client1.debug, client2.debug)
         self.assertEqual(client1.feature_flags, client2.feature_flags)
-        self.assertIs(client1._backend, client2._backend)
+        self.assertEqual(client1._backend, client2._backend)
 
     def test_clone_changed(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',

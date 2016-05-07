@@ -1168,17 +1168,17 @@ class TestSteppedStageAttempt(JujuPyTestCase):
             ('bar-id', {'title': 'Bar title', 'report_on': False})]))
 
 
-def FakeEnvJujuClient(name='steve', version='1.2'):
+def FakeEnvJujuClient(name='steve', version='1.2', full_path='/jbin/juju'):
     return EnvJujuClient(
             JujuData(name, {'type': 'fake', 'region': 'regionx'}),
-            version, '/jbin/juju')
+            version, full_path)
 
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):
 
-    def __init__(self, name='steve', version='1.2'):
+    def __init__(self, name='steve', version='1.2', full_path='/jbin/juju'):
         super(FakeEnvJujuClient1X, self).__init__(
-            SimpleEnvironment(name, {'type': 'fake'}), version, '/jbin/juju')
+            SimpleEnvironment(name, {'type': 'fake'}), version, full_path)
 
 
 class TestBootstrapAttempt(JujuPyTestCase):
@@ -1843,10 +1843,8 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
         self.assertEqual('b', bootstrap_client.full_path)
 
     def test_iter_steps(self):
-        future_client = FakeEnvJujuClient()
-        future_client.full_path = '/future/juju'
-        present_client = FakeEnvJujuClient()
-        present_client.full_path = '/present/juju'
+        future_client = FakeEnvJujuClient(full_path='/future/juju')
+        present_client = FakeEnvJujuClient(full_path='/present/juju')
         puj_attempt = PrepareUpgradeJujuAttempt(
             {future_client.full_path: present_client.full_path})
         puj_iterator = iter_steps_validate_info(self, puj_attempt,
@@ -1876,8 +1874,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_iter_steps_no_previous_client(self):
         uj_attempt = PrepareUpgradeJujuAttempt({})
-        client = FakeEnvJujuClient()
-        client.full_path = '/present/juju'
+        client = FakeEnvJujuClient(full_path='/present/juju')
         uj_iterator = uj_attempt.iter_steps(client)
         with self.assertRaises(CannotUpgradeToClient) as exc_context:
             uj_iterator.next()
@@ -1887,8 +1884,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
 class TestUpgradeJujuAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
-        future_client = FakeEnvJujuClient()
-        future_client.full_path = '/future/juju'
+        future_client = FakeEnvJujuClient(full_path='/future/juju')
         uj_attempt = UpgradeJujuAttempt()
         uj_iterator = iter_steps_validate_info(self, uj_attempt, future_client)
         self.assertEqual(uj_iterator.next(), {'test_id': 'upgrade-juju'})
@@ -1916,16 +1912,16 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(0o755, mode & 0o777)
 
     def test_iter_steps(self):
-        client = FakeEnvJujuClient(version='2.0.0')
-        client.full_path = '/future/juju'
+        client = FakeEnvJujuClient(version='2.0.0', full_path='/future/juju')
         self._iter_steps(client)
 
     def test_iter_steps_juju_1x(self):
-        client = FakeEnvJujuClient1X(version='1.25.0')
+        client = FakeEnvJujuClient1X(version='1.25.0',
+                                     full_path='/future/juju')
         self._iter_steps(client)
 
     def _iter_steps(self, client):
-        client.full_path = '/future/juju'
+        self.assertEqual(client.full_path, '/future/juju')
         uc_attempt = UpgradeCharmAttempt()
         uc_iterator = iter_steps_validate_info(self, uc_attempt, client)
         self.assertEqual(uc_iterator.next(),
