@@ -481,7 +481,7 @@ class EnvJujuClient:
         elif self.env is None or not include_e:
             model = None
         else:
-            model = self.env.environment
+            model = self.model_name
         # sudo is not needed for devel releases.
         return self._backend.full_args(command, args, model, timeout)
 
@@ -781,7 +781,7 @@ class EnvJujuClient:
         if self.env is None or not include_e:
             model = None
         else:
-            model = self.env.environment
+            model = self.model_name
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env)
