@@ -267,6 +267,27 @@ class Juju2Backend:
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
+    def juju(self, command, args, used_feature_flags,
+             juju_home, model=None, check=True, timeout=None, extra_env=None):
+        """Run a command under juju for the current environment."""
+        args = self.full_args(command, args, model, timeout)
+        log.info(' '.join(args))
+        env = self.shell_environ(used_feature_flags, juju_home)
+        if extra_env is not None:
+            env.update(extra_env)
+        if check:
+            call_func = subprocess.check_call
+        else:
+            call_func = subprocess.call
+        start_time = time.time()
+        # Mutate os.environ instead of supplying env parameter so Windows can
+        # search env['PATH']
+        with scoped_environ(env):
+            rval = call_func(args)
+        self.juju_timings.setdefault(args, []).append(
+            (time.time() - start_time))
+        return rval
+
 
 class Juju2ABackend(Juju2Backend):
 
@@ -753,24 +774,13 @@ class EnvJujuClient:
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
-        args = self._full_args(command, sudo, args, include_e=include_e,
-                               timeout=timeout)
-        log.info(' '.join(args))
-        env = self._shell_environ()
-        if extra_env is not None:
-            env.update(extra_env)
-        if check:
-            call_func = subprocess.check_call
+        if self.env is None or not include_e:
+            model = None
         else:
-            call_func = subprocess.call
-        start_time = time.time()
-        # Mutate os.environ instead of supplying env parameter so Windows can
-        # search env['PATH']
-        with scoped_environ(env):
-            rval = call_func(args)
-        self._backend.juju_timings.setdefault(args, []).append(
-            (time.time() - start_time))
-        return rval
+            model = self.env.environment
+        return self._backend.juju(
+            command, args, self.used_feature_flags, self.env.juju_home,
+            model, check, timeout, extra_env)
 
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args
