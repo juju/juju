@@ -288,6 +288,32 @@ class Juju2Backend:
             (time.time() - start_time))
         return rval
 
+    def get_juju_output(self, command, args, used_feature_flags,
+                        juju_home, model=None, timeout=None):
+        args = self.full_args(command, args, model, timeout)
+        env = self.shell_environ(used_feature_flags, juju_home)
+        log.debug(args)
+        # Mutate os.environ instead of supplying env parameter so
+        # Windows can search env['PATH']
+        with scoped_environ(env):
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            sub_output, sub_error = proc.communicate()
+            log.debug(sub_output)
+            if proc.returncode != 0:
+                log.debug(sub_error)
+                e = subprocess.CalledProcessError(
+                    proc.returncode, args, sub_output)
+                e.stderr = sub_error
+                if (
+                    'Unable to connect to environment' in sub_error or
+                        'MissingOrIncorrectVersionHeader' in sub_error or
+                        '307: Temporary Redirect' in sub_error):
+                    raise CannotConnectEnv(e)
+                raise e
+        return sub_output
+
 
 class Juju2ABackend(Juju2Backend):
 
@@ -686,32 +712,16 @@ class EnvJujuClient:
         that <command> may be a space delimited list of arguments. The -e
         <environment> flag will be placed after <command> and before args.
         """
-        args = self._full_args(command, False, args,
-                               timeout=kwargs.get('timeout'),
-                               include_e=kwargs.get('include_e', True),
-                               admin=kwargs.get('admin', False))
-        env = self._shell_environ()
-        log.debug(args)
-        # Mutate os.environ instead of supplying env parameter so
-        # Windows can search env['PATH']
-        with scoped_environ(env):
-            proc = subprocess.Popen(
-                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE)
-            sub_output, sub_error = proc.communicate()
-            log.debug(sub_output)
-            if proc.returncode != 0:
-                log.debug(sub_error)
-                e = subprocess.CalledProcessError(
-                    proc.returncode, args, sub_output)
-                e.stderr = sub_error
-                if (
-                    'Unable to connect to environment' in sub_error or
-                        'MissingOrIncorrectVersionHeader' in sub_error or
-                        '307: Temporary Redirect' in sub_error):
-                    raise CannotConnectEnv(e)
-                raise e
-        return sub_output
+        if kwargs.get('admin', False):
+            model = self.get_admin_model_name()
+        elif self.env is None or not kwargs.get('include_e', True):
+            model = None
+        else:
+            model = self.model_name
+        timeout = kwargs.get('timeout')
+        return self._backend.get_juju_output(
+            command, args, self.used_feature_flags, self.env.juju_home,
+            model, timeout)
 
     def show_status(self):
         """Print the status to output."""
