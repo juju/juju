@@ -177,6 +177,10 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 }
 
 func (s *MainSuite) TestFirstRun2xFrom1x(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1564622: There's no 'surprise' upgrade on Windows. bug 1579059: The user should know they installed juju 2.x.")
+	}
+
 	// patch out lookpath to always return a nil error (and thus indicates success).
 	s.PatchValue(&execLookPath, func(s string) (string, error) {
 		c.Assert(s, gc.Equals, "juju-1")
@@ -228,6 +232,9 @@ func (s *MainSuite) TestFirstRun2xFrom1x(c *gc.C) {
 }
 
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1564622: There's no 'surprise' upgrade on Windows. bug 1579059: The user should know they installed juju 2.x.")
+	}
 	// patch out lookpath to always return a nil error (and thus indicates success).
 	s.PatchValue(&execLookPath, func(s string) (string, error) {
 		c.Assert(s, gc.Equals, "juju-1")
@@ -264,6 +271,9 @@ func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 }
 
 func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1564622: There's no 'surprise' upgrade on Windows. bug 1579059: The user should know they installed juju 2.x.")
+	}
 	// patch out lookpath to always return a nil error (and thus indicates success).
 	s.PatchValue(&execLookPath, func(s string) (string, error) {
 		c.Assert(s, gc.Equals, "juju-1")
