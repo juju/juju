@@ -295,11 +295,6 @@ class FakeBackend:
         return self.__class__(controller_state, set(self._feature_flags),
                               version, full_path, debug)
 
-    @property
-    def backing_state(self):
-        raise Exception
-        return self._backing_state
-
     def set_feature(self, feature, enabled):
         if enabled:
             self._feature_flags.add(feature)
