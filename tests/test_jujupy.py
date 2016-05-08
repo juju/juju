@@ -143,9 +143,10 @@ class FakeEnvironmentState:
         self._clear()
         if controller is not None:
             self.controller = controller
+        else:
+            self.controller = FakeControllerState()
 
     def _clear(self):
-        self.controller = FakeControllerState()
         self.name = None
         self.machine_id_iter = count()
         self.state_servers = []
@@ -270,9 +271,10 @@ class FakeEnvironmentState:
 
 class FakeBackend:
 
-    def __init__(self, backing_state, feature_flags=None, version=None,
+    def __init__(self, controller_state, feature_flags=None, version=None,
                  full_path=None, debug=False):
-        self._backing_state = backing_state
+        assert isinstance(controller_state, FakeControllerState)
+        self.controller_state = controller_state
         if feature_flags is None:
             feature_flags = set()
         self._feature_flags = feature_flags
@@ -281,26 +283,22 @@ class FakeBackend:
         self.debug = debug
 
     def clone(self, version=None, full_path=None, debug=None,
-              backing_state=None):
+              controller_state=None):
         if version is None:
             version = self.version
         if full_path is None:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        if backing_state is None:
-            backing_state = self._backing_state
-        return self.__class__(backing_state, set(self._feature_flags),
+        if controller_state is None:
+            controller_state = self.controller_state
+        return self.__class__(controller_state, set(self._feature_flags),
                               version, full_path, debug)
 
     @property
     def backing_state(self):
         raise Exception
         return self._backing_state
-
-    @property
-    def controller_state(self):
-        return self._backing_state.controller
 
     def set_feature(self, feature, enabled):
         if enabled:
@@ -312,7 +310,7 @@ class FakeBackend:
         return bool(feature in self._feature_flags)
 
     def make_state_backend(self, state):
-        new_backend = FakeBackend(state)
+        new_backend = FakeBackend(state.controller)
         new_backend.set_feature('jes', self.is_feature_enabled('jes'))
         return new_backend
 
@@ -482,7 +480,7 @@ class FakeJujuClient(EnvJujuClient):
         if _backend is None:
             backend_state = FakeEnvironmentState()
             backend_state.name = env.environment
-            _backend = FakeBackend(backend_state, version=version,
+            _backend = FakeBackend(backend_state.controller, version=version,
                                    full_path=full_path, debug=debug)
             _backend.set_feature('jes', jes_enabled)
         super(FakeJujuClient, self).__init__(
@@ -496,22 +494,23 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
-    def clone(self, env, full_path=None, debug=None):
-        model_name = env.environment
-        model_state = self._backend.controller_state.models.get(model_name)
-        backend = self._backend.clone(full_path, self.version, debug,
-                                      model_state)
+    def clone(self, env, full_path=None, debug=None, backend=None):
+        controller_state = self._backend.controller_state
+        if backend is None:
+            backend = self._backend.clone(full_path, self.version, debug,
+                                          controller_state)
         return self.from_backend(backend, env)
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
 
-    def _acquire_state_client(self, state):
+    def _acquire_state_client(self, state, backend=None):
         if state.name == self.model_name:
             return self
         new_env = self.env.clone(model_name=state.name)
-        new_client = self.clone(new_env)
-        new_client._backend = self._backend.make_state_backend(state)
+        if backend is None:
+            backend = self._backend.clone(controller_state=state.controller)
+        new_client = self.clone(new_env, backend=backend)
         return new_client
 
     def get_admin_client(self):
