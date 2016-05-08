@@ -117,6 +117,10 @@ class FakeControllerState:
         state.controller.state = 'created'
         return state
 
+    def require_admin(self, operation, name):
+        if name != self.admin_model.name:
+            raise AdminOperation(operation)
+
     def bootstrap(self, model_name, config, separate_admin):
         default_model = self.add_model(model_name)
         default_model.name = model_name
@@ -158,10 +162,6 @@ class FakeEnvironmentState:
     @property
     def state(self):
         return self.controller.state
-
-    def require_admin(self, operation):
-        if self.name != self.controller.admin_model.name:
-            raise AdminOperation(operation)
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -206,7 +206,7 @@ class FakeEnvironmentState:
         self.controller.state = 'model-destroyed'
 
     def restore_backup(self):
-        self.require_admin('restore')
+        self.controller.require_admin('restore', self.name)
         if len(self.state_servers) > 0:
             exc = subprocess.CalledProcessError('Operation not permitted', 1,
                                                 2)
@@ -214,7 +214,7 @@ class FakeEnvironmentState:
             raise exc
 
     def enable_ha(self):
-        self.require_admin('enable-ha')
+        self.controller.require_admin('enable-ha', self.name)
         for n in range(2):
             self.state_servers.append(self.add_machine())
 
@@ -563,8 +563,7 @@ class FakeJujuClient(EnvJujuClient):
         pass
 
     def backup(self):
-        model_state = self._backend.controller_state.models[self.model_name]
-        model_state.require_admin('backup')
+        self._backend.controller_state.require_admin('backup', self.model_name)
 
 
 class TestErroredUnit(TestCase):
