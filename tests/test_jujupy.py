@@ -319,17 +319,13 @@ class FakeBackend:
         config = copy.deepcopy(config)
         if bootstrap_series is not None:
             config['default-series'] = bootstrap_series
-        default_model = self.controller_state.bootstrap(
-            model_name, config, self.is_feature_enabled('jes'))
-        self._backing_state = default_model
+        self.controller_state.bootstrap(model_name, config,
+                                        self.is_feature_enabled('jes'))
 
     def quickstart(self, model_name, config, bundle):
         default_model = self.controller_state.bootstrap(
-            model_name, config,
-            self.is_feature_enabled('jes'))
-        model_state = self.controller_state.models[model_name]
-        model_state.deploy_bundle(bundle)
-        self._backing_state = default_model
+            model_name, config, self.is_feature_enabled('jes'))
+        default_model.deploy_bundle(bundle)
 
     def destroy_environment(self, model_name):
         try:
@@ -459,8 +455,8 @@ class FakeJujuClient(EnvJujuClient):
     This is a partial implementation, but should be suitable for many uses,
     and can be extended.
 
-    The state is provided by _backing_state, so that multiple clients can
-    manipulate the same state.
+    The state is provided by _backend.controller_state, so that multiple
+    clients can manipulate the same state.
     """
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=False, version='2.0.0', _backend=None):
