@@ -281,6 +281,7 @@ class FakeBackend:
         self.version = version
         self.full_path = full_path
         self.debug = debug
+        self.juju_timings = {}
 
     def clone(self, version=None, full_path=None, debug=None):
         if version is None:
@@ -347,6 +348,11 @@ class FakeBackend:
         api_endpoint = '{}:23'.format(server_hostname)
         return {controller_name: {'details': {'api-endpoints': [
             api_endpoint]}}}
+
+    def list_models(self):
+        model_names = [state.name for state in
+                       self.controller_state.models.values()]
+        return {'models': [{'name': n} for n in model_names]}
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
@@ -436,6 +442,8 @@ class FakeBackend:
             model_state.restore_backup()
         if command == 'show-controller':
             return yaml.safe_dump(self.make_controller_dict(args[0]))
+        if command == 'list-models':
+            return yaml.safe_dump(self.list_models())
         return ''
 
     def pause(self, seconds):
@@ -484,12 +492,6 @@ class FakeJujuClient(EnvJujuClient):
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
 
-    def iter_model_clients(self):
-        if not self.is_jes_enabled():
-            raise JESNotSupported()
-        for state in self._backend.controller_state.models.values():
-            yield self._acquire_model_client(state.name)
-
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
 
@@ -524,9 +526,6 @@ class FakeJujuClient(EnvJujuClient):
         return Status(status_dict, status_text)
 
     def wait_for_workloads(self, timeout=600):
-        pass
-
-    def get_juju_timings(self):
         pass
 
     def backup(self):
