@@ -468,8 +468,7 @@ class FakeJujuClient(EnvJujuClient):
     manipulate the same state.
     """
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False, version='2.0.0'):
-        backend_state = FakeEnvironmentState()
+                 jes_enabled=False, version='2.0.0', _backend=None):
         if env is None:
             env = JujuData('name', {
                 'type': 'foo',
@@ -478,19 +477,16 @@ class FakeJujuClient(EnvJujuClient):
         juju_home = env.juju_home
         if juju_home is None:
             juju_home = 'foo'
-        backend_state.name = env.environment
-        backend = FakeBackend(backend_state, version=version,
-                              full_path=full_path, debug=debug)
-        backend.set_feature('jes', jes_enabled)
+        if _backend is None:
+            backend_state = FakeEnvironmentState()
+            backend_state.name = env.environment
+            _backend = FakeBackend(backend_state, version=version,
+                                  full_path=full_path, debug=debug)
+            _backend.set_feature('jes', jes_enabled)
         super(FakeJujuClient, self).__init__(
-            env, version, full_path, juju_home, debug, _backend=backend)
+            env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
 
-    @classmethod
-    def from_backend(cls, backend, env):
-        return cls(env=env, version=backend.version,
-                   full_path=backend.full_path,
-                   debug=backend.debug, _backend=backend)
 
     def _get_env(self, env):
         return env
@@ -500,17 +496,11 @@ class FakeJujuClient(EnvJujuClient):
         raise Exception
 
     def clone(self, env, full_path=None, debug=None):
-        if full_path is None:
-            full_path = self.full_path
-        if debug is None:
-            debug = self.debug
-        client = self.__class__(env, full_path, debug,
-                                jes_enabled=self.is_jes_enabled())
         model_name = env.environment
         model_state = self._backend.controller_state.models.get(model_name)
-        client._backend = self._backend.clone(full_path, self.version, debug,
+        backend = self._backend.clone(full_path, self.version, debug,
                                               model_state)
-        return client
+        return self.from_backend(backend, env)
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)

@@ -519,7 +519,8 @@ class EnvJujuClient:
 
     @classmethod
     def from_backend(cls, backend, env):
-        return cls(env, backend.version, backend.full_path,
+        return cls(env=env, version=backend.version,
+                   full_path=backend.full_path,
                    debug=backend.debug, _backend=backend)
 
     def get_cache_path(self):
