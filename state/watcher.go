@@ -18,7 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -83,13 +82,6 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan params.RelationUnitsChange
 }
 
-type commonWatcherBackend interface {
-	docID(string) string
-	localID(string) string
-	strictLocalID(string) (string, error)
-	getCollection(name string) (mongo.Collection, func())
-}
-
 // newCommonWatcher exists so that all embedders have a place from which
 // to get a single TxnWatcher that will not be replaced in the lifetime
 // of the embedder.
@@ -105,7 +97,7 @@ func newCommonWatcher(st *State) commonWatcher {
 
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
-	st      commonWatcherBackend
+	st      modelBackend
 	watcher TxnWatcher
 	tomb    tomb.Tomb
 }
@@ -329,7 +321,7 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the model.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv, nil)
+	return newLifecycleWatcher(st, servicesC, nil, isLocalID(st), nil)
 }
 
 // WatchStorageAttachments returns a StringsWatcher that notifies of
@@ -660,7 +652,7 @@ func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change)
 
 func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(minUnitsC, ch, w.st.isForStateEnv)
+	w.watcher.WatchCollectionWithFilter(minUnitsC, ch, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(minUnitsC, ch)
 	serviceNames, err := w.initial()
 	if err != nil {
@@ -689,11 +681,6 @@ func (w *minUnitsWatcher) loop() (err error) {
 
 func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
-}
-
-func (st *State) isForStateEnv(id interface{}) bool {
-	_, err := st.strictLocalID(id.(string))
-	return err == nil
 }
 
 // scopeInfo holds a RelationScopeWatcher's last-delivered state, and any
@@ -1271,147 +1258,6 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	}
 }
 
-// ModelConfigWatcher observes changes to the
-// model configuration.
-type ModelConfigWatcher struct {
-	commonWatcher
-	out chan *config.Config
-}
-
-var _ Watcher = (*ModelConfigWatcher)(nil)
-
-// WatchModelConfig returns a watcher for observing changes
-// to the model configuration.
-func (st *State) WatchModelConfig() *ModelConfigWatcher {
-	return newModelConfigWatcher(st)
-}
-
-func newModelConfigWatcher(st *State) *ModelConfigWatcher {
-	w := &ModelConfigWatcher{
-		commonWatcher: newCommonWatcher(st),
-		out:           make(chan *config.Config),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// Changes returns a channel that will receive the new model
-// configuration when a change is detected. Note that multiple changes may
-// be observed as a single event in the channel.
-func (w *ModelConfigWatcher) Changes() <-chan *config.Config {
-	return w.out
-}
-
-func (w *ModelConfigWatcher) loop() (err error) {
-	sw := w.st.watchSettings(modelGlobalKey)
-	defer sw.Stop()
-	out := w.out
-	out = nil
-	cfg := &config.Config{}
-	for {
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case settings, ok := <-sw.Changes():
-			if !ok {
-				return watcher.EnsureErr(sw)
-			}
-			cfg, err = config.New(config.NoDefaults, settings.Map())
-			if err == nil {
-				out = w.out
-			} else {
-				out = nil
-			}
-		case out <- cfg:
-			out = nil
-		}
-	}
-}
-
-type settingsWatcher struct {
-	commonWatcher
-	out chan *Settings
-}
-
-var _ Watcher = (*settingsWatcher)(nil)
-
-// watchSettings creates a watcher for observing changes to settings.
-func (st *State) watchSettings(key string) *settingsWatcher {
-	return newSettingsWatcher(st, key)
-}
-
-func newSettingsWatcher(st *State, key string) *settingsWatcher {
-	w := &settingsWatcher{
-		commonWatcher: newCommonWatcher(st),
-		out:           make(chan *Settings),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop(key))
-	}()
-	return w
-}
-
-// Changes returns a channel that will receive the new settings.
-// Multiple changes may be observed as a single event in the channel.
-func (w *settingsWatcher) Changes() <-chan *Settings {
-	return w.out
-}
-
-func (w *settingsWatcher) loop(key string) (err error) {
-	ch := make(chan watcher.Change)
-	revno := int64(-1)
-
-	var settings *Settings
-	var rawDoc bson.Raw
-	if err := readSettingsDocInto(w.st, key, &rawDoc); err == nil {
-		var revnoDoc struct {
-			TxnRevno int64 `bson:"txn-revno"`
-		}
-		if err := rawDoc.Unmarshal(&revnoDoc); err != nil {
-			return err
-		}
-		revno = revnoDoc.TxnRevno
-		var doc settingsDoc
-		if err := rawDoc.Unmarshal(&doc); err != nil {
-			return err
-		}
-		settings = newSettingsWithDoc(w.st, key, &doc)
-	} else if !errors.IsNotFound(err) {
-		return err
-	}
-
-	w.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
-	defer w.watcher.Unwatch(settingsC, w.st.docID(key), ch)
-	out := w.out
-	if revno == -1 {
-		out = nil
-	}
-	for {
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-ch:
-			settings, err = readSettings(w.st, key)
-			if err != nil {
-				return err
-			}
-			out = w.out
-		case out <- settings:
-			out = nil
-		}
-	}
-}
-
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
 func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
@@ -1462,8 +1308,7 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 }
 
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
-// Config to change. This differs from WatchModelConfig in that the watcher
-// is a NotifyWatcher that does not give content during Changes()
+// Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
 }
@@ -1879,7 +1724,7 @@ func (w *cleanupWatcher) Changes() <-chan struct{} {
 
 func (w *cleanupWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(cleanupsC, in, w.st.isForStateEnv)
+	w.watcher.WatchCollectionWithFilter(cleanupsC, in, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(cleanupsC, in)
 
 	out := w.out
@@ -1953,7 +1798,7 @@ func (w *actionStatusWatcher) loop() error {
 		in      <-chan watcher.Change = w.source
 		out     chan<- []string       = w.sink
 	)
-	w.watcher.WatchCollectionWithFilter(actionsC, w.source, w.st.isForStateEnv)
+	w.watcher.WatchCollectionWithFilter(actionsC, w.source, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(actionsC, w.source)
 
 	changes, err := w.initial()
@@ -1972,7 +1817,7 @@ func (w *actionStatusWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := w.filterAndMergeIds(w.st, &changes, updates); err != nil {
+			if err := w.filterAndMergeIds(&changes, updates); err != nil {
 				return err
 			}
 			if len(changes) > 0 {
@@ -2067,7 +1912,7 @@ func inCollectionOp(key string, ids ...string) bson.D {
 
 // localIdInCollectionOp is a special form of inCollectionOp that just
 // converts id's to their model-uuid prefixed form.
-func localIdInCollectionOp(st *State, localIds ...string) bson.D {
+func localIdInCollectionOp(st modelBackend, localIds ...string) bson.D {
 	ids := make([]string, len(localIds))
 	for i, id := range localIds {
 		ids[i] = st.docID(id)
@@ -2121,12 +1966,13 @@ type colWCfg struct {
 func newcollectionWatcher(st *State, cfg colWCfg) StringsWatcher {
 	// Always ensure that there is at least filtering on the
 	// model in place.
+	backstop := isLocalID(st)
 	if cfg.filter == nil {
-		cfg.filter = st.isForStateEnv
+		cfg.filter = backstop
 	} else {
 		innerFilter := cfg.filter
 		cfg.filter = func(id interface{}) bool {
-			if !st.isForStateEnv(id) {
+			if !backstop(id) {
 				return false
 			}
 			return innerFilter(id)
@@ -2183,7 +2029,7 @@ func (w *collectionWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := w.mergeIds(w.st, &changes, updates); err != nil {
+			if err := w.mergeIds(&changes, updates); err != nil {
 				return err
 			}
 			if len(changes) > 0 {
@@ -2254,11 +2100,11 @@ func (w *collectionWatcher) initial() ([]string, error) {
 // watcher.
 // Additionally, mergeIds strips the model UUID prefix from the id
 // before emitting it through the watcher.
-func (w *collectionWatcher) mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
-	return mergeIds(st, changes, updates, w.idconv)
+func (w *collectionWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
+	return mergeIds(w.st, changes, updates, w.idconv)
 }
 
-func mergeIds(st *State, changes *[]string, updates map[interface{}]bool, idconv func(string) string) error {
+func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, idconv func(string) string) error {
 	for val, idExists := range updates {
 		id, ok := val.(string)
 		if !ok {
@@ -2464,7 +2310,7 @@ func (w *openedPortsWatcher) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.watcher.WatchCollectionWithFilter(openedPortsC, in, w.st.isForStateEnv)
+	w.watcher.WatchCollectionWithFilter(openedPortsC, in, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(openedPortsC, in)
 
 	out := w.out
@@ -2634,7 +2480,7 @@ func (w *blockDevicesWatcher) loop() error {
 	changes := make(chan watcher.Change)
 	w.watcher.Watch(blockDevicesC, docID, revno, changes)
 	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
-	blockDevices, err := w.st.blockDevices(w.machineId)
+	blockDevices, err := getBlockDevices(w.st, w.machineId)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2646,7 +2492,7 @@ func (w *blockDevicesWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-changes:
-			newBlockDevices, err := w.st.blockDevices(w.machineId)
+			newBlockDevices, err := getBlockDevices(w.st, w.machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -2662,14 +2508,15 @@ func (w *blockDevicesWatcher) loop() error {
 
 // WatchForModelMigration returns a notify watcher which reports when
 // a migration is in progress for the model associated with the
-// State. Only in-progress and newly created migrations are reported.
-func (st *State) WatchForModelMigration() (NotifyWatcher, error) {
-	return newMigrationActiveWatcher(st), nil
+// State.
+func (st *State) WatchForModelMigration() NotifyWatcher {
+	return newMigrationActiveWatcher(st)
 }
 
 type migrationActiveWatcher struct {
 	commonWatcher
 	collName string
+	id       string
 	sink     chan struct{}
 }
 
@@ -2677,6 +2524,7 @@ func newMigrationActiveWatcher(st *State) NotifyWatcher {
 	w := &migrationActiveWatcher{
 		commonWatcher: newCommonWatcher(st),
 		collName:      migrationsActiveC,
+		id:            st.ModelUUID(),
 		sink:          make(chan struct{}),
 	}
 	go func() {
@@ -2693,26 +2541,18 @@ func (w *migrationActiveWatcher) Changes() <-chan struct{} {
 }
 
 func (w *migrationActiveWatcher) loop() error {
-	in := make(chan watcher.Change)
-	filter := func(id interface{}) bool {
-		// Only report migrations for the requested model.
-		if id, ok := id.(string); ok {
-			return id == w.st.ModelUUID()
-		}
-		return false
-	}
-	w.watcher.WatchCollectionWithFilter(w.collName, in, filter)
-	defer w.watcher.UnwatchCollection(w.collName, in)
-
-	var out chan<- struct{}
-
-	// Check if a migration is already in progress and if so, report it immediately.
-	if active, err := w.st.IsModelMigrationActive(); err != nil {
+	collection, closer := w.st.getCollection(w.collName)
+	revno, err := getTxnRevno(collection, w.id)
+	closer()
+	if err != nil {
 		return errors.Trace(err)
-	} else if active {
-		out = w.sink
 	}
 
+	in := make(chan watcher.Change)
+	w.watcher.Watch(w.collName, w.id, revno, in)
+	defer w.watcher.Unwatch(w.collName, w.id, in)
+
+	out := w.sink
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -2720,11 +2560,6 @@ func (w *migrationActiveWatcher) loop() error {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case change := <-in:
-			// Ignore removals from the collection.
-			if change.Revno == -1 {
-				continue
-			}
-
 			if _, ok := collect(change, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
@@ -2785,11 +2620,7 @@ func (w *migrationStatusWatcher) loop() error {
 	// there will only be one active migration per model. The watcher
 	// will only see changes for one migration status document at a
 	// time for the model.
-	filter := func(id interface{}) bool {
-		_, err := w.st.strictLocalID(id.(string))
-		return err == nil
-	}
-	w.watcher.WatchCollectionWithFilter(w.collName, in, filter)
+	w.watcher.WatchCollectionWithFilter(w.collName, in, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(w.collName, in)
 
 	out := w.sink // out set so that initial event is sent.

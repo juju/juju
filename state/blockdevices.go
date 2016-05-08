@@ -53,10 +53,10 @@ func (st *State) WatchBlockDevices(machine names.MachineTag) NotifyWatcher {
 
 // BlockDevices returns the BlockDeviceInfo for the specified machine.
 func (st *State) BlockDevices(machine names.MachineTag) ([]BlockDeviceInfo, error) {
-	return st.blockDevices(machine.Id())
+	return getBlockDevices(st, machine.Id())
 }
 
-func (st *State) blockDevices(machineId string) ([]BlockDeviceInfo, error) {
+func getBlockDevices(st modelBackend, machineId string) ([]BlockDeviceInfo, error) {
 	coll, cleanup := st.getCollection(blockDevicesC)
 	defer cleanup()
 
@@ -75,7 +75,7 @@ func (st *State) blockDevices(machineId string) ([]BlockDeviceInfo, error) {
 // not in the list will be removed.
 func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		oldInfo, err := st.blockDevices(machineId)
+		oldInfo, err := getBlockDevices(st, machineId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

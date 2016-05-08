@@ -4,6 +4,8 @@
 package migrationmaster_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -60,18 +62,18 @@ func (s *Suite) TestNotEnvironManager(c *gc.C) {
 func (s *Suite) TestWatch(c *gc.C) {
 	api := s.mustMakeAPI(c)
 
-	watchResult, err := api.Watch()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(watchResult.NotifyWatcherId, gc.Not(gc.Equals), "")
-}
+	result := api.Watch()
+	c.Assert(result.Error, gc.IsNil)
 
-func (s *Suite) TestWatchError(c *gc.C) {
-	s.backend.watchError = errors.New("boom")
-	api := s.mustMakeAPI(c)
+	resource := s.resources.Get(result.NotifyWatcherId)
+	watcher, _ := resource.(state.NotifyWatcher)
+	c.Assert(watcher, gc.NotNil)
 
-	w, err := api.Watch()
-	c.Assert(w, gc.Equals, params.NotifyWatchResult{})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	select {
+	case <-watcher.Changes():
+		c.Fatalf("initial event not consumed")
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 func (s *Suite) TestGetMigrationStatus(c *gc.C) {
@@ -155,16 +157,12 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 type stubBackend struct {
 	migrationmaster.Backend
 
-	watchError error
-	getErr     error
-	migration  *stubMigration
+	getErr    error
+	migration *stubMigration
 }
 
-func (b *stubBackend) WatchForModelMigration() (state.NotifyWatcher, error) {
-	if b.watchError != nil {
-		return nil, b.watchError
-	}
-	return apiservertesting.NewFakeNotifyWatcher(), nil
+func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
+	return apiservertesting.NewFakeNotifyWatcher()
 }
 
 func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {

@@ -274,7 +274,7 @@ func (c *Settings) Read() error {
 }
 
 // readSettingsDoc reads the settings doc with the given key.
-func readSettingsDoc(st *State, key string) (*settingsDoc, error) {
+func readSettingsDoc(st modelBackend, key string) (*settingsDoc, error) {
 	var doc settingsDoc
 	if err := readSettingsDocInto(st, key, &doc); err != nil {
 		return nil, errors.Trace(err)
@@ -284,7 +284,7 @@ func readSettingsDoc(st *State, key string) (*settingsDoc, error) {
 
 // readSettingsDocInto reads the settings doc with the given key
 // into the provided output structure.
-func readSettingsDocInto(st *State, key string, out interface{}) error {
+func readSettingsDocInto(st modelBackend, key string, out interface{}) error {
 	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
@@ -293,6 +293,7 @@ func readSettingsDocInto(st *State, key string, out interface{}) error {
 	// This is required to allow loading of environ settings before the
 	// model UUID migration has been applied to the settings collection.
 	// Without this, an agent's version cannot be read, blocking the upgrade.
+	// XXX(fwereade): is this still required on master?
 	if err == mgo.ErrNotFound && key == modelGlobalKey {
 		err = settings.FindId(modelGlobalKey).One(out)
 	}
