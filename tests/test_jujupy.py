@@ -291,7 +291,7 @@ class FakeBackend:
         if backing_state is None:
             backing_state = self._backing_state
         return self.__class__(backing_state, set(self._feature_flags),
-                              version, self.full_path, self.debug)
+                              version, full_path, debug)
 
     @property
     def backing_state(self):
