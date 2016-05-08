@@ -347,6 +347,8 @@ class EnvJujuClient:
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
 
+    default_backend = Juju2Backend
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -485,7 +487,7 @@ class EnvJujuClient:
                  _backend=None):
         self.env = self._get_env(env)
         if _backend is None:
-            _backend = Juju2Backend(full_path, version, set(), debug)
+            _backend = self.default_backend(full_path, version, set(), debug)
         self._backend = _backend
         if version != _backend.version:
             raise ValueError('Version mismatch: {} {}'.format(
@@ -1346,12 +1348,7 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
 class EnvJujuClient2A2(EnvJujuClient2B2):
     """Drives Juju 2.0-alpha2 clients."""
 
-    def __init__(self, env, version, full_path, juju_home=None, debug=False,
-                 _backend=None):
-        if _backend is None:
-            _backend = Juju2A2Backend(full_path, version, set(), debug)
-        super(EnvJujuClient2A2, self).__init__(
-            env, version, full_path, juju_home, debug, _backend=_backend)
+    default_backend = Juju2A2Backend
 
     @classmethod
     def _get_env(cls, env):
@@ -1403,12 +1400,7 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
 
     _show_status = 'status'
 
-    def __init__(self, env, version, full_path, juju_home=None, debug=False,
-                 _backend=None):
-        if _backend is None:
-            _backend = Juju1XBackend(full_path, version, set(), debug)
-        super(EnvJujuClient2A1, self).__init__(
-            env, version, full_path, juju_home, debug, _backend=_backend)
+    default_backend = Juju1XBackend
 
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
