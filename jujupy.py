@@ -204,7 +204,10 @@ def temp_yaml_file(yaml_dict):
 
 
 class Juju2Backend:
-    """A Juju backend referring to a specific juju 2 binary."""
+    """A Juju backend referring to a specific juju 2 binary.
+
+    Uses -m to specify models, uses JUJU_DATA to specify home directory.
+    """
 
     def __init__(self, full_path, version, feature_flags, debug):
         self._version = version
@@ -344,6 +347,11 @@ class Juju2Backend:
 
 
 class Juju2A2Backend(Juju2Backend):
+    """Backend for 2A2.
+
+    Uses -m to specify models, uses JUJU_HOME and JUJU_DATA to specify home
+    directory.
+    """
 
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
@@ -356,15 +364,20 @@ class Juju2A2Backend(Juju2Backend):
         return env
 
 
-class Juju2A1Backend(Juju2A2Backend):
+class Juju1XBackend(Juju2A2Backend):
+    """Backend for Juju 1.x - 2A1.
+
+    Uses -e to specify models ("environments", uses JUJU_HOME to specify home
+    directory.
+    """
 
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
 
         For 2.0-alpha1 and earlier set only JUJU_HOME and not JUJU_DATA.
         """
-        env = super(Juju2A1Backend, self).shell_environ(used_feature_flags,
-                                                        juju_home)
+        env = super(Juju1XBackend, self).shell_environ(used_feature_flags,
+                                                       juju_home)
         env['JUJU_HOME'] = juju_home
         del env['JUJU_DATA']
         return env
@@ -1427,7 +1440,7 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def __init__(self, env, version, full_path, juju_home=None, debug=False,
                  _backend=None):
         if _backend is None:
-            _backend = Juju2A1Backend(full_path, version, set(), debug)
+            _backend = Juju1XBackend(full_path, version, set(), debug)
         super(EnvJujuClient2A1, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
 
