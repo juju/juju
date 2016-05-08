@@ -340,8 +340,12 @@ class FakeBackend:
         model_state.deploy_bundle(bundle)
         self._backing_state = default_model
 
-    def destroy_environment(self):
-        self.backing_state.destroy_environment()
+    def destroy_environment(self, model_name):
+        try:
+            state = self.controller_state.models[model_name]
+        except KeyError:
+            return 0
+        state.destroy_environment()
         return 0
 
     def add_machines(self, model_state, args):
@@ -539,7 +543,7 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.quickstart(self.env.environment, self.env.config, bundle)
 
     def destroy_environment(self, force=True, delete_jenv=False):
-        return self._backend.destroy_environment()
+        return self._backend.destroy_environment(self.model_name)
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
