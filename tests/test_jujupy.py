@@ -280,7 +280,13 @@ class FakeBackend:
         self.full_path = full_path
         self.debug = debug
 
-    def clone(self, backing_state=None):
+    def clone(self, version, full_path, debug, backing_state=None):
+        if version is None:
+            version = self.version
+        if full_path is None:
+            full_path = self.full_path
+        if debug is None:
+            debug = self.debug
         if backing_state is None:
             backing_state = self._backing_state
         return self.__class__(backing_state, set(self._feature_flags),
@@ -480,6 +486,12 @@ class FakeJujuClient(EnvJujuClient):
             env, version, full_path, juju_home, debug, _backend=backend)
         self.bootstrap_replaces = {}
 
+    @classmethod
+    def from_backend(cls, backend, env):
+        return cls(env=env, version=backend.version,
+                   full_path=backend.full_path,
+                   debug=backend.debug, _backend=backend)
+
     def _get_env(self, env):
         return env
 
@@ -496,7 +508,8 @@ class FakeJujuClient(EnvJujuClient):
                                 jes_enabled=self.is_jes_enabled())
         model_name = env.environment
         model_state = self._backend.controller_state.models.get(model_name)
-        client._backend = self._backend.clone(model_state)
+        client._backend = self._backend.clone(full_path, self.version, debug,
+                                              model_state)
         return client
 
     def by_version(self, env, path, debug):

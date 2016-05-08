@@ -214,6 +214,16 @@ class Juju2Backend:
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
 
+    def clone(self, full_path, version, debug):
+        if version is None:
+            version = self.version
+        if full_path is None:
+            full_path = self.full_path
+        if debug is None:
+            debug = self.debug
+        result = self.__class__(full_path, version, self.feature_flags, debug)
+        return result
+
     @property
     def version(self):
         return self._version
@@ -499,19 +509,18 @@ class EnvJujuClient:
         """
         if env is None:
             env = self.env
-        if version is None:
-            version = self.version
-        if full_path is None:
-            full_path = self.full_path
-        if debug is None:
-            debug = self.debug
-        backend = self._backend.__class__(full_path, version, set(), debug)
+        backend = self._backend.clone(full_path, version, debug)
         if cls is None:
             cls = self.__class__
-        other = cls(env, version, full_path, debug=debug, _backend=backend)
+        other = cls.from_backend(backend, env)
         other.feature_flags.update(
             self.feature_flags.intersection(other.used_feature_flags))
         return other
+
+    @classmethod
+    def from_backend(cls, backend, env):
+        return cls(env, backend.version, backend.full_path,
+                   debug=backend.debug, _backend=backend)
 
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
@@ -526,8 +535,8 @@ class EnvJujuClient:
 
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
-        # sudo is not needed for devel releases.
         model = self._cmd_model(include_e, admin)
+        # sudo is not needed for devel releases.
         return self._backend.full_args(command, args, model, timeout)
 
     @staticmethod
