@@ -1078,7 +1078,8 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	return u.st.workers.PresenceWatcher().Alive(u.globalAgentKey())
+	pwatcher := u.st.workers.PresenceWatcher()
+	return pwatcher.Alive(u.globalAgentKey())
 }
 
 // Tag returns a name identifying the unit.
@@ -1098,8 +1099,9 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.workers.PresenceWatcher().Watch(u.globalAgentKey(), ch)
-	defer u.st.workers.PresenceWatcher().Unwatch(u.globalAgentKey(), ch)
+	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher.Watch(u.globalAgentKey(), ch)
+	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1109,8 +1111,8 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 		case <-time.After(timeout):
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
-		case <-u.st.workers.PresenceWatcher().Dead():
-			return u.st.workers.PresenceWatcher().Err()
+		case <-pwatcher.Dead():
+			return pwatcher.Err()
 		}
 	}
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))

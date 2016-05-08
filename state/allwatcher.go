@@ -22,6 +22,7 @@ import (
 // a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
+	watcher          TxnWatcher
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -29,6 +30,7 @@ type allWatcherStateBacking struct {
 // for all models from the State.
 type allModelWatcherStateBacking struct {
 	st               *State
+	watcher          TxnWatcher
 	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }
@@ -996,6 +998,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 	)
 	return &allWatcherStateBacking{
 		st:               st,
+		watcher:          st.workers.TxnWatcher(),
 		collectionByName: collections,
 	}
 }
@@ -1008,14 +1011,14 @@ func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.workers.TxnWatcher().WatchCollectionWithFilter(c.name, in, b.filterEnv)
+		b.watcher.WatchCollectionWithFilter(c.name, in, b.filterEnv)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.workers.TxnWatcher().UnwatchCollection(c.name, in)
+		b.watcher.UnwatchCollection(c.name, in)
 	}
 }
 
@@ -1074,6 +1077,7 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 	)
 	return &allModelWatcherStateBacking{
 		st:               st,
+		watcher:          st.workers.TxnWatcher(),
 		stPool:           NewStatePool(st),
 		collectionByName: collections,
 	}
@@ -1082,14 +1086,14 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 // Watch watches all the collections.
 func (b *allModelWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.workers.TxnWatcher().WatchCollection(c.name, in)
+		b.watcher.WatchCollection(c.name, in)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.workers.TxnWatcher().UnwatchCollection(c.name, in)
+		b.watcher.UnwatchCollection(c.name, in)
 	}
 }
 

@@ -84,10 +84,9 @@ type RelationUnitsWatcher interface {
 
 // newCommonWatcher exists so that all embedders have a place from which
 // to get a single TxnWatcher that will not be replaced in the lifetime
-// of the embedder.
-//
-// Note that the reference to state allows people to get their own
-// references to the watcher, and mess this up --
+// of the embedder (and also to restrict the width of the interface by
+// which they can access the rest of State, by storing st as a
+// modelBackend).
 func newCommonWatcher(st *State) commonWatcher {
 	return commonWatcher{
 		st:      st,
