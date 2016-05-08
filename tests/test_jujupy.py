@@ -282,16 +282,14 @@ class FakeBackend:
         self.full_path = full_path
         self.debug = debug
 
-    def clone(self, version=None, full_path=None, debug=None,
-              controller_state=None):
+    def clone(self, version=None, full_path=None, debug=None):
         if version is None:
             version = self.version
         if full_path is None:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        if controller_state is None:
-            controller_state = self.controller_state
+        controller_state = self.controller_state
         return self.__class__(controller_state, set(self._feature_flags),
                               version, full_path, debug)
 
@@ -303,11 +301,6 @@ class FakeBackend:
 
     def is_feature_enabled(self, feature):
         return bool(feature in self._feature_flags)
-
-    def make_state_backend(self, state):
-        new_backend = FakeBackend(state.controller)
-        new_backend.set_feature('jes', self.is_feature_enabled('jes'))
-        return new_backend
 
     def deploy(self, model_state, charm_name, service_name=None, series=None):
         if service_name is None:
@@ -485,34 +478,17 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
-    def clone(self, env, full_path=None, debug=None, backend=None):
-        controller_state = self._backend.controller_state
-        if backend is None:
-            backend = self._backend.clone(full_path, self.version, debug,
-                                          controller_state)
-        return self.from_backend(backend, env)
-
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
 
-    def _acquire_state_client(self, state, backend=None):
-        if state.name == self.model_name:
-            return self
-        new_env = self.env.clone(model_name=state.name)
-        if backend is None:
-            backend = self._backend.clone(controller_state=state.controller)
-        new_client = self.clone(new_env, backend=backend)
-        return new_client
-
-    def get_admin_client(self):
-        admin_model = self._backend.controller_state.admin_model
-        return self._acquire_state_client(admin_model)
+    def get_admin_model_name(self):
+        return self._backend.controller_state.admin_model.name
 
     def iter_model_clients(self):
         if not self.is_jes_enabled():
             raise JESNotSupported()
         for state in self._backend.controller_state.models.values():
-            yield self._acquire_state_client(state)
+            yield self._acquire_model_client(state.name)
 
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
