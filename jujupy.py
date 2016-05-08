@@ -338,7 +338,7 @@ class Juju2A2Backend(Juju2Backend):
         For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
         """
         env = super(Juju2A2Backend, self).shell_environ(used_feature_flags,
-                                                       juju_home)
+                                                        juju_home)
         env['JUJU_HOME'] = juju_home
         return env
 
