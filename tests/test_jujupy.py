@@ -280,7 +280,8 @@ class FakeBackend:
         self.full_path = full_path
         self.debug = debug
 
-    def clone(self, version, full_path, debug, backing_state=None):
+    def clone(self, version=None, full_path=None, debug=None,
+              backing_state=None):
         if version is None:
             version = self.version
         if full_path is None:
@@ -290,15 +291,12 @@ class FakeBackend:
         if backing_state is None:
             backing_state = self._backing_state
         return self.__class__(backing_state, set(self._feature_flags),
-                              self.version, self.full_path, self.debug)
+                              version, self.full_path, self.debug)
 
     @property
     def backing_state(self):
+        raise Exception
         return self._backing_state
-
-    @backing_state.setter
-    def backing_state(self, value):
-        self._backing_state = value
 
     @property
     def controller_state(self):
@@ -485,12 +483,11 @@ class FakeJujuClient(EnvJujuClient):
             backend_state = FakeEnvironmentState()
             backend_state.name = env.environment
             _backend = FakeBackend(backend_state, version=version,
-                                  full_path=full_path, debug=debug)
+                                   full_path=full_path, debug=debug)
             _backend.set_feature('jes', jes_enabled)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
-
 
     def _get_env(self, env):
         return env
@@ -503,7 +500,7 @@ class FakeJujuClient(EnvJujuClient):
         model_name = env.environment
         model_state = self._backend.controller_state.models.get(model_name)
         backend = self._backend.clone(full_path, self.version, debug,
-                                              model_state)
+                                      model_state)
         return self.from_backend(backend, env)
 
     def by_version(self, env, path, debug):
