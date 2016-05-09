@@ -19,39 +19,44 @@ var usageSCPSummary = `
 Transfers files to/from a Juju machine.`[1:]
 
 var usageSCPDetails = `
-The usage is for transferring files from the client to a Juju machine. To
-do the reverse:
-juju scp [options] [<user>@]<target>:<file> <path>
-and use quotes when multiple files are involved.
-The machine is identified by the <target> argument which is either a 'unit
-name' or a 'machine id'. Both are obtained in the output from `[1:] + "`juju \nstatus`" + `: unit name in the [Units] section and machine id in the [Machines]
-section.
-If 'user' is specified then the connection is made to that user account;
-otherwise, the 'ubuntu' account is used.
-'file' can be single or multiple files or directories. For directories,
-you must use the scp option of '-r'.
-Options specific to scp can be inserted between 'scp' and '[options]' with
-'-- <scp-options>'. Refer to the scp(1) man page for an explanation of
-those options.
+The source or destination arguments made either be a local path or a remote
+location. The syntax for a remote location is:
+
+    [<user>@]<target>:[<path>]
+
+If the user is not specified, "ubuntu" is used. If <path> is not specified, it
+defaults to the home directory of the remote user account.
+
+The <target> may be either a 'unit name' or a 'machine id'. These can be
+obtained from the output of "juju status".
+
+Options specific to scp can be provided after a "--". Refer to the scp(1) man
+page for an explanation of those options. The "-r" option to recursively copy a
+directory is particularly useful.
+
+The SSH host keys of the target are verified. The --no-host-key-checks option
+can be used to disable these checks. Use of this option is not recommended as
+it opens up the possibility of a man-in-the-middle attack.
 
 Examples:
+
 Copy file /var/log/syslog from machine 2 to the client's current working
 directory:
 
     juju scp 2:/var/log/syslog .
 
-Copy directory /var/log/mongodb, recursively, from a mongodb unit
-to the client's local directory remote-logs:
+Recursively copy the /var/log/mongodb directory from a mongodb unit to the
+client's local remote-logs directory:
 
     juju scp -- -r mongodb/0:/var/log/mongodb/ remote-logs
 
-Copy file foo.txt, in verbose mode, from the client's current working
-directory to an apache2 unit of model "mymodel":
+Copy foo.txt from the client's current working directory to an apache2 unit of
+model "prod". Proxy the SSH connection through the controller and turn on scp
+compression:
 
-    juju scp -- -v -m mymodel foo.txt apache2/1:
+    juju scp -m prod --proxy -- -C foo.txt apache2/1:
 
-Copy multiple files from the client's current working directory to machine
-2:
+Copy multiple files from the client's current working directory to machine 2:
 
     juju scp file1 file2 2:
 
@@ -75,7 +80,7 @@ type scpCommand struct {
 func (c *scpCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "scp",
-		Args:    "<file> [<user>@]<target>:[<path>]",
+		Args:    "<source> <destination>",
 		Purpose: usageSCPSummary,
 		Doc:     usageSCPDetails,
 	}

@@ -18,11 +18,16 @@ Initiates an SSH session or executes a command on a Juju machine.`[1:]
 
 var usageSSHDetails = `
 The machine is identified by the <target> argument which is either a 'unit
-name' or a 'machine id'. Both are obtained in the output to `[1:] + "`juju status`" + `.
-If 'user' is specified then the connection is made to that user account;
+name' or a 'machine id'. Both are obtained in the output to "juju status". If
+'user' is specified then the connection is made to that user account;
 otherwise, the default 'ubuntu' account, created by Juju, is used.
-The optional command is executed on the remote machine. Any output is sent
-back to the user. Screen-based programs require the default of '--pty=true'.
+
+The optional command is executed on the remote machine. Any output is sent back
+to the user. Screen-based programs require the default of '--pty=true'.
+
+The SSH host keys of the target are verified. The --no-host-key-checks option
+can be used to disable these checks. Use of this option is not recommended as
+it opens up the possibility of a man-in-the-middle attack.
 
 Examples:
 Connect to machine 0:
