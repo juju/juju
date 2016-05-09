@@ -27,9 +27,9 @@ AZURE_ENVIRON = {
 
 
 @patch.dict(os.environ, AZURE_ENVIRON)
+@patch('winazurearm.ARMClient.init_services', autospec=True)
 class WinAzureARMTestCase(TestCase):
-
-    @patch('winazurearm.ARMClient.init_services', autospec=True)
+    
     def test_main_list_resources(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.list_resources', autospec=True) as lr_mock:
@@ -39,7 +39,6 @@ class WinAzureARMTestCase(TestCase):
         lr_mock.assert_called_once_with(
             client, glob='juju-deploy*', print_out=True, recursive=False)
 
-    @patch('winazurearm.ARMClient.init_services', autospec=True)
     def test_main_delete_resources(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_resources', autospec=True) as dr_mock:
@@ -49,7 +48,6 @@ class WinAzureARMTestCase(TestCase):
         dr_mock.assert_called_once_with(
             client, glob='juju-deploy*', old_age=OLD_MACHINE_AGE)
 
-    @patch('winazurearm.ARMClient.init_services', autospec=True)
     def test_main_delete_resources_old_age(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_resources', autospec=True) as dr_mock:
@@ -59,7 +57,6 @@ class WinAzureARMTestCase(TestCase):
         dr_mock.assert_called_once_with(
             client, glob='juju-deploy*', old_age=2)
 
-    @patch('winazurearm.ARMClient.init_services', autospec=True)
     def test_main_delete_instance_instance_id(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_instance', autospec=True) as di_mock:
@@ -69,7 +66,6 @@ class WinAzureARMTestCase(TestCase):
         di_mock.assert_called_once_with(
             client, 'instance-id', resource_group=None)
 
-    @patch('winazurearm.ARMClient.init_services', autospec=True)
     def test_main_delete_instance_name_groop(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_instance', autospec=True) as di_mock:
