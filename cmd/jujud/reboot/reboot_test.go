@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
@@ -36,10 +37,15 @@ type RebootSuite struct {
 
 var _ = gc.Suite(&RebootSuite{})
 
+func (s *RebootSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+
+	// These tests only patch out LXC, so only run full-stack tests
+	// over LXC.
+	s.PatchValue(&instance.ContainerTypes, []instance.ContainerType{instance.LXC})
+}
+
 func (s *RebootSuite) SetUpTest(c *gc.C) {
-	if testing.GOVERSION < 1.3 {
-		c.Skip("skipping test, lxd requires Go 1.3 or later")
-	}
 
 	s.JujuConnSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
