@@ -114,7 +114,7 @@ func newDumbWorkers(config dumbWorkersConfig) (_ *dumbWorkers, err error) {
 		}
 	}()
 
-	logger.Infof("starting leadership lease manager")
+	logger.Debugf("starting leadership lease manager")
 	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: leadershipSecretary{},
 		Client:    config.leadershipClient,
@@ -126,7 +126,7 @@ func newDumbWorkers(config dumbWorkersConfig) (_ *dumbWorkers, err error) {
 	}
 	result.leadershipManager = leadershipManager
 
-	logger.Infof("starting singular lease manager")
+	logger.Debugf("starting singular lease manager")
 	singularManager, err := lease.NewManager(lease.ManagerConfig{
 		Secretary: singularSecretary{config.modelTag.Id()},
 		Client:    config.singularClient,
@@ -138,10 +138,10 @@ func newDumbWorkers(config dumbWorkersConfig) (_ *dumbWorkers, err error) {
 	}
 	result.singularManager = singularManager
 
-	logger.Infof("starting transaction log watcher")
+	logger.Debugf("starting transaction log watcher")
 	result.txnLogWatcher = watcher.New(config.txnLogCollection)
 
-	logger.Infof("starting presence watcher")
+	logger.Debugf("starting presence watcher")
 	result.presenceWatcher = presence.NewWatcher(
 		config.presenceCollection, config.modelTag,
 	)

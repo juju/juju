@@ -77,13 +77,16 @@ type State struct {
 	policy        Policy
 
 	// leadershipClient exposes units' service leadership leases
-	// within this environment. It's only used unsafely as far as
-	// I'm aware. XXX create bug
+	// within this environment.
+	// TODO(fwereade) 2016-05-09 lp:1579633
+	// This field is only used unsafely as far as I'm aware -- it's
+	// not goroutine-safe, and the leadership lease manager is using
+	// it permanently.
 	leadershipClient corelease.Client
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
-	// that yet, but having a type that cllects them together is the
+	// that yet, but having a type that collects them together is the
 	// first step.
 	//
 	// note that the allManager stuff below probably ought to be

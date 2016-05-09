@@ -11,6 +11,15 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
+// getRawCollection returns the named mgo Collection. As no automatic
+// model filtering is performed by the returned collection it
+// should be rarely used. getCollection() should be used in almost all
+// cases.
+func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
+	collection, closer := st.database.GetCollection(name)
+	return collection.Writeable().Underlying(), closer
+}
+
 // modelStateCollection wraps a mongo.Collection, preserving the
 // mongo.Collection interface and its Writeable behaviour. It will
 // automatically modify query selectors and documents so that queries

@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 )
@@ -23,10 +22,6 @@ type modelBackend interface {
 	localID(string) string
 	strictLocalID(string) (string, error)
 	getCollection(name string) (mongo.Collection, func())
-
-	// getRawCollection is only here because readSettingsDocInto
-	// needs it -- but I think that's redundant. XXX
-	getRawCollection(name string) (*mgo.Collection, func())
 }
 
 // isLocalID returns a watcher filter func that rejects ids not specific
@@ -81,13 +76,4 @@ func (st *State) strictLocalID(ID string) (string, error) {
 // filtering where possible. See modelStateCollection below.
 func (st *State) getCollection(name string) (mongo.Collection, func()) {
 	return st.database.GetCollection(name)
-}
-
-// getRawCollection returns the named mgo Collection. As no automatic
-// model filtering is performed by the returned collection it
-// should be rarely used. getCollection() should be used in almost all
-// cases.
-func (st *State) getRawCollection(name string) (*mgo.Collection, func()) {
-	collection, closer := st.database.GetCollection(name)
-	return collection.Writeable().Underlying(), closer
 }
