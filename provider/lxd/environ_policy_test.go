@@ -10,11 +10,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/testing"
 )
 
 type environPolSuite struct {
@@ -26,7 +26,7 @@ var _ = gc.Suite(&environPolSuite{})
 func (s *environPolSuite) TestPrecheckInstanceOkay(c *gc.C) {
 	cons := constraints.Value{}
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -34,7 +34,7 @@ func (s *environPolSuite) TestPrecheckInstanceOkay(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
 	cons := constraints.Value{}
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CheckNoAPI(c)
@@ -43,7 +43,7 @@ func (s *environPolSuite) TestPrecheckInstanceAPI(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=some-instance-type")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, gc.ErrorMatches, `LXD does not support instance types.*`)
 }
@@ -51,7 +51,7 @@ func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	cons := constraints.MustParse("root-disk=1G")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -61,7 +61,7 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 
 	cons := constraints.MustParse("arch=i386")
 	placement := ""
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -69,7 +69,7 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	cons := constraints.Value{}
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(testing.FakeDefaultSeries, cons, placement)
+	err := s.Env.PrecheckInstance(series.LatestLts(), cons, placement)
 
 	c.Check(err, gc.ErrorMatches, `unknown placement directive: .*`)
 }

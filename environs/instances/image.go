@@ -61,6 +61,7 @@ type InstanceSpec struct {
 // which instances can be run. The InstanceConstraint is used to filter allInstanceTypes and then a suitable image
 // compatible with the matching instance types is returned.
 func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
+	logger.Debugf("instance constraints %+v", ic)
 	if len(possibleImages) == 0 {
 		return nil, fmt.Errorf("no %q images in %s with arches %s",
 			ic.Series, ic.Region, ic.Arches)

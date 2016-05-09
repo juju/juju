@@ -12,18 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 type maas2Suite struct {
 	baseProviderSuite
-}
-
-func (suite *maas2Suite) SetUpTest(c *gc.C) {
-	suite.baseProviderSuite.SetUpTest(c)
-	suite.SetFeatureFlags(feature.MAAS2)
 }
 
 func (suite *maas2Suite) injectController(controller gomaasapi.Controller) {

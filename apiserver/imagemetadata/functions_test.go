@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -48,7 +48,7 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 		cloudimagemetadata.MetadataAttributes{
 			Stream: "released",
 			Source: "custom",
-			Series: config.LatestLtsSeries(),
+			Series: series.LatestLts(),
 			Arch:   "amd64",
 			Region: "dummy_region",
 		},

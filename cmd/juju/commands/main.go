@@ -104,11 +104,12 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
-func Main(args []string) {
+// This function returns the exit code, for main to pass to os.Exit.
+func Main(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	if shouldWarnJuju1x() {
@@ -117,7 +118,7 @@ func Main(args []string) {
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	for i := range x {
@@ -125,11 +126,11 @@ func Main(args []string) {
 	}
 	if len(args) == 2 && args[1] == string(x[0:2]) {
 		os.Stdout.Write(x[2:])
-		os.Exit(0)
+		return 0
 	}
 
 	jcmd := NewJujuCommand(ctx)
-	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+	return cmd.Main(jcmd, ctx, args[1:])
 }
 
 func warnJuju1x() {
@@ -147,7 +148,7 @@ func warnJuju1x() {
     Welcome to Juju %s. If you meant to use Juju %s you can continue using it
     with the command %s e.g. '%s switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
-    `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+`[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
 }
 
 var execCommand = exec.Command

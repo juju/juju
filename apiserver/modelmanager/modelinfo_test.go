@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -83,7 +84,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		ControllerUUID: coretesting.ModelTag.Id(),
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
-		DefaultSeries:  coretesting.FakeDefaultSeries,
+		DefaultSeries:  series.LatestLts(),
 		Life:           params.Dying,
 		Status: params.EntityStatus{
 			Status: status.StatusDestroying,

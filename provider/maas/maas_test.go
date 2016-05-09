@@ -65,7 +65,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
+	s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
 	s.SetFeatureFlags(feature.AddressAllocation)
 }
 
