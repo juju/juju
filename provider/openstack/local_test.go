@@ -880,7 +880,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el", "arm64"})
 }
 
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
@@ -912,9 +912,13 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=arm64")
+
+	// s390x is a valid architecture in 2.x but AFAICT not supported for 1.x.
+	// There is no s390x image created in export_test.go so this remains an
+	// invalid constraint in this test.
+	cons := constraints.MustParse("arch=s390x")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=s390x\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

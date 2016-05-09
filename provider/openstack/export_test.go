@@ -109,6 +109,8 @@ var indexData = `
 		   "format": "products:1.0",
 		   "products": [
 			"com.ubuntu.cloud:server:16.04:amd64",
+			"com.ubuntu.cloud:server:16.04:arm64",
+			"com.ubuntu.cloud:server:16.04:ppc64el",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:14.04:i386",
 			"com.ubuntu.cloud:server:14.04:ppc64el",
@@ -160,6 +162,44 @@ var imagesData = `
            }
          },
          "pubname": "ubuntu-xenial-16.04-amd64-server-20161111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:arm64": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "arm64",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604arm64": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604arm64"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-arm64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:ppc64el": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "ppc64el",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604ppc64el": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604ppc64el"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-ppc64el-server-20121111",
          "label": "release"
        }
      }
