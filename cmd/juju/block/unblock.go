@@ -17,14 +17,18 @@ import (
 // NewUnblockCommand returns a new command that removes the block from
 // the specified operation.
 func NewUnblockCommand() cmd.Command {
-	return modelcmd.Wrap(&unblockCommand{})
+	c := &unblockCommand{}
+	c.getClient = func() (UnblockClientAPI, error) {
+		return getBlockAPI(&c.ModelCommandBase)
+	}
+	return modelcmd.Wrap(c)
 }
 
 // unblockCommand removes the block from desired operation.
 type unblockCommand struct {
 	modelcmd.ModelCommandBase
 	operation string
-	client    UnblockClientAPI
+	getClient func() (UnblockClientAPI, error)
 }
 
 var (
@@ -151,13 +155,9 @@ func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
 // Run unblocks previously blocked commands.
 // Satisfying Command interface.
 func (c *unblockCommand) Run(_ *cmd.Context) error {
-	client := c.client
-	if client == nil {
-		var err error
-		client, err = getBlockAPI(&c.ModelCommandBase)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	client, err := c.getClient()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
