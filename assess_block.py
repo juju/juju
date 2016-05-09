@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""TODO: add rough description of what is assessed in this module."""
+"""Assess juju blocks prevent users from making changes and models"""
 
 from __future__ import print_function
 
@@ -9,6 +9,9 @@ import sys
 
 import yaml
 
+from assess_min_version import (
+    JujuAssertionError
+)
 from deploy_stack import (
     BootstrapManager,
 )
@@ -33,28 +36,26 @@ def get_block_list(client):
 def assess_block(client):
     """Test Block Functionality: block/unblock all-changes."""
     block_list = get_block_list(client)
-    client.deploy('mediawiki-single')
     client.wait_for_started()
     if block_list != [
             {'block': 'destroy-model', 'enabled': False},
             {'block': 'remove-object', 'enabled': False},
             {'block': 'all-changes', 'enabled': False}]:
-        raise AssertionError(block_list)
-    client.juju('expose', ('mediawiki',))
+        raise JujuAssertionError(block_list)
     client.juju('block all-changes', ())
     block_list = get_block_list(client)
     if block_list != [
             {'block': 'destroy-model', 'enabled': False},
             {'block': 'remove-object', 'enabled': False},
             {'block': 'all-changes', 'enabled': True, 'message': ''}]:
-        raise AssertionError(block_list)
+        raise JujuAssertionError(block_list)
     client.juju('unblock all-changes', ())
     block_list = get_block_list(client)
     if block_list != [
             {'block': 'destroy-model', 'enabled': False},
             {'block': 'remove-object', 'enabled': False},
             {'block': 'all-changes', 'enabled': False}]:
-        raise AssertionError(block_list)
+        raise JujuAssertionError(block_list)
 
 
 def parse_args(argv):

@@ -80,9 +80,7 @@ class TestAssess(TestCase):
                 {'block': 'all-changes', 'enabled': False}]),
             ]
         assess_block(mock_client)
-        mock_client.deploy.assert_called_once_with('mediawiki-single')
         mock_client.wait_for_started.assert_called_once_with()
         self.assertEqual([
-            call('expose', ('mediawiki',)),
             call('block all-changes', ()),
             call('unblock all-changes', ())], mock_client.juju.mock_calls)
