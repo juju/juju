@@ -32,7 +32,7 @@ var scpTests = []struct {
 		args:  []string{"0:foo", "."},
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo .",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -40,7 +40,7 @@ var scpTests = []struct {
 		args:  []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo . -rv -o SomeOption",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -48,7 +48,7 @@ var scpTests = []struct {
 		args:  []string{"foo", "0:"},
 		expected: argsSpec{
 			args:            "foo ubuntu@0.public:",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -60,7 +60,7 @@ var scpTests = []struct {
 		args:  []string{"--no-host-key-checks", "foo", "1:"},
 		expected: argsSpec{
 			args:            "foo ubuntu@1.public:",
-			hostKeyChecking: false,
+			hostKeyChecking: "no",
 			knownHosts:      "null",
 		},
 	}, {
@@ -68,7 +68,7 @@ var scpTests = []struct {
 		args:  []string{"foo", "0:", "-r", "-v"},
 		expected: argsSpec{
 			args:            "foo ubuntu@0.public: -r -v",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -76,7 +76,7 @@ var scpTests = []struct {
 		args:  []string{"0:foo", "mysql/0:/foo"},
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -84,7 +84,7 @@ var scpTests = []struct {
 		args:  []string{"0:foo", "mysql/0:/foo", "-q"},
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo -q",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -96,7 +96,7 @@ var scpTests = []struct {
 		args:  []string{"file1", "file2", "mysql/0:/foo/"},
 		expected: argsSpec{
 			args:            "file1 file2 ubuntu@0.public:/foo/",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -104,7 +104,7 @@ var scpTests = []struct {
 		args:  []string{"0:foo", "mysql/0:", "-r", "-v", "-q", "-l5"},
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public: -r -v -q -l5",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -112,7 +112,7 @@ var scpTests = []struct {
 		args:  []string{"2:foo", "bar"},
 		expected: argsSpec{
 			args:            `ubuntu@[2001:db8::1]:foo bar`,
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "2",
 		},
 	}, {
@@ -121,7 +121,7 @@ var scpTests = []struct {
 		expected: argsSpec{
 			args:            "ubuntu@0.private:foo ubuntu@0.private:/bar",
 			withProxy:       true,
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -129,7 +129,7 @@ var scpTests = []struct {
 		args:  []string{"--", "-r", "-v", "mysql/0:foo", "2:", "-q", "-l5"},
 		expected: argsSpec{
 			args:            "-r -v ubuntu@0.public:foo ubuntu@[2001:db8::1]: -q -l5",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0,2",
 		},
 	}, {
@@ -137,7 +137,7 @@ var scpTests = []struct {
 		args:  []string{"sam@mysql/0:foo", "."},
 		expected: argsSpec{
 			args:            "sam@0.public:foo .",
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 		},
 	}, {
@@ -149,7 +149,7 @@ var scpTests = []struct {
 		args:  []string{"some.host:foo", "."},
 		expected: argsSpec{
 			args:            "ubuntu@some.host:foo .",
-			hostKeyChecking: true,
+			hostKeyChecking: "",
 		},
 	}, {
 		about: "scp with arbitrary host name and an entity",
@@ -160,7 +160,7 @@ var scpTests = []struct {
 		args:  []string{"--no-host-key-checks", "some.host:foo", "0:"},
 		expected: argsSpec{
 			args:            "ubuntu@some.host:foo ubuntu@0.public:",
-			hostKeyChecking: false,
+			hostKeyChecking: "no",
 			knownHosts:      "null",
 		},
 	},

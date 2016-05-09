@@ -30,7 +30,7 @@ var sshTests = []struct {
 		about: "connect to machine 0",
 		args:  []string{"0"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			args:            "ubuntu@0.public",
@@ -40,7 +40,7 @@ var sshTests = []struct {
 		about: "connect to machine 0 and pass extra arguments",
 		args:  []string{"0", "uname", "-a"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			args:            "ubuntu@0.public uname -a",
@@ -50,7 +50,7 @@ var sshTests = []struct {
 		about: "connect to machine 0 with no pseudo-tty",
 		args:  []string{"--pty=false", "0"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       false,
 			args:            "ubuntu@0.public",
@@ -65,7 +65,7 @@ var sshTests = []struct {
 		about: "connect to machine 1 which has no SSH host keys, no host key checks",
 		args:  []string{"--no-host-key-checks", "1"},
 		expected: argsSpec{
-			hostKeyChecking: false,
+			hostKeyChecking: "no",
 			knownHosts:      "null",
 			enablePty:       true,
 			args:            "ubuntu@1.public",
@@ -75,8 +75,10 @@ var sshTests = []struct {
 		about: "connect to arbitrary (non-entity) hostname",
 		args:  []string{"foo@some.host"},
 		expected: argsSpec{
-			// Strict host key checking but with the user's own known_hosts
-			hostKeyChecking: true,
+			// In this case, use the user's own known_hosts and own
+			// StrictHostKeyChecking config.
+			hostKeyChecking: "",
+			knownHosts:      "",
 			enablePty:       true,
 			args:            "foo@some.host",
 		},
@@ -85,7 +87,7 @@ var sshTests = []struct {
 		about: "connect to unit mysql/0",
 		args:  []string{"mysql/0"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			args:            "ubuntu@0.public",
@@ -95,7 +97,7 @@ var sshTests = []struct {
 		about: "connect to unit mysql/0 as the mongo user",
 		args:  []string{"mongo@mysql/0"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			args:            "mongo@0.public",
@@ -105,7 +107,7 @@ var sshTests = []struct {
 		about: "connect to unit mysql/0 and pass extra arguments",
 		args:  []string{"mysql/0", "ls", "/"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			args:            "ubuntu@0.public ls /",
@@ -115,7 +117,7 @@ var sshTests = []struct {
 		about: "connect to unit mysql/0 with proxy",
 		args:  []string{"--proxy=true", "mysql/0"},
 		expected: argsSpec{
-			hostKeyChecking: true,
+			hostKeyChecking: "yes",
 			knownHosts:      "0",
 			enablePty:       true,
 			withProxy:       true,
@@ -153,7 +155,7 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
-		hostKeyChecking: true,
+		hostKeyChecking: "yes",
 		knownHosts:      "0",
 		enablePty:       true,
 		withProxy:       true,

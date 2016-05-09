@@ -24,7 +24,7 @@ import (
 type argsSpec struct {
 	// hostKeyChecking specifies the expected StrictHostKeyChecking
 	// option.
-	hostKeyChecking bool
+	hostKeyChecking string
 
 	// withProxy specifies if the juju ProxyCommand option is
 	// expected.
@@ -61,11 +61,10 @@ func (s *argsSpec) check(c *gc.C, output string) {
 	expect := func(part string) {
 		expected = append(expected, part)
 	}
-	if s.hostKeyChecking {
-		expect("-o StrictHostKeyChecking yes")
-	} else {
-		expect("-o StrictHostKeyChecking no")
+	if s.hostKeyChecking != "" {
+		expect("-o StrictHostKeyChecking " + s.hostKeyChecking)
 	}
+
 	if s.withProxy {
 		expect("-o ProxyCommand juju ssh --proxy=false --no-host-key-checks " +
 			"--pty=false localhost nc %h %p")
