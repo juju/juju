@@ -1293,6 +1293,13 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func getArgs(c *gc.C, calls []jt.StubCall) interface{} {
+	c.Assert(calls, gc.HasLen, 1)
+	args := calls[0].Args
+	c.Assert(args, gc.HasLen, 1)
+	return args[0]
+}
+
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c *gc.C) {
 	subnet := fakeSubnet{
 		id:      3,
@@ -1323,16 +1330,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	}
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
-	calls := machine.Calls()
-	c.Assert(calls, gc.HasLen, 1)
-	args := calls[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	maasArgs, ok := args[0].(gomaasapi.CreateMachineDeviceArgs)
+	args := getArgs(c, machine.Calls())
+	maasArgs, ok := args.(gomaasapi.CreateMachineDeviceArgs)
 	c.Assert(ok, jc.IsTrue)
-	subnetArg := maasArgs.Subnet
-	c.Assert(subnetArg.CIDR(), gc.Equals, "10.20.19.0/24")
 	expected := gomaasapi.CreateMachineDeviceArgs{
-		Subnet:        subnetArg,
+		Subnet:        subnet,
 		MACAddress:    "DEADBEEF",
 		InterfaceName: "eth0",
 	}
@@ -1420,11 +1422,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	}
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
 	c.Assert(err, gc.ErrorMatches, "creating device interface: boom")
-	calls := device.Calls()
-	c.Assert(calls, gc.HasLen, 1)
-	args := calls[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	maasArgs, ok := args[0].(gomaasapi.CreateInterfaceArgs)
+	args := getArgs(c, device.Calls())
+	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
 	c.Assert(ok, jc.IsTrue)
 	expected := gomaasapi.CreateInterfaceArgs{
 		MACAddress: "DEADBEEE",
