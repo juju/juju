@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
@@ -38,6 +35,7 @@ import (
 
 type MainSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+	gitjujutesting.PatchExecHelper
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -176,155 +174,176 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	}
 }
 
-func (s *MainSuite) TestFirstRun2xFrom1x(c *gc.C) {
-	// patch out lookpath to always return a nil error (and thus indicates success).
-	s.PatchValue(&execLookPath, func(s string) (string, error) {
-		c.Assert(s, gc.Equals, "juju-1")
-		return "we ignore this anyway", nil
-	})
+func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
+	// Code should only run on ubuntu series, so patch out the series for
+	// when non-ubuntu OSes run this test.
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 
-	// patch out the exec.Command used to run juju-1 so that it runs our test helper instead.
-	s.PatchValue(&execCommand, func(command string, args ...string) *exec.Cmd {
-		cs := []string{"-test.run=TestFirstRun2xFrom1xHelper", "--", command}
-		cs = append(cs, args...)
-		cmd := exec.Command(os.Args[0], cs...)
-		cmd.Env = []string{"JUJU_WANT_HELPER_PROCESS=1"}
-		return cmd
+	argChan := make(chan []string, 1)
+
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
 	})
 
 	// remove the new juju-home and create a fake old juju home.
 	err := os.Remove(osenv.JujuXDGDataHome())
 	c.Assert(err, jc.ErrorIsNil)
-	oldhome := osenv.OldJujuHomeDir()
-	err = os.MkdirAll(oldhome, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(oldhome, "environments.yaml"), []byte("boo!"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	makeValidOldHome(c)
 
-	// dump stderr to a file so we can examine it without any wacky re-running
-	// of the executable (since we need to mock things out.)
-	stderr, err := os.OpenFile(filepath.Join(oldhome, "stderr"), os.O_RDWR|os.O_CREATE, 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	defer stderr.Close()
+	var code int
+	f := func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	}
 
-	// dump stdout to a file so it doesn't spam the test output.
-	stdout, err := os.OpenFile(filepath.Join(oldhome, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	stdout, stderr := gitjujutesting.CaptureOutput(c, f)
 
-	rc := runMain(stderr, stdout, []string{"juju", "version"})
-	c.Check(rc, gc.Equals, 0)
+	select {
+	case args := <-argChan:
+		c.Assert(args, gc.DeepEquals, []string{"juju-1", "version"})
+	default:
+		c.Fatalf("Exec function not called.")
+	}
 
-	_, err = stderr.Seek(0, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	output, err := ioutil.ReadAll(stderr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(output), gc.Equals, fmt.Sprintf(`
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, fmt.Sprintf(`
     Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
     with the command juju-1 e.g. 'juju-1 switch'.
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 `[1:], jujuversion.Current))
+	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
+	// Code should only run on ubuntu series, so pretend to be something else.
+	s.PatchValue(&series.HostSeries, func() string { return "win8" })
+
+	argChan := make(chan []string, 1)
+
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+
+	// remove the new juju-home and create a fake old juju home.
+	err := os.Remove(osenv.JujuXDGDataHome())
+	c.Assert(err, jc.ErrorIsNil)
+
+	makeValidOldHome(c)
+
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+
+	c.Assert(code, gc.Equals, 0)
+
+	assertNoArgs(c, argChan)
+
+	c.Check(string(stderr), gc.Equals, "")
+	checkVersionOutput(c, string(stdout))
 }
 
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
-	// patch out lookpath to always return a nil error (and thus indicates success).
-	s.PatchValue(&execLookPath, func(s string) (string, error) {
-		c.Assert(s, gc.Equals, "juju-1")
-		return "we ignore this anyway", nil
+	// Code should only rnu on ubuntu series, so patch out the series for
+	// when non-ubuntu OSes run this test.
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+
+	argChan := make(chan []string, 1)
+
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
 	})
 
 	// there should be a 2x home directory already created by the test setup.
 
 	// create a fake old juju home.
-	oldhome := osenv.OldJujuHomeDir()
-	err := os.MkdirAll(oldhome, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(oldhome, "environments.yaml"), []byte("boo!"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	makeValidOldHome(c)
 
-	// dump stderr to a file so we can examine it without any wacky re-running
-	// of the executable (since we need to mock things out.)
-	stderr, err := os.OpenFile(filepath.Join(oldhome, "stderr"), os.O_RDWR|os.O_CREATE, 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	defer stderr.Close()
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
 
-	// dump stdout to a file so it doesn't spam the test output.
-	stdout, err := os.OpenFile(filepath.Join(oldhome, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(code, gc.Equals, 0)
 
-	rc := runMain(stderr, stdout, []string{"juju", "version"})
-	c.Check(rc, gc.Equals, 0)
-
-	_, err = stderr.Seek(0, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	output, err := ioutil.ReadAll(stderr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(output), gc.Equals, "")
+	assertNoArgs(c, argChan)
+	c.Assert(string(stderr), gc.Equals, "")
+	checkVersionOutput(c, string(stdout))
 }
 
 func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
-	// patch out lookpath to always return a nil error (and thus indicates success).
-	s.PatchValue(&execLookPath, func(s string) (string, error) {
-		c.Assert(s, gc.Equals, "juju-1")
-		return "we ignore this anyway", nil
+	// Code should only rnu on ubuntu series, so patch out the series for
+	// when non-ubuntu OSes run this test.
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+
+	argChan := make(chan []string, 1)
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
 	})
 
 	// remove the new juju-home.
 	err := os.Remove(osenv.JujuXDGDataHome())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// create fake (empty) old juju home.
 	path := c.MkDir()
 	s.PatchEnvironment("JUJU_HOME", path)
 
-	outdir := c.MkDir()
-	// dump stderr to a file so we can examine it without any wacky re-running
-	// of the executable (since we need to mock things out.)
-	stderr, err := os.OpenFile(filepath.Join(outdir, "stderr"), os.O_RDWR|os.O_CREATE, 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	defer stderr.Close()
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
 
-	// dump stdout to a file so it doesn't spam the test output.
-	stdout, err := os.OpenFile(filepath.Join(outdir, "stdout"), os.O_RDWR|os.O_CREATE, 0600)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(code, gc.Equals, 0)
 
-	rc := runMain(stderr, stdout, []string{"juju", "version"})
-	c.Check(rc, gc.Equals, 0)
-
-	_, err = stderr.Seek(0, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	output, err := ioutil.ReadAll(stderr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(output), gc.Equals, "")
+	assertNoArgs(c, argChan)
+	c.Assert(string(stderr), gc.Equals, "")
+	checkVersionOutput(c, string(stdout))
 }
 
-func runMain(stderr, stdout *os.File, args []string) int {
-	// we don't use patchvalue here because we need these reset as soon as we
-	// leave this function, so we don't interfere with test output later.
-	origErr := os.Stderr
-	defer func() { os.Stderr = origErr }()
-	origOut := os.Stdout
-	defer func() { os.Stdout = origOut }()
-	os.Stderr = stderr
-	os.Stdout = stdout
-
-	return Main(args)
+func makeValidOldHome(c *gc.C) {
+	oldhome := osenv.OldJujuHomeDir()
+	err := os.MkdirAll(oldhome, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(oldhome, "environments.yaml"), []byte("boo!"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-// This is a test helper that only runs after getting executed by
-// MainSuite.TestFirstRun2xFrom1x.  It simulates running juju-1 version.
-func TestFirstRun2xFrom1xHelper(t *stdtesting.T) {
-	if os.Getenv("JUJU_WANT_HELPER_PROCESS") != "1" {
-		return
+func checkVersionOutput(c *gc.C, output string) {
+	ver := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
 	}
 
-	if !reflect.DeepEqual(os.Args[3:], []string{"juju-1", "version"}) {
-		fmt.Fprintf(os.Stderr, "unexpected command run: %q", os.Args[3:])
-		os.Exit(1)
-	}
+	c.Check(output, gc.Equals, ver.String()+"\n")
+}
 
-	fmt.Fprintf(os.Stdout, "1.25.0-trusty-amd64")
-	os.Exit(0)
+func assertNoArgs(c *gc.C, argChan <-chan []string) {
+	select {
+	case args := <-argChan:
+		c.Fatalf("Exec function called when it shouldn't have been (with args %q).", args)
+	default:
+		// this is the good path - there shouldn't be any args, which indicates
+		// the executable was not called.
+	}
 }
 
 var commandNames = []string{
