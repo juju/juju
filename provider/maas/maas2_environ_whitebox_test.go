@@ -1153,6 +1153,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 			},
 			parents:  []string{},
 			children: []string{"eth0.100", "eth0.250", "eth0.50"},
+			Stub:     &jt.Stub{},
 		},
 	}
 	newInterface := &fakeInterface{
@@ -1170,6 +1171,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 				mode:      "static",
 			},
 		},
+		Stub: &jt.Stub{},
 	}
 	device := &fakeDevice{
 		interfaceSet: deviceInterfaces,
@@ -1433,6 +1435,61 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c *gc.C) {
+	subnet := fakeSubnet{
+		id:      3,
+		space:   "freckles",
+		gateway: "10.20.19.2",
+		cidr:    "10.20.19.0/24",
+	}
+	subnet2 := fakeSubnet{
+		id:      4,
+		space:   "freckles",
+		gateway: "10.20.20.2",
+		cidr:    "10.20.20.0/24",
+		vlan:    fakeVLAN{vid: 66},
+	}
+	var env *maasEnviron
+	interface_ := &fakeInterface{Stub: &jt.Stub{}}
+	interface_.SetErrors(errors.New("boom"))
+	device := &fakeDevice{
+		Stub:         &jt.Stub{},
+		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
+		interface_:   interface_,
+		systemID:     "foo",
+	}
+	machine := &fakeMachine{
+		Stub:         &jt.Stub{},
+		systemID:     "1",
+		createDevice: device,
+	}
+	controller := &fakeController{
+		machines: []gomaasapi.Machine{machine},
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet, subnet2},
+			},
+		},
+	}
+	suite.injectController(controller)
+	env = suite.makeEnviron(c, nil)
+	prepared := []network.InterfaceInfo{
+		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
+		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
+	}
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, gc.ErrorMatches, "cannot link device interface to subnet: boom")
+	args := getArgs(c, interface_.Calls())
+	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)
+	c.Assert(ok, jc.IsTrue)
+	expected := gomaasapi.LinkSubnetArgs{
+		Mode:   gomaasapi.LinkModeStatic,
+		Subnet: subnet2,
+	}
+	c.Assert(maasArgs, jc.DeepEquals, expected)
+}
 func (suite *maas2EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 	controller := newFakeController()
 	env := suite.makeEnviron(c, controller)

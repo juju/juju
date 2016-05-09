@@ -359,6 +359,8 @@ type fakeInterface struct {
 	vlan       gomaasapi.VLAN
 	links      []gomaasapi.Link
 	macAddress string
+
+	*testing.Stub
 }
 
 func (v *fakeInterface) ID() int {
@@ -401,8 +403,9 @@ func (v *fakeInterface) MACAddress() string {
 	return v.macAddress
 }
 
-func (v *fakeInterface) LinkSubnet(gomaasapi.LinkSubnetArgs) error {
-	return nil
+func (v *fakeInterface) LinkSubnet(args gomaasapi.LinkSubnetArgs) error {
+	v.MethodCall(v, "LinkSubnet", args)
+	return v.NextErr()
 }
 
 type fakeLink struct {
