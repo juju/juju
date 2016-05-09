@@ -1,8 +1,9 @@
 """Tests for assess_block module."""
 
 import logging
-from mock import Mock, patch, call
 import StringIO
+
+from mock import Mock, patch, call
 import yaml
 
 from assess_block import (
@@ -62,7 +63,8 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_block(self):
-        mock_client = Mock(["juju", "wait_for_started","get_juju_output","deploy"])
+        mock_client = Mock([
+            "juju", "wait_for_started", "get_juju_output", "deploy"])
         mock_client.get_juju_output.side_effect = [
             yaml.dump([
                 {'block': 'destroy-model', 'enabled': False},
@@ -81,6 +83,6 @@ class TestAssess(TestCase):
         mock_client.deploy.assert_called_once_with('mediawiki-single')
         mock_client.wait_for_started.assert_called_once_with()
         self.assertEqual([
-            call('expose',('mediawiki',)),
-            call('block all-changes',()),
-            call('unblock all-changes',())],mock_client.juju.mock_calls)
+            call('expose', ('mediawiki',)),
+            call('block all-changes', ()),
+            call('unblock all-changes', ())], mock_client.juju.mock_calls)

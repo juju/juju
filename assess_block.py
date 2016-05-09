@@ -6,6 +6,7 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
+
 import yaml
 
 from deploy_stack import (
@@ -24,11 +25,13 @@ log = logging.getLogger("assess_block")
 
 
 def get_block_list(client):
+    """Return a list of blocks and their status."""
     return yaml.safe_load(client.get_juju_output(
         'block list', '--format', 'yaml'))
 
 
 def assess_block(client):
+    """Test Block Functionality: block/unblock all-changes."""
     block_list = get_block_list(client)
     client.deploy('mediawiki-single')
     client.wait_for_started()
@@ -56,10 +59,8 @@ def assess_block(client):
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="TODO: script info")
-    # TODO: Add additional positional arguments.
+    parser = argparse.ArgumentParser(description="Test Block Functionality")
     add_basic_testing_arguments(parser)
-    # TODO: Add additional optional arguments.
     return parser.parse_args(argv)
 
 
