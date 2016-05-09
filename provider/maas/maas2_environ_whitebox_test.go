@@ -1235,39 +1235,44 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, prepared)
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSpacesError(c *gc.C) {
-	controller := &fakeController{spacesError: errors.New("boom")}
+func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, controller *fakeController, prepared []network.InterfaceInfo, errorMatches string) {
+	if prepared == nil {
+		prepared = []network.InterfaceInfo{{}}
+	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), []network.InterfaceInfo{{}})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	c.Assert(err, gc.ErrorMatches, errorMatches)
+}
+
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSpacesError(c *gc.C) {
+	controller := &fakeController{spacesError: errors.New("boom")}
+	suite.assertAllocateContainerAddressesFails(c, controller, nil, "boom")
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMissing(c *gc.C) {
 	controller := &fakeController{}
-	suite.injectController(controller)
-	env := suite.makeEnviron(c, nil)
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), []network.InterfaceInfo{{}})
-	c.Assert(err, gc.ErrorMatches, "cannot find primary interface for container")
+	suite.assertAllocateContainerAddressesFails(c, controller, nil, "cannot find primary interface for container")
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceSubnetMissing(c *gc.C) {
 	controller := &fakeController{}
-	suite.injectController(controller)
-	env := suite.makeEnviron(c, nil)
 	prepared := []network.InterfaceInfo{{InterfaceName: "eth0"}}
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
-	c.Assert(err, gc.ErrorMatches, "primary NIC subnet  not found")
+	errorMatches := "primary NIC subnet  not found"
+	suite.assertAllocateContainerAddressesFails(c, controller, prepared, errorMatches)
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *gc.C) {
-	subnet := fakeSubnet{
-		id:      3,
+func makeFakeSubnet(id int) fakeSubnet {
+	return fakeSubnet{
+		id:      id,
 		space:   "freckles",
-		gateway: "10.20.19.2",
-		cidr:    "10.20.19.0/24",
+		gateway: fmt.Sprintf("10.20.%d.2", 16+id),
+		cidr:    fmt.Sprintf("10.20.%d.0/24", 16+id),
 	}
+}
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *gc.C) {
 	var env *maasEnviron
+	subnet := makeFakeSubnet(3)
 	checkMachinesArgs := func(args gomaasapi.MachinesArgs) {
 		expected := gomaasapi.MachinesArgs{
 			AgentName: env.ecfg().maasAgentName(),
@@ -1303,12 +1308,7 @@ func getArgs(c *gc.C, calls []jt.StubCall) interface{} {
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c *gc.C) {
-	subnet := fakeSubnet{
-		id:      3,
-		space:   "freckles",
-		gateway: "10.20.19.2",
-		cidr:    "10.20.19.0/24",
-	}
+	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	machine := &fakeMachine{
 		Stub:     &jt.Stub{},
