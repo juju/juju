@@ -8,10 +8,13 @@ from datetime import (
     timedelta,
 )
 import fnmatch
+import logging
 import os
 import sys
 
 import pytz
+
+__metaclass__ = type
 
 
 AZURE_SUBSCRIPTION_ID = "AZURE_SUBSCRIPTION_ID"
@@ -23,12 +26,37 @@ DEFAULT_RESOURCE_PREFIX = 'Default-'
 OLD_MACHINE_AGE = 6
 
 
+log = logging.getLogger("winazurearm")
+
+
 class ARMClient:
     """A collection of Azure RM clients."""
 
     def __init__(self, subscription_id, client_id, secret, tenant,
                  verbose=False, dry_run=False):
-        # Delay imports until need. Only the ARMClient needs the azure libs.
+        self.subscription_id = subscription_id
+        self.client_id = client_id
+        self.secret = secret
+        self.tenant = tenant
+        self.verbose = verbose
+        self.dry_run = dry_run
+        self.credentials = None
+        self.storage = None
+        self.resource = None
+        self.compute = None
+        self.network = None
+
+    def __eq__(self, other):
+        return (
+            self.subscription_id == other.subscription_id and
+            self.client_id == other.client_id and
+            self.secret == other.secret and
+            self.tenant == other.tenant and
+            self.verbose == other.verbose and
+            self.dry_run == other.dry_run)
+
+    def init_services(self):
+        """Delay imports and activation of Azure RM services until needed."""
         from azure.common.credentials import ServicePrincipalCredentials
         from azure.mgmt.resource.resources import (
             ResourceManagementClient,
@@ -46,19 +74,20 @@ class ARMClient:
             NetworkManagementClient,
             NetworkManagementClientConfiguration,
         )
-        self.verbose = verbose
-        self.dry_run = dry_run
-        credentials = ServicePrincipalCredentials(
-            client_id=client_id, secret=secret, tenant=tenant)
+        self.credentials = ServicePrincipalCredentials(
+            client_id=self.client_id, secret=self.secret, tenant=self.tenant)
         self.storage = StorageManagementClient(
-            StorageManagementClientConfiguration(credentials, subscription_id))
+            StorageManagementClientConfiguration(
+                self.credentials, self.subscription_id))
         self.resource = ResourceManagementClient(
             ResourceManagementClientConfiguration(
-                credentials, subscription_id))
+                self.credentials, self.subscription_id))
         self.compute = ComputeManagementClient(
-            ComputeManagementClientConfiguration(credentials, subscription_id))
+            ComputeManagementClientConfiguration(
+                self.credentials, self.subscription_id))
         self.network = NetworkManagementClient(
-            NetworkManagementClientConfiguration(credentials, subscription_id))
+            NetworkManagementClientConfiguration(
+                self.credentials, self.subscription_id))
 
 
 class ResourceGroupDetails:
@@ -229,14 +258,6 @@ def delete_instance(client, name_id, resource_group=None):
               name_id, group_names))
 
 
-def get_client(args):
-    """A helper to get the ARMClient that is easy to mock."""
-    client = ARMClient(
-        args.subscription_id, args.client_id, args.secret, args.tenant,
-        verbose=args.verbose, dry_run=args.dry_run)
-    return client
-
-
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser('Query and manage azure.')
@@ -298,7 +319,10 @@ def parse_args(args=None):
 
 def main(argv):
     args = parse_args(argv)
-    client = get_client(args)
+    client = ARMClient(
+        args.subscription_id, args.client_id, args.secret, args.tenant,
+        verbose=args.verbose, dry_run=args.dry_run)
+    client.init_services()
     if args.command == 'list-resources':
         list_resources(
             client, glob=args.filter, recursive=args.recursive, print_out=True)
