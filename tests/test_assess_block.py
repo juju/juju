@@ -1,8 +1,9 @@
 """Tests for assess_block module."""
 
 import logging
-from mock import Mock, patch
+from mock import Mock, patch, call
 import StringIO
+import yaml
 
 from assess_block import (
     assess_block,
@@ -61,9 +62,25 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_block(self):
-        mock_client = Mock(spec=["juju", "wait_for_started"])
+        mock_client = Mock(["juju", "wait_for_started","get_juju_output","deploy"])
+        mock_client.get_juju_output.side_effect = [
+            yaml.dump([
+                {'block': 'destroy-model', 'enabled': False},
+                {'block': 'remove-object', 'enabled': False},
+                {'block': 'all-changes', 'enabled': False}]),
+            yaml.dump([
+                {'block': 'destroy-model', 'enabled': False},
+                {'block': 'remove-object', 'enabled': False},
+                {'block': 'all-changes', 'enabled': True, 'message': ''}]),
+            yaml.dump([
+                {'block': 'destroy-model', 'enabled': False},
+                {'block': 'remove-object', 'enabled': False},
+                {'block': 'all-changes', 'enabled': False}]),
+            ]
         assess_block(mock_client)
-        mock_client.juju.assert_called_once_with(
-            'deploy', ('local:trusty/my-charm',))
+        mock_client.deploy.assert_called_once_with('mediawiki-single')
         mock_client.wait_for_started.assert_called_once_with()
-        self.assertNotIn("TODO", self.log_stream.getvalue())
+        self.assertEqual([
+            call('expose',('mediawiki',)),
+            call('block all-changes',()),
+            call('unblock all-changes',())],mock_client.juju.mock_calls)

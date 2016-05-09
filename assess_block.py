@@ -6,6 +6,7 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
+import yaml
 
 from deploy_stack import (
     BootstrapManager,
@@ -22,13 +23,35 @@ __metaclass__ = type
 log = logging.getLogger("assess_block")
 
 
+def get_block_list(client):
+    return yaml.safe_load(client.get_juju_output(
+        'block list', '--format', 'yaml'))
+
+
 def assess_block(client):
-    # Deploy charms, there are several under ./repository
-    client.juju("deploy", ('local:trusty/my-charm',))
-    # Wait for the deployment to finish.
+    block_list = get_block_list(client)
+    client.deploy('mediawiki-single')
     client.wait_for_started()
-    log.info("TODO: Add log line about any test")
-    # TODO: Add specific functional testing actions here.
+    if block_list != [
+            {'block': 'destroy-model', 'enabled': False},
+            {'block': 'remove-object', 'enabled': False},
+            {'block': 'all-changes', 'enabled': False}]:
+        raise AssertionError(block_list)
+    client.juju('expose', ('mediawiki',))
+    client.juju('block all-changes', ())
+    block_list = get_block_list(client)
+    if block_list != [
+            {'block': 'destroy-model', 'enabled': False},
+            {'block': 'remove-object', 'enabled': False},
+            {'block': 'all-changes', 'enabled': True, 'message': ''}]:
+        raise AssertionError(block_list)
+    client.juju('unblock all-changes', ())
+    block_list = get_block_list(client)
+    if block_list != [
+            {'block': 'destroy-model', 'enabled': False},
+            {'block': 'remove-object', 'enabled': False},
+            {'block': 'all-changes', 'enabled': False}]:
+        raise AssertionError(block_list)
 
 
 def parse_args(argv):
