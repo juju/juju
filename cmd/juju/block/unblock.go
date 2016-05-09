@@ -153,12 +153,13 @@ func (c *unblockCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *unblockCommand) Run(_ *cmd.Context) error {
 	client := c.client
 	if client == nil {
-		client, err := getBlockAPI(&c.ModelCommandBase)
+		var err error
+		client, err = getBlockAPI(&c.ModelCommandBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer client.Close()
 	}
+	defer client.Close()
 
 	return client.SwitchBlockOff(TypeFromOperation(c.operation))
 }
