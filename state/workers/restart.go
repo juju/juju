@@ -164,18 +164,18 @@ func (rw *RestartWorkers) run() error {
 // the replacer interface.
 func (rw *RestartWorkers) maintain(replacer replacer) {
 
-	// Signal to the worker that we've stopped trying to maintain
-	// a worker once we return from this func.
+	// Signal to the RestartWorkers that we've stopped trying to
+	// maintain a worker once we return from this func.
 	defer rw.wg.Done()
 
-	// First, just until the worker actually needs replacement.
+	// First, wait until the worker actually needs replacement.
 	select {
 	case <-rw.catacomb.Dying():
 		return
 	case <-replacer.needed():
 	}
 
-	// Then repeatedly try to create a replacement until success.
+	// Then try to create a replacement until we succeed...
 	for {
 		select {
 		case <-rw.catacomb.Dying():
@@ -187,14 +187,15 @@ func (rw *RestartWorkers) maintain(replacer replacer) {
 		}
 	}
 
-	// Signal to the worker that we'll be maintaining the new
-	// worker, effectively undoing the deferred Done above.
-	rw.wg.Add(1)
-
-	// Actually replace the worker...
+	// ...at which point it's OK to take the lock for long enough to
+	// set the replacement worker.
 	rw.mu.Lock()
-	defer rw.mu.Unlock()
 	replacer.replace()
+	rw.mu.Unlock()
+
+	// Finally, signal to the RestartWorkers that we'll maintain the
+	// new worker, effectively undoing the deferred Done above...
+	rw.wg.Add(1)
 
 	// ...and start again from the top.
 	go rw.maintain(replacer)

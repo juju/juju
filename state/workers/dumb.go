@@ -31,7 +31,7 @@ func NewDumbWorkers(config DumbConfig) (_ *DumbWorkers, err error) {
 	defer func() {
 		if err != nil {
 			if stopErr := result.Stop(); stopErr != nil {
-				logger.Errorf("while aborting DumbWorkers creation: %v", err)
+				logger.Errorf("while aborting DumbWorkers creation: %v", stopErr)
 			}
 		}
 	}()

@@ -211,7 +211,10 @@ func (st *State) ForModel(env names.ModelTag) (*State, error) {
 	return newState, nil
 }
 
-// start XXX ...
+// start makes a *State functional post-creation, by:
+//   * setting controllerTag and leaseClientId
+//   * starting lease managers and watcher backends
+//   * creating cloud metadata storage
 func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
 

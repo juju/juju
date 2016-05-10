@@ -3,19 +3,20 @@
 
 package worker
 
-import "github.com/juju/loggo"
+import (
+	"github.com/juju/loggo"
+)
 
 var logger = loggo.GetLogger("juju.worker")
 
 // Worker describes any type using internal resources.
 type Worker interface {
 
-	// Kill asks the worker to stop without necessarily
-	// waiting for it to do so.
+	// Kill asks the worker to stop and returns immediately.
 	Kill()
 
 	// Wait waits for the worker to exit and returns any
-	// error encountered when it was running.
+	// error encountered when it was running or stopping.
 	Wait() error
 }
 
@@ -28,7 +29,7 @@ func Stop(worker Worker) error {
 // Dead returns a channel that will be closed when the supplied
 // Worker has stopped.
 //
-// Don't be too casual about creating them -- for example, in a
+// Don't be too casual about calling Dead -- for example, in a
 // standard select loop, `case <-worker.Dead(w):` will create
 // one goroutine per iteration, which is... untidy.
 func Dead(worker Worker) <-chan struct{} {
