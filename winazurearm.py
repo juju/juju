@@ -215,11 +215,12 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
 
 
 def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
-    """Delete old resource groups."""
+    """Delete old resource groups and return the number deleted."""
     if not now:
         now = datetime.now(pytz.utc)
     resources = list_resources(client, glob=glob, recursive=True)
     pollers = []
+    deleted_count = 0
     for rgd in resources:
         name = rgd.name
         if not rgd.is_old(now, old_age):
@@ -227,6 +228,7 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
         log.debug('Deleting {}'.format(name))
         if not client.dry_run:
             poller = rgd.delete()
+            deleted_count += 1
             if poller:
                 pollers.append((name, poller))
             else:
@@ -236,9 +238,11 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
     for name, poller in pollers:
         log.debug('Waiting for {} to be deleted'.format(name))
         # It is an error to ask for a poller's result() when it is done.
-        # Calling result() makes the poller wait for done.
+        # Calling result() makes the poller wait for done, but the result
+        # of a delete operation is None.
         if not poller.done():
             poller.result()
+    return deleted_count
 
 
 def parse_args(args=None):

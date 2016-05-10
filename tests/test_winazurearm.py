@@ -164,7 +164,8 @@ class WinAzureARMTestCase(TestCase):
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
             # Delete resource groups that as 2 hours old.
-            delete_resources(client, 'juju-bar*', old_age=2, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
         self.assertIs(True, poller.is_done)
 
@@ -181,7 +182,8 @@ class WinAzureARMTestCase(TestCase):
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True) as d_mock:
             # Delete resource groups that as 8 hours old.
-            delete_resources(client, 'juju-bar*', old_age=8, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=8, now=now)
+        self.assertEqual(0, count)
         self.assertEqual(0, d_mock.call_count)
 
     def test_delete_resources_dry_run(self, is_mock):
@@ -198,7 +200,8 @@ class WinAzureARMTestCase(TestCase):
         poller = FakePoller()
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
-            delete_resources(client, 'juju-bar*', old_age=2, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(0, count)
         self.assertEqual(0, d_mock.call_count)
 
     def test_delete_resources_poller_already_done(self, is_mock):
@@ -215,7 +218,8 @@ class WinAzureARMTestCase(TestCase):
         poller.is_done = True
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
-            delete_resources(client, 'juju-bar*', old_age=2, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
 
     def test_delete_resources_poller_is_none(self, is_mock):
@@ -231,7 +235,8 @@ class WinAzureARMTestCase(TestCase):
         poller = None
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
-            delete_resources(client, 'juju-bar*', old_age=2, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
 
     def test_delete_resources_old_age_0(self, is_mock):
@@ -246,7 +251,8 @@ class WinAzureARMTestCase(TestCase):
                    autospec=True, return_value=poller) as d_mock:
             # Delete resource groups that as 0 hours old.
             # All matched resource_groups are deleted
-            delete_resources(client, 'juju-bar*', old_age=0, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=0, now=now)
+        self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
         self.assertIs(True, poller.is_done)
 
@@ -262,5 +268,6 @@ class WinAzureARMTestCase(TestCase):
         poller = FakePoller()
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
-            delete_resources(client, 'juju-bar*', old_age=2, now=now)
+            count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
