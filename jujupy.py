@@ -630,9 +630,12 @@ class EnvJujuClient:
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
-        args, env = self._sanitise_arg_and_environment(
-            command, sudo, args, include_e, timeout, extra_env
-        )
+        args = self._full_args(command, sudo, args, include_e=include_e,
+                               timeout=timeout)
+        log.info(' '.join(args))
+        env = self._shell_environ()
+        if extra_env is not None:
+            env.update(extra_env)
         if check:
             call_func = subprocess.check_call
         else:
@@ -664,25 +667,16 @@ class EnvJujuClient:
           `args`.
 
         """
-        args, env = self._sanitise_arg_and_environment(
-            command, sudo, args, include_e, timeout, extra_env
-        )
-
-        # pexpect.spawn expects a string. This is better than trying to extract
-        # command + args from the returned tuple.
-        command_string = ' '.join(args)
-        return pexpect.spawn(command_string, env=env)
-
-    def _sanitise_arg_and_environment(self, command, sudo, args, include_e,
-                                      timeout, extra_env):
-        """Return tuple containing full arguments and envvar details."""
         args = self._full_args(command, sudo, args, include_e=include_e,
                                timeout=timeout)
         log.info(' '.join(args))
         env = self._shell_environ()
         if extra_env is not None:
             env.update(extra_env)
-        return args, env
+        # pexpect.spawn expects a string. This is better than trying to extract
+        # command + args from the returned tuple.
+        command_string = ' '.join(args)
+        return pexpect.spawn(command_string, env=env)
 
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args
