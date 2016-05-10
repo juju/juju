@@ -245,9 +245,9 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
     return deleted_count
 
 
-def parse_args(args=None):
+def parse_args(argv):
     """Return the argument parser for this program."""
-    parser = ArgumentParser('Query and manage azure.')
+    parser = ArgumentParser(description='Query and manage azure.')
     parser.add_argument(
         '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
@@ -286,13 +286,14 @@ def parse_args(args=None):
         help='A glob pattern to match services to.')
     dr_parser = subparsers.add_parser(
         'delete-resources',
-        help='delete resource groups and their vm, networks, etc.')
+        help='delete old resource groups and their vm, networks, etc.')
     dr_parser.add_argument(
         '-o', '--old-age', default=OLD_MACHINE_AGE, type=int,
         help='Set old machine age to n hours.')
     dr_parser.add_argument(
-        'filter', help='An exact name or glob pattern to match services to.')
-    args = parser.parse_args(args)
+        'filter', default='*', nargs='?',
+        help='A glob pattern to select resource groups to delete.')
+    args = parser.parse_args(argv[1:])
     if not all(
             [args.subscription_id, args.client_id, args.secret, args.tenant]):
         log.error("$AZURE_SUBSCRIPTION_ID, $AZURE_CLIENT_ID, $AZURE_SECRET, "
@@ -316,4 +317,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv))

@@ -80,7 +80,7 @@ class WinAzureARMTestCase(TestCase):
     def test_main_list_resources(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.list_resources', autospec=True) as lr_mock:
-            code = main(['list-resources', 'juju-deploy*'])
+            code = main(['winazurearm.py', 'list-resources', 'juju-deploy*'])
         self.assertEqual(0, code)
         self.assertEqual(1, is_mock.call_count)
         lr_mock.assert_called_once_with(
@@ -89,7 +89,7 @@ class WinAzureARMTestCase(TestCase):
     def test_main_delete_resources(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_resources', autospec=True) as dr_mock:
-            code = main(['delete-resources', 'juju-deploy*'])
+            code = main(['winazurearm.py', 'delete-resources', 'juju-deploy*'])
         self.assertEqual(0, code)
         self.assertEqual(1, is_mock.call_count)
         dr_mock.assert_called_once_with(
@@ -98,7 +98,8 @@ class WinAzureARMTestCase(TestCase):
     def test_main_delete_resources_old_age(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_resources', autospec=True) as dr_mock:
-            code = main(['delete-resources', '-o', '2', 'juju-deploy*'])
+            code = main(['winazurearm.py', 'delete-resources',
+                         '-o', '2', 'juju-deploy*'])
         self.assertEqual(0, code)
         self.assertEqual(1, is_mock.call_count)
         dr_mock.assert_called_once_with(
