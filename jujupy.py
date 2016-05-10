@@ -2092,12 +2092,18 @@ class JujuData(SimpleEnvironment):
         try:
             with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
                 self.credentials = yaml.safe_load(f)
-        except IOError:
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read credentials file: {}'.format(str(e)))
             self.credentials = {}
         try:
             with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
                 self.clouds = yaml.safe_load(f)
-        except IOError:
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read clouds file: {}'.format(str(e)))
             self.clouds = {}
 
     @classmethod
