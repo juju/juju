@@ -1344,12 +1344,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMissing(c *gc.C) {
-	subnet := fakeSubnet{
-		id:      3,
-		space:   "freckles",
-		gateway: "10.20.19.2",
-		cidr:    "10.20.19.0/24",
-	}
+	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	device := &fakeDevice{
 		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
@@ -1381,19 +1376,9 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMis
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceError(c *gc.C) {
-	subnet := fakeSubnet{
-		id:      3,
-		space:   "freckles",
-		gateway: "10.20.19.2",
-		cidr:    "10.20.19.0/24",
-	}
-	subnet2 := fakeSubnet{
-		id:      4,
-		space:   "freckles",
-		gateway: "10.20.20.2",
-		cidr:    "10.20.20.0/24",
-		vlan:    fakeVLAN{vid: 66},
-	}
+	subnet := makeFakeSubnet(3)
+	subnet2 := makeFakeSubnet(4)
+	subnet2.vlan = fakeVLAN{vid: 66}
 	var env *maasEnviron
 	device := &fakeDevice{
 		Stub:         &jt.Stub{},
@@ -1436,19 +1421,9 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c *gc.C) {
-	subnet := fakeSubnet{
-		id:      3,
-		space:   "freckles",
-		gateway: "10.20.19.2",
-		cidr:    "10.20.19.0/24",
-	}
-	subnet2 := fakeSubnet{
-		id:      4,
-		space:   "freckles",
-		gateway: "10.20.20.2",
-		cidr:    "10.20.20.0/24",
-		vlan:    fakeVLAN{vid: 66},
-	}
+	subnet := makeFakeSubnet(3)
+	subnet2 := makeFakeSubnet(4)
+	subnet2.vlan = fakeVLAN{vid: 66}
 	var env *maasEnviron
 	interface_ := &fakeInterface{Stub: &jt.Stub{}}
 	interface_.SetErrors(errors.New("boom"))
