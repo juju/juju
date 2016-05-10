@@ -8,6 +8,7 @@ import logging
 import os
 import pexpect
 import sys
+import tempfile
 
 from textwrap import dedent
 
@@ -50,10 +51,13 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """
     user = 'testing_user'
     with temp_dir() as tmp_dir:
+        tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
+        tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_dir), juju_bin, False)
+            JujuData('local', juju_home=tmp_juju_home), juju_bin, False)
 
-        env_var_changes, expected_details = cloud_details_fn(user, tmp_dir)
+        env_var_changes, expected_details = cloud_details_fn(
+            user, tmp_scratch_dir)
         # Inject well known username.
         env_var_changes.update({'USER': user})
 
