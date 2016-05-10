@@ -238,13 +238,16 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
+	clock := GetClock()
 	factory := workersFactory{
 		st:    st,
-		clock: GetClock(),
+		clock: clock,
 	}
-	workers, err := workers.NewDumbWorkers(workers.DumbConfig{
+	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
 		Factory: factory,
 		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
+		Clock:   clock,
+		Delay:   time.Second,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create standard state workers")

@@ -47,8 +47,6 @@ func NewRestartWorkers(config RestartConfig) (*RestartWorkers, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// dw.Stop not deferred, handled in single error branch below.
-	// this should change if this constructor grows.
 
 	rw := &RestartWorkers{
 		config:  config,
@@ -57,11 +55,9 @@ func NewRestartWorkers(config RestartConfig) (*RestartWorkers, error) {
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &rw.catacomb,
 		Work: rw.run,
+		Init: []worker.Worker{dw},
 	})
 	if err != nil {
-		if stopErr := dw.Stop(); stopErr != nil {
-			config.Logger.Errorf("while stopping initial workers: %v", stopErr)
-		}
 		return nil, errors.Trace(err)
 	}
 	return rw, nil
@@ -109,9 +105,7 @@ func (rw *RestartWorkers) SingularManager() LeaseManager {
 	return rw.workers.singularWorker
 }
 
-// Kill is part of the worker.Worker interface, and also part of the
-// Workers interface, and luckily the meaning of the former is
-// compatible with that of the latter.
+// Kill is part of the worker.Worker interface.
 func (rw *RestartWorkers) Kill() {
 	rw.catacomb.Kill(nil)
 }
@@ -119,11 +113,6 @@ func (rw *RestartWorkers) Kill() {
 // Wait is part of the worker.Worker interface.
 func (rw *RestartWorkers) Wait() error {
 	return rw.catacomb.Wait()
-}
-
-// Stop is part of the Workers interface.
-func (rw *RestartWorkers) Stop() error {
-	return worker.Stop(rw)
 }
 
 func (rw *RestartWorkers) run() error {
@@ -150,14 +139,17 @@ func (rw *RestartWorkers) run() error {
 			target:  &rw.workers.singularWorker,
 		},
 	}
+
+	// begin critical section: cannot touch workers without mutex
 	for _, replacer := range replacers {
 		rw.wg.Add(1)
 		go rw.maintain(replacer)
 	}
-
 	<-rw.catacomb.Dying()
 	rw.wg.Wait()
-	return rw.workers.Stop()
+	// end critical section: potential workers writes all finished
+
+	return worker.Stop(rw.workers)
 }
 
 // maintain drives a replacer. See commentary in func, and docs on

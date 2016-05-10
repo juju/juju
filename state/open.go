@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker"
 )
 
 // Open connects to the server described by the given
@@ -287,9 +288,6 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 
-	// TODO(fwereade): we have no defence against these components failing
-	// and leaving other parts of state going. They should be managed by a
-	// dependency.Engine (or perhaps worker.Runner).
 	var errs []error
 	handle := func(name string, err error) {
 		if err != nil {
@@ -297,7 +295,7 @@ func (st *State) Close() (err error) {
 		}
 	}
 	if st.workers != nil {
-		handle("standard workers", st.workers.Stop())
+		handle("standard workers", worker.Stop(st.workers))
 	}
 
 	st.mu.Lock()

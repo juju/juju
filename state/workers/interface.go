@@ -17,18 +17,12 @@ import (
 //
 // See the DumbWorkers and RestartWorkers types for implementations.
 type Workers interface {
+	worker.Worker
+
 	TxnLogWatcher() TxnLogWatcher
 	PresenceWatcher() PresenceWatcher
 	LeadershipManager() LeaseManager
 	SingularManager() LeaseManager
-
-	// Kill causes the lease manager workers to start shutting down,
-	// and not to be restarted. See the client (HackLeadership) for
-	// an explanation.
-	Kill()
-
-	// Stop stops all the workers and returns any error encountered.
-	Stop() error
 }
 
 // Factory supplies implementations of various workers used in state,
@@ -83,7 +77,7 @@ type PresenceWatcher interface {
 	Dead() <-chan struct{}
 
 	// horrible hack for goosing it into activity. not clear why
-	// this is used in place of StartSync, but it is.
+	// this is used by state in place of StartSync, but it is.
 	Sync()
 
 	// presence-reading and -watching

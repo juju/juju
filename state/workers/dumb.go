@@ -5,8 +5,10 @@ package workers
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
+
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 type DumbConfig struct {
@@ -27,45 +29,60 @@ func NewDumbWorkers(config DumbConfig) (_ *DumbWorkers, err error) {
 	}
 	logger := config.Logger
 
-	result := &DumbWorkers{config: config}
+	w := &DumbWorkers{config: config}
 	defer func() {
-		if err != nil {
-			if stopErr := result.Stop(); stopErr != nil {
-				logger.Errorf("while aborting DumbWorkers creation: %v", stopErr)
-			}
+		if err == nil {
+			return
+		}
+		if cleanupErr := w.cleanup(); cleanupErr != nil {
+			logger.Errorf("while aborting DumbWorkers creation: %v", cleanupErr)
+
 		}
 	}()
 
 	logger.Debugf("starting leadership lease manager")
-	result.leadershipWorker, err = config.Factory.NewLeadershipWorker()
+	w.leadershipWorker, err = config.Factory.NewLeadershipWorker()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create leadership lease manager")
 	}
 
 	logger.Debugf("starting singular lease manager")
-	result.singularWorker, err = config.Factory.NewSingularWorker()
+	w.singularWorker, err = config.Factory.NewSingularWorker()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create singular lease manager")
 	}
 
 	logger.Debugf("starting transaction log watcher")
-	result.txnLogWorker, err = config.Factory.NewTxnLogWorker()
+	w.txnLogWorker, err = config.Factory.NewTxnLogWorker()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create transaction log watcher")
 	}
 
 	logger.Debugf("starting presence watcher")
-	result.presenceWorker, err = config.Factory.NewPresenceWorker()
+	w.presenceWorker, err = config.Factory.NewPresenceWorker()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create presence watcher")
 	}
 
-	return result, nil
+	// note that we specifically *don't* want to use catacomb's
+	// worker-tracking features like Add and Init, because we want
+	// this type to live until externally killed, regardless of the
+	// state of the inner workers. We're just using catacomb because
+	// it's slightly safer than tomb.
+	err = catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.run,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 // DumbWorkers holds references to standard state workers.
 type DumbWorkers struct {
 	config           DumbConfig
+	catacomb         catacomb.Catacomb
 	txnLogWorker     TxnLogWorker
 	presenceWorker   PresenceWorker
 	leadershipWorker LeaseWorker
@@ -92,8 +109,25 @@ func (dw *DumbWorkers) SingularManager() LeaseManager {
 	return dw.singularWorker
 }
 
-// Stop is part of the Workers interface.
-func (dw *DumbWorkers) Stop() error {
+// Kill is part of the worker.Worker interface.
+func (dw *DumbWorkers) Kill() {
+	dw.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (dw *DumbWorkers) Wait() error {
+	return dw.catacomb.Wait()
+}
+
+func (dw *DumbWorkers) run() error {
+	<-dw.catacomb.Dying()
+	if err := dw.cleanup(); err != nil {
+		return errors.Trace(err)
+	}
+	return dw.catacomb.ErrDying()
+}
+
+func (dw *DumbWorkers) cleanup() error {
 	var errs []error
 	handle := func(name string, w worker.Worker) {
 		if w == nil {
@@ -103,23 +137,18 @@ func (dw *DumbWorkers) Stop() error {
 			errs = append(errs, errors.Annotatef(err, "error stopping %s", name))
 		}
 	}
+
 	handle("transaction log watcher", dw.txnLogWorker)
 	handle("presence watcher", dw.presenceWorker)
 	handle("leadership lease manager", dw.leadershipWorker)
 	handle("singular lease manager", dw.singularWorker)
-
 	if len(errs) > 0 {
 		for _, err := range errs[1:] {
 			dw.config.Logger.Errorf("while stopping state workers: %v", err)
 		}
 		return errs[0]
 	}
+
 	dw.config.Logger.Debugf("stopped state workers without error")
 	return nil
-}
-
-// Kill is part of the Workers interface.
-func (dw *DumbWorkers) Kill() {
-	dw.leadershipWorker.Kill()
-	dw.singularWorker.Kill()
 }
