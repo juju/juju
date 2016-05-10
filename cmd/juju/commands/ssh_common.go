@@ -243,7 +243,8 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		"--no-host-key-checks",
 		"--pty=false",
 		apiServerHost,
-		"nc", "%h", "%p",
+		"-q",
+		"nc %h %p",
 	)
 	return nil
 }

@@ -67,7 +67,7 @@ func (s *argsSpec) check(c *gc.C, output string) {
 
 	if s.withProxy {
 		expect("-o ProxyCommand juju ssh --proxy=false --no-host-key-checks " +
-			"--pty=false localhost nc %h %p")
+			"--pty=false localhost -q \"nc %h %p\"")
 	}
 	expect("-o PasswordAuthentication no -o ServerAliveInterval 30")
 	if s.enablePty {
