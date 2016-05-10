@@ -37,10 +37,11 @@ def assess_block(client):
     """Test Block Functionality: block/unblock all-changes."""
     block_list = get_block_list(client)
     client.wait_for_started()
-    if block_list != [
-            {'block': 'destroy-model', 'enabled': False},
-            {'block': 'remove-object', 'enabled': False},
-            {'block': 'all-changes', 'enabled': False}]:
+    expected_none_blocked = [
+        {'block': 'destroy-model', 'enabled': False},
+        {'block': 'remove-object', 'enabled': False},
+        {'block': 'all-changes', 'enabled': False}]
+    if block_list != expected_none_blocked:
         raise JujuAssertionError(block_list)
     client.juju('block all-changes', ())
     block_list = get_block_list(client)
@@ -51,10 +52,7 @@ def assess_block(client):
         raise JujuAssertionError(block_list)
     client.juju('unblock all-changes', ())
     block_list = get_block_list(client)
-    if block_list != [
-            {'block': 'destroy-model', 'enabled': False},
-            {'block': 'remove-object', 'enabled': False},
-            {'block': 'all-changes', 'enabled': False}]:
+    if block_list != expected_none_blocked:
         raise JujuAssertionError(block_list)
 
 
