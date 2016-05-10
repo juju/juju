@@ -41,7 +41,7 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
     :param juju_bin: The full path to the juju binary to use for the test run.
-    :para cloud_details_fn: A callable that takes the argument 'user' and
+    :param cloud_details_fn: A callable that takes the argument 'user' and
       'tmp_dir' that returns a tuple of:
         (dict -> environment variable changse,
         dict -> expected credential details)

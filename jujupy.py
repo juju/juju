@@ -644,7 +644,6 @@ class EnvJujuClient:
             rval = call_func(args)
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
-
         return rval
 
     def expect(self, command, args=(), sudo=False, include_e=True,
@@ -654,7 +653,7 @@ class EnvJujuClient:
         The interactive command ability is provided by using pexpect.
 
         :param command: String of the juju command to run.
-        :param args: Iterable containing arguments for the juju `command`.
+        :param args: Tuple containing arguments for the juju `command`.
         :param sudo: Whether to call `command` using sudo.
         :param include_e: Boolean regarding supplying the juju environment to
           `command`.
