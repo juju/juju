@@ -18,6 +18,7 @@ from assess_user_grant_revoke import (
     assert_write,
     assess_user_grant_revoke,
     create_cloned_environment,
+    JujuAssertionError,
     main,
     parse_args,
     register_user,
@@ -124,17 +125,25 @@ class TestAsserts(TestCase):
         fake_client = FakeJujuClient()
         with patch.object(fake_client, 'show_status', return_value=True):
             assert_read(fake_client, True)
+            with self.assertRaises(JujuAssertionError):
+                assert_read(fake_client, False)
         with patch.object(fake_client, 'show_status', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
             assert_read(fake_client, False)
+            with self.assertRaises(JujuAssertionError):
+                assert_read(fake_client, True)
 
     def test_assert_write(self):
         fake_client = FakeJujuClient()
         with patch.object(fake_client, 'deploy', return_value=True):
             assert_write(fake_client, True)
+            with self.assertRaises(JujuAssertionError):
+                assert_write(fake_client, False)
         with patch.object(fake_client, 'deploy', return_value=False,
                           side_effect=CalledProcessError(None, None, None)):
             assert_write(fake_client, False)
+            with self.assertRaises(JujuAssertionError):
+                assert_write(fake_client, True)
 
 
 class TestAssess(TestCase):
