@@ -108,7 +108,8 @@ def run_autoload_credentials(client, envvars):
     process.expect(pexpect.EOF)
 
     if process.isalive():
-        print(str(process))
+        log.debug('juju process is still running: {}'.format(str(process)))
+        process.terminate(force=True)
         raise AssertionError('juju process failed to terminate')
 
 
