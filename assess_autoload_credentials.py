@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import os
 import pexpect
 import sys
 
@@ -13,6 +14,7 @@ from utility import (
     configure_logging,
     enforce_juju_path,
     temp_dir,
+    ensure_dir,
 )
 
 
@@ -23,8 +25,14 @@ log = logging.getLogger("assess_autoload_credentials")
 
 
 def assess_autoload_credentials(juju_bin):
+    test_scenarios = [
+        ('AWS using environment variables', aws_envvar_test_details),
+        ('AWS using credentials file', aws_directory_test_details),
+    ]
 
-    test_autoload_credentials_stores_details(juju_bin, aws_test_details)
+    for scenario_name, scenario_setup in test_scenarios:
+        log.info('* Starting test scenario: {}'.format(scenario_name))
+        test_autoload_credentials_stores_details(juju_bin, scenario_setup)
 
     test_autoload_credentials_updates_existing(juju_bin)
 
@@ -33,8 +41,8 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
     :param juju_bin: The full path to the juju binary to use for the test run.
-    :para cloud_details_fn: A callable that takes the argument 'user' that
-      returns a tuple of:
+    :para cloud_details_fn: A callable that takes the argument 'user' and
+      'tmp_dir' that returns a tuple of:
         (dict -> environment variable changse,
         dict -> expected credential details)
       used to setup creation of credential details & comparison of the result.
@@ -46,7 +54,7 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
             JujuData('local', juju_home=tmp_dir), juju_bin, False
         )
 
-        env_var_changes, expected_details = cloud_details_fn(user=user)
+        env_var_changes, expected_details = cloud_details_fn(user, tmp_dir)
         # Inject well known username.
         env_var_changes.update({'USER': user})
 
@@ -118,14 +126,42 @@ def run_autoload_credentials(client, envvars):
         raise AssertionError('juju process failed to terminate')
 
 
-def aws_test_details(user, access_key='access_key', secret_key='secret_key'):
+def aws_envvar_test_details(
+        user, tmp_dir, access_key='access_key', secret_key='secret_key'
+):
     env_var_changes = get_aws_environment(user, access_key, secret_key)
 
+    expected_details = get_aws_expected_details_dict(
+        user, access_key, secret_key
+    )
+
+    return env_var_changes, expected_details
+
+
+def aws_directory_test_details(
+        user, tmp_dir, access_key='access_key', secret_key='secret_key'
+):
+    expected_details = get_aws_expected_details_dict(
+        'default', access_key, secret_key
+    )
+
+    write_aws_config_file(tmp_dir, access_key, secret_key)
+
+    env_var_changes = dict(
+        HOME=tmp_dir,
+        SAVE_CLOUD_NAME='aws',
+        QUESTION_CLOUD_NAME='default'
+    )
+
+    return env_var_changes, expected_details
+
+
+def get_aws_expected_details_dict(cloud_name, access_key, secret_key):
     # Build credentials yaml file-like datastructure.
-    expected_details = {
+    return {
         'credentials': {
             'aws': {
-                user: {
+                cloud_name: {
                     'auth-type': 'access-key',
                     'access-key': access_key,
                     'secret-key': secret_key,
@@ -133,8 +169,6 @@ def aws_test_details(user, access_key='access_key', secret_key='secret_key'):
             }
         }
     }
-
-    return env_var_changes, expected_details
 
 
 def get_aws_environment(user, access_key, secret_key):
@@ -147,6 +181,26 @@ def get_aws_environment(user, access_key, secret_key):
         AWS_ACCESS_KEY_ID=access_key,
         AWS_SECRET_ACCESS_KEY=secret_key
     )
+
+
+def write_aws_config_file(tmp_dir, access_key, secret_key):
+    """Write aws credentials file to tmp_dir
+
+    :return: String path of created credentials file.
+
+    """
+    config_dir = os.path.join(tmp_dir, '.aws')
+    config_file = os.path.join(config_dir, 'credentials')
+    ensure_dir(config_dir)
+
+    with open(config_file, 'w') as f:
+        f.writelines([
+            '[default]\n',
+            'aws_access_key_id={}\n'.format(access_key),
+            'aws_secret_access_key={}\n'.format(secret_key)
+        ])
+
+    return config_file
 
 
 def parse_args(argv):

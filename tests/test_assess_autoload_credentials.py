@@ -2,9 +2,11 @@
 
 import logging
 import StringIO
+import ConfigParser
 from mock import patch
 from tests import TestCase, parse_error
 
+from utility import temp_dir
 import assess_autoload_credentials as aac
 
 
@@ -50,11 +52,13 @@ class TestHelpers(TestCase):
             )
         )
 
-    def test_aws_test_details_returns_correct_expected_details(self):
+    def test_aws_envvar_test_details_returns_correct_expected_details(self):
         access_key = 'test_access_key'
         secret_key = 'test_secret_key'
         username = 'user'
-        env, expected = aac.aws_test_details(username, access_key, secret_key)
+        env, expected = aac.aws_envvar_test_details(
+            username, 'tmp_dir', access_key, secret_key
+        )
 
         self.assertDictEqual(
             expected,
@@ -69,6 +73,84 @@ class TestHelpers(TestCase):
                     }
                 }
             }
+        )
+
+    def test_aws_envvar_test_details_returns_correct_envvar_settings(self):
+        access_key = 'test_access_key'
+        secret_key = 'test_secret_key'
+        username = 'user'
+        env, expected = aac.aws_envvar_test_details(
+            username, 'tmp_dir', access_key, secret_key
+        )
+
+        self.assertDictEqual(
+            env,
+            dict(
+                SAVE_CLOUD_NAME='aws',
+                QUESTION_CLOUD_NAME=username,
+                AWS_ACCESS_KEY_ID=access_key,
+                AWS_SECRET_ACCESS_KEY=secret_key
+            )
+        )
+
+    def test_aws_directory_test_details_returns_correct_expected_details(self):
+        access_key = 'test_access_key'
+        secret_key = 'test_secret_key'
+        username = 'user'
+        with patch.object(aac, 'write_aws_config_file'):
+            env, expected = aac.aws_directory_test_details(
+                username, 'tmp_dir', access_key, secret_key
+            )
+
+        self.assertDictEqual(
+            expected,
+            {
+                'credentials': {
+                    'aws': {
+                        'default': {
+                            'auth-type': 'access-key',
+                            'access-key': access_key,
+                            'secret-key': secret_key,
+                        }
+                    }
+                }
+            }
+        )
+
+    def test_aws_directory_test_details_returns_envvar_settings(self):
+        with patch.object(aac, 'write_aws_config_file'):
+            env, expected = aac.aws_directory_test_details(
+                'username', 'tmp_dir', 'access_key', 'secret_key'
+            )
+        self.assertDictEqual(
+            env,
+            dict(
+                HOME='tmp_dir',
+                SAVE_CLOUD_NAME='aws',
+                QUESTION_CLOUD_NAME='default'
+            )
+        )
+
+    def test_write_aws_config_file_writes_credentials_file(self):
+        """Ensure the file created contains the correct details."""
+        access_key = 'access_key'
+        secret_key = 'secret_key'
+
+        with temp_dir() as tmp_dir:
+            credentials_file = aac.write_aws_config_file(
+                tmp_dir, access_key, secret_key
+            )
+            credentials = ConfigParser.ConfigParser()
+            with open(credentials_file, 'r') as f:
+                credentials.readfp(f)
+
+        self.assertEqual(credentials.sections(), ['default'])
+        self.assertEqual(
+            credentials.items('default'),
+            [
+                ('aws_access_key_id', access_key),
+                ('aws_secret_access_key', secret_key),
+            ]
         )
 
 
