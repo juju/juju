@@ -32,13 +32,14 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	statelease "github.com/juju/juju/state/lease"
+	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -76,13 +77,10 @@ type State struct {
 	database      Database
 	policy        Policy
 
-	// leadershipClient exposes units' service leadership leases
-	// within this environment.
-	// TODO(fwereade) 2016-05-09 lp:1579633
-	// This field is only used unsafely as far as I'm aware -- it's
-	// not goroutine-safe, and the leadership lease manager is using
-	// it permanently.
-	leadershipClient corelease.Client
+	// leaseClientId is used by the lease infrastructure to
+	// differentiate between machines whose clocks may be
+	// relatively-skewed.
+	leaseClientId string
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -91,7 +89,7 @@ type State struct {
 	//
 	// note that the allManager stuff below probably ought to be
 	// folded in as well, but that feels like its own task.
-	workers Workers
+	workers workers.Workers
 
 	// mu guards allManager, allModelManager & allModelWatcherBacking
 	mu                     sync.Mutex
@@ -213,18 +211,16 @@ func (st *State) ForModel(env names.ModelTag) (*State, error) {
 	return newState, nil
 }
 
-// start starts the presence watcher, leadership manager and images metadata storage,
-// and fills in the controllerTag field with the supplied value.
+// start XXX ...
 func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
 
-	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
 		// the machine that's executing the code -- but there doesn't seem to be
 		// an accessible alternative.
-		clientId = identity.String()
+		st.leaseClientId = identity.String()
 	} else {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and
@@ -234,43 +230,18 @@ func (st *State) start(controllerTag names.ModelTag) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		clientId = fmt.Sprintf("anon-%s", uuid.String())
+		st.leaseClientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
-
-	logger.Infof("creating lease clients as %s", clientId)
-	clock := GetClock()
-	datastore := &environMongo{st}
-	leadershipClient, err := statelease.NewClient(statelease.ClientConfig{
-		Id:         clientId,
-		Namespace:  serviceLeadershipNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership lease client")
-	}
-	st.leadershipClient = leadershipClient
-
-	singularClient, err := statelease.NewClient(statelease.ClientConfig{
-		Id:         clientId,
-		Namespace:  singularControllerNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create singular lease client")
-	}
+	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	workers, err := newDumbWorkers(dumbWorkersConfig{
-		modelTag:           st.modelTag,
-		clock:              clock,
-		leadershipClient:   leadershipClient,
-		singularClient:     singularClient,
-		presenceCollection: st.getPresenceCollection(),
-		txnLogCollection:   st.getTxnLogCollection(),
+	factory := workersFactory{
+		st:    st,
+		clock: GetClock(),
+	}
+	workers, err := workers.NewDumbWorkers(workers.DumbConfig{
+		Factory: factory,
+		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
 	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create standard state workers")
@@ -278,10 +249,42 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	st.workers = workers
 
 	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.ModelUUID(), cloudimagemetadataC, datastore)
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
+		st.ModelUUID(),
+		cloudimagemetadataC,
+		&environMongo{st},
+	)
 
 	logger.Infof("started state for %s successfully", st.modelTag)
 	return nil
+}
+
+func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  serviceLeadershipNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      GetClock(),
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create leadership lease client")
+	}
+	return client, nil
+}
+
+func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      GetClock(),
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create singular lease client")
+	}
+	return client, nil
 }
 
 // ModelTag() returns the model tag for the model controlled by
@@ -2138,7 +2141,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.workers.TxnWatcher().StartSync()
+	st.workers.TxnLogWatcher().StartSync()
 	st.workers.PresenceWatcher().Sync()
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/state/workers"
 
 	// TODO(fwereade): 2015-11-18 lp:1517428
 	//
@@ -83,21 +84,21 @@ type RelationUnitsWatcher interface {
 }
 
 // newCommonWatcher exists so that all embedders have a place from which
-// to get a single TxnWatcher that will not be replaced in the lifetime
+// to get a single TxnLogWatcher that will not be replaced in the lifetime
 // of the embedder (and also to restrict the width of the interface by
 // which they can access the rest of State, by storing st as a
 // modelBackend).
 func newCommonWatcher(st *State) commonWatcher {
 	return commonWatcher{
 		st:      st,
-		watcher: st.workers.TxnWatcher(),
+		watcher: st.workers.TxnLogWatcher(),
 	}
 }
 
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st      modelBackend
-	watcher TxnWatcher
+	watcher workers.TxnLogWatcher
 	tomb    tomb.Tomb
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/state/workers"
 )
 
 func removeLeadershipSettingsOp(serviceId string) txn.Op {
@@ -100,7 +101,7 @@ func (leadershipSecretary) CheckDuration(duration time.Duration) error {
 
 // leadershipChecker implements leadership.Checker by wrapping a LeaseManager.
 type leadershipChecker struct {
-	manager LeaseManager
+	manager workers.LeaseManager
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
@@ -131,7 +132,7 @@ func (t leadershipToken) Check(out interface{}) error {
 
 // leadershipClaimer implements leadership.Claimer by wrappping a LeaseManager.
 type leadershipClaimer struct {
-	manager LeaseManager
+	manager workers.LeaseManager
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.

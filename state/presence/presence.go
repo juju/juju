@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
@@ -156,10 +157,19 @@ func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 	return w
 }
 
+// Kill is part of the worker.Worker interface.
+func (w *Watcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *Watcher) Wait() error {
+	return w.tomb.Wait()
+}
+
 // Stop stops all the watcher activities.
 func (w *Watcher) Stop() error {
-	w.tomb.Kill(nil)
-	return errors.Trace(w.tomb.Wait())
+	return worker.Stop(w)
 }
 
 // Dead returns a channel that is closed when the watcher has stopped.
