@@ -34,10 +34,10 @@ def assess_autoload_credentials(juju_bin):
 
     for scenario_name, scenario_setup in test_scenarios:
         log.info('* Starting test scenario: {}'.format(scenario_name))
-        test_autoload_credentials_stores_details(juju_bin, scenario_setup)
+        ensure_autoload_credentials_stores_details(juju_bin, scenario_setup)
 
 
-def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
+def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
     :param juju_bin: The full path to the juju binary to use for the test run.
