@@ -1,5 +1,6 @@
 """Tests for assess_autoload_credentials module."""
 
+from argparse import Namespace
 import logging
 import StringIO
 import ConfigParser
@@ -22,15 +23,20 @@ class TestParseArgs(TestCase):
             with patch('sys.stdout', fake_stdout):
                 aac.parse_args(['--help'])
         self.assertEqual('', fake_stderr.getvalue())
-        self.assertNotIn('TODO', fake_stdout.getvalue())
+        self.assertIn(
+            'Test autoload-credentials command.', fake_stdout.getvalue())
 
-    def test_verbose_is_set_to_debug_when_passed(self):
+    def test_verbose_is_set_to_debug_when_passed_verbose(self):
         args = aac.parse_args(['/bin/juju', '--verbose'])
         self.assertEqual(logging.DEBUG, args.verbose)
 
-    def test_verbose_defaults_to_INFO(self):
-        args = aac.parse_args(['/bin/juju'])
-        self.assertEqual(logging.INFO, args.verbose)
+    def test_verbose_default_values(self):
+        juju_bin = '/bin/juju'
+        args = aac.parse_args([juju_bin])
+        self.assertEqual(
+            args,
+            Namespace(juju_bin=juju_bin, verbose=logging.INFO)
+        )
 
 
 class TestHelpers(TestCase):

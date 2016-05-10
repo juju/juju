@@ -2420,8 +2420,8 @@ class TestEnvJujuClient(ClientTest):
         with patch('pexpect.spawn') as mock:
             process = client.expect('foo', ('bar', 'baz'))
 
-        self.assertEqual(process, mock.return_value)
-        mock.assert_called_with(
+        self.assertIs(process, mock.return_value)
+        mock.assert_called_once_with(
             'juju --show-log foo -m qux bar baz',
             env=client._shell_environ()
         )

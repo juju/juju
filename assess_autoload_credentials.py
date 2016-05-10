@@ -13,6 +13,7 @@ import yaml
 
 from collections import namedtuple
 from uuid import uuid4
+from textwrap import dedent
 
 from jujupy import EnvJujuClient, JujuData
 from utility import (
@@ -52,19 +53,17 @@ def assess_autoload_credentials(juju_bin):
     ]
 
     for scenario_name, scenario_setup in test_scenarios:
-        log.info(
-            '* Starting [storage] test, scenario: {}'.format(scenario_name)
-        )
-        test_autoload_credentials_stores_details(juju_bin, scenario_setup)
+        log.info('* Starting test scenario: {}'.format(scenario_name))
+        ensure_autoload_credentials_stores_details(juju_bin, scenario_setup)
 
     for scenario_name, scenario_setup in test_scenarios:
         log.info(
-            '* Starting [overwrite] test, scenario: {}'.format(scenario_name)
-        )
-        test_autoload_credentials_overwrite_existing(juju_bin, scenario_setup)
+            '* Starting [overwrite] test, scenario: {}'.format(scenario_name))
+        ensure_autoload_credentials_overwrite_existing(
+            juju_bin, scenario_setup)
 
 
-def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
+def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
     :param juju_bin: The full path to the juju binary to use for the test run.
@@ -76,11 +75,13 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """
     user = 'testing_user'
     with temp_dir() as tmp_dir:
+        tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
+        tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_dir), juju_bin, False
+            JujuData('local', juju_home=tmp_juju_home), juju_bin, False
         )
 
-        cloud_details = cloud_details_fn(user, tmp_dir, client)
+        cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
         # Inject well known username.
         cloud_details.env_var_changes.update({'USER': user})
 
@@ -94,7 +95,7 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
         )
 
 
-def test_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
+def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
     """Storing credentials using autoload-credentials must overwrite existing.
 
     :param juju_bin: The full path to the juju binary to use for the test run.
@@ -138,14 +139,12 @@ def test_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
         )
 
 
-def assert_credentials_contains_expected_results(
-        credentials, expected_credentials
-):
-    if credentials != expected_credentials:
+def assert_credentials_contains_expected_results(credentials, expected):
+    if credentials != expected:
         raise ValueError(
             'Actual credentials do not match expected credentials.\n'
             'Expected: {expected}\nGot: {got}\n'.format(
-                expected=expected_credentials,
+                expected=expected,
                 got=credentials
             )
         )
@@ -165,30 +164,25 @@ def run_autoload_credentials(client, envvars):
 
     """
     process = client.expect(
-        'autoload-credentials', extra_env=envvars, include_e=False
-    )
+        'autoload-credentials', extra_env=envvars, include_e=False)
     process.expect(
         '.*1. {} \(.*\).*'.format(
-            envvars['QUESTION_CLOUD_NAME']
-        )
-    )
+            envvars['QUESTION_CLOUD_NAME']))
     process.sendline('1')
 
     process.expect(
-        'Enter cloud to which the credential belongs, or Q to quit.*'
-    )
+        'Enter cloud to which the credential belongs, or Q to quit.*')
     process.sendline(envvars['SAVE_CLOUD_NAME'])
     process.expect(
         'Saved {} to cloud {}'.format(
             envvars['QUESTION_CLOUD_NAME'],
-            envvars['SAVE_CLOUD_NAME']
-        )
-    )
+            envvars['SAVE_CLOUD_NAME']))
     process.sendline('q')
     process.expect(pexpect.EOF)
 
     if process.isalive():
-        print(str(process))
+        log.debug('juju process is still running: {}'.format(str(process)))
+        process.terminate(force=True)
         raise AssertionError('juju process failed to terminate')
 
 
@@ -200,8 +194,7 @@ def aws_envvar_test_details(user, tmp_dir, client, credential_details=None):
     env_var_changes = get_aws_environment(user, access_key, secret_key)
 
     expected_details = get_aws_expected_details_dict(
-        user, access_key, secret_key
-    )
+        user, access_key, secret_key)
 
     return CloudDetails(env_var_changes, expected_details)
 
@@ -212,8 +205,7 @@ def aws_directory_test_details(user, tmp_dir, client, credential_details=None):
     access_key = credential_details['access_key']
     secret_key = credential_details['secret_key']
     expected_details = get_aws_expected_details_dict(
-        'default', access_key, secret_key
-    )
+        'default', access_key, secret_key)
 
     write_aws_config_file(tmp_dir, access_key, secret_key)
 
@@ -263,12 +255,14 @@ def write_aws_config_file(tmp_dir, access_key, secret_key):
     config_file = os.path.join(config_dir, 'credentials')
     ensure_dir(config_dir)
 
+    config_contents = dedent("""\
+    [default]
+    aws_access_key_id={}
+    aws_secret_access_key={}
+    """.format(access_key, secret_key))
+
     with open(config_file, 'w') as f:
-        f.writelines([
-            '[default]\n',
-            'aws_access_key_id={}\n'.format(access_key),
-            'aws_secret_access_key={}\n'.format(secret_key)
-        ])
+        f.write(config_contents)
 
     return config_file
 
@@ -364,7 +358,8 @@ def openstack_credential_dict_generator():
 
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser(description="Test autoload-credentials.")
+    parser = argparse.ArgumentParser(
+        description="Test autoload-credentials command.")
     parser.add_argument(
         'juju_bin', action=enforce_juju_path,
         help='Full path to the Juju binary.')
