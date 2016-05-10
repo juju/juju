@@ -610,8 +610,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
 
     def test_deploy_dummy_stack_sets_centos_constraints(self):
         env = JujuData('foo', {'type': 'maas'})
-        client = EnvJujuClient(env, None, '/foo/juju')
-        client.version = '2.0.0'
+        client = EnvJujuClient(env, '2.0.0', '/foo/juju')
         with patch('subprocess.check_call', autospec=True) as cc_mock:
             with patch.object(EnvJujuClient, 'wait_for_started'):
                 with patch('deploy_stack.get_random_string',
@@ -661,7 +660,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
 
     def test_deploy_dummy_stack(self):
         env = JujuData('foo', {'type': 'nonlocal'})
-        client = EnvJujuClient(env, None, '/foo/juju')
+        client = EnvJujuClient(env, '2.0.0', '/foo/juju')
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {
@@ -678,7 +677,6 @@ class TestDeployDummyStack(FakeHomeTestCase):
             }
             return output[args]
 
-        client.version = '2.0.0'
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
@@ -705,7 +703,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
             ],
             gjo_mock.call_args_list)
 
-        client.version = '1.25.0'
+        client = client.clone(version='1.25.0')
         with patch.object(client, 'get_juju_output', side_effect=output,
                           autospec=True) as gjo_mock:
             with patch('subprocess.check_call', autospec=True) as cc_mock:
