@@ -105,6 +105,23 @@ class WinAzureARMTestCase(TestCase):
         dr_mock.assert_called_once_with(
             client, glob='juju-deploy*', old_age=2)
 
+    def test_main_delete_instance_instance_id(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        with patch('winazurearm.delete_instance', autospec=True) as di_mock:
+            code = main(['winazurearm.py', 'delete-instance', 'instance-id'])
+        self.assertEqual(0, code)
+        self.assertEqual(1, is_mock.call_count)
+        di_mock.assert_called_once_with(
+            client, 'instance-id', resource_group=None)
+
+    def test_main_delete_instance_name_group(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        with patch('winazurearm.delete_instance', autospec=True) as di_mock:
+            code = main(['winazurearm.py', 'delete-instance', 'name', 'group'])
+        self.assertEqual(0, code)
+        self.assertEqual(1, is_mock.call_count)
+        di_mock.assert_called_once_with(client, 'name', resource_group='group')
+
     def test_list_resources(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
