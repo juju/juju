@@ -35,6 +35,19 @@ class TestParseArgs(TestCase):
 
 class TestHelpers(TestCase):
 
+    def test_uuid_str_returns_random_string(self):
+        self.assertNotEqual(aac.uuid_str(), aac.uuid_str())
+
+
+class TestAWSHelpers(TestCase):
+
+    def test_credential_dict_generator_returns_different_details(self):
+        """Each call must return uniquie details each time."""
+        first_details = aac.aws_credential_dict_generator()
+        second_details = aac.aws_credential_dict_generator()
+
+        self.assertNotEqual(first_details, second_details)
+
     def test_get_aws_environment_supplies_all_keys(self):
         access_key = 'access_key'
         secret_key = 'secret_key'
@@ -45,7 +58,7 @@ class TestHelpers(TestCase):
         self.assertDictEqual(
             env,
             dict(
-                QUESTION_CLOUD_NAME=username,
+                QUESTION_CLOUD_NAME='aws credential "{}"'.format(username),
                 SAVE_CLOUD_NAME='aws',
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key
@@ -57,7 +70,13 @@ class TestHelpers(TestCase):
         secret_key = 'test_secret_key'
         username = 'user'
         env, expected = aac.aws_envvar_test_details(
-            username, 'tmp_dir', access_key, secret_key
+            username,
+            'tmp_dir',
+            client=None,
+            credential_details={
+                'access_key': access_key,
+                'secret_key': secret_key
+            }
         )
 
         self.assertDictEqual(
@@ -79,15 +98,21 @@ class TestHelpers(TestCase):
         access_key = 'test_access_key'
         secret_key = 'test_secret_key'
         username = 'user'
-        env, expected = aac.aws_envvar_test_details(
-            username, 'tmp_dir', access_key, secret_key
+        cloud_details = aac.aws_envvar_test_details(
+            username,
+            'tmp_dir',
+            client=None,
+            credential_details={
+                'access_key': access_key,
+                'secret_key': secret_key
+            }
         )
 
         self.assertDictEqual(
-            env,
+            cloud_details.env_var_changes,
             dict(
                 SAVE_CLOUD_NAME='aws',
-                QUESTION_CLOUD_NAME=username,
+                QUESTION_CLOUD_NAME='aws credential "{}"'.format(username),
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key
             )
@@ -98,12 +123,17 @@ class TestHelpers(TestCase):
         secret_key = 'test_secret_key'
         username = 'user'
         with patch.object(aac, 'write_aws_config_file'):
-            env, expected = aac.aws_directory_test_details(
-                username, 'tmp_dir', access_key, secret_key
+            cloud_details = aac.aws_directory_test_details(
+                username,
+                'tmp_dir',
+                client=None,
+                credential_details={
+                    'access_key': access_key, 'secret_key': secret_key
+                }
             )
 
         self.assertDictEqual(
-            expected,
+            cloud_details.expected_details,
             {
                 'credentials': {
                     'aws': {
@@ -119,15 +149,17 @@ class TestHelpers(TestCase):
 
     def test_aws_directory_test_details_returns_envvar_settings(self):
         with patch.object(aac, 'write_aws_config_file'):
-            env, expected = aac.aws_directory_test_details(
-                'username', 'tmp_dir', 'access_key', 'secret_key'
+            cloud_details = aac.aws_directory_test_details(
+                'username',
+                'tmp_dir',
+                client=None
             )
         self.assertDictEqual(
-            env,
+            cloud_details.env_var_changes,
             dict(
                 HOME='tmp_dir',
                 SAVE_CLOUD_NAME='aws',
-                QUESTION_CLOUD_NAME='default'
+                QUESTION_CLOUD_NAME='aws credential "{}"'.format('default')
             )
         )
 
@@ -151,6 +183,72 @@ class TestHelpers(TestCase):
                 ('aws_access_key_id', access_key),
                 ('aws_secret_access_key', secret_key),
             ]
+        )
+
+
+class TestOpenStackHelpers(TestCase):
+
+    def test_credential_dict_generator_returns_different_details(self):
+        """Each call must return uniquie details each time."""
+        first_details = aac.openstack_credential_dict_generator()
+        second_details = aac.openstack_credential_dict_generator()
+
+        self.assertNotEqual(first_details, second_details)
+
+    def test_expected_details_dict_returns_correct_values(self):
+        user = 'username'
+        os_password = 'password'
+        os_tenant_name = 'tenant name'
+        expected_details = aac.get_openstack_expected_details_dict(
+            user,
+            {
+                'os_password': os_password,
+                'os_tenant_name': os_tenant_name,
+            }
+        )
+
+        self.assertEqual(
+            expected_details,
+            {
+                'credentials': {
+                    'testing_openstack': {
+                        user: {
+                            'auth-type': 'userpass',
+                            'domain-name': '',
+                            'password': os_password,
+                            'tenant-name': os_tenant_name,
+                            'username': user
+                        }
+                    }
+                }
+            }
+        )
+
+    def test_get_openstack_envvar_changes_returns_correct_values(self):
+        user = 'username'
+        os_password = 'password'
+        os_tenant_name = 'tenant name'
+        env_var_changes = aac.get_openstack_envvar_changes(
+            user,
+            {
+                'os_password': os_password,
+                'os_tenant_name': os_tenant_name,
+            }
+        )
+
+        question = 'openstack region ".*" project "{}" user "{}"'.format(
+            os_tenant_name,
+            user
+        )
+        self.assertEqual(
+            env_var_changes,
+            {
+                'SAVE_CLOUD_NAME': 'testing_openstack',
+                'QUESTION_CLOUD_NAME': question,
+                'OS_USERNAME': user,
+                'OS_PASSWORD': os_password,
+                'OS_TENANT_NAME': os_tenant_name,
+            }
         )
 
 
