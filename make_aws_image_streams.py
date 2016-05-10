@@ -202,6 +202,9 @@ def write_streams(credentials, china_credentials, now, streams):
 
 
 def write_juju_streams(out_d, trees, updated, sticky):
+    # Based on simplestreams.json2streams.write_juju_streams +
+    # simplestreams.generate_simplestreams.write_streams,
+    # but allows sticky to be specified.
     namer = JujuFileNamer
     index = generate_index(trees, updated, namer)
     to_write = [(namer.get_index_path(), index,)]
