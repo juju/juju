@@ -51,8 +51,7 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     user = 'testing_user'
     with temp_dir() as tmp_dir:
         client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_dir), juju_bin, False
-        )
+            JujuData('local', juju_home=tmp_dir), juju_bin, False)
 
         env_var_changes, expected_details = cloud_details_fn(user, tmp_dir)
         # Inject well known username.
@@ -64,22 +63,19 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
 
         assert_credentials_contains_expected_results(
             client.env.credentials,
-            expected_details
-        )
+            expected_details)
 
 
 def test_autoload_credentials_updates_existing(juju_bin):
     pass
 
 
-def assert_credentials_contains_expected_results(
-        credentials, expected_credentials
-):
-    if credentials != expected_credentials:
+def assert_credentials_contains_expected_results(credentials, expected):
+    if credentials != expected:
         raise ValueError(
             'Actual credentials do not match expected credentials.\n'
             'Expected: {expected}\nGot: {got}\n'.format(
-                expected=expected_credentials,
+                expected=expected,
                 got=credentials
             )
         )
@@ -100,24 +96,18 @@ def run_autoload_credentials(client, envvars):
     """
     # Get juju path from client as we need to use it interactively.
     process = client.expect(
-        'autoload-credentials', extra_env=envvars, include_e=False
-    )
+        'autoload-credentials', extra_env=envvars, include_e=False)
     process.expect(
         '.*1. \w+ credential "{}" \(new\).*'.format(
-            envvars['QUESTION_CLOUD_NAME']
-        )
-    )
+            envvars['QUESTION_CLOUD_NAME']))
     process.sendline('1')
 
     process.expect(
-        'Enter cloud to which the credential belongs, or Q to quit.*'
-    )
+        'Enter cloud to which the credential belongs, or Q to quit.*')
     process.sendline(envvars['SAVE_CLOUD_NAME'])
     process.expect(
         'Saved aws credential "{}" to cloud \w+'.format(
-            envvars['QUESTION_CLOUD_NAME']
-        )
-    )
+            envvars['QUESTION_CLOUD_NAME']))
     process.sendline('q')
     process.expect(pexpect.EOF)
 
@@ -127,13 +117,11 @@ def run_autoload_credentials(client, envvars):
 
 
 def aws_envvar_test_details(
-        user, tmp_dir, access_key='access_key', secret_key='secret_key'
-):
+        user, tmp_dir, access_key='access_key', secret_key='secret_key'):
     env_var_changes = get_aws_environment(user, access_key, secret_key)
 
     expected_details = get_aws_expected_details_dict(
-        user, access_key, secret_key
-    )
+        user, access_key, secret_key)
 
     return env_var_changes, expected_details
 
@@ -142,8 +130,7 @@ def aws_directory_test_details(
         user, tmp_dir, access_key='access_key', secret_key='secret_key'
 ):
     expected_details = get_aws_expected_details_dict(
-        'default', access_key, secret_key
-    )
+        'default', access_key, secret_key)
 
     write_aws_config_file(tmp_dir, access_key, secret_key)
 
