@@ -7,8 +7,6 @@ from mock import (
     Mock,
     patch,
 )
-import os
-#from unittest import TestCase
 
 import pytz
 
@@ -21,7 +19,7 @@ from winazurearm import (
     main,
     OLD_MACHINE_AGE,
     ResourceGroupDetails,
-)  # nopep8 (as above)
+)
 
 
 AZURE_ENVIRON = {
@@ -154,7 +152,7 @@ class WinAzureARMTestCase(TestCase):
         self.assertEqual([rgd], result)
 
     def test_delete_resources_found_old(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
         group = ResourceGroup('juju-bar-1')
@@ -166,14 +164,14 @@ class WinAzureARMTestCase(TestCase):
         poller = FakePoller()
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
-            # Delete resource groups that as 2 hours old.
+            # Delete resource groups that are 2 hours old.
             count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
         self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
         self.assertIs(True, poller.is_done)
 
     def test_delete_resources_not_found_old(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
         group = ResourceGroup('juju-bar-1')
@@ -184,13 +182,13 @@ class WinAzureARMTestCase(TestCase):
             storage_account]
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True) as d_mock:
-            # Delete resource groups that as 8 hours old.
+            # Delete resource groups that are 8 hours old.
             count = delete_resources(client, 'juju-bar*', old_age=8, now=now)
         self.assertEqual(0, count)
         self.assertEqual(0, d_mock.call_count)
 
     def test_delete_resources_dry_run(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient(
             'subscription_id', 'client_id', 'secret', 'tenant', dry_run=True)
         client.init_services()
@@ -208,7 +206,7 @@ class WinAzureARMTestCase(TestCase):
         self.assertEqual(0, d_mock.call_count)
 
     def test_delete_resources_poller_already_done(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
         group = ResourceGroup('juju-bar-1')
@@ -226,7 +224,7 @@ class WinAzureARMTestCase(TestCase):
         self.assertEqual(1, d_mock.call_count)
 
     def test_delete_resources_poller_is_none(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
         group = ResourceGroup('juju-bar-1')
@@ -243,7 +241,7 @@ class WinAzureARMTestCase(TestCase):
         self.assertEqual(1, d_mock.call_count)
 
     def test_delete_resources_old_age_0(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
         a_group = ResourceGroup('juju-bar-1')
@@ -252,7 +250,7 @@ class WinAzureARMTestCase(TestCase):
         poller = FakePoller()
         with patch('winazurearm.ResourceGroupDetails.delete',
                    autospec=True, return_value=poller) as d_mock:
-            # Delete resource groups that as 0 hours old.
+            # Delete resource groups that are 0 hours old.
             # All matched resource_groups are deleted
             count = delete_resources(client, 'juju-bar*', old_age=0, now=now)
         self.assertEqual(1, count)
@@ -260,7 +258,7 @@ class WinAzureARMTestCase(TestCase):
         self.assertIs(True, poller.is_done)
 
     def test_delete_resources_only_network(self, is_mock):
-        now = datetime.now(pytz.utc)
+        now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()
         group = ResourceGroup('juju-bar-1')
