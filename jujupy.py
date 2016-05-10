@@ -1204,6 +1204,30 @@ class EnvJujuClient:
     def is_juju1x(self):
         return self.version.startswith('1.')
 
+    def _get_register_command(self, output):
+        for row in output.split('\n'):
+            if 'juju register' in row:
+                return row.strip().lstrip()
+        raise AssertionError('Juju register command not found in output')
+
+    def add_user(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions,
+                '-c', self.env.controller.name)
+
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
+
+    def revoke(self, username, models=None,  permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+
+        self.controller_juju('revoke', args)
+
 
 class EnvJujuClient2B3(EnvJujuClient):
 
