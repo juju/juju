@@ -443,8 +443,8 @@ var imageData = map[string]string{
     "20140118": {
      "items": {
       "nzww1pe": {
-       "root_store": "ebs",
-       "virt": "pv",
+       "root_store": "ssd",
+       "virt": "hvm",
        "id": "ami-36745463"
       }
      },
