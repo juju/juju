@@ -188,6 +188,8 @@ func (r *fakeBootResource) Architecture() string {
 
 type fakeMachine struct {
 	gomaasapi.Machine
+	*testing.Stub
+
 	zoneName      string
 	hostname      string
 	systemID      string
@@ -200,8 +202,6 @@ type fakeMachine struct {
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	createDevice  gomaasapi.Device
-
-	*testing.Stub
 }
 
 func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
@@ -350,6 +350,8 @@ func (v fakeVLAN) MTU() int {
 
 type fakeInterface struct {
 	gomaasapi.Interface
+	*testing.Stub
+
 	id         int
 	name       string
 	parents    []string
@@ -359,8 +361,6 @@ type fakeInterface struct {
 	vlan       gomaasapi.VLAN
 	links      []gomaasapi.Link
 	macAddress string
-
-	*testing.Stub
 }
 
 func (v *fakeInterface) ID() int {
@@ -482,11 +482,11 @@ func (bd fakeBlockDevice) Size() uint64 {
 
 type fakeDevice struct {
 	gomaasapi.Device
+	*testing.Stub
+
 	interfaceSet []gomaasapi.Interface
 	systemID     string
 	interface_   gomaasapi.Interface
-
-	*testing.Stub
 }
 
 func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
