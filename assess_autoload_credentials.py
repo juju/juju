@@ -34,8 +34,6 @@ def assess_autoload_credentials(juju_bin):
         log.info('* Starting test scenario: {}'.format(scenario_name))
         test_autoload_credentials_stores_details(juju_bin, scenario_setup)
 
-    test_autoload_credentials_updates_existing(juju_bin)
-
 
 def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
@@ -64,10 +62,6 @@ def test_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
         assert_credentials_contains_expected_results(
             client.env.credentials,
             expected_details)
-
-
-def test_autoload_credentials_updates_existing(juju_bin):
-    pass
 
 
 def assert_credentials_contains_expected_results(credentials, expected):
