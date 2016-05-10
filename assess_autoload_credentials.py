@@ -194,7 +194,8 @@ def write_aws_config_file(tmp_dir, access_key, secret_key):
 
 
 def parse_args(argv):
-    parser = argparse.ArgumentParser(description="Test autoload-credentials.")
+    parser = argparse.ArgumentParser(
+        description="Test autoload-credentials command.")
     parser.add_argument(
         'juju_bin', action=enforce_juju_path,
         help='Full path to the Juju binary.')
