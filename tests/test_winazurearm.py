@@ -218,6 +218,22 @@ class WinAzureARMTestCase(TestCase):
             delete_resources(client, 'juju-bar*', old_age=2, now=now)
         self.assertEqual(1, d_mock.call_count)
 
+    def test_delete_resources_poller_is_none(self, is_mock):
+        now = datetime.now(pytz.utc)
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        group = ResourceGroup('juju-bar-1')
+        client.resource.resource_groups.list.return_value = [group]
+        # The resource_groups's storage_account is 4 hours old.
+        storage_account = StorageAccount('abcd-12', now - timedelta(hours=4))
+        client.storage.storage_accounts.list_by_resource_group.return_value = [
+            storage_account]
+        poller = None
+        with patch('winazurearm.ResourceGroupDetails.delete',
+                   autospec=True, return_value=poller) as d_mock:
+            delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, d_mock.call_count)
+
     def test_delete_resources_old_age_0(self, is_mock):
         now = datetime.now(pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')

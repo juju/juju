@@ -53,8 +53,9 @@ class ARMClient:
         self.network = None
 
     def __eq__(self, other):
-
+        # Testing is the common case for checking equality.
         return (
+            type(other) == type(self) and
             self.subscription_id == other.subscription_id and
             self.client_id == other.client_id and
             self.secret == other.secret and
@@ -109,7 +110,9 @@ class ResourceGroupDetails:
         self.networks = networks
 
     def __eq__(self, other):
+        # Testing is the common case for checking equality.
         return (
+            type(other) == type(self) and
             self.client == other.client and
             self.is_loaded is other.is_loaded and
             self.group is other.group and
@@ -168,7 +171,7 @@ class ResourceGroupDetails:
             creation_time = self.storage_accounts[0].creation_time
             age = now - creation_time
             if age > ago:
-                hours_old = (age.seconds / 3600) + (age.days * 24)
+                hours_old = (age.total_seconds() // 3600)
                 log.debug('{} is {} hours old:'.format(self.name, hours_old))
                 log.debug('  {}'.format(creation_time))
                 return True
@@ -224,16 +227,18 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
         log.debug('Deleting {}'.format(name))
         if not client.dry_run:
             poller = rgd.delete()
-            pollers.append((name, poller))
+            if poller:
+                pollers.append((name, poller))
+            else:
+                # Deleting a group created using the old API might not return
+                # a poller! Or maybe the resource was deleting already.
+                log.debug('poller is None for {}.delete(). Already deleted?')
     for name, poller in pollers:
         log.debug('Waiting for {} to be deleted'.format(name))
-        if poller:
-            # Deleting a group created using the old might not return
-            # a poller!. We just hope the async operation is successful.
-            # A poller is returned in most cases, and it is is not done,
-            # we an ask for results to wait for done.
-            if not poller.done():
-                poller.result()
+        # It is an error to ask for a poller's result() when it is done.
+        # Calling result() makes the poller wait for done.
+        if not poller.done():
+            poller.result()
 
 
 def parse_args(args=None):
