@@ -8,7 +8,6 @@ from mock import (
     patch,
 )
 import os
-import sys
 from unittest import TestCase
 
 import pytz
@@ -16,6 +15,7 @@ import pytz
 from winazurearm import (
     ARMClient,
     DEFAULT_RESOURCE_PREFIX,
+    delete_resources,
     list_resources,
     main,
     OLD_MACHINE_AGE,
@@ -30,6 +30,9 @@ AZURE_ENVIRON = {
     'AZURE_TENANT': 'tenant',
 }
 
+# The azure unit test use namedtuples like these to avoid tight
+# coupling between services. When Azure ARM is stable, we might want
+# to use the real objects.
 ResourceGroup = namedtuple('ResourceGroup', ['name'])
 StorageAccount = namedtuple('StorageAccount', ['name', 'creation_time'])
 VirtualMachine = namedtuple('VirtualMachine', ['name', 'vm_id'])
@@ -37,8 +40,24 @@ Network = namedtuple('Network', ['name'])
 Address = namedtuple('Address', ['name', 'ip_address'])
 
 
+class FakePoller:
+
+    def __init__(self, result_data=None):
+        self.is_done = False
+        self.result_data = result_data
+
+    def done(self):
+        return self.is_done
+
+    def result(self):
+        if self.is_done:
+            raise Exception('It is an error to call result after done.')
+        self.is_done = True
+        return self.result_data
+
+
 def fake_init_services(client):
-    """Use lazy init to install mocks."""
+    """Repurpose the lazy init to install mocks."""
     # client.resource.resource_groups.list()
     client.resource = Mock(resource_groups=Mock(list=Mock(return_value=[])))
     # client.storage.storage_accounts.list_by_resource_group()
@@ -108,8 +127,8 @@ class WinAzureARMTestCase(TestCase):
         groups = [ResourceGroup('juju-foo-0'), ResourceGroup('juju-bar-1')]
         client.resource.resource_groups.list.return_value = groups
         result = list_resources(client, 'juju-bar*')
-        rdg = ResourceGroupDetails(client, groups[-1])
-        self.assertEqual([rdg], result)
+        rgd = ResourceGroupDetails(client, groups[-1])
+        self.assertEqual([rgd], result)
         client.resource.resource_groups.list.assert_called_once_with()
 
     def test_list_resources_ignore_default(self, is_mock):
@@ -138,32 +157,77 @@ class WinAzureARMTestCase(TestCase):
         client.network.public_ip_addresses.list.return_value = [address]
         network = Network('juju-bar-network-1')
         client.network.virtual_networks.list.return_value = [network]
+        # The addition of recursive=True will get the details of the
+        # subordinate resources and set is_loaded to True.
         result = list_resources(client, 'juju-bar*', recursive=True)
-        rdg = ResourceGroupDetails(
+        rgd = ResourceGroupDetails(
             client, groups[-1], storage_accounts=[storage_account],
             vms=[virtual_machine], addresses=[address], networks=[network])
-        rdg.is_loaded = True
-        self.assertEqual([rdg], result)
+        rgd.is_loaded = True
+        self.assertEqual([rgd], result)
 
-    # def test_main_delete_resources(self):
-    #     with patch('winazure.delete_resources', autospec=True) as l_mock:
-    #         with patch('winazure.ServiceManagementService',
-    #                    autospec=True, return_value='sms') as sms_mock:
-    #             main(['-d', '-v', '-c' 'cert.pem', '-s', 'secret',
-    #                   'delete-services', '-o', '2', 'juju-deploy*'])
-    #     sms_mock.assert_called_once_with('secret', 'cert.pem')
-    #     l_mock.assert_called_once_with(
-    #         'sms', glob='juju-deploy*', old_age=2, verbose=True, dry_run=True)
+    def test_delete_resources_found_old(self, is_mock):
+        now = datetime.now(pytz.utc)
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        group = ResourceGroup('juju-bar-1')
+        client.resource.resource_groups.list.return_value = [group]
+        poller = FakePoller()
+        with patch('winazurearm.ResourceGroupDetails.is_old',
+                   autospec=True, return_value=True) as io_mock:
+            with patch('winazurearm.ResourceGroupDetails.delete',
+                       autospec=True, return_value=poller) as d_mock:
+                delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        rgd = ResourceGroupDetails(
+            client, group, storage_accounts=[], vms=[], addresses=[],
+            networks=[])
+        rgd.is_loaded = True
+        io_mock.assert_called_once_with(rgd, now, 2)
+        d_mock.assert_called_once_with(rgd)
+        self.assertIs(True, poller.is_done)
 
-    # def test_list_resourcess(self):
-    #     sms = ServiceManagementService('secret', 'cert.pem')
-    #     hs1 = Mock()
-    #     hs1.service_name = 'juju-upgrade-foo'
-    #     hs2 = Mock()
-    #     hs2.service_name = 'juju-deploy-foo'
-    #     services = [hs1, hs2]
-    #     with patch.object(sms, 'list_hosted_services', autospec=True,
-    #                       return_value=services) as ls_mock:
-    #         services = list_resources(sms, 'juju-deploy-*', verbose=False)
-    #     ls_mock.assert_called_once_with()
-    #     self.assertEqual([hs2], services)
+    def test_delete_resources_not_found_old(self, is_mock):
+        now = datetime.now(pytz.utc)
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        group = ResourceGroup('juju-bar-1')
+        client.resource.resource_groups.list.return_value = [group]
+        with patch('winazurearm.ResourceGroupDetails.is_old',
+                   autospec=True, return_value=False) as io_mock:
+            with patch('winazurearm.ResourceGroupDetails.delete',
+                       autospec=True) as d_mock:
+                delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, io_mock.call_count)
+        self.assertEqual(0, d_mock.call_count)
+
+    def test_delete_resources_dry_run(self, is_mock):
+        now = datetime.now(pytz.utc)
+        client = ARMClient(
+            'subscription_id', 'client_id', 'secret', 'tenant', dry_run=True)
+        client.init_services()
+        group = ResourceGroup('juju-bar-1')
+        client.resource.resource_groups.list.return_value = [group]
+        poller = FakePoller()
+        with patch('winazurearm.ResourceGroupDetails.is_old',
+                   autospec=True, return_value=True) as io_mock:
+            with patch('winazurearm.ResourceGroupDetails.delete',
+                       autospec=True, return_value=poller) as d_mock:
+                delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, io_mock.call_count)
+        self.assertEqual(0, d_mock.call_count)
+
+    def test_delete_resources_poller_already_done(self, is_mock):
+        now = datetime.now(pytz.utc)
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        group = ResourceGroup('juju-bar-1')
+        client.resource.resource_groups.list.return_value = [group]
+        poller = FakePoller()
+        poller.is_done = True
+        with patch('winazurearm.ResourceGroupDetails.is_old',
+                   autospec=True, return_value=True) as io_mock:
+            with patch('winazurearm.ResourceGroupDetails.delete',
+                       autospec=True, return_value=poller) as d_mock:
+                delete_resources(client, 'juju-bar*', old_age=2, now=now)
+        self.assertEqual(1, io_mock.call_count)
+        self.assertEqual(1, d_mock.call_count)

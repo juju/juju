@@ -203,9 +203,10 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
     return groups
 
 
-def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE):
+def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
     """Delete old resource groups."""
-    now = datetime.now(pytz.utc)
+    if not now:
+        now = datetime.now(pytz.utc)
     resources = list_resources(client, glob=glob, recursive=True)
     pollers = []
     for rgd in resources:
