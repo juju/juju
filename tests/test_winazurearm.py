@@ -187,10 +187,10 @@ class WinAzureARMTestCase(TestCase):
         self.assertEqual(0, count)
         self.assertEqual(0, d_mock.call_count)
 
-    def test_delete_resources_dry_run(self, is_mock):
+    def test_delete_resources_read_only(self, is_mock):
         now = datetime.now(tz=pytz.utc)
         client = ARMClient(
-            'subscription_id', 'client_id', 'secret', 'tenant', dry_run=True)
+            'subscription_id', 'client_id', 'secret', 'tenant', read_only=True)
         client.init_services()
         group = ResourceGroup('juju-bar-1')
         client.resource.resource_groups.list.return_value = [group]

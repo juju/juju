@@ -40,12 +40,12 @@ class ARMClient:
     """A collection of Azure RM clients."""
 
     def __init__(self, subscription_id, client_id, secret, tenant,
-                 dry_run=False):
+                 read_only=False):
         self.subscription_id = subscription_id
         self.client_id = client_id
         self.secret = secret
         self.tenant = tenant
-        self.dry_run = dry_run
+        self.read_only = read_only
         self.credentials = None
         self.storage = None
         self.resource = None
@@ -60,7 +60,7 @@ class ARMClient:
             self.client_id == other.client_id and
             self.secret == other.secret and
             self.tenant == other.tenant and
-            self.dry_run == other.dry_run)
+            self.read_only == other.read_only)
 
     def init_services(self):
         """Delay imports and activation of Azure RM services until needed."""
@@ -226,7 +226,7 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
         if not rgd.is_old(now, old_age):
             continue
         log.debug('Deleting {}'.format(name))
-        if not client.dry_run:
+        if not client.read_only:
             poller = rgd.delete()
             deleted_count += 1
             if poller:
@@ -306,7 +306,7 @@ def main(argv):
     log.setLevel(args.verbose)
     client = ARMClient(
         args.subscription_id, args.client_id, args.secret, args.tenant,
-        dry_run=args.dry_run)
+        read_only=args.dry_run)
     client.init_services()
     if args.command == 'list-resources':
         list_resources(
