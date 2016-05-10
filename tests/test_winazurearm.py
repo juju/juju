@@ -15,6 +15,7 @@ from winazurearm import (
     ARMClient,
     DEFAULT_RESOURCE_PREFIX,
     delete_resources,
+    find_vm_instance,
     list_resources,
     main,
     OLD_MACHINE_AGE,
@@ -289,3 +290,26 @@ class WinAzureARMTestCase(TestCase):
             count = delete_resources(client, 'juju-bar*', old_age=2, now=now)
         self.assertEqual(1, count)
         self.assertEqual(1, d_mock.call_count)
+
+    def test_find_vm_instance(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        rgd1 = ResourceGroupDetails(
+            client, ResourceGroup('one'),
+            vms=[VirtualMachine('name-0', 'id-a'),
+                 VirtualMachine('name-1', 'id-b')])
+        rgd2 = ResourceGroupDetails(
+            client, ResourceGroup('two'),
+            vms=[VirtualMachine('name-0', 'id-y'),
+                 VirtualMachine('name-1', 'id-z')])
+        resources = [rgd1, rgd2]
+        self.assertEqual(
+            (None, None), find_vm_instance(resources, 'id-q', None))
+        self.assertEqual(
+            (rgd2, rgd2.vms[0]), find_vm_instance(resources, 'id-y', None))
+        self.assertEqual(
+            (rgd2, rgd2.vms[0]), find_vm_instance(resources, 'name-0', 'two'))
+        self.assertEqual(
+            (None, None), find_vm_instance(resources, 'name-0', 'three'))
+        self.assertEqual(
+            (None, None), find_vm_instance(resources, 'name-9', 'two'))

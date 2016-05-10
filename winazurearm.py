@@ -246,10 +246,15 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
 
 
 def find_vm_instance(resources, name_id, resource_group):
-    """Return a tuple of ResourceGroupDetauls and VirtualMachine."""
+    """Return a tuple of ResourceGroupDetails and VirtualMachine.
+
+    Juju 1.x shows the machine's id as the instance_id.
+    Juju 2.x shows the machine's name in the resource group as the instance_id.
+    """
     for rgd in resources:
         for vm in rgd.vms:
-            if resource_group and vm.name == name_id or vm.vm_id == name_id:
+            if (rgd.name == resource_group and vm.name == name_id or
+                    vm.vm_id == name_id):
                 return rgd, vm
     return None, None
 
