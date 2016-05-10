@@ -110,35 +110,33 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_juju_home), juju_bin, False
-        )
+            JujuData('local', juju_home=tmp_juju_home), juju_bin, False)
 
-        first_pass_cloud_details = cloud_details_fn(
-            user, tmp_scratch_dir, client
-        )
+        initial_details = cloud_details_fn(
+            user, tmp_scratch_dir, client)
         # Inject well known username.
-        first_pass_cloud_details.env_var_changes.update({'USER': user})
+        initial_details.env_var_changes.update({'USER': user})
 
-        run_autoload_credentials(
-            client, first_pass_cloud_details.env_var_changes
-        )
+        run_autoload_credentials(client, initial_details.env_var_changes)
 
         # Now run again with a second lot of details.
-        overwrite_cloud_details = cloud_details_fn(
-            user, tmp_scratch_dir, client
-        )
+        overwrite_details = cloud_details_fn(user, tmp_scratch_dir, client)
+
+        if (
+                overwrite_details.expected_details ==
+                initial_details.expected_details):
+            raise ValueError(
+                'Attempting to use identical values for overwriting')
+
         # Inject well known username.
-        overwrite_cloud_details.env_var_changes.update({'USER': user})
-        run_autoload_credentials(
-            client, overwrite_cloud_details.env_var_changes
-        )
+        overwrite_details.env_var_changes.update({'USER': user})
+        run_autoload_credentials(client, overwrite_details.env_var_changes)
 
         client.env.load_yaml()
 
         assert_credentials_contains_expected_results(
             client.env.credentials,
-            overwrite_cloud_details.expected_details
-        )
+            overwrite_details.expected_details)
 
 
 def assert_credentials_contains_expected_results(credentials, expected):
