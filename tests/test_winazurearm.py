@@ -8,10 +8,11 @@ from mock import (
     patch,
 )
 import os
-from unittest import TestCase
+#from unittest import TestCase
 
 import pytz
 
+from tests import TestCase
 from winazurearm import (
     ARMClient,
     DEFAULT_RESOURCE_PREFIX,
@@ -72,10 +73,11 @@ def fake_init_services(client):
         virtual_networks=Mock(list=Mock(return_value=[])))
 
 
-@patch.dict(os.environ, AZURE_ENVIRON)
 @patch('winazurearm.ARMClient.init_services',
        autospec=True, side_effect=fake_init_services)
 class WinAzureARMTestCase(TestCase):
+
+    test_environ = AZURE_ENVIRON
 
     def test_main_list_resources(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
