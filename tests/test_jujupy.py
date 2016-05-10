@@ -2895,65 +2895,55 @@ class TestEnvJujuClient(ClientTest):
                           'to model "y"\nPlease send this command to x:\n',
                           '    juju register AaBbCc'])
         output_cmd = 'juju register AaBbCc'
-        mock_client = FakeJujuClient()
-        register_cmd = mock_client._get_register_command(output)
+        fake_client = FakeJujuClient()
+        register_cmd = fake_client._get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)
 
     def test_revoke(self):
-        mock_client = FakeJujuClient()
+        fake_client = FakeJujuClient()
         username = 'fakeuser'
         model = 'foo'
-        controller = 'bar'
         default_permissions = 'read'
-        default_model = mock_client.model_name
-        default_controller = mock_client.env.controller.name
+        default_model = fake_client.model_name
+        default_controller = fake_client.env.controller.name
 
-        with patch.object(mock_client, 'juju', return_value=True):
-            mock_client.revoke(username)
-            mock_client.juju.assert_called_with('revoke',
-                                                (username, default_model,
-                                                 '--acl', default_permissions,
-                                                 '-c', default_controller),
+        with patch.object(fake_client, 'juju', return_value=True):
+            fake_client.revoke(username)
+            fake_client.juju.assert_called_with('revoke',
+                                                ('-c', default_controller,
+                                                username, default_model,
+                                                '--acl', default_permissions),
                                                 include_e=False)
 
-            mock_client.revoke(username, model)
-            mock_client.juju.assert_called_with('revoke',
-                                                (username, model,
-                                                 '--acl', default_permissions,
-                                                 '-c', default_controller),
+            fake_client.revoke(username, model)
+            fake_client.juju.assert_called_with('revoke',
+                                                ('-c', default_controller,
+                                                username, model,
+                                                '--acl', default_permissions),
                                                 include_e=False)
 
-            mock_client.revoke(username, model, permissions='write')
-            mock_client.juju.assert_called_with('revoke',
-                                                (username, model,
-                                                 '--acl', 'write',
-                                                 '-c', default_controller),
+            fake_client.revoke(username, model, permissions='write')
+            fake_client.juju.assert_called_with('revoke',
+                                                ('-c', default_controller,
+                                                username, model,
+                                                '--acl', 'write'),
                                                 include_e=False)
 
-            mock_client.revoke(username, controller=controller)
-            mock_client.juju.assert_called_with('revoke',
-                                                (username, default_model,
-                                                 '--acl', default_permissions,
-                                                 '-c', controller),
-                                                include_e=False)
+
 
     def test_add_user(self):
-        mock_client = FakeJujuClient()
+        fake_client = FakeJujuClient()
         username = 'fakeuser'
         model = 'foo'
-        controller = 'bar'
         permissions = 'write'
 
-        output = mock_client.add_user(username)
+        output = fake_client.add_user(username)
         self.assertTrue(output.startswith('juju register'))
 
-        output = mock_client.add_user(username, model)
+        output = fake_client.add_user(username, model)
         self.assertTrue(output.startswith('juju register'))
 
-        output = mock_client.add_user(username, model, controller)
-        self.assertTrue(output.startswith('juju register'))
-
-        output = mock_client.add_user(username, model, controller, permissions)
+        output = fake_client.add_user(username, model, permissions)
         self.assertTrue(output.startswith('juju register'))
 
 

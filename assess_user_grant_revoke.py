@@ -32,13 +32,17 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_user_grant_revoke")
 
+# This needs refactored out to utility
+class JujuAssertionError(AssertionError):
+    """Exception for juju assertion failures."""
 
-def register_user(username, environment, register_cmd,
+
+def register_user(username, environ, register_cmd,
                   register_process=pexpect.spawn):
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     try:
-        child = register_process(register_cmd, env=environment)
+        child = register_process(register_cmd, env=environ)
         child.expect('(?i)name .*: ')
         child.sendline(username + '_controller')
         child.expect('(?i)password')
@@ -47,10 +51,10 @@ def register_user(username, environment, register_cmd,
         child.sendline(username + '_password')
         child.expect(pexpect.EOF)
         if child.isalive():
-            raise AssertionError(
+            raise JujuAssertionError(
                 'Registering user failed: pexpect session still alive')
     except pexpect.TIMEOUT:
-        raise AssertionError(
+        raise JujuAssertionError(
             'Registering user failed: pexpect session timed out')
 
 
@@ -66,14 +70,16 @@ def assert_read(client, permission):
         try:
             client.show_status()
         except subprocess.CalledProcessError:
-            raise
+            raise JujuAssertionError(
+                'User could not check status with read permission')
     else:
         try:
             client.show_status()
         except subprocess.CalledProcessError:
             pass
         else:
-            raise AssertionError('User checked status without read permission')
+            raise JujuAssertionError(
+                'User checked status without read permission')
 
 
 def assert_write(client, permission):
@@ -81,14 +87,15 @@ def assert_write(client, permission):
         try:
             client.deploy('local:wordpress')
         except subprocess.CalledProcessError:
-            raise
+            raise JujuAssertionError(
+                'User could not deploy with write permission')
     else:
         try:
             client.deploy('local:wordpress')
         except subprocess.CalledProcessError:
             pass
         else:
-            raise AssertionError('User deployed without write permission')
+            raise JujuAssertionError('User deployed without write permission')
 
 
 def assert_user_permissions(user, user_client, admin_client):
