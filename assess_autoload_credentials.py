@@ -9,6 +9,8 @@ import os
 import pexpect
 import sys
 
+from textwrap import dedent
+
 from jujupy import EnvJujuClient, JujuData
 from utility import (
     configure_logging,
@@ -174,12 +176,14 @@ def write_aws_config_file(tmp_dir, access_key, secret_key):
     config_file = os.path.join(config_dir, 'credentials')
     ensure_dir(config_dir)
 
+    config_contents = dedent("""\
+    [default]
+    aws_access_key_id={}
+    aws_secret_access_key={}
+    """.format(access_key, secret_key))
+
     with open(config_file, 'w') as f:
-        f.writelines([
-            '[default]\n',
-            'aws_access_key_id={}\n'.format(access_key),
-            'aws_secret_access_key={}\n'.format(secret_key)
-        ])
+        f.write(config_contents)
 
     return config_file
 
