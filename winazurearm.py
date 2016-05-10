@@ -232,46 +232,6 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
                 poller.result()
 
 
-def find_vm_instance(resources, name_id, resource_group):
-    """Return a tuple of ResourceGroupDetauls and VirtualMachine."""
-    for rgd in resources:
-        for vm in rgd.vms:
-            if resource_group and vm.name == name_id or vm.vm_id == name_id:
-                return rgd, vm
-    return None, None
-
-
-def delete_instance(client, name_id, resource_group=None):
-    """Delete a VM instance.
-
-    When resource_group is provides, VM name is used to locate the VM.
-    Otherwise, all resource groups are searched for a matching VM id.
-
-    :param name_id: The name or id of a VM instance.
-    :param resource_group: The name of the resource group the VM belongs to.
-    """
-    if resource_group:
-        glob = resource_group
-    else:
-        glob = '*'
-    resources = list_resources(client, glob=glob, recursive=True)
-    rgd, vm = find_vm_instance(resources, name_id, resource_group)
-    if vm:
-        if client.verbose:
-            print('Found {} {}'.format(rgd.name, vm.name))
-        if not client.dry_run:
-            poller = client.compute.virtual_machines.delete(
-                rgd.name, vm.name)
-            if client.verbose:
-                print('Waiting for {} to be deleted'.format(vm.name))
-            if not poller.done():
-                poller.result()
-    else:
-        group_names = ', '.join([rgd.name for rdg in resources])
-        print('The vm name {} was not found in {}'.format(
-              name_id, group_names))
-
-
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser('Query and manage azure.')
@@ -317,12 +277,6 @@ def parse_args(args=None):
         help='Set old machine age to n hours.')
     dr_parser.add_argument(
         'filter', help='An exact name or glob pattern to match services to.')
-    di_parser = subparsers.add_parser('delete-instance', help='Delete a vm.')
-    di_parser.add_argument(
-        'name_id', help='The name or id of an instance (name needs group).')
-    di_parser.add_argument(
-        'resource_group', default=None, nargs='?',
-        help='The resource-group name of the machine name.')
     args = parser.parse_args(args)
     if not all(
             [args.subscription_id, args.client_id, args.secret, args.tenant]):
@@ -342,9 +296,6 @@ def main(argv):
             client, glob=args.filter, recursive=args.recursive, print_out=True)
     elif args.command == 'delete-resources':
         delete_resources(client, glob=args.filter, old_age=args.old_age)
-    elif args.command == 'delete-instance':
-        delete_instance(
-            client, args.name_id, resource_group=args.resource_group)
     return 0
 
 
