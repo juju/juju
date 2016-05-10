@@ -125,6 +125,9 @@ type localServer struct {
 	ec2srv *ec2test.Server
 	s3srv  *s3test.Server
 	config *s3test.Config
+
+	defaultVPC *amzec2.VPC
+	zones      []amzec2.AvailabilityZoneInfo
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -162,6 +165,11 @@ func (srv *localServer) startServer(c *gc.C) {
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
+	srv.zones = zones
+
+	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	srv.defaultVPC = &defaultVPC
 }
 
 // addSpice adds some "spice" to the local server
@@ -178,11 +186,14 @@ func (srv *localServer) addSpice(c *gc.C) {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
+	srv.ec2srv.Reset(false)
 	srv.ec2srv.Quit()
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
 	// no longer valid.
 	delete(aws.Regions, "test")
+
+	srv.defaultVPC = nil
 }
 
 // localServerSuite contains tests that run against a fake EC2 server
@@ -1169,37 +1180,7 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
-	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	instanceIds, err := env.ControllerInstances()
-	c.Assert(err, jc.ErrorIsNil)
-
-	instId := instanceIds[0]
-	addr := network.Address{Value: "8.0.0.4"}
-
-	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", &addr, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
-
-	// No network interface
-	err = env.AllocateAddress(instId, "", &addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
-
-	// Nil or empty address given.
-	err = env.AllocateAddress(instId, "", nil, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
-
-	err = env.AllocateAddress(instId, "", &network.Address{Value: ""}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid address: nil or empty")
-}
-
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
-	// Simulate a default VPC exists.
-	t.srv.ec2srv.AddDefaultVPCAndSubnets()
-
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1416,7 +1397,6 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
-	t.srv.ec2srv.AddDefaultVPCAndSubnets()
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1455,7 +1435,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(result, jc.IsFalse)
 
 	// this value won't change normally, the change here is to
@@ -1464,7 +1444,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	result, err = env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(result, jc.IsFalse)
 }
 
@@ -1474,7 +1454,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 	c.Assert(result, jc.IsFalse)
 }
 
