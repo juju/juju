@@ -179,7 +179,7 @@ class TetMakeItem(TestCase):
 
     def test_happy_path(self):
         image = make_mock_image()
-        now = datetime(2001, 02, 03)
+        now = datetime(2001, 2, 3)
         item = make_item(image, now)
         self.assertEqual(item.content_id, 'com.ubuntu.cloud.released:aws')
         self.assertEqual(item.product_name,
@@ -204,7 +204,7 @@ class TetMakeItem(TestCase):
     def test_china(self):
         image = make_mock_image()
         image.region.endpoint = 'foo.amazonaws.com.cn'
-        now = datetime(2001, 02, 03)
+        now = datetime(2001, 2, 3)
         item = make_item(image, now)
         self.assertEqual(item.content_id, 'com.ubuntu.cloud.released:aws-cn')
         self.assertEqual(item.data['endpoint'], 'https://foo.amazonaws.com.cn')
@@ -212,7 +212,7 @@ class TetMakeItem(TestCase):
     def test_not_x86_64(self):
         image = make_mock_image()
         image.architecture = 'ppc128'
-        now = datetime(2001, 02, 03)
+        now = datetime(2001, 2, 3)
         with self.assertRaisesRegexp(ValueError,
                                      'Architecture is "ppc128", not'
                                      ' "x86_64".'):
@@ -221,7 +221,7 @@ class TetMakeItem(TestCase):
     def test_not_centos_7(self):
         image = make_mock_image()
         image.name = 'CentOS Linux 8'
-        now = datetime(2001, 02, 03)
+        now = datetime(2001, 2, 3)
         with self.assertRaisesRegexp(ValueError,
                                      'Name "CentOS Linux 8" does not begin'
                                      ' with "CentOS Linux 7".'):
@@ -264,7 +264,7 @@ def load_json(parent, filename):
 class TestWriteStreams(TestCase):
 
     def test_write_streams(self):
-        now = datetime(2001, 02, 03)
+        now = datetime(2001, 2, 3)
         credentials = {'name': 'aws'}
         china_credentials = {'name': 'aws-cn'}
         east_conn = Mock()
@@ -277,7 +277,7 @@ class TestWriteStreams(TestCase):
             with patch('make_aws_image_streams.iter_region_connection',
                        return_value=[east_conn, west_conn],
                        autospec=True) as irc_mock:
-                with patch('make_aws_image_streams.timestamp',
+                with patch('simplestreams.util.timestamp',
                            return_value='now'):
                     with patch('sys.stderr'):
                         write_streams(credentials, china_credentials, now,
@@ -304,21 +304,27 @@ class TestWriteStreams(TestCase):
             'updated': 'now',
             'datatype': 'image-ids',
             'products': {'com.ubuntu.cloud:server:centos7:amd64': {
-                'root_store': 'ebs',
                 'endpoint': 'https://foo',
                 'arch': 'amd64',
                 'release_title': 'Centos 7',
                 'label': 'release',
                 'release_codename': 'centos7',
                 'version': 'centos7',
-                'virt': 'hvm',
                 'release': 'centos7',
                 'os': 'centos',
                 'id': 'qux',
                 'versions': {'20010203': {
                     'items': {
-                        'usww1he': {'region': 'us-west-1'},
-                        'usee1he': {'region': 'us-east-1'},
+                        'usww1he': {
+                            'region': 'us-west-1',
+                            'root_store': 'ebs',
+                            'virt': 'hvm',
+                            },
+                        'usee1he': {
+                            'region': 'us-east-1',
+                            'root_store': 'ebs',
+                            'virt': 'hvm',
+                            },
                         }
                     }},
                 }},

@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from copy import deepcopy
 from datetime import datetime
 import os
 import sys
@@ -10,13 +11,16 @@ import yaml
 
 from boto import ec2
 from simplestreams.generate_simplestreams import (
+    generate_index,
     items2content_trees,
+    json_dump,
     )
 from simplestreams.json2streams import (
     Item,
-    write_juju_streams,
+    JujuFileNamer,
+    write_release_index,
     )
-from simplestreams.util import timestamp
+from simplestreams import util
 
 
 def get_parameters(argv=None):
@@ -190,10 +194,32 @@ def write_streams(credentials, china_credentials, now, streams):
     """
     items = [make_item(i, now) for i in iter_centos_images(
         credentials, china_credentials)]
-    updated = timestamp()
+    updated = util.timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
-    write_juju_streams(streams, trees, updated)
+    write_juju_streams(streams, trees, updated, [
+        'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
+
+
+def write_juju_streams(out_d, trees, updated, sticky):
+    namer = JujuFileNamer
+    index = generate_index(trees, updated, namer)
+    to_write = [(namer.get_index_path(), index,)]
+    # Don't let products_condense modify the input
+    trees = deepcopy(trees)
+    for content_id in trees:
+        util.products_condense(
+            trees[content_id], sticky=sticky)
+        content = trees[content_id]
+        to_write.append((index['index'][content_id]['path'], content,))
+    out_filenames = []
+    for (outfile, data) in to_write:
+        filef = os.path.join(out_d, outfile)
+        util.mkdir_p(os.path.dirname(filef))
+        json_dump(data, filef)
+        out_filenames.append(filef)
+    out_filenames.append(write_release_index(out_d))
+    return out_filenames
 
 
 def main():
