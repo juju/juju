@@ -156,7 +156,7 @@ class ResourceGroupDetails:
         ago = timedelta(hours=old_age)
         # Contrary to Juju claims, the Azure RM provider always creates storage
         # and that one resource has a creation_time.
-        if self.storage:
+        if self.storage_accounts:
             # Azure allows many storage accounts per resource group, but Juju
             # only creates one.
             creation_time = self.storage_accounts[0].creation_time
@@ -168,8 +168,10 @@ class ResourceGroupDetails:
                     print('  {}'.format(creation_time))
                 return True
         elif (self.networks and not
-                all([self.vms, self.addresses, self.storage])):
+                all([self.vms, self.addresses, self.storage_accounts])):
             # There is a network, but no vms, storage or public addresses.
+            # Networks can take a long time to delete and are often
+            # left behind when Juju cannot complete a delete in time.
             if self.client.verbose:
                 print('{} only has a network, likely a failed delete'.format(
                       self.name))
