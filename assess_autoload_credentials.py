@@ -9,11 +9,11 @@ import os
 import pexpect
 import sys
 import tempfile
-import yaml
-
 from collections import namedtuple
 from uuid import uuid4
 from textwrap import dedent
+
+import yaml
 
 from jujupy import EnvJujuClient, JujuData
 from utility import (
@@ -67,7 +67,7 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
     """Test covering loading and storing credentials using autoload-credentials
 
     :param juju_bin: The full path to the juju binary to use for the test run.
-    :para cloud_details_fn: A callable that takes the 3 arguments `user`
+    :param cloud_details_fn: A callable that takes the 3 arguments `user`
       string, `tmp_dir` path string and client EnvJujuClient and will returns a
       `CloudDetails` object used to setup creation of credential details &
       comparison of the result.
@@ -99,7 +99,7 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
     """Storing credentials using autoload-credentials must overwrite existing.
 
     :param juju_bin: The full path to the juju binary to use for the test run.
-    :para cloud_details_fn: A callable that takes the 3 arguments `user`
+    :param cloud_details_fn: A callable that takes the 3 arguments `user`
       string, `tmp_dir` path string and client EnvJujuClient and will returns a
       `CloudDetails` object used to setup creation of credential details &
       comparison of the result.
