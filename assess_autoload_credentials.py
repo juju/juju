@@ -107,12 +107,14 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
     """
     user = 'testing_user'
     with temp_dir() as tmp_dir:
+        tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
+        tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_dir), juju_bin, False
+            JujuData('local', juju_home=tmp_juju_home), juju_bin, False
         )
 
         first_pass_cloud_details = cloud_details_fn(
-            user, tmp_dir, client
+            user, tmp_scratch_dir, client
         )
         # Inject well known username.
         first_pass_cloud_details.env_var_changes.update({'USER': user})
@@ -123,7 +125,7 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
 
         # Now run again with a second lot of details.
         overwrite_cloud_details = cloud_details_fn(
-            user, tmp_dir, client
+            user, tmp_scratch_dir, client
         )
         # Inject well known username.
         overwrite_cloud_details.env_var_changes.update({'USER': user})
