@@ -26,19 +26,25 @@ DEFAULT_RESOURCE_PREFIX = 'Default-'
 OLD_MACHINE_AGE = 6
 
 
+# The azure lib is very chatty even at the info level. This logger
+# strictly reports the activity of this script.
 log = logging.getLogger("winazurearm")
+handler = logging.StreamHandler(sys.stderr)
+handler.setFormatter(logging.Formatter(
+    fmt='%(asctime)s %(levelname)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'))
+log.addHandler(handler)
 
 
 class ARMClient:
     """A collection of Azure RM clients."""
 
     def __init__(self, subscription_id, client_id, secret, tenant,
-                 verbose=False, dry_run=False):
+                 dry_run=False):
         self.subscription_id = subscription_id
         self.client_id = client_id
         self.secret = secret
         self.tenant = tenant
-        self.verbose = verbose
         self.dry_run = dry_run
         self.credentials = None
         self.storage = None
@@ -47,12 +53,12 @@ class ARMClient:
         self.network = None
 
     def __eq__(self, other):
+
         return (
             self.subscription_id == other.subscription_id and
             self.client_id == other.client_id and
             self.secret == other.secret and
             self.tenant == other.tenant and
-            self.verbose == other.verbose and
             self.dry_run == other.dry_run)
 
     def init_services(self):
@@ -163,17 +169,15 @@ class ResourceGroupDetails:
             age = now - creation_time
             if age > ago:
                 hours_old = (age.seconds / 3600) + (age.days * 24)
-                if self.client.verbose:
-                    print('{} is {} hours old:'.format(self.name, hours_old))
-                    print('  {}'.format(creation_time))
+                log.debug('{} is {} hours old:'.format(self.name, hours_old))
+                log.debug('  {}'.format(creation_time))
                 return True
         elif (self.networks and not
                 all([self.vms, self.addresses, self.storage_accounts])):
             # There is a network, but no vms, storage or public addresses.
             # Networks can take a long time to delete and are often
             # left behind when Juju cannot complete a delete in time.
-            if self.client.verbose:
-                print('{} only has a network, likely a failed delete'.format(
+            log.debug('{} only has a network, likely a failed delete'.format(
                       self.name))
             return True
         return False
@@ -193,8 +197,10 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
         if group.name.startswith(DEFAULT_RESOURCE_PREFIX):
             # This is not a resource group. Use the UI to delete Default
             # resources.
+            log.debug('Skipping {}'.format(group.name))
             continue
         if not fnmatch.fnmatch(group.name, glob):
+            log.debug('Skipping {}'.format(group.name))
             continue
         rgd = ResourceGroupDetails(client, group)
         if recursive:
@@ -215,14 +221,12 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
         name = rgd.name
         if not rgd.is_old(now, old_age):
             continue
-        if client.verbose:
-            print('Deleting {}'.format(name))
+        log.debug('Deleting {}'.format(name))
         if not client.dry_run:
             poller = rgd.delete()
             pollers.append((name, poller))
     for name, poller in pollers:
-        if client.verbose:
-            print('Waiting for {} to be deleted'.format(name))
+        log.debug('Waiting for {} to be deleted'.format(name))
         if poller:
             # Deleting a group created using the old might not return
             # a poller!. We just hope the async operation is successful.
@@ -239,7 +243,9 @@ def parse_args(args=None):
         '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
     parser.add_argument(
-        '-v', '--verbose', action="store_true", help='Increse verbosity.')
+        '-v', '--verbose', action='store_const',
+        default=logging.INFO, const=logging.DEBUG,
+        help='Verbose test harness output.')
     parser.add_argument(
         '--subscription-id',
         help=("The subscription id to make requests with. "
@@ -280,16 +286,17 @@ def parse_args(args=None):
     args = parser.parse_args(args)
     if not all(
             [args.subscription_id, args.client_id, args.secret, args.tenant]):
-        print("$AZURE_SUBSCRIPTION_ID, $AZURE_CLIENT_ID, $AZURE_SECRET, "
-              "$AZURE_TENANT was not provided.")
+        log.error("$AZURE_SUBSCRIPTION_ID, $AZURE_CLIENT_ID, $AZURE_SECRET, "
+                  "$AZURE_TENANT was not provided.")
     return args
 
 
 def main(argv):
     args = parse_args(argv)
+    log.setLevel(args.verbose)
     client = ARMClient(
         args.subscription_id, args.client_id, args.secret, args.tenant,
-        verbose=args.verbose, dry_run=args.dry_run)
+        dry_run=args.dry_run)
     client.init_services()
     if args.command == 'list-resources':
         list_resources(
