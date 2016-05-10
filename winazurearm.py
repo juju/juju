@@ -91,22 +91,33 @@ class ARMClient:
 
 
 class ResourceGroupDetails:
-    def __init__(self, client, group, storage=None, vms=None,
+
+    def __init__(self, client, group, storage_accounts=None, vms=None,
                  addresses=None, networks=None):
         self.client = client
         self.is_loaded = False
         self.group = group
-        self.storage = storage
+        self.storage_accounts = storage_accounts
         self.vms = vms
         self.addresses = addresses
         self.networks = networks
+
+    def __eq__(self, other):
+        return (
+            self.client == other.client and
+            self.is_loaded is other.is_loaded and
+            self.group is other.group and
+            self.storage_accounts == other.storage_accounts and
+            self.vms == other.vms and
+            self.addresses == other.addresses and
+            self.networks == other.networks)
 
     @property
     def name(self):
         return self.group.name
 
     def load_details(self):
-        self.storage = list(
+        self.storage_accounts = list(
             self.client.storage.storage_accounts.list_by_resource_group(
                 self.name))
         self.vms = list(
@@ -126,9 +137,9 @@ class ResourceGroupDetails:
                 print('    {} {}'.format(address.name, address.ip_address))
             for network in self.networks:
                 print('    Network {}'.format(network.name))
-            for storage in self.storage:
+            for storage_account in self.storage_accounts:
                 print('    Storage {} {}'.format(
-                    storage.name, storage.creation_time))
+                    storage_account.name, storage_account.creation_time))
 
     def is_old(self, now, old_age):
         """Return True if the resource group is old.
@@ -148,7 +159,7 @@ class ResourceGroupDetails:
         if self.storage:
             # Azure allows many storage accounts per resource group, but Juju
             # only creates one.
-            creation_time = self.storage[0].creation_time
+            creation_time = self.storage_accounts[0].creation_time
             age = now - creation_time
             if age > ago:
                 hours_old = (age.seconds / 3600) + (age.days * 24)
