@@ -31,6 +31,7 @@ from tests.test_jujupy import (
     FakeJujuClient,
 )
 
+
 class RegisterUserProcess:
 
     @classmethod

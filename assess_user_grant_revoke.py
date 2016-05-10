@@ -32,6 +32,7 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_user_grant_revoke")
 
+
 # This needs refactored out to utility
 class JujuAssertionError(AssertionError):
     """Exception for juju assertion failures."""

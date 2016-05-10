@@ -453,6 +453,7 @@ class FakeBackend:
             return info_string + register_string
         return ''
 
+
 class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
 
@@ -2911,25 +2912,23 @@ class TestEnvJujuClient(ClientTest):
             fake_client.revoke(username)
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
-                                                username, default_model,
-                                                '--acl', default_permissions),
+                                                 username, default_model,
+                                                 '--acl', default_permissions),
                                                 include_e=False)
 
             fake_client.revoke(username, model)
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
-                                                username, model,
-                                                '--acl', default_permissions),
+                                                 username, model,
+                                                 '--acl', default_permissions),
                                                 include_e=False)
 
             fake_client.revoke(username, model, permissions='write')
             fake_client.juju.assert_called_with('revoke',
                                                 ('-c', default_controller,
-                                                username, model,
-                                                '--acl', 'write'),
+                                                 username, model,
+                                                 '--acl', 'write'),
                                                 include_e=False)
-
-
 
     def test_add_user(self):
         fake_client = FakeJujuClient()
