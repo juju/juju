@@ -13,6 +13,8 @@ import (
 	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
+	utilsos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -106,15 +108,28 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // provides an entry point for testing with arbitrary command line arguments.
 // This function returns the exit code, for main to pass to os.Exit.
 func Main(args []string) int {
+	return main{
+		execCommand: exec.Command,
+	}.Run(args)
+}
+
+// main is a type that captures dependencies for running the main function.
+type main struct {
+	// execCommand abstracts away exec.Command.
+	execCommand func(command string, args ...string) *exec.Cmd
+}
+
+// Run is the main entry point for the juju client.
+func (m main) Run(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 2
 	}
 
-	if shouldWarnJuju1x() {
-		warnJuju1x()
-	}
+	// note that this has to come before we init the juju home directory,
+	// since it relies on detecting the lack of said directory.
+	m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
@@ -133,16 +148,13 @@ func Main(args []string) int {
 	return cmd.Main(jcmd, ctx, args[1:])
 }
 
-func warnJuju1x() {
-	ver := "1.x"
-	out, err := execCommand(juju1xCmdName, "version").Output()
-	if err == nil {
-		v := strings.TrimSpace(string(out))
-		// parse so we can drop the series and arch
-		bin, err := version.ParseBinary(v)
-		if err == nil {
-			ver = bin.Number.String()
-		}
+func (m main) maybeWarnJuju1x() {
+	if !shouldWarnJuju1x() {
+		return
+	}
+	ver, exists := m.juju1xVersion()
+	if !exists {
+		return
 	}
 	fmt.Fprintf(os.Stderr, `
     Welcome to Juju %s. If you meant to use Juju %s you can continue using it
@@ -151,15 +163,30 @@ func warnJuju1x() {
 `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
 }
 
-var execCommand = exec.Command
-var execLookPath = exec.LookPath
+func (m main) juju1xVersion() (ver string, exists bool) {
+	out, err := m.execCommand(juju1xCmdName, "version").Output()
+	if err == exec.ErrNotFound {
+		return "", false
+	}
+	ver = "1.x"
+	if err == nil {
+		v := strings.TrimSpace(string(out))
+		// parse so we can drop the series and arch
+		bin, err := version.ParseBinary(v)
+		if err == nil {
+			ver = bin.Number.String()
+		}
+	}
+	return ver, true
+}
 
 func shouldWarnJuju1x() bool {
-	if _, err := execLookPath(juju1xCmdName); err != nil {
+	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
+	ostype, err := series.GetOSFromSeries(series.HostSeries())
+	if err != nil || ostype != utilsos.Ubuntu {
 		return false
 	}
-	return osenv.Juju1xEnvConfigExists() &&
-		!juju2xConfigDataExists()
+	return osenv.Juju1xEnvConfigExists() && !juju2xConfigDataExists()
 }
 
 func juju2xConfigDataExists() bool {
