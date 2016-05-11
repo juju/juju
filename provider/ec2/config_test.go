@@ -172,7 +172,7 @@ var configTests = []configTest{
 		forceVPCID: false,
 	}, {
 		config: attrs{
-			"vpc-id": "none",
+			"vpc-id": vpcIDNone,
 		},
 		vpcID:      "none",
 		forceVPCID: false,
@@ -238,6 +238,16 @@ var configTests = []configTest{
 		err:        `.*cannot change vpc-id-force from true to false`,
 		vpcID:      "vpc-unchanged",
 		forceVPCID: true,
+	}, {
+		config: attrs{
+			"vpc-id": "",
+		},
+		change: attrs{
+			"vpc-id": "none",
+		},
+		err:        `.*cannot change vpc-id from "" to "none"`,
+		vpcID:      "",
+		forceVPCID: false,
 	}, {
 		config: attrs{
 			"vpc-id": "",

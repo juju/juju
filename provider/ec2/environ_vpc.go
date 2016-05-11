@@ -467,6 +467,10 @@ func findSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[networ
 	return matchingSubnetIDs.SortedValues(), nil
 }
 
-func isVPCIDValid(vpcID string) bool {
-	return vpcID == vpcIDNone || strings.HasPrefix(vpcID, "vpc-")
+func isVPCIDSetButInvalid(vpcID string) bool {
+	return isVPCIDSet(vpcID) && !strings.HasPrefix(vpcID, "vpc-")
+}
+
+func isVPCIDSet(vpcID string) bool {
+	return vpcID != "" && vpcID != vpcIDNone
 }
