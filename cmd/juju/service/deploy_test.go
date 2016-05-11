@@ -39,10 +39,8 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -55,14 +53,14 @@ type DeploySuite struct {
 	common.CmdBlockHelper
 }
 
+var _ = gc.Suite(&DeploySuite{})
+
 func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
-
-var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
 	_, err := coretesting.RunCommand(c, NewDeployCommand(), args...)
@@ -471,82 +469,166 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
 }
 
-func (s *DeploySuite) TestCharmSeries(c *gc.C) {
+type DeployUnitTestSuite struct{}
+
+var _ = gc.Suite(&DeployUnitTestSuite{})
+
+func (s *DeployUnitTestSuite) TestCharmSeries(c *gc.C) {
 	deploySeriesTests := []struct {
-		requestedSeries string
-		force           bool
-		seriesFromCharm string
-		supportedSeries []string
-		modelSeries     string
-		ltsSeries       string
-		expectedSeries  string
-		message         string
-		err             string
+		title string
+
+		seriesSelector
+
+		ltsSeries      string
+		expectedSeries string
+		message        string
+		err            string
 	}{{
-		ltsSeries:       "precise",
-		modelSeries:     "wily",
-		supportedSeries: []string{"trusty", "precise"},
-		expectedSeries:  "trusty",
-		message:         "with the default charm metadata series %q",
+		title: "use charm default, e.g. juju deploy ubuntu",
+		seriesSelector: seriesSelector{
+			supportedSeries: []string{"trusty", "precise"},
+			conf:            defaultSeries{"wily", true},
+		},
+		ltsSeries:      "precise",
+		expectedSeries: "trusty",
+		message:        "with the default charm metadata series %q",
 	}, {
-		requestedSeries: "trusty",
-		seriesFromCharm: "trusty",
-		expectedSeries:  "trusty",
-		message:         "with the user specified series %q",
+		title: "use supported requested, e.g. juju deploy ubuntu --series trusty",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "trusty",
+			supportedSeries: []string{"trusty"},
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "trusty",
+		message:        "with the user specified series %q",
 	}, {
-		requestedSeries: "wily",
-		seriesFromCharm: "trusty",
-		err:             `series "wily" not supported by charm, supported series are: trusty`,
+		title: "unsupported requested, e.g. juju deploy ubuntu --series quantal",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "quantal",
+			supportedSeries: []string{"trusty", "precise"},
+			conf:            defaultSeries{},
+		},
+		err: `series "quantal" not supported by charm, supported series are: trusty,precise`,
 	}, {
-		requestedSeries: "wily",
-		supportedSeries: []string{"trusty", "precise"},
-		err:             `series "wily" not supported by charm, supported series are: trusty,precise`,
-	}, {
-		ltsSeries: series.LatestLts(),
-		err:       `series .* not supported by charm, supported series are: .*`,
-	}, {
-		modelSeries: "xenial",
-		err:         `series "xenial" not supported by charm, supported series are: .*`,
-	}, {
-		requestedSeries: "wily",
-		seriesFromCharm: "trusty",
-		expectedSeries:  "wily",
-		message:         "with the user specified series %q",
-		force:           true,
-	}, {
-		requestedSeries: "wily",
-		supportedSeries: []string{"trusty", "precise"},
-		expectedSeries:  "wily",
-		message:         "with the user specified series %q",
-		force:           true,
-	}, {
-		ltsSeries:      series.LatestLts(),
-		force:          true,
-		expectedSeries: series.LatestLts(),
+		title: "charm without series specified or requested, with --force",
+		seriesSelector: seriesSelector{
+			force: true,
+			conf:  defaultSeries{},
+		},
+		ltsSeries:      "quantal",
+		expectedSeries: "quantal",
 		message:        "with the latest LTS series %q",
 	}, {
-		ltsSeries:      "precise",
-		modelSeries:    "xenial",
-		force:          true,
+		title: "charm without series specified or requested, without --force",
+		seriesSelector: seriesSelector{
+			conf: defaultSeries{},
+		},
+		ltsSeries:      "quantal",
+		expectedSeries: "quantal",
+		err:            `series "quantal" not supported by charm, supported series are: <none defined>`,
+	}, {
+		title: "charm without series specified, series requested, without --force",
+		seriesSelector: seriesSelector{
+			seriesFlag: "xenial",
+			conf:       defaultSeries{},
+		},
+		ltsSeries:      "quantal",
+		expectedSeries: "quantal",
+		err:            `series "xenial" not supported by charm, supported series are: <none defined>`,
+	}, {
+		title: "charm without series specified, series requested, with --force",
+		seriesSelector: seriesSelector{
+			seriesFlag: "xenial",
+			conf:       defaultSeries{},
+			force:      true,
+		},
+		ltsSeries:      "quantal",
+		expectedSeries: "xenial",
+		message:        "with the user specified series %q",
+	}, {
+		title: "no requested series, default to model series if supported",
+		seriesSelector: seriesSelector{
+			conf:            defaultSeries{"xenial", true},
+			supportedSeries: []string{"precise", "xenial"},
+		},
 		expectedSeries: "xenial",
 		message:        "with the configured model default series %q",
+	}, {
+		title: "juju deploy --force --series=wily for unsupported series",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "wily",
+			supportedSeries: []string{"trusty"},
+			force:           true,
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "wily",
+		message:        "with the user specified series %q",
+	}, {
+		title: "juju deploy --series=precise for non-default but supported series",
+		seriesSelector: seriesSelector{
+			seriesFlag:      "precise",
+			supportedSeries: []string{"trusty", "precise"},
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "precise",
+		message:        "with the user specified series %q",
+	}, {
+		title: "juju deploy precise/ubuntu for non-default but supported series",
+		seriesSelector: seriesSelector{
+			charmURLSeries:  "precise",
+			supportedSeries: []string{"trusty", "precise"},
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "precise",
+		message:        "with the user specified series %q",
+	}, {
+		title: "juju deploy precise/ubuntu --series=wily for non-default but supported series",
+		seriesSelector: seriesSelector{
+			charmURLSeries:  "precise",
+			seriesFlag:      "wily",
+			supportedSeries: []string{"trusty", "wily"},
+			conf:            defaultSeries{},
+		},
+		expectedSeries: "wily",
+		message:        "with the user specified series %q",
+	}, {
+		title: "juju deploy precise/ubuntu --series=quantal for usupported series",
+		seriesSelector: seriesSelector{
+			charmURLSeries:  "precise",
+			seriesFlag:      "quantal",
+			supportedSeries: []string{"trusty", "precise"},
+			conf:            defaultSeries{},
+		},
+		err: `series "quantal" not supported by charm, supported series are: trusty,precise`,
 	}}
 
 	for i, test := range deploySeriesTests {
-		c.Logf("test %d", i)
-		cfg, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
-			"default-series": test.modelSeries,
-		}))
-		c.Assert(err, jc.ErrorIsNil)
-		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg, false)
-		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(series, gc.Equals, test.expectedSeries)
-		c.Check(msg, gc.Matches, test.message)
+		// anonymous function so defer works.
+		func() {
+			c.Logf("test %d [%s]", i, test.title)
+			if test.ltsSeries != "" {
+				previous := series.SetLatestLtsForTesting(test.ltsSeries)
+				defer series.SetLatestLtsForTesting(previous)
+			}
+			series, msg, err := test.seriesSelector.charmSeries()
+			if test.err != "" {
+				c.Check(err, gc.ErrorMatches, test.err)
+				return
+			}
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(series, gc.Equals, test.expectedSeries)
+			c.Check(msg, gc.Matches, test.message)
+		}()
 	}
+}
+
+type defaultSeries struct {
+	series   string
+	explicit bool
+}
+
+func (d defaultSeries) DefaultSeries() (string, bool) {
+	return d.series, d.explicit
 }
 
 type DeployLocalSuite struct {
@@ -589,14 +671,14 @@ var deployAuthorizationTests = []struct {
 	deployURL: "cs:~bob/trusty/wordpress1",
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress1-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress1-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress1-10" with the user specified series "trusty".`,
 }, {
 	about:     "public charm, fully resolved, success",
 	uploadURL: "cs:~bob/trusty/wordpress2-10",
 	deployURL: "cs:~bob/trusty/wordpress2-10",
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress2-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress2-10" with the user specified series "trusty".`,
 }, {
 	about:        "non-public charm, success",
 	uploadURL:    "cs:~bob/trusty/wordpress3-10",
@@ -604,7 +686,7 @@ Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
 	readPermUser: clientUserName,
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress3-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress3-10" with the user specified series "trusty".`,
 }, {
 	about:        "non-public charm, fully resolved, success",
 	uploadURL:    "cs:~bob/trusty/wordpress4-10",
@@ -612,7 +694,7 @@ Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
 	readPermUser: clientUserName,
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress4-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress4-10" with the user specified series "trusty".`,
 }, {
 	about:        "non-public charm, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
@@ -631,9 +713,9 @@ Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 added charm cs:trusty/mysql-0
-service mysql deployed (charm cs:trusty/mysql-0 with the charm series "trusty")
+service mysql deployed (charm cs:trusty/mysql-0 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-1
-service wordpress deployed (charm cs:trusty/wordpress-1 with the charm series "trusty")
+service wordpress deployed (charm cs:trusty/wordpress-1 with the series "trusty" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -698,7 +780,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 Added charm "cs:trusty/terms1-1" to the model.
-Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
+Deploying charm "cs:trusty/terms1-1" with the user specified series "trusty".
 Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))

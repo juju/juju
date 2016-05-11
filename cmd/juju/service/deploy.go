@@ -392,10 +392,17 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	var storeCharmOrBundleURL *charm.URL
 	var store *charmrepo.CharmStore
 	var supportedSeries []string
+
+	var origURL *charm.URL
+
 	// If we don't already have a bundle loaded, we try the charm store for a charm or bundle.
 	if bundleData == nil {
+		origURL, err = charm.ParseURL(c.CharmOrBundle)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		// Charm or bundle has been supplied as a URL so we resolve and deploy using the store.
-		storeCharmOrBundleURL, c.Channel, supportedSeries, store, err = resolver.resolve(c.CharmOrBundle)
+		storeCharmOrBundleURL, c.Channel, supportedSeries, store, err = resolver.resolve(origURL)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -430,11 +437,22 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
 		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
 	}
+
+	selector := seriesSelector{
+		charmURLSeries:  origURL.Series,
+		seriesFlag:      c.Series,
+		supportedSeries: supportedSeries,
+		force:           c.Force,
+		conf:            conf,
+		fromBundle:      false,
+	}
+
 	// Get the series to use.
-	series, message, err := charmSeries(c.Series, storeCharmOrBundleURL.Series, supportedSeries, c.Force, conf, deployFromCharm)
+	series, message, err := selector.charmSeries()
 	if charm.IsUnsupportedSeriesError(err) {
 		return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 	}
+
 	// Store the charm in state.
 	curl, csMac, err := addCharmFromURL(client, storeCharmOrBundleURL, c.Channel, csClient)
 	if err != nil {
@@ -463,79 +481,91 @@ func (c *DeployCommand) deployCharmOrBundle(ctx *cmd.Context, client *api.Client
 const (
 	msgUserRequestedSeries = "with the user specified series %q"
 	msgBundleSeries        = "with the series %q defined by the bundle"
-	msgSingleCharmSeries   = "with the charm series %q"
 	msgDefaultCharmSeries  = "with the default charm metadata series %q"
 	msgDefaultModelSeries  = "with the configured model default series %q"
 	msgLatestLTSSeries     = "with the latest LTS series %q"
 )
 
-const (
-	// deployFromBundle is passed to charmSeries when deploying from a bundle.
-	deployFromBundle = true
+type modelConfig interface {
+	DefaultSeries() (string, bool)
+}
 
-	// deployFromCharm is passed to charmSeries when deploying a charm.
-	deployFromCharm = false
-)
+// seriesSelector is a helper type that determines what series the charm should
+// be deployed to.
+type seriesSelector struct {
+	charmURLSeries  string
+	seriesFlag      string
+	supportedSeries []string
+	force           bool
+	conf            modelConfig
+	fromBundle      bool
+}
 
-// charmSeries determine what series to use with a charm.
+// charmSeries determines what series to use with a charm.
 // Order of preference is:
-// - user requested or defined by bundle when deploying
-// - default from charm metadata supported series
-// - model default
-// - charm store default
-func charmSeries(
-	requestedSeries, seriesFromCharm string,
-	supportedSeries []string,
-	force bool,
-	conf *config.Config,
-	fromBundle bool,
-) (string, string, error) {
-	// User has requested a series and we have a new charm with series in metadata.
-	if requestedSeries != "" && seriesFromCharm == "" {
-		if !force && !isSeriesSupported(requestedSeries, supportedSeries) {
-			return "", "", charm.NewUnsupportedSeriesError(requestedSeries, supportedSeries)
-		}
-		if fromBundle {
-			return requestedSeries, msgBundleSeries, nil
-		} else {
-			return requestedSeries, msgUserRequestedSeries, nil
+// - user requested with --series or defined by bundle when deploying
+// - user requested in charm's url (e.g. juju deploy precise/ubuntu)
+// - model default (if it matches supported series)
+// - default from charm metadata supported series / series in url
+// - default LTS
+func (s seriesSelector) charmSeries() (selectedSeries string, msg string, err error) {
+	// User has requested a series with --series.
+	if s.seriesFlag != "" {
+		return s.userRequested(s.seriesFlag)
+	}
+
+	// User specified a series in the charm URL, e.g.
+	// juju deploy precise/ubuntu.
+	if s.charmURLSeries != "" {
+		return s.userRequested(s.charmURLSeries)
+	}
+
+	// No series explicitly requested by the user.
+	// Use model default series, if explicitly set and supported by the charm.
+	if defaultSeries, explicit := s.conf.DefaultSeries(); explicit {
+		if isSeriesSupported(defaultSeries, s.supportedSeries) {
+			return defaultSeries, msgDefaultModelSeries, nil
 		}
 	}
 
-	// User has requested a series and it's an old charm for a single series.
-	if seriesFromCharm != "" {
-		if !force && requestedSeries != "" && requestedSeries != seriesFromCharm {
-			return "", "", charm.NewUnsupportedSeriesError(requestedSeries, []string{seriesFromCharm})
-		}
-		if requestedSeries != "" {
-			if fromBundle {
-				return requestedSeries, msgBundleSeries, nil
-			} else {
-				return requestedSeries, msgUserRequestedSeries, nil
-			}
-		}
-		return seriesFromCharm, msgSingleCharmSeries, nil
+	// Use the charm's perferred series, if it has one.  In a multi-series
+	// charm, the first series in the list is the preferred one.
+	if len(s.supportedSeries) > 0 {
+		return s.supportedSeries[0], msgDefaultCharmSeries, nil
 	}
 
-	// Use charm default.
-	if len(supportedSeries) > 0 {
-		return supportedSeries[0], msgDefaultCharmSeries, nil
+	// Charm hasn't specified a default (likely due to being a local charm
+	// deployed by path).  Last chance, best we can do is default to LTS.
+
+	// At this point, because we have no idea what series the charm supports,
+	// *everything* requires --force.
+	if !s.force {
+		return "", "", s.unsupportedSeries(series.LatestLts())
+	}
+	return series.LatestLts(), msgLatestLTSSeries, nil
+}
+
+// userRequested checks the series the user has requested, and returns it if it
+// is supported, or if they used --force.
+func (s seriesSelector) userRequested(series string) (selectedSeries string, msg string, err error) {
+	if !s.force && !isSeriesSupported(series, s.supportedSeries) {
+		return "", "", s.unsupportedSeries(series)
 	}
 
-	// Use model default supported series.
-	if defaultSeries, ok := conf.DefaultSeries(); ok {
-		if !force && !isSeriesSupported(defaultSeries, supportedSeries) {
-			return "", "", charm.NewUnsupportedSeriesError(defaultSeries, supportedSeries)
-		}
-		return defaultSeries, msgDefaultModelSeries, nil
+	// either it's a supported series or the user used --force, so just
+	// give them what they asked for.
+	if s.fromBundle {
+		return series, msgBundleSeries, nil
 	}
+	return series, msgUserRequestedSeries, nil
+}
 
-	// Use latest LTS.
-	latestLtsSeries := series.LatestLts()
-	if !force && !isSeriesSupported(latestLtsSeries, supportedSeries) {
-		return "", "", charm.NewUnsupportedSeriesError(latestLtsSeries, supportedSeries)
+func (s seriesSelector) unsupportedSeries(series string) error {
+	supp := s.supportedSeries
+	if len(supp) == 0 {
+		supp = []string{"<none defined>"}
 	}
-	return latestLtsSeries, msgLatestLTSSeries, nil
+	return charm.NewUnsupportedSeriesError(series, supp)
 }
 
 type deployCharmArgs struct {
