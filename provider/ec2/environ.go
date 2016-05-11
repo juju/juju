@@ -519,15 +519,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		ImageId:             spec.Image.Id,
 	}
 
+	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
+
 	for _, zone := range availabilityZones {
 		runArgs := commonRunArgs
 		runArgs.AvailZone = zone
 
 		var subnetIDsForZone []string
 		var subnetErr error
-		if e.ecfg().vpcID() != "" && !args.Constraints.HaveSpaces() {
+		if haveVPCID && !args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone)
-		} else if e.ecfg().vpcID() == "" && args.Constraints.HaveSpaces() {
+		} else if !haveVPCID && args.Constraints.HaveSpaces() {
 			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
 		}
 
@@ -572,9 +574,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
-	instAZ, instSubnet := inst.Instance.AvailZone, inst.Instance.SubnetId
-	chosenVPCID := e.ecfg().vpcID()
-	logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, chosenVPCID)
+	instAZ := inst.Instance.AvailZone
+	if haveVPCID {
+		instVPC := e.ecfg().vpcID()
+		instSubnet := inst.Instance.SubnetId
+		logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
+	} else {
+		logger.Infof("started instance %q in AZ %q", inst.Id(), instAZ)
+	}
 
 	// Tag instance, for accounting and identification.
 	instanceName := resourceName(
@@ -1652,25 +1659,19 @@ var zeroGroup ec2.SecurityGroup
 // groupName or with filter by vpc-id and group-name, depending on whether
 // vpc-id is empty or not.
 func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroupsResp, error) {
-	var (
-		filter *ec2.Filter
-		groups []ec2.SecurityGroup
-	)
-
-	chosenVPCID := e.ecfg().vpcID()
-	if chosenVPCID != "" {
+	if chosenVPCID := e.ecfg().vpcID(); isVPCIDSet(chosenVPCID) {
 		// AWS VPC API requires both of these filters (and no
 		// group names/ids set) for non-default EC2-VPC groups:
-		filter = ec2.NewFilter()
+		filter := ec2.NewFilter()
 		filter.Add("vpc-id", chosenVPCID)
 		filter.Add("group-name", groupName)
-	} else {
-		// EC2-Classic or EC2-VPC with implicit default VPC need to use the
-		// GroupName.X arguments instead of the filters.
-		groups = ec2.SecurityGroupNames(groupName)
+		return e.ec2().SecurityGroups(nil, filter)
 	}
 
-	return e.ec2().SecurityGroups(groups, filter)
+	// EC2-Classic or EC2-VPC with implicit default VPC need to use the
+	// GroupName.X arguments instead of the filters.
+	groups := ec2.SecurityGroupNames(groupName)
+	return e.ec2().SecurityGroups(groups, nil)
 }
 
 // ensureGroup returns the security group with name and perms.
@@ -1679,13 +1680,17 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
-	// Specify explicit VPC ID if needed (not for default VPC).
+	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
 	chosenVPCID := e.ecfg().vpcID()
+	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
+	if !isVPCIDSet(chosenVPCID) {
+		inVPCLogSuffix = ""
+	}
 
 	ec2inst := e.ec2()
 	resp, err := ec2inst.CreateSecurityGroup(chosenVPCID, name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		err = errors.Annotatef(err, "creating security group %q (in VPC %q)", name, chosenVPCID)
+		err = errors.Annotatef(err, "creating security group %q%s", name, inVPCLogSuffix)
 		return zeroGroup, err
 	}
 
@@ -1702,15 +1707,15 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		if err := tagResources(ec2inst, tags, g.Id); err != nil {
 			return g, errors.Annotate(err, "tagging security group")
 		}
-		logger.Debugf("created security group %q in VPC %q with ID %q", name, chosenVPCID, g.Id)
+		logger.Debugf("created security group %q with ID %q%s", name, g.Id, inVPCLogSuffix)
 	} else {
 		resp, err := e.securityGroupsByNameOrID(name)
 		if err != nil {
-			err = errors.Annotatef(err, "fetching security group %q (in VPC %q)", name, chosenVPCID)
+			err = errors.Annotatef(err, "fetching security group %q%s", name, inVPCLogSuffix)
 			return zeroGroup, err
 		}
 		if len(resp.Groups) == 0 {
-			return zeroGroup, errors.NotFoundf("security group %q in VPC %q", name, chosenVPCID)
+			return zeroGroup, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
 		}
 		info := resp.Groups[0]
 		// It's possible that the old group has the wrong
@@ -1731,7 +1736,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	if len(revoke) > 0 {
 		_, err := ec2inst.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
-			err = errors.Annotatef(err, "revoking security group %q (in VPC %q)", g.Id, chosenVPCID)
+			err = errors.Annotatef(err, "revoking security group %q%s", g.Id, inVPCLogSuffix)
 			return zeroGroup, err
 		}
 	}
@@ -1745,7 +1750,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	if len(add) > 0 {
 		_, err := ec2inst.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
-			err = errors.Annotatef(err, "authorizing security group %q (in VPC %q)", g.Id, chosenVPCID)
+			err = errors.Annotatef(err, "authorizing security group %q%s", g.Id, inVPCLogSuffix)
 			return zeroGroup, err
 		}
 	}
