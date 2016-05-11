@@ -1196,7 +1196,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		MACAddress:    "52:54:00:70:9b:f4",
 		CIDR:          "192.168.1.0/24",
 		InterfaceName: "eth1",
-		InterfaceType: "ethernet",
 	}}
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
