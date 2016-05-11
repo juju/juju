@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/schema"
 	"gopkg.in/amz.v3/aws"
@@ -131,7 +130,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, fmt.Errorf("invalid region name %q", ecfg.region())
 	}
 
-	if vpcID := ecfg.vpcID(); vpcID != "" && !strings.HasPrefix(vpcID, "vpc-") {
+	if vpcID := ecfg.vpcID(); vpcID != "" && !isVPCIDValid(vpcID) {
 		return nil, fmt.Errorf("vpc-id: %q is not a valid AWS VPC ID", vpcID)
 	} else if vpcID == "" && ecfg.forceVPCID() {
 		return nil, fmt.Errorf("cannot use vpc-id-force without specifying vpc-id as well")

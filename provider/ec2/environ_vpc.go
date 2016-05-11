@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -464,4 +465,8 @@ func findSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[networ
 	}
 
 	return matchingSubnetIDs.SortedValues(), nil
+}
+
+func isVPCIDValid(vpcID string) bool {
+	return vpcID == vpcIDNone || strings.HasPrefix(vpcID, "vpc-")
 }
