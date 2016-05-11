@@ -30,8 +30,7 @@ log = logging.getLogger("assess_autoload_credentials")
 def assess_autoload_credentials(juju_bin):
     test_scenarios = [
         ('AWS using environment variables', aws_envvar_test_details),
-        ('AWS using credentials file', aws_directory_test_details),
-    ]
+        ('AWS using credentials file', aws_directory_test_details)]
 
     for scenario_name, scenario_setup in test_scenarios:
         log.info('* Starting test scenario: {}'.format(scenario_name))
@@ -76,9 +75,7 @@ def assert_credentials_contains_expected_results(credentials, expected):
             'Actual credentials do not match expected credentials.\n'
             'Expected: {expected}\nGot: {got}\n'.format(
                 expected=expected,
-                got=credentials
-            )
-        )
+                got=credentials))
 
 
 def run_autoload_credentials(client, envvars):
@@ -138,8 +135,7 @@ def aws_directory_test_details(
     env_var_changes = dict(
         HOME=tmp_dir,
         SAVE_CLOUD_NAME='aws',
-        QUESTION_CLOUD_NAME='default'
-    )
+        QUESTION_CLOUD_NAME='default')
 
     return env_var_changes, expected_details
 
@@ -153,10 +149,10 @@ def get_aws_expected_details_dict(cloud_name, access_key, secret_key):
                     'auth-type': 'access-key',
                     'access-key': access_key,
                     'secret-key': secret_key,
+                    }
                 }
             }
         }
-    }
 
 
 def get_aws_environment(user, access_key, secret_key):
@@ -167,8 +163,7 @@ def get_aws_environment(user, access_key, secret_key):
         SAVE_CLOUD_NAME='aws',
         QUESTION_CLOUD_NAME=user,
         AWS_ACCESS_KEY_ID=access_key,
-        AWS_SECRET_ACCESS_KEY=secret_key
-    )
+        AWS_SECRET_ACCESS_KEY=secret_key)
 
 
 def write_aws_config_file(tmp_dir, access_key, secret_key):
