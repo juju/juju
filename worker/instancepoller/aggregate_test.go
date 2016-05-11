@@ -198,12 +198,16 @@ type batchingInstanceGetter struct {
 }
 
 func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	g.RLock()
+	defer g.RUnlock()
 	insts, err := g.testInstanceGetter.Instances(ids)
 	g.startRequests()
 	return insts, err
 }
 
 func (g *batchingInstanceGetter) startRequests() {
+	g.RLock()
+	defer g.RUnlock()
 	n := g.totalCount - g.started
 	if n > g.batchSize {
 		n = g.batchSize
@@ -214,7 +218,9 @@ func (g *batchingInstanceGetter) startRequests() {
 }
 
 func (g *batchingInstanceGetter) startRequest() {
+	g.Lock()
 	g.started++
+	g.Unlock()
 	go func() {
 		g.RLock()
 		defer g.RUnlock()
@@ -244,6 +250,8 @@ func (s *aggregateSuite) TestBatching(c *gc.C) {
 	testGetter.startRequest()
 	testGetter.Unlock()
 	testGetter.wg.Wait()
+	testGetter.RLock()
+	defer testGetter.RUnlock()
 	c.Assert(testGetter.counter, gc.Equals, int32(testGetter.totalCount/testGetter.batchSize)+1)
 }
 
