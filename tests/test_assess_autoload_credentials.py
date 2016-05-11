@@ -4,7 +4,7 @@ from argparse import Namespace
 import logging
 import StringIO
 import ConfigParser
-from mock import patch, Mock
+from mock import patch
 from tests import (
     TestCase,
     parse_error,

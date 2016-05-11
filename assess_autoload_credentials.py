@@ -9,10 +9,7 @@ import os
 import pexpect
 import sys
 import tempfile
-from collections import (
-    defaultdict,
-    namedtuple,
-    )
+from collections import namedtuple
 from uuid import uuid4
 from textwrap import dedent
 
@@ -88,8 +85,7 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
         tmp_juju_home = tempfile.mkdtemp(dir=tmp_dir)
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client = EnvJujuClient.by_version(
-            JujuData('local', juju_home=tmp_juju_home), juju_bin, False
-        )
+            JujuData('local', juju_home=tmp_juju_home), juju_bin, False)
 
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
 
@@ -102,8 +98,7 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
 
         assert_credentials_contains_expected_results(
             client.env.credentials,
-            cloud_details.expected_details
-        )
+            cloud_details.expected_details)
 
 
 def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
@@ -279,8 +274,7 @@ def write_aws_config_file(tmp_dir, access_key, secret_key):
 def aws_credential_dict_generator():
     return dict(
         access_key=uuid_str(),
-        secret_key=uuid_str()
-    )
+        secret_key=uuid_str())
 
 
 def openstack_envvar_test_details(
@@ -291,8 +285,7 @@ def openstack_envvar_test_details(
 
     ensure_openstack_personal_cloud_exists(client)
     expected_details = get_openstack_expected_details_dict(
-        user, credential_details
-    )
+        user, credential_details)
     answers = ExpectAnswers(
         cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
             credential_details['os_tenant_name'],
@@ -308,8 +301,7 @@ def get_openstack_envvar_changes(user, credential_details):
         USER=user,
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
-        OS_TENANT_NAME=credential_details['os_tenant_name'],
-    )
+        OS_TENANT_NAME=credential_details['os_tenant_name'])
 
 
 def ensure_openstack_personal_cloud_exists(client):
@@ -319,13 +311,12 @@ def ensure_openstack_personal_cloud_exists(client):
             'test1': {
                 'endpoint': 'https://example.com',
                 'auth-types': ['access-key', 'userpass']
+                }
             }
         }
-    }
 
     cloud_listing = client.get_juju_output(
-        'list-clouds', admin=False, include_e=False
-    )
+        'list-clouds', admin=False, include_e=False)
     if 'local:testing_openstack' not in cloud_listing:
         log.info('Creating and adding new cloud.')
         client.env.clouds.update({'clouds': {'testing_openstack': os_cloud}})
@@ -342,17 +333,16 @@ def get_openstack_expected_details_dict(user, credential_details):
                     'password': credential_details['os_password'],
                     'tenant-name': credential_details['os_tenant_name'],
                     'username': user
+                    }
                 }
             }
         }
-    }
 
 
 def openstack_credential_dict_generator():
     return dict(
         os_tenant_name=uuid_str(),
-        os_password=uuid_str()
-    )
+        os_password=uuid_str())
 
 
 def parse_args(argv):
