@@ -7,6 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -35,6 +36,9 @@ type ProviderConfig struct {
 	// StorageAccountNameGenerator is a function returning storage
 	// account names.
 	StorageAccountNameGenerator func() string
+
+	// RetryClock is used when retrying API calls due to rate-limiting.
+	RetryClock clock.Clock
 }
 
 // Validate validates the Azure provider configuration.
@@ -44,6 +48,9 @@ func (cfg ProviderConfig) Validate() error {
 	}
 	if cfg.StorageAccountNameGenerator == nil {
 		return errors.NotValidf("nil StorageAccountNameGenerator")
+	}
+	if cfg.RetryClock == nil {
+		return errors.NotValidf("nil RetryClock")
 	}
 	return nil
 }

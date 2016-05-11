@@ -227,3 +227,22 @@ func (s *StubClock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	s.NextErr() // pop one off
 	return s.ReturnAfterFunc
 }
+
+// AutoAdvancingClock wraps a clock.Clock, calling the Advance
+// function whenever After or AfterFunc are called.
+type AutoAdvancingClock struct {
+	clock.Clock
+	Advance func(time.Duration)
+}
+
+func (c *AutoAdvancingClock) After(d time.Duration) <-chan time.Time {
+	ch := c.Clock.After(d)
+	c.Advance(d)
+	return ch
+}
+
+func (c *AutoAdvancingClock) AfterFunc(d time.Duration, f func()) clock.Timer {
+	t := c.Clock.AfterFunc(d, f)
+	c.Advance(d)
+	return t
+}

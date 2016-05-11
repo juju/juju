@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
@@ -591,7 +592,12 @@ func (v *azureVolumeSource) updateVirtualMachines(
 			results[i] = vm.err
 			continue
 		}
-		if _, err := vmsClient.CreateOrUpdate(v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm); err != nil {
+		if err := v.env.callAPI(func() (autorest.Response, error) {
+			result, err := vmsClient.CreateOrUpdate(
+				v.env.resourceGroup, to.String(vm.vm.Name), *vm.vm,
+			)
+			return result.Response, err
+		}); err != nil {
 			results[i] = err
 			vm.err = err
 			continue

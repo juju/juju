@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
@@ -194,8 +195,12 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 	}
 
 	securityGroupName := internalSecurityGroupName
-	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName)
-	if err != nil {
+	var nsg network.SecurityGroup
+	if err := inst.env.callAPI(func() (autorest.Response, error) {
+		var err error
+		nsg, err = nsgClient.Get(inst.env.resourceGroup, securityGroupName)
+		return nsg.Response, err
+	}); err != nil {
 		return errors.Annotate(err, "querying network security group")
 	}
 
@@ -263,9 +268,12 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 				Direction: network.Inbound,
 			},
 		}
-		if _, err := securityRuleClient.CreateOrUpdate(
-			inst.env.resourceGroup, securityGroupName, ruleName, rule,
-		); err != nil {
+		if err := inst.env.callAPI(func() (autorest.Response, error) {
+			result, err := securityRuleClient.CreateOrUpdate(
+				inst.env.resourceGroup, securityGroupName, ruleName, rule,
+			)
+			return result.Response, err
+		}); err != nil {
 			return errors.Annotatef(err, "creating security rule for %s", ports)
 		}
 		securityRules = append(securityRules, rule)
@@ -287,10 +295,14 @@ func (inst *azureInstance) ClosePorts(machineId string, ports []jujunetwork.Port
 	for _, ports := range ports {
 		ruleName := securityRuleName(prefix, ports)
 		logger.Debugf("deleting security rule %q", ruleName)
-		result, err := securityRuleClient.Delete(
-			inst.env.resourceGroup, securityGroupName, ruleName,
-		)
-		if err != nil {
+		var result autorest.Response
+		if err := inst.env.callAPI(func() (autorest.Response, error) {
+			var err error
+			result, err = securityRuleClient.Delete(
+				inst.env.resourceGroup, securityGroupName, ruleName,
+			)
+			return result, err
+		}); err != nil {
 			if result.Response == nil || result.StatusCode != http.StatusNotFound {
 				return errors.Annotatef(err, "deleting security rule %q", ruleName)
 			}
@@ -306,8 +318,12 @@ func (inst *azureInstance) Ports(machineId string) (ports []jujunetwork.PortRang
 	inst.env.mu.Unlock()
 
 	securityGroupName := internalSecurityGroupName
-	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName)
-	if err != nil {
+	var nsg network.SecurityGroup
+	if err := inst.env.callAPI(func() (autorest.Response, error) {
+		var err error
+		nsg, err = nsgClient.Get(inst.env.resourceGroup, securityGroupName)
+		return nsg.Response, err
+	}); err != nil {
 		return nil, errors.Annotate(err, "querying network security group")
 	}
 	if nsg.Properties.SecurityRules == nil {
@@ -373,9 +389,14 @@ func deleteInstanceNetworkSecurityRules(
 	resourceGroup string, id instance.Id,
 	nsgClient network.SecurityGroupsClient,
 	securityRuleClient network.SecurityRulesClient,
+	callAPI callAPIFunc,
 ) error {
-	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName)
-	if err != nil {
+	var nsg network.SecurityGroup
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		nsg, err = nsgClient.Get(resourceGroup, internalSecurityGroupName)
+		return nsg.Response, err
+	}); err != nil {
 		return errors.Annotate(err, "querying network security group")
 	}
 	if nsg.Properties.SecurityRules == nil {
