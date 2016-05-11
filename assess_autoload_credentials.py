@@ -328,14 +328,8 @@ def ensure_openstack_personal_cloud_exists(client):
     )
     if 'local:testing_openstack' not in cloud_listing:
         log.info('Creating and adding new cloud.')
-        update_clients_cloud_details(client, 'testing_openstack', os_cloud)
+        client.env.clouds.update({'clouds': {'testing_openstack': os_cloud}})
         client.env.dump_yaml(client.env.juju_home, config=None)
-
-
-def update_clients_cloud_details(client, cloud_name, cloud_details):
-    add_cloud = defaultdict(dict, client.env.clouds)
-    add_cloud['clouds'][cloud_name] = cloud_details
-    client.env.clouds.update(dict(add_cloud))
 
 
 def get_openstack_expected_details_dict(user, credential_details):
