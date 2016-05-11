@@ -175,6 +175,11 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 }
 
 func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// This test can't work on Windows and shouldn't need to
+		c.Skip("test doesn't work on Windows because Juju's 1.x and 2.x config directory are the same")
+	}
+
 	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
 	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
