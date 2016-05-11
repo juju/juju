@@ -305,6 +305,7 @@ namespace PSCloudbase
 		public static extern uint GetLastError();
 	}
 }
+
 "@
 
 Add-Type -TypeDefinition $Source -Language CSharp
@@ -636,6 +637,7 @@ namespace PSCarbon
 		}
 	}
 }
+
 "@
 
 Add-Type -TypeDefinition $SourcePolicy -Language CSharp

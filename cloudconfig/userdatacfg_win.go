@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/tools"
 )
+
+//go:generate go run ../generate/filetoconst.go UserDataScript windowsuserdatafiles/userdata.ps1 userdatascript.go 2016 cloudconfig
 
 type aclType string
 
@@ -48,16 +51,26 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	if err != nil {
 		return err
 	}
+
 	renderer := w.conf.ShellRenderer()
 	dataDir := renderer.FromSlash(w.icfg.DataDir)
 	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
 	binDir := renderer.Join(baseDir, "bin")
 
-	w.conf.AddScripts(fmt.Sprintf(`%s`, winPowershellHelperFunctions))
+	sc, err := compoundWinPowershellFuncs()
+	if err != nil {
+		return err
+	}
+	w.conf.AddScripts(sc)
 
 	// The jujud user only gets created on non-nano versions for now.
 	if !series.IsWindowsNano(w.icfg.Series) {
-		w.conf.AddScripts(fmt.Sprintf(`%s`, addJujudUser))
+		sc, err = compoundJujuUser()
+		if err != nil {
+			return err
+		}
+
+		w.conf.AddScripts(sc)
 	}
 
 	w.conf.AddScripts(
@@ -84,6 +97,70 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`Set-Content "%s" "%s"`, noncefile, shquote(w.icfg.MachineNonce)),
 	)
 	return nil
+}
+
+// compoundWinPowershellFunc returns the windows powershell helper
+// functions declared under the windowsuserdatafiles/ dir
+func compoundWinPowershellFuncs() (string, error) {
+	var winPowershellFunc []byte
+
+	content, err := ioutil.ReadFile("windowsuserdatafiles/retry.ps1")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	winPowershellFunc = append(winPowershellFunc, content...)
+
+	content, err = ioutil.ReadFile("windowsuserdatafiles/untar.ps1")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	winPowershellFunc = append(winPowershellFunc, content...)
+
+	content, err = ioutil.ReadFile("windowsuserdatafiles/filesha256.ps1")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	winPowershellFunc = append(winPowershellFunc, content...)
+
+	content, err = ioutil.ReadFile("windowsuserdatafiles/invokewebrequest.ps1")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return string(append(winPowershellFunc, content...)), nil
+}
+
+// CompoundJujuUser retuns the windows powershell funcs with c# bindings
+// declared under the windowsuserdatafiles/ dir
+func compoundJujuUser() (string, error) {
+
+	var addjujuUser []byte
+
+	// note that addJujuUser.ps1 has hinting format locations for sprintf
+	// in that hinting locations we will add the c# scripts under the same file
+	content, err := ioutil.ReadFile("windowsuserdatafiles/addJujuUser.ps1")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// take the two addJujuUser data c# scripts and construct the powershell
+	// script for adding user for juju in windows
+	cryptoAPICs, err := ioutil.ReadFile("windowsuserdatafiles/CryptoApi.cs")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	carbon, err := ioutil.ReadFile("windowsuserdatafiles/Carbon.cs")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	content = []byte(fmt.Sprintf(string(content), cryptoAPICs, carbon))
+
+	return string(append(addjujuUser, content...)), nil
+
 }
 
 func (w *windowsConfigure) ConfigureJuju() error {
