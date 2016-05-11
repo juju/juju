@@ -232,6 +232,9 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeLeadershipSettingsOp(s.Tag().Id()),
 		removeStatusOp(s.st, s.globalKey()),
 	}
+	if s.doc.CharmURL.Schema == "local" {
+		ops = append(ops, s.st.newCleanupOp(cleanupCharmForDyingService, s.doc.CharmURL.String()))
+	}
 	return ops
 }
 

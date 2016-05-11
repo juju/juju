@@ -5,10 +5,10 @@ package state
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v5"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -20,6 +20,7 @@ const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
 	cleanupUnitsForDyingService          cleanupKind = "units"
+	cleanupCharmForDyingService          cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupServicesForDyingEnvironment   cleanupKind = "services"
@@ -81,6 +82,8 @@ func (st *State) Cleanup() (err error) {
 		switch doc.Kind {
 		case cleanupRelationSettings:
 			err = st.cleanupRelationSettings(doc.Prefix)
+		case cleanupCharmForDyingService:
+			err = st.cleanupCharmForDyingService(doc.Prefix)
 		case cleanupUnitsForDyingService:
 			err = st.cleanupUnitsForDyingService(doc.Prefix)
 		case cleanupDyingUnit:
@@ -168,12 +171,6 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
 	units, closer := st.getCollection(unitsC)
 	defer closer()
 
-	// TODO(mjs) - remove this post v1.21
-	// Older versions of the code put a trailing forward slash on the
-	// end of the service name. Remove it here in case a pre-upgrade
-	// cleanup document is seen.
-	serviceName = strings.TrimSuffix(serviceName, "/")
-
 	unit := Unit{st: st}
 	sel := bson.D{{"service", serviceName}, {"life", Alive}}
 	iter := units.Find(sel).Iter()
@@ -182,6 +179,25 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
 		if err := unit.Destroy(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (st *State) cleanupCharmForDyingService(charmURL string) error {
+	curl, err := charm.ParseURL(charmURL)
+	if err != nil {
+		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
+	}
+	ch, err := st.Charm(curl)
+	if errors.IsNotFound(err) {
+		// Charm already removed.
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "cannot read charm record from state")
+	}
+	if err := st.DeleteCharmArchive(curl, ch.StoragePath()); err != nil && !errors.IsNotFound(err) {
+		return errors.Annotate(err, "cannot remove charm archive from storage")
 	}
 	return nil
 }
