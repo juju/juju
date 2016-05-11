@@ -317,7 +317,7 @@ def ensure_openstack_personal_cloud_exists(client):
         'type': 'openstack',
         'regions': {
             'test1': {
-                'endpoint': 'https://testing.com',
+                'endpoint': 'https://example.com',
                 'auth-types': ['access-key', 'userpass']
             }
         }
