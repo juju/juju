@@ -116,10 +116,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 
 	// TODO(natefinch): revisit this when are full-time on mongo 3.
 	// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
-	moreSuites := []uint16{
-		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-	}
+	moreSuites := cipherSuites
 
 	tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
 	tlsConfig.RootCAs = pool
