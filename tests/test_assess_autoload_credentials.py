@@ -49,16 +49,16 @@ class TestHelpers(TestCase):
             'clouds': {
                 'fake_cloud_provider': {
                     'type': 'Fake'
+                    }
                 }
             }
-        }
 
         new_cloud = {
             'type': 'simple',
             'regions': {
                 'example': 'example_region'
+                }
             }
-        }
 
         expected_cloud = {
             'clouds': {
@@ -69,10 +69,10 @@ class TestHelpers(TestCase):
                     'type': 'simple',
                     'regions': {
                         'example': 'example_region'
+                        }
                     }
                 }
             }
-        }
 
         aac.update_clients_cloud_details(
             fake_client, 'simple_provider', new_cloud)
@@ -86,8 +86,8 @@ class TestHelpers(TestCase):
             'type': 'simple',
             'regions': {
                 'example': 'example_region'
+                }
             }
-        }
         aac.update_clients_cloud_details(
             fake_client, 'simple_provider', new_cloud)
 
@@ -97,10 +97,10 @@ class TestHelpers(TestCase):
                     'type': 'simple',
                     'regions': {
                         'example': 'example_region'
+                        }
                     }
                 }
             }
-        }
 
         self.assertDictEqual(expected_cloud, fake_client.env.clouds)
 
@@ -200,12 +200,10 @@ class TestAWSHelpers(TestCase):
             cloud_details = aac.aws_directory_test_details(
                 'username',
                 'tmp_dir',
-                client=None
-            )
+                client=None)
         self.assertDictEqual(
             cloud_details.env_var_changes,
-            dict(HOME='tmp_dir')
-        )
+            dict(HOME='tmp_dir'))
 
     def test_write_aws_config_file_writes_credentials_file(self):
         """Ensure the file created contains the correct details."""
@@ -242,16 +240,13 @@ class TestOpenStackHelpers(TestCase):
         os_password = 'password'
         os_tenant_name = 'tenant name'
         expected_details = aac.get_openstack_expected_details_dict(
-            user,
-            {
+            user, {
                 'os_password': os_password,
                 'os_tenant_name': os_tenant_name,
-            }
-        )
+                })
 
         self.assertEqual(
-            expected_details,
-            {
+            expected_details, {
                 'credentials': {
                     'testing_openstack': {
                         user: {
@@ -260,32 +255,27 @@ class TestOpenStackHelpers(TestCase):
                             'password': os_password,
                             'tenant-name': os_tenant_name,
                             'username': user
+                            }
                         }
                     }
-                }
-            }
-        )
+                })
 
     def test_get_openstack_envvar_changes_returns_correct_values(self):
         user = 'username'
         os_password = 'password'
         os_tenant_name = 'tenant name'
         env_var_changes = aac.get_openstack_envvar_changes(
-            user,
-            {
+            user, {
                 'os_password': os_password,
                 'os_tenant_name': os_tenant_name,
-            }
-        )
+                })
 
         self.assertEqual(
-            env_var_changes,
-            {
+            env_var_changes, {
                 'OS_USERNAME': user,
                 'OS_PASSWORD': os_password,
                 'OS_TENANT_NAME': os_tenant_name,
-            }
-        )
+                })
 
 
 class TestAssertCredentialsContainsExpectedResults(TestCase):
