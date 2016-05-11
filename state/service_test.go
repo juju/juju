@@ -1690,6 +1690,41 @@ func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {
 	assertLife(c, machine, state.Dying)
 }
 
+func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
+	// Check state is clean.
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+
+	err = s.mysql.Destroy()
+
+	// Check a cleanup doc was added.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
+
+	// Run the cleanup and check the charm.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Charm(s.charm.URL())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Check we're now clean.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+}
+
+func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
+
+	err := svc.Destroy()
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+}
+
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.

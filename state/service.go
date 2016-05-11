@@ -271,6 +271,9 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeStatusOp(s.st, s.globalKey()),
 		removeModelServiceRefOp(s.st, s.Name()),
 	}
+	if s.doc.CharmURL.Schema == "local" {
+		ops = append(ops, s.st.newCleanupOp(cleanupCharmForDyingService, s.doc.CharmURL.String()))
+	}
 	return ops
 }
 
