@@ -96,7 +96,7 @@ func (p environProvider) PrepareForBootstrap(
 	}
 
 	vpcID, forceVPCID := env.ecfg().vpcID(), env.ecfg().forceVPCID()
-	if vpcID != "" {
+	if isVPCIDSet(vpcID) {
 		err := validateVPC(env.ec2(), vpcID)
 		switch {
 		case isVPCNotUsableError(err):
@@ -114,6 +114,8 @@ func (p environProvider) PrepareForBootstrap(
 		}
 
 		ctx.Infof("Using VPC %q in region %q", vpcID, env.ecfg().region())
+	} else if vpcID == vpcIDNone {
+		ctx.Infof("Using EC2-classic features or default VPC in region %q", env.ecfg().region())
 	}
 
 	return e, nil
