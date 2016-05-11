@@ -35,7 +35,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"vpc-id": {
-		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC to exist the chosen EC2 account/region.",
+		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region.",
 		Example:     "vpc-a1b2c3d4",
 		Type:        environschema.Tstring,
 		Group:       environschema.AccountGroup,
