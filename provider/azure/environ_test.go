@@ -52,7 +52,7 @@ type environSuite struct {
 	sender        azuretesting.Senders
 
 	tags                          map[string]*string
-	group                         *resources.Group
+	group                         *resources.ResourceGroup
 	vmSizes                       *compute.VirtualMachineSizeListResult
 	storageNameAvailabilityResult *storage.CheckNameAvailabilityResult
 	storageAccount                *storage.Account
@@ -88,7 +88,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		"juju-machine-name": to.StringPtr("machine-0"),
 	}
 
-	s.group = &resources.Group{
+	s.group = &resources.ResourceGroup{
 		Location: to.StringPtr("westus"),
 		Tags:     &envTags,
 	}
@@ -618,7 +618,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		Name: to.StringPtr("SSHInbound"),
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("Allow SSH access to all machines"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
+			Protocol:                 network.TCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr("*"),

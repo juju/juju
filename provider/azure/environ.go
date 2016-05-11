@@ -123,7 +123,7 @@ func (env *azureEnviron) initResourceGroup() (*config.Config, error) {
 	resourceGroupsClient := resources.GroupsClient{env.resources}
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
-	_, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.Group{
+	_, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.ResourceGroup{
 		Location: to.StringPtr(location),
 		Tags:     toTagsPtr(tags),
 	})

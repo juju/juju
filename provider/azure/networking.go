@@ -61,7 +61,7 @@ var sshSecurityRule = network.SecurityRule{
 	Name: to.StringPtr("SSHInbound"),
 	Properties: &network.SecurityRulePropertiesFormat{
 		Description:              to.StringPtr("Allow SSH access to all machines"),
-		Protocol:                 network.SecurityRuleProtocolTCP,
+		Protocol:                 network.TCP,
 		SourceAddressPrefix:      to.StringPtr("*"),
 		SourcePortRange:          to.StringPtr("*"),
 		DestinationAddressPrefix: to.StringPtr("*"),
@@ -262,7 +262,7 @@ func newNetworkProfile(
 			Name: to.StringPtr(apiSecurityRuleName),
 			Properties: &network.SecurityRulePropertiesFormat{
 				Description:              to.StringPtr("Allow API access to server machines"),
-				Protocol:                 network.SecurityRuleProtocolTCP,
+				Protocol:                 network.TCP,
 				SourceAddressPrefix:      to.StringPtr("*"),
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationAddressPrefix: to.StringPtr(privateIPAddress),

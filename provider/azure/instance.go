@@ -236,9 +236,9 @@ func (inst *azureInstance) OpenPorts(machineId string, ports []jujunetwork.PortR
 		var protocol network.SecurityRuleProtocol
 		switch ports.Protocol {
 		case "tcp":
-			protocol = network.SecurityRuleProtocolTCP
+			protocol = network.TCP
 		case "udp":
-			protocol = network.SecurityRuleProtocolUDP
+			protocol = network.UDP
 		default:
 			return errors.Errorf("invalid protocol %q", ports.Protocol)
 		}
@@ -348,9 +348,9 @@ func (inst *azureInstance) Ports(machineId string) (ports []jujunetwork.PortRang
 
 		var protocols []string
 		switch rule.Properties.Protocol {
-		case network.SecurityRuleProtocolTCP:
+		case network.TCP:
 			protocols = []string{"tcp"}
-		case network.SecurityRuleProtocolUDP:
+		case network.UDP:
 			protocols = []string{"udp"}
 		default:
 			protocols = []string{"tcp", "udp"}

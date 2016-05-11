@@ -54,8 +54,8 @@ func createVMExtension(
 		return errors.NotSupportedf("CustomScript extension for OS %q", os)
 	}
 
-	extensionSettings := map[string]*string{
-		"commandToExecute": to.StringPtr(commandToExecute),
+	extensionSettings := map[string]interface{}{
+		"commandToExecute": commandToExecute,
 	}
 	extension := compute.VirtualMachineExtension{
 		Location: to.StringPtr(location),

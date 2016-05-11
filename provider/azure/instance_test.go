@@ -110,7 +110,7 @@ func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
 	return network.SecurityRule{
 		Name: to.StringPtr(name),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:                 network.SecurityRuleProtocolTCP,
+			Protocol:                 network.TCP,
 			DestinationAddressPrefix: to.StringPtr(ipAddress),
 			DestinationPortRange:     to.StringPtr(ports),
 			Access:                   network.Allow,
@@ -257,7 +257,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
 		Name: to.StringPtr("machine-0-xyzzy"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolUDP,
+			Protocol:             network.UDP,
 			DestinationPortRange: to.StringPtr("*"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(200),
@@ -266,7 +266,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}, {
 		Name: to.StringPtr("machine-0-tcpcp"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("1000-2000"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(201),
@@ -275,7 +275,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}, {
 		Name: to.StringPtr("machine-0-http"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolAsterisk,
+			Protocol:             network.Asterisk,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(202),
@@ -284,7 +284,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}, {
 		Name: to.StringPtr("machine-00-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(202),
@@ -293,7 +293,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}, {
 		Name: to.StringPtr("machine-0-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Deny,
 			Priority:             to.IntPtr(202),
@@ -302,7 +302,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}, {
 		Name: to.StringPtr("machine-0-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(202),
@@ -311,7 +311,7 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	}, {
 		Name: to.StringPtr("machine-0-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(199), // internal range
@@ -409,7 +409,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("1000/tcp"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
+			Protocol:                 network.TCP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000"),
@@ -424,7 +424,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	assertRequestBody(c, s.requests[2], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("1000-2000/udp"),
-			Protocol:                 network.SecurityRuleProtocolUDP,
+			Protocol:                 network.UDP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
@@ -460,7 +460,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
 		Name: to.StringPtr("machine-0-tcp-1000"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolAsterisk,
+			Protocol:             network.Asterisk,
 			DestinationPortRange: to.StringPtr("1000"),
 			Access:               network.Allow,
 			Priority:             to.IntPtr(202),
@@ -488,7 +488,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("1000-2000/udp"),
-			Protocol:                 network.SecurityRuleProtocolUDP,
+			Protocol:                 network.UDP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
