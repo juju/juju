@@ -16,8 +16,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	apiagent "github.com/juju/juju/api/agent"
-	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
@@ -38,8 +36,11 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
+	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/metricsmanager"
+	rebootapi "github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
@@ -210,9 +211,9 @@ func (a *machineAgentCmd) Init(args []string) error {
 }
 
 // Run instantiates a MachineAgent and runs it.
-func (a *machineAgentCmd) Run(c *cmd.Context) error {
+func (a *machineAgentCmd) Run(*cmd.Context) error {
 	machineAgent := a.machineAgentFactory(a.machineId)
-	return machineAgent.Run(c)
+	return machineAgent.Run()
 }
 
 // SetFlags adds the requisite flags to run this command.
@@ -229,33 +230,64 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 	}
 }
 
+// TODO(katco): In a subsequent patch, MachineAgentConfig will expand
+// into a type which will be passed into the machine agent and its
+// factory. Trying to keep this patch constrainted.
+
+// MachineAgentConfig represents all of the runtime parameters a
+// MachineAgent requires to run. The member variables are exposed as
+// functions to allow modules down the stack to re-use this type
+// without directly importing this package by declaring an interface
+// with only the functions they require declared.
+type MachineAgentConfig struct {
+	exec  utils.CommandRunner
+	clock clock.Clock
+}
+
+func (c MachineAgentConfig) Exec() utils.CommandRunner {
+	return c.exec
+}
+
+func (c MachineAgentConfig) Clock() clock.Clock {
+	return c.clock
+}
+
 // MachineAgentFactoryFn returns a function which instantiates a
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
+	exec utils.CommandRunner,
+	clock clock.Clock,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	rootDir string,
+	containerDeathTimeout time.Duration,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
+			exec,
+			clock,
 			machineId,
 			agentConfWriter,
 			bufferedLogs,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			looputil.NewLoopDeviceManager(),
 			rootDir,
+			containerDeathTimeout,
 		)
 	}
 }
 
 // NewMachineAgent instantiates a new MachineAgent.
 func NewMachineAgent(
+	exec utils.CommandRunner,
+	clock clock.Clock,
 	machineId string,
 	agentConfWriter AgentConfigWriter,
 	bufferedLogs logsender.LogRecordCh,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	rootDir string,
+	containerDeathTimeout time.Duration,
 ) *MachineAgent {
 	return &MachineAgent{
 		machineId:                   machineId,
@@ -267,6 +299,9 @@ func NewMachineAgent(
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
+		exec:                        exec,
+		clock:                       clock,
+		containerDeathTimeout: containerDeathTimeout,
 	}
 }
 
@@ -275,14 +310,17 @@ func NewMachineAgent(
 type MachineAgent struct {
 	AgentConfigWriter
 
-	tomb             tomb.Tomb
-	machineId        string
-	runner           worker.Runner
-	rootDir          string
-	bufferedLogs     logsender.LogRecordCh
-	configChangedVal *voyeur.Value
-	upgradeComplete  gate.Lock
-	workersStarted   chan struct{}
+	tomb                  tomb.Tomb
+	machineId             string
+	runner                worker.Runner
+	rootDir               string
+	bufferedLogs          logsender.LogRecordCh
+	configChangedVal      *voyeur.Value
+	upgradeComplete       gate.Lock
+	workersStarted        chan struct{}
+	exec                  utils.CommandRunner
+	clock                 clock.Clock
+	containerDeathTimeout time.Duration
 
 	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
 	restoreMode bool
@@ -375,7 +413,7 @@ func (a *MachineAgent) upgradeCertificateDNSNames() error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(*cmd.Context) error {
+func (a *MachineAgent) Run() error {
 
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
@@ -418,14 +456,88 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		err = a.uninstallAgent()
 	case worker.ErrRebootMachine:
 		logger.Infof("Caught reboot error")
-		err = a.executeRebootOrShutdown(params.ShouldReboot)
+		err = a.executeRebootOrShutdown(params.ShouldReboot, a.containerDeathTimeout)
 	case worker.ErrShutdownMachine:
 		logger.Infof("Caught shutdown error")
-		err = a.executeRebootOrShutdown(params.ShouldShutdown)
+		err = a.executeRebootOrShutdown(params.ShouldShutdown, a.containerDeathTimeout)
 	}
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
 	return err
+}
+
+func (a *MachineAgent) executeRebootOrShutdown(
+	action params.RebootAction,
+	containerDeathTimeout time.Duration,
+) error {
+	ctx := MachineAgentConfig{exec: a.exec, clock: a.clock}
+	agentAdapter := AgentRebootAdapter{agent: a}
+
+	if err := reboot.ExecuteRebootOrShutdown(
+		ctx,
+		&agentAdapter,
+		a.CurrentConfig(),
+		action,
+		containerDeathTimeout,
+	); err != nil {
+		return errors.Trace(err)
+	}
+
+	// On windows, the shutdown command is asynchronous. We return
+	// ErrRebootMachine so the agent will simply exit without error
+	// pending reboot/shutdown.
+	return worker.ErrRebootMachine
+}
+
+type AgentRebootAdapter struct {
+	agent        *MachineAgent
+	conn         api.Connection
+	rebootFacade rebootapi.State
+}
+
+func (a *AgentRebootAdapter) Open() error {
+	if a.conn == nil {
+		conn, err := apicaller.OnlyConnect(a.agent, apicaller.APIOpen)
+		if err != nil {
+			return errors.Annotatef(err, "cannot open the reboot facade for the agent")
+		}
+		a.conn = conn
+	}
+	rebootFacade, err := a.conn.Reboot()
+	if err != nil {
+		return err
+	}
+	a.rebootFacade = rebootFacade
+
+	return nil
+}
+
+func (a *AgentRebootAdapter) ClearReboot() error {
+	if err := a.emitProvisionErrorIfNotOpen(); err != nil {
+		return err
+	}
+	return a.rebootFacade.ClearReboot()
+}
+
+func (a *AgentRebootAdapter) RequestReboot() error {
+	if err := a.emitProvisionErrorIfNotOpen(); err != nil {
+		return err
+	}
+	return a.rebootFacade.RequestReboot()
+}
+
+func (a *AgentRebootAdapter) Close() error {
+	if a.conn == nil {
+		return nil
+	}
+	return a.conn.Close()
+}
+
+func (a *AgentRebootAdapter) emitProvisionErrorIfNotOpen() error {
+	if a.rebootFacade == nil {
+		return errors.NotProvisionedf("adapter is not open")
+	}
+	return nil
 }
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
@@ -464,34 +576,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		}
 		return engine, nil
 	}
-}
-
-func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
-	// At this stage, all API connections would have been closed
-	// We need to reopen the API to clear the reboot flag after
-	// scheduling the reboot. It may be cleaner to do this in the reboot
-	// worker, before returning the ErrRebootMachine.
-	conn, err := apicaller.OnlyConnect(a, apicaller.APIOpen)
-	if err != nil {
-		logger.Infof("Reboot: Error connecting to state")
-		return errors.Trace(err)
-	}
-
-	// block until all units/containers are ready, and reboot/shutdown
-	finalize, err := reboot.NewRebootWaiter(conn, a.CurrentConfig())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Infof("Reboot: Executing reboot")
-	err = finalize.ExecuteReboot(action)
-	if err != nil {
-		logger.Infof("Reboot: Error executing reboot: %v", err)
-		return errors.Trace(err)
-	}
-	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
-	// so the agent will simply exit without error pending reboot/shutdown.
-	return worker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {

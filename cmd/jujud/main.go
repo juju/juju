@@ -16,6 +16,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -151,7 +153,15 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// MachineAgent type has called out the separate concerns; the
 	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logCh, "")
+	const containerDeathTimeout = 10 * time.Minute
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		utils.RunCommand,
+		clock.WallClock,
+		agentConf,
+		logCh,
+		"",
+		containerDeathTimeout,
+	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
 	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
