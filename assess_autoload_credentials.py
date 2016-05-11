@@ -56,7 +56,7 @@ def assess_autoload_credentials(juju_bin):
     test_scenarios = [
         ('AWS using environment variables', aws_envvar_test_details),
         ('AWS using credentials file', aws_directory_test_details),
-        ('OS using environment variables file', openstack_envvar_test_details),
+        ('OS using environment variables', openstack_envvar_test_details),
         ]
 
     for scenario_name, scenario_setup in test_scenarios:
