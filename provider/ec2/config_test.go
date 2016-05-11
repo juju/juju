@@ -172,6 +172,12 @@ var configTests = []configTest{
 		forceVPCID: false,
 	}, {
 		config: attrs{
+			"vpc-id": "none",
+		},
+		vpcID:      "none",
+		forceVPCID: false,
+	}, {
+		config: attrs{
 			"vpc-id": 42,
 		},
 		err:        `.*expected string, got int\(42\)`,
