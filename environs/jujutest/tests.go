@@ -57,12 +57,14 @@ func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
 // PrepareParams returns the environs.PrepareParams that will be used to call
 // environs.Prepare.
 func (t *Tests) PrepareParams(c *gc.C) environs.PrepareParams {
+	testConfigCopy := t.TestConfig.Merge(nil)
+
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
 	return environs.PrepareParams{
-		BaseConfig:     t.TestConfig,
+		BaseConfig:     testConfigCopy,
 		Credential:     credential,
 		ControllerName: t.TestConfig["name"].(string),
 		CloudName:      t.TestConfig["type"].(string),
