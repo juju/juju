@@ -4,7 +4,7 @@ from argparse import Namespace
 import logging
 import StringIO
 import ConfigParser
-from mock import patch
+from mock import patch, Mock
 from tests import TestCase, parse_error
 
 from utility import temp_dir
@@ -43,6 +43,67 @@ class TestHelpers(TestCase):
 
     def test_uuid_str_returns_random_string(self):
         self.assertNotEqual(aac.uuid_str(), aac.uuid_str())
+
+    def test_update_clients_cloud_details_does_not_overwrite_existing(self):
+        fake_client = Mock()
+        fake_client.env.clouds = {
+            'clouds': {
+                'fake_cloud_provider': {
+                    'type': 'Fake'
+                }
+            }
+        }
+
+        new_cloud = {
+            'type': 'simple',
+            'regions': {
+                'example': 'example_region'
+            }
+        }
+
+        expected_cloud = {
+            'clouds': {
+                'fake_cloud_provider': {
+                    'type': 'Fake'
+                },
+                'simple_provider': {
+                    'type': 'simple',
+                    'regions': {
+                        'example': 'example_region'
+                    }
+                }
+            }
+        }
+
+        aac.update_clients_cloud_details(
+            fake_client, 'simple_provider', new_cloud)
+
+        self.assertDictEqual(expected_cloud, fake_client.env.clouds)
+
+    def test_update_clients_cloud_details_creates_new_clouds(self):
+        fake_client = Mock()
+        fake_client.env.clouds = {}
+        new_cloud = {
+            'type': 'simple',
+            'regions': {
+                'example': 'example_region'
+            }
+        }
+        aac.update_clients_cloud_details(
+            fake_client, 'simple_provider', new_cloud)
+
+        expected_cloud = {
+            'clouds': {
+                'simple_provider': {
+                    'type': 'simple',
+                    'regions': {
+                        'example': 'example_region'
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected_cloud, fake_client.env.clouds)
 
 
 class TestAWSHelpers(TestCase):

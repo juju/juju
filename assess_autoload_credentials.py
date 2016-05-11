@@ -9,11 +9,9 @@ import os
 import pexpect
 import sys
 import tempfile
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from uuid import uuid4
 from textwrap import dedent
-
-import yaml
 
 from jujupy import EnvJujuClient, JujuData
 from utility import (
@@ -165,9 +163,7 @@ def run_autoload_credentials(client, envvars):
     """
     process = client.expect(
         'autoload-credentials', extra_env=envvars, include_e=False)
-    process.expect(
-        '.*1. {} \(.*\).*'.format(
-            envvars['QUESTION_CLOUD_NAME']))
+    process.expect('.*1. {} \(.*\).*'.format(envvars['QUESTION_CLOUD_NAME']))
     process.sendline('1')
 
     process.expect(
@@ -306,16 +302,12 @@ def get_openstack_envvar_changes(user, credential_details):
 
 
 def ensure_openstack_personal_cloud_exists(client):
-    additional_cloud_settings = {
-        'clouds': {
-            'testing_openstack': {
-                'type': 'openstack',
-                'regions': {
-                    'test1': {
-                        'endpoint': 'https://testing.com',
-                        'auth-types': ['access-key', 'userpass']
-                    }
-                }
+    os_cloud = {
+        'type': 'openstack',
+        'regions': {
+            'test1': {
+                'endpoint': 'https://testing.com',
+                'auth-types': ['access-key', 'userpass']
             }
         }
     }
@@ -325,13 +317,14 @@ def ensure_openstack_personal_cloud_exists(client):
     )
     if 'local:testing_openstack' not in cloud_listing:
         log.info('Creating and adding new cloud.')
-        with tempfile.NamedTemporaryFile() as new_cloud_file:
-            yaml.dump(additional_cloud_settings, new_cloud_file)
-            client.juju(
-                'add-cloud',
-                ('testing_openstack', new_cloud_file.name),
-                include_e=False
-            )
+        update_clients_cloud_details(client, 'testing_openstack', os_cloud)
+        client.env.dump_yaml(client.env.juju_home, config=None)
+
+
+def update_clients_cloud_details(client, cloud_name, cloud_details):
+    add_cloud = defaultdict(dict, client.env.clouds)
+    add_cloud['clouds'][cloud_name] = cloud_details
+    client.env.clouds.update(dict(add_cloud))
 
 
 def get_openstack_expected_details_dict(user, credential_details):
