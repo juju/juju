@@ -267,6 +267,55 @@ func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 	return netenv
 }
 
+func (t *localServerSuite) TestPrepareForBootstrapWithInvalidVPCID(c *gc.C) {
+	badLocalConfigAttrs := localConfigAttrs.Merge(coretesting.Attrs{
+		"vpc-id": "bad",
+	})
+
+	expectedError := `invalid EC2 provider config: vpc-id: "bad" is not a valid AWS VPC ID`
+	t.AssertPrepareFailsWithConfig(c, badLocalConfigAttrs, expectedError)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
+	params := t.PrepareParams(c)
+	params.BaseConfig["vpc-id"] = ""
+
+	env := t.PrepareWithParams(c, params)
+	unknownAttrs := env.Config().UnknownAttrs()
+	vpcID, ok := unknownAttrs["vpc-id"]
+	c.Check(vpcID, gc.Equals, "")
+	c.Check(ok, jc.IsTrue)
+
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
+	params := t.PrepareParams(c)
+	params.BaseConfig["vpc-id"] = "none"
+
+	env := t.PrepareWithParams(c, params)
+	unknownAttrs := env.Config().UnknownAttrs()
+	vpcID, ok := unknownAttrs["vpc-id"]
+	c.Check(vpcID, gc.Equals, ec2.VPCIDNone)
+	c.Check(ok, jc.IsTrue)
+
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
+
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedVPCID(c *gc.C) {
+
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithNotUsableVPCID(c *gc.C) {
+
+}
+
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
