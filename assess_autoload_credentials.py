@@ -53,8 +53,7 @@ def assess_autoload_credentials(juju_bin):
     test_scenarios = [
         ('AWS using environment variables', aws_envvar_test_details),
         ('AWS using credentials file', aws_directory_test_details),
-        ('OS using environment variables file', openstack_envvar_test_details),
-    ]
+        ('OS using environment variables file', openstack_envvar_test_details)]
 
     for scenario_name, scenario_setup in test_scenarios:
         log.info('* Starting test scenario: {}'.format(scenario_name))
@@ -124,7 +123,10 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
         # Inject well known username.
         initial_details.env_var_changes.update({'USER': user})
 
-        run_autoload_credentials(client, initial_details.env_var_changes)
+        run_autoload_credentials(
+            client,
+            initial_details.env_var_changes,
+            initial_details.expect_answers)
 
         # Now run again with a second lot of details.
         overwrite_details = cloud_details_fn(user, tmp_scratch_dir, client)
@@ -137,7 +139,10 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
 
         # Inject well known username.
         overwrite_details.env_var_changes.update({'USER': user})
-        run_autoload_credentials(client, overwrite_details.env_var_changes)
+        run_autoload_credentials(
+            client,
+            overwrite_details.env_var_changes,
+            overwrite_details.expect_answers)
 
         client.env.load_yaml()
 
@@ -152,9 +157,7 @@ def assert_credentials_contains_expected_results(credentials, expected):
             'Actual credentials do not match expected credentials.\n'
             'Expected: {expected}\nGot: {got}\n'.format(
                 expected=expected,
-                got=credentials
-            )
-        )
+                got=credentials))
 
 
 def run_autoload_credentials(client, envvars, answers):
@@ -236,18 +239,17 @@ def get_aws_expected_details_dict(cloud_name, access_key, secret_key):
                     'auth-type': 'access-key',
                     'access-key': access_key,
                     'secret-key': secret_key,
+                    }
                 }
             }
         }
-    }
 
 
 def get_aws_environment(user, access_key, secret_key):
     """Return a dictionary containing keys suitable for AWS env vars."""
     return dict(
         AWS_ACCESS_KEY_ID=access_key,
-        AWS_SECRET_ACCESS_KEY=secret_key
-    )
+        AWS_SECRET_ACCESS_KEY=secret_key)
 
 
 def write_aws_config_file(tmp_dir, access_key, secret_key):

@@ -37,6 +37,7 @@ from utility import (
     ensure_dir,
     is_ipv6_address,
     pause,
+    quote,
     scoped_environ,
     split_address_port,
     temp_dir,
@@ -674,8 +675,9 @@ class EnvJujuClient:
         if extra_env is not None:
             env.update(extra_env)
         # pexpect.spawn expects a string. This is better than trying to extract
-        # command + args from the returned tuple.
-        command_string = ' '.join(args)
+        # command + args from the returned tuple (as there could be an intial
+        # timing command tacked on).
+        command_string = ' '.join(quote(a) for a in args)
         return pexpect.spawn(command_string, env=env)
 
     def controller_juju(self, command, args):

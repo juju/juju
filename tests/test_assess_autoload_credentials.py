@@ -35,8 +35,7 @@ class TestParseArgs(TestCase):
         args = aac.parse_args([juju_bin])
         self.assertEqual(
             args,
-            Namespace(juju_bin=juju_bin, verbose=logging.INFO)
-        )
+            Namespace(juju_bin=juju_bin, verbose=logging.INFO))
 
 
 class TestHelpers(TestCase):
@@ -126,9 +125,7 @@ class TestAWSHelpers(TestCase):
             env,
             dict(
                 AWS_ACCESS_KEY_ID=access_key,
-                AWS_SECRET_ACCESS_KEY=secret_key
-            )
-        )
+                AWS_SECRET_ACCESS_KEY=secret_key))
 
     def test_aws_envvar_test_details_returns_correct_expected_details(self):
         access_key = 'test_access_key'
@@ -140,24 +137,20 @@ class TestAWSHelpers(TestCase):
             client=None,
             credential_details={
                 'access_key': access_key,
-                'secret_key': secret_key
-            }
-        )
+                'secret_key': secret_key})
 
         self.assertDictEqual(
-            cloud_details.expected_details,
-            {
+            cloud_details.expected_details, {
                 'credentials': {
                     'aws': {
                         username: {
                             'auth-type': 'access-key',
                             'access-key': access_key,
                             'secret-key': secret_key,
+                            }
                         }
                     }
-                }
-            }
-        )
+                })
 
     def test_aws_envvar_test_details_returns_correct_envvar_settings(self):
         access_key = 'test_access_key'
@@ -169,17 +162,13 @@ class TestAWSHelpers(TestCase):
             client=None,
             credential_details={
                 'access_key': access_key,
-                'secret_key': secret_key
-            }
-        )
+                'secret_key': secret_key})
 
         self.assertDictEqual(
             cloud_details.env_var_changes,
             dict(
                 AWS_ACCESS_KEY_ID=access_key,
-                AWS_SECRET_ACCESS_KEY=secret_key
-            )
-        )
+                AWS_SECRET_ACCESS_KEY=secret_key))
 
     def test_aws_directory_test_details_returns_correct_expected_details(self):
         access_key = 'test_access_key'
@@ -191,24 +180,20 @@ class TestAWSHelpers(TestCase):
                 'tmp_dir',
                 client=None,
                 credential_details={
-                    'access_key': access_key, 'secret_key': secret_key
-                }
-            )
+                    'access_key': access_key, 'secret_key': secret_key})
 
         self.assertDictEqual(
-            cloud_details.expected_details,
-            {
+            cloud_details.expected_details, {
                 'credentials': {
                     'aws': {
                         'default': {
                             'auth-type': 'access-key',
                             'access-key': access_key,
                             'secret-key': secret_key,
+                            }
                         }
                     }
-                }
-            }
-        )
+                })
 
     def test_aws_directory_test_details_returns_envvar_settings(self):
         with patch.object(aac, 'write_aws_config_file'):
@@ -229,20 +214,18 @@ class TestAWSHelpers(TestCase):
 
         with temp_dir() as tmp_dir:
             credentials_file = aac.write_aws_config_file(
-                tmp_dir, access_key, secret_key
-            )
+                tmp_dir, access_key, secret_key)
             credentials = ConfigParser.ConfigParser()
             with open(credentials_file, 'r') as f:
                 credentials.readfp(f)
 
+        expected_items = [
+            ('aws_access_key_id', access_key),
+            ('aws_secret_access_key', secret_key)]
+
         self.assertEqual(credentials.sections(), ['default'])
         self.assertEqual(
-            credentials.items('default'),
-            [
-                ('aws_access_key_id', access_key),
-                ('aws_secret_access_key', secret_key),
-            ]
-        )
+            credentials.items('default'), expected_items)
 
 
 class TestOpenStackHelpers(TestCase):
@@ -312,8 +295,7 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
         cred_expected = dict(key='value')
 
         aac.assert_credentials_contains_expected_results(
-            cred_actual, cred_expected
-        )
+            cred_actual, cred_expected)
 
     def test_raises_when_credentials_do_not_match(self):
         cred_actual = dict(key='value')
@@ -323,5 +305,4 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
             ValueError,
             aac.assert_credentials_contains_expected_results,
             cred_actual,
-            cred_expected,
-        )
+            cred_expected)
