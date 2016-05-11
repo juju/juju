@@ -28,13 +28,19 @@ __metaclass__ = type
 log = logging.getLogger("assess_autoload_credentials")
 
 
+# Store details for querying the interactive command.
+# cloud_listing: String response for choosing credential to save
+# save_name: String response in which to save the credential under.
+ExpectAnswers = namedtuple('ExpectAnswers', ['cloud_listing', 'save_name'])
+
 # Store details for setting up a clouds credentials as well as what to compare
 # during test.
 # env_var_changes: dict
 # expected_details: dict
+# expect_answers: ExpectAnswers object
 CloudDetails = namedtuple(
     'CloudDetails',
-    ['env_var_changes', 'expected_details']
+    ['env_var_changes', 'expected_details', 'expect_answers']
 )
 
 
@@ -83,7 +89,10 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
         # Inject well known username.
         cloud_details.env_var_changes.update({'USER': user})
 
-        run_autoload_credentials(client, cloud_details.env_var_changes)
+        run_autoload_credentials(
+            client,
+            cloud_details.env_var_changes,
+            cloud_details.expect_answers)
 
         client.env.load_yaml()
 
@@ -148,7 +157,7 @@ def assert_credentials_contains_expected_results(credentials, expected):
         )
 
 
-def run_autoload_credentials(client, envvars):
+def run_autoload_credentials(client, envvars, answers):
     """Execute the command 'juju autoload-credentials'.
 
     Simple interaction, calls juju autoload-credentials selects the first
@@ -163,16 +172,16 @@ def run_autoload_credentials(client, envvars):
     """
     process = client.expect(
         'autoload-credentials', extra_env=envvars, include_e=False)
-    process.expect('.*1. {} \(.*\).*'.format(envvars['QUESTION_CLOUD_NAME']))
+    process.expect('.*1. {} \(.*\).*'.format(answers.cloud_listing))
     process.sendline('1')
 
     process.expect(
         'Enter cloud to which the credential belongs, or Q to quit.*')
-    process.sendline(envvars['SAVE_CLOUD_NAME'])
+    process.sendline(answers.save_name)
     process.expect(
-        'Saved {} to cloud {}'.format(
-            envvars['QUESTION_CLOUD_NAME'],
-            envvars['SAVE_CLOUD_NAME']))
+        'Saved {listing_display} to cloud {save_name}'.format(
+            listing_display=answers.cloud_listing,
+            save_name=answers.save_name))
     process.sendline('q')
     process.expect(pexpect.EOF)
 
@@ -189,10 +198,14 @@ def aws_envvar_test_details(user, tmp_dir, client, credential_details=None):
     secret_key = credential_details['secret_key']
     env_var_changes = get_aws_environment(user, access_key, secret_key)
 
+    answers = ExpectAnswers(
+        cloud_listing='aws credential "{}"'.format(user),
+        save_name='aws')
+
     expected_details = get_aws_expected_details_dict(
         user, access_key, secret_key)
 
-    return CloudDetails(env_var_changes, expected_details)
+    return CloudDetails(env_var_changes, expected_details, answers)
 
 
 def aws_directory_test_details(user, tmp_dir, client, credential_details=None):
@@ -205,13 +218,13 @@ def aws_directory_test_details(user, tmp_dir, client, credential_details=None):
 
     write_aws_config_file(tmp_dir, access_key, secret_key)
 
-    env_var_changes = dict(
-        HOME=tmp_dir,
-        SAVE_CLOUD_NAME='aws',
-        QUESTION_CLOUD_NAME='aws credential "{}"'.format('default')
-    )
+    answers = ExpectAnswers(
+        cloud_listing='aws credential "{}"'.format('default'),
+        save_name='aws')
 
-    return CloudDetails(env_var_changes, expected_details)
+    env_var_changes = dict(HOME=tmp_dir)
+
+    return CloudDetails(env_var_changes, expected_details, answers)
 
 
 def get_aws_expected_details_dict(cloud_name, access_key, secret_key):
@@ -230,12 +243,8 @@ def get_aws_expected_details_dict(cloud_name, access_key, secret_key):
 
 
 def get_aws_environment(user, access_key, secret_key):
-    """Return a dictionary containing keys suitable for AWS env vars.
-
-    """
+    """Return a dictionary containing keys suitable for AWS env vars."""
     return dict(
-        SAVE_CLOUD_NAME='aws',
-        QUESTION_CLOUD_NAME='aws credential "{}"'.format(user),
         AWS_ACCESS_KEY_ID=access_key,
         AWS_SECRET_ACCESS_KEY=secret_key
     )
@@ -277,24 +286,21 @@ def openstack_envvar_test_details(
         credential_details = openstack_credential_dict_generator()
 
     ensure_openstack_personal_cloud_exists(client)
-
     expected_details = get_openstack_expected_details_dict(
         user, credential_details
     )
-
+    answers = ExpectAnswers(
+        cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
+            credential_details['os_tenant_name'],
+            user),
+        save_name='testing_openstack')
     env_var_changes = get_openstack_envvar_changes(user, credential_details)
-    return CloudDetails(env_var_changes, expected_details)
+
+    return CloudDetails(env_var_changes, expected_details, answers)
 
 
 def get_openstack_envvar_changes(user, credential_details):
-    question = 'openstack region ".*" project "{}" user "{}"'.format(
-        credential_details['os_tenant_name'],
-        user
-    )
-
     return dict(
-        SAVE_CLOUD_NAME='testing_openstack',
-        QUESTION_CLOUD_NAME=question,
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'],

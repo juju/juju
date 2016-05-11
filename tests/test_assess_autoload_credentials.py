@@ -125,8 +125,6 @@ class TestAWSHelpers(TestCase):
         self.assertDictEqual(
             env,
             dict(
-                QUESTION_CLOUD_NAME='aws credential "{}"'.format(username),
-                SAVE_CLOUD_NAME='aws',
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key
             )
@@ -136,7 +134,7 @@ class TestAWSHelpers(TestCase):
         access_key = 'test_access_key'
         secret_key = 'test_secret_key'
         username = 'user'
-        env, expected = aac.aws_envvar_test_details(
+        cloud_details = aac.aws_envvar_test_details(
             username,
             'tmp_dir',
             client=None,
@@ -147,7 +145,7 @@ class TestAWSHelpers(TestCase):
         )
 
         self.assertDictEqual(
-            expected,
+            cloud_details.expected_details,
             {
                 'credentials': {
                     'aws': {
@@ -178,8 +176,6 @@ class TestAWSHelpers(TestCase):
         self.assertDictEqual(
             cloud_details.env_var_changes,
             dict(
-                SAVE_CLOUD_NAME='aws',
-                QUESTION_CLOUD_NAME='aws credential "{}"'.format(username),
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key
             )
@@ -223,11 +219,7 @@ class TestAWSHelpers(TestCase):
             )
         self.assertDictEqual(
             cloud_details.env_var_changes,
-            dict(
-                HOME='tmp_dir',
-                SAVE_CLOUD_NAME='aws',
-                QUESTION_CLOUD_NAME='aws credential "{}"'.format('default')
-            )
+            dict(HOME='tmp_dir')
         )
 
     def test_write_aws_config_file_writes_credentials_file(self):
@@ -303,15 +295,9 @@ class TestOpenStackHelpers(TestCase):
             }
         )
 
-        question = 'openstack region ".*" project "{}" user "{}"'.format(
-            os_tenant_name,
-            user
-        )
         self.assertEqual(
             env_var_changes,
             {
-                'SAVE_CLOUD_NAME': 'testing_openstack',
-                'QUESTION_CLOUD_NAME': question,
                 'OS_USERNAME': user,
                 'OS_PASSWORD': os_password,
                 'OS_TENANT_NAME': os_tenant_name,
