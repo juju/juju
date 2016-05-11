@@ -107,6 +107,9 @@ var indexData = `
 		   "format": "products:1.0",
 		   "products": [
 			"com.ubuntu.cloud:server:16.04:s390x",
+			"com.ubuntu.cloud:server:16.04:amd64",
+			"com.ubuntu.cloud:server:16.04:arm64",
+			"com.ubuntu.cloud:server:16.04:ppc64el",
 			"com.ubuntu.cloud:server:14.04:s390x",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:14.04:arm64",
@@ -126,6 +129,81 @@ var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
+   "com.ubuntu.cloud:server:16.04:amd64": {
+     "release": "trusty",
+     "version": "16.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20121111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:arm64": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "arm64",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604arm64": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604arm64"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-arm64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:ppc64el": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "ppc64el",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604ppc64el": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604ppc64el"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-ppc64el-server-20121111",
+         "label": "release"
+       }
+     }
+   },
    "com.ubuntu.cloud:server:14.04:amd64": {
      "release": "trusty",
      "version": "14.04",

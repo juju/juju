@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service/upstart"
@@ -93,7 +94,7 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DefaultDialOpts())
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {

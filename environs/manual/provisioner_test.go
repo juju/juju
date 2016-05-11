@@ -8,6 +8,7 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -22,7 +23,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type provisionerSuite struct {
@@ -44,7 +44,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	const series = coretesting.FakeDefaultSeries
+	var series = series.LatestLts()
 	const arch = "amd64"
 
 	args := s.getArgs(c)
@@ -124,7 +124,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
-	const series = coretesting.FakeDefaultSeries
+	var series = series.LatestLts()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -148,7 +148,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	const series = coretesting.FakeDefaultSeries
+	var series = series.LatestLts()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,

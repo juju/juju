@@ -74,6 +74,7 @@ type State struct {
 	modelTag      names.ModelTag
 	controllerTag names.ModelTag
 	mongoInfo     *mongo.MongoInfo
+	mongoDialOpts mongo.DialOpts
 	session       *mgo.Session
 	database      Database
 	policy        Policy
@@ -194,7 +195,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 // ForModel returns a connection to mongo for the specified model. The
 // connection uses the same credentials and policy as the existing connection.
 func (st *State) ForModel(env names.ModelTag) (*State, error) {
-	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
+	newState, err := open(env, st.mongoInfo, st.mongoDialOpts, st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

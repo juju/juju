@@ -6,6 +6,7 @@ package testing_test
 import (
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +21,8 @@ type TestingBaseSuite struct {
 var _ = gc.Suite(&TestingBaseSuite{})
 
 func (s *TestingBaseSuite) SetUpTest(c *gc.C) {
-	utils.SetHome(home)
+	err := utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
 	os.Setenv("JUJU_DATA", jujuXDGDataHome)
 	osenv.SetJujuXDGDataHome(jujuXDGDataHome)
 

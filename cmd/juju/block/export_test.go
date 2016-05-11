@@ -56,5 +56,7 @@ func (c *MockBlockClient) List() ([]params.Block, error) {
 }
 
 func NewUnblockCommandWithClient(client UnblockClientAPI) cmd.Command {
-	return modelcmd.Wrap(&unblockCommand{client: client})
+	return modelcmd.Wrap(&unblockCommand{getClient: func() (UnblockClientAPI, error) {
+		return client, nil
+	}})
 }

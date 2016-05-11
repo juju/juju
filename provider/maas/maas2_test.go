@@ -12,18 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 type maas2Suite struct {
 	baseProviderSuite
-}
-
-func (suite *maas2Suite) SetUpTest(c *gc.C) {
-	suite.baseProviderSuite.SetUpTest(c)
-	suite.SetFeatureFlags(feature.MAAS2)
 }
 
 func (suite *maas2Suite) injectController(controller gomaasapi.Controller) {
@@ -194,6 +188,8 @@ func (r *fakeBootResource) Architecture() string {
 
 type fakeMachine struct {
 	gomaasapi.Machine
+	*testing.Stub
+
 	zoneName      string
 	hostname      string
 	systemID      string
@@ -206,6 +202,15 @@ type fakeMachine struct {
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	createDevice  gomaasapi.Device
+}
+
+func newFakeMachine(systemID, architecture, statusName string) *fakeMachine {
+	return &fakeMachine{
+		Stub:         &testing.Stub{},
+		systemID:     systemID,
+		architecture: architecture,
+		statusName:   statusName,
+	}
 }
 
 func (m *fakeMachine) Tags() []string {
@@ -253,11 +258,13 @@ func (m *fakeMachine) InterfaceSet() []gomaasapi.Interface {
 }
 
 func (m *fakeMachine) Start(args gomaasapi.StartArgs) error {
-	return nil
+	m.MethodCall(m, "Start", args)
+	return m.NextErr()
 }
 
-func (m *fakeMachine) CreateDevice(gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
-	return m.createDevice, nil
+func (m *fakeMachine) CreateDevice(args gomaasapi.CreateMachineDeviceArgs) (gomaasapi.Device, error) {
+	m.MethodCall(m, "CreateDevice", args)
+	return m.createDevice, m.NextErr()
 }
 
 type fakeZone struct {
@@ -343,6 +350,8 @@ func (v fakeVLAN) MTU() int {
 
 type fakeInterface struct {
 	gomaasapi.Interface
+	*testing.Stub
+
 	id         int
 	name       string
 	parents    []string
@@ -394,8 +403,9 @@ func (v *fakeInterface) MACAddress() string {
 	return v.macAddress
 }
 
-func (v *fakeInterface) LinkSubnet(gomaasapi.LinkSubnetArgs) error {
-	return nil
+func (v *fakeInterface) LinkSubnet(args gomaasapi.LinkSubnetArgs) error {
+	v.MethodCall(v, "LinkSubnet", args)
+	return v.NextErr()
 }
 
 type fakeLink struct {
@@ -472,6 +482,8 @@ func (bd fakeBlockDevice) Size() uint64 {
 
 type fakeDevice struct {
 	gomaasapi.Device
+	*testing.Stub
+
 	interfaceSet []gomaasapi.Interface
 	systemID     string
 	interface_   gomaasapi.Interface
@@ -485,7 +497,8 @@ func (d *fakeDevice) SystemID() string {
 	return d.systemID
 }
 
-func (d *fakeDevice) CreateInterface(gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+func (d *fakeDevice) CreateInterface(args gomaasapi.CreateInterfaceArgs) (gomaasapi.Interface, error) {
+	d.MethodCall(d, "CreateInterface", args)
 	d.interfaceSet = append(d.interfaceSet, d.interface_)
-	return d.interface_, nil
+	return d.interface_, d.NextErr()
 }

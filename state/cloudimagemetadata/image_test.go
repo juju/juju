@@ -286,15 +286,25 @@ func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemeta
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *cloudImageMetadataSuite) assertMetadataRecorded(c *gc.C, criteria cloudimagemetadata.MetadataAttributes, expected ...cloudimagemetadata.Metadata) {
+func (s *cloudImageMetadataSuite) assertMetadataRecorded(
+	c *gc.C,
+	criteria cloudimagemetadata.MetadataAttributes,
+	expected ...cloudimagemetadata.Metadata,
+) {
 	metadata, err := s.storage.FindMetadata(buildAttributesFilter(criteria))
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Collate expected into a map
 	groups := make(map[string][]cloudimagemetadata.Metadata)
-	for _, one := range expected {
-		groups[one.Source] = append(groups[one.Source], one)
+	for _, expectedMetadata := range expected {
+		groups[expectedMetadata.Source] = append(groups[expectedMetadata.Source], expectedMetadata)
 	}
-	c.Assert(metadata, jc.DeepEquals, groups)
+
+	// Compare maps by key; order of slices does not matter
+	c.Assert(groups, gc.HasLen, len(metadata))
+	for source, expectedMetadata := range groups {
+		c.Assert(metadata[source], jc.SameContents, expectedMetadata)
+	}
 }
 
 func (s *cloudImageMetadataSuite) TestSupportedArchitectures(c *gc.C) {

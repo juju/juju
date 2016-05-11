@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -40,6 +41,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -198,14 +200,32 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }
 
-func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {
-	prefVersion := template
-	prefVersion.Series = config.PreferredSeries(conf)
-	defaultVersion := template
-	if prefVersion.Series != testing.FakeDefaultSeries {
-		defaultVersion.Series = testing.FakeDefaultSeries
+// DefaultVersions returns a slice of unique 'versions' for the current
+// environment's preferred series and host architecture, as well supported LTS
+// series for the host architecture. Additionally, it ensures that 'versions'
+// for amd64 are returned if that is not the current host's architecture.
+func DefaultVersions(conf *config.Config) []version.Binary {
+	var versions []version.Binary
+	supported := series.SupportedLts()
+	defaultSeries := set.NewStrings(supported...)
+	defaultSeries.Add(config.PreferredSeries(conf))
+	defaultSeries.Add(series.HostSeries())
+	for _, s := range defaultSeries.Values() {
+		versions = append(versions, version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: s,
+		})
+		if arch.HostArch() != "amd64" {
+			versions = append(versions, version.Binary{
+				Number: jujuversion.Current,
+				Arch:   "amd64",
+				Series: s,
+			})
+
+		}
 	}
-	return []version.Binary{prefVersion, defaultVersion}
+	return versions
 }
 
 func (s *JujuConnSuite) setUpConn(c *gc.C) {
@@ -217,7 +237,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	utils.SetHome(home)
+	err = utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.MkdirAll(filepath.Join(home, ".local", "share"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,17 +274,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
 
-	versions := PreferredDefaultVersions(environ.Config(), version.Binary{
-		Number: jujuversion.Current,
-		Arch:   "amd64",
-		Series: "precise",
-	})
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
-	}
-	versions = append(versions, current)
+	versions := DefaultVersions(environ.Config())
 
 	// Upload tools for both preferred and fake default series
 	s.DefaultToolsStorageDir = c.MkDir()
@@ -337,24 +348,10 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 	}
 }
 
-// AddDefaultToolsToState adds tools to tools storage for
-// {Number: jujuversion.Current.Number, Arch: amd64}, for the
-// "precise" series and the environment's preferred series.
-// The preferred series is default-series if specified,
-// otherwise the latest LTS.
+// AddDefaultTools adds tools to tools storage for default juju
+// series and architectures.
 func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
-	preferredVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   "amd64",
-		Series: series.HostSeries(),
-	}
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
-	}
-	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
-	versions = append(versions, current)
+	versions := DefaultVersions(s.Environ.Config())
 	s.AddToolsToState(c, versions...)
 }
 
@@ -374,7 +371,7 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	modelTag := names.NewModelTag(config.UUID())
 
 	mongoInfo.Password = password
-	opts := mongo.DefaultDialOpts()
+	opts := mongotest.DialOpts()
 	st, err := state.Open(modelTag, mongoInfo, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
@@ -566,7 +563,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	}
 
 	dummy.Reset(c)
-	utils.SetHome(s.oldHome)
+	err := utils.SetHome(s.oldHome)
+	c.Assert(err, jc.ErrorIsNil)
 	osenv.SetJujuXDGDataHome(s.oldJujuXDGDataHome)
 	s.oldHome = ""
 	s.RootDir = ""

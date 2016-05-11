@@ -5,6 +5,7 @@ package commands
 
 import (
 	"flag"
+	"os"
 	"runtime"
 	stdtesting "testing"
 
@@ -29,6 +30,6 @@ func TestPackage(t *stdtesting.T) {
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *cmdtesting.FlagRunMain {
-		Main(flag.Args())
+		os.Exit(Main(flag.Args()))
 	}
 }

@@ -22,7 +22,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -361,7 +360,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			// Substitute latest LTS for placeholder in expected series for uploaded tools
-			uploaded = strings.Replace(uploaded, "%LTS%", config.LatestLtsSeries(), 1)
+			uploaded = strings.Replace(uploaded, "%LTS%", series.LatestLts(), 1)
 			vers := version.MustParseBinary(uploaded)
 			s.checkToolsUploaded(c, vers, agentVersion)
 		}

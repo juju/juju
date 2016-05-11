@@ -27,7 +27,7 @@ var providerInstance environProvider
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region"}
+	return []string{"region", "vpc-id", "vpc-id-force"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
@@ -87,11 +87,35 @@ func (p environProvider) PrepareForBootstrap(
 	if err != nil {
 		return nil, err
 	}
+
+	env := e.(*environ)
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e.(*environ)); err != nil {
+		if err := verifyCredentials(env); err != nil {
 			return nil, err
 		}
 	}
+
+	vpcID, forceVPCID := env.ecfg().vpcID(), env.ecfg().forceVPCID()
+	if vpcID != "" {
+		err := validateVPC(env.ec2(), vpcID)
+		switch {
+		case isVPCNotUsableError(err):
+			// VPC missing or has no subnets at all.
+			return nil, errors.Annotate(err, vpcNotUsableErrorPrefix)
+		case isVPCNotRecommendedError(err):
+			// VPC does not meet minumum validation criteria.
+			if !forceVPCID {
+				return nil, errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
+			}
+			ctx.Infof(vpcNotRecommendedButForcedWarning)
+		case err != nil:
+			// Anything else unexpected while validating the VPC.
+			return nil, errors.Annotate(err, cannotValidateVPCErrorPrefix)
+		}
+
+		ctx.Infof("Using VPC %q in region %q", vpcID, env.ecfg().region())
+	}
+
 	return e, nil
 }
 

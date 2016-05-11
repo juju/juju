@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -645,7 +646,7 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(s.modelTag, info, testing.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
@@ -676,7 +677,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(s.modelTag, info, testing.NewDialOpts(), state.Policy(nil))
+	st1, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 

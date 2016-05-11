@@ -8,7 +8,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+)
+
+// Ensure EC2 provider supports the expected interfaces,
+var (
+	_ environs.NetworkingEnviron = (*environ)(nil)
+	_ simplestreams.HasRegion    = (*environ)(nil)
+	_ state.Prechecker           = (*environ)(nil)
+	_ state.InstanceDistributor  = (*environ)(nil)
 )
 
 type Suite struct{}

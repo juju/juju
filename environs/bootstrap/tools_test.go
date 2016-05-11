@@ -162,7 +162,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
+	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, false)
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
@@ -173,7 +173,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-version": "1.17.1",
 	})
-	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
+	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, false)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -185,7 +185,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	uploadedTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true)
+	uploadedTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedTools, gc.Not(gc.HasLen), 0)
 	c.Assert(findToolsCalled, gc.Equals, 0)
@@ -207,7 +207,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true)
+	_, err := bootstrap.FindAvailableTools(env, nil, nil, nil, true, true)
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "i386"`)
 	c.Assert(findToolsCalled, gc.Equals, 0)
 }
@@ -237,7 +237,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	toolsVersion := version.MustParse("10.11.12")
-	result, err := bootstrap.FindAvailableTools(env, &toolsVersion, nil, nil, false)
+	result, err := bootstrap.FindAvailableTools(env, &toolsVersion, nil, nil, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(findToolsCalled, gc.Equals, 1)
 	c.Assert(result, jc.DeepEquals, tools.List{
@@ -259,7 +259,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-stream": "proposed"})
-	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
+	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
@@ -298,7 +298,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false)
+	availableTools, err := bootstrap.FindAvailableTools(env, nil, nil, nil, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availableTools, gc.HasLen, len(allTools))
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 0)
