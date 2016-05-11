@@ -59,7 +59,8 @@ def assess_autoload_credentials(juju_bin):
     test_scenarios = [
         ('AWS using environment variables', aws_envvar_test_details),
         ('AWS using credentials file', aws_directory_test_details),
-        ('OS using environment variables file', openstack_envvar_test_details)]
+        ('OS using environment variables file', openstack_envvar_test_details),
+        ]
 
     for scenario_name, scenario_setup in test_scenarios:
         log.info('* Starting test scenario: {}'.format(scenario_name))
@@ -91,8 +92,6 @@ def ensure_autoload_credentials_stores_details(juju_bin, cloud_details_fn):
         )
 
         cloud_details = cloud_details_fn(user, tmp_scratch_dir, client)
-        # Inject well known username.
-        cloud_details.env_var_changes.update({'USER': user})
 
         run_autoload_credentials(
             client,
@@ -126,8 +125,6 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
 
         initial_details = cloud_details_fn(
             user, tmp_scratch_dir, client)
-        # Inject well known username.
-        initial_details.env_var_changes.update({'USER': user})
 
         run_autoload_credentials(
             client,
@@ -143,8 +140,6 @@ def ensure_autoload_credentials_overwrite_existing(juju_bin, cloud_details_fn):
             raise ValueError(
                 'Attempting to use identical values for overwriting')
 
-        # Inject well known username.
-        overwrite_details.env_var_changes.update({'USER': user})
         run_autoload_credentials(
             client,
             overwrite_details.env_var_changes,
@@ -254,6 +249,7 @@ def get_aws_expected_details_dict(cloud_name, access_key, secret_key):
 def get_aws_environment(user, access_key, secret_key):
     """Return a dictionary containing keys suitable for AWS env vars."""
     return dict(
+        USER=user,
         AWS_ACCESS_KEY_ID=access_key,
         AWS_SECRET_ACCESS_KEY=secret_key)
 
@@ -309,6 +305,7 @@ def openstack_envvar_test_details(
 
 def get_openstack_envvar_changes(user, credential_details):
     return dict(
+        USER=user,
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'],

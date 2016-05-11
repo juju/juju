@@ -127,6 +127,7 @@ class TestAWSHelpers(TestCase):
         self.assertDictEqual(
             env,
             dict(
+                USER=username,
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key))
 
@@ -170,6 +171,7 @@ class TestAWSHelpers(TestCase):
         self.assertDictEqual(
             cloud_details.env_var_changes,
             dict(
+                USER=username,
                 AWS_ACCESS_KEY_ID=access_key,
                 AWS_SECRET_ACCESS_KEY=secret_key))
 
@@ -275,6 +277,7 @@ class TestOpenStackHelpers(TestCase):
 
         self.assertEqual(
             env_var_changes, {
+                'USER': user,
                 'OS_USERNAME': user,
                 'OS_PASSWORD': os_password,
                 'OS_TENANT_NAME': os_tenant_name,
