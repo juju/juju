@@ -18,7 +18,7 @@ const (
 	availableState        = "available"
 	localRouteGatewayID   = "local"
 	defaultRouteCIDRBlock = "0.0.0.0/0"
-	defaultVPCIDNone      = "none"
+	vpcIDNone             = "none"
 )
 
 var (
@@ -412,7 +412,7 @@ func findDefaultVPCID(apiClient vpcAPIClient) (string, error) {
 	}
 
 	firstAttributeValue := response.Attributes[0].Values[0]
-	if firstAttributeValue == defaultVPCIDNone {
+	if firstAttributeValue == vpcIDNone {
 		return "", errors.NotFoundf("default VPC")
 	}
 
