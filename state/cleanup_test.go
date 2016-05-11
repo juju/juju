@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -12,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v5"
 
-	"bytes"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"

@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -170,6 +171,12 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
 	// transactions, because they could be in any state at all.
 	units, closer := st.getCollection(unitsC)
 	defer closer()
+
+	// TODO(mjs) - remove this post v1.21
+	// Older versions of the code put a trailing forward slash on the
+	// end of the service name. Remove it here in case a pre-upgrade
+	// cleanup document is seen.
+	serviceName = strings.TrimSuffix(serviceName, "/")
 
 	unit := Unit{st: st}
 	sel := bson.D{{"service", serviceName}, {"life", Alive}}
