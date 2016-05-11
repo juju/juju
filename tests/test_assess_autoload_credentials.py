@@ -5,7 +5,10 @@ import logging
 import StringIO
 import ConfigParser
 from mock import patch, Mock
-from tests import TestCase, parse_error
+from tests import (
+    TestCase,
+    parse_error,
+    )
 
 from utility import temp_dir
 import assess_autoload_credentials as aac

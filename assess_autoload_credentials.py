@@ -9,17 +9,23 @@ import os
 import pexpect
 import sys
 import tempfile
-from collections import defaultdict, namedtuple
+from collections import (
+    defaultdict,
+    namedtuple,
+    )
 from uuid import uuid4
 from textwrap import dedent
 
-from jujupy import EnvJujuClient, JujuData
+from jujupy import (
+    EnvJujuClient,
+    JujuData,
+    )
 from utility import (
     configure_logging,
     enforce_juju_path,
     temp_dir,
     ensure_dir,
-)
+    )
 
 
 __metaclass__ = type
