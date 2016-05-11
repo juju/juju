@@ -234,7 +234,9 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
             else:
                 # Deleting a group created using the old API might not return
                 # a poller! Or maybe the resource was deleting already.
-                log.debug('poller is None for {}.delete(). Already deleted?')
+                log.debug(
+                    'poller is None for {}.delete(). Already deleted?'.format(
+                        name))
     for name, poller in pollers:
         log.debug('Waiting for {} to be deleted'.format(name))
         # It is an error to ask for a poller's result() when it is done.
@@ -275,13 +277,11 @@ def delete_instance(client, name_id, resource_group=None):
     resources = list_resources(client, glob=glob, recursive=True)
     rgd, vm = find_vm_instance(resources, name_id, resource_group)
     if vm:
-        if client.verbose:
-            print('Found {} {}'.format(rgd.name, vm.name))
-        if not client.dry_run:
+        log.debug('Found {} {}'.format(rgd.name, vm.name))
+        if not client.read_only:
             poller = client.compute.virtual_machines.delete(
                 rgd.name, vm.name)
-            if client.verbose:
-                print('Waiting for {} to be deleted'.format(vm.name))
+            log.debug('Waiting for {} to be deleted'.format(vm.name))
             if not poller.done():
                 poller.result()
     else:
