@@ -4,6 +4,9 @@
 package state_test
 
 import (
+	"runtime"
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +14,24 @@ import (
 )
 
 type statusHistoryFunc func(int) ([]state.StatusInfo, error)
+
+type statusSetter interface {
+	SetStatus(state.Status, string, map[string]interface{}) error
+}
+
+func primeStatusHistory(c *gc.C, entity statusSetter, statusVal state.Status, count int, nextData func(int) map[string]interface{}) {
+	info := ""
+	for i := 0; i < count; i++ {
+		c.Logf("setting status for %v", entity)
+		data := nextData(i)
+		err := entity.SetStatus(statusVal, info, data)
+		c.Assert(err, jc.ErrorIsNil)
+		if runtime.GOOS == "windows" {
+			// The default clock tick on Windows is 15.6 ms.
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+}
 
 func checkInitialWorkloadStatus(c *gc.C, statusInfo state.StatusInfo) {
 	c.Check(statusInfo.Status, gc.Equals, state.StatusUnknown)
@@ -20,10 +41,9 @@ func checkInitialWorkloadStatus(c *gc.C, statusInfo state.StatusInfo) {
 }
 
 func primeUnitStatusHistory(c *gc.C, unit *state.Unit, count int) {
-	for i := 0; i < count; i++ {
-		err := unit.SetStatus(state.StatusActive, "", map[string]interface{}{"$foo": i})
-		c.Assert(err, gc.IsNil)
-	}
+	primeStatusHistory(c, unit, state.StatusActive, count, func(i int) map[string]interface{} {
+		return map[string]interface{}{"$foo": i}
+	})
 }
 
 func checkPrimedUnitStatus(c *gc.C, statusInfo state.StatusInfo, expect int) {
@@ -41,10 +61,9 @@ func checkInitialUnitAgentStatus(c *gc.C, statusInfo state.StatusInfo) {
 }
 
 func primeUnitAgentStatusHistory(c *gc.C, agent *state.UnitAgent, count int) {
-	for i := 0; i < count; i++ {
-		err := agent.SetStatus(state.StatusExecuting, "", map[string]interface{}{"$bar": i})
-		c.Assert(err, gc.IsNil)
-	}
+	primeStatusHistory(c, agent, state.StatusExecuting, count, func(i int) map[string]interface{} {
+		return map[string]interface{}{"$bar": i}
+	})
 }
 
 func checkPrimedUnitAgentStatus(c *gc.C, statusInfo state.StatusInfo, expect int) {
