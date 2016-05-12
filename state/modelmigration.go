@@ -257,6 +257,21 @@ func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
 		update["success-time"] = now
 	}
 	var ops []txn.Op
+
+	// If the migration aborted, make the model active again.
+	if nextPhase == migration.ABORTDONE {
+		ops = append(ops, txn.Op{
+			C:      modelsC,
+			Id:     mig.doc.ModelUUID,
+			Assert: txn.DocExists,
+			Update: bson.M{
+				"$set": bson.M{"migration-mode": MigrationModeActive},
+			},
+		})
+	}
+
+	// Set end timestamps and mark migration as no longer active if a
+	// terminal phase is hit.
 	if nextPhase.IsTerminal() {
 		nextDoc.EndTime = now
 		update["end-time"] = now
@@ -405,6 +420,13 @@ func (st *State) CreateModelMigration(spec ModelMigrationSpec) (ModelMigration, 
 			Id:     modelUUID,
 			Assert: txn.DocMissing,
 			Insert: bson.M{"id": doc.Id},
+		}, {
+			C:      modelsC,
+			Id:     modelUUID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{
+				"migration-mode": MigrationModeExporting,
+			}},
 		}, model.assertActiveOp(),
 		}, nil
 	}

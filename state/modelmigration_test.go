@@ -56,6 +56,10 @@ func (s *ModelMigrationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
+
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +67,6 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	checkIdAndAttempt(c, mig, 0)
 
 	c.Check(mig.StartTime(), gc.Equals, s.clock.Now())
-
 	c.Check(mig.SuccessTime().IsZero(), jc.IsTrue)
 	c.Check(mig.EndTime().IsZero(), jc.IsTrue)
 	c.Check(mig.StatusMessage(), gc.Equals, "")
@@ -77,6 +80,9 @@ func (s *ModelMigrationSuite) TestCreate(c *gc.C) {
 	c.Check(mig.PhaseChangedTime(), gc.Equals, mig.StartTime())
 
 	assertMigrationActive(c, s.State2)
+
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Check(model.MigrationMode(), gc.Equals, state.MigrationModeExporting)
 }
 
 func (s *ModelMigrationSuite) TestIdSequencesAreIndependent(c *gc.C) {
@@ -330,6 +336,11 @@ func (s *ModelMigrationSuite) TestABORTCleanup(c *gc.C) {
 	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
 
 	s.assertMigrationCleanedUp(c, mig)
+
+	// Model should be set back to active.
+	model, err := s.State2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeActive)
 }
 
 func (s *ModelMigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
