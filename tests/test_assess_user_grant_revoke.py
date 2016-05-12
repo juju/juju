@@ -165,7 +165,7 @@ class TestAsserts(TestCase):
 def make_fake_client():
     fake_client = FakeJujuClient()
     old_backend = fake_client._backend
-    fake_client._backend = FakeBackendShellEnv(old_backend.backing_state,
+    fake_client._backend = FakeBackendShellEnv(old_backend.controller_state,
             old_backend._feature_flags, old_backend.version,
             old_backend.full_path, old_backend.debug)
     return fake_client

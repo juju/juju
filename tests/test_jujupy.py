@@ -285,7 +285,7 @@ class FakeBackend:
         self.debug = debug
         self.juju_timings = {}
 
-    def clone(self, version=None, full_path=None, debug=None):
+    def clone(self, full_path=None,  version=None, debug=None):
         if version is None:
             version = self.version
         if full_path is None:
