@@ -2,6 +2,7 @@
 
 from argparse import Namespace
 import logging
+import os
 import StringIO
 import ConfigParser
 from mock import patch
@@ -247,6 +248,56 @@ class TestOpenStackHelpers(TestCase):
             ))
 
         self.assertEqual(credential_contents, expected)
+
+
+class TestGCEHelpers(TestCase):
+    def test_get_gce_expected_details_dict_returns_correct_details(self):
+        user = 'username'
+        cred_path = '/some/path'
+        self.assertEqual(
+            aac.get_gce_expected_details_dict(user, cred_path),
+            {
+                'credentials': {
+                    'google': {
+                        user: {
+                            'auth-type': 'jsonfile',
+                            'file': cred_path,
+                            }
+                        }
+                    }
+                })
+
+    def test_gce_credential_dict_generator_returns_unique_details(self):
+        self.assertNotEqual(
+            aac.gce_credential_dict_generator(),
+            aac.gce_credential_dict_generator())
+
+    def test_write_gce_config_file_creates_unique_credential_file(self):
+        credentials = dict(
+            client_id='client_id',
+            client_email='client_email',
+            private_key='private_key',
+            )
+
+        with patch.object(aac, 'uuid_str') as u_str:
+            u_str.return_value = 'unique'
+            with temp_dir() as tmp_dir:
+                file_path = aac.write_gce_config_file(tmp_dir, credentials)
+        self.assertEqual(
+            file_path,
+            os.path.join(tmp_dir, '{}.json'.format('unique')))
+
+    def test_write_gce_config_file_creates_named_credential_file(self):
+        credentials = dict(
+            client_id='client_id',
+            client_email='client_email',
+            private_key='private_key',
+            )
+
+        with temp_dir() as tmp_dir:
+            file_path = aac.write_gce_config_file(
+                tmp_dir, credentials, 'file_name')
+        self.assertEqual(file_path, os.path.join(tmp_dir, 'file_name'))
 
 
 class TestAssertCredentialsContainsExpectedResults(TestCase):

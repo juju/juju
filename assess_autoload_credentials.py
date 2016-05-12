@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import argparse
+import json
 import logging
 import os
 import pexpect
@@ -58,6 +59,10 @@ def assess_autoload_credentials(juju_bin):
         ('AWS using credentials file', aws_directory_test_details),
         ('OS using environment variables', openstack_envvar_test_details),
         ('OS using credentials file', openstack_directory_test_details),
+        ('GCE using envvar with credentials file',
+         gce_envvar_with_file_test_details),
+        ('GCE using credentials file',
+         gce_file_test_details),
         ]
 
     for scenario_name, scenario_setup in test_scenarios:
@@ -383,6 +388,104 @@ def openstack_credential_dict_generator():
     return dict(
         os_tenant_name=uuid_str(),
         os_password=uuid_str())
+
+
+def gce_envvar_with_file_test_details(
+        user, tmp_dir, client, credential_details=None
+):
+    if credential_details is None:
+        credential_details = gce_credential_dict_generator()
+    credentials_path = write_gce_config_file(tmp_dir, credential_details)
+
+    answers = ExpectAnswers(
+        cloud_listing='google credential "{}"'.format(
+            credential_details['client_email']),
+        save_name='google')
+
+    expected_details = get_gce_expected_details_dict(user, credentials_path)
+
+    env_var_changes = dict(
+        USER=user,
+        GOOGLE_APPLICATION_CREDENTIALS=credentials_path,
+        )
+
+    return CloudDetails(env_var_changes, expected_details, answers)
+
+
+def gce_file_test_details(
+        user, tmp_dir, client, credential_details=None
+):
+    if credential_details is None:
+        credential_details = gce_credential_dict_generator()
+
+    home_path, credentials_path = write_gce_home_config_file(
+        tmp_dir, credential_details)
+
+    answers = ExpectAnswers(
+        cloud_listing='google credential "{}"'.format(
+            credential_details['client_email']),
+        save_name='google')
+
+    expected_details = get_gce_expected_details_dict(user, credentials_path)
+
+    env_var_changes = dict(USER=user, HOME=home_path)
+
+    return CloudDetails(env_var_changes, expected_details, answers)
+
+
+def write_gce_config_file(tmp_dir, credential_details, filename=None):
+
+    details = dict(
+        type='service_account',
+        client_id=credential_details['client_id'],
+        client_email=credential_details['client_email'],
+        private_key=credential_details['private_key'])
+
+    # Generate a unique filename if none provided as this is stored and used in
+    # comparisons.
+    filename = filename or '{}.json'.format(uuid_str())
+    credential_file = os.path.join(tmp_dir, filename)
+    with open(credential_file, 'w') as f:
+        json.dump(details, f)
+
+    return credential_file
+
+
+def write_gce_home_config_file(tmp_dir, credential_details):
+    """Returns a tuple contining a new HOME path and credential file path."""
+    # Add a unique string for home dir so each file path is unique within the
+    # stored credentials file.
+    home_dir = os.path.join(tmp_dir, uuid_str())
+    credential_path = os.path.join(home_dir, '.config', 'gcloud')
+    os.makedirs(credential_path)
+
+    written_credentials_path = write_gce_config_file(
+        credential_path,
+        credential_details,
+        'application_default_credentials.json')
+
+    return home_dir, written_credentials_path
+
+
+def get_gce_expected_details_dict(user, credentials_path):
+    return {
+        'credentials': {
+            'google': {
+                user: {
+                    'auth-type': 'jsonfile',
+                    'file': credentials_path,
+                    }
+                }
+            }
+        }
+
+
+def gce_credential_dict_generator():
+    return dict(
+        client_id=uuid_str(),
+        client_email=uuid_str(),
+        private_key=uuid_str(),
+        )
 
 
 def parse_args(argv):
