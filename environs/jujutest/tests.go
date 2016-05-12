@@ -88,7 +88,7 @@ func (t *Tests) PrepareWithParams(c *gc.C, params environs.PrepareParams) enviro
 
 func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attrs, errorMatches string) error {
 	args := t.PrepareParams(c)
-	args.BaseConfig = badConfig
+	args.BaseConfig = coretesting.Attrs(args.BaseConfig).Merge(badConfig)
 
 	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
