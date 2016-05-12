@@ -12,6 +12,7 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/network"
 )
 
@@ -27,6 +28,35 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
+}
+
+func (s *vpcSuite) TestValidateVPCBeforeBootstrapUnexpectedError(c *gc.C) {
+	err := validateVPCBeforeBootstrap(s.newFakeEnviron(), envtesting.BootstrapContext(c))
+	s.checkErrorMatchesCannotVerifyVPC(c, err)
+}
+
+func (*vpcSuite) newFakeEnviron() *environ {
+	// Passing zeroEnviron will trigger validateVPC() error due to not connected
+	// ec2 client, but we need at least ecfgUnlocked to be non-nil.
+	zeroEnviron := &environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{
+				"vpc-id":       anyVPCID,
+				"vpc-id-force": false,
+			},
+		},
+	}
+	return zeroEnviron
+}
+
+func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
+	expectedError := `Juju could not verify whether the given vpc-id(.|\n)*invalid arguments: empty VPC ID.*`
+	c.Check(err, gc.ErrorMatches, expectedError)
+}
+
+func (s *vpcSuite) TestValidateVPCBeforeModelCreationUnexpectedError(c *gc.C) {
+	err := validateVPCBeforeModelCreation(s.newFakeEnviron())
+	s.checkErrorMatchesCannotVerifyVPC(c, err)
 }
 
 // NOTE: validateVPC tests only verify expected error types for all code paths,

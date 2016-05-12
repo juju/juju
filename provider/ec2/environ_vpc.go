@@ -494,7 +494,7 @@ func isVPCIDSet(vpcID string) bool {
 func validateVPCBeforeBootstrap(env *environ, ctx environs.BootstrapContext) error {
 	vpcID, forceVPCID := env.ecfg().vpcID(), env.ecfg().forceVPCID()
 	if isVPCIDSet(vpcID) {
-		err := validateVPC(env.ec2(), vpcID)
+		err := validateVPC(env.vpcAPIClient(), vpcID)
 		switch {
 		case isVPCNotUsableError(err):
 			// VPC missing or has no subnets at all.
@@ -520,7 +520,7 @@ func validateVPCBeforeBootstrap(env *environ, ctx environs.BootstrapContext) err
 
 func validateVPCBeforeModelCreation(env *environ) error {
 	if vpcID := env.ecfg().vpcID(); isVPCIDSet(vpcID) {
-		err := validateVPC(env.ec2(), vpcID)
+		err := validateVPC(env.vpcAPIClient(), vpcID)
 		switch {
 		case isVPCNotUsableError(err):
 			// VPC missing or has no subnets at all.
