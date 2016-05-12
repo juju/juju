@@ -295,7 +295,8 @@ func (c *Charm) IsPlaceholder() bool {
 	return c.doc.Placeholder
 }
 
-// DeleteCharmArchive deletes a charm archive and its charm record from environment storage.
+// DeleteCharmArchive deletes a charm archive from blob storage
+// and removes the corresponding charm record from state.
 func (st *State) DeleteCharmArchive(curl *charm.URL, storagePath string) error {
 	if err := st.DeleteCharm(curl); err != nil {
 		return errors.Annotate(err, "cannot delete charm record from state")
