@@ -284,7 +284,7 @@ class FakeBackend:
         self.full_path = full_path
         self.debug = debug
 
-    def clone(self, version=None, full_path=None, debug=None,
+    def clone(self, full_path=None, version=None, debug=None,
               controller_state=None):
         if version is None:
             version = self.version
