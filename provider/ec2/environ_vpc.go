@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -23,9 +24,16 @@ const (
 )
 
 var (
-	vpcNotUsableErrorPrefix = `
+	vpcNotUsableForBootstrapErrorPrefix = `
 Juju cannot use the given vpc-id for bootstrapping a controller
 instance. Please, double check the given VPC ID is correct, and that
+the VPC contains at least one subnet.
+
+Error details`[1:]
+
+	vpcNotUsableForModelErrorPrefix = `
+Juju cannot use the given vpc-id for the model being added.
+Please, double check the given VPC ID is correct, and that
 the VPC contains at least one subnet.
 
 Error details`[1:]
@@ -481,4 +489,48 @@ func isVPCIDSetButInvalid(vpcID string) bool {
 
 func isVPCIDSet(vpcID string) bool {
 	return vpcID != "" && vpcID != vpcIDNone
+}
+
+func validateVPCBeforeBootstrap(env *environ, ctx environs.BootstrapContext) error {
+	vpcID, forceVPCID := env.ecfg().vpcID(), env.ecfg().forceVPCID()
+	if isVPCIDSet(vpcID) {
+		err := validateVPC(env.ec2(), vpcID)
+		switch {
+		case isVPCNotUsableError(err):
+			// VPC missing or has no subnets at all.
+			return errors.Annotate(err, vpcNotUsableForBootstrapErrorPrefix)
+		case isVPCNotRecommendedError(err):
+			// VPC does not meet minumum validation criteria.
+			if !forceVPCID {
+				return errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
+			}
+			ctx.Infof(vpcNotRecommendedButForcedWarning)
+		case err != nil:
+			// Anything else unexpected while validating the VPC.
+			return errors.Annotate(err, cannotValidateVPCErrorPrefix)
+		}
+
+		ctx.Infof("Using VPC %q in region %q", vpcID, env.ecfg().region())
+	} else if vpcID == vpcIDNone {
+		ctx.Infof("Using EC2-classic features or default VPC in region %q", env.ecfg().region())
+	}
+
+	return nil
+}
+
+func validateVPCBeforeModelCreation(env *environ) error {
+	if vpcID := env.ecfg().vpcID(); isVPCIDSet(vpcID) {
+		err := validateVPC(env.ec2(), vpcID)
+		switch {
+		case isVPCNotUsableError(err):
+			// VPC missing or has no subnets at all.
+			return errors.Annotate(err, vpcNotUsableForModelErrorPrefix)
+		case err != nil:
+			// Anything else unexpected while validating the VPC.
+			return errors.Annotate(err, cannotValidateVPCErrorPrefix)
+		}
+		logger.Infof("Using VPC %q in region %q for model %q", vpcID, env.ecfg().region(), env.Name())
+	}
+
+	return nil
 }

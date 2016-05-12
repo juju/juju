@@ -34,6 +34,16 @@ func (p environProvider) RestrictedConfigAttributes() []string {
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	env := e.(*environ)
+
+	if err := validateVPCBeforeModelCreation(env); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return cfg, nil
 }
 
@@ -77,7 +87,8 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+
+	return cfg, nil
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
@@ -97,27 +108,8 @@ func (p environProvider) PrepareForBootstrap(
 		}
 	}
 
-	vpcID, forceVPCID := env.ecfg().vpcID(), env.ecfg().forceVPCID()
-	if isVPCIDSet(vpcID) {
-		err := validateVPC(env.ec2(), vpcID)
-		switch {
-		case isVPCNotUsableError(err):
-			// VPC missing or has no subnets at all.
-			return nil, errors.Annotate(err, vpcNotUsableErrorPrefix)
-		case isVPCNotRecommendedError(err):
-			// VPC does not meet minumum validation criteria.
-			if !forceVPCID {
-				return nil, errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
-			}
-			ctx.Infof(vpcNotRecommendedButForcedWarning)
-		case err != nil:
-			// Anything else unexpected while validating the VPC.
-			return nil, errors.Annotate(err, cannotValidateVPCErrorPrefix)
-		}
-
-		ctx.Infof("Using VPC %q in region %q", vpcID, env.ecfg().region())
-	} else if vpcID == vpcIDNone {
-		ctx.Infof("Using EC2-classic features or default VPC in region %q", env.ecfg().region())
+	if err := validateVPCBeforeBootstrap(env, ctx); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return e, nil
