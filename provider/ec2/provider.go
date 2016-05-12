@@ -27,6 +27,8 @@ var providerInstance environProvider
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
+	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
+	// See bug http://pad.lv/1580417 for more information.
 	return []string{"region", "vpc-id-force"}
 }
 
