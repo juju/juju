@@ -203,7 +203,7 @@ func (st *State) cleanupCharmForDyingService(charmURL string) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot read charm record from state")
 	}
-	if err := st.DeleteCharmArchive(curl, ch.StoragePath()); err != nil && !errors.IsNotFound(err) {
+	if err := st.deleteCharmArchive(curl, ch.StoragePath()); err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot remove charm archive from storage")
 	}
 	return nil

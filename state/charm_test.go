@@ -469,14 +469,14 @@ func (s *CharmSuite) TestDeleteCharm(c *gc.C) {
 	sch, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.DeleteCharm(sch.URL())
+	err = state.DeleteCharm(s.State, sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.Charm(sch.URL())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Deleting again is a no-op.
-	err = s.State.DeleteCharm(sch.URL())
+	err = state.DeleteCharm(s.State, sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
