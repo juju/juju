@@ -444,3 +444,7 @@ func WriteLogWithOplog(
 func SpaceDoc(s *Space) spaceDoc {
 	return s.doc
 }
+
+func DeleteCharm(st *State, curl *charm.URL) error {
+	return st.deleteCharm(curl)
+}

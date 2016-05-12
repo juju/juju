@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 )
@@ -69,6 +71,30 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	// Run a final cleanup to clear the cleanup scheduled for the unit that
 	// became dying.
 	s.assertCleanupCount(c, 1)
+}
+
+func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
+	// Create a service and  a charm.
+	ch := s.AddTestingCharm(c, "mysql")
+	mysql := s.AddTestingService(c, "mysql", ch)
+
+	// Create a dummy archive blob.
+	stor := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storagePath := "dummy-path"
+	err := stor.Put(storagePath, bytes.NewReader([]byte("data")), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy the service and check that a cleanup has been scheduled.
+	err = mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+
+	// Run the cleanup, and check that the charm is removed.
+	s.assertCleanupRuns(c)
+	_, _, err = stor.Get(storagePath)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.Charm(ch.URL())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {

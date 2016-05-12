@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/testcharms"
 )
 
 type ServiceSuite struct {
@@ -1386,6 +1387,43 @@ func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {
 
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
 	assertLife(c, machine, state.Dying)
+}
+
+func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
+	// Check state is clean.
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+
+	err = s.mysql.Destroy()
+
+	// Check a cleanup doc was added.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
+
+	// Run the cleanup and check the charm.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Charm(s.charm.URL())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Check we're now clean.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+}
+
+func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
+	curl := charm.MustParseURL("cs:trusty/dummy")
+	ch, err := s.State.AddCharm(testcharms.Repo.CharmDir("dummy"), curl, "dummy-path", "dummy-23-sha256")
+	c.Assert(err, jc.ErrorIsNil)
+	svc := state.AddTestingService(c, s.State, "service", ch, s.Owner)
+
+	err = svc.Destroy()
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *gc.C) {
