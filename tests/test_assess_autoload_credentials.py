@@ -9,6 +9,7 @@ from tests import (
     TestCase,
     parse_error,
     )
+from textwrap import dedent
 
 from utility import temp_dir
 import assess_autoload_credentials as aac
@@ -221,6 +222,31 @@ class TestOpenStackHelpers(TestCase):
                 'OS_PASSWORD': os_password,
                 'OS_TENANT_NAME': os_tenant_name,
                 })
+
+    def test_write_openstack_config_file_writes_credentials_file(self):
+        """Ensure the file created contains the correct details."""
+        credential_details = dict(
+            os_tenant_name='tenant_name',
+            os_password='password')
+        user = 'username'
+
+        with temp_dir() as tmp_dir:
+            credentials_file = aac.write_openstack_config_file(
+                tmp_dir, user, credential_details)
+            with open(credentials_file, 'r') as f:
+                credential_contents = f.read()
+
+        expected = dedent("""\
+        OS_USERNAME={user}
+        OS_PASSWORD={password}
+        OS_TENANT_NAME={tenant_name}
+        """.format(
+            user=user,
+            password=credential_details['os_password'],
+            tenant_name=credential_details['os_tenant_name'],
+            ))
+
+        self.assertEqual(credential_contents, expected)
 
 
 class TestAssertCredentialsContainsExpectedResults(TestCase):

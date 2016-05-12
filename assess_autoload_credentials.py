@@ -57,6 +57,7 @@ def assess_autoload_credentials(juju_bin):
         ('AWS using environment variables', aws_envvar_test_details),
         ('AWS using credentials file', aws_directory_test_details),
         ('OS using environment variables', openstack_envvar_test_details),
+        ('OS using credentials file', openstack_directory_test_details),
         ]
 
     for scenario_name, scenario_setup in test_scenarios:
@@ -283,14 +284,9 @@ def openstack_envvar_test_details(
     if credential_details is None:
         credential_details = openstack_credential_dict_generator()
 
-    ensure_openstack_personal_cloud_exists(client)
-    expected_details = get_openstack_expected_details_dict(
-        user, credential_details)
-    answers = ExpectAnswers(
-        cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
-            credential_details['os_tenant_name'],
-            user),
-        save_name='testing_openstack')
+    expected_details, answers = setup_basic_openstack_test_details(
+        client, user, credential_details)
+
     env_var_changes = get_openstack_envvar_changes(user, credential_details)
 
     return CloudDetails(env_var_changes, expected_details, answers)
@@ -302,6 +298,50 @@ def get_openstack_envvar_changes(user, credential_details):
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
         OS_TENANT_NAME=credential_details['os_tenant_name'])
+
+
+def openstack_directory_test_details(
+        user, tmp_dir, client, credential_details=None
+):
+    if credential_details is None:
+        credential_details = openstack_credential_dict_generator()
+
+    expected_details, answers = setup_basic_openstack_test_details(
+        client, user, credential_details)
+
+    write_openstack_config_file(tmp_dir, user, credential_details)
+    env_var_changes = dict(HOME=tmp_dir)
+
+    return CloudDetails(env_var_changes, expected_details, answers)
+
+
+def setup_basic_openstack_test_details(client, user, credential_details):
+    ensure_openstack_personal_cloud_exists(client)
+    expected_details = get_openstack_expected_details_dict(
+        user, credential_details)
+    answers = ExpectAnswers(
+        cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
+            credential_details['os_tenant_name'],
+            user),
+        save_name='testing_openstack')
+
+    return expected_details, answers
+
+
+def write_openstack_config_file(tmp_dir, user, credential_details):
+    credentials_file = os.path.join(tmp_dir, '.novarc')
+    with open(credentials_file, 'w') as f:
+        credentials = dedent("""\
+        OS_USERNAME={user}
+        OS_PASSWORD={password}
+        OS_TENANT_NAME={tenant_name}
+        """.format(
+            user=user,
+            password=credential_details['os_password'],
+            tenant_name=credential_details['os_tenant_name'],
+            ))
+        f.write(credentials)
+    return credentials_file
 
 
 def ensure_openstack_personal_cloud_exists(client):
