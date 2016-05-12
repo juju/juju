@@ -844,7 +844,15 @@ func (e *environ) Destroy() (res error) {
 		}
 		return err
 	}
-	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	defer func() {
+		// The estate is a pointer to a structure that is stored in the dummy global.
+		// The Listen method can change the ops channel of any state, and will do so
+		// under the covers. What we need to do is use the state mutex to add a memory
+		// barrier such that the ops channel we see here is the latest.
+		estate.mu.Lock()
+		defer estate.mu.Unlock()
+		estate.ops <- OpDestroy{Env: estate.name, Error: res}
+	}()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
