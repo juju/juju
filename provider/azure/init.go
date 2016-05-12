@@ -5,6 +5,7 @@ package azure
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -31,6 +32,7 @@ func init() {
 	environProvider, storageProvider, err := NewProviders(ProviderConfig{
 		NewStorageClient:            azurestorage.NewClient,
 		StorageAccountNameGenerator: RandomStorageAccountName,
+		RetryClock:                  &clock.WallClock,
 	})
 	if err != nil {
 		panic(err)
