@@ -165,8 +165,8 @@ def run_autoload_credentials(client, envvars, answers):
     :param client: EnvJujuClient from which juju will be called.
     :param envvars: Dictionary containing environment variables to be used
       during execution.
-      Note. Must contain a value for QUESTION_CLOUD_NAME to match against.
-      Note. Must contain a value for SAVE_CLOUD_NAME to save against.
+    :param answers: ExpectAnswers object containing answers for the interactive
+      command
 
     """
     process = client.expect(
