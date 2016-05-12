@@ -140,6 +140,14 @@ func (e *environ) ec2() *ec2.EC2 {
 	return ec2
 }
 
+func (e *environ) vpcAPIClient() vpcAPIClient {
+	ec2Client := e.ec2()
+	if ec2Client != nil {
+		return ec2Client
+	}
+	return nil
+}
+
 func (e *environ) Name() string {
 	return e.name
 }
