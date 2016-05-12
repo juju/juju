@@ -52,6 +52,7 @@ func (t *testInstance) Status() instance.InstanceStatus {
 }
 
 type testInstanceGetter struct {
+	sync.RWMutex
 	// ids is set when the Instances method is called.
 	ids     []instance.Id
 	results map[instance.Id]instance.Instance
@@ -60,7 +61,9 @@ type testInstanceGetter struct {
 }
 
 func (tig *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
+	tig.Lock()
 	tig.ids = ids
+	tig.Unlock()
 	atomic.AddInt32(&tig.counter, 1)
 	results := make([]instance.Instance, len(ids))
 	for i, id := range ids {
@@ -95,7 +98,10 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 		status:    instance.InstanceStatus{Status: status.StatusUnknown, Message: "foobar"},
 		addresses: instance1.addresses,
 	})
-	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{"foo"})
+	testGetter.RLock()
+	ids := testGetter.ids
+	testGetter.RUnlock()
+	c.Assert(ids, gc.DeepEquals, []instance.Id{"foo"})
 }
 
 func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
@@ -194,7 +200,7 @@ type batchingInstanceGetter struct {
 	aggregator *aggregator
 	totalCount int
 	batchSize  int
-	started    int
+	started    int32
 }
 
 func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
@@ -204,17 +210,19 @@ func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instan
 }
 
 func (g *batchingInstanceGetter) startRequests() {
-	n := g.totalCount - g.started
+	g.RLock()
+	n := g.totalCount - int(g.started)
 	if n > g.batchSize {
 		n = g.batchSize
 	}
+	g.RUnlock()
 	for i := 0; i < n; i++ {
 		g.startRequest()
 	}
 }
 
 func (g *batchingInstanceGetter) startRequest() {
-	g.started++
+	atomic.AddInt32(&g.started, 1)
 	go func() {
 		g.RLock()
 		defer g.RUnlock()
