@@ -268,22 +268,61 @@ func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithInvalidVPCID(c *gc.C) {
-	badLocalConfigAttrs := localConfigAttrs.Merge(coretesting.Attrs{
-		"vpc-id": "bad",
-	})
+	badVPCIDConfig := coretesting.Attrs{"vpc-id": "bad"}
 
 	expectedError := `invalid EC2 provider config: vpc-id: "bad" is not a valid AWS VPC ID`
-	t.AssertPrepareFailsWithConfig(c, badLocalConfigAttrs, expectedError)
+	t.AssertPrepareFailsWithConfig(c, badVPCIDConfig, expectedError)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithUnknownVPCID(c *gc.C) {
+	unknownVPCIDConfig := coretesting.Attrs{"vpc-id": "vpc-unknown"}
+
+	expectedError := `Juju cannot use the given vpc-id for bootstrapping(.|\n)*Error details: VPC "vpc-unknown" not found`
+	err := t.AssertPrepareFailsWithConfig(c, unknownVPCIDConfig, expectedError)
+	c.Check(err, jc.Satisfies, ec2.IsVPCNotUsableError)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedVPCID(c *gc.C) {
+	t.makeTestingDefaultVPCUnavailable(c)
+	notRecommendedVPCIDConfig := coretesting.Attrs{"vpc-id": t.srv.defaultVPC.Id}
+
+	expectedError := `The given vpc-id does not meet one or more(.|\n)*Error details: VPC has unexpected state "unavailable"`
+	err := t.AssertPrepareFailsWithConfig(c, notRecommendedVPCIDConfig, expectedError)
+	c.Check(err, jc.Satisfies, ec2.IsVPCNotRecommendedError)
+}
+
+func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
+	// For simplicity, here the test server's default VPC is updated to change
+	// its state to unavailable, we just verify the behavior of a "not
+	// recommended VPC".
+	t.srv.defaultVPC.State = "unavailable"
+	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedButForcedVPCID(c *gc.C) {
+	t.makeTestingDefaultVPCUnavailable(c)
+	params := t.PrepareParams(c)
+	params.BaseConfig["vpc-id"] = t.srv.defaultVPC.Id
+	params.BaseConfig["vpc-id-force"] = true
+
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
-	params := t.PrepareParams(c)
-	params.BaseConfig["vpc-id"] = ""
+	const emptyVPCID = ""
 
+	params := t.PrepareParams(c)
+	params.BaseConfig["vpc-id"] = emptyVPCID
+
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, emptyVPCID)
+}
+
+func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, params environs.PrepareParams, expectedVPCID string) {
 	env := t.PrepareWithParams(c, params)
 	unknownAttrs := env.Config().UnknownAttrs()
 	vpcID, ok := unknownAttrs["vpc-id"]
-	c.Check(vpcID, gc.Equals, "")
+	c.Check(vpcID, gc.Equals, expectedVPCID)
 	c.Check(ok, jc.IsTrue)
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -294,26 +333,14 @@ func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
 	params := t.PrepareParams(c)
 	params.BaseConfig["vpc-id"] = "none"
 
-	env := t.PrepareWithParams(c, params)
-	unknownAttrs := env.Config().UnknownAttrs()
-	vpcID, ok := unknownAttrs["vpc-id"]
-	c.Check(vpcID, gc.Equals, ec2.VPCIDNone)
-	c.Check(ok, jc.IsTrue)
-
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, ec2.VPCIDNone)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
+	params := t.PrepareParams(c)
+	params.BaseConfig["vpc-id"] = t.srv.defaultVPC.Id
 
-}
-
-func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedVPCID(c *gc.C) {
-
-}
-
-func (t *localServerSuite) TestPrepareForBootstrapWithNotUsableVPCID(c *gc.C) {
-
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
 }
 
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
