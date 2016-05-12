@@ -499,3 +499,7 @@ func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
 func LeadershipLeases(st *State) map[string]lease.Info {
 	return st.leadershipClient.Leases()
 }
+
+func DeleteCharm(st *State, curl *charm.URL) error {
+	return st.deleteCharm(curl)
+}

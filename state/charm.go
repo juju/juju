@@ -392,10 +392,10 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 	return nil
 }
 
-// DeleteCharmArchive deletes a charm archive from blob storage
+// deleteCharmArchive deletes a charm archive from blob storage
 // and removes the corresponding charm record from state.
-func (st *State) DeleteCharmArchive(curl *charm.URL, storagePath string) error {
-	if err := st.DeleteCharm(curl); err != nil {
+func (st *State) deleteCharmArchive(curl *charm.URL, storagePath string) error {
+	if err := st.deleteCharm(curl); err != nil {
 		return errors.Annotate(err, "cannot delete charm record from state")
 	}
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
@@ -437,8 +437,8 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	return nil, errors.Trace(err)
 }
 
-// DeleteCharm removes the charm record with curl from state.
-func (st *State) DeleteCharm(curl *charm.URL) error {
+// deleteCharm removes the charm record with curl from state.
+func (st *State) deleteCharm(curl *charm.URL) error {
 	op := []txn.Op{{
 		C:      charmsC,
 		Id:     curl.String(),

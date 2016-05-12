@@ -499,19 +499,19 @@ func (s *CharmSuite) TestAllCharms(c *gc.C) {
 	c.Assert(charms[2].URL(), gc.DeepEquals, curl2)
 }
 
-func (s *CharmSuite) TestDeleteCharms(c *gc.C) {
+func (s *CharmSuite) TestDeleteCharm(c *gc.C) {
 	info := s.dummyCharm(c, "cs:quantal/dummy-1")
 	sch, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.DeleteCharm(sch.URL())
+	err = state.DeleteCharm(s.State, sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.Charm(sch.URL())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Deleting again is a no-op.
-	err = s.State.DeleteCharm(sch.URL())
+	err = state.DeleteCharm(s.State, sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
