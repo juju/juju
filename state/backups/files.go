@@ -36,6 +36,8 @@ const (
 	dbStartupConf = "juju-db.conf"
 	dbPEM         = "server.pem"
 	dbSecret      = "shared-secret"
+
+	initFiles = "init"
 )
 
 // Paths holds the paths that backups needs.
@@ -68,6 +70,15 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
+	}
+	initFolder := filepath.Join(rootDir, paths.DataDir, initFiles)
+	if _, err := os.Stat(initFolder); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+		logger.Errorf("skipping missing file %q", initFolder)
+	} else {
+		backupFiles = append(backupFiles, initFolder)
 	}
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
