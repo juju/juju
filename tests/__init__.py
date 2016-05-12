@@ -32,6 +32,7 @@ class TestCase(unittest.TestCase):
     """TestCase provides a better isolated version of unittest.TestCase."""
 
     log_level = logging.INFO
+    test_environ = {}
 
     def setUp(self):
         super(TestCase, self).setUp()
@@ -45,7 +46,7 @@ class TestCase(unittest.TestCase):
         subprocess.Popen = _must_not_Popen
 
         self.addCleanup(setattr, os, "environ", os.environ)
-        os.environ = {}
+        os.environ = dict(self.test_environ)
 
         setup_test_logging(self, self.log_level)
 
