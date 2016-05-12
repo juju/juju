@@ -24,6 +24,7 @@ from assess_user_grant_revoke import (
     parse_args,
     register_user,
 )
+from jujupy import JUJU_DEV_FEATURE_FLAGS
 from tests import (
     parse_error,
     TestCase,
@@ -162,12 +163,13 @@ class TestAsserts(TestCase):
             with self.assertRaises(JujuAssertionError):
                 assert_write(fake_client, True)
 
+
 def make_fake_client():
     fake_client = FakeJujuClient()
     old_backend = fake_client._backend
-    fake_client._backend = FakeBackendShellEnv(old_backend.controller_state,
-            old_backend._feature_flags, old_backend.version,
-            old_backend.full_path, old_backend.debug)
+    fake_client._backend = FakeBackendShellEnv(
+        old_backend.controller_state, old_backend._feature_flags,
+        old_backend.version, old_backend.full_path, old_backend.debug)
     return fake_client
 
 
