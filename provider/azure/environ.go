@@ -869,10 +869,7 @@ func deleteInstance(
 	// Delete the VM's OS disk VHD.
 	logger.Debugf("- deleting OS VHD")
 	blobClient := storageClient.GetBlobService()
-	if err := callAPI(func() (autorest.Response, error) {
-		_, err := blobClient.DeleteBlobIfExists(osDiskVHDContainer, vmName)
-		return autorest.Response{}, err
-	}); err != nil {
+	if _, err := blobClient.DeleteBlobIfExists(osDiskVHDContainer, vmName); err != nil {
 		return errors.Annotate(err, "deleting OS VHD")
 	}
 
