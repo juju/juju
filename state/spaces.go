@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
@@ -26,6 +28,9 @@ type spaceDoc struct {
 	Name       string `bson:"name"`
 	IsPublic   bool   `bson:"is-public"`
 	ProviderId string `bson:"providerid,omitempty"`
+}
+
+type providerIdDoc struct {
 }
 
 // Life returns whether the space is Alive, Dying or Dead.
@@ -83,18 +88,13 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	}
 
 	spaceID := st.docID(name)
-	var modelLocalProviderID string
-	if providerId != "" {
-		modelLocalProviderID = st.docID(string(providerId))
-	}
-
 	spaceDoc := spaceDoc{
 		DocID:      spaceID,
 		ModelUUID:  st.ModelUUID(),
 		Life:       Alive,
 		Name:       name,
 		IsPublic:   isPublic,
-		ProviderId: string(modelLocalProviderID),
+		ProviderId: string(providerId),
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
@@ -104,6 +104,16 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		Assert: txn.DocMissing,
 		Insert: spaceDoc,
 	}}
+
+	// XXX should this be first?
+	if providerId != "" {
+		key := fmt.Sprintf("%v:space#%v", st.ModelUUID(), providerId)
+		ops = append(ops, txn.Op{
+			C:      providerIDsC,
+			Id:     key,
+			Assert: txn.DocMissing,
+		})
+	}
 
 	for _, subnetId := range subnets {
 		// TODO:(mfoord) once we have refcounting for subnets we should
