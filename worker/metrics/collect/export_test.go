@@ -34,7 +34,7 @@ var _ runner.Context = (*hookContext)(nil)
 
 type handlerSetterStopper interface {
 	SetHandler(spool.ConnectionHandler)
-	Stop()
+	Stop() error
 }
 
 func NewSocketListenerFnc(listener handlerSetterStopper) func(string, spool.ConnectionHandler) (stopper, error) {

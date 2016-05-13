@@ -171,8 +171,9 @@ func (l *mockListener) trigger() (*mockConnection, error) {
 }
 
 // Stop implements the stopper interface.
-func (l *mockListener) Stop() {
+func (l *mockListener) Stop() error {
 	l.AddCall("Stop")
+	return nil
 }
 
 func (l *mockListener) SetHandler(handler spool.ConnectionHandler) {
