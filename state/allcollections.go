@@ -297,6 +297,7 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "subnetid"},
 			}},
 		},
+		// TODO(dimitern): End of obsolete networking collections.
 		providerIDsC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
