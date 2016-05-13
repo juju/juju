@@ -94,54 +94,66 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 	}
 }
 
-func (t *LxdSuite) TestNICPropertiesWithInvalidParentDevice(c *gc.C) {
-	props, err := lxd.NICProperties("", "eth1", "", 0)
-	c.Assert(props, gc.IsNil)
-	c.Assert(err.Error(), gc.Equals, "invalid parent device")
-}
-
-func (t *LxdSuite) TestNICPropertiesWithInvalidDeviceName(c *gc.C) {
-	props, err := lxd.NICProperties("testbr1", "", "", 0)
-	c.Assert(props, gc.IsNil)
+func (t *LxdSuite) TestNICDeviceWithInvalidDeviceName(c *gc.C) {
+	device, err := lxd.NICDevice("", "br-eth1", "", 0)
+	c.Assert(device, gc.IsNil)
 	c.Assert(err.Error(), gc.Equals, "invalid device name")
 }
 
-func (t *LxdSuite) TestNICPropertiesWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
-	props, err := lxd.NICProperties("testbr1", "eth1", "", 0)
-	c.Assert(err, gc.IsNil)
-	c.Assert(props, gc.HasLen, 3)
-	c.Assert(props[0], gc.Equals, "nictype=bridged")
-	c.Assert(props[1], gc.Equals, "parent=testbr1")
-	c.Assert(props[2], gc.Equals, "name=eth1")
+func (t *LxdSuite) TestNICDeviceWithInvalidParentDeviceName(c *gc.C) {
+	device, err := lxd.NICDevice("eth0", "", "", 0)
+	c.Assert(device, gc.IsNil)
+	c.Assert(err.Error(), gc.Equals, "invalid parent device name")
 }
 
-func (t *LxdSuite) TestNICPropertiesWithMACAddressButNoMTU(c *gc.C) {
-	props, err := lxd.NICProperties("testbr1", "eth1", "aa:bb:cc:dd:ee:f0", 0)
+func (t *LxdSuite) TestNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
+	device, err := lxd.NICDevice("eth1", "br-eth1", "", 0)
 	c.Assert(err, gc.IsNil)
-	c.Assert(props, gc.HasLen, 4)
-	c.Assert(props[0], gc.Equals, "nictype=bridged")
-	c.Assert(props[1], gc.Equals, "parent=testbr1")
-	c.Assert(props[2], gc.Equals, "name=eth1")
-	c.Assert(props[3], gc.Equals, "hwaddr=aa:bb:cc:dd:ee:f0")
+	expected := lxdclient.Device{
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICPropertiesWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
-	props, err := lxd.NICProperties("testbr1", "eth1", "", 1492)
+func (t *LxdSuite) TestNICDeviceWithMACAddressButNoMTU(c *gc.C) {
+	device, err := lxd.NICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
 	c.Assert(err, gc.IsNil)
-	c.Assert(props, gc.HasLen, 4)
-	c.Assert(props[0], gc.Equals, "nictype=bridged")
-	c.Assert(props[1], gc.Equals, "parent=testbr1")
-	c.Assert(props[2], gc.Equals, "name=eth1")
-	c.Assert(props[3], gc.Equals, "mtu=1492")
+	expected := lxdclient.Device{
+		"hwaddr":  "aa:bb:cc:dd:ee:f0",
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICPropertiesWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
-	props, err := lxd.NICProperties("testbr1", "eth1", "aa:bb:cc:dd:ee:f0", 1066)
+func (t *LxdSuite) TestNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
+	device, err := lxd.NICDevice("eth1", "br-eth1", "", 1492)
 	c.Assert(err, gc.IsNil)
-	c.Assert(props, gc.HasLen, 5)
-	c.Assert(props[0], gc.Equals, "nictype=bridged")
-	c.Assert(props[1], gc.Equals, "parent=testbr1")
-	c.Assert(props[2], gc.Equals, "name=eth1")
-	c.Assert(props[3], gc.Equals, "hwaddr=aa:bb:cc:dd:ee:f0")
-	c.Assert(props[4], gc.Equals, "mtu=1066")
+	expected := lxdclient.Device{
+		"mtu":     "1492",
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
+}
+
+func (t *LxdSuite) TestNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
+	device, err := lxd.NICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
+	c.Assert(err, gc.IsNil)
+	expected := lxdclient.Device{
+		"hwaddr":  "aa:bb:cc:dd:ee:f0",
+		"mtu":     "9000",
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
 }
