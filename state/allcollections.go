@@ -303,13 +303,31 @@ func allCollections() collectionSchema {
 				Unique: true,
 			}},
 		},
-		spacesC:               {},
-		subnetsC:              {},
-		linkLayerDevicesC:     {},
+		spacesC: {},
+		subnetsC: {
+			indexes: []mgo.Index{{
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		linkLayerDevicesC: {
+			indexes: []mgo.Index{{
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC:          {},
-		endpointBindingsC:     {},
-		openedPortsC:          {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
+				Key:    []string{"providerid"},
+				Unique: true,
+				Sparse: true,
+			}},
+		},
+		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 
