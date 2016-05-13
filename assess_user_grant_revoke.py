@@ -42,21 +42,23 @@ def register_user(username, environ, register_cmd,
                   register_process=pexpect.spawn):
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
-    try:
-        child = register_process(register_cmd, env=environ)
-        child.expect('(?i)name .*: ')
-        child.sendline(username + '_controller')
-        child.expect('(?i)password')
-        child.sendline(username + '_password')
-        child.expect('(?i)password')
-        child.sendline(username + '_password')
-        child.expect(pexpect.EOF)
-        if child.isalive():
+    # pexpect has a bug, and doesn't honor env=
+    with scoped_environ(environ):
+        try:
+            child = register_process(register_cmd)
+            child.expect('(?i)name .*: ')
+            child.sendline(username + '_controller')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect(pexpect.EOF)
+            if child.isalive():
+                raise JujuAssertionError(
+                    'Registering user failed: pexpect session still alive')
+        except pexpect.TIMEOUT:
             raise JujuAssertionError(
-                'Registering user failed: pexpect session still alive')
-    except pexpect.TIMEOUT:
-        raise JujuAssertionError(
-            'Registering user failed: pexpect session timed out')
+                'Registering user failed: pexpect session timed out')
 
 
 def create_cloned_environment(client, cloned_juju_home):
