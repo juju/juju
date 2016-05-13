@@ -485,7 +485,7 @@ func (info *environInfo) writeJENVFile() error {
 }
 
 func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
-	lock, err := fslock.NewLock(dir, lockName)
+	lock, err := fslock.NewLock(dir, lockName, fslock.Defaults())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -110,7 +110,7 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 	// this only happens once.
 	imageIdent := fmt.Sprintf("image-%s-%s-%s-%s", envuuid, kind, series, arch)
 	lockDir := filepath.Join(h.dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, imageIdent)
+	lock, err := fslock.NewLock(lockDir, imageIdent, fslock.Defaults())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
