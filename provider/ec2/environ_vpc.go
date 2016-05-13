@@ -491,7 +491,7 @@ func isVPCIDSet(vpcID string) bool {
 	return vpcID != "" && vpcID != vpcIDNone
 }
 
-func validateVPCBeforeBootstrap(apiClient vpcAPIClient, region, vpcID string, forceVPCID bool, ctx environs.BootstrapContext) error {
+func validateBootstrapVPC(apiClient vpcAPIClient, region, vpcID string, forceVPCID bool, ctx environs.BootstrapContext) error {
 	if vpcID == vpcIDNone {
 		ctx.Infof("Using EC2-classic features or default VPC in region %q", region)
 	}

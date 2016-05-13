@@ -111,7 +111,7 @@ func (p environProvider) PrepareForBootstrap(
 
 	apiClient, ecfg := env.ec2(), env.ecfg()
 	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
-	if err := validateVPCBeforeBootstrap(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
+	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 
