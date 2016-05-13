@@ -136,19 +136,19 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 				return nil, err
 			}
 		}
+		if err := newSpace.Refresh(); err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Errorf("ProviderId %q not unique", providerId)
+			}
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.Trace(err)
 	} else if err != nil {
 		return nil, err
 	}
 
 	// If the ProviderId was not unique adding the space can fail without an
 	// error. Refreshing catches this by returning NotFoundError.
-	err = newSpace.Refresh()
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, errors.Errorf("ProviderId %q not unique", providerId)
-		}
-		return nil, errors.Trace(err)
-	}
 
 	return newSpace, nil
 }
