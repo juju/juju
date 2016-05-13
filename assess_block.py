@@ -14,7 +14,9 @@ from assess_min_version import (
 )
 from deploy_stack import (
     BootstrapManager,
+    deploy_dummy_stack,
 )
+from jujupy import until_timeout
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -53,16 +55,14 @@ def test_blocked(client, command, args, include_e=True):
     try:
         if command == 'deploy':
             client.deploy(args)
-        elif not include_e:
-            client.juju(command, args, include_e=include_e)
         else:
-            client.juju(command, args)
+            client.juju(command, args, include_e=include_e)
         raise JujuAssertionError()
     except Exception:
         pass
 
 
-def assess_block_destroy_model(client):
+def assess_block_destroy_model(client, charm_series):
     """Test Block Functionality: block destroy-model"""
     client.juju('block destroy-model', ())
     block_list = get_block_list(client)
@@ -70,14 +70,24 @@ def assess_block_destroy_model(client):
         raise JujuAssertionError(block_list)
     test_blocked(client, 'destroy-model',
                  ('-y', client.env.environment), include_e=False)
-    # client.juju('remove-machine', ('TODO: get machine name',))
-    client.deploy('mediawiki')
-    client.juju('expose', ('mediawiki',))
-    client.juju('remove-service', ('mediawiki',))
-    client.wait_for_started()
+    deploy_dummy_stack(client, charm_series)
+    client.remove_service('dummy-source')
+    for ignored in until_timeout(30):
+        status = client.get_status()
+        if 'dummy-source' not in status.status['services']:
+            break
+        # else:
+        #     raise JujuAssertionError('dummy-source not destroyed')
+    client.remove_service('dummy-sink')
+    for ignored in until_timeout(30):
+        status = client.get_status()
+        if 'dummy-sink' not in status.status['services']:
+            break
+        # else:
+        #     raise JujuAssertionError('dummy-sink not destroyed')
 
 
-def assess_block_remove_object(client):
+def assess_block_remove_object(client, charm_series):
     """Test Block Functionality: block remove-object"""
     client.juju('block remove-object', ())
     block_list = get_block_list(client)
@@ -85,17 +95,13 @@ def assess_block_remove_object(client):
         raise JujuAssertionError(block_list)
     test_blocked(client, 'destroy-model',
                  ('-y', client.env.environment), include_e=False)
-    client.deploy('mediawiki')
-    client.juju('expose', ('mediawiki',))
-    test_blocked(client, 'remove-service', ('mediawiki',))
-    test_blocked(client, 'remove-unit', ('mediawiki/1',))
-    client.deploy('mysql')
-    client.juju('expose', ('mysql',))
-    client.juju('add-relation', ('mediawiki:db', 'mysql:db'))
-    test_blocked(client, 'remove-relation', ('mediawiki:db', 'mysql:db'))
+    deploy_dummy_stack(client, charm_series)
+    test_blocked(client, 'remove-service', ('dummy-source',))
+    test_blocked(client, 'remove-unit', ('dummy-source/1',))
+    test_blocked(client, 'remove-relation', ('dummy-source', 'dummy-sink'))
 
 
-def assess_block_all_changes(client):
+def assess_block_all_changes(client, charm_series):
     """Test Block Functionality: block all-changes"""
     client.juju('block all-changes', ())
     block_list = get_block_list(client)
@@ -103,8 +109,11 @@ def assess_block_all_changes(client):
         raise JujuAssertionError(block_list)
     test_blocked(client, 'destroy-model',
                  ('-y', client.env.environment), include_e=False)
-    test_blocked(client, 'deploy', 'mediawiki')
-    test_blocked(client, 'expose', ('mediawiki',))
+    try:
+        deploy_dummy_stack(client, charm_series)
+        raise JujuAssertionError()
+    except Exception:
+        pass
 
 
 def assess_unblock(client, type):
@@ -115,11 +124,23 @@ def assess_unblock(client, type):
     if block_list != make_block_list(False, False, False):
         raise JujuAssertionError(block_list)
     if type == 'remove-object':
-        client.juju('remove-service', ('mediawiki',))
-        client.juju('remove-service', ('mysql',))
+        client.remove_service('dummy-source')
+        for ignored in until_timeout(30):
+            status = client.get_status()
+            if 'dummy-source' not in status.status['services']:
+                break
+            # else:
+            #     raise JujuAssertionError('dummy-source not destroyed')
+        client.remove_service('dummy-sink')
+        for ignored in until_timeout(30):
+            status = client.get_status()
+            if 'dummy-sink' not in status.status['services']:
+                break
+            # else:
+            #     raise JujuAssertionError('dummy-sink not destroyed')
 
 
-def assess_block(client):
+def assess_block(client, charm_series):
     """Test Block Functionality:
     block/unblock destroy-model/remove-object/all-changes."""
     block_list = get_block_list(client)
@@ -127,11 +148,11 @@ def assess_block(client):
     expected_none_blocked = make_block_list(False, False, False)
     if block_list != expected_none_blocked:
         raise JujuAssertionError(block_list)
-    assess_block_destroy_model(client)
+    assess_block_destroy_model(client, charm_series)
     assess_unblock(client, 'destroy-model')
-    assess_block_remove_object(client)
+    assess_block_remove_object(client, charm_series)
     assess_unblock(client, 'remove-object')
-    assess_block_all_changes(client)
+    assess_block_all_changes(client, charm_series)
     assess_unblock(client, 'all-changes')
 
 
@@ -146,8 +167,10 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
+    if bs_manager.series is None:
+        raise JujuAssertionError("args.series is None")
     with bs_manager.booted_context(args.upload_tools):
-        assess_block(bs_manager.client)
+        assess_block(bs_manager.client, bs_manager.series)
     return 0
 
 

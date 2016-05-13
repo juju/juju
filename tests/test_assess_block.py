@@ -16,6 +16,7 @@ from tests import (
     parse_error,
     TestCase,
 )
+from tests.test_jujupy import FakeJujuClient
 
 
 class TestParseArgs(TestCase):
@@ -65,8 +66,8 @@ class TestAssess(TestCase):
 
     def test_block(self):
         mock_client = Mock(spec=[
-            "juju", "wait_for_started", "get_juju_output",
-            "env", "deploy", "expose", "destroy-model", "remove-machine"])
+            "juju", "wait_for_started", "get_juju_output", "remove_service",
+            "env", "deploy", "expose", "destroy-model", "remove-machine", "get_status"])
         mock_client.get_juju_output.side_effect = [
             yaml.dump(make_block_list(False, False, False)),
             yaml.dump(make_block_list(True, False, False)),
@@ -77,7 +78,8 @@ class TestAssess(TestCase):
             yaml.dump(make_block_list(False, False, False))
             ]
         mock_client.env.environment = 'foo'
-        assess_block(mock_client)
+        mock_client.version = '1.25'
+        assess_block(mock_client, 'xenial')
         mock_client.wait_for_started.assert_called_with()
         self.assertEqual([
             call('block destroy-model', ()),
@@ -100,7 +102,9 @@ class TestAssess(TestCase):
             call('destroy-model', ('-y', 'foo'), include_e=False),
             call('expose', ('mediawiki',)),
             call('unblock all-changes', ())], mock_client.juju.mock_calls)
-        self.assertEqual([call('mediawiki'),
-                          call('mediawiki'),
-                          call('mysql'),
-                          call('mediawiki')], mock_client.deploy.mock_calls)
+        self.assertEqual([call('dummy-source'),
+                          call('dummy-sink'),
+                          call('dummy-source'),
+                          call('dummy-sink'),
+                          call('dummy-source'),
+                          call('dummy-sink')], mock_client.deploy.mock_calls)
