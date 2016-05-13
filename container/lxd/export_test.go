@@ -6,5 +6,6 @@
 package lxd
 
 var (
-	NICDevice = nicDevice
+	NICDevice      = nicDevice
+	NetworkDevices = networkDevices
 )
