@@ -33,6 +33,8 @@ type Context interface {
 	PWs() <-chan worker.Worker
 }
 
+// NextWorker reads a worker from the supplied channel and returns it,
+// or times out. The result might be nil.
 func NextWorker(c *gc.C, ch <-chan worker.Worker) worker.Worker {
 	select {
 	case worker := <-ch:
@@ -67,12 +69,15 @@ type Fixture struct {
 	PW_errors  []error
 }
 
+// Run runs a test func inside a fresh Context.
 func (fix Fixture) Run(c *gc.C, test func(Context)) {
 	ctx := fix.newContext()
 	defer ctx.cleanup(c)
 	test(ctx)
 }
 
+// RunDumb starts a DumbWorkers inside a fresh Context and supplies it
+// to a test func.
 func (fix Fixture) RunDumb(c *gc.C, test func(Context, *workers.DumbWorkers)) {
 	fix.Run(c, func(ctx Context) {
 		dw, err := workers.NewDumbWorkers(workers.DumbConfig{
@@ -85,6 +90,8 @@ func (fix Fixture) RunDumb(c *gc.C, test func(Context, *workers.DumbWorkers)) {
 	})
 }
 
+// FailDumb verifies that a DumbWorkers cannot start successfully, and
+// checks that the returned error matches.
 func (fix Fixture) FailDumb(c *gc.C, match string) {
 	fix.Run(c, func(ctx Context) {
 		dw, err := workers.NewDumbWorkers(workers.DumbConfig{
@@ -98,6 +105,8 @@ func (fix Fixture) FailDumb(c *gc.C, match string) {
 	})
 }
 
+// RunRestart starts a RestartWorkers inside a fresh Context and
+// supplies it to a test func.
 func (fix Fixture) RunRestart(c *gc.C, test func(Context, *workers.RestartWorkers)) {
 	fix.Run(c, func(ctx Context) {
 		rw, err := workers.NewRestartWorkers(workers.RestartConfig{
@@ -112,6 +121,8 @@ func (fix Fixture) RunRestart(c *gc.C, test func(Context, *workers.RestartWorker
 	})
 }
 
+// FailRestart verifies that a RestartWorkers cannot start successfully, and
+// checks that the returned error matches.
 func (fix Fixture) FailRestart(c *gc.C, match string) {
 	fix.Run(c, func(ctx Context) {
 		rw, err := workers.NewRestartWorkers(workers.RestartConfig{
@@ -163,6 +174,8 @@ type workerList struct {
 	reports chan worker.Worker
 }
 
+// Next starts and returns the next configured worker, or an error.
+// In either case, a value is sent on the worker channel.
 func (wl *workerList) Next() (worker.Worker, error) {
 	worker := wl.workers[wl.next]
 	wl.next++
@@ -173,6 +186,8 @@ func (wl *workerList) Next() (worker.Worker, error) {
 	return worker, nil
 }
 
+// cleanup checks that every expected worker has already been stopped by
+// the SUT. (i.e.: don't set up more workers than your fixture needs).
 func (wl *workerList) cleanup(c *gc.C) {
 	for _, w := range wl.workers {
 		if w != nil {
@@ -278,6 +293,9 @@ type fakePresenceWorker struct {
 	workers.PresenceWatcher
 }
 
+// IsWorker returns true if `wrapped` is one of the above fake*Worker
+// types (as returned by the factory methods) and also wraps the
+// `expect` worker.
 func IsWorker(wrapped interface{}, expect worker.Worker) bool {
 	var actual worker.Worker
 	switch wrapped := wrapped.(type) {
@@ -293,7 +311,30 @@ func IsWorker(wrapped interface{}, expect worker.Worker) bool {
 	return actual == expect
 }
 
-func WaitWorker(c *gc.C, wrapped interface{}, expect worker.Worker) {
+// AssertWorker fails if IsWorker returns false.
+func AssertWorker(c *gc.C, wrapped interface{}, expect worker.Worker) {
+	c.Assert(IsWorker(wrapped, expect), jc.IsTrue)
+}
+
+func LM_getter(w workers.Workers) func() interface{} {
+	return func() interface{} { return w.LeadershipManager() }
+}
+
+func SM_getter(w workers.Workers) func() interface{} {
+	return func() interface{} { return w.SingularManager() }
+}
+
+func TLW_getter(w workers.Workers) func() interface{} {
+	return func() interface{} { return w.TxnLogWatcher() }
+}
+
+func PW_getter(w workers.Workers) func() interface{} {
+	return func() interface{} { return w.PresenceWatcher() }
+}
+
+// WaitWorker blocks until getter returns something that satifies
+// IsWorker, or until it times out.
+func WaitWorker(c *gc.C, getter func() interface{}, expect worker.Worker) {
 	var delay time.Duration
 	timeout := time.After(testing.LongWait)
 	for {
@@ -303,12 +344,14 @@ func WaitWorker(c *gc.C, wrapped interface{}, expect worker.Worker) {
 		case <-time.After(delay):
 			delay = testing.ShortWait
 		}
-		if IsWorker(wrapped, expect) {
+		if IsWorker(getter(), expect) {
 			return
 		}
 	}
 }
 
+// WaitAlarms waits until the supplied clock has sent count values on
+// its Alarms channel.
 func WaitAlarms(c *gc.C, clock *testing.Clock, count int) {
 	timeout := time.After(testing.LongWait)
 	for i := 0; i < count; i++ {

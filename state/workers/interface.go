@@ -40,15 +40,24 @@ type Factory interface {
 	NewSingularWorker() (LeaseWorker, error)
 }
 
+// ExposedFailer encapsulates methods for shutdown detection and
+// handling, used widely inside state watcher types.
+//
+// Would be lovely to remove this dependency -- by adding new watchers
+// to something that tracked watcher and/or state validity, and stopped
+// them automatically -- but that's likely to have impacts reverberating
+// through state and apiserver and deserves its own careful analysis.
+type ExposedFailer interface {
+	Dead() <-chan struct{}
+	Err() error
+}
+
 // TxnLogWatcher exposes the methods of watcher.Watcher that are needed
 // by the state package.
 type TxnLogWatcher interface {
+	ExposedFailer
 
-	// pseudo-workery bits, ideally to be replaced one day?
-	Err() error
-	Dead() <-chan struct{}
-
-	// horrible hack for goosing it into activity
+	// horrible hack for goosing it into activity (for tests).
 	StartSync()
 
 	// single-document watching
@@ -71,16 +80,13 @@ type TxnLogWorker interface {
 // PresenceWatcher exposes the methods of presence.Watcher that are
 // needed by the state package.
 type PresenceWatcher interface {
+	ExposedFailer
 
-	// pseudo-workery bits, ideally to be replaced one day?
-	Err() error
-	Dead() <-chan struct{}
-
-	// horrible hack for goosing it into activity. not clear why
+	// Horrible hack for goosing it into activity. Not clear why
 	// this is used by state in place of StartSync, but it is.
 	Sync()
 
-	// presence-reading and -watching
+	// Presence-reading and -watching.
 	Alive(key string) (bool, error)
 	Watch(key string, ch chan<- presence.Change)
 	Unwatch(key string, ch chan<- presence.Change)

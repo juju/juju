@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+// RestartConfig holds a RestartWorkers' dependencies and configuration.
 type RestartConfig struct {
 	Factory Factory
 	Logger  loggo.Logger
@@ -22,6 +23,7 @@ type RestartConfig struct {
 	Delay   time.Duration
 }
 
+// Validate returns an error if config cannot drive a RestartWorkers.
 func (config RestartConfig) Validate() error {
 	if config.Factory == nil {
 		return errors.NotValidf("nil Factory")
@@ -38,6 +40,12 @@ func (config RestartConfig) Validate() error {
 	return nil
 }
 
+// NewRestartWorkers returns a worker that will live until Kill()ed,
+// giving access to a set of sub-workers needed by the state package.
+//
+// These workers may die of their own accord at any time, and will be
+// replaced after the configured delay; all active workers will be
+// stopped before Wait returns.
 func NewRestartWorkers(config RestartConfig) (*RestartWorkers, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -206,21 +214,21 @@ type replacer interface {
 	// once this has happened...
 	needed() <-chan struct{}
 
-	// prepare will then be called repeatedly until it returns
-	// true, indicating that it's readied a replacement worker;
-	// at which point...
+	// ...prepare will then be called repeatedly until it returns
+	// true, indicating that it's created a replacement worker; at
+	// which point...
 	prepare() bool
 
-	// the workers mutex will be acquired, and it's safe for the
-	// replacer to write the new worker to the target pointer
-	// (and update its own internal references so that the next
-	// call to needed() returns a channel tied to the new worker's
+	// ...the workers mutex will be acquired, and it's safe for the
+	// replacer to write the new worker to the target pointer (and
+	// update its own internal references so that the next call to
+	// needed() returns a channel tied to the new worker's
 	// lifetime).
 	replace()
 
-	// the actual *implementation* of the various kinds of replacer
+	// The actual *implementation* of the various kinds of replacer
 	// should not vary -- they'd be great candidates for codegen or
-	// even generics.
+	// even generics(!).
 }
 
 // txnLogWorkerReplacer implements replacer. Apart from the types, it

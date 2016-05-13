@@ -11,11 +11,13 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+// DumbConfig holds a DumbWorkers' dependencies.
 type DumbConfig struct {
 	Factory Factory
 	Logger  loggo.Logger
 }
 
+// Validate returns an error if config cannot drive a DumbWorkers.
 func (config DumbConfig) Validate() error {
 	if config.Factory == nil {
 		return errors.NotValidf("nil Factory")
@@ -45,7 +47,6 @@ func NewDumbWorkers(config DumbConfig) (_ *DumbWorkers, err error) {
 		// this is ok because cleanup can handle nil fields
 		if cleanupErr := w.cleanup(); cleanupErr != nil {
 			logger.Errorf("while aborting DumbWorkers creation: %v", cleanupErr)
-
 		}
 	}()
 

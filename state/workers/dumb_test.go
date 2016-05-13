@@ -100,11 +100,11 @@ func (*DumbWorkersSuite) TestLeadershipManagerFails(c *gc.C) {
 	fix.RunDumb(c, func(ctx Context, dw *workers.DumbWorkers) {
 		w := NextWorker(c, ctx.LWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, dw.LeadershipManager(), w)
+		AssertWorker(c, dw.LeadershipManager(), w)
 
 		w.Kill()
 		workertest.CheckAlive(c, dw)
-		WaitWorker(c, dw.LeadershipManager(), w)
+		AssertWorker(c, dw.LeadershipManager(), w)
 
 		err := workertest.CheckKill(c, dw)
 		c.Check(err, gc.ErrorMatches, "error stopping leadership lease manager: zap")
@@ -117,11 +117,11 @@ func (*DumbWorkersSuite) TestSingularManagerFails(c *gc.C) {
 	fix.RunDumb(c, func(ctx Context, dw *workers.DumbWorkers) {
 		w := NextWorker(c, ctx.SWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, dw.SingularManager(), w)
+		AssertWorker(c, dw.SingularManager(), w)
 
 		w.Kill()
 		workertest.CheckAlive(c, dw)
-		WaitWorker(c, dw.SingularManager(), w)
+		AssertWorker(c, dw.SingularManager(), w)
 
 		err := workertest.CheckKill(c, dw)
 		c.Check(err, gc.ErrorMatches, "error stopping singular lease manager: zap")
@@ -134,11 +134,11 @@ func (*DumbWorkersSuite) TestTxnLogWatcherFails(c *gc.C) {
 	fix.RunDumb(c, func(ctx Context, dw *workers.DumbWorkers) {
 		w := NextWorker(c, ctx.TLWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, dw.TxnLogWatcher(), w)
+		AssertWorker(c, dw.TxnLogWatcher(), w)
 
 		w.Kill()
 		workertest.CheckAlive(c, dw)
-		WaitWorker(c, dw.TxnLogWatcher(), w)
+		AssertWorker(c, dw.TxnLogWatcher(), w)
 
 		err := workertest.CheckKill(c, dw)
 		c.Check(err, gc.ErrorMatches, "error stopping transaction log watcher: zap")
@@ -151,11 +151,11 @@ func (*DumbWorkersSuite) TestPresenceWatcherFails(c *gc.C) {
 	fix.RunDumb(c, func(ctx Context, dw *workers.DumbWorkers) {
 		w := NextWorker(c, ctx.PWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, dw.PresenceWatcher(), w)
+		AssertWorker(c, dw.PresenceWatcher(), w)
 
 		w.Kill()
 		workertest.CheckAlive(c, dw)
-		WaitWorker(c, dw.PresenceWatcher(), w)
+		AssertWorker(c, dw.PresenceWatcher(), w)
 
 		err := workertest.CheckKill(c, dw)
 		c.Check(err, gc.ErrorMatches, "error stopping presence watcher: zap")

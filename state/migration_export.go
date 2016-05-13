@@ -416,8 +416,9 @@ func (e *exporter) readServiceLeaders() (map[string]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[string]string)
-	for key, value := range client.Leases() {
+	leases := client.Leases()
+	result := make(map[string]string, len(leases))
+	for key, value := range leases {
 		result[key] = value.Holder
 	}
 	return result, nil

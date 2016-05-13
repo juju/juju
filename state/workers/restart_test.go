@@ -101,13 +101,13 @@ func (*RestartWorkersSuite) TestLeadershipManagerDelay(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.LWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.LeadershipManager(), w)
+		AssertWorker(c, rw.LeadershipManager(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
 		WaitAlarms(c, clock, 1)
 		clock.Advance(almostFiveSeconds)
-		WaitWorker(c, rw.LeadershipManager(), w)
+		AssertWorker(c, rw.LeadershipManager(), w)
 
 		err := workertest.CheckKill(c, rw)
 		c.Check(err, gc.ErrorMatches, "error stopping leadership lease manager: oof")
@@ -120,13 +120,13 @@ func (*RestartWorkersSuite) TestSingularManagerDelay(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.SWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.SingularManager(), w)
+		AssertWorker(c, rw.SingularManager(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
 		WaitAlarms(c, clock, 1)
 		clock.Advance(almostFiveSeconds)
-		WaitWorker(c, rw.SingularManager(), w)
+		AssertWorker(c, rw.SingularManager(), w)
 
 		err := workertest.CheckKill(c, rw)
 		c.Check(err, gc.ErrorMatches, "error stopping singular lease manager: oof")
@@ -139,13 +139,13 @@ func (*RestartWorkersSuite) TestTxnLogWatcherDelay(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.TLWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.TxnLogWatcher(), w)
+		AssertWorker(c, rw.TxnLogWatcher(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
 		WaitAlarms(c, clock, 1)
 		clock.Advance(almostFiveSeconds)
-		WaitWorker(c, rw.TxnLogWatcher(), w)
+		AssertWorker(c, rw.TxnLogWatcher(), w)
 
 		err := workertest.CheckKill(c, rw)
 		c.Check(err, gc.ErrorMatches, "error stopping transaction log watcher: oof")
@@ -158,13 +158,13 @@ func (*RestartWorkersSuite) TestPresenceWatcherDelay(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.PWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.PresenceWatcher(), w)
+		AssertWorker(c, rw.PresenceWatcher(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
 		WaitAlarms(c, clock, 1)
 		clock.Advance(almostFiveSeconds)
-		WaitWorker(c, rw.PresenceWatcher(), w)
+		AssertWorker(c, rw.PresenceWatcher(), w)
 
 		err := workertest.CheckKill(c, rw)
 		c.Check(err, gc.ErrorMatches, "error stopping presence watcher: oof")
@@ -177,7 +177,7 @@ func (*RestartWorkersSuite) TestLeadershipManagerRestart(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.LWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.LeadershipManager(), w)
+		AssertWorker(c, rw.LeadershipManager(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
@@ -185,7 +185,7 @@ func (*RestartWorkersSuite) TestLeadershipManagerRestart(c *gc.C) {
 		clock.Advance(fiveSeconds)
 		w2 := NextWorker(c, ctx.LWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.LeadershipManager(), w2)
+		WaitWorker(c, LM_getter(rw), w2)
 
 		workertest.CleanKill(c, rw)
 	})
@@ -197,7 +197,7 @@ func (*RestartWorkersSuite) TestSingularManagerRestart(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.SWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.SingularManager(), w)
+		AssertWorker(c, rw.SingularManager(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
@@ -205,7 +205,7 @@ func (*RestartWorkersSuite) TestSingularManagerRestart(c *gc.C) {
 		clock.Advance(fiveSeconds)
 		w2 := NextWorker(c, ctx.SWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.SingularManager(), w2)
+		WaitWorker(c, SM_getter(rw), w2)
 
 		workertest.CleanKill(c, rw)
 	})
@@ -217,7 +217,7 @@ func (*RestartWorkersSuite) TestTxnLogWatcherRestart(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.TLWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.TxnLogWatcher(), w)
+		AssertWorker(c, rw.TxnLogWatcher(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
@@ -225,7 +225,7 @@ func (*RestartWorkersSuite) TestTxnLogWatcherRestart(c *gc.C) {
 		clock.Advance(fiveSeconds)
 		w2 := NextWorker(c, ctx.TLWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.TxnLogWatcher(), w2)
+		WaitWorker(c, TLW_getter(rw), w2)
 
 		workertest.CleanKill(c, rw)
 	})
@@ -237,7 +237,7 @@ func (*RestartWorkersSuite) TestPresenceWatcherRestart(c *gc.C) {
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
 		w := NextWorker(c, ctx.PWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.PresenceWatcher(), w)
+		AssertWorker(c, rw.PresenceWatcher(), w)
 		w.Kill()
 
 		clock := ctx.Clock()
@@ -245,7 +245,7 @@ func (*RestartWorkersSuite) TestPresenceWatcherRestart(c *gc.C) {
 		clock.Advance(fiveSeconds)
 		w2 := NextWorker(c, ctx.PWs())
 		c.Assert(w, gc.NotNil)
-		WaitWorker(c, rw.PresenceWatcher(), w2)
+		WaitWorker(c, PW_getter(rw), w2)
 
 		workertest.CleanKill(c, rw)
 	})
