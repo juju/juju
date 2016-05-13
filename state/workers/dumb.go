@@ -20,9 +20,17 @@ func (config DumbConfig) Validate() error {
 	if config.Factory == nil {
 		return errors.NotValidf("nil Factory")
 	}
+	if config.Logger == (loggo.Logger{}) {
+		return errors.NotValidf("uninitialized Logger")
+	}
 	return nil
 }
 
+// NewDumbWorkers returns a worker that will live until Kill()ed,
+// giving access to a set of sub-workers needed by the state package.
+//
+// These workers may die of their own accord at any time, and will
+// not be replaced; they will also all be stopped before Wait returns.
 func NewDumbWorkers(config DumbConfig) (_ *DumbWorkers, err error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -34,6 +42,7 @@ func NewDumbWorkers(config DumbConfig) (_ *DumbWorkers, err error) {
 		if err == nil {
 			return
 		}
+		// this is ok because cleanup can handle nil fields
 		if cleanupErr := w.cleanup(); cleanupErr != nil {
 			logger.Errorf("while aborting DumbWorkers creation: %v", cleanupErr)
 
@@ -79,7 +88,9 @@ func NewDumbWorkers(config DumbConfig) (_ *DumbWorkers, err error) {
 	return w, nil
 }
 
-// DumbWorkers holds references to standard state workers.
+// DumbWorkers holds references to standard state workers. The workers
+// are not guaranteed to be running; but they are guaranteed to be
+// stopped when the DumbWorkers is stopped.
 type DumbWorkers struct {
 	config           DumbConfig
 	catacomb         catacomb.Catacomb

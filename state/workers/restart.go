@@ -26,10 +26,13 @@ func (config RestartConfig) Validate() error {
 	if config.Factory == nil {
 		return errors.NotValidf("nil Factory")
 	}
+	if config.Logger == (loggo.Logger{}) {
+		return errors.NotValidf("uninitialized Logger")
+	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
-	if config.Delay < 0 {
+	if config.Delay <= 0 {
 		return errors.NotValidf("non-positive Delay")
 	}
 	return nil
