@@ -41,7 +41,7 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 			" --dbpath '/var/lib/juju/db'" +
 			" --sslOnNormalPorts" +
 			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
-			" --sslPEMKeyPassword ignored" +
+			" --sslPEMKeyPassword=ignored" +
 			" --port 12345" +
 			" --syslog" +
 			" --journal" +
