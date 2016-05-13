@@ -12,10 +12,10 @@ var imageTestsPlatformSpecific = []struct {
 	expectedErr error
 }{{
 	in:          "C:/home/foo",
-	expected:    "file://\\\\localhost\\C$/home/foo/images",
+	expected:    "file://C:/home/foo/images",
 	expectedErr: nil,
 }, {
 	in:          "C:/home/foo/images",
-	expected:    "file://\\\\localhost\\C$/home/foo/images",
+	expected:    "file://C:/home/foo/images",
 	expectedErr: nil,
 }}
