@@ -20,7 +20,7 @@ import (
 var _ = gc.Suite(&listenerSuite{})
 
 type stopper interface {
-	Stop()
+	Stop() error
 }
 
 type listenerSuite struct {

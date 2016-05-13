@@ -153,7 +153,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
-	c.Assert(err, gc.ErrorMatches, "something went wrong")
+	c.Assert(err, gc.ErrorMatches, "could not send metrics: something went wrong")
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 
