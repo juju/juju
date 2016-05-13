@@ -38,7 +38,7 @@ class RegisterUserProcess:
     def get_process(cls, username, expected_strings):
         return partial(cls, username, expected_strings)
 
-    def __init__(self, sendline_str, expected_str, register_cmd, env):
+    def __init__(self, sendline_str, expected_str, register_cmd):
         self._expect_strings = iter(expected_str)
         self._sendline_strings = iter(sendline_str)
 
@@ -178,17 +178,18 @@ class TestAssess(TestCase):
     def test_create_cloned_environment(self):
         fake_client = FakeJujuClient()
         fake_client.bootstrap()
-        fake_client_env = fake_client._shell_environ()
-        cloned, cloned_env = create_cloned_environment(fake_client, 'fakehome')
+        fake_client_environ = fake_client._shell_environ()
+        cloned, cloned_environ = create_cloned_environment(fake_client,
+                                                           'fakehome')
         self.assertIs(FakeJujuClient, type(cloned))
         self.assertEqual(cloned.env.juju_home, 'fakehome')
-        self.assertNotEqual(cloned_env, fake_client_env)
-        self.assertEqual(cloned_env['JUJU_DATA'], 'fakehome')
+        self.assertNotEqual(cloned_environ, fake_client_environ)
+        self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')
 
     def test_register_user(self):
         username = 'fakeuser'
         fake_client = FakeJujuClient()
-        env = fake_client._shell_environ()
+        environ = fake_client._shell_environ()
         cmd = 'juju register AaBbCc'
 
         register_process = RegisterUserProcess.get_process(
@@ -206,4 +207,5 @@ class TestAssess(TestCase):
             ]
         )
 
-        register_user(username, env, cmd, register_process=register_process)
+        register_user(username, environ, cmd,
+                      register_process=register_process)
