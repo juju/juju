@@ -173,3 +173,26 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	_, err := client.Export()
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
+
+func (s *ClientSuite) TestReap(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller)
+	err := client.Reap()
+	c.Check(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.Reap", []interface{}{"", nil}},
+	})
+}
+
+func (s *ClientSuite) TestReapError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller)
+	err := client.Reap()
+	c.Assert(err, gc.ErrorMatches, "blam")
+}

@@ -32,6 +32,10 @@ type Client interface {
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() ([]byte, error)
+
+	// Reap removes the documents for the model associated with the
+	// API connection.
+	Reap() error
 }
 
 // MigrationStatus returns the details for a migration as needed by
@@ -127,4 +131,9 @@ func (c *client) Export() ([]byte, error) {
 		return nil, err
 	}
 	return serialized.Bytes, nil
+}
+
+// Reap implements Client.
+func (c *client) Reap() error {
+	return c.caller.FacadeCall("Reap", nil, nil)
 }
