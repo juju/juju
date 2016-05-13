@@ -111,6 +111,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 			C:      providerIDsC,
 			Id:     key,
 			Assert: txn.DocMissing,
+			Insert: providerIdDoc{},
 		})
 	}
 
