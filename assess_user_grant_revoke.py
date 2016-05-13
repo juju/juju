@@ -86,13 +86,13 @@ def assert_read(client, permission):
 def assert_write(client, permission):
     if permission:
         try:
-            client.deploy('local:wordpress')
+            client.deploy('cs:ubuntu')
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
                 'User could not deploy with write permission')
     else:
         try:
-            client.deploy('local:wordpress')
+            client.deploy('cs:ubuntu')
         except subprocess.CalledProcessError:
             pass
         else:
