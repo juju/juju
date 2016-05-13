@@ -198,8 +198,8 @@ type batchingInstanceGetter struct {
 	testInstanceGetter
 	wg         sync.WaitGroup
 	aggregator *aggregator
-	totalCount int
-	batchSize  int
+	totalCount int32
+	batchSize  int32
 	started    int32
 }
 
@@ -211,12 +211,13 @@ func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instan
 
 func (g *batchingInstanceGetter) startRequests() {
 	g.RLock()
-	n := g.totalCount - int(g.started)
+	n := g.totalCount - g.started
 	if n > g.batchSize {
 		n = g.batchSize
 	}
 	g.RUnlock()
-	for i := 0; i < n; i++ {
+	var i int32
+	for i = 0; i < n; i++ {
 		g.startRequest()
 	}
 }
@@ -244,7 +245,7 @@ func (s *aggregateSuite) TestBatching(c *gc.C) {
 	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
 	testGetter.totalCount = 100
 	testGetter.batchSize = 10
-	testGetter.wg.Add(testGetter.totalCount)
+	testGetter.wg.Add(int(testGetter.totalCount))
 	// startRequest will trigger one request, which ends up calling
 	// Instances, which will turn around and trigger batchSize requests,
 	// which should get aggregated into a single call to Instances, which
@@ -252,7 +253,12 @@ func (s *aggregateSuite) TestBatching(c *gc.C) {
 	testGetter.startRequest()
 	testGetter.Unlock()
 	testGetter.wg.Wait()
-	c.Assert(testGetter.counter, gc.Equals, int32(testGetter.totalCount/testGetter.batchSize)+1)
+	// This assertion fails occasionally of-by-one.
+	//     c.Assert(testGetter.counter, gc.Equals, testGetter.totalCount/testGetter.batchSize+1)
+	//     ... obtained int32 = 12
+	//     ... expected int32 = 11
+	// It smells like a race, but isn't reported as one when if fails with the race flag set.
+	c.Assert(testGetter.counter, gc.Equals, testGetter.totalCount/testGetter.batchSize+1)
 }
 
 func (s *aggregateSuite) TestError(c *gc.C) {
