@@ -27,11 +27,24 @@ var providerInstance environProvider
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region", "vpc-id", "vpc-id-force"}
+	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
+	// See bug http://pad.lv/1580417 for more information.
+	return []string{"region", "vpc-id-force"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	env := e.(*environ)
+
+	apiClient, modelName, vpcID := env.ec2(), env.Name(), env.ecfg().vpcID()
+	if err := validateModelVPC(apiClient, modelName, vpcID); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return cfg, nil
 }
 
@@ -75,7 +88,8 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+
+	return cfg, nil
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
@@ -95,25 +109,10 @@ func (p environProvider) PrepareForBootstrap(
 		}
 	}
 
-	vpcID, forceVPCID := env.ecfg().vpcID(), env.ecfg().forceVPCID()
-	if vpcID != "" {
-		err := validateVPC(env.ec2(), vpcID)
-		switch {
-		case isVPCNotUsableError(err):
-			// VPC missing or has no subnets at all.
-			return nil, errors.Annotate(err, vpcNotUsableErrorPrefix)
-		case isVPCNotRecommendedError(err):
-			// VPC does not meet minumum validation criteria.
-			if !forceVPCID {
-				return nil, errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
-			}
-			ctx.Infof(vpcNotRecommendedButForcedWarning)
-		case err != nil:
-			// Anything else unexpected while validating the VPC.
-			return nil, errors.Annotate(err, cannotValidateVPCErrorPrefix)
-		}
-
-		ctx.Infof("Using VPC %q in region %q", vpcID, env.ecfg().region())
+	apiClient, ecfg := env.ec2(), env.ecfg()
+	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
+	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return e, nil

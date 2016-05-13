@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/schema"
 	"gopkg.in/amz.v3/aws"
@@ -35,7 +34,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 	},
 	"vpc-id": {
-		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC to exist the chosen EC2 account/region.",
+		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region.",
 		Example:     "vpc-a1b2c3d4",
 		Type:        environschema.Tstring,
 		Group:       environschema.AccountGroup,
@@ -131,9 +130,9 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, fmt.Errorf("invalid region name %q", ecfg.region())
 	}
 
-	if vpcID := ecfg.vpcID(); vpcID != "" && !strings.HasPrefix(vpcID, "vpc-") {
+	if vpcID := ecfg.vpcID(); isVPCIDSetButInvalid(vpcID) {
 		return nil, fmt.Errorf("vpc-id: %q is not a valid AWS VPC ID", vpcID)
-	} else if vpcID == "" && ecfg.forceVPCID() {
+	} else if !isVPCIDSet(vpcID) && ecfg.forceVPCID() {
 		return nil, fmt.Errorf("cannot use vpc-id-force without specifying vpc-id as well")
 	}
 

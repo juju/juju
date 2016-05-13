@@ -57,7 +57,11 @@ var (
 	RunInstances                = &runInstances
 	BlockDeviceNamer            = blockDeviceNamer
 	GetBlockDeviceMappings      = getBlockDeviceMappings
+	IsVPCNotUsableError         = isVPCNotUsableError
+	IsVPCNotRecommendedError    = isVPCNotRecommendedError
 )
+
+const VPCIDNone = vpcIDNone
 
 // BucketStorage returns a storage instance addressing
 // an arbitrary s3 bucket.
