@@ -8,6 +8,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -24,11 +25,30 @@ type internalStateSuite struct {
 	testing.BaseSuite
 	state *State
 	owner names.UserTag
+	model names.ModelTag
+}
+
+func getInfo() *mongo.MongoInfo {
+	// Copied from NewMongoInfo (due to import loops).
+	return &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{jujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+	}
 }
 
 func (s *internalStateSuite) SetUpSuite(c *gc.C) {
+	txn.SetLogger(c)
+	txn.SetDebug(true)
+
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
+	s.owner = names.NewLocalUserTag("test-admin")
+	st, err := Initialize(s.owner, getInfo(), testing.ModelConfig(c), mongotest.DialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.model = st.modelTag
+	st.Close()
 }
 
 func (s *internalStateSuite) TearDownSuite(c *gc.C) {
@@ -39,23 +59,20 @@ func (s *internalStateSuite) TearDownSuite(c *gc.C) {
 func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
-
-	s.owner = names.NewLocalUserTag("test-admin")
-	// Copied from NewMongoInfo (due to import loops).
-	info := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
-	dialopts := mongotest.DialOpts()
-	st, err := Initialize(s.owner, info, testing.ModelConfig(c), dialopts, nil)
+	st, err := Open(s.model, getInfo(), mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
-	s.AddCleanup(func(*gc.C) { s.state.Close() })
+	s.AddCleanup(func(c *gc.C) {
+		c.Logf("closing state")
+		s.state.Close()
+	})
 }
 
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+	c.Logf("repopulating model")
+	err := PopulateEmptyModel(s.state, s.owner, getInfo(), testing.ModelConfig(c))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("leaving internalStateSuite.TearDownTest")
 }
