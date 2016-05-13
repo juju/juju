@@ -30,7 +30,7 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
 }
 
-func (s *vpcSuite) TestValidateVPCBeforeBootstrapUnexpectedError(c *gc.C) {
+func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
 	s.stubAPI.SetErrors(errors.New("AWS failed!"))
 
 	err := validateBootstrapVPC(s.stubAPI, "region", anyVPCID, false, envtesting.BootstrapContext(c))
