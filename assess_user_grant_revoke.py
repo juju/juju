@@ -24,6 +24,7 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    scoped_environ,
     temp_dir,
 )
 
