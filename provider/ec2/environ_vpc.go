@@ -33,7 +33,7 @@ Error details`[1:]
 
 	vpcNotUsableForModelErrorPrefix = `
 Juju cannot use the given vpc-id for the model being added.
-Please, double check the given VPC ID is correct, and that
+Please double check the given VPC ID is correct, and that
 the VPC contains at least one subnet.
 
 Error details`[1:]
