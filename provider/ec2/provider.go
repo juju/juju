@@ -40,7 +40,8 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	}
 	env := e.(*environ)
 
-	if err := validateVPCBeforeModelCreation(env); err != nil {
+	apiClient, modelName, vpcID := env.ec2(), env.Name(), env.ecfg().vpcID()
+	if err := validateVPCBeforeModelCreation(apiClient, modelName, vpcID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -108,7 +109,9 @@ func (p environProvider) PrepareForBootstrap(
 		}
 	}
 
-	if err := validateVPCBeforeBootstrap(env, ctx); err != nil {
+	apiClient, ecfg := env.ec2(), env.ecfg()
+	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
+	if err := validateVPCBeforeBootstrap(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -31,32 +31,48 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *vpcSuite) TestValidateVPCBeforeBootstrapUnexpectedError(c *gc.C) {
-	err := validateVPCBeforeBootstrap(s.newFakeEnviron(), envtesting.BootstrapContext(c))
-	s.checkErrorMatchesCannotVerifyVPC(c, err)
-}
+	s.stubAPI.SetErrors(errors.New("AWS failed!"))
 
-func (*vpcSuite) newFakeEnviron() *environ {
-	// Passing zeroEnviron will trigger validateVPC() error due to not connected
-	// ec2 client, but we need at least ecfgUnlocked to be non-nil.
-	zeroEnviron := &environ{
-		ecfgUnlocked: &environConfig{
-			attrs: map[string]interface{}{
-				"vpc-id":       anyVPCID,
-				"vpc-id-force": false,
-			},
-		},
-	}
-	return zeroEnviron
+	err := validateVPCBeforeBootstrap(s.stubAPI, "region", anyVPCID, false, envtesting.BootstrapContext(c))
+	s.checkErrorMatchesCannotVerifyVPC(c, err)
+
+	s.stubAPI.CheckCallNames(c, "VPCs")
 }
 
 func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
-	expectedError := `Juju could not verify whether the given vpc-id(.|\n)*invalid arguments: empty VPC ID.*`
+	expectedError := `Juju could not verify whether the given vpc-id(.|\n)*AWS failed!`
 	c.Check(err, gc.ErrorMatches, expectedError)
 }
 
 func (s *vpcSuite) TestValidateVPCBeforeModelCreationUnexpectedError(c *gc.C) {
-	err := validateVPCBeforeModelCreation(s.newFakeEnviron())
+	s.stubAPI.SetErrors(errors.New("AWS failed!"))
+
+	err := validateVPCBeforeModelCreation(s.stubAPI, "model", anyVPCID)
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
+
+	s.stubAPI.CheckCallNames(c, "VPCs")
+}
+
+func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotUsableError(c *gc.C) {
+	s.stubAPI.SetErrors(makeVPCNotFoundError("foo"))
+
+	err := validateVPCBeforeModelCreation(s.stubAPI, "model", "foo")
+	expectedError := `Juju cannot use the given vpc-id for the model being added(.|\n)*vpc ID 'foo' does not exist.*`
+	c.Check(err, gc.ErrorMatches, expectedError)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
+
+	s.stubAPI.CheckCallNames(c, "VPCs")
+}
+
+func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCIDNotSetOrNone(c *gc.C) {
+	const emptyVPCID = ""
+	err := validateVPCBeforeModelCreation(s.stubAPI, "model", emptyVPCID)
+	c.Check(err, jc.ErrorIsNil)
+
+	err = validateVPCBeforeModelCreation(s.stubAPI, "model", vpcIDNone)
+	c.Check(err, jc.ErrorIsNil)
+
+	s.stubAPI.CheckNoCalls(c)
 }
 
 // NOTE: validateVPC tests only verify expected error types for all code paths,
@@ -151,6 +167,16 @@ func (s *vpcSuite) TestValidateVPCSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets", "InternetGateways", "RouteTables")
+}
+
+func (s *vpcSuite) TestValidateVPCBeforeModelCreationSuccess(c *gc.C) {
+	s.stubAPI.PrepareValidateVPCResponses()
+
+	err := validateVPCBeforeModelCreation(s.stubAPI, "model", anyVPCID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets", "InternetGateways", "RouteTables")
+	c.Check(c.GetTestLog(), jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
 }
 
 func (s *vpcSuite) TestGetVPCByIDWithMissingID(c *gc.C) {
