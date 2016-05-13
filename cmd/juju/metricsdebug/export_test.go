@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	NewClient    = &newClient
-	NewRunClient = &newRunClient
+	NewClient        = &newClient
+	NewRunClient     = &newRunClient
+	NewServiceClient = &newServiceClient
 )
 
 // NewRunClientFnc returns a function that returns a struct that implements the
@@ -21,6 +22,15 @@ var (
 // variable in tests.
 func NewRunClientFnc(client runClient) func(modelcmd.ModelCommandBase) (runClient, error) {
 	return func(_ modelcmd.ModelCommandBase) (runClient, error) {
+		return client, nil
+	}
+}
+
+// NewServiceClientFnc returns a function that returns a struct that implements the
+// serviceClient interface. This function can be used to patch the NewServiceClient
+// variable in tests.
+func NewServiceClientFnc(client serviceClient) func(modelcmd.ModelCommandBase) (serviceClient, error) {
+	return func(_ modelcmd.ModelCommandBase) (serviceClient, error) {
 		return client, nil
 	}
 }
