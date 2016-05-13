@@ -4,15 +4,16 @@
 from __future__ import print_function
 
 import argparse
+from collections import namedtuple
 import json
 import logging
 import os
-import pexpect
 import sys
 import tempfile
-from collections import namedtuple
-from uuid import uuid4
 from textwrap import dedent
+from uuid import uuid4
+
+import pexpect
 
 from jujupy import (
     EnvJujuClient,
@@ -21,8 +22,8 @@ from jujupy import (
 from utility import (
     configure_logging,
     enforce_juju_path,
-    temp_dir,
     ensure_dir,
+    temp_dir,
     )
 
 
@@ -45,7 +46,7 @@ ExpectAnswers = namedtuple('ExpectAnswers', ['cloud_listing', 'save_name'])
 CloudDetails = namedtuple(
     'CloudDetails',
     ['env_var_changes', 'expected_details', 'expect_answers']
-)
+    )
 
 
 def uuid_str():
@@ -284,8 +285,7 @@ def aws_credential_dict_generator():
 
 
 def openstack_envvar_test_details(
-        user, tmp_dir, client, credential_details=None
-):
+        user, tmp_dir, client, credential_details=None):
     if credential_details is None:
         credential_details = openstack_credential_dict_generator()
 
@@ -351,21 +351,18 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
 
 def ensure_openstack_personal_cloud_exists(client):
     os_cloud = {
-        'type': 'openstack',
-        'regions': {
-            'test1': {
-                'endpoint': 'https://example.com',
-                'auth-types': ['access-key', 'userpass']
+        'testing_openstack': {
+            'type': 'openstack',
+            'regions': {
+                'test1': {
+                    'endpoint': 'https://example.com',
+                    'auth-types': ['access-key', 'userpass']
+                    }
                 }
             }
         }
-
-    cloud_listing = client.get_juju_output(
-        'list-clouds', admin=False, include_e=False)
-    if 'local:testing_openstack' not in cloud_listing:
-        log.info('Creating and adding new cloud.')
-        client.env.clouds.update({'clouds': {'testing_openstack': os_cloud}})
-        client.env.dump_yaml(client.env.juju_home, config=None)
+    client.env.clouds['clouds'] = os_cloud
+    client.env.dump_yaml(client.env.juju_home, config=None)
 
 
 def get_openstack_expected_details_dict(user, credential_details):

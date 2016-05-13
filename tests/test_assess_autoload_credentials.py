@@ -1,11 +1,13 @@
 """Tests for assess_autoload_credentials module."""
 
 from argparse import Namespace
+import ConfigParser
 import logging
+from mock import patch
 import os
 import StringIO
-import ConfigParser
-from mock import patch
+
+import assess_autoload_credentials as aac
 from tests import (
     TestCase,
     parse_error,
@@ -13,7 +15,6 @@ from tests import (
 from textwrap import dedent
 
 from utility import temp_dir
-import assess_autoload_credentials as aac
 
 
 class TestParseArgs(TestCase):
