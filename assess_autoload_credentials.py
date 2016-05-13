@@ -4,14 +4,15 @@
 from __future__ import print_function
 
 import argparse
+from collections import namedtuple
 import logging
 import os
-import pexpect
 import sys
 import tempfile
-from collections import namedtuple
-from uuid import uuid4
 from textwrap import dedent
+from uuid import uuid4
+
+import pexpect
 
 from jujupy import (
     EnvJujuClient,
@@ -20,8 +21,8 @@ from jujupy import (
 from utility import (
     configure_logging,
     enforce_juju_path,
-    temp_dir,
     ensure_dir,
+    temp_dir,
     )
 
 
