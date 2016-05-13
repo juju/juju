@@ -56,7 +56,7 @@ func (s *Space) Name() string {
 // ProviderId returns the provider id of the space. This will be the empty
 // string except on substrates that directly support spaces.
 func (s *Space) ProviderId() network.Id {
-	return network.Id(s.st.localID(s.doc.ProviderId))
+	return network.Id(s.doc.ProviderId)
 }
 
 // Subnets returns all the subnets associated with the Space.
@@ -105,7 +105,6 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		Insert: spaceDoc,
 	}}
 
-	// XXX should this be first?
 	if providerId != "" {
 		key := fmt.Sprintf("%v:space#%v", st.ModelUUID(), providerId)
 		ops = append(ops, txn.Op{
