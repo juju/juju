@@ -179,6 +179,20 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationSuccess(c *gc.C) {
 	c.Check(c.GetTestLog(), jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
 }
 
+func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotRecommendedStillOK(c *gc.C) {
+	s.stubAPI.PrepareValidateVPCResponses()
+	s.stubAPI.SetSubnetsResponse(1, anyZone, noPublicIPOnLaunch)
+
+	err := validateVPCBeforeModelCreation(s.stubAPI, "model", anyVPCID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets")
+	testLog := c.GetTestLog()
+	c.Check(testLog, jc.Contains, `WARNING juju.provider.ec2 Juju will use, but does not recommend `+
+		`using VPC "vpc-anything": VPC contains no public subnets`)
+	c.Check(testLog, jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
+}
+
 func (s *vpcSuite) TestGetVPCByIDWithMissingID(c *gc.C) {
 	s.stubAPI.SetErrors(makeVPCNotFoundError("foo"))
 

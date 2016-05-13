@@ -530,6 +530,13 @@ func validateVPCBeforeModelCreation(apiClient vpcAPIClient, modelName, vpcID str
 	case isVPCNotUsableError(err):
 		// VPC missing or has no subnets at all.
 		return errors.Annotate(err, vpcNotUsableForModelErrorPrefix)
+	case isVPCNotRecommendedError(err):
+		// VPC does not meet minumum validation criteria, but that's less
+		// important for hosted models, as the controller is already accessible.
+		logger.Warningf(
+			"Juju will use, but does not recommend using VPC %q: %v",
+			vpcID, err.Error(),
+		)
 	case err != nil:
 		// Anything else unexpected while validating the VPC.
 		return errors.Annotate(err, cannotValidateVPCErrorPrefix)
