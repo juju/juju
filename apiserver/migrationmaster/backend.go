@@ -15,6 +15,7 @@ type Backend interface {
 
 	WatchForModelMigration() state.NotifyWatcher
 	GetModelMigration() (state.ModelMigration, error)
+	RemoveExportingModelDocs() error
 }
 
 var getBackend = func(st *state.State) Backend {

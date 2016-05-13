@@ -132,3 +132,9 @@ func (api *API) Export() (params.SerializedModel, error) {
 	serialized.Bytes = bytes
 	return serialized, nil
 }
+
+// Reap removes all documents for the model associated with the API
+// connection.
+func (api *API) Reap() error {
+	return api.backend.RemoveExportingModelDocs()
+}
