@@ -44,7 +44,7 @@ func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
 	c.Check(err, gc.ErrorMatches, expectedError)
 }
 
-func (s *vpcSuite) TestValidateVPCBeforeModelCreationUnexpectedError(c *gc.C) {
+func (s *vpcSuite) TestValidateModelVPCUnexpectedError(c *gc.C) {
 	s.stubAPI.SetErrors(errors.New("AWS failed!"))
 
 	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
@@ -53,7 +53,7 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationUnexpectedError(c *gc.C) {
 	s.stubAPI.CheckCallNames(c, "VPCs")
 }
 
-func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotUsableError(c *gc.C) {
+func (s *vpcSuite) TestValidateModelVPCNotUsableError(c *gc.C) {
 	s.stubAPI.SetErrors(makeVPCNotFoundError("foo"))
 
 	err := validateModelVPC(s.stubAPI, "model", "foo")
@@ -64,7 +64,7 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotUsableError(c *gc.C) 
 	s.stubAPI.CheckCallNames(c, "VPCs")
 }
 
-func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCIDNotSetOrNone(c *gc.C) {
+func (s *vpcSuite) TestValidateModelVPCIDNotSetOrNone(c *gc.C) {
 	const emptyVPCID = ""
 	err := validateModelVPC(s.stubAPI, "model", emptyVPCID)
 	c.Check(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *vpcSuite) TestValidateVPCSuccess(c *gc.C) {
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets", "InternetGateways", "RouteTables")
 }
 
-func (s *vpcSuite) TestValidateVPCBeforeModelCreationSuccess(c *gc.C) {
+func (s *vpcSuite) TestValidateModelVPCSuccess(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 
 	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
@@ -179,7 +179,7 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationSuccess(c *gc.C) {
 	c.Check(c.GetTestLog(), jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
 }
 
-func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotRecommendedStillOK(c *gc.C) {
+func (s *vpcSuite) TestValidateModelVPCNotRecommendedStillOK(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetSubnetsResponse(1, anyZone, noPublicIPOnLaunch)
 
