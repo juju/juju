@@ -44,7 +44,7 @@ ExpectAnswers = namedtuple('ExpectAnswers', ['cloud_listing', 'save_name'])
 CloudDetails = namedtuple(
     'CloudDetails',
     ['env_var_changes', 'expected_details', 'expect_answers']
-)
+    )
 
 
 def uuid_str():
@@ -278,8 +278,7 @@ def aws_credential_dict_generator():
 
 
 def openstack_envvar_test_details(
-        user, tmp_dir, client, credential_details=None
-):
+        user, tmp_dir, client, credential_details=None):
     if credential_details is None:
         credential_details = openstack_credential_dict_generator()
 
