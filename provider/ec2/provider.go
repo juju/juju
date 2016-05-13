@@ -41,7 +41,7 @@ func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*confi
 	env := e.(*environ)
 
 	apiClient, modelName, vpcID := env.ec2(), env.Name(), env.ecfg().vpcID()
-	if err := validateVPCBeforeModelCreation(apiClient, modelName, vpcID); err != nil {
+	if err := validateModelVPC(apiClient, modelName, vpcID); err != nil {
 		return nil, errors.Trace(err)
 	}
 

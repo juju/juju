@@ -520,7 +520,7 @@ func validateBootstrapVPC(apiClient vpcAPIClient, region, vpcID string, forceVPC
 	return nil
 }
 
-func validateVPCBeforeModelCreation(apiClient vpcAPIClient, modelName, vpcID string) error {
+func validateModelVPC(apiClient vpcAPIClient, modelName, vpcID string) error {
 	if !isVPCIDSet(vpcID) {
 		return nil
 	}

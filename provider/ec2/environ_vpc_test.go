@@ -47,7 +47,7 @@ func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
 func (s *vpcSuite) TestValidateVPCBeforeModelCreationUnexpectedError(c *gc.C) {
 	s.stubAPI.SetErrors(errors.New("AWS failed!"))
 
-	err := validateVPCBeforeModelCreation(s.stubAPI, "model", anyVPCID)
+	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
 
 	s.stubAPI.CheckCallNames(c, "VPCs")
@@ -56,7 +56,7 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationUnexpectedError(c *gc.C) {
 func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotUsableError(c *gc.C) {
 	s.stubAPI.SetErrors(makeVPCNotFoundError("foo"))
 
-	err := validateVPCBeforeModelCreation(s.stubAPI, "model", "foo")
+	err := validateModelVPC(s.stubAPI, "model", "foo")
 	expectedError := `Juju cannot use the given vpc-id for the model being added(.|\n)*vpc ID 'foo' does not exist.*`
 	c.Check(err, gc.ErrorMatches, expectedError)
 	c.Check(err, jc.Satisfies, isVPCNotUsableError)
@@ -66,10 +66,10 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotUsableError(c *gc.C) 
 
 func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCIDNotSetOrNone(c *gc.C) {
 	const emptyVPCID = ""
-	err := validateVPCBeforeModelCreation(s.stubAPI, "model", emptyVPCID)
+	err := validateModelVPC(s.stubAPI, "model", emptyVPCID)
 	c.Check(err, jc.ErrorIsNil)
 
-	err = validateVPCBeforeModelCreation(s.stubAPI, "model", vpcIDNone)
+	err = validateModelVPC(s.stubAPI, "model", vpcIDNone)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.stubAPI.CheckNoCalls(c)
@@ -172,7 +172,7 @@ func (s *vpcSuite) TestValidateVPCSuccess(c *gc.C) {
 func (s *vpcSuite) TestValidateVPCBeforeModelCreationSuccess(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 
-	err := validateVPCBeforeModelCreation(s.stubAPI, "model", anyVPCID)
+	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets", "InternetGateways", "RouteTables")
@@ -183,7 +183,7 @@ func (s *vpcSuite) TestValidateVPCBeforeModelCreationVPCNotRecommendedStillOK(c 
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetSubnetsResponse(1, anyZone, noPublicIPOnLaunch)
 
-	err := validateVPCBeforeModelCreation(s.stubAPI, "model", anyVPCID)
+	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets")
