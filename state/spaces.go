@@ -146,10 +146,6 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	} else if err != nil {
 		return nil, err
 	}
-
-	// If the ProviderId was not unique adding the space can fail without an
-	// error. Refreshing catches this by returning NotFoundError.
-
 	return newSpace, nil
 }
 
