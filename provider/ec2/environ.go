@@ -1684,6 +1684,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	chosenVPCID := e.ecfg().vpcID()
 	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
 	if !isVPCIDSet(chosenVPCID) {
+		chosenVPCID = ""
 		inVPCLogSuffix = ""
 	}
 
