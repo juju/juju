@@ -306,21 +306,18 @@ def get_openstack_envvar_changes(user, credential_details):
 
 def ensure_openstack_personal_cloud_exists(client):
     os_cloud = {
-        'type': 'openstack',
-        'regions': {
-            'test1': {
-                'endpoint': 'https://example.com',
-                'auth-types': ['access-key', 'userpass']
+        'testing_openstack': {
+            'type': 'openstack',
+            'regions': {
+                'test1': {
+                    'endpoint': 'https://example.com',
+                    'auth-types': ['access-key', 'userpass']
+                    }
                 }
             }
         }
-
-    cloud_listing = client.get_juju_output(
-        'list-clouds', admin=False, include_e=False)
-    if 'local:testing_openstack' not in cloud_listing:
-        log.info('Creating and adding new cloud.')
-        client.env.clouds.update({'clouds': {'testing_openstack': os_cloud}})
-        client.env.dump_yaml(client.env.juju_home, config=None)
+    client.env.clouds['clouds'] = os_cloud
+    client.env.dump_yaml(client.env.juju_home, config=None)
 
 
 def get_openstack_expected_details_dict(user, credential_details):

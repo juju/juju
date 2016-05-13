@@ -2106,7 +2106,8 @@ class JujuData(SimpleEnvironment):
             if e.errno != errno.ENOENT:
                 raise RuntimeError(
                     'Failed to read clouds file: {}'.format(str(e)))
-            self.clouds = {}
+            # Default to an empty clouds file.
+            self.clouds = {'clouds': {}}
 
     @classmethod
     def from_config(cls, name):
