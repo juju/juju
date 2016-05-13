@@ -290,7 +290,7 @@ func findFirstPublicSubnet(subnets []ec2.Subnet) (*ec2.Subnet, error) {
 	for _, subnet := range subnets {
 		// TODO(dimitern): goamz's AddDefaultVPCAndSubnets() does not set
 		// MapPublicIPOnLaunch only DefaultForAZ, but in reality the former is
-		// always set when the later is. Until this is fixed in goamz, we check
+		// always set when the latter is. Until this is fixed in goamz, we check
 		// for both below to allow testing the behavior.
 		if subnet.MapPublicIPOnLaunch || subnet.DefaultForAZ {
 			logger.Debugf(
