@@ -31,7 +31,8 @@ SUPPORTED_RELEASES = """\
 14.10 utopic HISTORIC
 15.04 vivid HISTORIC
 15.10 wily SUPPORTED
-16.04 xenial DEVEL
+16.04 xenial LTS
+16.10 yakety DEVEL
 """
 
 
