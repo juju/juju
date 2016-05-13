@@ -7,6 +7,7 @@ from mock import Mock, patch, call
 import yaml
 
 from assess_block import (
+    make_block_list,
     assess_block,
     parse_args,
     main,
@@ -63,24 +64,43 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_block(self):
-        mock_client = Mock([
-            "juju", "wait_for_started", "get_juju_output", "deploy"])
+        mock_client = Mock(spec=[
+            "juju", "wait_for_started", "get_juju_output",
+            "env", "deploy", "expose", "destroy-model", "remove-machine"])
         mock_client.get_juju_output.side_effect = [
-            yaml.dump([
-                {'block': 'destroy-model', 'enabled': False},
-                {'block': 'remove-object', 'enabled': False},
-                {'block': 'all-changes', 'enabled': False}]),
-            yaml.dump([
-                {'block': 'destroy-model', 'enabled': False},
-                {'block': 'remove-object', 'enabled': False},
-                {'block': 'all-changes', 'enabled': True, 'message': ''}]),
-            yaml.dump([
-                {'block': 'destroy-model', 'enabled': False},
-                {'block': 'remove-object', 'enabled': False},
-                {'block': 'all-changes', 'enabled': False}]),
+            yaml.dump(make_block_list(False, False, False)),
+            yaml.dump(make_block_list(True, False, False)),
+            yaml.dump(make_block_list(False, False, False)),
+            yaml.dump(make_block_list(False, True, False)),
+            yaml.dump(make_block_list(False, False, False)),
+            yaml.dump(make_block_list(False, False, True)),
+            yaml.dump(make_block_list(False, False, False))
             ]
+        mock_client.env.environment = 'foo'
         assess_block(mock_client)
-        mock_client.wait_for_started.assert_called_once_with()
+        mock_client.wait_for_started.assert_called_with()
         self.assertEqual([
+            call('block destroy-model', ()),
+            call('destroy-model', ('-y', 'foo'), include_e=False),
+            call('expose', ('mediawiki',)),
+            call('remove-service', ('mediawiki',)),
+            call('unblock destroy-model', ()),
+            call('block remove-object', ()),
+            call('destroy-model', ('-y', 'foo'), include_e=False),
+            call('expose', ('mediawiki',)),
+            call('remove-service', ('mediawiki',)),
+            call('remove-unit', ('mediawiki/1',)),
+            call('expose', ('mysql',)),
+            call('add-relation', ('mediawiki:db', 'mysql:db')),
+            call('remove-relation', ('mediawiki:db', 'mysql:db')),
+            call('unblock remove-object', ()),
+            call('remove-service', ('mediawiki',)),
+            call('remove-service', ('mysql',)),
             call('block all-changes', ()),
+            call('destroy-model', ('-y', 'foo'), include_e=False),
+            call('expose', ('mediawiki',)),
             call('unblock all-changes', ())], mock_client.juju.mock_calls)
+        self.assertEqual([call('mediawiki'),
+                          call('mediawiki'),
+                          call('mysql'),
+                          call('mediawiki')], mock_client.deploy.mock_calls)
