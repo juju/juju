@@ -7,7 +7,7 @@
 # Publish to Canonistack, HP, AWS, and Azure.
 #
 # This script requires that the user has credentials to upload the tools
-# to Canonistack, HP Cloud, AWS, and Azure
+# to Canonistack, AWS, and Azure
 
 set -e
 
@@ -175,18 +175,6 @@ publish_to_canonistack() {
 }
 
 
-publish_to_hp() {
-    echo "Phase 6.2: Publish to HP Cloud."
-    cd $DESTINATION
-    source ~/.local/share/juju/hptoolsrc
-    ${GOPATH}/bin/juju --show-log \
-        sync-tools -e public-tools-hp --dev --source=${DEST_DIST}
-    # Support old tools location so that deployments can upgrade to new tools.
-    cd ${DEST_DIST}
-    swift upload juju-dist tools/*.tgz
-}
-
-
 publish_to_aws() {
     echo "Phase 6.3: Publish to AWS."
     cd $DESTINATION
@@ -267,6 +255,5 @@ generate_streams
 
 echo "Phase 6: Publishing tools."
 publish_to_canonistack
-publish_to_hp
 publish_to_aws
 publish_to_azure

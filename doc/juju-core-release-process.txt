@@ -70,7 +70,7 @@ Step 7. TEST!
 
 apt-get update && apt-get install juju-core should install the latest release on your system. 
 
-Test this release by bootstrapping a model in ec2 (and hp cloud if you have access), and do a basic wordpress + mysql deployment. If you can relate wordpress and mysql, expose wordpress and get to the public address on the wordpress setup screen, this release is a success.
+Test this release by bootstrapping a model in ec2, and do a basic wordpress + mysql deployment. If you can relate wordpress and mysql, expose wordpress and get to the public address on the wordpress setup screen, this release is a success.
 
 If this step fails then this release is a failure and the release number is unused. Do not reuse release numbers. It is ok to have gaps in the sequence, we've done it before, water is still wet.
 
