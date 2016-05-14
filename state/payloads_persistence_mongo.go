@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"fmt"
@@ -23,13 +23,13 @@ const (
 // Collections is the list of names of the mongo collections where state
 // is stored for payloads.
 // TODO(ericsnow) Not needed anymore...modify for a new registration scheme?
-var Collections = []string{
+var PayloadsCollections = []string{
 	payloadsC,
 }
 
 // TODO(ericsnow) Move the methods under their own type (payloadcollection?).
 
-func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*payload.Payload, bool) {
+func (pp PayloadsPersistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*payload.Payload, bool) {
 	doc, ok := payloadDocs[id]
 	if !ok {
 		return nil, false
@@ -38,28 +38,28 @@ func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDo
 	return &p, true
 }
 
-func (pp Persistence) all(query bson.D, docs interface{}) error {
+func (pp PayloadsPersistence) all(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.st.All(payloadsC, query, docs))
 }
 
-func (pp Persistence) allID(query bson.D, docs interface{}) error {
+func (pp PayloadsPersistence) allID(query bson.D, docs interface{}) error {
 	if query != nil {
 		query = bson.D{{"_id", query}}
 	}
 	return errors.Trace(pp.all(query, docs))
 }
 
-func (pp Persistence) payloadID(id string) string {
+func (pp PayloadsPersistence) payloadID(id string) string {
 	// TODO(ericsnow) Drop the unit part.
 	return fmt.Sprintf("payload#%s#%s", pp.unit, id)
 }
 
-func (pp Persistence) extractPayloadID(docID string) string {
+func (pp PayloadsPersistence) extractPayloadID(docID string) string {
 	parts := strings.Split(docID, "#")
 	return parts[len(parts)-1]
 }
 
-func (pp Persistence) newInsertPayloadOps(id string, p payload.Payload) []txn.Op {
+func (pp PayloadsPersistence) newInsertPayloadOps(id string, p payload.Payload) []txn.Op {
 	var ops []txn.Op
 
 	doc := pp.newPayloadDoc(id, p)
@@ -73,7 +73,7 @@ func (pp Persistence) newInsertPayloadOps(id string, p payload.Payload) []txn.Op
 	return ops
 }
 
-func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
+func (pp PayloadsPersistence) newSetRawStatusOps(id, status string) []txn.Op {
 	id = pp.payloadID(id)
 	updates := bson.D{
 		{"state", status},
@@ -86,7 +86,7 @@ func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
 	}}
 }
 
-func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
+func (pp PayloadsPersistence) newRemovePayloadOps(id string) []txn.Op {
 	id = pp.payloadID(id)
 	return []txn.Op{{
 		C:      payloadsC,
@@ -148,7 +148,7 @@ func (d payloadDoc) match(name, rawID string) bool {
 	return true
 }
 
-func (pp Persistence) newPayloadDoc(id string, p payload.Payload) *payloadDoc {
+func (pp PayloadsPersistence) newPayloadDoc(id string, p payload.Payload) *payloadDoc {
 	id = pp.payloadID(id)
 
 	definition := p.PayloadClass
@@ -171,7 +171,7 @@ func (pp Persistence) newPayloadDoc(id string, p payload.Payload) *payloadDoc {
 	}
 }
 
-func (pp Persistence) allPayloads() (map[string]payloadDoc, error) {
+func (pp PayloadsPersistence) allPayloads() (map[string]payloadDoc, error) {
 	var docs []payloadDoc
 	query := bson.D{{"unitid", pp.unit}}
 	if err := pp.all(query, &docs); err != nil {
@@ -186,7 +186,7 @@ func (pp Persistence) allPayloads() (map[string]payloadDoc, error) {
 	return results, nil
 }
 
-func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, error) {
+func (pp PayloadsPersistence) payloads(ids []string) (map[string]payloadDoc, error) {
 	fullIDs := make([]string, len(ids))
 	idMap := make(map[string]string, len(ids))
 	for i, id := range ids {
