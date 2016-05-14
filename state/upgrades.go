@@ -86,6 +86,7 @@ func AddFilesystemStatus(st *State) error {
 			if err != nil {
 				return errors.Annotate(err, "deciding filesystem status")
 			}
+			// TODO(perrito666) 2016-05-02 lp:1558657
 			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
 				Status:  status,
 				Updated: time.Now().UnixNano(),

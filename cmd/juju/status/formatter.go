@@ -128,9 +128,10 @@ func (sf *statusFormatter) formatService(name string, service params.ServiceStat
 }
 
 func (sf *statusFormatter) getServiceStatusInfo(service params.ServiceStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     service.Status.Err,
-		Current: service.Status.Status,
+		Current: status.Status(service.Status.Status),
 		Message: service.Status.Info,
 		Version: service.Status.Version,
 	}
@@ -180,9 +181,10 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 }
 
 func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     inst.Err,
-		Current: inst.Status,
+		Current: status.Status(inst.Status),
 		Message: inst.Info,
 		Version: inst.Version,
 		Life:    inst.Life,
@@ -194,9 +196,10 @@ func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) sta
 }
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     unit.WorkloadStatus.Err,
-		Current: unit.WorkloadStatus.Status,
+		Current: status.Status(unit.WorkloadStatus.Status),
 		Message: unit.WorkloadStatus.Info,
 		Version: unit.WorkloadStatus.Version,
 	}
@@ -207,9 +210,10 @@ func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusI
 }
 
 func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     unit.AgentStatus.Err,
-		Current: unit.AgentStatus.Status,
+		Current: status.Status(unit.AgentStatus.Status),
 		Message: unit.AgentStatus.Info,
 		Version: unit.AgentStatus.Version,
 	}
@@ -220,7 +224,8 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 }
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
-	if unit.WorkloadStatus.Status == status.StatusError {
+	// TODO(perrito66) add status validation.
+	if status.Status(unit.WorkloadStatus.Status) == status.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {

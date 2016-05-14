@@ -8,6 +8,7 @@ import (
 	"io"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -2140,7 +2141,13 @@ func (s *serviceSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(status.StatusIdle, "", nil)
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  status.StatusIdle,
+			Message: "",
+			Since:   &now,
+		}
+		err = unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -2217,7 +2224,13 @@ func (s *serviceSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(status.StatusIdle, "", nil)
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  status.StatusIdle,
+			Message: "",
+			Since:   &now,
+		}
+		err = unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

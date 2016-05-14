@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,16 +57,27 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	err := s.machine0.SetStatus(status.StatusStarted, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusStarted,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.machine0.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.SetStatus(status.StatusStopped, "foo", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusStopped,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.machine1.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: status.StatusError, Info: "not really"},
-			{Tag: "machine-0", Status: status.StatusStopped, Info: "foobar"},
-			{Tag: "machine-42", Status: status.StatusStarted, Info: "blah"},
+			{Tag: "machine-1", Status: status.StatusError.String(), Info: "not really"},
+			{Tag: "machine-0", Status: status.StatusStopped.String(), Info: "foobar"},
+			{Tag: "machine-42", Status: status.StatusStarted.String(), Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)

@@ -11,23 +11,17 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// HistoryPrunerParams specifies how history logs should be prunned.
-type HistoryPrunerParams struct {
-	// TODO(perrito666) We might want to have some sort of limitation of the collection size too.
-	MaxLogsPerEntity int
-	PruneInterval    time.Duration
-}
-
 // Facade represents an API that implements status history pruning.
 type Facade interface {
-	Prune(int) error
+	Prune(time.Duration, int) error
 }
 
 // Config holds all necessary attributes to start a pruner worker.
 type Config struct {
-	Facade           Facade
-	MaxLogsPerEntity uint
-	PruneInterval    time.Duration
+	Facade         Facade
+	MaxHistoryTime time.Duration
+	MaxHistoryMB   uint
+	PruneInterval  time.Duration
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	NewTimer worker.NewTimerFunc
 }
@@ -41,6 +35,12 @@ func (c *Config) Validate() error {
 	if c.NewTimer == nil {
 		return errors.New("missing Timer")
 	}
+	// TODO(perrito666) this assumes out of band knowledge of how filter
+	// values are treated, expand config to support the "dont use this filter"
+	// case as an explicit statement.
+	if c.MaxHistoryMB <= 0 && c.MaxHistoryTime <= 0 {
+		return errors.New("missing prune criteria, no size or date limit provided")
+	}
 	return nil
 }
 
@@ -50,7 +50,7 @@ func New(conf Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	doPruning := func(stop <-chan struct{}) error {
-		err := conf.Facade.Prune(int(conf.MaxLogsPerEntity))
+		err := conf.Facade.Prune(conf.MaxHistoryTime, int(conf.MaxHistoryMB))
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -126,7 +126,13 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetStatus(status.StatusDestroying, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusDestroying,
+		Message: "",
+		Since:   &now,
+	}
+	err = m.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead models still show up in the list. It's a lie to pretend they

@@ -134,16 +134,27 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	err := s.wordpressUnit.SetAgentStatus(status.StatusExecuting, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusExecuting,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.wordpressUnit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetAgentStatus(status.StatusExecuting, "foo", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusExecuting,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.mysqlUnit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "unit-mysql-0", Status: status.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: status.StatusRebooting, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: status.StatusActive, Info: "blah"},
+			{Tag: "unit-mysql-0", Status: status.StatusError.String(), Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: status.StatusRebooting.String(), Info: "foobar"},
+			{Tag: "unit-foo-42", Status: status.StatusActive.String(), Info: "blah"},
 		}}
 	result, err := s.uniter.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,16 +179,27 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
-	err := s.wordpressUnit.SetAgentStatus(status.StatusExecuting, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusExecuting,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.wordpressUnit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetAgentStatus(status.StatusExecuting, "foo", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusExecuting,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.mysqlUnit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "unit-mysql-0", Status: status.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: status.StatusExecuting, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: status.StatusRebooting, Info: "blah"},
+			{Tag: "unit-mysql-0", Status: status.StatusError.String(), Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: status.StatusExecuting.String(), Info: "foobar"},
+			{Tag: "unit-foo-42", Status: status.StatusRebooting.String(), Info: "blah"},
 		}}
 	result, err := s.uniter.SetAgentStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,16 +224,27 @@ func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(status.StatusActive, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.wordpressUnit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetStatus(status.StatusTerminated, "foo", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusTerminated,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.mysqlUnit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "unit-mysql-0", Status: status.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: status.StatusTerminated, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: status.StatusActive, Info: "blah"},
+			{Tag: "unit-mysql-0", Status: status.StatusError.String(), Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: status.StatusTerminated.String(), Info: "foobar"},
+			{Tag: "unit-foo-42", Status: status.StatusActive.String(), Info: "blah"},
 		}}
 	result, err := s.uniter.SetUnitStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2049,9 +2082,20 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 }
 
 func (s *uniterSuite) TestUnitStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(status.StatusMaintenance, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusMaintenance,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.wordpressUnit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetStatus(status.StatusTerminated, "foo", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusTerminated,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.mysqlUnit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -2076,7 +2120,7 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Status: status.StatusMaintenance, Info: "blah", Data: map[string]interface{}{}},
+			{Status: status.StatusMaintenance.String(), Info: "blah", Data: map[string]interface{}{}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ServerError(`"invalid" is not a valid tag`)},

@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -340,10 +341,10 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		if err != nil {
 			continue
 		}
-		result.Status = status.Status(statusInfo.Status)
+		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
-		if result.Status != status.StatusError {
+		if statusInfo.Status != status.StatusError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.
@@ -1296,7 +1297,7 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 		if err == nil {
 			var statusInfo status.StatusInfo
 			statusInfo, err = machine.InstanceStatus()
-			result.Results[i].Status = statusInfo.Status
+			result.Results[i].Status = statusInfo.Status.String()
 			result.Results[i].Info = statusInfo.Message
 			result.Results[i].Data = statusInfo.Data
 			result.Results[i].Since = statusInfo.Since
@@ -1325,7 +1326,15 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		}
 		machine, err := p.getMachine(canAccess, mTag)
 		if err == nil {
-			err = machine.SetInstanceStatus(arg.Status, arg.Info, arg.Data)
+			// TODO(perrito666) 2016-05-02 lp:1558657
+			now := time.Now()
+			s := status.StatusInfo{
+				Status:  status.Status(arg.Status),
+				Message: arg.Info,
+				Data:    arg.Data,
+				Since:   &now,
+			}
+			err = machine.SetInstanceStatus(s)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

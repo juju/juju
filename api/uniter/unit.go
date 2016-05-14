@@ -62,7 +62,7 @@ func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[str
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: u.tag.String(), Status: unitStatus, Info: info, Data: data},
+			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
 	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
@@ -99,7 +99,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: u.tag.String(), Status: agentStatus, Info: info, Data: data},
+			{Tag: u.tag.String(), Status: agentStatus.String(), Info: info, Data: data},
 		},
 	}
 	setStatusFacadeCall := "SetAgentStatus"

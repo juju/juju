@@ -990,23 +990,30 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, data map[string]interface{}) (err error) {
+func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 	return setStatus(m.st, setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
-		status:    instanceStatus,
-		message:   info,
-		rawData:   data,
+		status:    sInfo.Status,
+		message:   sInfo.Message,
+		rawData:   sInfo.Data,
+		updated:   sInfo.Since,
 	})
 
 }
 
-// InstanceStatusHistory returns a slice of at most <size> StatusInfo items
+// InstanceStatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this machine instance.
 // Instance represents the provider underlying [v]hardware or container where
 // this juju machine is deployed.
-func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalInstanceKey(), size)
+func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        m.st,
+		globalKey: m.globalInstanceKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1510,12 +1517,12 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error {
-	switch machineStatus {
+func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
+	switch statusInfo.Status {
 	case status.StatusStarted, status.StatusStopped:
 	case status.StatusError:
-		if info == "" {
-			return errors.Errorf("cannot set status %q without info", machineStatus)
+		if statusInfo.Message == "" {
+			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
 		}
 	case status.StatusPending:
 		// If a machine is not yet provisioned, we allow its status
@@ -1527,23 +1534,30 @@ func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[s
 		}
 		fallthrough
 	case status.StatusDown:
-		return errors.Errorf("cannot set status %q", machineStatus)
+		return errors.Errorf("cannot set status %q", statusInfo.Status)
 	default:
-		return errors.Errorf("cannot set invalid status %q", machineStatus)
+		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
 	return setStatus(m.st, setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
-		status:    machineStatus,
-		message:   info,
-		rawData:   data,
+		status:    statusInfo.Status,
+		message:   statusInfo.Message,
+		rawData:   statusInfo.Data,
+		updated:   statusInfo.Since,
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this machine.
-func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(m.st, m.globalKey(), size)
+func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        m.st,
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.
@@ -1637,8 +1651,15 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			if statusInfo.Status == status.StatusPending {
 				containerType := ContainerTypeFromId(containerId)
-				container.SetStatus(
-					status.StatusError, "unsupported container", map[string]interface{}{"type": containerType})
+				// TODO(perrito666) 2016-05-02 lp:1558657
+				now := time.Now()
+				s := status.StatusInfo{
+					Status:  status.StatusError,
+					Message: "unsupported container",
+					Data:    map[string]interface{}{"type": containerType},
+					Since:   &now,
+				}
+				container.SetStatus(s)
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

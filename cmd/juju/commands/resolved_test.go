@@ -4,6 +4,8 @@
 package commands
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -93,10 +95,17 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	err := runDeploy(c, "-n", "5", ch, "dummy", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// lp:1558657
+	now := time.Now()
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetAgentStatus(status.StatusError, "lol borken", nil)
+		sInfo := status.StatusInfo{
+			Status:  status.StatusError,
+			Message: "lol borken",
+			Since:   &now,
+		}
+		err = u.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -121,10 +130,17 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	err := runDeploy(c, "-n", "5", ch, "dummy", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// lp:1558657
+	now := time.Now()
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetAgentStatus(status.StatusError, "lol borken", nil)
+		sInfo := status.StatusInfo{
+			Status:  status.StatusError,
+			Message: "lol borken",
+			Since:   &now,
+		}
+		err = u.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

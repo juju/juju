@@ -63,6 +63,7 @@ func NewPlaceholderResource(c *gc.C, name, serviceID string) resource.Resource {
 func newResource(c *gc.C, name, serviceID, username, content string) resource.Resource {
 	var timestamp time.Time
 	if username != "" {
+		// TODO(perrito666) 2016-05-02 lp:1558657
 		timestamp = time.Now().UTC()
 	}
 	res := resource.Resource{

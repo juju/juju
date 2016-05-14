@@ -142,6 +142,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot get model details")
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	modelInfo := make([]common.ModelInfo, 0, len(models))
 	for _, info := range paramsModelInfo {

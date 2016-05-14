@@ -96,7 +96,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			}
 			instanceStatus, err := m.InstanceStatus()
 			c.Logf("instance message is: %q", instanceStatus.Info)
-			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending.String())
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0
@@ -123,7 +123,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			}
 			// Machines in second half still have no addresses, nor status.
 			instanceStatus, err := m.InstanceStatus()
-			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending.String())
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0

@@ -442,6 +442,7 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	startTime := time.Now()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {

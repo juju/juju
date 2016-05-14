@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
@@ -49,18 +50,50 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 // StatusHistory retrieves the last <size> results of
 // <kind:combined|agent|workload|machine|machineinstance|container|containerinstance> status
 // for <name> unit
-func (c *Client) StatusHistory(kind params.HistoryKind, name string, size int) (*params.StatusHistoryResults, error) {
+func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
 	var results params.StatusHistoryResults
-	args := params.StatusHistoryArgs{
-		Kind: kind,
-		Size: size,
-		Name: name,
+	args := params.StatusHistoryRequest{
+		Kind: string(kind),
+		Filter: params.StatusHistoryFilter{
+			Size:  filter.Size,
+			Date:  filter.Date,
+			Delta: filter.Delta,
+		},
+		Tag: tag,
 	}
-	err := c.facade.FacadeCall("StatusHistory", args, &results)
+	bulkArgs := params.StatusHistoryRequests{Requests: []params.StatusHistoryRequest{args}}
+	err := c.facade.FacadeCall("StatusHistory", bulkArgs, &results)
 	if err != nil {
-		return &params.StatusHistoryResults{}, errors.Trace(err)
+		return status.History{}, errors.Trace(err)
 	}
-	return &results, nil
+	if len(results.Results) != 1 {
+		return status.History{}, errors.Errorf("expected 1 result got %d", len(results.Results))
+	}
+	if results.Results[0].Error != nil {
+		return status.History{}, errors.Annotatef(results.Results[0].Error, "while processing the request")
+	}
+	history := make(status.History, len(results.Results[0].History.Statuses))
+	if results.Results[0].History.Error != nil {
+		return status.History{}, results.Results[0].History.Error
+	}
+	for i, h := range results.Results[0].History.Statuses {
+		history[i] = status.DetailedStatus{
+			Status:  status.Status(h.Status),
+			Info:    h.Info,
+			Data:    h.Data,
+			Since:   h.Since,
+			Kind:    status.HistoryKind(h.Kind),
+			Version: h.Version,
+			// TODO(perrito666) make sure these are still used.
+			Life: h.Life,
+			Err:  h.Err,
+		}
+		// TODO(perrito666) https://launchpad.net/bugs/1577589
+		if !history[i].Kind.Valid() {
+			logger.Warningf("history returned an unknown status kind %q", h.Kind)
+		}
+	}
+	return history, nil
 }
 
 // Resolved clears errors on a unit.

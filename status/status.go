@@ -3,7 +3,9 @@
 
 package status
 
-import "time"
+import (
+	"time"
+)
 
 // Status used to represent the status of an entity, but has recently become
 // and applies to "workloads" as well, which we don't currently model, for no
@@ -12,6 +14,11 @@ import "time"
 // Status values currently apply to machine (agents), unit (agents), unit
 // (workloads), service (workloads), volumes, filesystems, and models.
 type Status string
+
+// String returns a string representation of the Status.
+func (s Status) String() string {
+	return string(s)
+}
 
 // StatusInfo holds a Status and associated information.
 type StatusInfo struct {
@@ -23,7 +30,7 @@ type StatusInfo struct {
 
 // StatusSetter represents a type whose status can be set.
 type StatusSetter interface {
-	SetStatus(status Status, info string, data map[string]interface{}) error
+	SetStatus(StatusInfo) error
 }
 
 // StatusGetter represents a type whose status can be read.
@@ -34,16 +41,6 @@ type StatusGetter interface {
 // InstanceStatusGetter represents a type whose instance status can be read.
 type InstanceStatusGetter interface {
 	InstanceStatus() (StatusInfo, error)
-}
-
-// StatusHistoryGetter instances can fetch their status history.
-type StatusHistoryGetter interface {
-	StatusHistory(size int) ([]StatusInfo, error)
-}
-
-// InstanceStatusHistoryGetter instances can fetch their instance status history.
-type InstanceStatusHistoryGetter interface {
-	InstanceStatusHistory(size int) ([]StatusInfo, error)
 }
 
 const (
