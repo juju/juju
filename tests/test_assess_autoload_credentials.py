@@ -41,10 +41,27 @@ class TestParseArgs(TestCase):
             Namespace(juju_bin=juju_bin, verbose=logging.INFO))
 
 
-class TestHelpers(TestCase):
+class TestCredentialIdCounter(TestCase):
 
-    def test_uuid_str_returns_random_string(self):
-        self.assertNotEqual(aac.uuid_str(), aac.uuid_str())
+    def setUp(self):
+        # Make sure CredentialIdCounter is reset to initial values
+        aac.CredentialIdCounter._counter.clear()
+
+    def test_returns_zero_for_new_id(self):
+        self.assertEqual(aac.CredentialIdCounter.id('test'), 0)
+
+    def test_returns_iterations_for_same_id(self):
+        generated_ids = [
+            aac.CredentialIdCounter.id('test') for x in xrange(3)
+        ]
+        self.assertEqual(generated_ids, [0, 1, 2])
+
+    def test_returns_new_ids_for_multiple_names(self):
+        self.assertEqual(aac.CredentialIdCounter.id('test'), 0)
+        self.assertEqual(aac.CredentialIdCounter.id('another_test'), 0)
+        self.assertEqual(aac.CredentialIdCounter.id('test'), 1)
+        self.assertEqual(aac.CredentialIdCounter.id('another_test'), 1)
+        self.assertEqual(aac.CredentialIdCounter.id('test'), 2)
 
 
 class TestAWSHelpers(TestCase):

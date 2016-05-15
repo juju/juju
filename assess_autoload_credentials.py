@@ -4,13 +4,16 @@
 from __future__ import print_function
 
 import argparse
-from collections import namedtuple
+from collections import (
+    defaultdict,
+    namedtuple,
+    )
+import itertools
 import logging
 import os
 import sys
 import tempfile
 from textwrap import dedent
-from uuid import uuid4
 
 import pexpect
 
@@ -48,9 +51,12 @@ CloudDetails = namedtuple(
     )
 
 
-def uuid_str():
-    """UUID string generated from a random uuid."""
-    return str(uuid4())
+class CredentialIdCounter:
+    _counter = defaultdict(itertools.count)
+
+    @classmethod
+    def id(cls, provider_name):
+        return cls._counter[provider_name].next()
 
 
 def assess_autoload_credentials(juju_bin):
@@ -273,9 +279,11 @@ def write_aws_config_file(tmp_dir, access_key, secret_key):
 
 
 def aws_credential_dict_generator():
+    call_id = CredentialIdCounter.id('aws')
+    creds = 'aws-credentials-{}'.format(call_id)
     return dict(
-        access_key=uuid_str(),
-        secret_key=uuid_str())
+        access_key=creds,
+        secret_key=creds)
 
 
 def openstack_envvar_test_details(
@@ -337,9 +345,11 @@ def get_openstack_expected_details_dict(user, credential_details):
 
 
 def openstack_credential_dict_generator():
+    call_id = CredentialIdCounter.id('openstack')
+    creds = 'openstack-credentials-{}'.format(call_id)
     return dict(
-        os_tenant_name=uuid_str(),
-        os_password=uuid_str())
+        os_tenant_name=creds,
+        os_password=creds)
 
 
 def parse_args(argv):
