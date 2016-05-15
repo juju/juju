@@ -297,13 +297,13 @@ class TestGCEHelpers(TestCase):
             private_key='private_key',
             )
 
-        with patch.object(aac, 'uuid_str') as u_str:
-            u_str.return_value = 'unique'
+        with patch.object(aac.CredentialIdCounter, 'id') as id_gen:
+            id_gen.return_value = 0
             with temp_dir() as tmp_dir:
                 file_path = aac.write_gce_config_file(tmp_dir, credentials)
         self.assertEqual(
             file_path,
-            os.path.join(tmp_dir, '{}.json'.format('unique')))
+            os.path.join(tmp_dir, 'gce-file-config-{}.json'.format(0)))
 
     def test_write_gce_config_file_creates_named_credential_file(self):
         credentials = dict(

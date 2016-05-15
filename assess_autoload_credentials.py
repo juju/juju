@@ -450,7 +450,8 @@ def write_gce_config_file(tmp_dir, credential_details, filename=None):
 
     # Generate a unique filename if none provided as this is stored and used in
     # comparisons.
-    filename = filename or '{}.json'.format(uuid_str())
+    filename = filename or 'gce-file-config-{}.json'.format(
+        CredentialIdCounter.id('gce-fileconfig'))
     credential_file = os.path.join(tmp_dir, filename)
     with open(credential_file, 'w') as f:
         json.dump(details, f)
@@ -462,7 +463,8 @@ def write_gce_home_config_file(tmp_dir, credential_details):
     """Returns a tuple contining a new HOME path and credential file path."""
     # Add a unique string for home dir so each file path is unique within the
     # stored credentials file.
-    home_dir = os.path.join(tmp_dir, uuid_str())
+    home_dir = os.path.join(tmp_dir, 'gce-homedir-{}'.format(
+        CredentialIdCounter.id('gce-homedir')))
     credential_path = os.path.join(home_dir, '.config', 'gcloud')
     os.makedirs(credential_path)
 
@@ -488,11 +490,9 @@ def get_gce_expected_details_dict(user, credentials_path):
 
 
 def gce_credential_dict_generator():
-    return dict(
-        client_id=uuid_str(),
-        client_email=uuid_str(),
-        private_key=uuid_str(),
-        )
+    call_id = CredentialIdCounter.id('gce')
+    creds = 'gce-credentials-{}'.format(call_id)
+    return dict(client_id=creds, client_email=creds, private_key=creds)
 
 
 def parse_args(argv):
