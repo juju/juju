@@ -45,7 +45,8 @@ Remove machine 6 and any running units or containers:
 
     juju remove-machine 6 --force
 
-See also: add-machine
+See also:
+    add-machine
 `
 
 // Info implements Command.Info.
