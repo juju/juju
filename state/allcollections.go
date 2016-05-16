@@ -300,13 +300,7 @@ func allCollections() collectionSchema {
 		// TODO(dimitern): End of obsolete networking collections.
 		providerIDsC: {},
 		spacesC:      {},
-		subnetsC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
+		subnetsC:     {},
 		linkLayerDevicesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
