@@ -112,7 +112,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	c.Check(files, jc.SameContents, expected)
@@ -194,7 +193,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	c.Check(files, jc.SameContents, expected)
@@ -226,7 +224,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/lib/juju/init"),
 		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	// This got re-created.

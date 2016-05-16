@@ -64,7 +64,7 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 }
 
 func (p *lxdLogProxy) Debug(msg string, ctx ...interface{}) {
-	//p.logger.Debugf(p.render(msg, ctx))
+	p.logger.Debugf(p.render(msg, ctx))
 }
 
 func (p *lxdLogProxy) Info(msg string, ctx ...interface{}) {

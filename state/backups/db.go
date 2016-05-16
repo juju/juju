@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -25,7 +28,11 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommandFn = runCommand
+var (
+	runCommandFn = runCommand
+	startMongo   = mongo.StartService
+	stopMongo    = mongo.StopService
+)
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -231,28 +238,90 @@ var getMongorestorePath = func() (string, error) {
 // DBDumper is any type that dumps something to a dump dir.
 type DBRestorer interface {
 	// Dump something to dumpDir.
-	Restore(dumpDir string) error
+	Restore(dumpDir string, dialInfo *mgo.DialInfo) error
 }
 
-type mongoRestorer32 struct {
+type mongoRestorer struct {
 	*mgo.DialInfo
 	// binPath is the path to the dump executable.
-	binPath string
+	binPath         string
+	tagUser         string
+	tagUserPassword string
+}
+type mongoRestorer32 struct {
+	mongoRestorer
 }
 
-// NewDBDumper returns a new value with a Dump method for dumping the
-// juju state database.
-func NewDBRestorer(dialInfo *mgo.DialInfo) (DBRestorer, error) {
+type mongoRestorer24 struct {
+	mongoRestorer
+}
+
+func (md *mongoRestorer24) options(dumpDir string) []string {
+	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
+	options := []string{
+		"--drop",
+		"--journal",
+		"--oplogReplay",
+		"--dbpath", dbDir,
+		dumpDir,
+	}
+	return options
+}
+
+func (md *mongoRestorer24) Restore(dumpDir string, _ *mgo.DialInfo) error {
+	logger.Debugf("stopping mongo service for restore")
+	if err := stopMongo(); err != nil {
+		return errors.Annotate(err, "cannot stop mongo to replace files")
+	}
+	options := md.options(dumpDir)
+	logger.Infof("restoring database with params %v", options)
+	if err := runCommandFn(md.binPath, options...); err != nil {
+		return errors.Annotate(err, "error restoring database")
+	}
+	if err := startMongo(); err != nil {
+		return errors.Annotate(err, "cannot start mongo after restore")
+	}
+
+	return nil
+}
+
+type RestorerArgs struct {
+	DialInfo        *mgo.DialInfo
+	Version         mongo.Version
+	TagUser         string
+	TagUserPassword string
+}
+
+// NewDBRestorer returns a new structure that can perform a restore
+// on the db pointed in dialInfo.
+func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 	mongorestorePath, err := getMongorestorePath()
 	if err != nil {
 		return nil, errors.Annotate(err, "mongorestrore not available")
 	}
 
-	restorer := mongoRestorer32{
-		DialInfo: dialInfo,
-		binPath:  mongorestorePath,
+	installedMongo := mongo.InstalledVersion()
+	if args.Version.NewerThan(installedMongo) == 1 {
+		return nil, errors.NotSupportedf("restore mongo version %s into version %s", args.Version.String(), installedMongo.String())
 	}
-	return &restorer, nil
+
+	var restorer DBRestorer
+	mgoRestorer := mongoRestorer{
+		DialInfo:        args.DialInfo,
+		binPath:         mongorestorePath,
+		tagUser:         args.TagUser,
+		tagUserPassword: args.TagUserPassword,
+	}
+	if args.Version.Major == 2 {
+		restorer = &mongoRestorer24{
+			mongoRestorer: mgoRestorer,
+		}
+	} else {
+		restorer = &mongoRestorer32{
+			mongoRestorer: mgoRestorer,
+		}
+	}
+	return restorer, nil
 }
 
 func (md *mongoRestorer32) options(dumpDir string) []string {
@@ -269,11 +338,119 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 	return options
 }
 
-func (md *mongoRestorer32) Restore(dumpDir string) error {
+// MongoDB represents a mgo.DB.
+type MongoDB interface {
+	UpsertUser(*mgo.User) error
+}
+
+// MongoSession represents mgo.Session.
+type MongoSession interface {
+	Run(cmd interface{}, result interface{}) error
+	Close()
+	DB(string) *mgo.Database
+}
+
+// getDb wraps mgo.Session.DB to ease testing.
+var getDb = func(s string, session MongoSession) MongoDB {
+	return session.DB(s)
+}
+
+// newMongoSession wraps mgo.DialInfo to ease testing.
+var newMongoSession = func(dialInfo *mgo.DialInfo) (MongoSession, error) {
+	return mgo.DialWithInfo(dialInfo)
+}
+
+func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error {
+	s, err := newMongoSession(dialInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.Close()
+
+	roles := bson.D{
+		{"createRole", "ooploger"},
+		{"privileges", []bson.D{
+			bson.D{
+				{"resource", bson.M{"anyResource": true}},
+				{"actions", []string{"anyAction"}},
+			},
+		},
+		},
+		{"roles", []string{}},
+	}
+	var mgoErr bson.M
+	err = s.Run(roles, &mgoErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(perrito666) check for mgoErr
+
+	// This will replace old user with the new credentials
+	admin := getDb("admin", s)
+
+	grant := bson.D{
+		{"grantRolesToUser", md.DialInfo.Username},
+		{"roles", []string{"ooploger"}},
+	}
+
+	err = s.Run(grant, &mgoErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(perrito666) check for mgoErr
+
+	grant = bson.D{
+		{"grantRolesToUser", "admin"},
+		{"roles", []string{"ooploger"}},
+	}
+
+	err = s.Run(grant, &mgoErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(perrito666) check for mgoErr
+
+	if err := admin.UpsertUser(&mgo.User{
+		Username: md.DialInfo.Username,
+		Password: md.DialInfo.Password,
+	}); err != nil {
+		return fmt.Errorf("cannot set new admin credentials: %v", err)
+	}
+
+	return nil
+}
+
+func (md *mongoRestorer32) ensureTagUser() error {
+	s, err := newMongoSession(md.DialInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.Close()
+
+	admin := getDb("admin", s)
+
+	if err := admin.UpsertUser(&mgo.User{
+		Username: md.tagUser,
+		Password: md.tagUserPassword,
+	}); err != nil {
+		return fmt.Errorf("cannot set tag user credentials: %v", err)
+	}
+	return nil
+}
+
+func (md *mongoRestorer32) Restore(dumpDir string, dialInfo *mgo.DialInfo) error {
+	if err := md.ensureOplogPermissions(dialInfo); err != nil {
+		return errors.Annotate(err, "setting special user permission in db")
+	}
+
 	options := md.options(dumpDir)
 	logger.Infof("restoring database with params %v", options)
 	if err := runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error restoring database")
+	}
+	logger.Infof("updating user credentials")
+	if err := md.ensureTagUser(); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

@@ -110,6 +110,7 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
+	result.Series = meta.Origin.Series
 
 	// TODO(wallyworld) - remove these ASAP
 	// These are only used by the restore CLI when re-bootstrapping.
@@ -136,6 +137,7 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 	meta.Origin.Machine = result.Machine
 	meta.Origin.Hostname = result.Hostname
 	meta.Origin.Version = result.Version
+	meta.Origin.Series = result.Series
 	meta.Notes = result.Notes
 	meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
 	return meta

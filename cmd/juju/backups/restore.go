@@ -145,7 +145,7 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 	}
 
 	// Reset current model to admin so first bootstrap succeeds.
-	err = store.SetCurrentModel(controllerName, environs.AdminUser, "admin")
+	err = store.SetCurrentModel(controllerName, environs.AdminUser, "controller")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -230,9 +230,21 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		UploadTools:       c.uploadTools,
 		BuildToolsTarball: sync.BuildToolsTarball,
 		HostedModelConfig: hostedModelConfig,
+		BootstrapSeries:   meta.Series,
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
+	}
+
+	store := c.ClientStore()
+	err = store.RemoveModel(c.ControllerName(), c.AccountName(), "default")
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	err = store.RemoveModel(c.ControllerName(), c.AccountName(), "controller")
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 
 	// New controller is bootstrapped, so now record the API address so

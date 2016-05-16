@@ -10,12 +10,26 @@ import (
 
 	"github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
+
+type fakeMachine struct {
+}
+
+// Series implements backups.Machine
+func (_ *fakeMachine) Series() string {
+	return "xenial"
+}
+
+func fakeGetMachine(_ *state.State, _ string) (backups.Machine, error) {
+	return &fakeMachine{}, nil
+}
 
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
+	s.PatchValue(backups.GetMachine, fakeGetMachine)
 	s.setBackups(c, s.meta, "")
 	var args params.BackupsCreateArgs
 	result, err := s.api.Create(args)
@@ -29,6 +43,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
+	s.PatchValue(backups.GetMachine, fakeGetMachine)
 	s.meta.Notes = "this backup is important"
 	s.setBackups(c, s.meta, "")
 	args := params.BackupsCreateArgs{
@@ -47,8 +62,10 @@ func (s *backupsSuite) TestCreateError(c *gc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
+	s.PatchValue(backups.GetMachine, fakeGetMachine)
 	var args params.BackupsCreateArgs
 	_, err := s.api.Create(args)
 
+	c.Logf("%v", err)
 	c.Check(err, gc.ErrorMatches, "failed!")
 }

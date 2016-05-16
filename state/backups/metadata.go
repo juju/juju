@@ -32,6 +32,7 @@ type Origin struct {
 	Machine  string
 	Hostname string
 	Version  version.Number
+	Series   string
 }
 
 // UnknownString is a marker value for string fields with unknown values.
@@ -66,6 +67,10 @@ type Metadata struct {
 	// Notes is an optional user-supplied annotation.
 	Notes string
 
+	// Series holds the series of the backed up machine, when
+	// restoring the series should be maintained if possible.
+	Series string
+
 	// TODO(wallyworld) - remove these ASAP
 	// These are only used by the restore CLI when re-bootstrapping.
 	// We will use a better solution but the way restore currently
@@ -96,7 +101,7 @@ func NewMetadata() *Metadata {
 // NewMetadataState composes a new backup metadata with its origin
 // values set.  The model UUID comes from state.  The hostname is
 // retrieved from the OS.
-func NewMetadataState(db DB, machine string) (*Metadata, error) {
+func NewMetadataState(db DB, machine, series string) (*Metadata, error) {
 	// hostname could be derived from the model...
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -109,6 +114,7 @@ func NewMetadataState(db DB, machine string) (*Metadata, error) {
 	meta.Origin.Model = db.ModelTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
+	meta.Origin.Series = series
 
 	si, err := db.StateServingInfo()
 	if err != nil {
@@ -163,6 +169,7 @@ type flatMetadata struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
+	Series      string
 
 	CACert       string
 	CAPrivateKey string
@@ -185,6 +192,7 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 		Machine:      m.Origin.Machine,
 		Hostname:     m.Origin.Hostname,
 		Version:      m.Origin.Version,
+		Series:       m.Origin.Series,
 		CACert:       m.CACert,
 		CAPrivateKey: m.CAPrivateKey,
 	}
@@ -234,6 +242,7 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 		Machine:  flat.Machine,
 		Hostname: flat.Hostname,
 		Version:  flat.Version,
+		Series:   flat.Series,
 	}
 
 	// TODO(wallyworld) - put these in a separate file.

@@ -82,10 +82,18 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	}
 	backupMachine := names.NewMachineTag(meta.Origin.Machine)
 
-	//logger.Debugf("stopping mongo service for restore")
-	//if err := mongo.StopService(); err != nil {
-	//	return nil, errors.Annotate(err, "cannot stop mongo to replace files")
-	//}
+	// The path for the config file might change if the tag changed
+	// and also the rest of the path, so we assume as little as possible.
+	oldDatadir, err := paths.DataDir(args.NewInstSeries)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot determine DataDir for the restored machine")
+	}
+
+	var oldAgentConfig agent.ConfigSetterWriter
+	oldAgentConfigFile := agent.ConfigPath(oldDatadir, args.NewInstTag)
+	if oldAgentConfig, err = agent.ReadConfig(oldAgentConfigFile); err != nil {
+		return nil, errors.Annotate(err, "cannot load old agent config from disk")
+	}
 
 	// delete all the files to be replaced
 	if err := PrepareMachineForRestore(); err != nil {
@@ -153,13 +161,31 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Annotate(err, "cannot produce dial information")
 	}
 
+	oldDialInfo, err := newDialInfo(args.PrivateAddress, oldAgentConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot produce dial information for existing mongo")
+	}
+
 	logger.Infof("new mongo will be restored")
+	mgoVer := agentConfig.MongoVersion()
+
+	tagUser, tagUserPassword, err := tagUserCredentials(agentConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rArgs := RestorerArgs{
+		DialInfo:        dialInfo,
+		Version:         mgoVer,
+		TagUser:         tagUser,
+		TagUserPassword: tagUserPassword,
+	}
+
 	// Restore mongodb from backup
-	restorer, err := NewDBRestorer(dialInfo)
+	restorer, err := NewDBRestorer(rArgs)
 	if err != nil {
 		return nil, errors.Annotate(err, "error preparing for restore")
 	}
-	if err := restorer.Restore(workspace.DBDumpDir); err != nil {
+	if err := restorer.Restore(workspace.DBDumpDir, oldDialInfo); err != nil {
 		return nil, errors.Annotate(err, "error restoring state from backup")
 	}
 
@@ -213,10 +239,14 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	// Mark restoreInfo as Finished so upon restart of the apiserver
 	// the client can reconnect and determine if we where succesful.
 	info := st.RestoreInfo()
-	err = info.SetStatus(state.RestoreFinished)
-	if err != nil {
-		return nil, errors.Trace(err)
+	// In mongo 3.2, even though the backup is made with --oplog, there
+	// are stale transactions in this collection.
+	if err := info.PurgeTxn(); err != nil {
+		return nil, errors.Annotate(err, "cannot purge stale transactions")
+	}
+	if err = info.SetStatus(state.RestoreFinished); err != nil {
+		return nil, errors.Annotate(err, "failed to set status to finished")
 	}
 
-	return backupMachine, errors.Annotate(err, "failed to set status to finished")
+	return backupMachine, nil
 }

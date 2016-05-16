@@ -4,13 +4,14 @@
 package backups_test
 
 import (
-	"path/filepath"
+	"errors"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
@@ -21,56 +22,112 @@ type mongoRestoreSuite struct {
 	testing.BaseSuite
 }
 
-func (s *mongoRestoreSuite) TestMongoRestoreArgsForOldVersion(c *gc.C) {
-	versionNumber := version.Number{}
-	versionNumber.Major = 0
-	versionNumber.Minor = 0
-	_, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
-	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
-}
-
-func (s *mongoRestoreSuite) TestRestoreDatabase(c *gc.C) {
-	var argsVersion version.Number
-	var newMongoDumpPath string
-	ranArgs := make([][]string, 0, 3)
-	ranCommands := []string{}
-
-	restorePathCalled := false
-
-	runCommand := func(command string, mongoRestoreArgs ...string) error {
-		mgoArgs := make([]string, len(mongoRestoreArgs), len(mongoRestoreArgs))
-		for i, v := range mongoRestoreArgs {
-			mgoArgs[i] = v
-		}
-		ranArgs = append(ranArgs, mgoArgs)
-		ranCommands = append(ranCommands, command)
+func (s *mongoRestoreSuite) TestRestoreDatabase24(c *gc.C) {
+	s.PatchValue(backups.GetMongorestorePath, func() (string, error) { return "/a/fake/mongorestore", nil })
+	var ranCommand string
+	var ranWithArgs []string
+	fakeRunCommand := func(c string, args ...string) error {
+		ranCommand = c
+		ranWithArgs = args
 		return nil
 	}
-	s.PatchValue(backups.RunCommand, runCommand)
-
-	restorePath := func() (string, error) {
-		restorePathCalled = true
-		return "/fake/mongo/restore/path", nil
+	s.PatchValue(backups.RunCommand, fakeRunCommand)
+	s.PatchValue(backups.StartMongo, func() error { return nil })
+	s.PatchValue(backups.StopMongo, func() error { return nil })
+	args := backups.RestorerArgs{
+		Version:         mongo.Mongo24,
+		TagUser:         "machine-0",
+		TagUserPassword: "fakePassword",
 	}
-	s.PatchValue(backups.RestorePath, restorePath)
-
-	ver := version.Number{Major: 1, Minor: 22}
-	args := []string{"a", "set", "of", "args"}
-	restoreArgsForVersion := func(versionNumber version.Number, mongoDumpPath string) ([]string, error) {
-		newMongoDumpPath = mongoDumpPath
-		argsVersion = versionNumber
-		return args, nil
-	}
-	s.PatchValue(backups.RestoreArgsForVersion, restoreArgsForVersion)
-
-	err := backups.PlaceNewMongo("fakemongopath", ver)
-	c.Assert(restorePathCalled, jc.IsTrue)
+	restorer, err := backups.NewDBRestorer(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(argsVersion, gc.DeepEquals, ver)
-	c.Assert(newMongoDumpPath, gc.Equals, "fakemongopath")
-	expectedCommands := []string{"/fake/mongo/restore/path"}
-	c.Assert(ranCommands, gc.DeepEquals, expectedCommands)
-	c.Assert(len(ranArgs), gc.Equals, 1)
-	expectedArgs := [][]string{{"a", "set", "of", "args"}}
-	c.Assert(ranArgs, gc.DeepEquals, expectedArgs)
+	err = restorer.Restore("fakePath", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(ranCommand, gc.Equals, "/a/fake/mongorestore")
+	c.Assert(ranWithArgs, gc.DeepEquals, []string{"--drop", "--journal", "--oplogReplay", "--dbpath", "/var/lib/juju/db", "fakePath"})
+}
+
+type mongoDb struct {
+	user *mgo.User
+}
+
+func (m *mongoDb) UpsertUser(u *mgo.User) error {
+	m.user = u
+	return nil
+}
+
+type mongoSession struct {
+	closed bool
+	cmd    []bson.D
+}
+
+func (m *mongoSession) Run(cmd interface{}, result interface{}) error {
+	bsoncmd, ok := cmd.(bson.D)
+	if !ok {
+		return errors.New("unexpected cmd")
+	}
+	m.cmd = append(m.cmd, bsoncmd)
+	return nil
+}
+
+func (m *mongoSession) Close() {
+	m.closed = true
+}
+
+func (m *mongoSession) DB(_ string) *mgo.Database {
+	return nil
+}
+
+func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
+	s.PatchValue(backups.GetMongorestorePath, func() (string, error) { return "/a/fake/mongorestore", nil })
+	var ranCommand string
+	var ranWithArgs []string
+	fakeRunCommand := func(c string, args ...string) error {
+		ranCommand = c
+		ranWithArgs = args
+		return nil
+	}
+	s.PatchValue(backups.RunCommand, fakeRunCommand)
+	args := backups.RestorerArgs{
+		DialInfo: &mgo.DialInfo{
+			Username: "fakeUsername",
+			Password: "fakePassword",
+			Addrs:    []string{"127.0.0.1"},
+		},
+		Version:         mongo.Mongo32wt,
+		TagUser:         "machine-0",
+		TagUserPassword: "fakePassword",
+	}
+	mgoDb := &mongoDb{}
+	mgoSession := &mongoSession{}
+	s.PatchValue(backups.GetDb, func(string, backups.MongoSession) backups.MongoDB { return mgoDb })
+	s.PatchValue(backups.NewMongoSession, func(dialInfo *mgo.DialInfo) (backups.MongoSession, error) {
+		return mgoSession, nil
+	})
+	restorer, err := backups.NewDBRestorer(args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = restorer.Restore("fakePath", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(ranCommand, gc.Equals, "/a/fake/mongorestore")
+	c.Assert(ranWithArgs, gc.DeepEquals, []string{"--ssl", "--authenticationDatabase", "admin", "--host", "127.0.0.1", "--username", "fakeUsername", "--password", "fakePassword", "--drop", "--oplogReplay", "fakePath"})
+	user := &mgo.User{Username: "machine-0", Password: "fakePassword"}
+	c.Assert(mgoDb.user, gc.DeepEquals, user)
+	c.Assert(mgoSession.closed, jc.IsTrue)
+	mgoSessionCmd := []bson.D{
+		bson.D{
+			bson.DocElem{Name: "createRole", Value: "ooploger"},
+			bson.DocElem{Name: "privileges", Value: []bson.D{
+				bson.D{
+					bson.DocElem{Name: "resource", Value: bson.M{"anyResource": true}},
+					bson.DocElem{Name: "actions", Value: []string{"anyAction"}}}}},
+			bson.DocElem{Name: "roles", Value: []string{}}},
+		bson.D{
+			bson.DocElem{Name: "grantRolesToUser", Value: "fakeUsername"},
+			bson.DocElem{Name: "roles", Value: []string{"ooploger"}}},
+		bson.D{
+			bson.DocElem{Name: "grantRolesToUser", Value: "admin"},
+			bson.DocElem{Name: "roles", Value: []string{"ooploger"}}}}
+	c.Assert(mgoSession.cmd, gc.DeepEquals, mgoSessionCmd)
 }

@@ -56,7 +56,6 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 	}
 
 	backupFiles := []string{
-		filepath.Join(rootDir, paths.DataDir, initDir),
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
@@ -104,9 +103,11 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 		filepath.Join(dataDir, "db"),
 		filepath.Join(dataDir, "init"),
 		dataDir,
-		//logsDir,
 	} {
 		dirStat, err := os.Stat(replaceable)
+		if os.IsNotExist(err) {
+			continue
+		}
 		if err != nil {
 			return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
 		}

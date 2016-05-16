@@ -26,8 +26,13 @@ var (
 	FinishMeta           = &finishMeta
 	StoreArchiveRef      = &storeArchive
 	GetMongodumpPath     = &getMongodumpPath
+	GetMongorestorePath  = &getMongorestorePath
 	RunCommand           = &runCommandFn
 	ReplaceableFolders   = &replaceableFolders
+	StartMongo           = &startMongo
+	StopMongo            = &stopMongo
+	NewMongoSession      = &newMongoSession
+	GetDb                = &getDb
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
