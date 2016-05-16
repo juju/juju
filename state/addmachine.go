@@ -452,20 +452,20 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
 	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
 	return &machineDoc{
-		DocID:                   st.docID(id),
-		Id:                      id,
-		ModelUUID:               st.ModelUUID(),
-		Series:                  template.Series,
-		Jobs:                    template.Jobs,
-		Clean:                   !template.Dirty,
-		Principals:              template.principals,
-		Life:                    Alive,
-		Nonce:                   template.Nonce,
-		Addresses:               fromNetworkAddresses(template.Addresses, OriginMachine),
-		PreferredPrivateAddress: fromNetworkAddress(privateAddr, OriginMachine),
-		PreferredPublicAddress:  fromNetworkAddress(publicAddr, OriginMachine),
-		NoVote:                  template.NoVote,
-		Placement:               template.Placement,
+		DocID:                      st.docID(id),
+		Id:                         id,
+		ModelUUID:                  st.ModelUUID(),
+		Series:                     template.Series,
+		Jobs:                       template.Jobs,
+		Clean:                      !template.Dirty,
+		Principals:                 template.principals,
+		Life:                       Alive,
+		Nonce:                      template.Nonce,
+		Addresses:                  fromNetworkAddresses(template.Addresses, OriginMachine),
+		PreferredPrivateAddress:    fromNetworkAddress(privateAddr, OriginMachine),
+		PreferredPublicIPv4Address: fromNetworkAddress(publicAddr, OriginMachine),
+		NoVote:    template.NoVote,
+		Placement: template.Placement,
 	}
 }
 

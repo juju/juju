@@ -260,7 +260,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		e.newAddressArgsSlice(machine.doc.MachineAddresses),
 		e.newAddressArgsSlice(machine.doc.Addresses))
 	exMachine.SetPreferredAddresses(
-		e.newAddressArgs(machine.doc.PreferredPublicAddress),
+		e.newAddressArgs(machine.doc.PreferredPublicIPv4Address),
 		e.newAddressArgs(machine.doc.PreferredPrivateAddress))
 
 	// We fully expect the machine to have tools set, and that there is
