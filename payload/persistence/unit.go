@@ -16,6 +16,8 @@ import (
 
 var logger = loggo.GetLogger("juju.payload.persistence")
 
+var errNotFound = errors.NewNotFound(nil, "payload")
+
 // TODO(ericsnow) Merge Persistence and EnvPersistence.
 
 // TODO(ericsnow) Store status in the status collection?
@@ -57,10 +59,11 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
 	logger.Tracef("insertng %#v", pl)
 
-	_, err := pp.LookUp(pl.Name, pl.ID)
+	_, err := pp.lookUp(pl.Name, pl.ID)
 	if err == nil {
 		return false, errors.AlreadyExistsf("payload for %q", pl.FullID())
-	} else if !errors.IsNotFound(err) {
+	}
+	if errors.Cause(err) != errNotFound {
 		return false, errors.Annotate(err, "while checking for collisions")
 	}
 	// TODO(ericsnow) There is a *slight* race here. I haven't found
@@ -153,6 +156,17 @@ func (pp Persistence) ListAll() ([]payload.Payload, error) {
 
 // LookUp returns the payload ID for the given name/rawID pair.
 func (pp Persistence) LookUp(name, rawID string) (string, error) {
+	id, err := pp.lookUp(name, rawID)
+	if errors.Cause(err) == errNotFound {
+		return "", errors.NotFoundf("payload for %s/%s", name, rawID)
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
+}
+
+func (pp Persistence) lookUp(name, rawID string) (string, error) {
 	// TODO(ericsnow) This could be more efficient.
 
 	docs, err := pp.allPayloads()
@@ -166,7 +180,7 @@ func (pp Persistence) LookUp(name, rawID string) (string, error) {
 		}
 	}
 
-	return "", errors.NotFoundf("payload for %s/%s", name, rawID)
+	return "", errors.Trace(errNotFound)
 }
 
 // TODO(ericsnow) Add payloads to state/cleanup.go.
