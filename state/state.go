@@ -2404,12 +2404,12 @@ func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
 }
 
 func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
-	key := globalKey + ":" + string(providerId)
+	key := st.docID(globalKey + ":" + string(providerId))
 	return txn.Op{
 		C:      providerIDsC,
-		Id:     st.docID(key),
+		Id:     key,
 		Assert: txn.DocMissing,
-		Insert: providerIdDoc{},
+		Insert: providerIdDoc{ID: key},
 	}
 }
 
