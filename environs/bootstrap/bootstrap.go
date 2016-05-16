@@ -247,7 +247,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// even though the user didn't ask for it. We only do
 		// this when the image-stream is not "released" and
 		// the agent version hasn't been specified.
-		logger.Warningf("no prepackaged tools available")
+		logger.Infof("no prepackaged tools available")
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
@@ -420,7 +420,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	if !isCompatibleVersion(newVersion, jujuversion.Current) {
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
-			logger.Warningf(
+			logger.Debugf(
 				"failed to find %s tools, will attempt to use %s",
 				jujuversion.Current, newVersion,
 			)
@@ -490,11 +490,11 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	validator, err := env.ConstraintsValidator()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
-		logger.Warningf("unsupported constraints: %v", unsupported)
+		err = errors.Annotatef(err, "unsupported constraints: %v", unsupported)
 	}
 	return err
 }

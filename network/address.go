@@ -276,9 +276,9 @@ func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Addres
 	}
 
 	if len(spaceNames) == 0 {
-		logger.Warningf("no spaces to select addresses from")
+		logger.Errorf("no spaces to select addresses from")
 	} else {
-		logger.Warningf("no addresses found in spaces %s", spaceNames)
+		logger.Errorf("no addresses found in spaces %s", spaceNames)
 	}
 	return Address{}, false
 }
@@ -287,7 +287,7 @@ func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Addres
 // the given space name associated.
 func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
-		logger.Warningf("host ports not filtered - no spaces given.")
+		logger.Errorf("host ports not filtered - no spaces given.")
 		return hps, false
 	}
 
@@ -303,7 +303,7 @@ func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPor
 		return selectedHostPorts, true
 	}
 
-	logger.Warningf("no hostPorts found in spaces %s", spaceNames)
+	logger.Errorf("no hostPorts found in spaces %s", spaceNames)
 	return hps, false
 }
 

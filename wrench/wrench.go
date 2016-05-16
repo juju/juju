@@ -71,7 +71,7 @@ func IsActive(category, feature string) bool {
 	for lines.Scan() {
 		line := strings.TrimSpace(lines.Text())
 		if line == feature {
-			logger.Warningf("wrench for %s/%s is active", category, feature)
+			logger.Debugf("wrench for %s/%s is active", category, feature)
 			return true
 		}
 	}
