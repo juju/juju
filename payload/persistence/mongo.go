@@ -5,10 +5,8 @@ package persistence
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -49,32 +47,25 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.all(query, docs))
 }
 
-func (pp Persistence) payloadID(id string) string {
-	// TODO(ericsnow) Drop the unit part.
-	return fmt.Sprintf("payload#%s#%s", pp.unit, id)
-}
-
-func (pp Persistence) extractPayloadID(docID string) string {
-	parts := strings.Split(docID, "#")
-	return parts[len(parts)-1]
+func (pp Persistence) payloadID(name string) string {
+	return fmt.Sprintf("payload#%s#%s", pp.unit, name)
 }
 
 func (pp Persistence) newInsertPayloadOps(id string, p payload.Payload) []txn.Op {
-	var ops []txn.Op
-
+	// We must also ensure that there isn't any collision on the
+	// state-provided ID. However, that isn't something we can do in
+	// a transaction.
 	doc := pp.newPayloadDoc(id, p)
-	ops = append(ops, txn.Op{
+	return []txn.Op{{
 		C:      payloadsC,
 		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	})
-
-	return ops
+	}}
 }
 
-func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
-	id = pp.payloadID(id)
+func (pp Persistence) newSetRawStatusOps(name, stID, status string) []txn.Op {
+	id := pp.payloadID(name)
 	updates := bson.D{
 		{"state", status},
 	}
@@ -83,16 +74,24 @@ func (pp Persistence) newSetRawStatusOps(id, status string) []txn.Op {
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", updates}},
+	}, {
+		C:      payloadsC,
+		Id:     id,
+		Assert: bson.D{{"state-id", stID}},
 	}}
 }
 
-func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
-	id = pp.payloadID(id)
+func (pp Persistence) newRemovePayloadOps(name, stID string) []txn.Op {
+	id := pp.payloadID(name)
 	return []txn.Op{{
 		C:      payloadsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
+	}, {
+		C:      payloadsC,
+		Id:     id,
+		Assert: bson.D{{"state-id", stID}},
 	}}
 }
 
@@ -100,9 +99,13 @@ func (pp Persistence) newRemovePayloadOps(id string) []txn.Op {
 type payloadDoc struct {
 	DocID string `bson:"_id"`
 
+	// UnitID and Name are encoded in DocID.
 	UnitID string `bson:"unitid"`
+	Name   string `bson:"name"`
 
-	Name string `bson:"name"`
+	// StateID is the unique ID that State gave this payload for this unit.
+	StateID string `bson:"state-id"`
+
 	Type string `bson:"type"`
 
 	// TODO(ericsnow) Store status in the "statuses" collection?
@@ -147,8 +150,8 @@ func (d payloadDoc) match(name, rawID string) bool {
 	return true
 }
 
-func (pp Persistence) newPayloadDoc(id string, p payload.Payload) *payloadDoc {
-	id = pp.payloadID(id)
+func (pp Persistence) newPayloadDoc(stID string, p payload.Payload) *payloadDoc {
+	id := pp.payloadID(p.Name)
 
 	definition := p.PayloadClass
 
@@ -158,8 +161,10 @@ func (pp Persistence) newPayloadDoc(id string, p payload.Payload) *payloadDoc {
 	return &payloadDoc{
 		DocID:  id,
 		UnitID: pp.unit,
+		Name:   definition.Name,
 
-		Name: definition.Name,
+		StateID: stID,
+
 		Type: definition.Type,
 
 		State: p.Status,
@@ -179,43 +184,23 @@ func (pp Persistence) allPayloads() (map[string]payloadDoc, error) {
 
 	results := make(map[string]payloadDoc)
 	for _, doc := range docs {
-		id := pp.extractPayloadID(doc.DocID)
+		id := doc.StateID
 		results[id] = doc
 	}
 	return results, nil
 }
 
 func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, error) {
-	fullIDs := make([]string, len(ids))
-	idMap := make(map[string]string, len(ids))
-	for i, id := range ids {
-		fullID := pp.payloadID(id)
-		fullIDs[i] = fullID
-		idMap[fullID] = id
-	}
-
-	var docs []payloadDoc
-	query := bson.D{{"$in", fullIDs}}
-	if err := pp.allID(query, &docs); err != nil {
+	all, err := pp.allPayloads()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	results := make(map[string]payloadDoc)
-	for _, doc := range docs {
-		fullID := dropModelUUID(doc.DocID)
-		id := idMap[fullID]
-		results[id] = doc
-	}
-	return results, nil
-}
-
-func dropModelUUID(id string) string {
-	fullID := id
-	parts := strings.SplitN(fullID, ":", 2)
-	if len(parts) == 2 {
-		if names.IsValidModel(parts[0]) {
-			fullID = parts[1]
+	for _, id := range ids {
+		if doc, ok := all[id]; ok {
+			results[id] = doc
 		}
 	}
-	return fullID
+	return results, nil
 }

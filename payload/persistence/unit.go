@@ -57,17 +57,15 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
-	logger.Tracef("insertng %#v", pl)
+	logger.Tracef("insertng %q - %#v", id, pl)
 
-	_, err := pp.lookUp(pl.Name, pl.ID)
-	if err == nil {
-		return false, errors.AlreadyExistsf("payload for %q", pl.FullID())
+	docs, err := pp.payloads([]string{id})
+	if err != nil {
+		return false, errors.Trace(err)
 	}
-	if errors.Cause(err) != errNotFound {
-		return false, errors.Annotate(err, "while checking for collisions")
+	if len(docs) > 0 {
+		return false, errors.AlreadyExistsf("payload ID %q", id)
 	}
-	// TODO(ericsnow) There is a *slight* race here. I haven't found
-	// a simple way to check the secondary key in the transaction.
 
 	var okay bool
 	var ops []txn.Op
@@ -94,10 +92,20 @@ func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
 func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	logger.Tracef("setting status for %q", id)
 
+	docs, err := pp.payloads([]string{id})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	doc, ok := docs[id]
+	if !ok {
+		return false, nil
+	}
+	name := doc.Name
+
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
+	ops = append(ops, pp.newSetRawStatusOps(name, id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			found = false
@@ -156,17 +164,6 @@ func (pp Persistence) ListAll() ([]payload.Payload, error) {
 
 // LookUp returns the payload ID for the given name/rawID pair.
 func (pp Persistence) LookUp(name, rawID string) (string, error) {
-	id, err := pp.lookUp(name, rawID)
-	if errors.Cause(err) == errNotFound {
-		return "", errors.NotFoundf("payload for %s/%s", name, rawID)
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return id, nil
-}
-
-func (pp Persistence) lookUp(name, rawID string) (string, error) {
 	// TODO(ericsnow) This could be more efficient.
 
 	docs, err := pp.allPayloads()
@@ -180,7 +177,7 @@ func (pp Persistence) lookUp(name, rawID string) (string, error) {
 		}
 	}
 
-	return "", errors.Trace(errNotFound)
+	return "", errors.NotFoundf("payload for %s/%s", name, rawID)
 }
 
 // TODO(ericsnow) Add payloads to state/cleanup.go.
@@ -193,10 +190,20 @@ func (pp Persistence) lookUp(name, rawID string) (string, error) {
 // found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
 func (pp Persistence) Untrack(id string) (bool, error) {
+	docs, err := pp.payloads([]string{id})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	doc, ok := docs[id]
+	if !ok {
+		return false, nil
+	}
+	name := doc.Name
+
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newRemovePayloadOps(id)...)
+	ops = append(ops, pp.newRemovePayloadOps(name, id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			found = false

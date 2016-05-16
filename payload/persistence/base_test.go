@@ -39,13 +39,13 @@ func (doc PayloadDoc) convert() *payloadDoc {
 
 func (s *BaseSuite) NewDoc(id string, pl payload.Payload) *payloadDoc {
 	return &payloadDoc{
-		DocID:  "payload#" + s.Unit + "#" + id,
-		UnitID: s.Unit,
-
-		Name:  pl.Name,
-		Type:  pl.Type,
-		RawID: pl.ID,
-		State: pl.Status,
+		DocID:   "payload#" + s.Unit + "#" + pl.Name,
+		UnitID:  s.Unit,
+		Name:    pl.Name,
+		StateID: id,
+		Type:    pl.Type,
+		RawID:   pl.ID,
+		State:   pl.Status,
 	}
 }
 
@@ -55,8 +55,8 @@ func (s *BaseSuite) SetDoc(id string, pl payload.Payload) *payloadDoc {
 	return payloadDoc
 }
 
-func (s *BaseSuite) RemoveDoc(id string) {
-	docID := "payload#" + s.Unit + "#" + id
+func (s *BaseSuite) RemoveDoc(name string) {
+	docID := "payload#" + s.Unit + "#" + name
 	delete(s.State.docs, docID)
 }
 
