@@ -73,7 +73,16 @@ func (pp Persistence) Track(id string, pl payload.Payload) error {
 	ops = append(ops, pp.newInsertPayloadOps(id, pl)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			return nil, errors.Annotatef(payload.ErrAlreadyExists, "(%s)", pl.FullID())
+			docs, err := pp.allPayloads()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, doc := range docs {
+				if doc.Name == pl.Name {
+					return nil, errors.Annotatef(payload.ErrAlreadyExists, "(%s)", pl.FullID())
+				}
+			}
+			// Probably a transient error, so try again.
 		}
 		return ops, nil
 	}
@@ -90,23 +99,20 @@ func (pp Persistence) Track(id string, pl payload.Payload) error {
 func (pp Persistence) SetStatus(id, status string) error {
 	logger.Tracef("setting status for %q", id)
 
-	docs, err := pp.payloads([]string{id})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	doc, ok := docs[id]
-	if !ok {
-		return errors.Annotatef(payload.ErrNotFound, "(%s)", id)
-	}
-	name := doc.Name
-
-	var ops []txn.Op
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOps(name, id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
+		docs, err := pp.payloads([]string{id})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		doc, ok := docs[id]
+		if !ok {
 			return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", id)
 		}
+		name := doc.Name
+
+		var ops []txn.Op
+		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+		ops = append(ops, pp.newSetRawStatusOps(name, id, status)...)
 		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
@@ -185,23 +191,20 @@ func (pp Persistence) LookUp(name, rawID string) (string, error) {
 // found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
 func (pp Persistence) Untrack(id string) error {
-	docs, err := pp.payloads([]string{id})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	doc, ok := docs[id]
-	if !ok {
-		return errors.Annotatef(payload.ErrNotFound, "(%s)", id)
-	}
-	name := doc.Name
-
-	var ops []txn.Op
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newRemovePayloadOps(name, id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
+		docs, err := pp.payloads([]string{id})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		doc, ok := docs[id]
+		if !ok {
 			return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", id)
 		}
+		name := doc.Name
+
+		var ops []txn.Op
+		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+		ops = append(ops, pp.newRemovePayloadOps(name, id)...)
 		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
