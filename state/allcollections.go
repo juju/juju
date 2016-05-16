@@ -301,6 +301,8 @@ func allCollections() collectionSchema {
 		providerIDsC: {},
 		spacesC:      {},
 		subnetsC:     {},
+		// TODO(mfoord): remove providerid indices here and switch to
+		// using providerIDsC to track unique provider ids.
 		linkLayerDevicesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
