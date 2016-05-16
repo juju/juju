@@ -27,9 +27,6 @@ var errNotFound = errors.NewNotFound(nil, "payload")
 // PersistenceBase exposes the core persistence functionality needed
 // for payloads.
 type PersistenceBase interface {
-	// One populates doc with the document corresponding to the given
-	// ID. Missing documents result in errors.NotFound.
-	One(collName, id string, doc interface{}) error
 	// All populates docs with the list of the documents corresponding
 	// to the provided query.
 	All(collName string, query, docs interface{}) error

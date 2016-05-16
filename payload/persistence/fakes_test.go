@@ -63,24 +63,6 @@ func (sp fakeStatePersistence) CheckNoOps(c *gc.C) {
 	c.Check(sp.ops, gc.HasLen, 0)
 }
 
-func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
-	sp.AddCall("One", collName, id, doc)
-	if err := sp.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(sp.docs) == 0 {
-		return errors.NotFoundf(id)
-	}
-	found, ok := sp.docs[id]
-	if !ok {
-		return errors.NotFoundf(id)
-	}
-	actual := doc.(*payloadDoc)
-	*actual = *found
-	return nil
-}
-
 func (sp fakeStatePersistence) All(collName string, query, docs interface{}) error {
 	sp.AddCall("All", collName, query, docs)
 	if err := sp.NextErr(); err != nil {
