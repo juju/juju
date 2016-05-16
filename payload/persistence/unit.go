@@ -56,68 +56,63 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 // Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
+func (pp Persistence) Track(id string, pl payload.Payload) error {
 	logger.Tracef("insertng %q - %#v", id, pl)
 
 	docs, err := pp.payloads([]string{id})
 	if err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if len(docs) > 0 {
-		return false, errors.AlreadyExistsf("payload ID %q", id)
+		return errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", id)
 	}
+	// There is a *slight* race here...
 
-	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newInsertPayloadOps(id, pl)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			okay = false
-			return nil, jujutxn.ErrNoOperations
+			return nil, errors.Annotatef(payload.ErrAlreadyExists, "(%s)", pl.FullID())
 		}
-		okay = true
 		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return okay, nil
+	return nil
 }
 
 // SetStatus updates the raw status for the identified payload in
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The payload is not checked for inconsistent records.
-func (pp Persistence) SetStatus(id, status string) (bool, error) {
+func (pp Persistence) SetStatus(id, status string) error {
 	logger.Tracef("setting status for %q", id)
 
 	docs, err := pp.payloads([]string{id})
 	if err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	doc, ok := docs[id]
 	if !ok {
-		return false, nil
+		return errors.Annotatef(payload.ErrNotFound, "(%s)", id)
 	}
 	name := doc.Name
 
-	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newSetRawStatusOps(name, id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			found = false
-			return nil, jujutxn.ErrNoOperations
+			return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", id)
 		}
-		found = true
 		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return found, nil
+	return nil
 }
 
 // List builds the list of payloads found in persistence which match
@@ -189,31 +184,28 @@ func (pp Persistence) LookUp(name, rawID string) (string, error) {
 // from persistence. Also returned is whether or not the payload was
 // found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
-func (pp Persistence) Untrack(id string) (bool, error) {
+func (pp Persistence) Untrack(id string) error {
 	docs, err := pp.payloads([]string{id})
 	if err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	doc, ok := docs[id]
 	if !ok {
-		return false, nil
+		return errors.Annotatef(payload.ErrNotFound, "(%s)", id)
 	}
 	name := doc.Name
 
-	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newRemovePayloadOps(name, id)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			found = false
-			return nil, jujutxn.ErrNoOperations
+			return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", id)
 		}
-		found = true
 		return ops, nil
 	}
 	if err := pp.st.Run(buildTxn); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return found, nil
+	return nil
 }

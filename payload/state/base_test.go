@@ -69,31 +69,31 @@ func (s *fakePayloadsPersistence) setPayload(id string, pl *payload.Payload) {
 	s.payloads[id] = pl
 }
 
-func (s *fakePayloadsPersistence) Track(id string, pl payload.Payload) (bool, error) {
+func (s *fakePayloadsPersistence) Track(id string, pl payload.Payload) error {
 	s.AddCall("Track", id, pl)
 	if err := s.NextErr(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if _, ok := s.payloads[id]; ok {
-		return false, nil
+		return payload.ErrAlreadyExists
 	}
 	s.setPayload(id, &pl)
-	return true, nil
+	return nil
 }
 
-func (s *fakePayloadsPersistence) SetStatus(id, status string) (bool, error) {
+func (s *fakePayloadsPersistence) SetStatus(id, status string) error {
 	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	pl, ok := s.payloads[id]
 	if !ok {
-		return false, nil
+		return payload.ErrNotFound
 	}
 	pl.Status = status
-	return true, nil
+	return nil
 }
 
 func (s *fakePayloadsPersistence) List(ids ...string) ([]payload.Payload, []string, error) {
@@ -141,15 +141,15 @@ func (s *fakePayloadsPersistence) LookUp(name, rawID string) (string, error) {
 	return "", errors.NotFoundf("doc ID")
 }
 
-func (s *fakePayloadsPersistence) Untrack(id string) (bool, error) {
+func (s *fakePayloadsPersistence) Untrack(id string) error {
 	s.AddCall("Untrack", id)
 	if err := s.NextErr(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if _, ok := s.payloads[id]; !ok {
-		return false, nil
+		return payload.ErrNotFound
 	}
 	delete(s.payloads, id)
-	return true, nil
+	return nil
 }
