@@ -1227,10 +1227,10 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 }
 
 func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
-	fieldName := "preferredprivateaddress"
+	fieldName := "preferredprivateipv4address"
 	current := m.doc.PreferredPrivateIPv4Address
 	if isPublic {
-		fieldName = "preferredpublicaddress"
+		fieldName = "preferredpublicipv4address"
 		current = m.doc.PreferredPublicIPv4Address
 	}
 	// Assert that the field is either missing (never been set) or is
