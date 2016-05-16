@@ -141,9 +141,9 @@ type machineDoc struct {
 	// machine when a public IPv4 address is requested.
 	PreferredPublicIPv4Address address `bson:",omitempty"`
 
-	// PreferredPrivateAddress is the preferred address to be used for
-	// the machine when a private address is requested.
-	PreferredPrivateAddress address `bson:",omitempty"`
+	// PreferredPrivateIPv4Address is the preferred address to be used for the
+	// machine when a private IPv4 address is requested.
+	PreferredPrivateIPv4Address address `bson:",omitempty"`
 
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
@@ -1218,7 +1218,7 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 // PrivateAddress returns a private address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PrivateAddress() (network.Address, error) {
-	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
+	privateAddress := m.doc.PreferredPrivateIPv4Address.networkAddress()
 	var err error
 	if privateAddress.Value == "" {
 		err = network.NoAddressError("private")
@@ -1228,7 +1228,7 @@ func (m *Machine) PrivateAddress() (network.Address, error) {
 
 func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	fieldName := "preferredprivateaddress"
-	current := m.doc.PreferredPrivateAddress
+	current := m.doc.PreferredPrivateIPv4Address
 	if isPublic {
 		fieldName = "preferredpublicaddress"
 		current = m.doc.PreferredPublicIPv4Address
@@ -1269,7 +1269,7 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 }
 
 func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
-	privateAddress := m.doc.PreferredPrivateAddress
+	privateAddress := m.doc.PreferredPrivateIPv4Address
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
 		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
@@ -1428,7 +1428,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 
 	*field = stateAddresses
 	if changedPrivate {
-		m.doc.PreferredPrivateAddress = newPrivate
+		m.doc.PreferredPrivateIPv4Address = newPrivate
 	}
 	if changedPublic {
 		m.doc.PreferredPublicIPv4Address = newPublic
