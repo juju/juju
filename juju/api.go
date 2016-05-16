@@ -107,7 +107,7 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 		if errorImportance(err0) < errorImportance(err1) {
 			err0, err1 = err1, err0
 		}
-		logger.Warningf("discarding API open error: %v", err1)
+		logger.Infof("discarding API open error: %v", err1)
 		return err0
 	}
 	try := parallel.NewTry(0, chooseError)
@@ -172,7 +172,7 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 	if localerr := updateControllerAddresses(
 		args.Store, args.ControllerName, controllerDetails, hostPorts, addrConnectedTo,
 	); localerr != nil {
-		logger.Warningf("cannot cache API addresses: %v", localerr)
+		logger.Debugf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
 }

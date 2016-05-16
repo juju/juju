@@ -140,8 +140,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 	m, err := env.client.instanceMap()
 	if err != nil {
-		logger.Warningf("environ.Instances failed: %v", err)
-		return nil, err
+		return nil, errors.Annotate(err, "environ.Instances failed")
 	}
 
 	var found int
@@ -159,7 +158,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		err = environs.ErrPartialInstances
 	}
 
-	return r, err
+	return r, errors.Trace(err)
 }
 
 // StopInstances shuts down the given instances.

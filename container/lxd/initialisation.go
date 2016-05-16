@@ -90,7 +90,7 @@ var configureZFS = func() {
 	).CombinedOutput()
 
 	if err != nil {
-		logger.Warningf("configuring zfs failed with %s: %s", err, string(output))
+		logger.Errorf("configuring zfs failed with %s: %s", err, string(output))
 	}
 }
 
@@ -101,7 +101,7 @@ var configureLXDBridge = func() error {
 		 * lxd-bridge; let's not fail here.
 		 */
 		if os.IsNotExist(err) {
-			logger.Warningf("couldn't find %s, not configuring it", lxdBridgeFile)
+			logger.Debugf("couldn't find %s, not configuring it", lxdBridgeFile)
 			return nil
 		}
 		return errors.Trace(err)
@@ -254,7 +254,7 @@ func findNextAvailableIPv4Subnet() (string, error) {
 	for _, address := range addrs {
 		addr, network, err := net.ParseCIDR(address.String())
 		if err != nil {
-			logger.Warningf("cannot parse address %q: %v (ignoring)", address.String(), err)
+			logger.Debugf("cannot parse address %q: %v (ignoring)", address.String(), err)
 			continue
 		}
 		if !ip10network.Contains(addr) {

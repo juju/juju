@@ -347,11 +347,11 @@ func getUnitAddresses(st *State, unitName string) (string, string, error) {
 	}
 	publicAddress, err := u.PublicAddress()
 	if err != nil {
-		logger.Warningf("getting a public address for unit %q failed: %q", u.Name(), err)
+		logger.Errorf("getting a public address for unit %q failed: %q", u.Name(), err)
 	}
 	privateAddress, err := u.PrivateAddress()
 	if err != nil {
-		logger.Warningf("getting a private address for unit %q failed: %q", u.Name(), err)
+		logger.Errorf("getting a private address for unit %q failed: %q", u.Name(), err)
 	}
 	return publicAddress.Value, privateAddress.Value, nil
 }
@@ -409,9 +409,6 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 		serviceStatus, err := service.Status()
 		if err != nil {
-			logger.Warningf("reading service status for key %s: %v", key, err)
-		}
-		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "reading service status for key %s", key)
 		}
 		if err == nil {
@@ -875,13 +872,13 @@ func (p *backingOpenedPorts) removed(store *multiwatcherStore, modelUUID, id str
 			// always acting a little behind reality. It is reasonable
 			// that entities have been deleted from State but we're
 			// still seeing events related to them from the watcher.
-			logger.Warningf("cannot retrieve units for %q: %v", info.Id, err)
+			logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
 			return nil
 		}
 		// Update the ports on all units assigned to the machine.
 		for _, u := range units {
 			if err := updateUnitPorts(st, store, u); err != nil {
-				logger.Warningf("cannot update unit ports for %q: %v", u.Name(), err)
+				logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
 			}
 		}
 	}

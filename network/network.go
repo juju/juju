@@ -354,7 +354,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		return addresses
 	} else if err != nil {
 		// Just log it, as it's not fatal.
-		logger.Warningf("cannot open %q: %v", LXCNetDefaultConfig, err)
+		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
 		return addresses
 	}
 	defer file.Close()
@@ -410,7 +410,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 			// Discover all addresses of bridgeName interface.
 			addrs, err := InterfaceByNameAddrs(bridgeName)
 			if err != nil {
-				logger.Warningf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+				logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
 				continue
 			}
 			logger.Debugf("%q has addresses %v", bridgeName, addrs)
@@ -418,7 +418,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		logger.Warningf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
+		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
 	return addresses
 }
