@@ -425,6 +425,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	return subnet, nil
 }
 
+// Subnet returns the subnet specified by the cidr.
 func (st *State) Subnet(cidr string) (*Subnet, error) {
 	subnets, closer := st.getCollection(subnetsC)
 	defer closer()
