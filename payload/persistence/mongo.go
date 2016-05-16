@@ -18,13 +18,6 @@ const (
 	payloadsC = "payloads"
 )
 
-// Collections is the list of names of the mongo collections where state
-// is stored for payloads.
-// TODO(ericsnow) Not needed anymore...modify for a new registration scheme?
-var Collections = []string{
-	payloadsC,
-}
-
 // TODO(ericsnow) Move the methods under their own type (payloadcollection?).
 
 func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*payload.Payload, bool) {
