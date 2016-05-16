@@ -9,11 +9,9 @@ import (
 	"github.com/juju/juju/payload"
 )
 
-// EnvPersistenceBase provides all the information needed to produce
+// EnvPersistenceEntities provides all the information needed to produce
 // a new EnvPersistence value.
-type EnvPersistenceBase interface {
-	PersistenceBase
-
+type EnvPersistenceEntities interface {
 	// Machines builds the list of the names that identify
 	// all machines in State.
 	Machines() ([]string, error)
@@ -33,41 +31,39 @@ type unitPersistence interface {
 // EnvPersistence provides the persistence functionality for the
 // Juju environment as a whole.
 type EnvPersistence struct {
-	base EnvPersistenceBase
+	st EnvPersistenceEntities
 
-	newUnitPersist func(base PersistenceBase, name string) unitPersistence
+	newUnitPersist func(name string) unitPersistence
 }
 
-// NewEnvPersistence wraps the base in a new EnvPersistence.
-func NewEnvPersistence(base EnvPersistenceBase) *EnvPersistence {
+// NewEnvPersistence wraps the "db" in a new EnvPersistence.
+func NewEnvPersistence(db PersistenceBase, st EnvPersistenceEntities) *EnvPersistence {
 	return &EnvPersistence{
-		base:           base,
-		newUnitPersist: newUnitPersistence,
+		st: st,
+		newUnitPersist: func(name string) unitPersistence {
+			return NewPersistence(db, name)
+		},
 	}
-}
-
-func newUnitPersistence(base PersistenceBase, unit string) unitPersistence {
-	return NewPersistence(base, unit)
 }
 
 // ListAll returns the list of all payloads in the environment.
 func (ep *EnvPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
-	machines, err := ep.base.Machines()
+	machines, err := ep.st.Machines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var payloads []payload.FullPayloadInfo
 	for _, machine := range machines {
-		units, err := ep.base.MachineUnits(machine)
+		units, err := ep.st.MachineUnits(machine)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		for _, unit := range units {
-			persist := ep.newUnitPersist(ep.base, unit)
+			persist := ep.newUnitPersist(unit)
 
 			unitPayloads, err := listUnit(persist, unit, machine)
 			if err != nil {

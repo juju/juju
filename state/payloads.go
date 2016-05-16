@@ -61,7 +61,7 @@ type PayloadsEnvPersistence interface {
 	MachineUnits(machineName string) ([]string, error)
 }
 
-type newEnvPayloadsFunc func(PayloadsEnvPersistence) (EnvPayloads, error)
+type newEnvPayloadsFunc func(Persistence, PayloadsEnvPersistence) (EnvPayloads, error)
 type newUnitPayloadsFunc func(persist Persistence, unit, machine string) (UnitPayloads, error)
 
 // TODO(ericsnow) Merge the 2 vars
@@ -83,11 +83,12 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 		return nil, errors.Errorf("payloads not supported")
 	}
 
+	db := st.newPersistence()
 	persist := &payloadsEnvPersistence{
-		Persistence: st.newPersistence(),
+		Persistence: db,
 		st:          st,
 	}
-	envPayloads, err := newEnvPayloads(persist)
+	envPayloads, err := newEnvPayloads(db, persist)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -38,14 +38,14 @@ type PersistenceBase interface {
 // Persistence exposes the high-level persistence functionality
 // related to payloads in Juju.
 type Persistence struct {
-	st   PersistenceBase
+	db   PersistenceBase
 	unit string
 }
 
 // NewPersistence builds a new Persistence based on the provided info.
-func NewPersistence(st PersistenceBase, unit string) *Persistence {
+func NewPersistence(db PersistenceBase, unit string) *Persistence {
 	return &Persistence{
-		st:   st,
+		db:   db,
 		unit: unit,
 	}
 }
@@ -83,7 +83,7 @@ func (pp Persistence) Track(id string, pl payload.Payload) error {
 		}
 		return ops, nil
 	}
-	if err := pp.st.Run(buildTxn); err != nil {
+	if err := pp.db.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -112,7 +112,7 @@ func (pp Persistence) SetStatus(id, status string) error {
 		ops = append(ops, pp.newSetRawStatusOps(name, id, status)...)
 		return ops, nil
 	}
-	if err := pp.st.Run(buildTxn); err != nil {
+	if err := pp.db.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -204,7 +204,7 @@ func (pp Persistence) Untrack(id string) error {
 		ops = append(ops, pp.newRemovePayloadOps(name, id)...)
 		return ops, nil
 	}
-	if err := pp.st.Run(buildTxn); err != nil {
+	if err := pp.db.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

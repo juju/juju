@@ -56,7 +56,7 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	p2 := s.newPayload("eggs")
 	s.base.setPayloads(p1, p2)
 
-	persist := NewEnvPersistence(s.base)
+	persist := NewEnvPersistence(s.base, s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
 	payloads, err := persist.ListAll()
@@ -83,7 +83,7 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	s.base.setUnits("0")
 	s.base.setUnits("1", "a-service/0", "a-service/1")
-	persist := NewEnvPersistence(s.base)
+	persist := NewEnvPersistence(s.base, s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
 	payloads, err := persist.ListAll()
@@ -107,7 +107,7 @@ func (s *envPersistenceSuite) TestListAllFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
-	persist := NewEnvPersistence(s.base)
+	persist := NewEnvPersistence(s.base, s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
 	_, err := persist.ListAll()
@@ -190,8 +190,8 @@ func (s *stubEnvPersistenceBase) setUnits(machine string, units ...string) {
 	}
 }
 
-func (s *stubEnvPersistenceBase) newUnitPersistence(base PersistenceBase, unit string) unitPersistence {
-	s.stub.AddCall("newUnitPersistence", base, unit)
+func (s *stubEnvPersistenceBase) newUnitPersistence(unit string) unitPersistence {
+	s.stub.AddCall("newUnitPersistence", unit)
 	s.stub.NextErr() // pop one off
 
 	persist, ok := s.unitPersists[unit]

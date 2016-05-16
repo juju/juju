@@ -30,7 +30,7 @@ func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDo
 }
 
 func (pp Persistence) all(query bson.D, docs interface{}) error {
-	return errors.Trace(pp.st.All(payloadsC, query, docs))
+	return errors.Trace(pp.db.All(payloadsC, query, docs))
 }
 
 func (pp Persistence) allID(query bson.D, docs interface{}) error {
