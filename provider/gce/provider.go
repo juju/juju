@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -40,10 +41,10 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 		credentialAttrs := args.Credentials.Attributes()
 		var err error
 		cfg, err = args.Config.Apply(map[string]interface{}{
-			"project-id":   credentialAttrs["project-id"],
-			"client-id":    credentialAttrs["client-id"],
-			"client-email": credentialAttrs["client-email"],
-			"private-key":  credentialAttrs["private-key"],
+			cfgProjectID:   credentialAttrs[cfgProjectID],
+			cfgClientID:    credentialAttrs[cfgClientID],
+			cfgClientEmail: credentialAttrs[cfgClientEmail],
+			cfgPrivateKey:  credentialAttrs[cfgPrivateKey],
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -66,6 +67,15 @@ func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg 
 		}
 	}
 	return env, nil
+}
+
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
@@ -93,42 +103,24 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (environProvider) RestrictedConfigAttributes() []string {
 	return []string{
-		cfgPrivateKey,
-		cfgClientID,
-		cfgClientEmail,
 		cfgRegion,
-		cfgProjectID,
 		cfgImageEndpoint,
 	}
 }
 
-// Validate implements environs.EnvironProvider.
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	if old == nil {
-		ecfg, err := newValidConfig(cfg, configDefaults)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid config")
-		}
-		return ecfg.Config, nil
-	}
-
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(old, nil)
+// Validate implements environs.EnvironProvider.Validate.
+func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+	newCfg, err := newConfig(cfg, old)
 	if err != nil {
-		return nil, errors.Annotate(err, "invalid base config")
+		return nil, errors.Annotate(err, "invalid config")
 	}
-
-	if err := ecfg.update(cfg); err != nil {
-		return nil, errors.Annotate(err, "invalid config change")
-	}
-
-	return ecfg.Config, nil
+	return newCfg.config, nil
 }
 
-// SecretAttrs implements environs.EnvironProvider.
+// SecretAttrs implements environs.EnvironProvider.SecretAttrs.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
+	ecfg, err := newConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
