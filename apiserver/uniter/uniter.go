@@ -287,7 +287,7 @@ func (u *UniterAPIV3) PublicAddress(args params.Entities) (params.StringResults,
 				address, err = unit.PublicAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
-				} else if network.IsNoAddress(err) {
+				} else if network.IsNoAddressError(err) {
 					err = common.NoAddressSetError(tag, "public")
 				}
 			}
@@ -321,7 +321,7 @@ func (u *UniterAPIV3) PrivateAddress(args params.Entities) (params.StringResults
 				address, err = unit.PrivateAddress()
 				if err == nil {
 					result.Results[i].Result = address.Value
-				} else if network.IsNoAddress(err) {
+				} else if network.IsNoAddressError(err) {
 					err = common.NoAddressSetError(tag, "private")
 				}
 			}
@@ -1585,7 +1585,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 		)
 
 		privateAddress, err := machine.PrivateAddress()
-		if err != nil && !network.IsNoAddress(err) {
+		if err != nil && !network.IsNoAddressError(err) {
 			return nil, errors.Annotatef(err, "getting machine %q preferred private address", machineID)
 		}
 
