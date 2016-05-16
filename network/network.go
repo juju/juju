@@ -29,15 +29,17 @@ type noAddress struct {
 	errors.Err
 }
 
-// NoAddressf returns an error which satisfies IsNoAddress().
-func NoAddressf(format string, args ...interface{}) error {
-	newErr := errors.NewErr(format+" no address", args...)
+// NoAddressError returns an error which satisfies IsNoAddressError(). The given
+// addressKind specifies what kind of address is missing, usually "private" or
+// "public".
+func NoAddressError(addressKind string) error {
+	newErr := errors.NewErr("no %s address", addressKind)
 	newErr.SetLocation(1)
 	return &noAddress{newErr}
 }
 
-// IsNoAddress reports whether err was created with NoAddressf().
-func IsNoAddress(err error) bool {
+// IsNoAddressError reports whether err was created with NoAddressError().
+func IsNoAddressError(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*noAddress)
 	return ok
