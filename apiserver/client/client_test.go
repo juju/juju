@@ -742,9 +742,9 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PublicAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": public no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address`)
 	_, err = s.APIState.Client().PublicAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": public no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address`)
 }
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
@@ -785,9 +785,9 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PrivateAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": private no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address`)
 	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": private no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address`)
 }
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
