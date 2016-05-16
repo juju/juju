@@ -9,14 +9,15 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/payload/persistence"
 )
 
 var logger = loggo.GetLogger("juju.payload.state")
 
 // TODO(ericsnow) We need a worker to clean up dying payloads.
 
-// Persistence exposes the persistence methods needed for payloads in state.
-type Persistence interface {
+// The persistence methods needed for payloads in state.
+type payloadsPersistence interface {
 	Track(id string, info payload.Payload) (bool, error)
 	// SetStatus updates the status for a payload.
 	SetStatus(id, status string) (bool, error)
@@ -30,7 +31,7 @@ type Persistence interface {
 // payloads, as needed by state.
 type UnitPayloads struct {
 	// Persist is the persistence layer that will be used.
-	Persist Persistence
+	Persist payloadsPersistence
 
 	// Unit identifies the unit associated with the payloads. This
 	// is the "unit ID" of the targeted unit.
@@ -44,7 +45,8 @@ type UnitPayloads struct {
 }
 
 // NewUnitPayloads builds a UnitPayloads for a unit.
-func NewUnitPayloads(persist Persistence, unit, machine string) *UnitPayloads {
+func NewUnitPayloads(st persistence.PersistenceBase, unit, machine string) *UnitPayloads {
+	persist := persistence.NewPersistence(st, unit)
 	return &UnitPayloads{
 		Persist: persist,
 		Unit:    unit,

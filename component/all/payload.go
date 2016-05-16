@@ -20,6 +20,7 @@ import (
 	internalserver "github.com/juju/juju/payload/api/private/server"
 	"github.com/juju/juju/payload/api/server"
 	"github.com/juju/juju/payload/context"
+	"github.com/juju/juju/payload/persistence"
 	payloadstate "github.com/juju/juju/payload/state"
 	"github.com/juju/juju/payload/status"
 	"github.com/juju/juju/state"
@@ -204,12 +205,11 @@ func (payloads) registerState() {
 	//state.RegisterMultiEnvCollections(persistence.Collections...)
 
 	newUnitPayloads := func(persist state.Persistence, unit, machine string) (state.UnitPayloads, error) {
-		payloadsPersist := state.NewPayloadsPersistence(persist, unit)
-		return payloadstate.NewUnitPayloads(payloadsPersist, unit, machine), nil
+		return payloadstate.NewUnitPayloads(persist, unit, machine), nil
 	}
 
 	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
-		envPersist := state.NewPayloadsAllPersistence(persist)
+		envPersist := persistence.NewEnvPersistence(persist)
 		envPayloads := payloadstate.EnvPayloads{
 			Persist: envPersist,
 		}

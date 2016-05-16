@@ -1,19 +1,22 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package persistence
 
 // TODO(ericsnow) Eliminate the mongo-related imports here.
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/payload"
 )
 
-// TODO(ericsnow) Merge PayloadsPersistence and PayloadsEnvPersistence.
+var logger = loggo.GetLogger("juju.payload.persistence")
+
+// TODO(ericsnow) Merge Persistence and EnvPersistence.
 
 // TODO(ericsnow) Store status in the status collection?
 
@@ -21,11 +24,11 @@ import (
 // in the business logic) with ops factories available from the
 // persistence layer.
 
-// TODO(ericsnow) Move PayloadsPersistenceBase to the components package?
+// TODO(ericsnow) Move PersistenceBase to the components package?
 
-// PayloadsPersistenceBase exposes the core persistence functionality needed
+// PersistenceBase exposes the core persistence functionality needed
 // for payloads.
-type PayloadsPersistenceBase interface {
+type PersistenceBase interface {
 	// One populates doc with the document corresponding to the given
 	// ID. Missing documents result in errors.NotFound.
 	One(collName, id string, doc interface{}) error
@@ -37,16 +40,16 @@ type PayloadsPersistenceBase interface {
 	Run(transactions jujutxn.TransactionSource) error
 }
 
-// PayloadsPersistence exposes the high-level persistence functionality
+// Persistence exposes the high-level persistence functionality
 // related to payloads in Juju.
-type PayloadsPersistence struct {
-	st   PayloadsPersistenceBase
+type Persistence struct {
+	st   PersistenceBase
 	unit string
 }
 
-// NewPayloadsPersistence builds a new PayloadsPersistence based on the provided info.
-func NewPayloadsPersistence(st PayloadsPersistenceBase, unit string) *PayloadsPersistence {
-	return &PayloadsPersistence{
+// NewPersistence builds a new Persistence based on the provided info.
+func NewPersistence(st PersistenceBase, unit string) *Persistence {
+	return &Persistence{
 		st:   st,
 		unit: unit,
 	}
@@ -55,7 +58,7 @@ func NewPayloadsPersistence(st PayloadsPersistenceBase, unit string) *PayloadsPe
 // Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp PayloadsPersistence) Track(id string, pl payload.Payload) (bool, error) {
+func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
 	logger.Tracef("insertng %#v", pl)
 
 	_, err := pp.LookUp(pl.Name, pl.ID)
@@ -89,7 +92,7 @@ func (pp PayloadsPersistence) Track(id string, pl payload.Payload) (bool, error)
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The payload is not checked for inconsistent records.
-func (pp PayloadsPersistence) SetStatus(id, status string) (bool, error) {
+func (pp Persistence) SetStatus(id, status string) (bool, error) {
 	logger.Tracef("setting status for %q", id)
 
 	var found bool
@@ -113,7 +116,7 @@ func (pp PayloadsPersistence) SetStatus(id, status string) (bool, error) {
 // List builds the list of payloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
-func (pp PayloadsPersistence) List(ids ...string) ([]payload.Payload, []string, error) {
+func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.payloads(ids)
@@ -136,7 +139,7 @@ func (pp PayloadsPersistence) List(ids ...string) ([]payload.Payload, []string, 
 
 // ListAll builds the list of all payloads found in persistence.
 // Inconsistent records result in errors.NotValid.
-func (pp PayloadsPersistence) ListAll() ([]payload.Payload, error) {
+func (pp Persistence) ListAll() ([]payload.Payload, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.allPayloads()
@@ -153,7 +156,7 @@ func (pp PayloadsPersistence) ListAll() ([]payload.Payload, error) {
 }
 
 // LookUp returns the payload ID for the given name/rawID pair.
-func (pp PayloadsPersistence) LookUp(name, rawID string) (string, error) {
+func (pp Persistence) LookUp(name, rawID string) (string, error) {
 	// TODO(ericsnow) This could be more efficient.
 
 	docs, err := pp.allPayloads()
@@ -179,7 +182,7 @@ func (pp PayloadsPersistence) LookUp(name, rawID string) (string, error) {
 // from persistence. Also returned is whether or not the payload was
 // found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
-func (pp PayloadsPersistence) Untrack(id string) (bool, error) {
+func (pp Persistence) Untrack(id string) (bool, error) {
 	var found bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?

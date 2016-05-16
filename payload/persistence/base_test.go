@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package persistence
 
 import (
 	"fmt"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type PayloadsBaseSuite struct {
+type BaseSuite struct {
 	testing.BaseSuite
 
 	Stub  *gitjujutesting.Stub
@@ -23,7 +23,7 @@ type PayloadsBaseSuite struct {
 	Unit  string
 }
 
-func (s *PayloadsBaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Stub = &gitjujutesting.Stub{}
@@ -37,7 +37,7 @@ func (doc PayloadDoc) convert() *payloadDoc {
 	return (*payloadDoc)(&doc)
 }
 
-func (s *PayloadsBaseSuite) NewDoc(id string, pl payload.Payload) *payloadDoc {
+func (s *BaseSuite) NewDoc(id string, pl payload.Payload) *payloadDoc {
 	return &payloadDoc{
 		DocID:  "payload#" + s.Unit + "#" + id,
 		UnitID: s.Unit,
@@ -49,26 +49,26 @@ func (s *PayloadsBaseSuite) NewDoc(id string, pl payload.Payload) *payloadDoc {
 	}
 }
 
-func (s *PayloadsBaseSuite) SetDoc(id string, pl payload.Payload) *payloadDoc {
+func (s *BaseSuite) SetDoc(id string, pl payload.Payload) *payloadDoc {
 	payloadDoc := s.NewDoc(id, pl)
 	s.State.SetDocs(payloadDoc)
 	return payloadDoc
 }
 
-func (s *PayloadsBaseSuite) RemoveDoc(id string) {
+func (s *BaseSuite) RemoveDoc(id string) {
 	docID := "payload#" + s.Unit + "#" + id
 	delete(s.State.docs, docID)
 }
 
-func (s *PayloadsBaseSuite) NewPersistence() *PayloadsPersistence {
-	return NewPayloadsPersistence(s.State, s.Unit)
+func (s *BaseSuite) NewPersistence() *Persistence {
+	return NewPersistence(s.State, s.Unit)
 }
 
-func (s *PayloadsBaseSuite) SetUnit(id string) {
+func (s *BaseSuite) SetUnit(id string) {
 	s.Unit = id
 }
 
-func (s *PayloadsBaseSuite) NewPayloads(pType string, ids ...string) []payload.Payload {
+func (s *BaseSuite) NewPayloads(pType string, ids ...string) []payload.Payload {
 	var payloads []payload.Payload
 	for _, id := range ids {
 		pl := s.NewPayload(pType, id)
@@ -77,7 +77,7 @@ func (s *PayloadsBaseSuite) NewPayloads(pType string, ids ...string) []payload.P
 	return payloads
 }
 
-func (s *PayloadsBaseSuite) NewPayload(pType string, id string) payload.Payload {
+func (s *BaseSuite) NewPayload(pType string, id string) payload.Payload {
 	name, pluginID := payload.ParseID(id)
 	if pluginID == "" {
 		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
