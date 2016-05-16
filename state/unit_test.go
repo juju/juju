@@ -217,7 +217,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.PublicAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -314,7 +314,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.PrivateAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)

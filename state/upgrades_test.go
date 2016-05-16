@@ -81,14 +81,14 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 	if publicAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, jc.Satisfies, network.IsNoAddress)
+		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
 	c.Assert(addr.Value, gc.Equals, publicAddress)
 	privAddr, err := machine.PrivateAddress()
 	if privateAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, jc.Satisfies, network.IsNoAddress)
+		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
 	c.Assert(privAddr.Value, gc.Equals, privateAddress)
 }

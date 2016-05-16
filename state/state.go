@@ -68,6 +68,10 @@ const (
 	singularControllerNamespace = "singular-controller"
 )
 
+type providerIdDoc struct {
+	ID string `bson:"_id"` // format: "<model-uuid>:<global-key>:<provider-id>"
+}
+
 // State represents the state of an model
 // managed by juju.
 type State struct {
@@ -166,30 +170,53 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.getCollection(name)
-		defer closer()
-
-		var ids []bson.M
-		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+		if info.rawAccess {
+			if err := st.removeAllInCollectionRaw(name); err != nil {
+				return errors.Trace(err)
+			}
+			continue
+		}
+		// TODO(rog): 2016-05-06 lp:1579010
+		// We can end up with an enormous transaction here,
+		// because we'll have one operation for each document in the
+		// whole model.
+		var err error
+		ops, err = st.appendRemoveAllInCollectionOps(ops, name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, id := range ids {
-			if info.rawAccess {
-				if err := coll.Writeable().RemoveId(id["_id"]); err != nil {
-					return errors.Trace(err)
-				}
-			} else {
-				ops = append(ops, txn.Op{
-					C:      name,
-					Id:     id["_id"],
-					Remove: true,
-				})
-			}
-		}
 	}
-
 	return st.runTransaction(ops)
+}
+
+// removeAllInCollectionRaw removes all the documents from the given
+// named collection.
+func (st *State) removeAllInCollectionRaw(name string) error {
+	coll, closer := st.getCollection(name)
+	defer closer()
+	_, err := coll.Writeable().RemoveAll(nil)
+	return errors.Trace(err)
+}
+
+// appendRemoveAllInCollectionOps appends to ops operations to
+// remove all the documents in the given named collection.
+func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]txn.Op, error) {
+	coll, closer := st.getCollection(name)
+	defer closer()
+
+	var ids []bson.M
+	err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, id := range ids {
+		ops = append(ops, txn.Op{
+			C:      name,
+			Id:     id["_id"],
+			Remove: true,
+		})
+	}
+	return ops, nil
 }
 
 // ForModel returns a connection to mongo for the specified model. The
@@ -2397,6 +2424,16 @@ func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
 	}}
 
 	return st.runTransaction(ops)
+}
+
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.docID(globalKey + ":" + string(providerId))
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: providerIdDoc{ID: key},
+	}
 }
 
 var tagPrefix = map[byte]string{

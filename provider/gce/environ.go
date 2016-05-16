@@ -68,25 +68,32 @@ type environ struct {
 	supportedArchitectures []string
 }
 
+// Function entry points defined as variables so they can be overridden
+// for testing purposes.
+var (
+	newConnection = func(ecfg *environConfig) (gceConnection, error) {
+		return google.Connect(ecfg.conn, &ecfg.credentials)
+	}
+	destroyEnv = common.Destroy
+	bootstrap  = common.Bootstrap
+)
+
 func newEnviron(cfg *config.Config) (*environ, error) {
-	ecfg, err := newValidConfig(cfg, configDefaults)
+	ecfg, err := newConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
-
 	// Connect and authenticate.
 	conn, err := newConnection(ecfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	env := &environ{
-		name: ecfg.Name(),
-		uuid: ecfg.UUID(),
+	return &environ{
+		name: ecfg.config.Name(),
+		uuid: ecfg.config.UUID(),
 		ecfg: ecfg,
 		gce:  conn,
-	}
-	return env, nil
+	}, nil
 }
 
 // Name returns the name of the environment.
@@ -101,14 +108,10 @@ func (*environ) Provider() environs.EnvironProvider {
 
 // Region returns the CloudSpec to use for the provider, as configured.
 func (env *environ) Region() (simplestreams.CloudSpec, error) {
-	return env.cloudSpec(env.ecfg.region()), nil
-}
-
-func (env *environ) cloudSpec(region string) simplestreams.CloudSpec {
 	return simplestreams.CloudSpec{
-		Region:   region,
+		Region:   env.ecfg.region(),
 		Endpoint: env.ecfg.imageEndpoint(),
-	}
+	}, nil
 }
 
 // SetConfig updates the env's configuration.
@@ -116,31 +119,20 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 
-	if env.ecfg == nil {
-		return errors.New("cannot set config on uninitialized env")
-	}
-
-	if err := env.ecfg.update(cfg); err != nil {
+	ecfg, err := newConfig(cfg, env.ecfg.config)
+	if err != nil {
 		return errors.Annotate(err, "invalid config change")
 	}
+	env.ecfg = ecfg
 	return nil
-}
-
-var newConnection = func(ecfg *environConfig) (gceConnection, error) {
-	connCfg := ecfg.newConnection()
-	auth := ecfg.auth()
-	return google.Connect(connCfg, auth)
 }
 
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
 	env.lock.Lock()
-	cfg := env.ecfg.Config
-	env.lock.Unlock()
-	return cfg
+	defer env.lock.Unlock()
+	return env.ecfg.config
 }
-
-var bootstrap = common.Bootstrap
 
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
@@ -149,8 +141,6 @@ var bootstrap = common.Bootstrap
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return bootstrap(ctx, env, params)
 }
-
-var destroyEnv = common.Destroy
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.

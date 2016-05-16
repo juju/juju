@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"reflect"
@@ -15,24 +15,24 @@ import (
 	"github.com/juju/juju/payload"
 )
 
-var _ = gc.Suite(&envPersistenceSuite{})
+var _ = gc.Suite(&payloadsEnvPersistenceSuite{})
 
-type envPersistenceSuite struct {
-	BaseSuite
+type payloadsEnvPersistenceSuite struct {
+	PayloadsBaseSuite
 
 	base *stubEnvPersistenceBase
 }
 
-func (s *envPersistenceSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *payloadsEnvPersistenceSuite) SetUpTest(c *gc.C) {
+	s.PayloadsBaseSuite.SetUpTest(c)
 
 	s.base = &stubEnvPersistenceBase{
-		PersistenceBase: s.State,
-		stub:            s.Stub,
+		PayloadsPersistenceBase: s.State,
+		stub: s.Stub,
 	}
 }
 
-func (s *envPersistenceSuite) newPayload(name string) payload.FullPayloadInfo {
+func (s *payloadsEnvPersistenceSuite) newPayload(name string) payload.FullPayloadInfo {
 	return payload.FullPayloadInfo{
 		Payload: payload.Payload{
 			PayloadClass: charm.PayloadClass{
@@ -48,7 +48,7 @@ func (s *envPersistenceSuite) newPayload(name string) payload.FullPayloadInfo {
 	}
 }
 
-func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
+func (s *payloadsEnvPersistenceSuite) TestListAllOkay(c *gc.C) {
 	s.base.setUnits("0")
 	s.base.setUnits("1", "a-service/0", "a-service/1")
 	s.base.setUnits("2", "a-service/2")
@@ -56,7 +56,7 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	p2 := s.newPayload("eggs")
 	s.base.setPayloads(p1, p2)
 
-	persist := NewEnvPersistence(s.base)
+	persist := NewPayloadsAllPersistence(s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
 	payloads, err := persist.ListAll()
@@ -80,10 +80,10 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	)
 }
 
-func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
+func (s *payloadsEnvPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	s.base.setUnits("0")
 	s.base.setUnits("1", "a-service/0", "a-service/1")
-	persist := NewEnvPersistence(s.base)
+	persist := NewPayloadsAllPersistence(s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
 	payloads, err := persist.ListAll()
@@ -103,11 +103,11 @@ func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	)
 }
 
-func (s *envPersistenceSuite) TestListAllFailed(c *gc.C) {
+func (s *payloadsEnvPersistenceSuite) TestListAllFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
-	persist := NewEnvPersistence(s.base)
+	persist := NewPayloadsAllPersistence(s.base)
 	persist.newUnitPersist = s.base.newUnitPersistence
 
 	_, err := persist.ListAll()
@@ -151,7 +151,7 @@ func checkPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...
 }
 
 type stubEnvPersistenceBase struct {
-	PersistenceBase
+	PayloadsPersistenceBase
 	stub         *testing.Stub
 	machines     []string
 	units        map[string]map[string]bool
@@ -190,7 +190,7 @@ func (s *stubEnvPersistenceBase) setUnits(machine string, units ...string) {
 	}
 }
 
-func (s *stubEnvPersistenceBase) newUnitPersistence(base PersistenceBase, unit string) unitPersistence {
+func (s *stubEnvPersistenceBase) newUnitPersistence(base PayloadsPersistenceBase, unit string) unitPersistence {
 	s.stub.AddCall("newUnitPersistence", base, unit)
 	s.stub.NextErr() // pop one off
 

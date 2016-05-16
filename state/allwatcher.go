@@ -1095,21 +1095,28 @@ func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	envs, err := b.st.AllModels()
+	models, err := b.st.AllModels()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
-	for _, env := range envs {
-		st, err := b.st.ForModel(env.ModelTag())
-		if err != nil {
+	for _, m := range models {
+		if err := b.loadAllWatcherEntitiesForModel(m, all); err != nil {
 			return errors.Trace(err)
 		}
-		defer st.Close()
+	}
+	return nil
+}
 
-		err = loadAllWatcherEntities(st, b.collectionByName, all)
-		if err != nil {
-			return errors.Annotatef(err, "error loading entities for model %v", env.UUID())
-		}
+func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(m *Model, all *multiwatcherStore) error {
+	st, err := b.st.ForModel(m.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Close()
+
+	err = loadAllWatcherEntities(st, b.collectionByName, all)
+	if err != nil {
+		return errors.Annotatef(err, "error loading entities for model %v", m.UUID())
 	}
 	return nil
 }

@@ -8,7 +8,7 @@ github.com/gabriel-samfira/sys	git	9ddc60d56b511544223adecea68da1e4f2153beb	2015
 github.com/godbus/dbus	git	88765d85c0fdadcd98a54e30694fa4e4f5b51133	2015-01-22T18:02:51Z
 github.com/gorilla/websocket	git	13e4d0621caa4d77fd9aa470ef6d7ab63d1a5e41	2015-09-23T22:29:30Z
 github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-04T20:39:58Z
-github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	2014-05-24T00:08:47Z
+github.com/joyent/gocommon	git	ade826b8b54e81a779ccb29d358a45ba24b7809c	2016-03-20T19:31:33Z
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
