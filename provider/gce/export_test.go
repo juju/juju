@@ -36,10 +36,6 @@ func ParseAvailabilityZones(env *environ, args environs.StartInstanceParams) ([]
 	return env.parseAvailabilityZones(args)
 }
 
-func UnsetEnvConfig(env *environ) {
-	env.ecfg = nil
-}
-
 func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }

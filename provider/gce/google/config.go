@@ -72,15 +72,14 @@ func NewCredentials(values map[string]string) (*Credentials, error) {
 			return nil, errors.NotSupportedf("key %q", k)
 		}
 	}
-
-	if err := creds.Validate(); err == nil {
-		jk, err := creds.buildJSONKey()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		creds.JSONKey = jk
+	if err := creds.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-
+	jk, err := creds.buildJSONKey()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	creds.JSONKey = jk
 	return &creds, nil
 }
 
@@ -173,7 +172,7 @@ func (gc Credentials) Validate() error {
 		return NewMissingConfigValue(OSEnvClientEmail, "ClientEmail")
 	}
 	if _, err := mail.ParseAddress(gc.ClientEmail); err != nil {
-		return NewInvalidConfigValue(OSEnvClientEmail, gc.ClientEmail, err)
+		return NewInvalidConfigValueError(OSEnvClientEmail, gc.ClientEmail, err)
 	}
 	if len(gc.PrivateKey) == 0 {
 		return NewMissingConfigValue(OSEnvPrivateKey, "PrivateKey")
@@ -193,7 +192,7 @@ type ConnectionConfig struct {
 }
 
 // Validate checks the connection's fields for invalid values.
-// If the values are not valid, it returns a config.InvalidConfigValue
+// If the values are not valid, it returns a config.InvalidConfigValueError
 // error with the key set to the corresponding OS environment variable
 // name.
 //
