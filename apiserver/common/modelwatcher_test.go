@@ -36,10 +36,7 @@ type fakeModelAccessor struct {
 }
 
 func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
-	w := apiservertesting.NewFakeNotifyWatcher()
-	// Simulate initial event.
-	w.C <- struct{}{}
-	return w
+	return apiservertesting.NewFakeNotifyWatcher()
 }
 
 func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {

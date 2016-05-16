@@ -51,5 +51,5 @@ func (s singularSecretary) CheckDuration(duration time.Duration) error {
 // SingularClaimer returns a lease.Claimer representing the exclusive right to
 // manage the environment.
 func (st *State) SingularClaimer() lease.Claimer {
-	return st.singularManager
+	return st.workers.SingularManager()
 }

@@ -12,6 +12,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
@@ -46,14 +47,16 @@ func NewAPI(
 // Watch starts watching for an active migration for the model
 // associated with the API connection. The returned id should be used
 // with the NotifyWatcher facade to receive events.
-func (api *API) Watch() (params.NotifyWatchResult, error) {
-	w, err := api.backend.WatchForModelMigration()
-	if err != nil {
-		return params.NotifyWatchResult{}, errors.Trace(err)
+func (api *API) Watch() params.NotifyWatchResult {
+	watch := api.backend.WatchForModelMigration()
+	if _, ok := <-watch.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: api.resources.Register(watch),
+		}
 	}
 	return params.NotifyWatchResult{
-		NotifyWatcherId: api.resources.Register(w),
-	}, nil
+		Error: common.ServerError(watcher.EnsureErr(watch)),
+	}
 }
 
 // GetMigrationStatus returns the details and progress of the latest

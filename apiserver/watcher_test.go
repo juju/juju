@@ -87,7 +87,6 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend))
 	apiserver.PatchGetControllerCACert(s, "no worries")
 
-	w.C <- struct{}{}
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)
 	result, err := facade.Next()
@@ -108,7 +107,6 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("12")
 	apiserver.PatchGetMigrationBackend(s, &fakeMigrationBackend{noMigration: true})
 
-	w.C <- struct{}{}
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)
 	result, err := facade.Next()
