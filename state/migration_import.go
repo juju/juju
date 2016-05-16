@@ -413,8 +413,8 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		Clean:                       true, // check this later
 		Addresses:                   i.makeAddresses(m.ProviderAddresses()),
 		MachineAddresses:            i.makeAddresses(m.MachineAddresses()),
-		PreferredPrivateIPv4Address: i.makeAddress(m.PreferredPrivateAddress()),
-		PreferredPublicIPv4Address:  i.makeAddress(m.PreferredPublicAddress()),
+		PreferredPrivateIPv4Address: i.makeAddress(m.PreferredPrivateIPv4Address()),
+		PreferredPublicIPv4Address:  i.makeAddress(m.PreferredPublicIPv4Address()),
 		SupportedContainersKnown:    supportedSet,
 		SupportedContainers:         supportedContainers,
 		Placement:                   m.Placement(),

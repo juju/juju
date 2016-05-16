@@ -259,7 +259,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	exMachine.SetAddresses(
 		e.newAddressArgsSlice(machine.doc.MachineAddresses),
 		e.newAddressArgsSlice(machine.doc.Addresses))
-	exMachine.SetPreferredAddresses(
+	exMachine.SetPreferredIPv4Addresses(
 		e.newAddressArgs(machine.doc.PreferredPublicIPv4Address),
 		e.newAddressArgs(machine.doc.PreferredPrivateIPv4Address))
 
