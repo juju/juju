@@ -4,6 +4,8 @@
 package statushistory
 
 import (
+	"time"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -22,9 +24,10 @@ func NewFacade(caller base.APICaller) *Facade {
 }
 
 // Prune calls "StatusHistory.Prune"
-func (s *Facade) Prune(maxLogsPerEntity int) error {
+func (s *Facade) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
 	p := params.StatusHistoryPruneArgs{
-		MaxLogsPerEntity: maxLogsPerEntity,
+		MaxHistoryTime: maxHistoryTime,
+		MaxHistoryMB:   maxHistoryMB,
 	}
 	return s.facade.FacadeCall("Prune", p, nil)
 }

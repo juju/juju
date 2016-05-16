@@ -275,8 +275,8 @@ func (f *filesystem) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus is required to implement StatusSetter.
-func (f *filesystem) SetStatus(fsStatus status.Status, info string, data map[string]interface{}) error {
-	return f.st.SetFilesystemStatus(f.FilesystemTag(), fsStatus, info, data)
+func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
+	return f.st.SetFilesystemStatus(f.FilesystemTag(), fsStatus.Status, fsStatus.Message, fsStatus.Data, fsStatus.Since)
 }
 
 // Filesystem is required to implement FilesystemAttachment.
@@ -1140,7 +1140,7 @@ func (st *State) FilesystemStatus(tag names.FilesystemTag) (status.StatusInfo, e
 }
 
 // SetFilesystemStatus sets the status of the specified filesystem.
-func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.Status, info string, data map[string]interface{}) error {
+func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
 	switch fsStatus {
 	case status.StatusAttaching, status.StatusAttached, status.StatusDetaching, status.StatusDetached, status.StatusDestroying:
 	case status.StatusError:
@@ -1168,5 +1168,6 @@ func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.St
 		status:    fsStatus,
 		message:   info,
 		rawData:   data,
+		updated:   updated,
 	})
 }

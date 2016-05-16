@@ -39,6 +39,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 	if len(usernames) > 0 {
 		return nil, errors.Errorf("expected no usernames, got %d", len(usernames))
 	}
+	// lp:1558657
 	now := time.Now().UTC().Round(time.Second)
 	last1 := time.Date(2014, 1, 1, 0, 0, 0, 0, time.UTC)
 	// The extra two seconds here are needed to make sure

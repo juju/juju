@@ -326,6 +326,7 @@ var doOpCall = func(call opDoer) (*compute.Operation, error) {
 // status. It follows the given attempt strategy (e.g. wait time between
 // attempts) and may time out.
 func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attempts utils.AttemptStrategy) error {
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	started := time.Now()
 	logger.Infof("GCE operation %q, waiting...", op.Name)
 	for a := attempts.Start(); a.Next(); {
@@ -340,6 +341,7 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attemp
 		}
 	}
 	if op.Status != StatusDone {
+		// lp:1558657
 		err := errors.Errorf("timed out after %d seconds", time.Now().Sub(started)/time.Second)
 		return waitError{op, err}
 	}

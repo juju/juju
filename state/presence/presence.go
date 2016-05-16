@@ -386,6 +386,7 @@ func (w *Watcher) sync() error {
 			return errors.Trace(err)
 		}
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	s := timeSlot(time.Now(), w.delta)
 	slot := docIDInt64(w.modelUUID, s)
 	previousSlot := docIDInt64(w.modelUUID, s-period)
@@ -618,6 +619,7 @@ func (p *Pinger) killStopped() error {
 	if err := p.prepare(); err != nil {
 		return err
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	slot := timeSlot(time.Now(), p.delta)
 	udoc := bson.D{
 		{"$set", bson.D{{"slot", slot}}},
@@ -700,6 +702,7 @@ func (p *Pinger) ping() (err error) {
 		}
 		p.delta = delta
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	slot := timeSlot(time.Now(), p.delta)
 	if slot == p.lastSlot {
 		// Never, ever, ping the same slot twice.
@@ -737,8 +740,10 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 		if supportsMasterLocalTime {
 			// Try isMaster.localTime, which is present since MongoDB 2.2
 			// and does not require admin privileges.
+			// TODO(perrito666) 2016-05-02 lp:1558657
 			before = time.Now()
 			err := db.Run("isMaster", &isMaster)
+			// TODO(perrito666) 2016-05-02 lp:1558657
 			after = time.Now()
 			if err != nil {
 				return 0, errors.Trace(err)
@@ -763,8 +768,10 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 			// eval could take a relatively long time to acquire
 			// the lock and thus cause a retry on the callDelay
 			// check below on a busy server.
+			// TODO(perrito666) 2016-05-02 lp:1558657
 			before = time.Now()
 			err := db.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
+			// TODO(perrito666) 2016-05-02 lp:1558657
 			after = time.Now()
 			if err != nil {
 				return 0, errors.Trace(err)

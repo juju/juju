@@ -2467,7 +2467,14 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetInstanceStatus(status.StatusUnknown, "missing", nil)
+	// lp:1558657
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  status.StatusUnknown,
+		Message: "missing",
+		Since:   &now,
+	}
+	err = m.SetInstanceStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2706,7 +2713,15 @@ type setUnitStatus struct {
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
+	// lp:1558657
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  sus.status,
+		Message: sus.statusInfo,
+		Data:    sus.statusData,
+		Since:   &now,
+	}
+	err = u.SetStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2720,7 +2735,15 @@ type setAgentStatus struct {
 func (sus setAgentStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(sus.status, sus.statusInfo, sus.statusData)
+	// lp:1558657
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  sus.status,
+		Message: sus.statusInfo,
+		Data:    sus.statusData,
+		Since:   &now,
+	}
+	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2735,9 +2758,21 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	curl := charm.MustParseURL(uc.charm)
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetStatus(status.StatusActive, "", nil)
+	// lp:1558657
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: "",
+		Since:   &now,
+	}
+	err = u.SetStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(status.StatusIdle, "", nil)
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -2800,9 +2835,16 @@ type setMachineStatus struct {
 }
 
 func (sms setMachineStatus) step(c *gc.C, ctx *context) {
+	// lp:1558657
+	now := time.Now()
 	m, err := ctx.st.Machine(sms.machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetStatus(sms.status, sms.statusInfo, nil)
+	sInfo := status.StatusInfo{
+		Status:  sms.status,
+		Message: sms.statusInfo,
+		Since:   &now,
+	}
+	err = m.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -234,6 +234,7 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	var streamMetadata = map[string][]*tools.ToolsMetadata{
 		stream: metadata,
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 

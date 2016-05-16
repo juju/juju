@@ -374,7 +374,7 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "globalkey"},
+				Key: []string{"model-uuid", "globalkey", "updated"},
 			}},
 		},
 

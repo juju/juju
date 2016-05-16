@@ -190,7 +190,8 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				if statusInfo, err := m.Status(); err != nil {
 					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
 				} else {
-					machineStatus = statusInfo.Status
+					// TODO(perrito666) add status validation.
+					machineStatus = status.Status(statusInfo.Status)
 				}
 			}
 			// the extra condition below (checking allocating/pending) is here to improve user experience
@@ -252,8 +253,9 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
 		instInfo.status = instance.InstanceStatus{status.StatusUnknown, ""}
 	} else {
+		// TODO(perrito666) add status validation.
 		currentInstStatus := instance.InstanceStatus{
-			Status:  instStat.Status,
+			Status:  status.Status(instStat.Status),
 			Message: instStat.Info,
 		}
 		if instInfo.status != currentInstStatus {

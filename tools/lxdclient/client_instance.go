@@ -16,13 +16,16 @@ import (
 	"github.com/juju/juju/network"
 )
 
+type Device map[string]string
+type Devices map[string]Device
+
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
 
 type rawInstanceClient interface {
 	ListContainers() ([]shared.ContainerInfo, error)
 	ContainerInfo(name string) (*shared.ContainerInfo, error)
-	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, ephem bool) (*lxd.Response, error)
+	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, devices shared.Devices, ephem bool) (*lxd.Response, error)
 	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*lxd.Response, error)
 	Delete(name string) (*lxd.Response, error)
 
@@ -51,7 +54,7 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	// TODO(ericsnow) Copy the image first?
 
 	config := spec.config()
-	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, spec.Ephemeral)
+	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, copyDevices(spec.Devices), spec.Ephemeral)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -281,4 +284,20 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 		}
 	}
 	return addrs, nil
+}
+
+func copyDevices(in Devices) (out shared.Devices) {
+	out = make(shared.Devices, len(in))
+	for name, device := range in {
+		out[name] = copyDevice(device)
+	}
+	return
+}
+
+func copyDevice(in Device) (out shared.Device) {
+	out = make(shared.Device, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return
 }

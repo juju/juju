@@ -12,6 +12,7 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/network"
 )
 
@@ -27,6 +28,51 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
+}
+
+func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
+	s.stubAPI.SetErrors(errors.New("AWS failed!"))
+
+	err := validateBootstrapVPC(s.stubAPI, "region", anyVPCID, false, envtesting.BootstrapContext(c))
+	s.checkErrorMatchesCannotVerifyVPC(c, err)
+
+	s.stubAPI.CheckCallNames(c, "VPCs")
+}
+
+func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
+	expectedError := `Juju could not verify whether the given vpc-id(.|\n)*AWS failed!`
+	c.Check(err, gc.ErrorMatches, expectedError)
+}
+
+func (s *vpcSuite) TestValidateModelVPCUnexpectedError(c *gc.C) {
+	s.stubAPI.SetErrors(errors.New("AWS failed!"))
+
+	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
+	s.checkErrorMatchesCannotVerifyVPC(c, err)
+
+	s.stubAPI.CheckCallNames(c, "VPCs")
+}
+
+func (s *vpcSuite) TestValidateModelVPCNotUsableError(c *gc.C) {
+	s.stubAPI.SetErrors(makeVPCNotFoundError("foo"))
+
+	err := validateModelVPC(s.stubAPI, "model", "foo")
+	expectedError := `Juju cannot use the given vpc-id for the model being added(.|\n)*vpc ID 'foo' does not exist.*`
+	c.Check(err, gc.ErrorMatches, expectedError)
+	c.Check(err, jc.Satisfies, isVPCNotUsableError)
+
+	s.stubAPI.CheckCallNames(c, "VPCs")
+}
+
+func (s *vpcSuite) TestValidateModelVPCIDNotSetOrNone(c *gc.C) {
+	const emptyVPCID = ""
+	err := validateModelVPC(s.stubAPI, "model", emptyVPCID)
+	c.Check(err, jc.ErrorIsNil)
+
+	err = validateModelVPC(s.stubAPI, "model", vpcIDNone)
+	c.Check(err, jc.ErrorIsNil)
+
+	s.stubAPI.CheckNoCalls(c)
 }
 
 // NOTE: validateVPC tests only verify expected error types for all code paths,
@@ -121,6 +167,30 @@ func (s *vpcSuite) TestValidateVPCSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets", "InternetGateways", "RouteTables")
+}
+
+func (s *vpcSuite) TestValidateModelVPCSuccess(c *gc.C) {
+	s.stubAPI.PrepareValidateVPCResponses()
+
+	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets", "InternetGateways", "RouteTables")
+	c.Check(c.GetTestLog(), jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
+}
+
+func (s *vpcSuite) TestValidateModelVPCNotRecommendedStillOK(c *gc.C) {
+	s.stubAPI.PrepareValidateVPCResponses()
+	s.stubAPI.SetSubnetsResponse(1, anyZone, noPublicIPOnLaunch)
+
+	err := validateModelVPC(s.stubAPI, "model", anyVPCID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets")
+	testLog := c.GetTestLog()
+	c.Check(testLog, jc.Contains, `WARNING juju.provider.ec2 Juju will use, but does not recommend `+
+		`using VPC "vpc-anything": VPC contains no public subnets`)
+	c.Check(testLog, jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
 }
 
 func (s *vpcSuite) TestGetVPCByIDWithMissingID(c *gc.C) {

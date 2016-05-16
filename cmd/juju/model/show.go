@@ -99,6 +99,7 @@ func (c *showModelCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *showModelCommand) apiModelInfoToModelInfoMap(modelInfo []params.ModelInfo) (map[string]common.ModelInfo, error) {
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	output := make(map[string]common.ModelInfo)
 	for _, info := range modelInfo {

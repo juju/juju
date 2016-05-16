@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -34,6 +35,8 @@ type InstancePollerSuite struct {
 
 	mixedEntities     params.Entities
 	mixedErrorResults params.ErrorResults
+
+	clock clock.Clock
 }
 
 var _ = gc.Suite(&InstancePollerSuite{})
@@ -51,7 +54,8 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	instancepoller.PatchState(s, s.st)
 
 	var err error
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.resources, s.authoriser)
+	s.clock = coretesting.NewClock(time.Now())
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.resources, s.authoriser, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -94,7 +98,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.EnvironManager = false
-	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser)
+	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser, s.clock)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -356,7 +360,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{
-				Status: status.StatusError,
+				Status: status.StatusError.String(),
 				Info:   s1.Message,
 				Data:   s1.Data,
 				Since:  s1.Since,
@@ -536,8 +540,8 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: status.Status("foo")},
-			{Status: status.Status("")},
+			{Status: "foo"},
+			{Status: ""},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
@@ -587,36 +591,41 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 
 	result, err := s.api.SetInstanceStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: status.Status("")},
-			{Tag: "machine-2", Status: status.Status("new status")},
-			{Tag: "machine-42", Status: status.Status("")},
-			{Tag: "service-unknown", Status: status.Status("")},
-			{Tag: "invalid-tag", Status: status.Status("")},
-			{Tag: "unit-missing-1", Status: status.Status("")},
-			{Tag: "", Status: status.Status("")},
-			{Tag: "42", Status: status.Status("")},
+			{Tag: "machine-1", Status: ""},
+			{Tag: "machine-2", Status: "new status"},
+			{Tag: "machine-42", Status: ""},
+			{Tag: "service-unknown", Status: ""},
+			{Tag: "invalid-tag", Status: ""},
+			{Tag: "unit-missing-1", Status: ""},
+			{Tag: "", Status: ""},
+			{Tag: "42", Status: ""},
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
+	now := s.clock.Now()
 	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "SetInstanceStatus", status.Status(""))
+	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: status.Status(""), Since: &now})
 	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "SetInstanceStatus", status.Status("new status"))
+	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: status.Status("new status"), Since: &now})
 	s.st.CheckFindEntityCall(c, 4, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO (perrito666) there should not be an empty StatusInfo here,
+	// this is certainly a smell.
 	setStatus, err := machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
+	setStatus.Since = nil
 	c.Assert(setStatus, gc.DeepEquals, status.StatusInfo{})
 
 	machine, err = s.st.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	setStatus, err = machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
+	setStatus.Since = nil
 	c.Assert(setStatus, gc.DeepEquals, status.StatusInfo{Status: "new status"})
 }
 
@@ -632,9 +641,9 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 
 	result, err := s.api.SetInstanceStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: status.Status("new")},
-			{Tag: "machine-2", Status: status.Status("invalid")},
-			{Tag: "machine-3", Status: status.Status("")},
+			{Tag: "machine-1", Status: "new"},
+			{Tag: "machine-2", Status: "invalid"},
+			{Tag: "machine-3", Status: ""},
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -642,7 +651,8 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "SetInstanceStatus", status.Status("invalid"))
+	now := s.clock.Now()
+	s.st.CheckCall(c, 2, "SetInstanceStatus", status.StatusInfo{Status: "invalid", Since: &now})
 	s.st.CheckFindEntityCall(c, 3, "3")
 }
 

@@ -71,10 +71,11 @@ type ManifoldsConfig struct {
 	// revision worker will check for new revisions of known charms.
 	CharmRevisionUpdateInterval time.Duration
 
-	// EntityStatusHistory* values control status-history pruning
-	// behaviour per entity.
-	EntityStatusHistoryCount    uint
-	EntityStatusHistoryInterval time.Duration
+	// StatusHistoryPruner* values control status-history pruning
+	// behaviour.
+	StatusHistoryPrunerMaxHistoryTime time.Duration
+	StatusHistoryPrunerMaxHistoryMB   uint
+	StatusHistoryPrunerInterval       time.Duration
 
 	// SpacesImportedGate will be unlocked when spaces are known to
 	// have been imported.
@@ -236,9 +237,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
-			APICallerName:    apiCallerName,
-			MaxLogsPerEntity: config.EntityStatusHistoryCount,
-			PruneInterval:    config.EntityStatusHistoryInterval,
+			APICallerName:  apiCallerName,
+			MaxHistoryTime: config.StatusHistoryPrunerMaxHistoryTime,
+			MaxHistoryMB:   config.StatusHistoryPrunerMaxHistoryMB,
+			PruneInterval:  config.StatusHistoryPrunerInterval,
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),

@@ -5,11 +5,13 @@ package ec2
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -18,13 +20,20 @@ const (
 	availableState        = "available"
 	localRouteGatewayID   = "local"
 	defaultRouteCIDRBlock = "0.0.0.0/0"
-	defaultVPCIDNone      = "none"
+	vpcIDNone             = "none"
 )
 
 var (
-	vpcNotUsableErrorPrefix = `
+	vpcNotUsableForBootstrapErrorPrefix = `
 Juju cannot use the given vpc-id for bootstrapping a controller
 instance. Please, double check the given VPC ID is correct, and that
+the VPC contains at least one subnet.
+
+Error details`[1:]
+
+	vpcNotUsableForModelErrorPrefix = `
+Juju cannot use the given vpc-id for the model being added.
+Please double check the given VPC ID is correct, and that
 the VPC contains at least one subnet.
 
 Error details`[1:]
@@ -279,7 +288,15 @@ func getVPCSubnets(apiClient vpcAPIClient, vpc *ec2.VPC) ([]ec2.Subnet, error) {
 
 func findFirstPublicSubnet(subnets []ec2.Subnet) (*ec2.Subnet, error) {
 	for _, subnet := range subnets {
-		if subnet.MapPublicIPOnLaunch {
+		// TODO(dimitern): goamz's AddDefaultVPCAndSubnets() does not set
+		// MapPublicIPOnLaunch only DefaultForAZ, but in reality the former is
+		// always set when the latter is. Until this is fixed in goamz, we check
+		// for both below to allow testing the behavior.
+		if subnet.MapPublicIPOnLaunch || subnet.DefaultForAZ {
+			logger.Debugf(
+				"VPC %q subnet %q has MapPublicIPOnLaunch=%v, DefaultForAZ=%v",
+				subnet.VPCId, subnet.Id, subnet.MapPublicIPOnLaunch, subnet.DefaultForAZ,
+			)
 			return &subnet, nil
 		}
 
@@ -412,7 +429,7 @@ func findDefaultVPCID(apiClient vpcAPIClient) (string, error) {
 	}
 
 	firstAttributeValue := response.Attributes[0].Values[0]
-	if firstAttributeValue == defaultVPCIDNone {
+	if firstAttributeValue == vpcIDNone {
 		return "", errors.NotFoundf("default VPC")
 	}
 
@@ -464,4 +481,67 @@ func findSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[networ
 	}
 
 	return matchingSubnetIDs.SortedValues(), nil
+}
+
+func isVPCIDSetButInvalid(vpcID string) bool {
+	return isVPCIDSet(vpcID) && !strings.HasPrefix(vpcID, "vpc-")
+}
+
+func isVPCIDSet(vpcID string) bool {
+	return vpcID != "" && vpcID != vpcIDNone
+}
+
+func validateBootstrapVPC(apiClient vpcAPIClient, region, vpcID string, forceVPCID bool, ctx environs.BootstrapContext) error {
+	if vpcID == vpcIDNone {
+		ctx.Infof("Using EC2-classic features or default VPC in region %q", region)
+	}
+	if !isVPCIDSet(vpcID) {
+		return nil
+	}
+
+	err := validateVPC(apiClient, vpcID)
+	switch {
+	case isVPCNotUsableError(err):
+		// VPC missing or has no subnets at all.
+		return errors.Annotate(err, vpcNotUsableForBootstrapErrorPrefix)
+	case isVPCNotRecommendedError(err):
+		// VPC does not meet minumum validation criteria.
+		if !forceVPCID {
+			return errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
+		}
+		ctx.Infof(vpcNotRecommendedButForcedWarning)
+	case err != nil:
+		// Anything else unexpected while validating the VPC.
+		return errors.Annotate(err, cannotValidateVPCErrorPrefix)
+	}
+
+	ctx.Infof("Using VPC %q in region %q", vpcID, region)
+
+	return nil
+}
+
+func validateModelVPC(apiClient vpcAPIClient, modelName, vpcID string) error {
+	if !isVPCIDSet(vpcID) {
+		return nil
+	}
+
+	err := validateVPC(apiClient, vpcID)
+	switch {
+	case isVPCNotUsableError(err):
+		// VPC missing or has no subnets at all.
+		return errors.Annotate(err, vpcNotUsableForModelErrorPrefix)
+	case isVPCNotRecommendedError(err):
+		// VPC does not meet minumum validation criteria, but that's less
+		// important for hosted models, as the controller is already accessible.
+		logger.Warningf(
+			"Juju will use, but does not recommend using VPC %q: %v",
+			vpcID, err.Error(),
+		)
+	case err != nil:
+		// Anything else unexpected while validating the VPC.
+		return errors.Annotate(err, cannotValidateVPCErrorPrefix)
+	}
+	logger.Infof("Using VPC %q for model %q", vpcID, modelName)
+
+	return nil
 }

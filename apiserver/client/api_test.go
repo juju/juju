@@ -108,11 +108,17 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(statuSettable status.Status, info string, data map[string]interface{}) error
+	SetStatus(status.StatusInfo) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(status.StatusStarted, "", nil)
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  status.StatusStarted,
+		Message: "",
+		Since:   &now,
+	}
+	err := entity.SetStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -164,7 +170,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending,
+				Status: status.StatusPending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -181,7 +187,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending,
+				Status: status.StatusPending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -198,7 +204,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending,
+				Status: status.StatusPending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -431,7 +437,14 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			err := wu.SetAgentStatus(status.StatusError, "blam", sd)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusError,
+				Message: "blam",
+				Data:    sd,
+				Since:   &now,
+			}
+			err := wu.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 

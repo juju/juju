@@ -58,7 +58,7 @@ func (c *Client) RemoveModel() error {
 func (c *Client) SetStatus(status status.Status, message string, data map[string]interface{}) error {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{c.modelTag.String(), status, message, data},
+			{c.modelTag.String(), status.String(), message, data},
 		},
 	}
 	var results params.ErrorResults

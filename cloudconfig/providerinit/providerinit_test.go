@@ -172,6 +172,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
