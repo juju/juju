@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package persistence_test
 
 import (
 	"fmt"
@@ -14,13 +14,13 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/payload"
-	persistence "github.com/juju/juju/state"
+	"github.com/juju/juju/payload/persistence"
 )
 
 var _ = gc.Suite(&payloadsPersistenceSuite{})
 
 type payloadsPersistenceSuite struct {
-	persistence.PayloadsBaseSuite
+	persistence.BaseSuite
 }
 
 func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {

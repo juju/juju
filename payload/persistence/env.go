@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package persistence
 
 import (
 	"github.com/juju/errors"
@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/payload"
 )
 
-// PayloadsEnvPersistenceBase provides all the information needed to produce
-// a new PayloadsAllPersistence value.
-type PayloadsEnvPersistenceBase interface {
-	PayloadsPersistenceBase
+// EnvPersistenceBase provides all the information needed to produce
+// a new EnvPersistence value.
+type EnvPersistenceBase interface {
+	PersistenceBase
 
 	// Machines builds the list of the names that identify
 	// all machines in State.
@@ -30,28 +30,28 @@ type unitPersistence interface {
 	ListAll() ([]payload.Payload, error)
 }
 
-// PayloadsAllPersistence provides the persistence functionality for the
+// EnvPersistence provides the persistence functionality for the
 // Juju environment as a whole.
-type PayloadsAllPersistence struct {
-	base PayloadsEnvPersistenceBase
+type EnvPersistence struct {
+	base EnvPersistenceBase
 
-	newUnitPersist func(base PayloadsPersistenceBase, name string) unitPersistence
+	newUnitPersist func(base PersistenceBase, name string) unitPersistence
 }
 
-// NewPayloadsAllPersistence wraps the base in a new PayloadsAllPersistence.
-func NewPayloadsAllPersistence(base PayloadsEnvPersistenceBase) *PayloadsAllPersistence {
-	return &PayloadsAllPersistence{
+// NewEnvPersistence wraps the base in a new EnvPersistence.
+func NewEnvPersistence(base EnvPersistenceBase) *EnvPersistence {
+	return &EnvPersistence{
 		base:           base,
 		newUnitPersist: newUnitPersistence,
 	}
 }
 
-func newUnitPersistence(base PayloadsPersistenceBase, unit string) unitPersistence {
-	return NewPayloadsPersistence(base, unit)
+func newUnitPersistence(base PersistenceBase, unit string) unitPersistence {
+	return NewPersistence(base, unit)
 }
 
 // ListAll returns the list of all payloads in the environment.
-func (ep *PayloadsAllPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
+func (ep *EnvPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
 	machines, err := ep.base.Machines()
@@ -69,7 +69,7 @@ func (ep *PayloadsAllPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 		for _, unit := range units {
 			persist := ep.newUnitPersist(ep.base, unit)
 
-			unitPayloads, err := listUnitPayloads(persist, unit, machine)
+			unitPayloads, err := listUnit(persist, unit, machine)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -79,8 +79,8 @@ func (ep *PayloadsAllPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	return payloads, nil
 }
 
-// listUnitPayloads returns all the payloads for the given unit.
-func listUnitPayloads(persist unitPersistence, unit, machine string) ([]payload.FullPayloadInfo, error) {
+// listUnit returns all the payloads for the given unit.
+func listUnit(persist unitPersistence, unit, machine string) ([]payload.FullPayloadInfo, error) {
 	payloads, err := persist.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
