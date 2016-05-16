@@ -296,7 +296,7 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 		},
 	}
 	m.SetAddresses(addrArgs, addrArgs)
-	m.SetPreferredAddresses(addrArgs[0], addrArgs[1])
+	m.SetPreferredIPv4Addresses(addrArgs[0], addrArgs[1])
 
 	// Make sure the machine is valid.
 	c.Assert(m.Validate(), jc.ErrorIsNil)
