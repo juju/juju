@@ -68,6 +68,10 @@ const (
 	singularControllerNamespace = "singular-controller"
 )
 
+type providerIdDoc struct {
+	ID string `bson:"_id"` // format: "<model-uuid>:<global-key>:<provider-id>"
+}
+
 // State represents the state of an model
 // managed by juju.
 type State struct {
@@ -2420,6 +2424,16 @@ func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
 	}}
 
 	return st.runTransaction(ops)
+}
+
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.docID(globalKey + ":" + string(providerId))
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: providerIdDoc{ID: key},
+	}
 }
 
 var tagPrefix = map[byte]string{
