@@ -149,7 +149,7 @@ func (s *Subnet) Remove() (err error) {
 		id := s.st.networkEntityGlobalKey("subnet", s.ProviderId())
 		ops = append(ops, txn.Op{
 			C:      providerIDsC,
-			Id:     network.Id(id),
+			Id:     id,
 			Remove: true,
 		})
 	}
@@ -387,39 +387,42 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	if err != nil {
 		return nil, err
 	}
-	ops := []txn.Op{
-		assertModelActiveOp(st.ModelUUID()),
-		{
-			C:      subnetsC,
-			Id:     subnetID,
-			Assert: txn.DocMissing,
-			Insert: subDoc,
-		},
-	}
-	if args.ProviderId != "" {
-		ops = append(ops, st.networkEntityGlobalKeyOp("subnet", args.ProviderId))
-	}
 
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if err := checkModelActive(st); err != nil {
-			return nil, errors.Trace(err)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops := []txn.Op{
+			assertModelActiveOp(st.ModelUUID()),
+			{
+				C:      subnetsC,
+				Id:     subnetID,
+				Assert: txn.DocMissing,
+				Insert: subDoc,
+			},
 		}
-		if _, err = st.Subnet(args.CIDR); err == nil {
-			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+		if args.ProviderId != "" {
+			ops = append(ops, st.networkEntityGlobalKeyOp("subnet", args.ProviderId))
 		}
-		if err := subnet.Refresh(); err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+
+		if attempt != 0 {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
 			}
-			return nil, errors.Trace(err)
+			if _, err = st.Subnet(args.CIDR); err == nil {
+				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+			}
+			if err := subnet.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
 		}
-		return nil, errors.Trace(err)
-	case nil:
-		return subnet, nil
+		return ops, nil
 	}
-	return nil, errors.Trace(err)
+	err = st.run(buildTxn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return subnet, nil
 }
 
 func (st *State) Subnet(cidr string) (*Subnet, error) {
