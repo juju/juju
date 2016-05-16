@@ -20,10 +20,6 @@ var logger = loggo.GetLogger("juju.payload.persistence")
 
 // TODO(ericsnow) Store status in the status collection?
 
-// TODO(ericsnow) Implement persistence using a TXN abstraction (used
-// in the business logic) with ops factories available from the
-// persistence layer.
-
 // TODO(ericsnow) Move PersistenceBase to the components package?
 
 // PersistenceBase exposes the core persistence functionality needed
