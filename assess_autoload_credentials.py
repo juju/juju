@@ -345,9 +345,9 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
     credentials_file = os.path.join(tmp_dir, '.novarc')
     with open(credentials_file, 'w') as f:
         credentials = dedent("""\
-        OS_USERNAME={user}
-        OS_PASSWORD={password}
-        OS_TENANT_NAME={tenant_name}
+        export OS_USERNAME={user}
+        export OS_PASSWORD={password}
+        export OS_TENANT_NAME={tenant_name}
         """.format(
             user=user,
             password=credential_details['os_password'],
