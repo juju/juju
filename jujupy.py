@@ -219,6 +219,8 @@ class EnvJujuClient:
     # What feature flags are used by this version of the juju client.
     used_feature_flags = frozenset(['address-allocation'])
 
+    destroy_model_command = 'destroy-model'
+
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
 
@@ -1450,6 +1452,8 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
     bootstrap_replaces = frozenset()
+
+    destroy_model_command = 'destroy-environment'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
