@@ -300,13 +300,9 @@ func allCollections() collectionSchema {
 		// TODO(dimitern): End of obsolete networking collections.
 		providerIDsC: {},
 		spacesC:      {},
-		subnetsC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
+		subnetsC:     {},
+		// TODO(mfoord): remove providerid indices here and switch to
+		// using providerIDsC to track unique provider ids.
 		linkLayerDevicesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
