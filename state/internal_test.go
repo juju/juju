@@ -8,7 +8,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -39,9 +38,6 @@ func getInfo() *mongo.MongoInfo {
 }
 
 func (s *internalStateSuite) SetUpSuite(c *gc.C) {
-	txn.SetLogger(c)
-	txn.SetDebug(true)
-
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 	s.owner = names.NewLocalUserTag("test-admin")
@@ -60,19 +56,20 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 	st, err := Open(s.model, getInfo(), mongotest.DialOpts(), nil)
+	c.Logf("opening state")
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	s.AddCleanup(func(c *gc.C) {
-		c.Logf("closing state")
 		s.state.Close()
+		c.Logf("state closed")
 	})
 }
 
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	c.Logf("repopulating model")
 	err := PopulateEmptyModel(s.state, s.owner, getInfo(), testing.ModelConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("leaving internalStateSuite.TearDownTest")
+	s.BaseSuite.TearDownTest(c)
 }
