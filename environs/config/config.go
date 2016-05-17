@@ -768,14 +768,17 @@ func (c *Config) ControllerUUID() string {
 // DefaultSeries returns the configured default Ubuntu series for the environment,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
-	if s, ok := c.defined["default-series"]; ok {
-		if series, ok := s.(string); ok && series != "" {
-			return series, true
-		} else if !ok {
-			logger.Warningf("invalid default-series: %q", s)
-		}
+	s, ok := c.defined["default-series"]
+	if !ok {
+		return "", false
 	}
-	return "", false
+	switch s := s.(type) {
+	case string:
+		return s, s != ""
+	default:
+		logger.Errorf("invalid default-series: %q", s)
+		return "", false
+	}
 }
 
 // StatePort returns the controller port for the environment.
@@ -1448,11 +1451,11 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 func (cfg *Config) GenerateControllerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return "", "", fmt.Errorf("model configuration has no ca-cert")
+		return "", "", errors.New("model configuration has no ca-cert")
 	}
 	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCAKey {
-		return "", "", fmt.Errorf("model configuration has no ca-private-key")
+		return "", "", errors.New("model configuration has no ca-private-key")
 	}
 	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }

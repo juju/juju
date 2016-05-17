@@ -199,7 +199,10 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 	// Update the agent config if necessary; this should just read the
 	// conn's properties, rather than making api calls, so we don't
 	// need to think about facades yet.
-	maybeSetAgentModelTag(a, conn)
+	if err := maybeSetAgentModelTag(a, conn); err != nil {
+		// apperently it's fine for this to fail
+		logger.Errorf("maybeSetAgentModelTag failed: %v", err)
+	}
 
 	// newConnFacade is patched out in export_test, because exhaustion.
 	// proper config/params struct would be better.
@@ -255,7 +258,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 // it's missing a model tag. It doesn't *really* matter if it fails,
 // because we can demonstrably connect without it, so we log any
 // errors encountered and never return any to the client.
-func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) {
+func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) error {
 	if a.CurrentConfig().Model().Id() == "" {
 		err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
 			modelTag, err := conn.ModelTag()
@@ -266,11 +269,9 @@ func maybeSetAgentModelTag(a agent.Agent, conn api.Connection) {
 				Model: modelTag,
 			})
 		})
-		if err != nil {
-			logger.Warningf("unable to save model uuid: %v", err)
-			// Not really fatal, just annoying.
-		}
+		return errors.Annotate(err, "unable to save model uuid")
 	}
+	return nil
 }
 
 // changePassword generates a new random password and records it in
