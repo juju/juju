@@ -33,6 +33,7 @@ type handlerSuite struct {
 	resources      dt.StubResources
 	recorder       *dummyRecorder
 	listener       *mockListener
+	mockReadCharm  *mockReadCharm
 }
 
 var _ = gc.Suite(&handlerSuite{})
@@ -88,15 +89,8 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 			}, nil
 		},
 	)
-	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
-			return corecharm.MustParseURL("local:trusty/metered-1"),
-				map[string]corecharm.Metric{
-					"pings":      corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute},
-					"juju-units": corecharm.Metric{},
-				}, nil
-		},
-	)
+	s.mockReadCharm = &mockReadCharm{}
+	s.PatchValue(collect.ReadCharm, s.mockReadCharm.ReadCharm)
 	s.listener = &mockListener{}
 	s.PatchValue(collect.NewSocketListener, collect.NewSocketListenerFnc(s.listener))
 }
@@ -126,6 +120,27 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 	responseString := strings.Trim(string(conn.data), " \n\t")
 	c.Assert(responseString, gc.Equals, "ok")
 	c.Assert(s.recorder.batches, gc.HasLen, 1)
+
+	worker.Kill()
+	err = worker.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+	s.listener.CheckCall(c, 0, "Stop")
+}
+
+func (s *handlerSuite) TestReadCharmCalledOnEachTrigger(c *gc.C) {
+	worker, err := s.manifold.Start(s.resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+	c.Assert(s.listener.Calls(), gc.HasLen, 0)
+
+	_, err = s.listener.trigger()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.listener.trigger()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchValue(collect.ReadCharm, s.mockReadCharm.ReadCharm)
+	// Expect 3 calls to ReadCharm, one on start and one per handler call
+	s.mockReadCharm.CheckCallNames(c, "ReadCharm", "ReadCharm", "ReadCharm")
 
 	worker.Kill()
 	err = worker.Wait()
@@ -213,4 +228,17 @@ type mockMetricFactory struct {
 // Recorder implements the spool.MetricFactory interface.
 func (f *mockMetricFactory) Recorder(metrics map[string]corecharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
 	return f.recorder, nil
+}
+
+type mockReadCharm struct {
+	testing.Stub
+}
+
+func (m *mockReadCharm) ReadCharm(unitTag names.UnitTag, paths context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+	m.MethodCall(m, "ReadCharm", unitTag, paths)
+	return corecharm.MustParseURL("local:trusty/metered-1"),
+		map[string]corecharm.Metric{
+			"pings":      corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute},
+			"juju-units": corecharm.Metric{},
+		}, nil
 }
