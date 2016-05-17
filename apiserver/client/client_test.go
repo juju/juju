@@ -1168,7 +1168,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:      "foo",
 			HardwareCharacteristics: hc,
-			Addrs: params.FromNetworkAddresses(addrs),
+			Addrs: params.FromNetworkAddresses(addrs...),
 		}
 	}
 	// This will cause the last add-machine to fail.
