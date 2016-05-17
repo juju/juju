@@ -18,7 +18,7 @@ import (
 )
 
 // ControllerModelName is the name of the admin model in each controller.
-const ControllerModelName = "admin"
+const ControllerModelName = "controller"
 
 // AdminUser is the initial admin user created for all controllers.
 const AdminUser = "admin@local"
