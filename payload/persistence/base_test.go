@@ -47,8 +47,9 @@ func (s *BaseSuite) NewDoc(id string, pl payload.FullPayloadInfo) *payloadDoc {
 		MachineID: pl.Machine,
 		StateID:   id,
 		Type:      pl.Type,
-		RawID:     pl.ID,
 		State:     pl.Status,
+		Labels:    append([]string{}, pl.Labels...),
+		RawID:     pl.ID,
 	}
 }
 
@@ -64,7 +65,7 @@ func (s *BaseSuite) RemoveDoc(name string) {
 }
 
 func (s *BaseSuite) NewPersistence() *Persistence {
-	return NewPersistence(s.State, s.Unit)
+	return NewPersistence(s.State)
 }
 
 func (s *BaseSuite) SetUnit(id string) {

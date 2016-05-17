@@ -1,10 +1,11 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package persistence_test
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 
 	"github.com/juju/errors"
@@ -23,13 +24,49 @@ type payloadsPersistenceSuite struct {
 	persistence.BaseSuite
 }
 
+func (s *payloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
+	p1 := s.NewPayload("docker", "spam/spam-xyz")
+	p1.Labels = []string{"a-tag"}
+	s.SetDoc("0", p1)
+	p2 := s.NewPayload("docker", "eggs/eggs-xyz")
+	p2.Labels = []string{"a-tag"}
+	s.SetDoc("0", p2)
+	persist := s.NewPersistence()
+
+	payloads, err := persist.ListAll()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkPayloads(c, payloads, p1, p2)
+	s.Stub.CheckCallNames(c, "All")
+}
+
+func (s *payloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
+	persist := s.NewPersistence()
+
+	payloads, err := persist.ListAll()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(payloads, gc.HasLen, 0)
+	s.Stub.CheckCallNames(c, "All")
+}
+
+func (s *payloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
+	failure := errors.Errorf("<failed!>")
+	s.Stub.SetErrors(failure)
+	persist := s.NewPersistence()
+
+	_, err := persist.ListAll()
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
 func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	id := "payload#a-unit/0#payloadA"
 	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
 
 	wp := s.NewPersistence()
 	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	err := wp.Track(stID, pl)
+	err := wp.Track("a-unit/0", stID, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -59,7 +96,7 @@ func (s *payloadsPersistenceSuite) TestTrackIDAlreadyExists(c *gc.C) {
 	s.SetDoc(stID, pl)
 
 	wp := s.NewPersistence()
-	err := wp.Track(stID, pl)
+	err := wp.Track("a-unit/0", stID, pl)
 
 	s.Stub.CheckCallNames(c, "Run", "All")
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrAlreadyExists)
@@ -74,7 +111,7 @@ func (s *payloadsPersistenceSuite) TestTrackNameAlreadyExists(c *gc.C) {
 	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	wp := s.NewPersistence()
-	err := wp.Track(stID, pl)
+	err := wp.Track("a-unit/0", stID, pl)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 	s.Stub.CheckCallNames(c, "Run", "All", "All")
@@ -104,7 +141,7 @@ func (s *payloadsPersistenceSuite) TestTrackLookupFailed(c *gc.C) {
 	pl := s.NewPayload("docker", "payloadA")
 
 	pp := s.NewPersistence()
-	err := pp.Track(id, pl)
+	err := pp.Track("a-unit/0", id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -117,7 +154,7 @@ func (s *payloadsPersistenceSuite) TestTrackInsertFailed(c *gc.C) {
 	pl := s.NewPayload("docker", "payloadA")
 
 	pp := s.NewPersistence()
-	err := pp.Track(id, pl)
+	err := pp.Track("a-unit/0", id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -130,7 +167,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	s.SetDoc(stID, pl)
 
 	pp := s.NewPersistence()
-	err := pp.SetStatus(stID, payload.StateRunning)
+	err := pp.SetStatus("a-unit/0", stID, payload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -157,7 +194,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	err := pp.SetStatus(id, payload.StateRunning)
+	err := pp.SetStatus("a-unit/0", id, payload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -172,7 +209,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	err := pp.SetStatus(id, payload.StateRunning)
+	err := pp.SetStatus("a-unit/0", id, payload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.State.CheckOps(c, nil)
@@ -186,7 +223,7 @@ func (s *payloadsPersistenceSuite) TestListOkay(c *gc.C) {
 	s.SetDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
 
 	pp := s.NewPersistence()
-	payloads, missing, err := pp.List(id)
+	payloads, missing, err := pp.List("a-unit/0", id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
@@ -204,7 +241,7 @@ func (s *payloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 
 	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
 	pp := s.NewPersistence()
-	payloads, missing, err := pp.List(id, missingID)
+	payloads, missing, err := pp.List("a-unit/0", id, missingID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
@@ -216,7 +253,7 @@ func (s *payloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 func (s *payloadsPersistenceSuite) TestListEmpty(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pp := s.NewPersistence()
-	payloads, missing, err := pp.List(id)
+	payloads, missing, err := pp.List("a-unit/0", id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
@@ -230,19 +267,19 @@ func (s *payloadsPersistenceSuite) TestListFailure(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, _, err := pp.List()
+	_, _, err := pp.List("a-unit/0")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
-func (s *payloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListAllForUnitOkay(c *gc.C) {
 	existing := s.NewPayloads("docker", "payloadA/xyz", "payloadB/abc")
 	for i, pl := range existing {
 		s.SetDoc(fmt.Sprintf("%d", i), pl)
 	}
 
 	pp := s.NewPersistence()
-	payloads, err := pp.ListAll()
+	payloads, err := pp.ListAllForUnit("a-unit/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
@@ -252,9 +289,9 @@ func (s *payloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
 	c.Check(payloads, jc.DeepEquals, existing)
 }
 
-func (s *payloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListAllForUnitEmpty(c *gc.C) {
 	pp := s.NewPersistence()
-	payloads, err := pp.ListAll()
+	payloads, err := pp.ListAllForUnit("a-unit/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "All")
@@ -268,12 +305,12 @@ func (b byName) Len() int           { return len(b) }
 func (b byName) Less(i, j int) bool { return b[i].FullID() < b[j].FullID() }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 
-func (s *payloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestListAllForUnitFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.ListAll()
+	_, err := pp.ListAllForUnit("a-unit/0")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -285,7 +322,7 @@ func (s *payloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	s.SetDoc(stID, pl)
 
 	pp := s.NewPersistence()
-	err := pp.Untrack(stID)
+	err := pp.Untrack("a-unit/0", stID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -307,7 +344,7 @@ func (s *payloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
 	pp := s.NewPersistence()
-	err := pp.Untrack(id)
+	err := pp.Untrack("a-unit/0", id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCallNames(c, "Run", "All")
@@ -320,8 +357,41 @@ func (s *payloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	err := pp.Untrack(id)
+	err := pp.Untrack("a-unit/0", id)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.State.CheckOps(c, nil)
+}
+
+func checkPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...payload.FullPayloadInfo) {
+	remainder := make([]payload.FullPayloadInfo, len(payloads))
+	copy(remainder, payloads)
+	var noMatch []payload.FullPayloadInfo
+	for _, expected := range expectedList {
+		found := false
+		for i, payload := range remainder {
+			if reflect.DeepEqual(payload, expected) {
+				remainder = append(remainder[:i], remainder[i+1:]...)
+				found = true
+				break
+			}
+		}
+		if !found {
+			noMatch = append(noMatch, expected)
+		}
+	}
+
+	ok1 := c.Check(noMatch, gc.HasLen, 0)
+	ok2 := c.Check(remainder, gc.HasLen, 0)
+	if !ok1 || !ok2 {
+		c.Logf("<<<<<<<<\nexpected:")
+		for _, payload := range expectedList {
+			c.Logf("%#v", payload)
+		}
+		c.Logf("--------\ngot:")
+		for _, payload := range payloads {
+			c.Logf("%#v", payload)
+		}
+		c.Logf(">>>>>>>>")
+	}
 }
