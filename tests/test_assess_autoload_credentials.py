@@ -13,7 +13,6 @@ from tests import (
     TestCase,
     parse_error,
     )
-
 from utility import temp_dir
 
 
