@@ -6,82 +6,66 @@ package persistence
 import (
 	"fmt"
 
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/testing"
 )
 
-type BaseSuite struct {
-	testing.BaseSuite
+type StubPersistenceBase struct {
+	*testing.Stub
 
-	Stub    *gitjujutesting.Stub
-	State   *fakeStatePersistence
-	Unit    string
-	Machine string
+	ReturnAll []*payloadDoc
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.Stub = &gitjujutesting.Stub{}
-	s.State = &fakeStatePersistence{Stub: s.Stub}
-	s.Unit = "a-unit/0"
-	s.Machine = "0"
+func (s *StubPersistenceBase) AddDoc(stID string, pl payload.FullPayloadInfo) {
+	doc := newPayloadDoc(stID, pl)
+	s.ReturnAll = append(s.ReturnAll, doc)
 }
 
-type PayloadDoc payloadDoc
-
-func (doc PayloadDoc) convert() *payloadDoc {
-	return (*payloadDoc)(&doc)
+func (s *StubPersistenceBase) SetDoc(stID string, pl payload.FullPayloadInfo) {
+	doc := newPayloadDoc(stID, pl)
+	s.ReturnAll = []*payloadDoc{doc}
 }
 
-func (s *BaseSuite) NewDoc(id string, pl payload.FullPayloadInfo) *payloadDoc {
-	return &payloadDoc{
-		DocID:     "payload#" + s.Unit + "#" + pl.Name,
-		UnitID:    s.Unit,
-		Name:      pl.Name,
-		MachineID: pl.Machine,
-		StateID:   id,
-		Type:      pl.Type,
-		State:     pl.Status,
-		Labels:    append([]string{}, pl.Labels...),
-		RawID:     pl.ID,
+func (s *StubPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) {
+	var docs []*payloadDoc
+	for i, pl := range payloads {
+		stID := fmt.Sprint(i)
+		doc := newPayloadDoc(stID, pl)
+		docs = append(docs, doc)
 	}
+	s.ReturnAll = docs
 }
 
-func (s *BaseSuite) SetDoc(id string, pl payload.FullPayloadInfo) *payloadDoc {
-	payloadDoc := s.NewDoc(id, pl)
-	s.State.SetDocs(payloadDoc)
-	return payloadDoc
-}
-
-func (s *BaseSuite) RemoveDoc(name string) {
-	docID := "payload#" + s.Unit + "#" + name
-	delete(s.State.docs, docID)
-}
-
-func (s *BaseSuite) NewPersistence() *Persistence {
-	return NewPersistence(s.State)
-}
-
-func (s *BaseSuite) SetUnit(id string) {
-	s.Unit = id
-}
-
-func (s *BaseSuite) NewPayloads(pType string, ids ...string) []payload.FullPayloadInfo {
-	var payloads []payload.FullPayloadInfo
-	for _, id := range ids {
-		pl := s.NewPayload(pType, id)
-		payloads = append(payloads, pl)
+func (s *StubPersistenceBase) All(collName string, query, docs interface{}) error {
+	s.AddCall("All", collName, query, docs)
+	if err := s.NextErr(); err != nil {
+		return errors.Trace(err)
 	}
-	return payloads
+
+	actual := docs.(*[]payloadDoc)
+	var copied []payloadDoc
+	for _, doc := range s.ReturnAll {
+		copied = append(copied, *doc)
+	}
+	*actual = copied
+	return nil
 }
 
-func (s *BaseSuite) NewPayload(pType string, id string) payload.FullPayloadInfo {
+func (s *StubPersistenceBase) Run(transactions jujutxn.TransactionSource) error {
+	s.AddCall("Run", transactions)
+	if err := s.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func NewPayload(machine, unit, pType string, id string) payload.FullPayloadInfo {
 	name, pluginID := payload.ParseID(id)
 	if pluginID == "" {
 		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
@@ -95,8 +79,8 @@ func (s *BaseSuite) NewPayload(pType string, id string) payload.FullPayloadInfo 
 			},
 			ID:     pluginID,
 			Status: "running",
-			Unit:   s.Unit,
+			Unit:   unit,
 		},
-		Machine: s.Machine,
+		Machine: machine,
 	}
 }

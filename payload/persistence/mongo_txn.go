@@ -56,17 +56,17 @@ type insertPayloadTxn struct {
 }
 
 func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
-	_, err := pq.payloadByStateID(itxn.unit, itxn.stID)
+	_, err := pq.payloadByName(itxn.unit, itxn.payload.Name)
 	if err == nil {
-		return errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", itxn.stID)
+		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.payload.FullID())
 	}
 	if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	_, err = pq.payloadByName(itxn.unit, itxn.payload.Name)
+	_, err = pq.payloadByStateID(itxn.unit, itxn.stID)
 	if err == nil {
-		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.payload.FullID())
+		return errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", itxn.stID)
 	}
 	if !errors.IsNotFound(err) {
 		return errors.Trace(err)
