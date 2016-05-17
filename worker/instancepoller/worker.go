@@ -4,8 +4,11 @@
 package instancepoller
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/environs"
@@ -15,6 +18,8 @@ import (
 )
 
 type Config struct {
+	Clock   clock.Clock
+	Delay   time.Duration
 	Facade  *instancepoller.API
 	Environ environs.Environ
 }
@@ -66,13 +71,16 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.aggregator = newAggregator(u.config.Environ)
+	u.aggregator, err = newAggregator(u.config)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := u.catacomb.Add(u.aggregator); err != nil {
 		return errors.Trace(err)
 	}
 	watcher, err := u.config.Facade.WatchModelMachines()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)

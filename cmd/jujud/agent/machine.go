@@ -999,6 +999,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		EntityStatusHistoryCount:    100,
 		EntityStatusHistoryInterval: 5 * time.Minute,
+		InstPollerAggregationDelay:  3 * time.Second,
 		SpacesImportedGate:          a.discoverSpacesComplete,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {

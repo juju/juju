@@ -4,7 +4,10 @@
 package instancepoller
 
 import (
+	"time"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
@@ -16,10 +19,16 @@ import (
 // ManifoldConfig describes the resources used by the instancepoller worker.
 type ManifoldConfig struct {
 	APICallerName string
+	ClockName     string
+	Delay         time.Duration
 	EnvironName   string
 }
 
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+	var clock clock.Clock
+	if err := context.Get(config.ClockName, &clock); err != nil {
+		return nil, errors.Trace(err)
+	}
 	var environ environs.Environ
 	if err := context.Get(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
@@ -32,6 +41,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	facade := instancepoller.NewAPI(apiCaller)
 
 	w, err := NewWorker(Config{
+		Clock:   clock,
+		Delay:   config.Delay,
 		Facade:  facade,
 		Environ: environ,
 	})

@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/ratelimit"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 type instanceGetter interface {
@@ -19,21 +18,24 @@ type instanceGetter interface {
 }
 
 type aggregator struct {
-	environ instanceGetter
-	reqc    chan instanceInfoReq
-	tomb    tomb.Tomb
+	config   Config
+	catacomb catacomb.Catacomb
+	reqc     chan instanceInfoReq
 }
 
-func newAggregator(env instanceGetter) *aggregator {
+func newAggregator(config Config) (*aggregator, error) {
 	a := &aggregator{
-		environ: env,
-		reqc:    make(chan instanceInfoReq),
+		config: config,
+		reqc:   make(chan instanceInfoReq),
 	}
-	go func() {
-		defer a.tomb.Done()
-		a.tomb.Kill(a.loop())
-	}()
-	return a
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &a.catacomb,
+		Work: a.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a, nil
 }
 
 type instanceInfoReq struct {
@@ -51,7 +53,7 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 	reqc := a.reqc
 	for {
 		select {
-		case <-a.tomb.Dying():
+		case <-a.catacomb.Dying():
 			return instanceInfo{}, errors.New("instanceInfo call aborted")
 		case reqc <- instanceInfoReq{id, reply}:
 			reqc = nil
@@ -61,48 +63,52 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 	}
 }
 
-var gatherTime = 3 * time.Second
-
 func (a *aggregator) loop() error {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	timer := time.NewTimer(0)
-	timer.Stop()
-	var reqs []instanceInfoReq
-	// We use a capacity of 1 so that sporadic requests will
-	// be serviced immediately without having to wait.
-	bucket := ratelimit.NewBucket(gatherTime, 1)
+	var (
+		ready <-chan time.Time
+		reqs  []instanceInfoReq
+	)
+
 	for {
 		select {
-		case <-a.tomb.Dying():
-			return tomb.ErrDying
+		case <-a.catacomb.Dying():
+			return a.catacomb.ErrDying()
+
 		case req := <-a.reqc:
-			if len(reqs) == 0 {
-				waitTime := bucket.Take(1)
-				timer.Reset(waitTime)
-			}
 			reqs = append(reqs, req)
-		case <-timer.C:
-			ids := make([]instance.Id, len(reqs))
-			for i, req := range reqs {
-				ids[i] = req.instId
+			if ready == nil {
+				ready = a.config.Clock.After(a.config.Delay)
 			}
-			insts, err := a.environ.Instances(ids)
-			for i, req := range reqs {
-				var reply instanceInfoReply
-				if err != nil && err != environs.ErrPartialInstances {
-					reply.err = err
-				} else {
-					reply.info, reply.err = a.instInfo(req.instId, insts[i])
-				}
-				select {
-				case <-a.tomb.Dying():
-					return tomb.ErrDying
-				case req.reply <- reply:
-				}
+		case <-ready:
+			if err := a.doRequests(reqs); err != nil {
+				return errors.Trace(err)
 			}
+			ready = nil
 			reqs = nil
 		}
 	}
+}
+
+func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
+	ids := make([]instance.Id, len(reqs))
+	for i, req := range reqs {
+		ids[i] = req.instId
+	}
+	insts, err := a.config.Environ.Instances(ids)
+	for i, req := range reqs {
+		var reply instanceInfoReply
+		if err != nil && err != environs.ErrPartialInstances {
+			reply.err = err
+		} else {
+			reply.info, reply.err = a.instInfo(req.instId, insts[i])
+		}
+		select {
+		case <-a.catacomb.Dying():
+			return a.catacomb.ErrDying()
+		case req.reply <- reply:
+		}
+	}
+	return nil
 }
 
 // instInfo returns the instance info for the given id
@@ -122,9 +128,9 @@ func (*aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInf
 }
 
 func (a *aggregator) Kill() {
-	a.tomb.Kill(nil)
+	a.catacomb.Kill(nil)
 }
 
 func (a *aggregator) Wait() error {
-	return a.tomb.Wait()
+	return a.catacomb.Wait()
 }
