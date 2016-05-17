@@ -203,6 +203,30 @@ def temp_yaml_file(yaml_dict):
         os.unlink(temp_file.name)
 
 
+class Juju2Backend:
+    """A Juju backend referring to a specific juju 2 binary."""
+
+    def __init__(self, full_path, version, feature_flags):
+        self._version = version
+        self._full_path = full_path
+        self.feature_flags = set()
+
+    @property
+    def version(self):
+        return self._version
+
+    @property
+    def full_path(self):
+        return self._full_path
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        return (
+            (self._version, self._full_path, self.feature_flags) ==
+            (other._version, other._full_path, other.feature_flags))
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -324,11 +348,12 @@ class EnvJujuClient:
             version = self.version
         if full_path is None:
             full_path = self.full_path
+        backend = self._backend.__class__(full_path, version, set())
         if debug is None:
             debug = self.debug
         if cls is None:
             cls = self.__class__
-        other = cls(env, version, full_path, debug=debug)
+        other = cls(env, version, full_path, debug=debug, _backend=backend)
         other.feature_flags.update(
             self.feature_flags.intersection(other.used_feature_flags))
         return other
@@ -369,10 +394,18 @@ class EnvJujuClient:
             env = JujuData.from_env(env)
         return env
 
-    def __init__(self, env, version, full_path, juju_home=None, debug=False):
+    def __init__(self, env, version, full_path, juju_home=None, debug=False,
+                 _backend=None):
         self.env = self._get_env(env)
-        self.version = version
-        self.full_path = full_path
+        if _backend is None:
+            _backend = Juju2Backend(full_path, version, set())
+        self._backend = _backend
+        if version != _backend.version:
+            raise ValueError('Version mismatch: {} {}'.format(
+                version, _backend.version))
+        if full_path != _backend.full_path:
+            raise ValueError('Path mismatch: {} {}'.format(
+                full_path, _backend.full_path))
         self.debug = debug
         self.feature_flags = set()
         if env is not None:
@@ -383,6 +416,22 @@ class EnvJujuClient:
                 env.juju_home = juju_home
         self.juju_timings = {}
         self._timeout_path = get_timeout_path()
+
+    @property
+    def version(self):
+        return self._backend.version
+
+    @property
+    def full_path(self):
+        return self._backend.full_path
+
+    @property
+    def feature_flags(self):
+        return self._backend.feature_flags
+
+    @feature_flags.setter
+    def feature_flags(self, feature_flags):
+        self._backend.feature_flags = feature_flags
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -1154,6 +1203,30 @@ class EnvJujuClient:
 
     def is_juju1x(self):
         return self.version.startswith('1.')
+
+    def _get_register_command(self, output):
+        for row in output.split('\n'):
+            if 'juju register' in row:
+                return row.strip().lstrip()
+        raise AssertionError('Juju register command not found in output')
+
+    def add_user(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions,
+                '-c', self.env.controller.name)
+
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
+
+    def revoke(self, username, models=None,  permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+
+        self.controller_juju('revoke', args)
 
 
 class EnvJujuClient2B3(EnvJujuClient):

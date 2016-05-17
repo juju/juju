@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from base64 import b64encode
 from contextlib import contextmanager
 import copy
 from datetime import (
@@ -6,6 +7,7 @@ from datetime import (
     timedelta,
 )
 import errno
+from hashlib import sha512
 from itertools import count
 import logging
 import os
@@ -55,6 +57,7 @@ from jujupy import (
     jes_home_path,
     JESByDefault,
     JESNotSupported,
+    Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
@@ -116,9 +119,9 @@ class FakeControllerState:
         state.controller.state = 'created'
         return state
 
-    def bootstrap(self, default_model, env, commandline_config,
-                  separate_admin):
-        default_model.name = env.environment
+    def bootstrap(self, model_name, config, separate_admin):
+        default_model = self.add_model(model_name)
+        default_model.name = model_name
         if separate_admin:
             admin_model = default_model.controller.add_model('admin')
         else:
@@ -126,9 +129,9 @@ class FakeControllerState:
         self.admin_model = admin_model
         admin_model.state_servers.append(admin_model.add_machine())
         self.state = 'bootstrapped'
-        default_model.model_config = copy.deepcopy(env.config)
-        default_model.model_config.update(commandline_config)
+        default_model.model_config = copy.deepcopy(config)
         self.models[default_model.name] = default_model
+        return default_model
 
 
 class FakeEnvironmentState:
@@ -269,11 +272,14 @@ class FakeEnvironmentState:
 
 class FakeBackend:
 
-    def __init__(self, backing_state, feature_flags=None):
+    def __init__(self, backing_state, feature_flags=None, version=None,
+                 full_path=None):
         self._backing_state = backing_state
         if feature_flags is None:
             feature_flags = set()
         self._feature_flags = feature_flags
+        self.version = version
+        self.full_path = full_path
 
     def clone(self, backing_state=None):
         if backing_state is None:
@@ -311,19 +317,22 @@ class FakeBackend:
             service_name = charm_name.split(':')[-1].split('/')[-1]
         model_state.deploy(charm_name, service_name)
 
-    def bootstrap(self, env, upload_tools=False, bootstrap_series=None):
-        commandline_config = {}
+    def bootstrap(self, model_name, config, upload_tools=False,
+                  bootstrap_series=None):
+        config = copy.deepcopy(config)
         if bootstrap_series is not None:
-            commandline_config['default-series'] = bootstrap_series
-        self.controller_state.bootstrap(
-            self._backing_state, env, commandline_config,
-            self.is_feature_enabled('jes'))
+            config['default-series'] = bootstrap_series
+        default_model = self.controller_state.bootstrap(
+            model_name, config, self.is_feature_enabled('jes'))
+        self._backing_state = default_model
 
-    def quickstart(self, env, bundle):
-        self.controller_state.bootstrap(self._backing_state, env, {},
-                                        self.is_feature_enabled('jes'))
-        model_state = self.controller_state.models[env.environment]
+    def quickstart(self, model_name, config, bundle):
+        default_model = self.controller_state.bootstrap(
+            model_name, config,
+            self.is_feature_enabled('jes'))
+        model_state = self.controller_state.models[model_name]
         model_state.deploy_bundle(bundle)
+        self._backing_state = default_model
 
     def destroy_environment(self):
         self.backing_state.destroy_environment()
@@ -435,6 +444,20 @@ class FakeBackend:
             model_state.restore_backup()
         if command == 'show-controller':
             return yaml.safe_dump(self.make_controller_dict(args[0]))
+        if command == ('add-user'):
+            permissions = 'read'
+            if set(["--acl", "write"]).issubset(args):
+                permissions = 'write'
+            username = args[0]
+            model = args[2]
+            code = b64encode(sha512(username).digest())
+            info_string = \
+                'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
+                .format(username, username, permissions, model)
+            register_string = \
+                'Please send this command to {}\n    juju register {}' \
+                .format(username, code)
+            return info_string + register_string
         return ''
 
 
@@ -456,14 +479,13 @@ class FakeJujuClient(EnvJujuClient):
                 'default-series': 'angsty',
                 }, juju_home='foo')
         backend_state.name = env.environment
-        self._backend = FakeBackend(backend_state)
+        self._backend = FakeBackend(backend_state, version=version,
+                                    full_path=full_path)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env
-        self.full_path = full_path
         self.debug = debug
         self.bootstrap_replaces = {}
         self._separate_admin = jes_enabled
-        self.version = version
 
     @property
     def _jes_enabled(self):
@@ -472,6 +494,10 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def model_name(self):
         return self.env.environment
+
+    @property
+    def feature_flags(self):
+        return frozenset(self._backend._feature_flags)
 
     def clone(self, env, full_path=None, debug=None):
         if full_path is None:
@@ -536,14 +562,15 @@ class FakeJujuClient(EnvJujuClient):
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         self._backend.bootstrap(
-            self.env, upload_tools, bootstrap_series)
+            self.env.environment, self.env.config, upload_tools,
+            bootstrap_series)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
 
     def quickstart(self, bundle):
-        self._backend.quickstart(self.env, bundle)
+        self._backend.quickstart(self.env.environment, self.env.config, bundle)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment()
@@ -572,6 +599,12 @@ class FakeJujuClient(EnvJujuClient):
     def backup(self):
         model_state = self._backend.controller_state.models[self.model_name]
         model_state.require_admin('backup')
+
+    def _get_register_command(self, output):
+        for row in output.split('\n'):
+            if 'juju register' in row:
+                return row.strip().lstrip()
+        raise AssertionError('Juju register command not found in output')
 
 
 class TestErroredUnit(TestCase):
@@ -619,6 +652,14 @@ class TestTempYamlFile(TestCase):
         with temp_yaml_file({'foo': 'bar'}) as yaml_file:
             with open(yaml_file) as f:
                 self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
+
+
+class TestJuju2Backend(TestCase):
+
+    def test_juju2_backend(self):
+        backend = Juju2Backend('/bin/path', '2.0', set())
+        self.assertEqual('/bin/path', backend.full_path)
+        self.assertEqual('2.0', backend.version)
 
 
 class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
@@ -709,6 +750,7 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         self.assertEqual(client1.version, client2.version)
         self.assertEqual(client1.full_path, client2.full_path)
         self.assertIs(client1.debug, client2.debug)
+        self.assertEqual(client1._backend, client2._backend)
 
     def test_clone_changed(self):
         client1 = self.client_class(
@@ -945,7 +987,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
-        client.version = '1.20-beta1-series-arch'
+        client = client.clone(version='1.20-beta1-series-arch')
         self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
 
     def test_upgrade_juju_nonlocal(self):
@@ -1088,6 +1130,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(client1.full_path, client2.full_path)
         self.assertIs(client1.debug, client2.debug)
         self.assertEqual(client1.feature_flags, client2.feature_flags)
+        self.assertEqual(client1._backend, client2._backend)
 
     def test_clone_changed(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
@@ -2865,6 +2908,60 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(None, '2.0.0', None)
         self.assertFalse(client.is_juju1x())
 
+    def test__get_register_command(self):
+        output = ''.join(['User "x" added\nUser "x" granted read access ',
+                          'to model "y"\nPlease send this command to x:\n',
+                          '    juju register AaBbCc'])
+        output_cmd = 'juju register AaBbCc'
+        fake_client = FakeJujuClient()
+        register_cmd = fake_client._get_register_command(output)
+        self.assertEqual(register_cmd, output_cmd)
+
+    def test_revoke(self):
+        fake_client = FakeJujuClient()
+        username = 'fakeuser'
+        model = 'foo'
+        default_permissions = 'read'
+        default_model = fake_client.model_name
+        default_controller = fake_client.env.controller.name
+
+        with patch.object(fake_client, 'juju', return_value=True):
+            fake_client.revoke(username)
+            fake_client.juju.assert_called_with('revoke',
+                                                ('-c', default_controller,
+                                                 username, default_model,
+                                                 '--acl', default_permissions),
+                                                include_e=False)
+
+            fake_client.revoke(username, model)
+            fake_client.juju.assert_called_with('revoke',
+                                                ('-c', default_controller,
+                                                 username, model,
+                                                 '--acl', default_permissions),
+                                                include_e=False)
+
+            fake_client.revoke(username, model, permissions='write')
+            fake_client.juju.assert_called_with('revoke',
+                                                ('-c', default_controller,
+                                                 username, model,
+                                                 '--acl', 'write'),
+                                                include_e=False)
+
+    def test_add_user(self):
+        fake_client = FakeJujuClient()
+        username = 'fakeuser'
+        model = 'foo'
+        permissions = 'write'
+
+        output = fake_client.add_user(username)
+        self.assertTrue(output.startswith('juju register'))
+
+        output = fake_client.add_user(username, model)
+        self.assertTrue(output.startswith('juju register'))
+
+        output = fake_client.add_user(username, model, permissions)
+        self.assertTrue(output.startswith('juju register'))
+
 
 class TestEnvJujuClient2B3(ClientTest):
 
@@ -3076,7 +3173,7 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
-        client.version = '1.20-beta1-series-arch'
+        client = client.clone(version='1.20-beta1-series-arch')
         self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
 
     def test_upgrade_juju_nonlocal(self):
