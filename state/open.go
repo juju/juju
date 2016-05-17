@@ -103,18 +103,43 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 	return nil
 }
 
-func PopulateEmptyModel(st *State, owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config) error {
+// Initialize sets up an initial empty state and returns it.
+// This needs to be performed only once for the initial controller model.
+// It returns unauthorizedError if access is unauthorized.
+func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
+	uuid := cfg.UUID()
+	modelTag := names.NewModelTag(uuid)
+	st, err := open(modelTag, info, opts, policy)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer func() {
+		if err != nil {
+			if closeErr := st.Close(); closeErr != nil {
+				logger.Errorf("error closing state while aborting Initialize: %v", closeErr)
+			}
+		}
+	}()
+
+	// A valid model is used as a signal that the
+	// state has already been initalized. If this is the case
+	// do nothing.
+	if _, err := st.Model(); err == nil {
+		return nil, errors.New("already initialized")
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
-	uuid := st.modelTag.Id()
 	logger.Infof("initializing controller model %s", uuid)
 	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
@@ -147,51 +172,13 @@ func PopulateEmptyModel(st *State, owner names.UserTag, info *mongo.MongoInfo, c
 	}
 	ops = append(ops, modelOps...)
 
-	logger.Infof("before run")
 	if err := st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("after run")
-	return nil
-}
-
-// Initialize sets up an initial empty state and returns it.
-// This needs to be performed only once for the initial controller model.
-// It returns unauthorizedError if access is unauthorized.
-func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
-	uuid := cfg.UUID()
-	modelTag := names.NewModelTag(uuid)
-	logger.Debugf("Creating model %v", modelTag)
-	st, err := open(modelTag, info, opts, policy)
-	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			if closeErr := st.Close(); closeErr != nil {
-				logger.Errorf("error closing state while aborting Initialize: %v", closeErr)
-			}
-		}
-	}()
-
-	// A valid model is used as a signal that the
-	// state has already been initalized. If this is the case
-	// do nothing.
-	if _, err := st.Model(); err == nil {
-		return nil, errors.New("already initialized")
-	} else if !errors.IsNotFound(err) {
+	if err := st.start(modelTag); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	err = PopulateEmptyModel(st, owner, info, cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := st.start(st.modelTag); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, err
-
+	return st, nil
 }
 
 func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {

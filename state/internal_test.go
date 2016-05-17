@@ -24,27 +24,11 @@ type internalStateSuite struct {
 	testing.BaseSuite
 	state *State
 	owner names.UserTag
-	model names.ModelTag
-}
-
-func getInfo() *mongo.MongoInfo {
-	// Copied from NewMongoInfo (due to import loops).
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
 }
 
 func (s *internalStateSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
-	s.owner = names.NewLocalUserTag("test-admin")
-	st, err := Initialize(s.owner, getInfo(), testing.ModelConfig(c), mongotest.DialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.model = st.modelTag
-	st.Close()
 }
 
 func (s *internalStateSuite) TearDownSuite(c *gc.C) {
@@ -55,21 +39,23 @@ func (s *internalStateSuite) TearDownSuite(c *gc.C) {
 func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
-	st, err := Open(s.model, getInfo(), mongotest.DialOpts(), nil)
-	c.Logf("opening state")
+
+	s.owner = names.NewLocalUserTag("test-admin")
+	// Copied from NewMongoInfo (due to import loops).
+	info := &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{jujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+	}
+	dialopts := mongotest.DialOpts()
+	st, err := Initialize(s.owner, info, testing.ModelConfig(c), dialopts, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
-	s.AddCleanup(func(c *gc.C) {
-		s.state.Close()
-		c.Logf("state closed")
-	})
+	s.AddCleanup(func(*gc.C) { s.state.Close() })
 }
 
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
-	c.Logf("repopulating model")
-	err := PopulateEmptyModel(s.state, s.owner, getInfo(), testing.ModelConfig(c))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("leaving internalStateSuite.TearDownTest")
 	s.BaseSuite.TearDownTest(c)
 }
