@@ -408,7 +408,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineactions.NewMachineActionsWorker,
 		})),
 
-		hostKeyReporterName: ifFullyUpgraded(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
+		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			RootDir:       config.RootDir,

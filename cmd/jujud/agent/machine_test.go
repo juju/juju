@@ -1629,15 +1629,8 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
-		alwaysModelWorkers, deadModelWorkers...,
-	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
-
 	st, closer := s.setUpNewModel(c)
 	defer closer()
-	uuid := st.ModelUUID()
 	timeout := time.After(ReallyLongWait)
 
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
@@ -1646,24 +1639,21 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 		err = model.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 
-		// Wait for the running workers to imply that we've
-		// passed beyond Dying...
+		watch := model.Watch()
 		for {
-			if check(uuid) {
-				break
-			}
 			select {
 			case <-time.After(coretesting.ShortWait):
 				s.BackingState.StartSync()
 			case <-timeout:
 				c.Fatalf("timed out waiting for workers")
+			case <-watch.Changes():
+				err = model.Refresh()
+				if errors.IsNotFound(err) {
+					return
+				}
+				c.Assert(err, jc.ErrorIsNil)
 			}
 		}
-
-		// ...and verify that's reflected in the database.
-		err = model.Refresh()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(model.Life(), gc.Equals, state.Dead)
 	})
 }
 
