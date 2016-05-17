@@ -18,94 +18,8 @@ const (
 	payloadsC = "payloads"
 )
 
-// TODO(ericsnow) Move the methods under their own type (payloadcollection?).
-
-func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*payload.FullPayloadInfo, bool) {
-	doc, ok := payloadDocs[id]
-	if !ok {
-		return nil, false
-	}
-	p := doc.payload()
-	p.Unit = pp.unit
-	return &p, true
-}
-
-func (pp Persistence) one(query bson.D) (payloadDoc, error) {
-	var docs []payloadDoc
-	query = append(bson.D{{"unitid", pp.unit}}, query...)
-	if err := pp.all(query, &docs); err != nil {
-		return payloadDoc{}, errors.Trace(err)
-	}
-	if len(docs) > 1 {
-		return payloadDoc{}, errors.NewNotValid(nil, "query too broad, got more than one doc")
-	}
-	if len(docs) == 0 {
-		return payloadDoc{}, errors.NotFoundf("")
-	}
-	return docs[0], nil
-}
-
-func (pp Persistence) all(query bson.D, docs interface{}) error {
-	return errors.Trace(pp.db.All(payloadsC, query, docs))
-}
-
-func (pp Persistence) allID(query bson.D, docs interface{}) error {
-	if query != nil {
-		query = bson.D{{"_id", query}}
-	}
-	return errors.Trace(pp.all(query, docs))
-}
-
-func (pp Persistence) payloadID(name string) string {
-	return payloadID(pp.unit, name)
-}
-
 func payloadID(unit, name string) string {
 	return fmt.Sprintf("payload#%s#%s", unit, name)
-}
-
-func (pp Persistence) newInsertPayloadOps(id string, p payload.FullPayloadInfo) []txn.Op {
-	// We must also ensure that there isn't any collision on the
-	// state-provided ID. However, that isn't something we can do in
-	// a transaction.
-	doc := pp.newPayloadDoc(id, p)
-	return []txn.Op{{
-		C:      payloadsC,
-		Id:     doc.DocID,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-}
-
-func (pp Persistence) newSetRawStatusOps(name, stID, status string) []txn.Op {
-	id := pp.payloadID(name)
-	updates := bson.D{
-		{"state", status},
-	}
-	return []txn.Op{{
-		C:      payloadsC,
-		Id:     id,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", updates}},
-	}, {
-		C:      payloadsC,
-		Id:     id,
-		Assert: bson.D{{"state-id", stID}},
-	}}
-}
-
-func (pp Persistence) newRemovePayloadOps(name, stID string) []txn.Op {
-	id := pp.payloadID(name)
-	return []txn.Op{{
-		C:      payloadsC,
-		Id:     id,
-		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      payloadsC,
-		Id:     id,
-		Assert: bson.D{{"state-id", stID}},
-	}}
 }
 
 // payloadDoc is the top-level document for payloads.
@@ -132,6 +46,33 @@ type payloadDoc struct {
 	Labels []string `bson:"labels"`
 
 	RawID string `bson:"rawid"`
+}
+
+func newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
+	id := payloadID(p.Unit, p.Name)
+
+	definition := p.PayloadClass
+
+	labels := make([]string, len(p.Labels))
+	copy(labels, p.Labels)
+
+	return &payloadDoc{
+		DocID:  id,
+		UnitID: p.Unit,
+		Name:   definition.Name,
+
+		MachineID: p.Machine,
+
+		StateID: stID,
+
+		Type: definition.Type,
+
+		State: p.Status,
+
+		Labels: labels,
+
+		RawID: p.ID,
+	}
 }
 
 func (d payloadDoc) payload() payload.FullPayloadInfo {
@@ -168,36 +109,76 @@ func (d payloadDoc) match(name, rawID string) bool {
 	return true
 }
 
-func (pp Persistence) newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
-	p.Unit = pp.unit
-	return newPayloadDoc(stID, p)
+// TODO(ericsnow) Move the methods under their own type (payloadcollection?).
+
+func (pp Persistence) one(query bson.D) (payloadDoc, error) {
+	var docs []payloadDoc
+	query = append(bson.D{{"unitid", pp.unit}}, query...)
+	if err := pp.all(query, &docs); err != nil {
+		return payloadDoc{}, errors.Trace(err)
+	}
+	if len(docs) > 1 {
+		return payloadDoc{}, errors.NewNotValid(nil, "query too broad, got more than one doc")
+	}
+	if len(docs) == 0 {
+		return payloadDoc{}, errors.NotFoundf("")
+	}
+	return docs[0], nil
 }
 
-func newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
-	id := payloadID(p.Unit, p.Name)
+func (pp Persistence) all(query bson.D, docs interface{}) error {
+	return errors.Trace(pp.db.All(payloadsC, query, docs))
+}
 
-	definition := p.PayloadClass
-
-	labels := make([]string, len(p.Labels))
-	copy(labels, p.Labels)
-
-	return &payloadDoc{
-		DocID:  id,
-		UnitID: p.Unit,
-		Name:   definition.Name,
-
-		MachineID: p.Machine,
-
-		StateID: stID,
-
-		Type: definition.Type,
-
-		State: p.Status,
-
-		Labels: labels,
-
-		RawID: p.ID,
+func (pp Persistence) allID(query bson.D, docs interface{}) error {
+	if query != nil {
+		query = bson.D{{"_id", query}}
 	}
+	return errors.Trace(pp.all(query, docs))
+}
+
+func (pp Persistence) newInsertPayloadOps(id string, p payload.FullPayloadInfo) []txn.Op {
+	// We must also ensure that there isn't any collision on the
+	// state-provided ID. However, that isn't something we can do in
+	// a transaction.
+	doc := newPayloadDoc(id, p)
+	return []txn.Op{{
+		C:      payloadsC,
+		Id:     doc.DocID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+}
+
+func (pp Persistence) newSetRawStatusOps(name, stID, status string) []txn.Op {
+	id := payloadID(pp.unit, name)
+	updates := bson.D{
+		{"state", status},
+	}
+	return []txn.Op{{
+		C:      payloadsC,
+		Id:     id,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", updates}},
+	}, {
+		C:      payloadsC,
+		Id:     id,
+		Assert: bson.D{{"state-id", stID}},
+	}}
+}
+
+func (pp Persistence) newRemovePayloadOps(name, stID string) []txn.Op {
+	id := payloadID(pp.unit, name)
+	return []txn.Op{{
+		C:      payloadsC,
+		Id:     id,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      payloadsC,
+		Id:     id,
+		Assert: bson.D{{"state-id", stID}},
+	}}
 }
 
 func (pp Persistence) allModelPayloads() ([]payloadDoc, error) {

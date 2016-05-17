@@ -128,9 +128,13 @@ func (pp Persistence) List(ids ...string) ([]payload.FullPayloadInfo, []string, 
 	}
 
 	var results []payload.FullPayloadInfo
-	for id := range docs {
-		p, _ := pp.extractPayload(id, docs)
-		results = append(results, *p)
+	for _, id := range ids {
+		doc, ok := docs[id]
+		if !ok {
+			continue
+		}
+		p := doc.payload()
+		results = append(results, p)
 	}
 	return results, missing, nil
 }
@@ -146,9 +150,9 @@ func (pp Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	}
 
 	var results []payload.FullPayloadInfo
-	for id := range docs {
-		p, _ := pp.extractPayload(id, docs)
-		results = append(results, *p)
+	for _, doc := range docs {
+		p := doc.payload()
+		results = append(results, p)
 	}
 	return results, nil
 }
