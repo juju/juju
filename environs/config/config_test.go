@@ -259,7 +259,7 @@ var configTests = []configTest{
 			"ca-cert":        caCert,
 			"ca-private-key": caKey2,
 		}),
-		err: "bad CA certificate/key in configuration: crypto/tls: private key does not match public key",
+		err: "bad CA certificate/key in configuration: .*tls: private key does not match public key",
 	}, {
 		about:       "Invalid CA cert",
 		useDefaults: config.UseDefaults,
@@ -274,7 +274,7 @@ var configTests = []configTest{
 			"ca-cert":        caCert,
 			"ca-private-key": invalidCAKey,
 		}),
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+		err: "bad CA certificate/key in configuration: .*tls:.*",
 	}, {
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -889,7 +889,7 @@ var noCertFilesTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+		err: "bad CA certificate/key in configuration: .*tls:.*",
 	},
 }
 
