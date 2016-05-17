@@ -412,16 +412,20 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 func (s *ModelMigrationSuite) TestWatchForModelMigration(c *gc.C) {
 	// Start watching for migration.
 	w, wc := s.createWatcher(c, s.State2)
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Create the migration - should be reported.
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	// Ending the migration should not be reported.
+	// Mere phase changes should not be reported.
 	c.Check(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
 	wc.AssertNoChange()
+
+	// Ending the migration should be reported.
+	c.Check(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
@@ -439,14 +443,14 @@ func (s *ModelMigrationSuite) TestWatchForModelMigrationInProgress(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
 	_, wc2 := s.createWatcher(c, s.State2)
-	wc2.AssertNoChange()
+	wc2.AssertOneChange()
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	_, wc3 := s.createWatcher(c, State3)
-	wc3.AssertNoChange()
+	wc3.AssertOneChange()
 
 	// Create a migration for 2.
 	_, err := s.State2.CreateModelMigration(s.stdSpec)
@@ -464,8 +468,7 @@ func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
 func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
-	w, err := st.WatchForModelMigration()
-	c.Assert(err, jc.ErrorIsNil)
+	w := st.WatchForModelMigration()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, st, w)
 }

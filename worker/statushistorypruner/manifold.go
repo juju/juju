@@ -17,9 +17,10 @@ import (
 // ManifoldConfig describes the resources and configuration on which the
 // statushistorypruner worker depends.
 type ManifoldConfig struct {
-	APICallerName    string
-	MaxLogsPerEntity uint
-	PruneInterval    time.Duration
+	APICallerName  string
+	MaxHistoryTime time.Duration
+	MaxHistoryMB   uint
+	PruneInterval  time.Duration
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	NewTimer worker.NewTimerFunc
 }
@@ -36,10 +37,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			facade := statushistory.NewFacade(apiCaller)
 			prunerConfig := Config{
-				Facade:           facade,
-				MaxLogsPerEntity: config.MaxLogsPerEntity,
-				PruneInterval:    config.PruneInterval,
-				NewTimer:         config.NewTimer,
+				Facade:         facade,
+				MaxHistoryTime: config.MaxHistoryTime,
+				MaxHistoryMB:   config.MaxHistoryMB,
+				PruneInterval:  config.PruneInterval,
+				NewTimer:       config.NewTimer,
 			}
 			w, err := New(prunerConfig)
 			if err != nil {

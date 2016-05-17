@@ -76,6 +76,7 @@ func (u *UserAuthenticator) Authenticate(
 // for invalid users.
 func (u *UserAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
 
 	// Ensure that the private key that we generate and store will be

@@ -183,6 +183,7 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	// Log how long the start took
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	defer func(start time.Time) {
 		if err == nil {
 			logger.Tracef("container %q started: %v", inst.Id(), time.Now().Sub(start))

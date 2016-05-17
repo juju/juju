@@ -314,7 +314,7 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 		provider: "ec2",
 		expected: []string{
 			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
-			"region",
+			"region", "vpc-id-force",
 		},
 	}} {
 		c.Logf("%d: %s provider", i, test.provider)

@@ -238,6 +238,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 		return nil, "", errors.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	caCert, caKey, err := cert.NewCA(cfg.Name(), cfg.UUID(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
 		return nil, "", errors.Trace(err)

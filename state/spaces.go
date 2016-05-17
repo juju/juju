@@ -51,7 +51,7 @@ func (s *Space) Name() string {
 // ProviderId returns the provider id of the space. This will be the empty
 // string except on substrates that directly support spaces.
 func (s *Space) ProviderId() network.Id {
-	return network.Id(s.st.localID(s.doc.ProviderId))
+	return network.Id(s.doc.ProviderId)
 }
 
 // Subnets returns all the subnets associated with the Space.
@@ -83,18 +83,13 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 	}
 
 	spaceID := st.docID(name)
-	var modelLocalProviderID string
-	if providerId != "" {
-		modelLocalProviderID = st.docID(string(providerId))
-	}
-
 	spaceDoc := spaceDoc{
 		DocID:      spaceID,
 		ModelUUID:  st.ModelUUID(),
 		Life:       Alive,
 		Name:       name,
 		IsPublic:   isPublic,
-		ProviderId: string(modelLocalProviderID),
+		ProviderId: string(providerId),
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
@@ -104,6 +99,10 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		Assert: txn.DocMissing,
 		Insert: spaceDoc,
 	}}
+
+	if providerId != "" {
+		ops = append(ops, st.networkEntityGlobalKeyOp("space", providerId))
+	}
 
 	for _, subnetId := range subnets {
 		// TODO:(mfoord) once we have refcounting for subnets we should
@@ -126,20 +125,16 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 				return nil, err
 			}
 		}
+		if err := newSpace.Refresh(); err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Errorf("ProviderId %q not unique", providerId)
+			}
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.Trace(err)
 	} else if err != nil {
 		return nil, err
 	}
-
-	// If the ProviderId was not unique adding the space can fail without an
-	// error. Refreshing catches this by returning NotFoundError.
-	err = newSpace.Refresh()
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, errors.Errorf("ProviderId %q not unique", providerId)
-		}
-		return nil, errors.Trace(err)
-	}
-
 	return newSpace, nil
 }
 

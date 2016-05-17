@@ -21,29 +21,29 @@ type environProviderCredentials struct{}
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		cloud.OAuth2AuthType: {
-			{
-				"client-id", cloud.CredentialAttr{Description: "client ID"},
-			}, {
-				"client-email", cloud.CredentialAttr{Description: "client e-mail address"},
-			}, {
-				"private-key",
-				cloud.CredentialAttr{
-					Description: "client secret",
-					Hidden:      true,
-				},
-			}, {
-				"project-id", cloud.CredentialAttr{Description: "project ID"},
+		cloud.OAuth2AuthType: {{
+			Name:           cfgClientID,
+			CredentialAttr: cloud.CredentialAttr{Description: "client ID"},
+		}, {
+			Name:           cfgClientEmail,
+			CredentialAttr: cloud.CredentialAttr{Description: "client e-mail address"},
+		}, {
+			Name: cfgPrivateKey,
+			CredentialAttr: cloud.CredentialAttr{
+				Description: "client secret",
+				Hidden:      true,
 			},
-		},
-		cloud.JSONFileAuthType: {
-			{
-				"file", cloud.CredentialAttr{
-					Description: "path to the .json file containing your Google Compute Engine project credentials",
-					FilePath:    true,
-				},
+		}, {
+			Name:           cfgProjectID,
+			CredentialAttr: cloud.CredentialAttr{Description: "project ID"},
+		}},
+		cloud.JSONFileAuthType: {{
+			Name: "file",
+			CredentialAttr: cloud.CredentialAttr{
+				Description: "path to the .json file containing your Google Compute Engine project credentials",
+				FilePath:    true,
 			},
-		},
+		}},
 	}
 }
 
@@ -55,27 +55,27 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	//   On Windows, this is %APPDATA%/gcloud/application_default_credentials.json.
 	//   On other systems, $HOME/.config/gcloud/application_default_credentials.json.
 
-	validatePath := func(possbleFilePath string) string {
-		if possbleFilePath == "" {
+	validatePath := func(possibleFilePath string) string {
+		if possibleFilePath == "" {
 			return ""
 		}
-		fi, err := os.Stat(possbleFilePath)
+		fi, err := os.Stat(possibleFilePath)
 		if err != nil || fi.IsDir() {
 			return ""
 		}
-		return possbleFilePath
+		return possibleFilePath
 	}
 
-	possbleFilePath := validatePath(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	if possbleFilePath == "" {
-		possbleFilePath = validatePath(wellKnownCredentialsFile())
+	possibleFilePath := validatePath(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	if possibleFilePath == "" {
+		possibleFilePath = validatePath(wellKnownCredentialsFile())
 	}
-	if possbleFilePath == "" {
+	if possibleFilePath == "" {
 		return nil, errors.NotFoundf("gce credentials")
 	}
-	parsedCred, err := parseJSONAuthFile(possbleFilePath)
+	parsedCred, err := parseJSONAuthFile(possibleFilePath)
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid json credential file %s", possbleFilePath)
+		return nil, errors.Annotatef(err, "invalid json credential file %s", possibleFilePath)
 	}
 
 	user, err := utils.LocalUsername()
@@ -83,11 +83,11 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 		return nil, errors.Trace(err)
 	}
 	cred := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{
-		"file": possbleFilePath,
+		"file": possibleFilePath,
 	})
-	credName := parsedCred.Attributes()["client-email"]
+	credName := parsedCred.Attributes()[cfgClientEmail]
 	if credName == "" {
-		credName = parsedCred.Attributes()["client-id"]
+		credName = parsedCred.Attributes()[cfgClientID]
 	}
 	cred.Label = fmt.Sprintf("google credential %q", credName)
 	return &cloud.CloudCredential{
@@ -118,9 +118,9 @@ func parseJSONAuthFile(filename string) (cloud.Credential, error) {
 		return cloud.Credential{}, errors.Trace(err)
 	}
 	return cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{
-		"project-id":   creds.ProjectID,
-		"client-id":    creds.ClientID,
-		"client-email": creds.ClientEmail,
-		"private-key":  string(creds.PrivateKey),
+		cfgProjectID:   creds.ProjectID,
+		cfgClientID:    creds.ClientID,
+		cfgClientEmail: creds.ClientEmail,
+		cfgPrivateKey:  string(creds.PrivateKey),
 	}), nil
 }

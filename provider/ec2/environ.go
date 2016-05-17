@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -33,12 +34,10 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
 
 const (
-	none                        = "none"
 	invalidParameterValue       = "InvalidParameterValue"
 	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
 
@@ -79,19 +78,8 @@ type environ struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
-	// cachedDefaultVpc caches the id of the ec2 default vpc
-	cachedDefaultVpc *defaultVpc
-}
-
-// Ensure EC2 provider supports environs.NetworkingEnviron.
-var _ environs.NetworkingEnviron = (*environ)(nil)
-var _ simplestreams.HasRegion = (*environ)(nil)
-var _ state.Prechecker = (*environ)(nil)
-var _ state.InstanceDistributor = (*environ)(nil)
-
-type defaultVpc struct {
-	hasDefaultVpc bool
-	id            network.Id
+	allocationMutex     sync.Mutex
+	allocationSupported *bool
 }
 
 // AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
@@ -114,7 +102,10 @@ func awsClients(cfg *config.Config) (*ec2.EC2, *s3.S3, *environConfig, error) {
 		return nil, nil, nil, err
 	}
 
-	auth := aws.Auth{ecfg.accessKey(), ecfg.secretKey()}
+	auth := aws.Auth{
+		AccessKey: ecfg.accessKey(),
+		SecretKey: ecfg.secretKey(),
+	}
 	region := aws.Regions[ecfg.region()]
 	signer := aws.SignV4Factory(region.Name, "ec2")
 	return ec2.New(auth, region, signer), s3.New(auth, region), ecfg, nil
@@ -125,6 +116,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
@@ -132,38 +124,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.s3Unlocked = s3Client
 
 	return nil
-}
-
-func (e *environ) defaultVpc() (network.Id, bool, error) {
-	if e.cachedDefaultVpc != nil {
-		defaultVpc := e.cachedDefaultVpc
-		return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
-	}
-	ec2 := e.ec2()
-	resp, err := ec2.AccountAttributes("default-vpc")
-	if err != nil {
-		return "", false, errors.Trace(err)
-	}
-
-	hasDefault := true
-	defaultVpcId := ""
-
-	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
-		hasDefault = false
-		defaultVpcId = ""
-	} else {
-		defaultVpcId = resp.Attributes[0].Values[0]
-		if defaultVpcId == none {
-			hasDefault = false
-			defaultVpcId = ""
-		}
-	}
-	defaultVpc := &defaultVpc{
-		id:            network.Id(defaultVpcId),
-		hasDefaultVpc: hasDefault,
-	}
-	e.cachedDefaultVpc = defaultVpc
-	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -220,14 +180,28 @@ func (e *environ) SupportsSpaceDiscovery() (bool, error) {
 
 // SupportsAddressAllocation is specified on environs.Networking.
 func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled(provider.EC2) {
-		return false, errors.NotSupportedf("address allocation")
+	e.allocationMutex.Lock()
+	defer e.allocationMutex.Unlock()
+
+	if e.allocationSupported == nil {
+		var notSupported bool
+		e.allocationSupported = &notSupported
+
+		if environs.AddressAllocationEnabled(provider.EC2) {
+			defaultVPCID, err := findDefaultVPCID(e.ec2())
+			if err == nil {
+				logger.Infof("legacy address allocation supported with default VPC %q", defaultVPCID)
+				*e.allocationSupported = true
+			} else if errors.IsNotFound(err) {
+				logger.Infof("legacy address allocation not supported without a default VPC")
+			}
+		}
 	}
-	_, hasDefaultVpc, err := e.defaultVpc()
-	if err != nil {
-		return false, errors.Trace(err)
+
+	if *e.allocationSupported {
+		return true, nil
 	}
-	return hasDefaultVpc, nil
+	return false, errors.NotSupportedf("address allocation")
 }
 
 var unsupportedConstraints = []string{
@@ -280,7 +254,7 @@ func (z *ec2AvailabilityZone) Name() string {
 }
 
 func (z *ec2AvailabilityZone) Available() bool {
-	return z.AvailabilityZoneInfo.State == "available"
+	return z.AvailabilityZoneInfo.State == availableState
 }
 
 // AvailabilityZones returns a slice of availability zones
@@ -448,7 +422,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		if err != nil {
 			return nil, err
 		}
-		if placement.availabilityZone.State != "available" {
+		if placement.availabilityZone.State != availableState {
 			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
@@ -530,25 +504,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// distributed across AZs, but only within subnets of the space constraint.
 	//
 	// TODO(dimitern): This should be done in a provider-independant way.
-	zonesToSubnets := make(map[string]string, len(args.SubnetsToZones))
-	var spaceSubnetIDs []string
-	for subnetID, zones := range args.SubnetsToZones {
-		// EC2-specific: subnets can only be in a single zone, hence the
-		// zones slice will always contain exactly one element when
-		// SubnetsToZones is populated.
-		zone := zones[0]
-		sid := string(subnetID)
-		zonesToSubnets[zone] = sid
-		spaceSubnetIDs = append(spaceSubnetIDs, sid)
-	}
-
-	// TODO(dimitern): For the network model MVP we only respect the
-	// first positive (a.k.a. "included") space specified in the
-	// constraints. Once we support any given list of positive or
-	// negative (prefixed with "^") spaces, fix this approach.
-	var spaceName string
-	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 0 {
-		spaceName = spaces[0]
+	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 1 {
+		logger.Infof("ignoring all but the first positive space from constraints: %v", spaces)
 	}
 
 	var instResp *ec2.RunInstancesResp
@@ -562,38 +519,47 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		ImageId:             spec.Image.Id,
 	}
 
+	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
+
 	for _, zone := range availabilityZones {
 		runArgs := commonRunArgs
+		runArgs.AvailZone = zone
 
-		if subnetID, found := zonesToSubnets[zone]; found {
-			// Use SubnetId explicitly here so the instance ends up in the
-			// right space.
-			runArgs.SubnetId = subnetID
-		} else if spaceName != "" {
-			// Ignore AZs not matching any subnet of the space in constraints.
-			logger.Infof(
-				"skipping zone %q: not associated with any of space %q's subnets %q",
-				zone, spaceName, strings.Join(spaceSubnetIDs, ", "),
-			)
+		var subnetIDsForZone []string
+		var subnetErr error
+		if haveVPCID && !args.Constraints.HaveSpaces() {
+			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2(), e.ecfg().vpcID(), zone)
+		} else if !haveVPCID && args.Constraints.HaveSpaces() {
+			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
+		}
+
+		switch {
+		case subnetErr != nil && errors.IsNotFound(subnetErr):
+			logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", zone)
 			continue
-		} else {
-			// No space constraint specified, just use the usual zone
-			// distribution without an explicit SubnetId.
-			runArgs.AvailZone = zone
+		case subnetErr != nil:
+			return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", zone)
+		case len(subnetIDsForZone) > 1:
+			// With multiple equally suitable subnets, picking one at random
+			// will allow for better instance spread within the same zone, and
+			// still work correctly if we happen to pick a constrained subnet
+			// (we'll just treat this the same way we treat constrained zones
+			// and retry).
+			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
+			logger.Infof(
+				"selected random subnet %q from all matching in zone %q: %v",
+				runArgs.SubnetId, zone, subnetIDsForZone,
+			)
+		case len(subnetIDsForZone) == 1:
+			runArgs.SubnetId = subnetIDsForZone[0]
+			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
 		}
 
 		instResp, err = runInstances(e.ec2(), runArgs)
-		if err == nil {
+		if err == nil || !isZoneOrSubnetConstrainedError(err) {
 			break
 		}
-		if runArgs.SubnetId != "" && isSubnetConstrainedError(err) {
-			subID := runArgs.SubnetId
-			logger.Infof("%q (in zone %q) is constrained, try another subnet", subID, zone)
-			continue
-		} else if !isZoneConstrainedError(err) {
-			// Something else went wrong - bail out.
-			break
-		}
+
 		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
 
@@ -608,8 +574,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
-	instAZ, instSubnet := inst.Instance.AvailZone, inst.Instance.SubnetId
-	logger.Infof("started instance %q in AZ %q, subnet %q", inst.Id(), instAZ, instSubnet)
+	instAZ := inst.Instance.AvailZone
+	if haveVPCID {
+		instVPC := e.ecfg().vpcID()
+		instSubnet := inst.Instance.SubnetId
+		logger.Infof("started instance %q in AZ %q, subnet %q, VPC %q", inst.Id(), instAZ, instSubnet, instVPC)
+	} else {
+		logger.Infof("started instance %q in AZ %q", inst.Id(), instAZ)
+	}
 
 	// Tag instance, for accounting and identification.
 	instanceName := resourceName(
@@ -713,7 +685,7 @@ var runInstances = _runInstances
 func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
 		resp, err = e.RunInstances(ri)
-		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		if err == nil || !isNotFoundError(err) {
 			break
 		}
 	}
@@ -727,15 +699,16 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 // groupInfoByName returns information on the security group
 // with the given name including rules and other details.
 func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
-	// Non-default VPC does not support name-based group lookups, can
-	// use a filter by group name instead when support is needed.
-	limitToGroups := []ec2.SecurityGroup{{Name: groupName}}
-	resp, err := e.ec2().SecurityGroups(limitToGroups, nil)
+	resp, err := e.securityGroupsByNameOrID(groupName)
 	if err != nil {
 		return ec2.SecurityGroupInfo{}, err
 	}
+
 	if len(resp.Groups) != 1 {
-		return ec2.SecurityGroupInfo{}, fmt.Errorf("expected one security group named %q, got %v", groupName, resp.Groups)
+		return ec2.SecurityGroupInfo{}, errors.NewNotFound(fmt.Errorf(
+			"expected one security group named %q, got %v",
+			groupName, resp.Groups,
+		), "")
 	}
 	return resp.Groups[0], nil
 }
@@ -744,6 +717,13 @@ func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, erro
 func (e *environ) groupByName(groupName string) (ec2.SecurityGroup, error) {
 	groupInfo, err := e.groupInfoByName(groupName)
 	return groupInfo.SecurityGroup, err
+}
+
+// isNotFoundError returns whether err is a typed NotFoundError or an EC2 error
+// code for "group not found", indicating no matching instances (as they are
+// filtered by group).
+func isNotFoundError(err error) bool {
+	return err != nil && (errors.IsNotFound(err) || ec2ErrCode(err) == "InvalidGroup.NotFound")
 }
 
 // Instances is part of the environs.Environ interface.
@@ -1147,14 +1127,12 @@ func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, er
 	//
 	// An EC2 API call is required to resolve the group name to an id, as
 	// VPC enabled accounts do not support name based filtering.
-	// TODO: Detect classic accounts and just filter by name for those.
 	groupName := e.jujuGroupName()
 	group, err := e.groupByName(groupName)
-	if err != nil {
-		if ec2ErrCode(err) == "InvalidGroup.NotFound" {
-			// If there's no group, then there cannot be any instances.
-			return nil, nil
-		}
+	if isNotFoundError(err) {
+		// If there's no group, then there cannot be any instances.
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	filter := ec2.NewFilter()
@@ -1427,6 +1405,7 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 	securityGroups := []ec2.SecurityGroup{}
 	for _, res := range resp.Reservations {
 		for _, inst := range res.Instances {
+			logger.Debugf("instance %q has security groups %+v", inst.InstanceId, inst.SecurityGroups)
 			securityGroups = append(securityGroups, inst.SecurityGroups...)
 		}
 	}
@@ -1444,7 +1423,7 @@ func (e *environ) controllerSecurityGroups() ([]ec2.SecurityGroup, error) {
 	}
 	groups := make([]ec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
-		groups[i] = ec2.SecurityGroup{info.Id, info.Name}
+		groups[i] = ec2.SecurityGroup{Id: info.Id, Name: info.Name}
 	}
 	return groups, nil
 }
@@ -1454,7 +1433,7 @@ func (e *environ) controllerSecurityGroups() ([]ec2.SecurityGroup, error) {
 func (e *environ) cleanEnvironmentSecurityGroups() error {
 	jujuGroup := e.jujuGroupName()
 	g, err := e.groupByName(jujuGroup)
-	if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+	if isNotFoundError(err) {
 		return nil
 	}
 	if err != nil {
@@ -1580,10 +1559,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		Clock:       clock,
 		Func: func() error {
 			_, err := inst.DeleteSecurityGroup(group)
-			if err == nil {
-				return nil
-			}
-			if ec2ErrCode(err) == "InvalidGroup.NotFound" {
+			if err == nil || isNotFoundError(err) {
 				return nil
 			}
 			return errors.Trace(err)
@@ -1679,15 +1655,43 @@ func (e *environ) setUpGroups(machineId string, apiPort int) ([]ec2.SecurityGrou
 // zeroGroup holds the zero security group.
 var zeroGroup ec2.SecurityGroup
 
+// securityGroupsByNameOrID calls ec2.SecurityGroups() either with the given
+// groupName or with filter by vpc-id and group-name, depending on whether
+// vpc-id is empty or not.
+func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroupsResp, error) {
+	if chosenVPCID := e.ecfg().vpcID(); isVPCIDSet(chosenVPCID) {
+		// AWS VPC API requires both of these filters (and no
+		// group names/ids set) for non-default EC2-VPC groups:
+		filter := ec2.NewFilter()
+		filter.Add("vpc-id", chosenVPCID)
+		filter.Add("group-name", groupName)
+		return e.ec2().SecurityGroups(nil, filter)
+	}
+
+	// EC2-Classic or EC2-VPC with implicit default VPC need to use the
+	// GroupName.X arguments instead of the filters.
+	groups := ec2.SecurityGroupNames(groupName)
+	return e.ec2().SecurityGroups(groups, nil)
+}
+
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
+	chosenVPCID := e.ecfg().vpcID()
+	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
+	if !isVPCIDSet(chosenVPCID) {
+		chosenVPCID = ""
+		inVPCLogSuffix = ""
+	}
+
 	ec2inst := e.ec2()
-	resp, err := ec2inst.CreateSecurityGroup("", name, "juju group")
+	resp, err := ec2inst.CreateSecurityGroup(chosenVPCID, name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
+		err = errors.Annotatef(err, "creating security group %q%s", name, inVPCLogSuffix)
 		return zeroGroup, err
 	}
 
@@ -1704,10 +1708,15 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		if err := tagResources(ec2inst, tags, g.Id); err != nil {
 			return g, errors.Annotate(err, "tagging security group")
 		}
+		logger.Debugf("created security group %q with ID %q%s", name, g.Id, inVPCLogSuffix)
 	} else {
-		resp, err := ec2inst.SecurityGroups(ec2.SecurityGroupNames(name), nil)
+		resp, err := e.securityGroupsByNameOrID(name)
 		if err != nil {
+			err = errors.Annotatef(err, "fetching security group %q%s", name, inVPCLogSuffix)
 			return zeroGroup, err
+		}
+		if len(resp.Groups) == 0 {
+			return zeroGroup, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
 		}
 		info := resp.Groups[0]
 		// It's possible that the old group has the wrong
@@ -1728,7 +1737,8 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	if len(revoke) > 0 {
 		_, err := ec2inst.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
-			return zeroGroup, fmt.Errorf("cannot revoke security group: %v", err)
+			err = errors.Annotatef(err, "revoking security group %q%s", g.Id, inVPCLogSuffix)
+			return zeroGroup, err
 		}
 	}
 
@@ -1741,15 +1751,15 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 	if len(add) > 0 {
 		_, err := ec2inst.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
-			return zeroGroup, fmt.Errorf("cannot authorize securityGroup: %v", err)
+			err = errors.Annotatef(err, "authorizing security group %q%s", g.Id, inVPCLogSuffix)
+			return zeroGroup, err
 		}
 	}
 	return g, nil
 }
 
-// permKey represents a permission for a group or an ip address range
-// to access the given range of ports. Only one of groupName or ipAddr
-// should be non-empty.
+// permKey represents a permission for a group or an ip address range to access
+// the given range of ports. Only one of groupId or ipAddr should be non-empty.
 type permKey struct {
 	protocol string
 	fromPort int
@@ -1804,6 +1814,10 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		ps = append(ps, ipp)
 	}
 	return
+}
+
+func isZoneOrSubnetConstrainedError(err error) bool {
+	return isZoneConstrainedError(err) || isSubnetConstrainedError(err)
 }
 
 // isZoneConstrainedError reports whether or not the error indicates

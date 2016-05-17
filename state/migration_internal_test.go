@@ -140,6 +140,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// network
 		ipAddressesC,
+		providerIDsC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
 		subnetsC,

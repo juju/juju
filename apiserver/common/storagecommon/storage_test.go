@@ -174,11 +174,8 @@ func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
 	}
 	s.volume = &fakeVolume{tag: names.NewVolumeTag("0")}
 	s.volumeAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
-	s.volumeAttachmentWatcher.C <- struct{}{}
 	s.blockDevicesWatcher = apiservertesting.NewFakeNotifyWatcher()
-	s.blockDevicesWatcher.C <- struct{}{}
 	s.storageAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
-	s.storageAttachmentWatcher.C <- struct{}{}
 	s.st = &fakeStorage{
 		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
 			return s.storageInstance, nil

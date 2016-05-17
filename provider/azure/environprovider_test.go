@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	jc "github.com/juju/testing/checkers"
@@ -93,6 +94,9 @@ func newProviders(c *gc.C, config azure.ProviderConfig) (environs.EnvironProvide
 		config.StorageAccountNameGenerator = func() string {
 			return fakeStorageAccount
 		}
+	}
+	if config.RetryClock == nil {
+		config.RetryClock = testing.NewClock(time.Time{})
 	}
 	environProvider, storageProvider, err := azure.NewProviders(config)
 	c.Assert(err, jc.ErrorIsNil)

@@ -458,6 +458,7 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 	dbWrap := newStorageDBWrapper(s.db, storageMetaName, s.modelUUID)
 	defer dbWrap.Close()
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	err := setStorageStoredTime(dbWrap, id, time.Now())
 	return errors.Trace(err)
 }

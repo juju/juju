@@ -13,7 +13,7 @@ import (
 type Backend interface {
 	migration.StateExporter
 
-	WatchForModelMigration() (state.NotifyWatcher, error)
+	WatchForModelMigration() state.NotifyWatcher
 	GetModelMigration() (state.ModelMigration, error)
 }
 

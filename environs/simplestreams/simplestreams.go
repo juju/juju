@@ -123,6 +123,8 @@ type CloudMetadata struct {
 	ContentId  string                        `json:"content_id"`
 	RegionName string                        `json:"region,omitempty"`
 	Endpoint   string                        `json:"endpoint,omitempty"`
+	Storage    string                        `json:"root_store,omitempty"`
+	VirtType   string                        `json:"virt,omitempty"`
 }
 
 type MetadataCatalog struct {
@@ -131,6 +133,8 @@ type MetadataCatalog struct {
 	Arch       string `json:"arch,omitempty"`
 	RegionName string `json:"region,omitempty"`
 	Endpoint   string `json:"endpoint,omitempty"`
+	Storage    string `json:"root_store,omitempty"`
+	VirtType   string `json:"virt,omitempty"`
 
 	// Items is a mapping from version to an ItemCollection,
 	// where the version is the date the items were produced,
@@ -146,6 +150,8 @@ type ItemCollection struct {
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`
+	Storage    string                 `json:"root_store,omitempty"`
+	VirtType   string                 `json:"virt,omitempty"`
 }
 
 // These structs define the model used for metadata indices.
@@ -1051,6 +1057,10 @@ func UserPublicSigningKey() (string, error) {
 	signingKeyFile := filepath.Join(agent.DefaultPaths.ConfDir, SimplestreamsPublicKeyFile)
 	b, err := ioutil.ReadFile(signingKeyFile)
 	if os.IsNotExist(err) {
+		// TODO (anastasiamac 2016-05-07)
+		// We should not swallow this error
+		// but propagate it up to the caller.
+		// Bug #1579279
 		return "", nil
 	}
 	if err != nil {

@@ -54,14 +54,6 @@ func (s *environSuite) TestSetConfigFake(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
 }
 
-func (s *environSuite) TestSetConfigMissing(c *gc.C) {
-	gce.UnsetEnvConfig(s.Env)
-
-	err := s.Env.SetConfig(s.Config)
-
-	c.Check(err, gc.ErrorMatches, "cannot set config on uninitialized env")
-}
-
 func (s *environSuite) TestConfig(c *gc.C) {
 	cfg := s.Env.Config()
 

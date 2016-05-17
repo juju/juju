@@ -277,7 +277,7 @@ func (m *mockMachine) InstanceStatus() (status.StatusInfo, error) {
 }
 
 // SetInstanceStatus implements StateMachine.
-func (m *mockMachine) SetInstanceStatus(instanceStatus status.Status, info string, data map[string]interface{}) error {
+func (m *mockMachine) SetInstanceStatus(instanceStatus status.StatusInfo) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -285,11 +285,7 @@ func (m *mockMachine) SetInstanceStatus(instanceStatus status.Status, info strin
 	if err := m.NextErr(); err != nil {
 		return err
 	}
-	m.instanceStatus = status.StatusInfo{
-		Status:  instanceStatus,
-		Message: info,
-		Data:    data,
-	}
+	m.instanceStatus = instanceStatus
 	return nil
 }
 

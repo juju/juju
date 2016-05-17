@@ -87,6 +87,7 @@ func NewCA(envName, UUID string, expiry time.Time) (certPEM, keyPEM string, err 
 	if err != nil {
 		return "", "", err
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 
 	// A serial number can be up to 20 octets in size.
@@ -129,6 +130,7 @@ func NewCA(envName, UUID string, expiry time.Time) (certPEM, keyPEM string, err 
 // NewServer generates a certificate/key pair suitable for use by a server, with an
 // expiry time of 10 years.
 func NewDefaultServer(caCertPEM, caKeyPEM string, hostnames []string) (certPEM, keyPEM string, err error) {
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	expiry := time.Now().UTC().AddDate(10, 0, 0)
 	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
 }
@@ -167,6 +169,7 @@ func newLeaf(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string, e
 	if err != nil {
 		return "", "", fmt.Errorf("cannot generate key: %v", err)
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int),

@@ -35,7 +35,7 @@ type AddModelCommand struct {
 // NewAddModelCommandForTest returns a AddModelCommand with
 // the api provided as specified.
 func NewAddModelCommandForTest(
-	api CreateModelAPI,
+	api AddModelAPI,
 	store jujuclient.ClientStore,
 	credentialStore jujuclient.CredentialStore,
 ) (cmd.Command, *AddModelCommand) {

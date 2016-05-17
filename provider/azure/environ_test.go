@@ -20,8 +20,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -49,9 +51,10 @@ type environSuite struct {
 	requests      []*http.Request
 	storageClient azuretesting.MockStorageClient
 	sender        azuretesting.Senders
+	retryClock    mockClock
 
 	tags                          map[string]*string
-	group                         *resources.Group
+	group                         *resources.ResourceGroup
 	vmSizes                       *compute.VirtualMachineSizeListResult
 	storageNameAvailabilityResult *storage.CheckNameAvailabilityResult
 	storageAccount                *storage.Account
@@ -73,10 +76,15 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.sender = nil
+	s.retryClock = mockClock{Clock: testing.NewClock(time.Time{})}
+
 	s.provider, _ = newProviders(c, azure.ProviderConfig{
 		Sender:           &s.sender,
 		RequestInspector: requestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
+		RetryClock: &testing.AutoAdvancingClock{
+			&s.retryClock, s.retryClock.Advance,
+		},
 	})
 
 	envTags := map[string]*string{
@@ -87,7 +95,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		"juju-machine-name": to.StringPtr("machine-0"),
 	}
 
-	s.group = &resources.Group{
+	s.group = &resources.ResourceGroup{
 		Location: to.StringPtr("westus"),
 		Tags:     &envTags,
 	}
@@ -156,6 +164,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.StringPtr("14.04-LTS")},
 		{Name: to.StringPtr("15.04")},
 		{Name: to.StringPtr("15.10")},
+		{Name: to.StringPtr("16.04-LTS")},
 	}
 
 	s.publicIPAddress = &network.PublicIPAddress{
@@ -328,6 +337,7 @@ func prepareForBootstrap(
 }
 
 func tokenRefreshSender() *azuretesting.MockSender {
+	// lp:1558657
 	tokenRefreshSender := azuretesting.NewSenderWithValue(&autorestazure.Token{
 		AccessToken: "access-token",
 		ExpiresOn:   fmt.Sprint(time.Now().Add(time.Hour).Unix()),
@@ -453,6 +463,17 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 	c.Assert(unmarshalled, jc.DeepEquals, expect)
 }
 
+type mockClock struct {
+	gitjujutesting.Stub
+	*testing.Clock
+}
+
+func (c *mockClock) After(d time.Duration) <-chan time.Time {
+	c.MethodCall(c, "After", d)
+	c.PopNoErr()
+	return c.Clock.After(d)
+}
+
 func (s *environSuite) TestOpen(c *gc.C) {
 	cfg := makeTestModelConfig(c)
 	env, err := s.provider.Open(cfg)
@@ -495,9 +516,88 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		RootDisk: &rootDisk,
 		CpuCores: &cpuCores,
 	})
-	requests := s.assertStartInstanceRequests(c)
+	requests := s.assertStartInstanceRequests(c, s.requests)
 	availabilitySetName := path.Base(requests.availabilitySet.URL.Path)
 	c.Assert(availabilitySetName, gc.Equals, "juju")
+}
+
+func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
+	env := s.openEnviron(c)
+	senders := s.startInstanceSenders(false)
+	s.requests = nil
+
+	// 6 failures to get to 1 minute, and show that we cap it there.
+	const failures = 6
+
+	// Make the VirtualMachines.CreateOrUpdate call respond with
+	// 429 (StatusTooManyRequests) failures, and then with success.
+	rateLimitedSender := mocks.NewSender()
+	rateLimitedSender.EmitStatus("(」゜ロ゜)」", http.StatusTooManyRequests)
+	successSender := senders[len(senders)-1]
+	senders = senders[:len(senders)-1]
+	for i := 0; i < failures; i++ {
+		senders = append(senders, rateLimitedSender)
+	}
+	senders = append(senders, successSender)
+	s.sender = senders
+
+	_, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.requests, gc.HasLen, 8+failures)
+	s.assertStartInstanceRequests(c, s.requests[:8])
+
+	// The last two requests should match the third-to-last, which
+	// is checked by assertStartInstanceRequests.
+	for i := 8; i < 8+failures; i++ {
+		c.Assert(s.requests[i].Method, gc.Equals, "PUT")
+		assertCreateVirtualMachineRequestBody(c, s.requests[i], s.virtualMachine)
+	}
+
+	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
+		{"After", []interface{}{5 * time.Second}},
+		{"After", []interface{}{10 * time.Second}},
+		{"After", []interface{}{20 * time.Second}},
+		{"After", []interface{}{40 * time.Second}},
+		{"After", []interface{}{1 * time.Minute}},
+		{"After", []interface{}{1 * time.Minute}},
+	})
+}
+
+func (s *environSuite) TestStartInstanceTooManyRequestsTimeout(c *gc.C) {
+	env := s.openEnviron(c)
+	senders := s.startInstanceSenders(false)
+	s.requests = nil
+
+	// 8 failures to get to 5 minutes, which is as long as we'll keep
+	// retrying before giving up.
+	const failures = 8
+
+	// Make the VirtualMachines.CreateOrUpdate call respond with
+	// enough 429 (StatusTooManyRequests) failures to cause the
+	// method to give up retrying.
+	rateLimitedSender := mocks.NewSender()
+	rateLimitedSender.EmitStatus("(」゜ロ゜)」", http.StatusTooManyRequests)
+	senders = senders[:len(senders)-1]
+	for i := 0; i < failures; i++ {
+		senders = append(senders, rateLimitedSender)
+	}
+	s.sender = senders
+
+	_, err := env.StartInstance(makeStartInstanceParams(c, "quantal"))
+	c.Assert(err, gc.ErrorMatches, "creating virtual machine.*: max duration exceeded: .*failed with.*")
+
+	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
+		{"After", []interface{}{5 * time.Second}},  // t0 + 5s
+		{"After", []interface{}{10 * time.Second}}, // t0 + 15s
+		{"After", []interface{}{20 * time.Second}}, // t0 + 35s
+		{"After", []interface{}{40 * time.Second}}, // t0 + 1m15s
+		{"After", []interface{}{1 * time.Minute}},  // t0 + 2m15s
+		{"After", []interface{}{1 * time.Minute}},  // t0 + 3m15s
+		{"After", []interface{}{1 * time.Minute}},  // t0 + 4m15s
+		// There would be another call here, but since the time
+		// exceeds the give minute limit, retrying is aborted.
+	})
 }
 
 func (s *environSuite) TestStartInstanceDistributionGroup(c *gc.C) {
@@ -514,12 +614,12 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	_, err := env.StartInstance(params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.tags[tags.JujuUnitsDeployed] = &unitsDeployed
-	requests := s.assertStartInstanceRequests(c)
+	requests := s.assertStartInstanceRequests(c, s.requests)
 	availabilitySetName := path.Base(requests.availabilitySet.URL.Path)
 	c.Assert(availabilitySetName, gc.Equals, "mysql")
 }
 
-func (s *environSuite) assertStartInstanceRequests(c *gc.C) startInstanceRequests {
+func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Request) startInstanceRequests {
 	// Clear the fields that don't get sent in the request.
 	s.publicIPAddress.ID = nil
 	s.publicIPAddress.Name = nil
@@ -534,37 +634,40 @@ func (s *environSuite) assertStartInstanceRequests(c *gc.C) startInstanceRequest
 	s.virtualMachine.Properties.ProvisioningState = nil
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 8)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // vmSizes
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // skus
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT")
-	assertRequestBody(c, s.requests[3], s.publicIPAddress)
-	c.Assert(s.requests[4].Method, gc.Equals, "GET") // NICs
-	c.Assert(s.requests[5].Method, gc.Equals, "PUT")
-	assertRequestBody(c, s.requests[5], s.newNetworkInterface)
-	c.Assert(s.requests[6].Method, gc.Equals, "PUT")
-	assertRequestBody(c, s.requests[6], s.jujuAvailabilitySet)
-	c.Assert(s.requests[7].Method, gc.Equals, "PUT")
+	c.Assert(requests, gc.HasLen, 8)
+	c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
+	c.Assert(requests[1].Method, gc.Equals, "GET") // juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+	c.Assert(requests[2].Method, gc.Equals, "GET") // skus
+	c.Assert(requests[3].Method, gc.Equals, "PUT")
+	assertRequestBody(c, requests[3], s.publicIPAddress)
+	c.Assert(requests[4].Method, gc.Equals, "GET") // NICs
+	c.Assert(requests[5].Method, gc.Equals, "PUT")
+	assertRequestBody(c, requests[5], s.newNetworkInterface)
+	c.Assert(requests[6].Method, gc.Equals, "PUT")
+	assertRequestBody(c, requests[6], s.jujuAvailabilitySet)
+	c.Assert(requests[7].Method, gc.Equals, "PUT")
+	assertCreateVirtualMachineRequestBody(c, requests[7], s.virtualMachine)
 
+	return startInstanceRequests{
+		vmSizes:          requests[0],
+		subnet:           requests[1],
+		skus:             requests[2],
+		publicIPAddress:  requests[3],
+		nics:             requests[4],
+		networkInterface: requests[5],
+		availabilitySet:  requests[6],
+		virtualMachine:   requests[7],
+	}
+}
+
+func assertCreateVirtualMachineRequestBody(c *gc.C, req *http.Request, expect *compute.VirtualMachine) {
 	// CustomData is non-deterministic, so don't compare it.
 	// TODO(axw) shouldn't CustomData be deterministic? Look into this.
 	var virtualMachine compute.VirtualMachine
-	unmarshalRequestBody(c, s.requests[7], &virtualMachine)
+	unmarshalRequestBody(c, req, &virtualMachine)
 	c.Assert(to.String(virtualMachine.Properties.OsProfile.CustomData), gc.Not(gc.HasLen), 0)
 	virtualMachine.Properties.OsProfile.CustomData = to.StringPtr("<juju-goes-here>")
-	c.Assert(&virtualMachine, jc.DeepEquals, s.virtualMachine)
-
-	return startInstanceRequests{
-		vmSizes:          s.requests[0],
-		subnet:           s.requests[1],
-		skus:             s.requests[2],
-		publicIPAddress:  s.requests[3],
-		nics:             s.requests[4],
-		networkInterface: s.requests[5],
-		availabilitySet:  s.requests[6],
-		virtualMachine:   s.requests[7],
-	}
+	c.Assert(&virtualMachine, jc.DeepEquals, expect)
 }
 
 type startInstanceRequests struct {
@@ -589,12 +692,12 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			AvailableTools: makeToolsList("trusty"),
+			AvailableTools: makeToolsList(series.LatestLts()),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, "trusty")
+	c.Assert(result.Series, gc.Equals, series.LatestLts())
 
 	c.Assert(len(s.requests), gc.Equals, 17)
 
@@ -616,7 +719,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		Name: to.StringPtr("SSHInbound"),
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("Allow SSH access to all machines"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
+			Protocol:                 network.TCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
 			DestinationAddressPrefix: to.StringPtr("*"),

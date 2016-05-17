@@ -1061,7 +1061,13 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			err := ctx.unit.SetAgentStatus(status.StatusIdle, "", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusIdle,
+				Message: "",
+				Since:   &now,
+			}
+			err := ctx.unit.SetAgentStatus(sInfo)
 			c.Check(err, jc.ErrorIsNil)
 		}},
 		startUniter{},

@@ -690,6 +690,7 @@ mkdir 'C:\Juju\log\juju'
 mkdir $binDir
 $WebClient = New-Object System.Net.WebClient
 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
 ExecRetry { TryExecAll @({ $WebClient.DownloadFile('https://state-addr.testing.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1.2.3-win8-amd64', "$binDir\tools.tar.gz"); }) }
 $dToolsHash = Get-FileSHA256 -FilePath "$binDir\tools.tar.gz"
 $dToolsHash > "$binDir\juju1.2.3-win8-amd64.sha256"

@@ -79,7 +79,7 @@ var (
 )
 
 type stopper interface {
-	Stop()
+	Stop() error
 }
 
 // ManifoldConfig identifies the resource names upon which the collect manifold

@@ -188,6 +188,7 @@ func (s *aggregateSuite) TestDyingWhileHandlingRequest(c *gc.C) {
 }
 
 type batchingInstanceGetter struct {
+	sync.RWMutex
 	testInstanceGetter
 	wg         sync.WaitGroup
 	aggregator *aggregator
@@ -215,6 +216,8 @@ func (g *batchingInstanceGetter) startRequests() {
 func (g *batchingInstanceGetter) startRequest() {
 	g.started++
 	go func() {
+		g.RLock()
+		defer g.RUnlock()
 		_, err := g.aggregator.instanceInfo("foo")
 		if err != nil {
 			panic(err)
@@ -226,6 +229,7 @@ func (g *batchingInstanceGetter) startRequest() {
 func (s *aggregateSuite) TestBatching(c *gc.C) {
 	s.PatchValue(&gatherTime, 10*time.Millisecond)
 	var testGetter batchingInstanceGetter
+	testGetter.Lock()
 	testGetter.aggregator = newAggregator(&testGetter)
 	// We only need to inform the system about 1 instance, because all the
 	// requests are for the same instance.
@@ -238,6 +242,7 @@ func (s *aggregateSuite) TestBatching(c *gc.C) {
 	// which should get aggregated into a single call to Instances, which
 	// then should trigger another round of batchSize requests.
 	testGetter.startRequest()
+	testGetter.Unlock()
 	testGetter.wg.Wait()
 	c.Assert(testGetter.counter, gc.Equals, int32(testGetter.totalCount/testGetter.batchSize)+1)
 }

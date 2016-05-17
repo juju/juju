@@ -38,6 +38,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -86,7 +88,7 @@ func SampleConfig() testing.Attrs {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
-		"default-series":            config.LatestLtsSeries(),
+		"default-series":            series.LatestLts(),
 
 		"secret":      "pork",
 		"controller":  true,
@@ -736,7 +738,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// It is set just below.
 		st, err := state.Initialize(
 			names.NewUserTag("admin@local"), info, cfg,
-			mongo.DefaultDialOpts(), estate.statePolicy)
+			mongotest.DialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}
@@ -842,7 +844,15 @@ func (e *environ) Destroy() (res error) {
 		}
 		return err
 	}
-	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	defer func() {
+		// The estate is a pointer to a structure that is stored in the dummy global.
+		// The Listen method can change the ops channel of any state, and will do so
+		// under the covers. What we need to do is use the state mutex to add a memory
+		// barrier such that the ops channel we see here is the latest.
+		estate.mu.Lock()
+		defer estate.mu.Unlock()
+		estate.ops <- OpDestroy{Env: estate.name, Error: res}
+	}()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}

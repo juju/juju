@@ -49,7 +49,7 @@ func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 	switch getter := entity.(type) {
 	case status.StatusGetter:
 		statusInfo, err := getter.Status()
-		result.Status = statusInfo.Status
+		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
 		result.Since = statusInfo.Since
@@ -171,7 +171,7 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		result.Results[i].Service.Status = serviceStatus.Status
+		result.Results[i].Service.Status = serviceStatus.Status.String()
 		result.Results[i].Service.Info = serviceStatus.Message
 		result.Results[i].Service.Data = serviceStatus.Data
 		result.Results[i].Service.Since = serviceStatus.Since
@@ -179,7 +179,7 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 		result.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
 		for uTag, r := range unitStatuses {
 			ur := params.StatusResult{
-				Status: r.Status,
+				Status: r.Status.String(),
 				Info:   r.Message,
 				Data:   r.Data,
 				Since:  r.Since,
@@ -191,11 +191,11 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 }
 
 // EntityStatusFromState converts a state.StatusInfo into a params.EntityStatus.
-func EntityStatusFromState(status status.StatusInfo) params.EntityStatus {
+func EntityStatusFromState(statusInfo status.StatusInfo) params.EntityStatus {
 	return params.EntityStatus{
-		status.Status,
-		status.Message,
-		status.Data,
-		status.Since,
+		Status: statusInfo.Status,
+		Info:   statusInfo.Message,
+		Data:   statusInfo.Data,
+		Since:  statusInfo.Since,
 	}
 }

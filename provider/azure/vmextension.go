@@ -1,6 +1,7 @@
 package azure
 
 import (
+	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/juju/errors"
@@ -31,6 +32,7 @@ const (
 // createVMExtension creates a CustomScript VM extension for the given VM
 // which will execute the CustomData on the machine as a script.
 func createVMExtension(
+	callAPI callAPIFunc,
 	vmExtensionClient compute.VirtualMachineExtensionsClient,
 	os jujuos.OSType, resourceGroup, vmName, location string, vmTags map[string]string,
 ) error {
@@ -54,8 +56,8 @@ func createVMExtension(
 		return errors.NotSupportedf("CustomScript extension for OS %q", os)
 	}
 
-	extensionSettings := map[string]*string{
-		"commandToExecute": to.StringPtr(commandToExecute),
+	extensionSettings := map[string]interface{}{
+		"commandToExecute": commandToExecute,
 	}
 	extension := compute.VirtualMachineExtension{
 		Location: to.StringPtr(location),
@@ -68,8 +70,11 @@ func createVMExtension(
 			Settings:                &extensionSettings,
 		},
 	}
-	_, err := vmExtensionClient.CreateOrUpdate(
-		resourceGroup, vmName, extensionName, extension,
-	)
+	err := callAPI(func() (autorest.Response, error) {
+		result, err := vmExtensionClient.CreateOrUpdate(
+			resourceGroup, vmName, extensionName, extension,
+		)
+		return result.Response, err
+	})
 	return err
 }

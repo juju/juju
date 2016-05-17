@@ -242,8 +242,8 @@ func (v *volume) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus is required to implement StatusSetter.
-func (v *volume) SetStatus(volumeStatus status.Status, info string, data map[string]interface{}) error {
-	return v.st.SetVolumeStatus(v.VolumeTag(), volumeStatus, info, data)
+func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
+	return v.st.SetVolumeStatus(v.VolumeTag(), volumeStatus.Status, volumeStatus.Message, volumeStatus.Data, volumeStatus.Since)
 }
 
 // Volume is required to implement VolumeAttachment.
@@ -1033,7 +1033,7 @@ func (st *State) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
 }
 
 // SetVolumeStatus sets the status of the specified volume.
-func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status, info string, data map[string]interface{}) error {
+func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
 	switch volumeStatus {
 	case status.StatusAttaching, status.StatusAttached, status.StatusDetaching, status.StatusDetached, status.StatusDestroying:
 	case status.StatusError:
@@ -1061,5 +1061,6 @@ func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status
 		status:    volumeStatus,
 		message:   info,
 		rawData:   data,
+		updated:   updated,
 	})
 }

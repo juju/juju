@@ -65,6 +65,7 @@ func (s *openstackstorage) Get(file string) (io.ReadCloser, error) {
 
 func (s *openstackstorage) URL(name string) (string, error) {
 	// 10 years should be good enough.
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	expires := time.Now().AddDate(10, 0, 0)
 	return s.swift.SignedURL(s.containerName, name, expires)
 }

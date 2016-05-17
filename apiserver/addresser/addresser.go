@@ -109,7 +109,7 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 		logger.Debugf("releasing dead IP address %q", ipAddressValue)
 		err := api.releaseIPAddress(netEnv, ipAddress)
 		if err != nil {
-			logger.Warningf("cannot release IP address %q: %v (will retry)", ipAddressValue, err)
+			logger.Debugf("cannot release IP address %q: %v (will retry)", ipAddressValue, err)
 			canRetry = true
 			continue
 		}
@@ -119,7 +119,7 @@ func (api *AddresserAPI) CleanupIPAddresses() params.ErrorResult {
 			continue
 		}
 		if err != nil {
-			logger.Warningf("failed to remove released IP address %q: %v (will retry)", ipAddressValue, err)
+			logger.Debugf("failed to remove released IP address %q: %v (will retry)", ipAddressValue, err)
 			canRetry = true
 			continue
 		}

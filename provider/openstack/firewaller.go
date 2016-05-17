@@ -282,7 +282,11 @@ func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 		},
 		Attempts: 30,
 		Delay:    time.Second,
-		Clock:    clock.WallClock,
+		// TODO(dimitern): This should be fixed to take a clock.Clock arg, not
+		// hard-coded WallClock, like in provider/ec2/securitygroups_test.go!
+		// See PR juju:#5197, especially the code around autoAdvancingClock.
+		// LP Bug: http://pad.lv/1580626.
+		Clock: clock.WallClock,
 	})
 	if err != nil {
 		logger.Warningf("cannot delete security group %q. Used by another model?", name)

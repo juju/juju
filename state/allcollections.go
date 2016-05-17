@@ -298,20 +298,11 @@ func allCollections() collectionSchema {
 			}},
 		},
 		// TODO(dimitern): End of obsolete networking collections.
-		spacesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		subnetsC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
+		providerIDsC: {},
+		spacesC:      {},
+		subnetsC:     {},
+		// TODO(mfoord): remove providerid indices here and switch to
+		// using providerIDsC to track unique provider ids.
 		linkLayerDevicesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},
@@ -374,7 +365,7 @@ func allCollections() collectionSchema {
 		statusesC:           {},
 		statusesHistoryC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "globalkey"},
+				Key: []string{"model-uuid", "globalkey", "updated"},
 			}},
 		},
 
@@ -430,6 +421,7 @@ const (
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
+	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
 	relationsC               = "relations"

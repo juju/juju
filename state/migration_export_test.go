@@ -37,10 +37,6 @@ type MigrationSuite struct {
 	ConnSuite
 }
 
-type statusSetter interface {
-	SetStatus(status.Status, string, map[string]interface{}) error
-}
-
 func (s *MigrationSuite) setLatestTools(c *gc.C, latestTools version.Number) {
 	dbModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,11 +57,9 @@ func (s *MigrationSuite) setRandSequenceValue(c *gc.C, name string) int {
 }
 
 func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, count int) {
-	for i := 0; i < count; i++ {
-		c.Logf("setting status for %v", entity)
-		err := entity.SetStatus(statusVal, "", map[string]interface{}{"index": count - i})
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	primeStatusHistory(c, entity, statusVal, count, func(i int) map[string]interface{} {
+		return map[string]interface{}{"index": count - i}
+	}, 0)
 }
 
 func (s *MigrationSuite) makeServiceWithLeader(c *gc.C, serviceName string, count int, leader int) {
@@ -97,6 +91,7 @@ var _ = gc.Suite(&MigrationExportSuite{})
 
 func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {
 	for i, st := range history {
+		c.Logf("status history #%d: %s", i, st.Updated())
 		c.Check(st.Value(), gc.Equals, string(statusVal))
 		c.Check(st.Message(), gc.Equals, "")
 		c.Check(st.Data(), jc.DeepEquals, map[string]interface{}{"index": i + 1})

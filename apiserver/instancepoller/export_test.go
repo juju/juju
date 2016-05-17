@@ -3,9 +3,7 @@
 
 package instancepoller
 
-import (
-	"github.com/juju/juju/state"
-)
+import "github.com/juju/juju/state"
 
 type Patcher interface {
 	PatchValue(ptr, value interface{})

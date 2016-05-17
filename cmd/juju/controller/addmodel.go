@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controller
@@ -28,7 +28,7 @@ func NewAddModelCommand() cmd.Command {
 // addModelCommand calls the API to add a new model.
 type addModelCommand struct {
 	modelcmd.ControllerCommandBase
-	api             CreateModelAPI
+	api             AddModelAPI
 	credentialStore jujuclient.CredentialStore
 
 	Name           string
@@ -41,52 +41,40 @@ type addModelCommand struct {
 }
 
 const addModelHelpDoc = `
-This command will add another model within the current Juju
-Controller. The provider has to match, and the model config must
-specify all the required configuration values for the provider.
-
-If configuration values are passed by both extra command line
-arguments and the --config option, the command line args take
-priority.
-
-If adding a model in a controller for which you are not the
-administrator, the cloud credentials and authorized ssh keys must
-be specified. The credentials are specified using the argument
---credential <cloud>:<credential>. The authorized ssh keys are
-specified using a --config argument, either authorized=keys=value
-or via a config yaml file.
- 
-Any credentials used must be for a cloud with the same provider
-type as the controller. Controller administrators do not have to
-specify credentials or ssh keys; by default, the credentials and
-keys used to bootstrap the controller are used if no others are
-specified.
+Adding a model is typically done in order to run a specific workload. The
+model is of the same cloud type as the controller and resides within that
+controller. By default, the controller is the current controller.
+The credentials used to add the model are the ones used to create any
+future resources within the model (` + "`juju deploy`, `juju add-unit`" + `).
+Model names can be duplicated across controllers but must be unique for
+any given controller.
+The necessary configuration must be available, either via the controller
+configuration (known to Juju upon its creation), command line arguments,
+or configuration file (--config). For 'ec2' and 'openstack' cloud types,
+the access and secret keys need to be provided.
+If the same configuration values are passed by both command line arguments
+and the --config option, the former take priority.
 
 Examples:
 
-    juju add-model new-model
-
-    juju add-model new-model --config aws-creds.yaml --config image-stream=daily
-    
-    juju add-model new-model --credential aws:mysekrets --config authorized-keys="ssh-rsa ..."
-
-See Also:
-    juju help grant
+    juju add-model mymodel
+    juju add-model mymodel --config aws-creds.yaml --config image-stream=daily
+    juju add-model mymodel --credential aws:credential_name --config authorized-keys="ssh-rsa ..."
 `
 
 func (c *addModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-model",
-		Args:    "<name> [--config key=[value] ...] [--credential <cloud>:<credential>]",
-		Purpose: "Add a model within the Juju Model Server",
+		Args:    "<model name>",
+		Purpose: "Adds a hosted model.",
 		Doc:     strings.TrimSpace(addModelHelpDoc),
 	}
 }
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
-	f.StringVar(&c.CredentialSpec, "credential", "", "The name of the cloud and credentials the new model uses to create cloud resources")
-	f.Var(&c.Config, "config", "Specify a controller config file, or one or more controller configuration options (--config config.yaml [--config k=v ...])")
+	f.StringVar(&c.CredentialSpec, "credential", "", "Credential used to add the model: <cloud>:<credential name>")
+	f.Var(&c.Config, "config", "Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])")
 }
 
 func (c *addModelCommand) Init(args []string) error {
@@ -115,13 +103,13 @@ func (c *addModelCommand) Init(args []string) error {
 	return nil
 }
 
-type CreateModelAPI interface {
+type AddModelAPI interface {
 	Close() error
 	ConfigSkeleton(provider, region string) (params.ModelConfig, error)
 	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
 }
 
-func (c *addModelCommand) getAPI() (CreateModelAPI, error) {
+func (c *addModelCommand) getAPI() (AddModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

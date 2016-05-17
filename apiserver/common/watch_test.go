@@ -27,10 +27,7 @@ type fakeAgentEntityWatcher struct {
 }
 
 func (a *fakeAgentEntityWatcher) Watch() state.NotifyWatcher {
-	w := apiservertesting.NewFakeNotifyWatcher()
-	// Simulate initial event.
-	w.C <- struct{}{}
-	return w
+	return apiservertesting.NewFakeNotifyWatcher()
 }
 
 func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
@@ -100,9 +97,7 @@ var _ = gc.Suite(&multiNotifyWatcherSuite{})
 
 func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 	w0 := apiservertesting.NewFakeNotifyWatcher()
-	w0.C <- struct{}{}
 	w1 := apiservertesting.NewFakeNotifyWatcher()
-	w1.C <- struct{}{}
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
 	defer statetesting.AssertStop(c, mw)
@@ -122,9 +117,7 @@ func (*multiNotifyWatcherSuite) TestMultiNotifyWatcher(c *gc.C) {
 
 func (*multiNotifyWatcherSuite) TestMultiNotifyWatcherStop(c *gc.C) {
 	w0 := apiservertesting.NewFakeNotifyWatcher()
-	w0.C <- struct{}{}
 	w1 := apiservertesting.NewFakeNotifyWatcher()
-	w1.C <- struct{}{}
 
 	mw := common.NewMultiNotifyWatcher(w0, w1)
 	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, mw)

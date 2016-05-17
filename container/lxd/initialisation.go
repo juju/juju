@@ -9,9 +9,9 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -90,7 +90,7 @@ var configureZFS = func() {
 	).CombinedOutput()
 
 	if err != nil {
-		logger.Warningf("configuring zfs failed with %s: %s", err, string(output))
+		logger.Errorf("configuring zfs failed with %s: %s", err, string(output))
 	}
 }
 
@@ -101,35 +101,32 @@ var configureLXDBridge = func() error {
 		 * lxd-bridge; let's not fail here.
 		 */
 		if os.IsNotExist(err) {
-			logger.Warningf("couldn't find %s, not configuring it", lxdBridgeFile)
+			logger.Debugf("couldn't find %s, not configuring it", lxdBridgeFile)
 			return nil
 		}
 		return errors.Trace(err)
 	}
 	defer f.Close()
 
-	output, err := exec.Command("ip", "addr", "show").CombinedOutput()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	subnet, err := detectSubnet(string(output))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	existing, err := ioutil.ReadAll(f)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	result := editLXDBridgeFile(string(existing), subnet)
-	_, err = f.Seek(0, 0)
+	newBridgeCfg, err := bridgeConfiguration(string(existing))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	_, err = f.WriteString(result)
+	if newBridgeCfg == string(existing) {
+		return nil
+	}
+
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = f.WriteString(newBridgeCfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,46 +136,8 @@ var configureLXDBridge = func() error {
 	return exec.Command("service", "lxd", "restart").Run()
 }
 
-func detectSubnet(ipAddrOutput string) (string, error) {
-	max := 0
-
-	for _, line := range strings.Split(ipAddrOutput, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-
-		columns := strings.Split(trimmed, " ")
-
-		if len(columns) < 2 {
-			return "", errors.Trace(fmt.Errorf("invalid ip addr output line %s", line))
-		}
-
-		if columns[0] != "inet" {
-			continue
-		}
-
-		addr := columns[1]
-		if !strings.HasPrefix(addr, "10.0.") {
-			continue
-		}
-
-		tuples := strings.Split(addr, ".")
-		if len(tuples) < 4 {
-			return "", errors.Trace(fmt.Errorf("invalid ip addr %s", addr))
-		}
-
-		subnet, err := strconv.Atoi(tuples[2])
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-
-		if subnet > max {
-			max = subnet
-		}
-	}
-
-	return fmt.Sprintf("%d", max+1), nil
+var interfaceAddrs = func() ([]net.Addr, error) {
+	return net.InterfaceAddrs()
 }
 
 func editLXDBridgeFile(input string, subnet string) string {
@@ -266,4 +225,108 @@ func ensureDependencies(series string) error {
 	}
 
 	return err
+}
+
+// findNextAvailableIPv4Subnet scans the list of interfaces on the machine
+// looking for 10.0.0.0/16 networks and returns the next subnet not in
+// use, having first detected the highest subnet. The next subnet can
+// actually be lower if we overflowed 255 whilst seeking out the next
+// unused subnet. If all subnets are in use an error is returned.
+//
+// TODO(frobware): this is not an ideal solution as it doesn't take
+// into account any static routes that may be set up on the machine.
+//
+// TODO(frobware): this only caters for IPv4 setups.
+func findNextAvailableIPv4Subnet() (string, error) {
+	_, ip10network, err := net.ParseCIDR("10.0.0.0/16")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot get network interface addresses")
+	}
+
+	max := 0
+	usedSubnets := make(map[int]bool)
+
+	for _, address := range addrs {
+		addr, network, err := net.ParseCIDR(address.String())
+		if err != nil {
+			logger.Debugf("cannot parse address %q: %v (ignoring)", address.String(), err)
+			continue
+		}
+		if !ip10network.Contains(addr) {
+			logger.Debugf("find available subnet, skipping %q", network.String())
+			continue
+		}
+		subnet := int(network.IP[2])
+		usedSubnets[subnet] = true
+		if subnet > max {
+			max = subnet
+		}
+	}
+
+	if len(usedSubnets) == 0 {
+		return "0", nil
+	}
+
+	for i := 0; i < 256; i++ {
+		max = (max + 1) % 256
+		if _, inUse := usedSubnets[max]; !inUse {
+			return fmt.Sprintf("%d", max), nil
+		}
+	}
+
+	return "", errors.New("could not find unused subnet")
+}
+
+func parseLXDBridgeConfigValues(input string) map[string]string {
+	values := make(map[string]string)
+
+	for _, line := range strings.Split(input, "\n") {
+		line = strings.TrimSpace(line)
+
+		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+
+		tokens := strings.Split(line, "=")
+
+		if tokens[0] == "" {
+			continue // no key
+		}
+
+		value := ""
+
+		if len(tokens) > 1 {
+			value = tokens[1]
+			if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+				value = strings.Trim(value, `"`)
+			}
+		}
+
+		values[tokens[0]] = value
+	}
+	return values
+}
+
+// bridgeConfiguration ensures that input has a valid setting for
+// LXD_IPV4_ADDR, returning the existing input if is already set, and
+// allocating the next available subnet if it is not.
+func bridgeConfiguration(input string) (string, error) {
+	values := parseLXDBridgeConfigValues(input)
+	ipAddr := net.ParseIP(values["LXD_IPV4_ADDR"])
+
+	if ipAddr == nil || ipAddr.To4() == nil {
+		logger.Infof("LXD_IPV4_ADDR is not set; searching for unused subnet")
+		subnet, err := findNextAvailableIPv4Subnet()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		logger.Infof("setting LXD_IPV4_ADDR=10.0.%s.1", subnet)
+		return editLXDBridgeFile(input, subnet), nil
+	}
+	return input, nil
 }

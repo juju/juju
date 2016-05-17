@@ -171,6 +171,7 @@ func EnsureCloneTemplate(
 		return nil, err
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	tailWriter := &logTail{tick: time.Now()}
 	consoleTailer := tailer.NewTailer(console, tailWriter, nil)
 	defer consoleTailer.Stop()
@@ -179,6 +180,7 @@ func EnsureCloneTemplate(
 	// if no output check to see if stopped
 	// If we have no output and still running, something has probably gone wrong
 	for lxcContainer.IsRunning() {
+		// TODO(perrito666) 2016-05-02 lp:1558657
 		if tailWriter.lastTick().Before(time.Now().Add(-TemplateStopTimeout)) {
 			logger.Infof("not heard anything from the template log for five minutes")
 			callback(status.StatusProvisioningError, "Container creation failed: template container has not stopped", nil)
@@ -201,6 +203,7 @@ func (t *logTail) Write(data []byte) (int, error) {
 	logger.Tracef(string(data))
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	t.tick = time.Now()
 	return len(data), nil
 }
