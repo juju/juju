@@ -6,13 +6,13 @@ import logging
 from mock import patch
 import os
 import StringIO
+from textwrap import dedent
 
 import assess_autoload_credentials as aac
 from tests import (
     TestCase,
     parse_error,
     )
-from textwrap import dedent
 
 from utility import temp_dir
 
