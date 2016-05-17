@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-//go:generate go run ../generate/filetoconst.go UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig
+//go:generate go run ../generate/filetoconst/filetoconst.go UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig
 //go:generate go run ../generate/winuserdata/winuserdata.go 2016 winuserdata.go cloudconfig
 
 type aclType string
