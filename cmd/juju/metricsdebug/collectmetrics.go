@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
@@ -75,7 +76,6 @@ func (c *collectMetricsCommand) Init(args []string) error {
 	} else {
 		return errors.Errorf("%q is not a valid unit or service", args[0])
 	}
-	logger.Infof("%v %v %v", c.entity, c.unit, c.service)
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
 	}
@@ -92,12 +92,8 @@ type runClient interface {
 	Run(run params.RunParams) ([]params.ActionResult, error)
 }
 
-var newRunClient = func(env modelcmd.ModelCommandBase) (runClient, error) {
-	root, err := env.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return actionapi.NewClient(root), errors.Trace(err)
+var newRunClient = func(conn api.Connection) runClient {
+	return actionapi.NewClient(conn)
 }
 
 func parseRunOutput(result params.ActionResult) (string, string, error) {
@@ -128,7 +124,7 @@ func parseActionResult(result params.ActionResult) (string, error) {
 		return "", errors.Trace(err)
 	}
 	if strings.Contains(stderr, "nc: unix connect failed: No such file or directory") {
-		return "", errors.New("service does not support metric collection")
+		return "", errors.New("no collect service listening: does service support metric collection?")
 	}
 	return tag.Id(), nil
 }
@@ -137,15 +133,11 @@ type serviceClient interface {
 	GetCharmURL(service string) (*charm.URL, error)
 }
 
-var newServiceClient = func(env modelcmd.ModelCommandBase) (serviceClient, error) {
-	root, err := env.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return service.NewClient(root), errors.Trace(err)
+var newServiceClient = func(root api.Connection) serviceClient {
+	return service.NewClient(root)
 }
 
-func (c *collectMetricsCommand) isLocalCharmURL(entity string) (bool, error) {
+func isLocalCharmURL(conn api.Connection, entity string) (bool, error) {
 	serviceName := entity
 	var err error
 	if names.IsValidUnit(entity) {
@@ -155,10 +147,10 @@ func (c *collectMetricsCommand) isLocalCharmURL(entity string) (bool, error) {
 		}
 	}
 
-	client, err := newServiceClient(c.ModelCommandBase)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
+	client := newServiceClient(conn)
+	// TODO (mattyw, anastasiamac) The storage work might lead to an api
+	// allowing us to query charm url for a unit.
+	// When that api exists we should use that here.
 	url, err := client.GetCharmURL(serviceName)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -166,15 +158,20 @@ func (c *collectMetricsCommand) isLocalCharmURL(entity string) (bool, error) {
 	return url.Schema == "local", nil
 }
 
+var newAPIConn = func(cmd modelcmd.ModelCommandBase) (api.Connection, error) {
+	return cmd.NewAPIRoot()
+}
+
 // Run implements Command.Run.
 func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
-	runnerClient, err := newRunClient(c.ModelCommandBase)
+	root, err := newAPIConn(c.ModelCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	runnerClient := newRunClient(root)
 	defer runnerClient.Close()
 
-	islocal, err := c.isLocalCharmURL(c.entity)
+	islocal, err := isLocalCharmURL(root, c.entity)
 	if err != nil {
 		return errors.Annotate(err, "failed to find charmURL for entity")
 	}

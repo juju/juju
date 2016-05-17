@@ -7,31 +7,32 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var (
 	NewClient        = &newClient
 	NewRunClient     = &newRunClient
 	NewServiceClient = &newServiceClient
+	NewAPIConn       = &newAPIConn
 )
 
 // NewRunClientFnc returns a function that returns a struct that implements the
 // runClient interface. This function can be used to patch the NewRunClient
 // variable in tests.
-func NewRunClientFnc(client runClient) func(modelcmd.ModelCommandBase) (runClient, error) {
-	return func(_ modelcmd.ModelCommandBase) (runClient, error) {
-		return client, nil
+func NewRunClientFnc(client runClient) func(api.Connection) runClient {
+	return func(_ api.Connection) runClient {
+		return client
 	}
 }
 
 // NewServiceClientFnc returns a function that returns a struct that implements the
 // serviceClient interface. This function can be used to patch the NewServiceClient
 // variable in tests.
-func NewServiceClientFnc(client serviceClient) func(modelcmd.ModelCommandBase) (serviceClient, error) {
-	return func(_ modelcmd.ModelCommandBase) (serviceClient, error) {
-		return client, nil
+func NewServiceClientFnc(client serviceClient) func(api.Connection) serviceClient {
+	return func(_ api.Connection) serviceClient {
+		return client
 	}
 }
 

@@ -11,9 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
+	"github.com/juju/juju/cmd/modelcmd"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -27,6 +29,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	runClient := &testRunClient{}
 	serviceClient := &testServiceClient{}
 	serviceClient.charmURL = "local:quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
 	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
 
@@ -320,6 +323,7 @@ func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
 	runClient := &testRunClient{}
 	serviceClient := &testServiceClient{}
 	serviceClient.charmURL = "cs:quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
 	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
 	_, err := coretesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), "foobar")
@@ -373,4 +377,8 @@ func (t *testServiceClient) GetCharmURL(service string) (*charm.URL, error) {
 
 func (t *testServiceClient) Close() error {
 	return t.NextErr()
+}
+
+func noConn(_ modelcmd.ModelCommandBase) (api.Connection, error) {
+	return nil, nil
 }
