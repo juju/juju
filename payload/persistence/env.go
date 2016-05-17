@@ -12,13 +12,16 @@ import (
 // EnvPersistence provides the persistence functionality for the
 // Juju environment as a whole.
 type EnvPersistence struct {
-	db *Persistence
+	q payloadsQueries
 }
 
 // NewEnvPersistence wraps the "db" in a new EnvPersistence.
 func NewEnvPersistence(db PersistenceBase) *EnvPersistence {
+	queries := payloadsQueries{
+		q: db,
+	}
 	return &EnvPersistence{
-		db: NewPersistence(db, ""),
+		q: queries,
 	}
 }
 
@@ -26,7 +29,7 @@ func NewEnvPersistence(db PersistenceBase) *EnvPersistence {
 func (ep *EnvPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
-	docs, err := ep.db.allModelPayloads()
+	docs, err := ep.q.all("")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

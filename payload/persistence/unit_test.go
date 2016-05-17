@@ -32,7 +32,7 @@ func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	err := wp.Track(stID, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All", "Run")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
@@ -61,7 +61,7 @@ func (s *payloadsPersistenceSuite) TestTrackIDAlreadyExists(c *gc.C) {
 	wp := s.NewPersistence()
 	err := wp.Track(stID, pl)
 
-	s.Stub.CheckCallNames(c, "All")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrAlreadyExists)
 }
 
@@ -77,7 +77,7 @@ func (s *payloadsPersistenceSuite) TestTrackNameAlreadyExists(c *gc.C) {
 	err := wp.Track(stID, pl)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-	s.Stub.CheckCallNames(c, "All", "Run", "All")
+	s.Stub.CheckCallNames(c, "Run", "All", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
@@ -107,20 +107,20 @@ func (s *payloadsPersistenceSuite) TestTrackLookupFailed(c *gc.C) {
 	err := pp.Track(id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "All")
+	s.Stub.CheckCallNames(c, "Run", "All")
 }
 
 func (s *payloadsPersistenceSuite) TestTrackInsertFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(nil, failure)
+	s.Stub.SetErrors(failure)
 	pl := s.NewPayload("docker", "payloadA")
 
 	pp := s.NewPersistence()
 	err := pp.Track(id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "All", "Run")
+	s.Stub.CheckCallNames(c, "Run", "All")
 }
 
 func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
@@ -305,7 +305,6 @@ func (s *payloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 
 func (s *payloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	pp := s.NewPersistence()
 	err := pp.Untrack(id)
