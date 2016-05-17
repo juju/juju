@@ -43,10 +43,11 @@ func (s *unitPayloadsSuite) TestTrackOkay(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(pl)
+	err := ps.Track(pl.Payload)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "newID", "Track")
@@ -61,10 +62,11 @@ func (s *unitPayloadsSuite) TestTrackInvalid(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(pl)
+	err := ps.Track(pl.Payload)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -78,10 +80,11 @@ func (s *unitPayloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(pl)
+	err := ps.Track(pl.Payload)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -95,10 +98,11 @@ func (s *unitPayloadsSuite) TestTrackInsertFailed(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(pl)
+	err := ps.Track(pl.Payload)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -111,10 +115,11 @@ func (s *unitPayloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	ps = state.SetNewID(ps, s.newID)
 
-	err := ps.Track(pl)
+	err := ps.Track(pl.Payload)
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -127,6 +132,7 @@ func (s *unitPayloadsSuite) TestSetStatusOkay(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 
 	err := ps.SetStatus(id, payload.StateRunning)
@@ -147,6 +153,7 @@ func (s *unitPayloadsSuite) TestSetStatusFailed(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	err := ps.SetStatus(id, payload.StateRunning)
 
@@ -158,6 +165,7 @@ func (s *unitPayloadsSuite) TestSetStatusMissing(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	err := ps.SetStatus(id, payload.StateRunning)
 
@@ -182,7 +190,7 @@ func (s *unitPayloadsSuite) TestListOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "List")
 	c.Check(results, jc.DeepEquals, []payload.Result{{
 		ID:      id,
-		Payload: &payload.FullPayloadInfo{Payload: pl},
+		Payload: &pl,
 	}})
 }
 
@@ -193,12 +201,11 @@ func (s *unitPayloadsSuite) TestListAll(c *gc.C) {
 	pl2 := s.newPayload("docker", "payloadB/payloadB-abc")
 	s.persist.setPayload(id1, &pl1)
 	s.persist.setPayload(id2, &pl2)
-	fpi1 := payload.FullPayloadInfo{Payload: pl1}
-	fpi2 := payload.FullPayloadInfo{Payload: pl2}
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	results, err := ps.List()
 	c.Assert(err, jc.ErrorIsNil)
@@ -206,11 +213,11 @@ func (s *unitPayloadsSuite) TestListAll(c *gc.C) {
 	s.stub.CheckCallNames(c, "ListAll", "LookUp", "LookUp")
 	c.Assert(results, gc.HasLen, 2)
 	if results[0].Payload.Name == "payloadA" {
-		c.Check(results[0].Payload, jc.DeepEquals, &fpi1)
-		c.Check(results[1].Payload, jc.DeepEquals, &fpi2)
+		c.Check(results[0].Payload, jc.DeepEquals, &pl1)
+		c.Check(results[1].Payload, jc.DeepEquals, &pl2)
 	} else {
-		c.Check(results[0].Payload, jc.DeepEquals, &fpi2)
-		c.Check(results[1].Payload, jc.DeepEquals, &fpi1)
+		c.Check(results[0].Payload, jc.DeepEquals, &pl2)
+		c.Check(results[1].Payload, jc.DeepEquals, &pl1)
 	}
 }
 
@@ -221,6 +228,7 @@ func (s *unitPayloadsSuite) TestListFailed(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	_, err := ps.List()
 
@@ -237,6 +245,7 @@ func (s *unitPayloadsSuite) TestListMissing(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	results, err := ps.List(id, missingID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +255,7 @@ func (s *unitPayloadsSuite) TestListMissing(c *gc.C) {
 	results[1].Error = nil
 	c.Check(results, jc.DeepEquals, []payload.Result{{
 		ID:      id,
-		Payload: &payload.FullPayloadInfo{Payload: pl},
+		Payload: &pl,
 	}, {
 		ID:       missingID,
 		NotFound: true,
@@ -261,6 +270,7 @@ func (s *unitPayloadsSuite) TestUntrackOkay(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	err := ps.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -274,6 +284,7 @@ func (s *unitPayloadsSuite) TestUntrackMissing(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	err := ps.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,6 +301,7 @@ func (s *unitPayloadsSuite) TestUntrackFailed(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
+		Machine: "0",
 	}
 	err := ps.Untrack(id)
 

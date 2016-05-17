@@ -20,12 +20,13 @@ const (
 
 // TODO(ericsnow) Move the methods under their own type (payloadcollection?).
 
-func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*payload.Payload, bool) {
+func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDoc) (*payload.FullPayloadInfo, bool) {
 	doc, ok := payloadDocs[id]
 	if !ok {
 		return nil, false
 	}
-	p := doc.payload(pp.unit)
+	p := doc.payload()
+	p.Unit = pp.unit
 	return &p, true
 }
 
@@ -48,7 +49,7 @@ func payloadID(unit, name string) string {
 	return fmt.Sprintf("payload#%s#%s", unit, name)
 }
 
-func (pp Persistence) newInsertPayloadOps(id string, p payload.Payload) []txn.Op {
+func (pp Persistence) newInsertPayloadOps(id string, p payload.FullPayloadInfo) []txn.Op {
 	// We must also ensure that there isn't any collision on the
 	// state-provided ID. However, that isn't something we can do in
 	// a transaction.
@@ -100,6 +101,8 @@ type payloadDoc struct {
 	UnitID string `bson:"unitid"`
 	Name   string `bson:"name"`
 
+	MachineID string `bson:"machine-id"`
+
 	// StateID is the unique ID that State gave this payload for this unit.
 	StateID string `bson:"state-id"`
 
@@ -116,15 +119,18 @@ type payloadDoc struct {
 	RawID string `bson:"rawid"`
 }
 
-func (d payloadDoc) payload(unit string) payload.Payload {
+func (d payloadDoc) payload() payload.FullPayloadInfo {
 	labels := make([]string, len(d.Labels))
 	copy(labels, d.Labels)
-	p := payload.Payload{
-		PayloadClass: d.definition(),
-		ID:           d.RawID,
-		Status:       d.State,
-		Labels:       labels,
-		Unit:         unit,
+	p := payload.FullPayloadInfo{
+		Payload: payload.Payload{
+			PayloadClass: d.definition(),
+			ID:           d.RawID,
+			Status:       d.State,
+			Labels:       labels,
+			Unit:         d.UnitID,
+		},
+		Machine: d.MachineID,
 	}
 	return p
 }
@@ -147,12 +153,13 @@ func (d payloadDoc) match(name, rawID string) bool {
 	return true
 }
 
-func (pp Persistence) newPayloadDoc(stID string, p payload.Payload) *payloadDoc {
-	return newPayloadDoc(pp.unit, stID, p)
+func (pp Persistence) newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
+	p.Unit = pp.unit
+	return newPayloadDoc(stID, p)
 }
 
-func newPayloadDoc(unit, stID string, p payload.Payload) *payloadDoc {
-	id := payloadID(unit, p.Name)
+func newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
+	id := payloadID(p.Unit, p.Name)
 
 	definition := p.PayloadClass
 
@@ -161,8 +168,10 @@ func newPayloadDoc(unit, stID string, p payload.Payload) *payloadDoc {
 
 	return &payloadDoc{
 		DocID:  id,
-		UnitID: unit,
+		UnitID: p.Unit,
 		Name:   definition.Name,
+
+		MachineID: p.Machine,
 
 		StateID: stID,
 

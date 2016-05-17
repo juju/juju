@@ -18,11 +18,11 @@ var logger = loggo.GetLogger("juju.payload.state")
 
 // The persistence methods needed for payloads in state.
 type payloadsPersistence interface {
-	Track(id string, info payload.Payload) error
+	Track(id string, info payload.FullPayloadInfo) error
 	// SetStatus updates the status for a payload.
 	SetStatus(id, status string) error
-	List(ids ...string) ([]payload.Payload, []string, error)
-	ListAll() ([]payload.Payload, error)
+	List(ids ...string) ([]payload.FullPayloadInfo, []string, error)
+	ListAll() ([]payload.FullPayloadInfo, error)
 	LookUp(name, rawID string) (string, error)
 	Untrack(id string) error
 }
@@ -73,13 +73,17 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 	if err := pl.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad payload")
 	}
+	full := payload.FullPayloadInfo{
+		Payload: pl,
+		Machine: uw.Machine,
+	}
 
 	id, err := uw.newID()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = uw.Persist.Track(id, pl)
+	err = uw.Persist.Track(id, full)
 	if errors.Cause(err) == payload.ErrAlreadyExists {
 		return errors.NotValidf("payload %s (already in state)", id)
 	}
@@ -112,7 +116,7 @@ func (uw UnitPayloads) SetStatus(id, status string) error {
 func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
 	logger.Tracef("listing %v", ids)
 	var err error
-	var payloads []payload.Payload
+	var payloads []payload.FullPayloadInfo
 	missingIDs := make(map[string]bool)
 	if len(ids) == 0 {
 		payloads, err = uw.Persist.ListAll()
@@ -150,11 +154,8 @@ func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
 		// TODO(ericsnow) Ensure that pl.Unit == uw.Unit?
 
 		result := payload.Result{
-			ID: id,
-			Payload: &payload.FullPayloadInfo{
-				Payload: pl,
-				Machine: uw.Machine,
-			},
+			ID:      id,
+			Payload: &pl,
 		}
 		if id == "" {
 			// TODO(ericsnow) Do this more efficiently.

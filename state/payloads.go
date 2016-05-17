@@ -45,14 +45,7 @@ type UnitPayloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-// PayloadsEnvPersistence provides all the information needed to produce
-// a new EnvPayloads value.
-type PayloadsEnvPersistence interface {
-	// AssignedMachineID the machine to which the identfies unit is assigned.
-	AssignedMachineID(unitName string) (string, error)
-}
-
-type newEnvPayloadsFunc func(Persistence, PayloadsEnvPersistence) (EnvPayloads, error)
+type newEnvPayloadsFunc func(Persistence) (EnvPayloads, error)
 type newUnitPayloadsFunc func(persist Persistence, unit, machine string) (UnitPayloads, error)
 
 // TODO(ericsnow) Merge the 2 vars
@@ -75,10 +68,7 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 	}
 
 	db := st.newPersistence()
-	persist := &payloadsEnvPersistence{
-		st: st,
-	}
-	envPayloads, err := newEnvPayloads(db, persist)
+	envPayloads, err := newEnvPayloads(db)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,21 +96,4 @@ func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	}
 
 	return unitPayloads, nil
-}
-
-type payloadsEnvPersistence struct {
-	st *State
-}
-
-// Machines implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) AssignedMachineID(unitName string) (string, error) {
-	unit, err := ep.st.Unit(unitName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	machineID, err := unit.AssignedMachineId()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return machineID, nil
 }

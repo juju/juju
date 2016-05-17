@@ -39,13 +39,14 @@ func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 			Id:     id,
 			Assert: txn.DocMissing,
 			Insert: &persistence.PayloadDoc{
-				DocID:   id,
-				UnitID:  "a-unit/0",
-				Name:    "payloadA",
-				StateID: stID,
-				Type:    "docker",
-				RawID:   "payloadA-xyz",
-				State:   "running",
+				DocID:     id,
+				UnitID:    "a-unit/0",
+				Name:      "payloadA",
+				MachineID: "0",
+				StateID:   stID,
+				Type:      "docker",
+				RawID:     "payloadA-xyz",
+				State:     "running",
 			},
 		},
 	}})
@@ -83,13 +84,14 @@ func (s *payloadsPersistenceSuite) TestTrackNameAlreadyExists(c *gc.C) {
 			Id:     id,
 			Assert: txn.DocMissing,
 			Insert: &persistence.PayloadDoc{
-				DocID:   id,
-				UnitID:  "a-unit/0",
-				Name:    "payloadA",
-				StateID: stID,
-				Type:    "docker",
-				RawID:   "payloadA-xyz",
-				State:   "running",
+				DocID:     id,
+				UnitID:    "a-unit/0",
+				Name:      "payloadA",
+				MachineID: "0",
+				StateID:   stID,
+				Type:      "docker",
+				RawID:     "payloadA-xyz",
+				State:     "running",
 			},
 		},
 	}})
@@ -189,7 +191,7 @@ func (s *payloadsPersistenceSuite) TestListOkay(c *gc.C) {
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(payloads, jc.DeepEquals, []payload.Payload{pl})
+	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{pl})
 	c.Check(missing, gc.HasLen, 0)
 }
 
@@ -207,7 +209,7 @@ func (s *payloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(payloads, jc.DeepEquals, []payload.Payload{pl})
+	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{pl})
 	c.Check(missing, jc.DeepEquals, []string{missingID})
 }
 
@@ -260,7 +262,7 @@ func (s *payloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	c.Check(payloads, gc.HasLen, 0)
 }
 
-type byName []payload.Payload
+type byName []payload.FullPayloadInfo
 
 func (b byName) Len() int           { return len(b) }
 func (b byName) Less(i, j int) bool { return b[i].FullID() < b[j].FullID() }

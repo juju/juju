@@ -53,8 +53,9 @@ func NewPersistence(db PersistenceBase, unit string) *Persistence {
 // Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(id string, pl payload.Payload) error {
-	logger.Tracef("insertng %q - %#v", id, pl)
+func (pp Persistence) Track(id string, pl payload.FullPayloadInfo) error {
+	pl.Unit = pp.unit
+	logger.Tracef("inserting %q - %#v", id, pl)
 
 	docs, err := pp.payloads([]string{id})
 	if err != nil {
@@ -121,7 +122,7 @@ func (pp Persistence) SetStatus(id, status string) error {
 // List builds the list of payloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
-func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
+func (pp Persistence) List(ids ...string) ([]payload.FullPayloadInfo, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.payloads(ids)
@@ -129,7 +130,7 @@ func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	var results []payload.Payload
+	var results []payload.FullPayloadInfo
 	var missing []string
 	for _, id := range ids {
 		p, ok := pp.extractPayload(id, docs)
@@ -144,7 +145,7 @@ func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
 
 // ListAll builds the list of all payloads found in persistence.
 // Inconsistent records result in errors.NotValid.
-func (pp Persistence) ListAll() ([]payload.Payload, error) {
+func (pp Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.allPayloads()
@@ -152,7 +153,7 @@ func (pp Persistence) ListAll() ([]payload.Payload, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var results []payload.Payload
+	var results []payload.FullPayloadInfo
 	for id := range docs {
 		p, _ := pp.extractPayload(id, docs)
 		results = append(results, *p)

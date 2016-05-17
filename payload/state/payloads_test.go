@@ -176,11 +176,10 @@ func (s *stubPayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 				if pl.Unit == "" {
 					pl.Unit = unit
 				}
-				fullPayload := payload.FullPayloadInfo{
-					Payload: pl,
-					Machine: machine,
+				if pl.Machine == "" {
+					pl.Machine = machine
 				}
-				fullPayloads = append(fullPayloads, fullPayload)
+				fullPayloads = append(fullPayloads, pl)
 			}
 		}
 	}
@@ -203,5 +202,5 @@ func (s *stubPayloadsPersistence) setPayload(id string, pl payload.FullPayloadIn
 		units[pl.Unit] = unitPayloads
 	}
 
-	unitPayloads.setPayload(id, &pl.Payload)
+	unitPayloads.setPayload(id, &pl)
 }

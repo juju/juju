@@ -56,37 +56,32 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	p2 := s.newPayload("eggs")
 	s.base.setPayloads(p1, p2)
 
-	persist := NewEnvPersistence(s.base, s.base)
+	persist := NewEnvPersistence(s.base)
 
 	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkPayloads(c, payloads, p1, p2)
-	s.Stub.CheckCallNames(c,
-		"All",
-		"AssignedMachineID",
-	)
+	s.Stub.CheckCallNames(c, "All")
 }
 
 func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	s.base.setUnits("0")
 	s.base.setUnits("1", "a-service/0", "a-service/1")
-	persist := NewEnvPersistence(s.base, s.base)
+	persist := NewEnvPersistence(s.base)
 
 	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(payloads, gc.HasLen, 0)
-	s.Stub.CheckCallNames(c,
-		"All",
-	)
+	s.Stub.CheckCallNames(c, "All")
 }
 
 func (s *envPersistenceSuite) TestListAllFailed(c *gc.C) {
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(failure)
 
-	persist := NewEnvPersistence(s.base, s.base)
+	persist := NewEnvPersistence(s.base)
 
 	_, err := persist.ListAll()
 
@@ -138,7 +133,7 @@ func (s *stubEnvPersistenceBase) setPayloads(payloads ...payload.FullPayloadInfo
 	for _, pl := range payloads {
 		s.setUnits(pl.Machine, pl.Unit)
 
-		doc := newPayloadDoc(pl.Unit, "0", pl.Payload)
+		doc := newPayloadDoc("0", pl)
 		s.SetDocs(doc)
 	}
 }
@@ -150,13 +145,4 @@ func (s *stubEnvPersistenceBase) setUnits(machine string, units ...string) {
 	for _, unit := range units {
 		s.unitMachines[unit] = machine
 	}
-}
-
-func (s *stubEnvPersistenceBase) AssignedMachineID(unit string) (string, error) {
-	s.stub.AddCall("AssignedMachineID", unit)
-	if err := s.stub.NextErr(); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return s.unitMachines[unit], nil
 }
