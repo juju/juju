@@ -256,9 +256,9 @@ class TestOpenStackHelpers(TestCase):
                 credential_contents = f.read()
 
         expected = dedent("""\
-        OS_USERNAME={user}
-        OS_PASSWORD={password}
-        OS_TENANT_NAME={tenant_name}
+        export OS_USERNAME={user}
+        export OS_PASSWORD={password}
+        export OS_TENANT_NAME={tenant_name}
         """.format(
             user=user,
             password=credential_details['os_password'],
