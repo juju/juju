@@ -64,6 +64,8 @@ func (sp fakeStatePersistence) CheckNoOps(c *gc.C) {
 }
 
 func (sp fakeStatePersistence) All(collName string, query, docs interface{}) error {
+	actual := docs.(*[]payloadDoc)
+
 	sp.AddCall("All", collName, query, docs)
 	if err := sp.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -72,8 +74,12 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 	var ids []string
 	elems := query.(bson.D)
 	if len(elems) < 1 {
-		err := errors.Errorf("bad query %v", query)
-		panic(err)
+		var all []payloadDoc
+		for _, doc := range sp.docs {
+			all = append(all, *doc)
+		}
+		*actual = all
+		return nil
 	}
 	switch elems[0].Name {
 	case "_id":
@@ -103,7 +109,6 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		}
 		found = append(found, *doc)
 	}
-	actual := docs.(*[]payloadDoc)
 	*actual = found
 	return nil
 }

@@ -41,7 +41,11 @@ func (pp Persistence) allID(query bson.D, docs interface{}) error {
 }
 
 func (pp Persistence) payloadID(name string) string {
-	return fmt.Sprintf("payload#%s#%s", pp.unit, name)
+	return payloadID(pp.unit, name)
+}
+
+func payloadID(unit, name string) string {
+	return fmt.Sprintf("payload#%s#%s", unit, name)
 }
 
 func (pp Persistence) newInsertPayloadOps(id string, p payload.Payload) []txn.Op {
@@ -144,7 +148,11 @@ func (d payloadDoc) match(name, rawID string) bool {
 }
 
 func (pp Persistence) newPayloadDoc(stID string, p payload.Payload) *payloadDoc {
-	id := pp.payloadID(p.Name)
+	return newPayloadDoc(pp.unit, stID, p)
+}
+
+func newPayloadDoc(unit, stID string, p payload.Payload) *payloadDoc {
+	id := payloadID(unit, p.Name)
 
 	definition := p.PayloadClass
 
@@ -153,7 +161,7 @@ func (pp Persistence) newPayloadDoc(stID string, p payload.Payload) *payloadDoc 
 
 	return &payloadDoc{
 		DocID:  id,
-		UnitID: pp.unit,
+		UnitID: unit,
 		Name:   definition.Name,
 
 		StateID: stID,
@@ -166,6 +174,14 @@ func (pp Persistence) newPayloadDoc(stID string, p payload.Payload) *payloadDoc 
 
 		RawID: p.ID,
 	}
+}
+
+func (pp Persistence) allModelPayloads() ([]payloadDoc, error) {
+	var docs []payloadDoc
+	if err := pp.all(nil, &docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
 }
 
 func (pp Persistence) allPayloads() (map[string]payloadDoc, error) {

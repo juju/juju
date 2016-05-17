@@ -27,8 +27,8 @@ func (s *envPersistenceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.base = &stubEnvPersistenceBase{
-		PersistenceBase: s.State,
-		stub:            s.Stub,
+		fakeStatePersistence: s.State,
+		stub:                 s.Stub,
 	}
 }
 
@@ -57,26 +57,14 @@ func (s *envPersistenceSuite) TestListAllOkay(c *gc.C) {
 	s.base.setPayloads(p1, p2)
 
 	persist := NewEnvPersistence(s.base, s.base)
-	persist.newUnitPersist = s.base.newUnitPersistence
 
 	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkPayloads(c, payloads, p1, p2)
 	s.Stub.CheckCallNames(c,
-		"Machines",
-
-		"MachineUnits",
-
-		"MachineUnits",
-		"newUnitPersistence",
-		"ListAll",
-		"newUnitPersistence",
-		"ListAll",
-
-		"MachineUnits",
-		"newUnitPersistence",
-		"ListAll",
+		"All",
+		"AssignedMachineID",
 	)
 }
 
@@ -84,22 +72,13 @@ func (s *envPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	s.base.setUnits("0")
 	s.base.setUnits("1", "a-service/0", "a-service/1")
 	persist := NewEnvPersistence(s.base, s.base)
-	persist.newUnitPersist = s.base.newUnitPersistence
 
 	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(payloads, gc.HasLen, 0)
 	s.Stub.CheckCallNames(c,
-		"Machines",
-
-		"MachineUnits",
-
-		"MachineUnits",
-		"newUnitPersistence",
-		"ListAll",
-		"newUnitPersistence",
-		"ListAll",
+		"All",
 	)
 }
 
@@ -108,7 +87,6 @@ func (s *envPersistenceSuite) TestListAllFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	persist := NewEnvPersistence(s.base, s.base)
-	persist.newUnitPersist = s.base.newUnitPersistence
 
 	_, err := persist.ListAll()
 
@@ -151,101 +129,34 @@ func checkPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...
 }
 
 type stubEnvPersistenceBase struct {
-	PersistenceBase
+	*fakeStatePersistence
 	stub         *testing.Stub
-	machines     []string
-	units        map[string]map[string]bool
-	unitPersists map[string]*stubUnitPersistence
+	unitMachines map[string]string
 }
 
 func (s *stubEnvPersistenceBase) setPayloads(payloads ...payload.FullPayloadInfo) {
-	if s.unitPersists == nil && len(payloads) > 0 {
-		s.unitPersists = make(map[string]*stubUnitPersistence)
-	}
-
 	for _, pl := range payloads {
 		s.setUnits(pl.Machine, pl.Unit)
 
-		unitPayloads := s.unitPersists[pl.Unit]
-		if unitPayloads == nil {
-			unitPayloads = &stubUnitPersistence{stub: s.stub}
-			s.unitPersists[pl.Unit] = unitPayloads
-		}
-
-		unitPayloads.setPayloads(pl.Payload)
+		doc := newPayloadDoc(pl.Unit, "0", pl.Payload)
+		s.SetDocs(doc)
 	}
 }
 
 func (s *stubEnvPersistenceBase) setUnits(machine string, units ...string) {
-	if s.units == nil {
-		s.units = make(map[string]map[string]bool)
+	if s.unitMachines == nil {
+		s.unitMachines = make(map[string]string)
 	}
-	if _, ok := s.units[machine]; !ok {
-		s.machines = append(s.machines, machine)
-		s.units[machine] = make(map[string]bool)
-	}
-
 	for _, unit := range units {
-		s.units[machine][unit] = true
+		s.unitMachines[unit] = machine
 	}
 }
 
-func (s *stubEnvPersistenceBase) newUnitPersistence(unit string) unitPersistence {
-	s.stub.AddCall("newUnitPersistence", unit)
-	s.stub.NextErr() // pop one off
-
-	persist, ok := s.unitPersists[unit]
-	if !ok {
-		if s.unitPersists == nil {
-			s.unitPersists = make(map[string]*stubUnitPersistence)
-		}
-		persist = &stubUnitPersistence{stub: s.stub}
-		s.unitPersists[unit] = persist
-	}
-	return persist
-}
-
-func (s *stubEnvPersistenceBase) Machines() ([]string, error) {
-	s.stub.AddCall("Machines")
+func (s *stubEnvPersistenceBase) AssignedMachineID(unit string) (string, error) {
+	s.stub.AddCall("AssignedMachineID", unit)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	var names []string
-	for _, name := range s.machines {
-		names = append(names, name)
-	}
-	return names, nil
-}
-
-func (s *stubEnvPersistenceBase) MachineUnits(machine string) ([]string, error) {
-	s.stub.AddCall("MachineUnits", machine)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var units []string
-	for unit := range s.units[machine] {
-		units = append(units, unit)
-	}
-	return units, nil
-}
-
-type stubUnitPersistence struct {
-	stub *testing.Stub
-
-	payloads []payload.Payload
-}
-
-func (s *stubUnitPersistence) setPayloads(payloads ...payload.Payload) {
-	s.payloads = append(s.payloads, payloads...)
-}
-
-func (s *stubUnitPersistence) ListAll() ([]payload.Payload, error) {
-	s.stub.AddCall("ListAll")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.payloads, nil
+	return s.unitMachines[unit], nil
 }

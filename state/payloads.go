@@ -48,17 +48,8 @@ type UnitPayloads interface {
 // PayloadsEnvPersistence provides all the information needed to produce
 // a new EnvPayloads value.
 type PayloadsEnvPersistence interface {
-	Persistence
-
-	// TODO(ericsnow) Drop the machine-related API and provide UnitTags()?
-
-	// Machines builds the list of the names that identify
-	// all machines in State.
-	Machines() ([]string, error)
-
-	// Machines builds the list of names that identify all units
-	// for a given machine.
-	MachineUnits(machineName string) ([]string, error)
+	// AssignedMachineID the machine to which the identfies unit is assigned.
+	AssignedMachineID(unitName string) (string, error)
 }
 
 type newEnvPayloadsFunc func(Persistence, PayloadsEnvPersistence) (EnvPayloads, error)
@@ -85,8 +76,7 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 
 	db := st.newPersistence()
 	persist := &payloadsEnvPersistence{
-		Persistence: db,
-		st:          st,
+		st: st,
 	}
 	envPayloads, err := newEnvPayloads(db, persist)
 	if err != nil {
@@ -119,32 +109,18 @@ func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 }
 
 type payloadsEnvPersistence struct {
-	Persistence
 	st *State
 }
 
 // Machines implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) Machines() ([]string, error) {
-	ms, err := ep.st.AllMachines()
+func (ep *payloadsEnvPersistence) AssignedMachineID(unitName string) (string, error) {
+	unit, err := ep.st.Unit(unitName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	var names []string
-	for _, m := range ms {
-		names = append(names, m.Id())
-	}
-	return names, nil
-}
-
-// MachineUnits implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) MachineUnits(machine string) ([]string, error) {
-	us, err := ep.st.UnitsFor(machine)
+	machineID, err := unit.AssignedMachineId()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	var names []string
-	for _, u := range us {
-		names = append(names, u.UnitTag().Id())
-	}
-	return names, nil
+	return machineID, nil
 }
