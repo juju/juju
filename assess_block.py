@@ -41,12 +41,9 @@ def make_block_list(client, des_env, rm_obj, all_changes):
         {'block': client.destroy_model_command, 'enabled': des_env},
         {'block': 'remove-object', 'enabled': rm_obj},
         {'block': 'all-changes', 'enabled': all_changes}]
-    if des_env:
-        block_list[0]['message'] = ''
-    if rm_obj:
-        block_list[1]['message'] = ''
-    if all_changes:
-        block_list[2]['message'] = ''
+    for block in block_list:
+        if block['enabled']:
+            block['message'] = ''
     return block_list
 
 
@@ -64,37 +61,41 @@ def test_blocked(client, command, args, include_e=True):
 
 def wait_for_removed_services(client, charm):
     """Timeout until the remove process ends"""
-    for ignored in until_timeout(30):
+    for ignored in until_timeout(60):
         status = client.get_status()
         if charm not in status.status['services']:
             break
-            # else:
-            #     raise JujuAssertionError('dummy-source not destroyed')
 
 
 def assess_block_destroy_model(client, charm_series):
-    """Test Block Functionality: block destroy-model"""
+    """Test block destroy-model
+
+    When "block destroy-model" is set, the model cannot be destroyed, but objects
+    can be added, related, and removed.
+    """
     client.juju('block ' + client.destroy_model_command, ())
     block_list = get_block_list(client)
     if block_list != make_block_list(client, True, False, False):
         raise JujuAssertionError(block_list)
     test_blocked(client, client.destroy_model_command,
                  ('-y', client.env.environment), include_e=False)
+    # Adding, relating, and removing are not blocked.
     deploy_dummy_stack(client, charm_series)
-    client.remove_service('dummy-source')
-    wait_for_removed_services(client, 'dummy-source')
-    client.remove_service('dummy-sink')
-    wait_for_removed_services(client, 'dummy-sink')
 
 
 def assess_block_remove_object(client, charm_series):
-    """Test Block Functionality: block remove-object"""
+    """Test block remove-object
+
+    When "block remove-object" is set, objects can be added and related, but they
+    cannot be removed or the model/environment deleted.
+    """
     client.juju('block remove-object', ())
     block_list = get_block_list(client)
     if block_list != make_block_list(client, False, True, False):
         raise JujuAssertionError(block_list)
     test_blocked(client, client.destroy_model_command,
                  ('-y', client.env.environment), include_e=False)
+    # Adding and relating are not blocked.
     deploy_dummy_stack(client, charm_series)
     test_blocked(client, 'remove-service', ('dummy-source',))
     test_blocked(client, 'remove-unit', ('dummy-source/1',))
@@ -103,29 +104,36 @@ def assess_block_remove_object(client, charm_series):
 
 def assess_block_all_changes(client, charm_series):
     """Test Block Functionality: block all-changes"""
+    client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
     client.juju('block all-changes', ())
     block_list = get_block_list(client)
     if block_list != make_block_list(client, False, False, True):
         raise JujuAssertionError(block_list)
+    test_blocked(client, 'add-relation', ('dummy-source', 'dummy-sink'))
+    test_blocked(client, 'unexpose', ('dummy-sink',))
+    test_blocked(client, 'remove-service', ('dummy-sink',))
+    client.juju('unblock all-changes', ())
+    client.juju('unexpose', ('dummy-sink',))
+    client.juju('block all-changes', ())
+    test_blocked(client, 'expose', ('dummy-sink',))
+    client.juju('unblock all-changes', ())
+    client.juju('remove-service', ('dummy-sink',))
+    wait_for_removed_services(client, 'dummy-sink')
+    client.juju('block all-changes', ())
+    test_blocked(client, 'deploy', ('dummy-sink',))
     test_blocked(client, client.destroy_model_command,
                  ('-y', client.env.environment), include_e=False)
-    try:
-        deploy_dummy_stack(client, charm_series)
-        raise JujuAssertionError()
-    except Exception:
-        pass
 
 
 def assess_unblock(client, type):
-    """
-    Test Block Functionality:
+    """Test Block Functionality:
     unblock destroy-model/remove-object/all-changes.
     """
     client.juju('unblock ' + type, ())
     block_list = get_block_list(client)
     if block_list != make_block_list(client, False, False, False):
         raise JujuAssertionError(block_list)
-    if type == 'remove-object':
+    if type == client.destroy_model_command:
         client.remove_service('dummy-source')
         wait_for_removed_services(client, 'dummy-source')
         client.remove_service('dummy-sink')
@@ -133,8 +141,7 @@ def assess_unblock(client, type):
 
 
 def assess_block(client, charm_series):
-    """
-    Test Block Functionality:
+    """Test Block Functionality:
     block/unblock destroy-model/remove-object/all-changes.
     """
     block_list = get_block_list(client)
@@ -154,10 +161,8 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Block Functionality")
     add_basic_testing_arguments(parser)
-    pargs = parser.parse_args(argv)
-    if pargs.series is None:
-        pargs.series = 'trusty'
-    return pargs
+    parser.set_defaults(series='trusty')
+    return parser.parse_args(argv)
 
 
 def main(argv=None):
