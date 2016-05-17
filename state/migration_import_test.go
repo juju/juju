@@ -339,7 +339,9 @@ func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
 	defer newSt.Close()
 
 	leaders := make(map[string]string)
-	for key, value := range state.LeadershipLeases(newSt) {
+	leases, err := state.LeadershipLeases(newSt)
+	c.Assert(err, jc.ErrorIsNil)
+	for key, value := range leases {
 		leaders[key] = value.Holder
 	}
 	c.Assert(leaders, jc.DeepEquals, map[string]string{
