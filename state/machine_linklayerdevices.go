@@ -97,6 +97,15 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 	callbackFunc := func(resultDoc *linkLayerDeviceDoc) {
 		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
 		ops = append(ops, removeOps...)
+		if resultDoc.ProviderID != "" {
+			providerId := network.Id(resultDoc.ProviderID)
+			id := m.st.networkEntityGlobalKey("linklayerdevice", providerId)
+			ops = append(ops, txn.Op{
+				C:      providerIDsC,
+				Id:     id,
+				Remove: true,
+			})
+		}
 	}
 
 	selectDocIDOnly := bson.D{{"_id", 1}}
@@ -444,6 +453,10 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op
 			ops = append(ops, assertLinkLayerDeviceExistsOp(newParentDocID))
 			ops = append(ops, incrementDeviceNumChildrenOp(newParentDocID))
 		}
+	}
+	if newDoc.ProviderID != "" {
+		id := network.Id(newDoc.ProviderID)
+		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
 	return append(ops,
 		insertLinkLayerDeviceDocOp(newDoc),
