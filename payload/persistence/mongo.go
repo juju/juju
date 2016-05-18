@@ -30,6 +30,21 @@ func (pp Persistence) extractPayload(id string, payloadDocs map[string]payloadDo
 	return &p, true
 }
 
+func (pp Persistence) one(query bson.D) (payloadDoc, error) {
+	var docs []payloadDoc
+	query = append(bson.D{{"unitid", pp.unit}}, query...)
+	if err := pp.all(query, &docs); err != nil {
+		return payloadDoc{}, errors.Trace(err)
+	}
+	if len(docs) > 1 {
+		return payloadDoc{}, errors.NewNotValid(nil, "query too broad, got more than one doc")
+	}
+	if len(docs) == 0 {
+		return payloadDoc{}, errors.NotFoundf("")
+	}
+	return docs[0], nil
+}
+
 func (pp Persistence) all(query bson.D, docs interface{}) error {
 	return errors.Trace(pp.db.All(payloadsC, query, docs))
 }
@@ -224,4 +239,26 @@ func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, []string, e
 		}
 	}
 	return results, missing, nil
+}
+
+func (pp Persistence) payloadByStateID(stID string) (payloadDoc, error) {
+	if stID == "" {
+		return payloadDoc{}, errors.NotFoundf("")
+	}
+	doc, err := pp.one(bson.D{{"state-id", stID}})
+	if err != nil {
+		return payloadDoc{}, errors.Trace(err)
+	}
+	return doc, nil
+}
+
+func (pp Persistence) payloadByName(name string) (payloadDoc, error) {
+	if name == "" {
+		return payloadDoc{}, errors.NotFoundf("")
+	}
+	doc, err := pp.one(bson.D{{"name", name}})
+	if err != nil {
+		return payloadDoc{}, errors.Trace(err)
+	}
+	return doc, nil
 }

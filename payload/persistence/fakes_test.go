@@ -94,7 +94,12 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		}
 		ids = elems[0].Value.([]string)
 	case "unitid":
-		for id := range sp.docs {
+		for id, doc := range sp.docs {
+			// This is a temporary hack. It and the rest of the "fake"
+			// will be removed in a follow-up patch.
+			if len(elems) == 2 && elems[1].Name == "state-id" && doc.StateID != elems[1].Value.(string) {
+				continue
+			}
 			ids = append(ids, id)
 		}
 	default:
