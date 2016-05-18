@@ -586,10 +586,15 @@ func (c *DeployCommand) deployCharm(args deployCharmArgs) (rErr error) {
 		return errors.Trace(err)
 	}
 
+	uuid, err := args.client.ModelUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	deployInfo := DeploymentInfo{
 		CharmID:     args.id,
 		ServiceName: serviceName,
-		ModelUUID:   args.client.ModelUUID(),
+		ModelUUID:   uuid,
 	}
 
 	for _, step := range c.Steps {

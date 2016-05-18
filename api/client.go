@@ -90,7 +90,7 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 		}
 		// TODO(perrito666) https://launchpad.net/bugs/1577589
 		if !history[i].Kind.Valid() {
-			logger.Warningf("history returned an unknown status kind %q", h.Kind)
+			logger.Errorf("history returned an unknown status kind %q", h.Kind)
 		}
 	}
 	return history, nil
@@ -210,13 +210,12 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 }
 
 // ModelUUID returns the model UUID from the client connection.
-func (c *Client) ModelUUID() string {
+func (c *Client) ModelUUID() (string, error) {
 	tag, err := c.st.ModelTag()
 	if err != nil {
-		logger.Warningf("model tag not an model: %v", err)
-		return ""
+		return "", errors.Annotate(err, "model tag not an model")
 	}
-	return tag.Id()
+	return tag.Id(), nil
 }
 
 // ModelUserInfo returns information on all users in the model.
