@@ -57,7 +57,7 @@ func (pp Persistence) Track(id string, pl payload.FullPayloadInfo) error {
 	pl.Unit = pp.unit
 	logger.Tracef("inserting %q - %#v", id, pl)
 
-	docs, err := pp.payloads([]string{id})
+	docs, _, err := pp.payloads([]string{id})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -98,7 +98,7 @@ func (pp Persistence) SetStatus(id, status string) error {
 	logger.Tracef("setting status for %q", id)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		docs, err := pp.payloads([]string{id})
+		docs, _, err := pp.payloads([]string{id})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -125,19 +125,14 @@ func (pp Persistence) SetStatus(id, status string) error {
 func (pp Persistence) List(ids ...string) ([]payload.FullPayloadInfo, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	docs, err := pp.payloads(ids)
+	docs, missing, err := pp.payloads(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	var results []payload.FullPayloadInfo
-	var missing []string
-	for _, id := range ids {
-		p, ok := pp.extractPayload(id, docs)
-		if !ok {
-			missing = append(missing, id)
-			continue
-		}
+	for id := range docs {
+		p, _ := pp.extractPayload(id, docs)
 		results = append(results, *p)
 	}
 	return results, missing, nil
@@ -190,7 +185,7 @@ func (pp Persistence) LookUp(name, rawID string) (string, error) {
 // errors.NotValid is returned.
 func (pp Persistence) Untrack(id string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		docs, err := pp.payloads([]string{id})
+		docs, _, err := pp.payloads([]string{id})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

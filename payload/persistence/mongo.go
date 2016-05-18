@@ -208,17 +208,20 @@ func (pp Persistence) allPayloads() (map[string]payloadDoc, error) {
 	return results, nil
 }
 
-func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, error) {
+func (pp Persistence) payloads(ids []string) (map[string]payloadDoc, []string, error) {
 	all, err := pp.allPayloads()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	results := make(map[string]payloadDoc)
+	var missing []string
 	for _, id := range ids {
 		if doc, ok := all[id]; ok {
 			results[id] = doc
+		} else {
+			missing = append(missing, id)
 		}
 	}
-	return results, nil
+	return results, missing, nil
 }
