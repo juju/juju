@@ -206,12 +206,17 @@ def temp_yaml_file(yaml_dict):
 
 
 class Juju2Backend:
-    """A Juju backend referring to a specific juju 2 binary."""
+    """A Juju backend referring to a specific juju 2 binary.
 
-    def __init__(self, full_path, version, feature_flags):
+    Uses -m to specify models, uses JUJU_DATA to specify home directory.
+    """
+
+    def __init__(self, full_path, version, feature_flags, debug):
         self._version = version
         self._full_path = full_path
         self.feature_flags = set()
+        self.debug = debug
+        self._timeout_path = get_timeout_path()
 
     @property
     def version(self):
@@ -225,8 +230,104 @@ class Juju2Backend:
         if type(self) != type(other):
             return False
         return (
-            (self._version, self._full_path, self.feature_flags) ==
-            (other._version, other._full_path, other.feature_flags))
+            (self._version, self._full_path, self.feature_flags, self.debug) ==
+            (other._version, other._full_path, other.feature_flags,
+             other.debug))
+
+    def shell_environ(self, used_feature_flags, juju_home):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        flags = self.feature_flags.intersection(used_feature_flags)
+        if flags:
+            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
+        env['JUJU_DATA'] = juju_home
+        return env
+
+    def full_args(self, command, args, model, timeout):
+        if model is not None:
+            e_arg = ('-m', model)
+        else:
+            e_arg = ()
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
+        logging = '--debug' if self.debug else '--show-log'
+
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
+        # we split the command here so that the caller can control where the -m
+        # model flag goes.  Everything in the command string is put before the
+        # -m flag.
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+
+class Juju2A2Backend(Juju2Backend):
+    """Backend for 2A2.
+
+    Uses -m to specify models, uses JUJU_HOME and JUJU_DATA to specify home
+    directory.
+    """
+
+    def shell_environ(self, used_feature_flags, juju_home):
+        """Generate a suitable shell environment.
+
+        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
+        """
+        env = super(Juju2A2Backend, self).shell_environ(used_feature_flags,
+                                                        juju_home)
+        env['JUJU_HOME'] = juju_home
+        return env
+
+
+class Juju1XBackend(Juju2A2Backend):
+    """Backend for Juju 1.x - 2A1.
+
+    Uses -e to specify models ("environments", uses JUJU_HOME to specify home
+    directory.
+    """
+
+    def shell_environ(self, used_feature_flags, juju_home):
+        """Generate a suitable shell environment.
+
+        For 2.0-alpha1 and earlier set only JUJU_HOME and not JUJU_DATA.
+        """
+        env = super(Juju1XBackend, self).shell_environ(used_feature_flags,
+                                                       juju_home)
+        env['JUJU_HOME'] = juju_home
+        del env['JUJU_DATA']
+        return env
+
+    def full_args(self, command, args, model, timeout):
+        if model is None:
+            e_arg = ()
+        else:
+            # In 1.x terminology, "model" is "environment".
+            e_arg = ('-e', model)
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = get_timeout_prefix(timeout, self._timeout_path)
+        logging = '--debug' if self.debug else '--show-log'
+
+        # If args is a string, make it a tuple. This makes writing commands
+        # with one argument a bit nicer.
+        if isinstance(args, basestring):
+            args = (args,)
+        # we split the command here so that the caller can control where the -e
+        # <env> flag goes.  Everything in the command string is put before the
+        # -e flag.
+        command = command.split()
+        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
 
 
 class EnvJujuClient:
@@ -247,6 +348,8 @@ class EnvJujuClient:
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
+
+    default_backend = Juju2Backend
 
     @classmethod
     def preferred_container(cls):
@@ -350,9 +453,9 @@ class EnvJujuClient:
             version = self.version
         if full_path is None:
             full_path = self.full_path
-        backend = self._backend.__class__(full_path, version, set())
         if debug is None:
             debug = self.debug
+        backend = self._backend.__class__(full_path, version, set(), debug)
         if cls is None:
             cls = self.__class__
         other = cls(env, version, full_path, debug=debug, _backend=backend)
@@ -365,28 +468,14 @@ class EnvJujuClient:
 
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
-        # sudo is not needed for devel releases.
         if admin:
-            e_arg = ('-m', self.get_admin_model_name())
+            model = self.get_admin_model_name()
         elif self.env is None or not include_e:
-            e_arg = ()
+            model = None
         else:
-            e_arg = ('-m', self.env.environment)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, basestring):
-            args = (args,)
-        # we split the command here so that the caller can control where the -e
-        # <env> flag goes.  Everything in the command string is put before the
-        # -e flag.
-        command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+            model = self.env.environment
+        # sudo is not needed for devel releases.
+        return self._backend.full_args(command, args, model, timeout)
 
     @staticmethod
     def _get_env(env):
@@ -400,7 +489,7 @@ class EnvJujuClient:
                  _backend=None):
         self.env = self._get_env(env)
         if _backend is None:
-            _backend = Juju2Backend(full_path, version, set())
+            _backend = self.default_backend(full_path, version, set(), debug)
         self._backend = _backend
         if version != _backend.version:
             raise ValueError('Version mismatch: {} {}'.format(
@@ -408,7 +497,9 @@ class EnvJujuClient:
         if full_path != _backend.full_path:
             raise ValueError('Path mismatch: {} {}'.format(
                 full_path, _backend.full_path))
-        self.debug = debug
+        if debug is not _backend.debug:
+            raise ValueError('debug mismatch: {} {}'.format(
+                debug, _backend.debug))
         self.feature_flags = set()
         if env is not None:
             if juju_home is None:
@@ -417,7 +508,6 @@ class EnvJujuClient:
             else:
                 env.juju_home = juju_home
         self.juju_timings = {}
-        self._timeout_path = get_timeout_path()
 
     @property
     def version(self):
@@ -435,20 +525,17 @@ class EnvJujuClient:
     def feature_flags(self, feature_flags):
         self._backend.feature_flags = feature_flags
 
+    @property
+    def debug(self):
+        return self._backend.debug
+
     def _shell_environ(self):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
         """
-        env = dict(os.environ)
-        if self.full_path is not None:
-            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
-                                          os.pathsep, env['PATH'])
-        flags = self.feature_flags.intersection(self.used_feature_flags)
-        if flags:
-            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        env['JUJU_DATA'] = self.env.juju_home
-        return env
+        return self._backend.shell_environ(self.used_feature_flags,
+                                           self.env.juju_home)
 
     def add_ssh_machines(self, machines):
         for count, machine in enumerate(machines):
@@ -1317,20 +1404,13 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
 class EnvJujuClient2A2(EnvJujuClient2B2):
     """Drives Juju 2.0-alpha2 clients."""
 
+    default_backend = Juju2A2Backend
+
     @classmethod
     def _get_env(cls, env):
         if isinstance(env, JujuData):
             raise ValueError(
                 'JujuData cannot be used with {}'.format(cls.__name__))
-        return env
-
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
-
-        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
-        """
-        env = super(EnvJujuClient2A2, self)._shell_environ()
-        env['JUJU_HOME'] = self.env.juju_home
         return env
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
@@ -1376,42 +1456,10 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
 
     _show_status = 'status'
 
+    default_backend = Juju1XBackend
+
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
-
-    def _full_args(self, command, sudo, args,
-                   timeout=None, include_e=True, admin=False):
-        # sudo is not needed for devel releases.
-        # admin is ignored. only environment exists.
-        if self.env is None or not include_e:
-            e_arg = ()
-        else:
-            e_arg = ('-e', self.env.environment)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, basestring):
-            args = (args,)
-        # we split the command here so that the caller can control where the -e
-        # <env> flag goes.  Everything in the command string is put before the
-        # -e flag.
-        command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
-
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
-
-        For 2.0-alpha1 and earlier set only JUJU_HOME and not JUJU_DATA.
-        """
-        env = super(EnvJujuClient2A1, self)._shell_environ()
-        env['JUJU_HOME'] = self.env.juju_home
-        del env['JUJU_DATA']
-        return env
 
     def remove_service(self, service):
         self.juju('destroy-service', (service,))

@@ -273,13 +273,14 @@ class FakeEnvironmentState:
 class FakeBackend:
 
     def __init__(self, backing_state, feature_flags=None, version=None,
-                 full_path=None):
+                 full_path=None, debug=False):
         self._backing_state = backing_state
         if feature_flags is None:
             feature_flags = set()
         self._feature_flags = feature_flags
         self.version = version
         self.full_path = full_path
+        self.debug = debug
 
     def clone(self, backing_state=None):
         if backing_state is None:
@@ -480,10 +481,9 @@ class FakeJujuClient(EnvJujuClient):
                 }, juju_home='foo')
         backend_state.name = env.environment
         self._backend = FakeBackend(backend_state, version=version,
-                                    full_path=full_path)
+                                    full_path=full_path, debug=debug)
         self._backend.set_feature('jes', jes_enabled)
         self.env = env
-        self.debug = debug
         self.bootstrap_replaces = {}
         self._separate_admin = jes_enabled
 
@@ -657,7 +657,7 @@ class TestTempYamlFile(TestCase):
 class TestJuju2Backend(TestCase):
 
     def test_juju2_backend(self):
-        backend = Juju2Backend('/bin/path', '2.0', set())
+        backend = Juju2Backend('/bin/path', '2.0', set(), False)
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
 
@@ -1167,8 +1167,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_full_args_debug(self):
         env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        client.debug = True
+        client = EnvJujuClient(env, None, 'my/juju/bin', debug=True)
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual((
             'juju', '--debug', 'bar', '-m', 'foo', 'baz', 'qux'), full)
@@ -3345,8 +3344,7 @@ class TestEnvJujuClient1X(ClientTest):
 
     def test_full_args_debug(self):
         env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        client.debug = True
+        client = EnvJujuClient1X(env, None, 'my/juju/bin', debug=True)
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual((
             'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
