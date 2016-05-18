@@ -19,10 +19,9 @@ import (
 
 var (
 	// These vars hold the per-model workers we expect to run in
-	// various circumstances. Note the absence of dyingModelWorkers:
-	// it's not a stable state, because it's responsible for making
-	// the model Dead via the undertaker, so it can't be waited for
-	// reliably.
+	// various circumstances. Note the absence of lists for
+	// dead/dying models: those are not stable states and can't be
+	// waited for reliably.
 	alwaysModelWorkers = []string{
 		// Note that environ-tracker is not in here: it depends
 		// on model responsibility, so it's excluded here and
@@ -59,10 +58,6 @@ var (
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
-	}
-	deadModelWorkers = []string{
-		"environ-tracker",
-		"undertaker",
 	}
 
 	// ReallyLongWait should be long enough for the model-tracker
