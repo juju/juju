@@ -152,7 +152,7 @@ func (s *ModelsSuite) checkSuccess(c *gc.C, user string, args ...string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, user)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME          OWNER             STATUS      LAST CONNECTION\n"+
+		"MODEL         OWNER             STATUS      LAST CONNECTION\n"+
 		"test-model1*  user-admin@local  active      2015-03-20\n"+
 		"test-model2   user-admin@local  active      2015-03-01\n"+
 		"test-model3   user-admin@local  destroying  never connected\n"+
@@ -169,7 +169,7 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME          OWNER             STATUS      LAST CONNECTION\n"+
+		"MODEL         OWNER             STATUS      LAST CONNECTION\n"+
 		"test-model1*  user-admin@local  active      2015-03-20\n"+
 		"test-model2   user-admin@local  active      2015-03-01\n"+
 		"test-model3   user-admin@local  destroying  never connected\n"+
@@ -181,7 +181,7 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME         OWNER             STATUS      LAST CONNECTION\n"+
+		"MODEL        OWNER             STATUS      LAST CONNECTION\n"+
 		"test-model1  user-admin@local  active      2015-03-20\n"+
 		"test-model2  user-admin@local  active      2015-03-01\n"+
 		"test-model3  user-admin@local  destroying  never connected\n"+
@@ -193,7 +193,7 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME          MODEL UUID        OWNER             STATUS      LAST CONNECTION\n"+
+		"MODEL         MODEL UUID        OWNER             STATUS      LAST CONNECTION\n"+
 		"test-model1*  test-model1-UUID  user-admin@local  active      2015-03-20\n"+
 		"test-model2   test-model2-UUID  user-admin@local  active      2015-03-01\n"+
 		"test-model3   test-model3-UUID  user-admin@local  destroying  never connected\n"+

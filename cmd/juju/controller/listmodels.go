@@ -241,7 +241,7 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME")
+	fmt.Fprintf(tw, "MODEL")
 	if c.listUUID {
 		fmt.Fprintf(tw, "\tMODEL UUID")
 	}
