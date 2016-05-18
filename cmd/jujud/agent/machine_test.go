@@ -1697,11 +1697,6 @@ func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
 }
 
-func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
-	s.commonMachineSuite.TearDownSuite(c)
-}
-
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)

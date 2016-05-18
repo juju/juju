@@ -25,10 +25,6 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.firewaller, s.BackingState, true)
 }
 
-func (s *stateSuite) TearDownTest(c *gc.C) {
-	s.firewallerSuite.TearDownTest(c)
-}
-
 func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 	w, err := s.firewaller.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)

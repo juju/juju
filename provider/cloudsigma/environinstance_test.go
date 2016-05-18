@@ -43,11 +43,10 @@ func (s *environInstanceSuite) SetUpSuite(c *gc.C) {
 		"password": mock.TestPassword,
 	}
 	s.baseConfig = newConfig(c, validAttrs().Merge(attrs))
-}
+	s.AddCleanup(func(*gc.C) {
+		mock.Stop()
+	})
 
-func (s *environInstanceSuite) TearDownSuite(c *gc.C) {
-	mock.Stop()
-	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *environInstanceSuite) SetUpTest(c *gc.C) {
@@ -56,13 +55,7 @@ func (s *environInstanceSuite) SetUpTest(c *gc.C) {
 	ll := logger.LogLevel()
 	logger.SetLogLevel(loggo.TRACE)
 	s.AddCleanup(func(*gc.C) { logger.SetLogLevel(ll) })
-
 	mock.Reset()
-}
-
-func (s *environInstanceSuite) TearDownTest(c *gc.C) {
-	mock.Reset()
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) environs.Environ {

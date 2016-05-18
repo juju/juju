@@ -68,6 +68,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "broken", "")
 
 	s.APIConnection, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
+	s.AddCleanup(func(*gc.C) {
+		c.Check(s.APIConnection.Close(), jc.ErrorIsNil)
+	})
 
 	realAPI := s.APIConnection.DiscoverSpaces()
 	s.API = &checkingFacade{
@@ -79,13 +82,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 			atomic.AddUint32(&s.numAddSubnetsCalls, 1)
 		},
 	}
-}
-
-func (s *WorkerSuite) TearDownTest(c *gc.C) {
-	if s.APIConnection != nil {
-		c.Check(s.APIConnection.Close(), jc.ErrorIsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *WorkerSuite) TestSupportsSpaceDiscoveryBroken(c *gc.C) {

@@ -50,10 +50,6 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	mock.Reset()
 }
 
-func (s *clientSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
-
 func testNewClient(c *gc.C, endpoint, username, password string) (*environClient, error) {
 	ecfg := &environConfig{
 		Config: newConfig(c, testing.Attrs{"name": "client-test", "uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c"}),

@@ -37,11 +37,9 @@ func (s *clientMacaroonSuite) SetUpTest(c *gc.C) {
 	// the tests below to exercise the discharging logic
 	// so we clear the cookies.
 	s.cookieJar.Clear()
-}
-
-func (s *clientMacaroonSuite) TearDownTest(c *gc.C) {
-	s.client.Close()
-	s.MacaroonSuite.TearDownTest(c)
+	s.AddCleanup(func(*gc.C) {
+		s.client.Close()
+	})
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {

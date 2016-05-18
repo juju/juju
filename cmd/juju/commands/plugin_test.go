@@ -24,7 +24,6 @@ import (
 
 type PluginSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	oldPath string
 }
 
 var _ = gc.Suite(&PluginSuite{})
@@ -35,13 +34,11 @@ func (suite *PluginSuite) SetUpTest(c *gc.C) {
 		c.Skip("bug 1403084: tests use bash scrips, will be rewritten for windows")
 	}
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	suite.oldPath = os.Getenv("PATH")
+	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "/bin:"+gitjujutesting.HomePath())
-}
-
-func (suite *PluginSuite) TearDownTest(c *gc.C) {
-	os.Setenv("PATH", suite.oldPath)
-	suite.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+	suite.AddCleanup(func(*gc.C) {
+		os.Setenv("PATH", oldPath)
+	})
 }
 
 func (*PluginSuite) TestFindPlugins(c *gc.C) {

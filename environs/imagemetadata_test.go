@@ -26,9 +26,9 @@ type ImageMetadataSuite struct {
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
-func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.BaseSuite.TearDownTest(c)
+func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.AddCleanup(dummy.Reset)
 }
 
 func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Environ {

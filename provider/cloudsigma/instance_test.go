@@ -27,11 +27,9 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	mock.Start()
-}
-
-func (s *instanceSuite) TearDownSuite(c *gc.C) {
-	mock.Stop()
-	s.BaseSuite.TearDownSuite(c)
+	s.AddCleanup(func(*gc.C) {
+		mock.Stop()
+	})
 }
 
 func (s *instanceSuite) SetUpTest(c *gc.C) {
@@ -59,11 +57,6 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(server, gc.NotNil)
 	s.instWithoutIP = &sigmaInstance{server}
-}
-
-func (s *instanceSuite) TearDownTest(c *gc.C) {
-	mock.ResetServers()
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *instanceSuite) TestInstanceId(c *gc.C) {

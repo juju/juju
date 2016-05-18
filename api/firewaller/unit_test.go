@@ -28,10 +28,6 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *unitSuite) TearDownTest(c *gc.C) {
-	s.firewallerSuite.TearDownTest(c)
-}
-
 func (s *unitSuite) TestUnit(c *gc.C) {
 	apiUnitFoo, err := s.firewaller.Unit(names.NewUnitTag("foo/42"))
 	c.Assert(err, gc.ErrorMatches, `unit "foo/42" not found`)

@@ -61,12 +61,6 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 
-func (s *binaryStorageSuite) TearDownTest(c *gc.C) {
-	s.session.Close()
-	s.mongo.DestroyWithLog()
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *binaryStorageSuite) TestAdd(c *gc.C) {
 	s.testAdd(c, "some-binary")
 }

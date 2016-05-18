@@ -108,10 +108,6 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.ControllerStore = jujuclienttesting.NewMemStore()
 }
 
-func (t *Tests) TearDownTest(c *gc.C) {
-	t.ToolsFixture.TearDownTest(c)
-}
-
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
 	cfg, err := e.Config().Apply(map[string]interface{}{

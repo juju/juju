@@ -24,22 +24,6 @@ type environSuite struct {
 
 var _ = gc.Suite(&environSuite{})
 
-func (s *environSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *environSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *environSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *environSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *environSuite) TestBase(c *gc.C) {
 	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
 		return nil, nil

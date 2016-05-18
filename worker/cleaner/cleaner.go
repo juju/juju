@@ -29,10 +29,7 @@ func NewCleaner(st StateCleaner) (worker.Worker, error) {
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Cleaner{st: st},
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return w, nil
+	return w, errors.Trace(err)
 }
 
 func (c *Cleaner) SetUp() (watcher.NotifyWatcher, error) {

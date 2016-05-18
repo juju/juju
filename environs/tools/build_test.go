@@ -25,7 +25,6 @@ import (
 
 type buildSuite struct {
 	testing.BaseSuite
-	restore  func()
 	cwd      string
 	filePath string
 	exttest.PatchExecHelper
@@ -65,15 +64,10 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 	err = os.Chdir(b.cwd)
 	c.Assert(err, jc.ErrorIsNil)
 
-	b.restore = func() {
+	b.AddCleanup(func(*gc.C) {
 		os.Setenv("PATH", path)
 		os.Chdir(cwd)
-	}
-}
-
-func (b *buildSuite) TearDownTest(c *gc.C) {
-	b.restore()
-	b.BaseSuite.TearDownTest(c)
+	})
 }
 
 func (b *buildSuite) TestFindExecutable(c *gc.C) {

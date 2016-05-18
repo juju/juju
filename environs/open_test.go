@@ -36,10 +36,10 @@ func (s *OpenSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.AddCleanup(dummy.Reset)
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
