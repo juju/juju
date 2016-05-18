@@ -70,7 +70,8 @@ def wait_for_removed_services(client, charm):
 def assess_block_destroy_model(client, charm_series):
     """Test block destroy-model
 
-    When "block destroy-model" is set, the model cannot be destroyed, but objects
+    When "block destroy-model" is set,
+    the model cannot be destroyed, but objects
     can be added, related, and removed.
     """
     client.juju('block ' + client.destroy_model_command, ())
@@ -86,7 +87,8 @@ def assess_block_destroy_model(client, charm_series):
 def assess_block_remove_object(client, charm_series):
     """Test block remove-object
 
-    When "block remove-object" is set, objects can be added and related, but they
+    When "block remove-object" is set,
+    objects can be added and related, but they
     cannot be removed or the model/environment deleted.
     """
     client.juju('block remove-object', ())
@@ -126,9 +128,8 @@ def assess_block_all_changes(client, charm_series):
 
 
 def assess_unblock(client, type):
-    """Test Block Functionality:
-    unblock destroy-model/remove-object/all-changes.
-    """
+    """Test Block Functionality
+    unblock destroy-model/remove-object/all-changes."""
     client.juju('unblock ' + type, ())
     block_list = get_block_list(client)
     if block_list != make_block_list(client, False, False, False):
