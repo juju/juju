@@ -118,11 +118,7 @@ func (dev *LinkLayerDevice) MTU() uint {
 
 // ProviderID returns the provider-specific device ID, if set.
 func (dev *LinkLayerDevice) ProviderID() network.Id {
-	return network.Id(dev.localProviderID())
-}
-
-func (dev *LinkLayerDevice) localProviderID() string {
-	return dev.st.localID(dev.doc.ProviderID)
+	return network.Id(dev.doc.ProviderID)
 }
 
 // MachineID returns the ID of the machine this device belongs to.

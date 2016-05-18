@@ -213,6 +213,9 @@ func (s *Space) Remove() (err error) {
 		Remove: true,
 		Assert: isDeadDoc,
 	}}
+	if s.ProviderId() != "" {
+		ops = append(ops, s.st.networkEntityGlobalKeyRemoveOp("space", s.ProviderId()))
+	}
 
 	txnErr := s.st.runTransaction(ops)
 	if txnErr == nil {

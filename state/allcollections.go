@@ -298,19 +298,13 @@ func allCollections() collectionSchema {
 			}},
 		},
 		// TODO(dimitern): End of obsolete networking collections.
-		providerIDsC: {},
-		spacesC:      {},
-		subnetsC:     {},
+		providerIDsC:          {},
+		spacesC:               {},
+		subnetsC:              {},
+		linkLayerDevicesC:     {},
+		linkLayerDevicesRefsC: {},
 		// TODO(mfoord): remove providerid indices here and switch to
 		// using providerIDsC to track unique provider ids.
-		linkLayerDevicesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		linkLayerDevicesRefsC: {},
 		ipAddressesC: {
 			indexes: []mgo.Index{{
 				Key:    []string{"providerid"},

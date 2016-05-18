@@ -146,12 +146,8 @@ func (s *Subnet) Remove() (err error) {
 		Assert: isDeadDoc,
 	})
 	if s.doc.ProviderId != "" {
-		id := s.st.networkEntityGlobalKey("subnet", s.ProviderId())
-		ops = append(ops, txn.Op{
-			C:      providerIDsC,
-			Id:     id,
-			Remove: true,
-		})
+		op := s.st.networkEntityGlobalKeyRemoveOp("subnet", s.ProviderId())
+		ops = append(ops, op)
 	}
 
 	txnErr := s.st.runTransaction(ops)
