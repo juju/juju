@@ -217,6 +217,7 @@ class Juju2Backend:
         self.feature_flags = set()
         self.debug = debug
         self._timeout_path = get_timeout_path()
+        self.juju_timings = {}
 
     @property
     def version(self):
@@ -226,13 +227,14 @@ class Juju2Backend:
     def full_path(self):
         return self._full_path
 
+    def _get_attr_tuple(self):
+        return (self._version, self._full_path, self.feature_flags,
+                self.debug, self.juju_timings)
+
     def __eq__(self, other):
         if type(self) != type(other):
             return False
-        return (
-            (self._version, self._full_path, self.feature_flags, self.debug) ==
-            (other._version, other._full_path, other.feature_flags,
-             other.debug))
+        return self._get_attr_tuple() == other._get_attr_tuple()
 
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
@@ -269,6 +271,68 @@ class Juju2Backend:
         # -m flag.
         command = command.split()
         return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+
+    def juju(self, command, args, used_feature_flags,
+             juju_home, model=None, check=True, timeout=None, extra_env=None):
+        """Run a command under juju for the current environment."""
+        args = self.full_args(command, args, model, timeout)
+        log.info(' '.join(args))
+        env = self.shell_environ(used_feature_flags, juju_home)
+        if extra_env is not None:
+            env.update(extra_env)
+        if check:
+            call_func = subprocess.check_call
+        else:
+            call_func = subprocess.call
+        start_time = time.time()
+        # Mutate os.environ instead of supplying env parameter so Windows can
+        # search env['PATH']
+        with scoped_environ(env):
+            rval = call_func(args)
+        self.juju_timings.setdefault(args, []).append(
+            (time.time() - start_time))
+        return rval
+
+    @contextmanager
+    def juju_async(self, command, args, used_feature_flags,
+                   juju_home, model=None, timeout=None):
+        full_args = self.full_args(command, args, model, timeout)
+        log.info(' '.join(args))
+        env = self.shell_environ(used_feature_flags, juju_home)
+        # Mutate os.environ instead of supplying env parameter so Windows can
+        # search env['PATH']
+        with scoped_environ(env):
+            proc = subprocess.Popen(full_args)
+        yield proc
+        retcode = proc.wait()
+        if retcode != 0:
+            raise subprocess.CalledProcessError(retcode, full_args)
+
+    def get_juju_output(self, command, args, used_feature_flags,
+                        juju_home, model=None, timeout=None):
+        args = self.full_args(command, args, model, timeout)
+        env = self.shell_environ(used_feature_flags, juju_home)
+        log.debug(args)
+        # Mutate os.environ instead of supplying env parameter so
+        # Windows can search env['PATH']
+        with scoped_environ(env):
+            proc = subprocess.Popen(
+                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+            sub_output, sub_error = proc.communicate()
+            log.debug(sub_output)
+            if proc.returncode != 0:
+                log.debug(sub_error)
+                e = subprocess.CalledProcessError(
+                    proc.returncode, args, sub_output)
+                e.stderr = sub_error
+                if (
+                    'Unable to connect to environment' in sub_error or
+                        'MissingOrIncorrectVersionHeader' in sub_error or
+                        '307: Temporary Redirect' in sub_error):
+                    raise CannotConnectEnv(e)
+                raise e
+        return sub_output
 
 
 class Juju2A2Backend(Juju2Backend):
@@ -466,15 +530,18 @@ class EnvJujuClient:
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
+    def _cmd_model(self, include_e, admin):
+        if admin:
+            return self.get_admin_model_name()
+        elif self.env is None or not include_e:
+            return None
+        else:
+            return self.model_name
+
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
-        if admin:
-            model = self.get_admin_model_name()
-        elif self.env is None or not include_e:
-            model = None
-        else:
-            model = self.env.environment
         # sudo is not needed for devel releases.
+        model = self._cmd_model(include_e, admin)
         return self._backend.full_args(command, args, model, timeout)
 
     @staticmethod
@@ -507,7 +574,6 @@ class EnvJujuClient:
                     env.juju_home = get_juju_home()
             else:
                 env.juju_home = juju_home
-        self.juju_timings = {}
 
     @property
     def version(self):
@@ -528,6 +594,10 @@ class EnvJujuClient:
     @property
     def debug(self):
         return self._backend.debug
+
+    @property
+    def model_name(self):
+        return self.env.environment
 
     def _shell_environ(self):
         """Generate a suitable shell environment.
@@ -675,32 +745,12 @@ class EnvJujuClient:
         that <command> may be a space delimited list of arguments. The -e
         <environment> flag will be placed after <command> and before args.
         """
-        args = self._full_args(command, False, args,
-                               timeout=kwargs.get('timeout'),
-                               include_e=kwargs.get('include_e', True),
-                               admin=kwargs.get('admin', False))
-        env = self._shell_environ()
-        log.debug(args)
-        # Mutate os.environ instead of supplying env parameter so
-        # Windows can search env['PATH']
-        with scoped_environ(env):
-            proc = subprocess.Popen(
-                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE)
-            sub_output, sub_error = proc.communicate()
-            log.debug(sub_output)
-            if proc.returncode != 0:
-                log.debug(sub_error)
-                e = subprocess.CalledProcessError(
-                    proc.returncode, args, sub_output)
-                e.stderr = sub_error
-                if (
-                    'Unable to connect to environment' in sub_error or
-                        'MissingOrIncorrectVersionHeader' in sub_error or
-                        '307: Temporary Redirect' in sub_error):
-                    raise CannotConnectEnv(e)
-                raise e
-        return sub_output
+        model = self._cmd_model(kwargs.get('include_e', True),
+                                kwargs.get('admin', False))
+        timeout = kwargs.get('timeout')
+        return self._backend.get_juju_output(
+            command, args, self.used_feature_flags, self.env.juju_home,
+            model, timeout)
 
     def show_status(self):
         """Print the status to output."""
@@ -767,24 +817,10 @@ class EnvJujuClient:
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
-        args = self._full_args(command, sudo, args, include_e=include_e,
-                               timeout=timeout)
-        log.info(' '.join(args))
-        env = self._shell_environ()
-        if extra_env is not None:
-            env.update(extra_env)
-        if check:
-            call_func = subprocess.check_call
-        else:
-            call_func = subprocess.call
-        start_time = time.time()
-        # Mutate os.environ instead of supplying env parameter so Windows can
-        # search env['PATH']
-        with scoped_environ(env):
-            rval = call_func(args)
-        self.juju_timings.setdefault(args, []).append(
-            (time.time() - start_time))
-        return rval
+        model = self._cmd_model(include_e, admin=False)
+        return self._backend.juju(
+            command, args, self.used_feature_flags, self.env.juju_home,
+            model, check, timeout, extra_env)
 
     def expect(self, command, args=(), sudo=False, include_e=True,
                timeout=None, extra_env=None):
@@ -822,24 +858,14 @@ class EnvJujuClient:
 
     def get_juju_timings(self):
         stringified_timings = {}
-        for command, timings in self.juju_timings.items():
+        for command, timings in self._backend.juju_timings.items():
             stringified_timings[' '.join(command)] = timings
         return stringified_timings
 
-    @contextmanager
     def juju_async(self, command, args, include_e=True, timeout=None):
-        full_args = self._full_args(command, False, args, include_e=include_e,
-                                    timeout=timeout)
-        log.info(' '.join(args))
-        env = self._shell_environ()
-        # Mutate os.environ instead of supplying env parameter so Windows can
-        # search env['PATH']
-        with scoped_environ(env):
-            proc = subprocess.Popen(full_args)
-        yield proc
-        retcode = proc.wait()
-        if retcode != 0:
-            raise subprocess.CalledProcessError(retcode, full_args)
+        model = self._cmd_model(include_e, admin=False)
+        return self._backend.juju_async(command, args, self.used_feature_flags,
+                                        self.env.juju_home, model, timeout)
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False):
