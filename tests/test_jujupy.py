@@ -279,7 +279,7 @@ class FakeBackend:
         self.controller_state = controller_state
         if feature_flags is None:
             feature_flags = set()
-        self._feature_flags = feature_flags
+        self.feature_flags = feature_flags
         self.version = version
         self.full_path = full_path
         self.debug = debug
@@ -293,17 +293,17 @@ class FakeBackend:
         if debug is None:
             debug = self.debug
         controller_state = self.controller_state
-        return self.__class__(controller_state, set(self._feature_flags),
+        return self.__class__(controller_state, set(self.feature_flags),
                               version, full_path, debug)
 
     def set_feature(self, feature, enabled):
         if enabled:
-            self._feature_flags.add(feature)
+            self.feature_flags.add(feature)
         else:
-            self._feature_flags.discard(feature)
+            self.feature_flags.discard(feature)
 
     def is_feature_enabled(self, feature):
-        return bool(feature in self._feature_flags)
+        return bool(feature in self.feature_flags)
 
     def deploy(self, model_state, charm_name, service_name=None, series=None):
         if service_name is None:
@@ -491,8 +491,11 @@ class FakeJujuClient(EnvJujuClient):
             _backend = FakeBackend(backend_state.controller, version=version,
                                    full_path=full_path, debug=debug)
             _backend.set_feature('jes', jes_enabled)
+        # Preserve feature flags
+        old_flags = set(_backend.feature_flags)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
+        _backend.feature_flags = old_flags
         self.bootstrap_replaces = {}
 
     def _get_env(self, env):
