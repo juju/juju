@@ -2444,10 +2444,20 @@ class TestEnvJujuClient(ClientTest):
             process = client.expect('foo', ('bar', 'baz'))
 
         self.assertIs(process, mock.return_value)
-        mock.assert_called_once_with(
-            'juju --show-log foo -m qux bar baz',
-            env=client._shell_environ()
-        )
+        mock.assert_called_once_with('juju --show-log foo -m qux bar baz')
+
+    def test_expect_uses_provided_envvar_path(self):
+        from pexpect import ExceptionPexpect
+        env = JujuData('qux')
+        client = EnvJujuClient(env, None, None)
+
+        with temp_dir() as empty_path:
+            broken_envvars = dict(PATH=empty_path)
+            self.assertRaises(
+                ExceptionPexpect,
+                client.expect,
+                'ls', (), extra_env=broken_envvars,
+                )
 
     def test_juju_env(self):
         env = JujuData('qux')
