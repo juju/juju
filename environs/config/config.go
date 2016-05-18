@@ -1011,13 +1011,6 @@ func (c *Config) Development() bool {
 	return c.defined["development"].(bool)
 }
 
-// PreferIPv6 returns whether IPv6 addresses for API endpoints and
-// machines will be preferred (when available) over IPv4.
-func (c *Config) PreferIPv6() bool {
-	v, _ := c.defined["prefer-ipv6"].(bool)
-	return v
-}
-
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
@@ -1335,7 +1328,6 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                false,
 	"proxy-ssh":                false,
 	"lxc-clone-aufs":           false,
-	"prefer-ipv6":              false,
 	"enable-os-refresh-update": schema.Omit,
 	"enable-os-upgrade":        schema.Omit,
 }
@@ -1360,7 +1352,6 @@ func allDefaults() schema.Defaults {
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
 		"proxy-ssh":                  false,
-		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
@@ -1407,7 +1398,6 @@ var immutableAttributes = []string{
 	LxcClone,
 	LXCDefaultMTU,
 	"lxc-clone-aufs",
-	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
 }
@@ -1777,12 +1767,6 @@ global or per instance security groups.`,
 	NoProxyKey: {
 		Description: "List of domain addresses not to be proxied (comma-separated)",
 		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	"prefer-ipv6": {
-		Description: `Whether to prefer IPv6 over IPv4 addresses for API endpoints and machines`,
-		Type:        environschema.Tbool,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	ProvisionerHarvestModeKey: {
