@@ -14,6 +14,7 @@ from tests import TestCase
 from winazurearm import (
     ARMClient,
     DEFAULT_RESOURCE_PREFIX,
+    delete_instance,
     delete_resources,
     find_vm_instance,
     list_resources,
@@ -64,7 +65,9 @@ def fake_init_services(client):
     client.storage = Mock(
         storage_accounts=Mock(list_by_resource_group=Mock(return_value=[])))
     # client.compute.virtual_machines.list()
-    client.compute = Mock(virtual_machines=Mock(list=Mock(return_value=[])))
+    client.compute = Mock(virtual_machines=Mock(
+        list=Mock(return_value=[]),
+        delete=Mock(return_value=None)))
     # client.network.public_ip_addresses.list()
     # client.network.virtual_networks.list()
     client.network = Mock(
@@ -313,3 +316,18 @@ class WinAzureARMTestCase(TestCase):
             (None, None), find_vm_instance(resources, 'name-0', 'three'))
         self.assertEqual(
             (None, None), find_vm_instance(resources, 'name-9', 'two'))
+
+    def test_delete_instance_with_name_and_resource_group(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        poller = FakePoller()
+        client.compute.virtual_machines.delete.return_value = poller
+        vm1 = VirtualMachine('name-0', 'id-a')
+        rgd1 = ResourceGroupDetails(client, ResourceGroup('one'), vms=[vm1])
+        with patch('winazurearm.list_resources', autospec=True,
+                   return_value=[rgd1]) as lr_mock:
+            delete_instance(client, 'name-0', 'one')
+        lr_mock.assert_called_once_with(client, glob='one', recursive=True)
+        client.compute.virtual_machines.delete.assert_called_once_with(
+            'one', 'name-0')
+        self.assertIs(True, poller.is_done)

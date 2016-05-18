@@ -186,7 +186,18 @@ class ResourceGroupDetails:
         return False
 
     def delete(self):
-        self.client.resource.resource_groups.delete(self.name)
+        """Delete the resource group and all subordinate resources.
+
+        Returns a AzureOperationPoller.
+        """
+        return self.client.resource.resource_groups.delete(self.name)
+
+    def delete_vm(self, vm):
+        """Delete the VirtualMachine.
+
+        Returns a AzureOperationPoller.
+        """
+        return self.client.compute.virtual_machines.delete(self.name, vm.name)
 
 
 def list_resources(client, glob='*', recursive=False, print_out=False):
@@ -279,8 +290,7 @@ def delete_instance(client, name_id, resource_group=None):
     if vm:
         log.debug('Found {} {}'.format(rgd.name, vm.name))
         if not client.read_only:
-            poller = client.compute.virtual_machines.delete(
-                rgd.name, vm.name)
+            poller = rgd.delete_vm(vm)
             log.debug('Waiting for {} to be deleted'.format(vm.name))
             if not poller.done():
                 poller.result()
