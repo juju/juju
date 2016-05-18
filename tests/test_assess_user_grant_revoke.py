@@ -7,6 +7,7 @@ from mock import (
     Mock,
     patch,
 )
+import os
 import StringIO
 from subprocess import CalledProcessError
 
@@ -23,13 +24,29 @@ from assess_user_grant_revoke import (
     parse_args,
     register_user,
 )
+from jujupy import JUJU_DEV_FEATURE_FLAGS
 from tests import (
     parse_error,
     TestCase,
 )
 from tests.test_jujupy import (
     FakeJujuClient,
+    FakeBackend,
 )
+
+
+class FakeBackendShellEnv(FakeBackend):
+
+    def shell_environ(self, used_feature_flags, juju_home):
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
+                                          os.pathsep, env['PATH'])
+        flags = self._feature_flags.intersection(used_feature_flags)
+        if flags:
+            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
+        env['JUJU_DATA'] = juju_home
+        return env
 
 
 class RegisterUserProcess:
@@ -147,10 +164,19 @@ class TestAsserts(TestCase):
                 assert_write(fake_client, True)
 
 
+def make_fake_client():
+    fake_client = FakeJujuClient()
+    old_backend = fake_client._backend
+    fake_client._backend = FakeBackendShellEnv(
+        old_backend.backing_state, old_backend._feature_flags,
+        old_backend.version, old_backend.full_path, old_backend.debug)
+    return fake_client
+
+
 class TestAssess(TestCase):
 
     def test_user_grant_revoke(self):
-        fake_client = FakeJujuClient()
+        fake_client = make_fake_client()
         fake_client.bootstrap()
 
         user = namedtuple('user', ['name', 'permissions', 'expect'])
@@ -176,7 +202,7 @@ class TestAssess(TestCase):
                 self.assertEqual(write_user_args[2], fake_client)
 
     def test_create_cloned_environment(self):
-        fake_client = FakeJujuClient()
+        fake_client = make_fake_client()
         fake_client.bootstrap()
         fake_client_environ = fake_client._shell_environ()
         cloned, cloned_environ = create_cloned_environment(fake_client,
@@ -188,7 +214,7 @@ class TestAssess(TestCase):
 
     def test_register_user(self):
         username = 'fakeuser'
-        fake_client = FakeJujuClient()
+        fake_client = make_fake_client()
         environ = fake_client._shell_environ()
         cmd = 'juju register AaBbCc'
 

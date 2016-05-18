@@ -14,7 +14,9 @@ from assess_min_version import (
 )
 from deploy_stack import (
     BootstrapManager,
+    deploy_dummy_stack,
 )
+from jujupy import until_timeout
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -33,33 +35,134 @@ def get_block_list(client):
         'block list', '--format', 'yaml'))
 
 
-def assess_block(client):
-    """Test Block Functionality: block/unblock all-changes."""
+def make_block_list(client, des_env, rm_obj, all_changes):
+    """Return a manually made list of blocks and their status"""
+    block_list = [
+        {'block': client.destroy_model_command, 'enabled': des_env},
+        {'block': 'remove-object', 'enabled': rm_obj},
+        {'block': 'all-changes', 'enabled': all_changes}]
+    for block in block_list:
+        if block['enabled']:
+            block['message'] = ''
+    return block_list
+
+
+def test_blocked(client, command, args, include_e=True):
+    """Test if a command is blocked as expected"""
+    try:
+        if command == 'deploy':
+            client.deploy(args)
+        else:
+            client.juju(command, args, include_e=include_e)
+        raise JujuAssertionError()
+    except Exception:
+        pass
+
+
+def wait_for_removed_services(client, charm):
+    """Timeout until the remove process ends"""
+    for ignored in until_timeout(60):
+        status = client.get_status()
+        if charm not in status.status['services']:
+            break
+
+
+def assess_block_destroy_model(client, charm_series):
+    """Test block destroy-model
+
+    When "block destroy-model" is set,
+    the model cannot be destroyed, but objects
+    can be added, related, and removed.
+    """
+    client.juju('block ' + client.destroy_model_command, ())
     block_list = get_block_list(client)
-    client.wait_for_started()
-    expected_none_blocked = [
-        {'block': 'destroy-model', 'enabled': False},
-        {'block': 'remove-object', 'enabled': False},
-        {'block': 'all-changes', 'enabled': False}]
-    if block_list != expected_none_blocked:
+    if block_list != make_block_list(client, True, False, False):
         raise JujuAssertionError(block_list)
+    test_blocked(client, client.destroy_model_command,
+                 ('-y', client.env.environment), include_e=False)
+    # Adding, relating, and removing are not blocked.
+    deploy_dummy_stack(client, charm_series)
+
+
+def assess_block_remove_object(client, charm_series):
+    """Test block remove-object
+
+    When "block remove-object" is set,
+    objects can be added and related, but they
+    cannot be removed or the model/environment deleted.
+    """
+    client.juju('block remove-object', ())
+    block_list = get_block_list(client)
+    if block_list != make_block_list(client, False, True, False):
+        raise JujuAssertionError(block_list)
+    test_blocked(client, client.destroy_model_command,
+                 ('-y', client.env.environment), include_e=False)
+    # Adding and relating are not blocked.
+    deploy_dummy_stack(client, charm_series)
+    test_blocked(client, 'remove-service', ('dummy-source',))
+    test_blocked(client, 'remove-unit', ('dummy-source/1',))
+    test_blocked(client, 'remove-relation', ('dummy-source', 'dummy-sink'))
+
+
+def assess_block_all_changes(client, charm_series):
+    """Test Block Functionality: block all-changes"""
+    client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
     client.juju('block all-changes', ())
     block_list = get_block_list(client)
-    if block_list != [
-            {'block': 'destroy-model', 'enabled': False},
-            {'block': 'remove-object', 'enabled': False},
-            {'block': 'all-changes', 'enabled': True, 'message': ''}]:
+    if block_list != make_block_list(client, False, False, True):
         raise JujuAssertionError(block_list)
+    test_blocked(client, 'add-relation', ('dummy-source', 'dummy-sink'))
+    test_blocked(client, 'unexpose', ('dummy-sink',))
+    test_blocked(client, 'remove-service', ('dummy-sink',))
     client.juju('unblock all-changes', ())
+    client.juju('unexpose', ('dummy-sink',))
+    client.juju('block all-changes', ())
+    test_blocked(client, 'expose', ('dummy-sink',))
+    client.juju('unblock all-changes', ())
+    client.juju('remove-service', ('dummy-sink',))
+    wait_for_removed_services(client, 'dummy-sink')
+    client.juju('block all-changes', ())
+    test_blocked(client, 'deploy', ('dummy-sink',))
+    test_blocked(client, client.destroy_model_command,
+                 ('-y', client.env.environment), include_e=False)
+
+
+def assess_unblock(client, type):
+    """Test Block Functionality
+    unblock destroy-model/remove-object/all-changes."""
+    client.juju('unblock ' + type, ())
     block_list = get_block_list(client)
+    if block_list != make_block_list(client, False, False, False):
+        raise JujuAssertionError(block_list)
+    if type == client.destroy_model_command:
+        client.remove_service('dummy-source')
+        wait_for_removed_services(client, 'dummy-source')
+        client.remove_service('dummy-sink')
+        wait_for_removed_services(client, 'dummy-sink')
+
+
+def assess_block(client, charm_series):
+    """Test Block Functionality:
+    block/unblock destroy-model/remove-object/all-changes.
+    """
+    block_list = get_block_list(client)
+    client.wait_for_started()
+    expected_none_blocked = make_block_list(client, False, False, False)
     if block_list != expected_none_blocked:
         raise JujuAssertionError(block_list)
+    assess_block_destroy_model(client, charm_series)
+    assess_unblock(client, client.destroy_model_command)
+    assess_block_remove_object(client, charm_series)
+    assess_unblock(client, 'remove-object')
+    assess_block_all_changes(client, charm_series)
+    assess_unblock(client, 'all-changes')
 
 
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Block Functionality")
     add_basic_testing_arguments(parser)
+    parser.set_defaults(series='trusty')
     return parser.parse_args(argv)
 
 
@@ -68,7 +171,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_block(bs_manager.client)
+        assess_block(bs_manager.client, bs_manager.series)
     return 0
 
 
