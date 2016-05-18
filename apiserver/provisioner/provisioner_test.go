@@ -1100,7 +1100,6 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
-	c.Check(results.PreferIPv6, jc.IsFalse)
 	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
