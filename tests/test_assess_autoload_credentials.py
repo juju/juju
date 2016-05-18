@@ -316,6 +316,17 @@ class TestGCEHelpers(TestCase):
                 tmp_dir, credentials, 'file_name')
         self.assertEqual(file_path, os.path.join(tmp_dir, 'file_name'))
 
+    def test_credential_generator_returns_correct_formats(self):
+        """Three items are needed, one of them must be an email address."""
+        with patch.object(aac.CredentialIdCounter, 'id') as id_gen:
+            id_gen.return_value = 0
+            details = aac.gce_credential_dict_generator()
+
+            self.assertEqual(details['private_key'], 'gce-credentials-0')
+            self.assertEqual(details['client_id'], 'gce-credentials-0')
+            self.assertEqual(
+                details['client_email'], 'gce-credentials-0@example.com')
+
 
 class TestAssertCredentialsContainsExpectedResults(TestCase):
 
