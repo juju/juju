@@ -41,11 +41,13 @@ import subprocess
 import sys
 
 from deploy_stack import BootstrapManager
+from jujucharm import (
+    local_charm_path,
+    make_charm,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    local_charm_path,
-    make_charm,
     temp_dir,
 )
 from assess_heterogeneous_control import check_series
