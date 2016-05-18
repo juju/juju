@@ -578,7 +578,6 @@ class EnvJujuClient:
         if debug is not _backend.debug:
             raise ValueError('debug mismatch: {} {}'.format(
                 debug, _backend.debug))
-        self.feature_flags = set()
         if env is not None:
             if juju_home is None:
                 if env.juju_home is None:

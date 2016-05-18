@@ -491,11 +491,8 @@ class FakeJujuClient(EnvJujuClient):
             _backend = FakeBackend(backend_state.controller, version=version,
                                    full_path=full_path, debug=debug)
             _backend.set_feature('jes', jes_enabled)
-        # Preserve feature flags
-        old_flags = set(_backend.feature_flags)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
-        _backend.feature_flags = old_flags
         self.bootstrap_replaces = {}
 
     def _get_env(self, env):
