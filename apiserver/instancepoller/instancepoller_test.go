@@ -410,7 +410,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 
 func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 	addrs := network.NewAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	expectedAddresses := params.FromNetworkAddresses(addrs)
+	expectedAddresses := params.FromNetworkAddresses(addrs...)
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
@@ -471,7 +471,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
 			{Tag: "machine-1", Addresses: nil},
-			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs)},
+			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs...)},
 			{Tag: "machine-42"},
 			{Tag: "service-unknown"},
 			{Tag: "invalid-tag"},
@@ -513,8 +513,8 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 
 	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
-			{Tag: "machine-1", Addresses: nil},
-			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs)},
+			{Tag: "machine-1"},
+			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs...)},
 			{Tag: "machine-3"},
 		}},
 	)

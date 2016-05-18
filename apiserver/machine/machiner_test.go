@@ -173,9 +173,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
-		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses)},
-		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses...)},
+		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses...)},
+		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses...)},
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)
@@ -202,7 +202,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	// Set some addresses so we can ensure they are removed.
 	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses...)},
 	}}
 	result, err := s.machiner.SetMachineAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)

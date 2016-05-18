@@ -137,7 +137,7 @@ func (a *InstancePollerAPI) ProviderAddresses(args params.Entities) (params.Mach
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err == nil {
 			addrs := machine.ProviderAddresses()
-			result.Results[i].Addresses = params.FromNetworkAddresses(addrs)
+			result.Results[i].Addresses = params.FromNetworkAddresses(addrs...)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -157,7 +157,7 @@ func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresse
 	for i, arg := range args.MachineAddresses {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err == nil {
-			addrsToSet := params.NetworkAddresses(arg.Addresses)
+			addrsToSet := params.NetworkAddresses(arg.Addresses...)
 			err = machine.SetProviderAddresses(addrsToSet...)
 		}
 		result.Results[i].Error = common.ServerError(err)

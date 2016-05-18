@@ -39,7 +39,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: hc,
-		Addrs: params.FromNetworkAddresses(addrs),
+		Addrs: params.FromNetworkAddresses(addrs...),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,7 +115,7 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: hc,
-		Addrs: params.FromNetworkAddresses(addrs),
+		Addrs: params.FromNetworkAddresses(addrs...),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
