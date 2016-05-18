@@ -180,16 +180,17 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			allIds, err := m.st.allProviderIDsForModelCollection(linkLayerDevicesC, "link-layer devices")
+			allIds, err := m.st.allProviderIDsForLinkLayerDevices()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			for _, args := range devicesArgs {
 				if allIds.Contains(string(args.ProviderID)) {
 					err := NewProviderIDNotUniqueError(args.ProviderID)
-					return nil, errors.Annotatef(err, "invalid device: %q", args.Name)
+					return nil, errors.Annotatef(err, "invalid device %q", args.Name)
 				}
 			}
+			panic("foo")
 		}
 
 		ops := []txn.Op{
@@ -207,6 +208,28 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
+	idCollection, closer := st.getCollection(providerIDsC)
+	defer closer()
+
+	allProviderIDs := set.NewStrings()
+	var doc struct {
+		ID string `bson:"_id"`
+	}
+
+	pattern := fmt.Sprintf("^%s:linklayerdevice:.+$", st.ModelUUID())
+	modelProviderIDs := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	iter := idCollection.Find(modelProviderIDs).Iter()
+	for iter.Next(&doc) {
+		localProviderID := st.localID(doc.ID)[16:]
+		allProviderIDs.Add(localProviderID)
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allProviderIDs, nil
 }
 
 func (st *State) allProviderIDsForModelCollection(collectionName, entityLabelPlural string) (_ set.Strings, err error) {
