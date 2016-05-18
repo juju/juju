@@ -190,7 +190,6 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 					return nil, errors.Annotatef(err, "invalid device %q", args.Name)
 				}
 			}
-			panic("foo")
 		}
 
 		ops := []txn.Op{
