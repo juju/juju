@@ -79,7 +79,7 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"MODEL      OWNER        STATUS     LAST CONNECTION\n"+
 		"admin*     admin@local  available  just now\n"+
 		"new-model  admin@local  available  never connected\n"+
 		"\n")
@@ -89,7 +89,7 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"MODEL      OWNER        STATUS     LAST CONNECTION\n"+
 		"admin*     admin@local  available  just now\n"+
 		"new-model  test@local   available  never connected\n"+
 		"\n")
@@ -139,7 +139,7 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS      LAST CONNECTION\n"+
+		"MODEL      OWNER        STATUS      LAST CONNECTION\n"+
 		"admin*     admin@local  available   just now\n"+
 		"new-model  admin@local  destroying  never connected\n"+
 		"\n")
