@@ -64,11 +64,10 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 // Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(unit, stID string, pl payload.FullPayloadInfo) error {
-	logger.Tracef("inserting %q - %#v", stID, pl)
+func (pp Persistence) Track(unit string, pl payload.FullPayloadInfo) error {
+	logger.Tracef("inserting %q - %#v", pl.Name, pl)
 	txn := &insertPayloadTxn{
 		unit:    unit,
-		stID:    stID,
 		payload: pl,
 	}
 	if err := pp.txns.run(txn); err != nil {
@@ -81,11 +80,11 @@ func (pp Persistence) Track(unit, stID string, pl payload.FullPayloadInfo) error
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The payload is not checked for inconsistent records.
-func (pp Persistence) SetStatus(unit, stID, status string) error {
-	logger.Tracef("setting status for %q", stID)
+func (pp Persistence) SetStatus(unit, name, status string) error {
+	logger.Tracef("setting status for %q", name)
 	txn := &setPayloadStatusTxn{
 		unit:   unit,
-		stID:   stID,
+		name:   name,
 		status: status,
 	}
 	if err := pp.txns.run(txn); err != nil {
@@ -97,20 +96,16 @@ func (pp Persistence) SetStatus(unit, stID, status string) error {
 // List builds the list of payloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
-func (pp Persistence) List(unit string, stIDs ...string) ([]payload.FullPayloadInfo, []string, error) {
+func (pp Persistence) List(unit string, names ...string) ([]payload.FullPayloadInfo, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	docs, missing, err := pp.queries.unitPayloads(unit, stIDs)
+	docs, missing, err := pp.queries.someUnitPayloads(unit, names)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	results := make([]payload.FullPayloadInfo, len(docs))
-	for i, stID := range stIDs {
-		doc, ok := docs[stID]
-		if !ok {
-			continue
-		}
+	for i, doc := range docs {
 		results[i] = doc.payload()
 	}
 	return results, missing, nil
@@ -121,7 +116,7 @@ func (pp Persistence) List(unit string, stIDs ...string) ([]payload.FullPayloadI
 func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	docs, err := pp.queries.allByStateID(unit)
+	docs, err := pp.queries.unitPayloadsByName(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -134,24 +129,6 @@ func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, er
 	return results, nil
 }
 
-// LookUp returns the payload ID for the given name/rawID pair.
-func (pp Persistence) LookUp(unit, name, rawID string) (string, error) {
-	// TODO(ericsnow) This could be more efficient.
-
-	docs, err := pp.queries.allByStateID(unit)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	for id, doc := range docs {
-		if doc.match(name, rawID) {
-			return id, nil
-		}
-	}
-
-	return "", errors.NotFoundf("payload for %s/%s", name, rawID)
-}
-
 // TODO(ericsnow) Add payloads to state/cleanup.go.
 
 // TODO(ericsnow) How to ensure they are completely removed from state
@@ -161,10 +138,10 @@ func (pp Persistence) LookUp(unit, name, rawID string) (string, error) {
 // from persistence. Also returned is whether or not the payload was
 // found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
-func (pp Persistence) Untrack(unit, stID string) error {
+func (pp Persistence) Untrack(unit, name string) error {
 	txn := &removePayloadTxn{
 		unit: unit,
-		stID: stID,
+		name: name,
 	}
 	if err := pp.txns.run(txn); err != nil {
 		return errors.Trace(err)

@@ -26,12 +26,12 @@ var _ = gc.Suite(&PayloadsMongoSuite{})
 
 func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
-	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	itxn := insertPayloadTxn{pl.Unit, stID, pl}
+	itxn := insertPayloadTxn{pl.Unit, pl}
 
 	ops := itxn.ops()
 
+	f.Stub.CheckNoCalls(c)
 	id := "payload#a-unit/0#payloadA"
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
 		C:      "payloads",
@@ -42,7 +42,6 @@ func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 			UnitID:    "a-unit/0",
 			Name:      "payloadA",
 			MachineID: "0",
-			StateID:   stID,
 			Type:      "docker",
 			RawID:     "payloadA-xyz",
 			State:     "running",
@@ -53,19 +52,19 @@ func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 func (s *PayloadsMongoSuite) TestInsertCheckAssertsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	itxn := insertPayloadTxn{pl.Unit, f.StateID, pl}
+	itxn := insertPayloadTxn{pl.Unit, pl}
 
 	err := itxn.checkAsserts(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
-	f.Stub.CheckCallNames(c, "All", "All")
+	f.Stub.CheckCallNames(c, "All")
 }
 
 func (s *PayloadsMongoSuite) TestInsertCheckAssertsAlreadyExists(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	stID := f.SetDoc(pl)
-	itxn := insertPayloadTxn{pl.Unit, stID, pl}
+	f.SetDocs(pl)
+	itxn := insertPayloadTxn{pl.Unit, pl}
 
 	err := itxn.checkAsserts(f.Queries)
 
@@ -76,10 +75,11 @@ func (s *PayloadsMongoSuite) TestInsertCheckAssertsAlreadyExists(c *gc.C) {
 func (s *PayloadsMongoSuite) TestSetStatusOps(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	stxn := setPayloadStatusTxn{pl.Unit, f.StateID, pl.Name, payload.StateRunning}
+	stxn := setPayloadStatusTxn{pl.Unit, pl.Name, payload.StateRunning}
 
 	ops := stxn.ops()
 
+	f.Stub.CheckNoCalls(c)
 	id := "payload#a-unit/0#payloadA"
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
 		C:      "payloads",
@@ -90,29 +90,24 @@ func (s *PayloadsMongoSuite) TestSetStatusOps(c *gc.C) {
 				{"state", payload.StateRunning},
 			}},
 		},
-	}, {
-		C:      "payloads",
-		Id:     id,
-		Assert: bson.D{{"state-id", f.StateID}},
 	}})
 }
 
 func (s *PayloadsMongoSuite) TestSetStatusCheckAssertsExists(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	stID := f.SetDoc(pl)
-	stxn := setPayloadStatusTxn{pl.Unit, stID, "", payload.StateRunning}
+	f.SetDocs(pl)
+	stxn := setPayloadStatusTxn{pl.Unit, pl.Name, payload.StateRunning}
 
 	err := stxn.checkAsserts(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.Stub.CheckCallNames(c, "All")
-	c.Check(stxn.name, gc.Equals, pl.Name)
 }
 
 func (s *PayloadsMongoSuite) TestSetStatusCheckAssertsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
-	stxn := setPayloadStatusTxn{"a-unit/0", f.StateID, "", payload.StateRunning}
+	stxn := setPayloadStatusTxn{"a-unit/0", "", payload.StateRunning}
 
 	err := stxn.checkAsserts(f.Queries)
 
@@ -123,39 +118,35 @@ func (s *PayloadsMongoSuite) TestSetStatusCheckAssertsMissing(c *gc.C) {
 func (s *PayloadsMongoSuite) TestRemoveOps(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/xyz")
-	rtxn := removePayloadTxn{pl.Unit, f.StateID, pl.Name}
+	rtxn := removePayloadTxn{pl.Unit, pl.Name}
 
 	ops := rtxn.ops()
 
+	f.Stub.CheckNoCalls(c)
 	id := "payload#a-unit/0#payloadA"
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
 		C:      "payloads",
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
-	}, {
-		C:      "payloads",
-		Id:     id,
-		Assert: bson.D{{"state-id", f.StateID}},
 	}})
 }
 
 func (s *PayloadsMongoSuite) TestRemoveCheckAssertsExists(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/xyz")
-	stID := f.SetDoc(pl)
-	rtxn := removePayloadTxn{pl.Unit, stID, ""}
+	f.SetDocs(pl)
+	rtxn := removePayloadTxn{pl.Unit, pl.Name}
 
 	err := rtxn.checkAsserts(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.Stub.CheckCallNames(c, "All")
-	c.Check(rtxn.name, gc.Equals, pl.Name)
 }
 
-func (s *PayloadsMongoSuite) TestRemoveOpsMissing(c *gc.C) {
+func (s *PayloadsMongoSuite) TestRemoveCheckAssertsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
-	rtxn := removePayloadTxn{"a-unit/0", f.StateID, ""}
+	rtxn := removePayloadTxn{"a-unit/0", "payloadA"}
 
 	err := rtxn.checkAsserts(f.Queries)
 

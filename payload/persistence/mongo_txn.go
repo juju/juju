@@ -51,22 +51,14 @@ func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) jujutxn.Tr
 
 type insertPayloadTxn struct {
 	unit    string
-	stID    string
 	payload payload.FullPayloadInfo
 }
 
 func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
-	_, err := pq.payloadByName(itxn.unit, itxn.payload.Name)
+	query := payloadIDQuery(itxn.unit, itxn.payload.Name)
+	_, err := pq.one(query)
 	if err == nil {
 		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.payload.FullID())
-	}
-	if !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-
-	_, err = pq.payloadByStateID(itxn.unit, itxn.stID)
-	if err == nil {
-		return errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", itxn.stID)
 	}
 	if !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -80,7 +72,7 @@ func (itxn insertPayloadTxn) ops() []txn.Op {
 	// state-provided ID. However, that isn't something we can do in
 	// a transaction.
 
-	doc := newPayloadDoc(itxn.stID, itxn.payload)
+	doc := newPayloadDoc(itxn.payload)
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	return []txn.Op{{
 		C:      payloadsC,
@@ -92,20 +84,19 @@ func (itxn insertPayloadTxn) ops() []txn.Op {
 
 type setPayloadStatusTxn struct {
 	unit   string
-	stID   string
 	name   string
 	status string
 }
 
 func (stxn *setPayloadStatusTxn) checkAsserts(pq payloadsQueries) error {
-	doc, err := pq.payloadByStateID(stxn.unit, stxn.stID)
+	query := payloadIDQuery(stxn.unit, stxn.name)
+	_, err := pq.one(query)
 	if errors.IsNotFound(err) {
-		return errors.Annotatef(payload.ErrNotFound, "(%s)", stxn.stID)
+		return errors.Annotatef(payload.ErrNotFound, "(%s)", stxn.name)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	stxn.name = doc.Name
 
 	return nil
 }
@@ -121,21 +112,17 @@ func (stxn setPayloadStatusTxn) ops() []txn.Op {
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", updates}},
-	}, {
-		C:      payloadsC,
-		Id:     id,
-		Assert: bson.D{{"state-id", stxn.stID}},
 	}}
 }
 
 type removePayloadTxn struct {
 	unit string
-	stID string
 	name string
 }
 
 func (rtxn *removePayloadTxn) checkAsserts(pq payloadsQueries) error {
-	doc, err := pq.payloadByStateID(rtxn.unit, rtxn.stID)
+	query := payloadIDQuery(rtxn.unit, rtxn.name)
+	_, err := pq.one(query)
 	if errors.IsNotFound(err) {
 		// Must have already beeen removed!
 		return jujutxn.ErrNoOperations
@@ -143,7 +130,6 @@ func (rtxn *removePayloadTxn) checkAsserts(pq payloadsQueries) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	rtxn.name = doc.Name
 
 	return nil
 }
@@ -156,9 +142,5 @@ func (rtxn removePayloadTxn) ops() []txn.Op {
 		Id:     id,
 		Assert: txn.DocExists,
 		Remove: true,
-	}, {
-		C:      payloadsC,
-		Id:     id,
-		Assert: bson.D{{"state-id", rtxn.stID}},
 	}}
 }

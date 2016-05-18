@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/payload"
 )
@@ -19,6 +20,11 @@ func payloadID(unit, name string) string {
 	return fmt.Sprintf("payload#%s#%s", unit, name)
 }
 
+func payloadIDQuery(unit, name string) bson.D {
+	id := payloadID(unit, name)
+	return bson.D{{"_id", id}}
+}
+
 // payloadDoc is the top-level document for payloads.
 type payloadDoc struct {
 	DocID string `bson:"_id"`
@@ -28,9 +34,6 @@ type payloadDoc struct {
 	Name   string `bson:"name"`
 
 	MachineID string `bson:"machine-id"`
-
-	// StateID is the unique ID that State gave this payload for this unit.
-	StateID string `bson:"state-id"`
 
 	Type string `bson:"type"`
 
@@ -45,7 +48,7 @@ type payloadDoc struct {
 	RawID string `bson:"rawid"`
 }
 
-func newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
+func newPayloadDoc(p payload.FullPayloadInfo) *payloadDoc {
 	id := payloadID(p.Unit, p.Name)
 
 	definition := p.PayloadClass
@@ -59,8 +62,6 @@ func newPayloadDoc(stID string, p payload.FullPayloadInfo) *payloadDoc {
 		Name:   definition.Name,
 
 		MachineID: p.Machine,
-
-		StateID: stID,
 
 		Type: definition.Type,
 
