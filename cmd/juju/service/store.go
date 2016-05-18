@@ -75,12 +75,12 @@ func newCharmURLResolver(conf *config.Config, csClient *csclient.Client) *charmU
 
 // TODO(ericsnow) Return charmstore.CharmID from resolve()?
 
-// resolve resolves the given given charm or bundle URL
-// string by looking it up in the charm store.
-// The given csParams will be used to access the charm store.
+// resolve resolves the given given charm or bundle URL string by looking it up
+// in the charm store. The given csParams will be used to access the charm
+// store.
 //
-// It returns the fully resolved URL, any series supported by the entity,
-// and the store that holds it.
+// It returns the fully resolved URL, the channel, any series supported by the
+// entity, and the store that holds it.
 func (r *charmURLResolver) resolve(url *charm.URL) (*charm.URL, csparams.Channel, []string, *charmrepo.CharmStore, error) {
 	if url.Schema != "cs" {
 		return nil, csparams.NoChannel, nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
