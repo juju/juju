@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -306,27 +305,6 @@ func (i *InterfaceInfo) CIDRAddress() string {
 	}
 	ipNet.IP = ip
 	return ipNet.String()
-}
-
-var preferIPv6 uint32
-
-// PreferIPV6 returns true if this process prefers IPv6.
-func PreferIPv6() bool { return atomic.LoadUint32(&preferIPv6) > 0 }
-
-// SetPreferIPv6 determines whether IPv6 addresses will be preferred when
-// selecting a public or internal addresses, using the Select*() methods.
-// SetPreferIPV6 needs to be called to set this flag globally at the
-// earliest time possible (e.g. at bootstrap, agent startup, before any
-// CLI command).
-func SetPreferIPv6(prefer bool) {
-	var b uint32
-	if prefer {
-		b = 1
-	}
-	atomic.StoreUint32(&preferIPv6, b)
-	// TODO(dimitern): Drop prefer-ipv6 entirely.
-	prefer = false
-	logger.Infof("setting prefer-ipv6 to %v", prefer)
 }
 
 // LXCNetDefaultConfig is the location of the default network config
