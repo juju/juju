@@ -53,7 +53,7 @@ func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
+	c.Assert(c.GetTestLog(), jc.Contains, `INFO juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {

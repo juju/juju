@@ -420,7 +420,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	if !isCompatibleVersion(newVersion, jujuversion.Current) {
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
-			logger.Debugf(
+			logger.Infof(
 				"failed to find %s tools, will attempt to use %s",
 				jujuversion.Current, newVersion,
 			)
@@ -493,10 +493,7 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 		return errors.Trace(err)
 	}
 	unsupported, err := validator.Validate(cons)
-	if len(unsupported) > 0 {
-		err = errors.Annotatef(err, "unsupported constraints: %v", unsupported)
-	}
-	return err
+	return errors.Annotatef(err, "unsupported constraints: %v", unsupported)
 }
 
 // guiArchive returns information on the GUI archive that will be uploaded

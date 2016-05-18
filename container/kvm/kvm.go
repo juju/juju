@@ -159,7 +159,7 @@ func (manager *containerManager) CreateContainer(
 		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cpu-cores=%v",
 			startParams.Arch, startParams.Memory, startParams.RootDisk, startParams.CpuCores))
 	if err != nil {
-		logger.Warningf("failed to parse hardware: %v", err)
+		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
 
 	callback(status.StatusAllocating, "Creating container; it might take some time", nil)

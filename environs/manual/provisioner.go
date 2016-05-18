@@ -76,7 +76,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
 			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
-				logger.Warningf("error cleaning up machine: %s", cleanupErr)
+				logger.Errorf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
 		}

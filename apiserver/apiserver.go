@@ -481,7 +481,7 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 			return st, nil, err
 		}
 	default:
-		logger.Warningf(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
+		logger.Infof(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
 		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
 			st, err := ctxt.stateForRequestUnauthenticated(req)
 			return st, nil, err
