@@ -168,11 +168,6 @@ type InstanceConfig struct {
 	// override the default APT sources.
 	AptMirror string
 
-	// PreferIPv6 mirrors the value of prefer-ipv6 environment setting
-	// and when set IPv6 addresses for connecting to the API/state
-	// servers will be preferred over IPv4 ones.
-	PreferIPv6 bool
-
 	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
 
@@ -246,7 +241,6 @@ func (cfg *InstanceConfig) AgentConfig(
 		APIAddresses:      cfg.ApiHostAddrs(),
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
-		PreferIPv6:        cfg.PreferIPv6,
 		Model:             cfg.APIInfo.ModelTag,
 	}
 	if !cfg.Bootstrap {
@@ -268,11 +262,7 @@ func (cfg *InstanceConfig) GUITools() string {
 func (cfg *InstanceConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
-		if cfg.PreferIPv6 {
-			hosts = append(hosts, net.JoinHostPort("::1", strconv.Itoa(cfg.StateServingInfo.StatePort)))
-		} else {
-			hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.StatePort)))
-		}
+		hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.StatePort)))
 	}
 	if cfg.MongoInfo != nil {
 		hosts = append(hosts, cfg.MongoInfo.Addrs...)
@@ -283,11 +273,7 @@ func (cfg *InstanceConfig) stateHostAddrs() []string {
 func (cfg *InstanceConfig) ApiHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
-		if cfg.PreferIPv6 {
-			hosts = append(hosts, net.JoinHostPort("::1", strconv.Itoa(cfg.StateServingInfo.APIPort)))
-		} else {
-			hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.APIPort)))
-		}
+		hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.APIPort)))
 	}
 	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
@@ -556,7 +542,6 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	sslHostnameVerification bool,
 	proxySettings, aptProxySettings proxy.Settings,
 	aptMirror string,
-	preferIPv6 bool,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
 ) error {
@@ -573,7 +558,6 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.ProxySettings = proxySettings
 	icfg.AptProxySettings = aptProxySettings
 	icfg.AptMirror = aptMirror
-	icfg.PreferIPv6 = preferIPv6
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	icfg.EnableOSUpgrade = enableOSUpgrade
 	return nil
@@ -600,7 +584,6 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.ProxySettings(),
 		cfg.AptProxySettings(),
 		cfg.AptMirror(),
-		cfg.PreferIPv6(),
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
 	); err != nil {
