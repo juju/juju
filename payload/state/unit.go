@@ -66,7 +66,7 @@ func newID() (string, error) {
 // TODO(ericsnow) Return the new ID from Track()?
 
 // Track inserts the provided payload info in state. If the payload
-// is already in the DB then Alrea
+// is already in the DB then errors.NotValid is returned.
 func (uw UnitPayloads) Track(pl payload.Payload) error {
 	logger.Tracef("tracking %#v", pl)
 
