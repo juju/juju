@@ -535,8 +535,19 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		ops = append(ops, assertLinkLayerDeviceExistsOp(existingParentDocID))
 		ops = append(ops, decrementDeviceNumChildrenOp(existingParentDocID))
 	}
-	// XXX this may need to set the provider id in providerIDsC
-	return append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc)), nil
+	ops = append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc))
+
+	if newDoc.ProviderID != "" {
+		if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
+			return nil, errors.Errorf("cannot change ProviderID of link layer device %q", existingDoc.Name)
+		}
+		if existingDoc.ProviderID != newDoc.ProviderID {
+			// Need to insert the new provider id in providerIDsC
+			id := network.Id(newDoc.ProviderID)
+			ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
+		}
+	}
+	return ops, nil
 }
 
 // LinkLayerDeviceAddress contains an IP address assigned to a link-layer
