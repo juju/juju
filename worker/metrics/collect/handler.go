@@ -36,34 +36,33 @@ type handler struct {
 
 // Handle triggers the collect-metrics hook and writes collected metrics
 // to the specified connection.
-func (l *handler) Handle(c net.Conn) (err error) {
+func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
+	defer c.Close()
+
+	// TODO(fwereade): 2016-03-17 lp:1558657
+	err := c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
+	if err != nil {
+		return errors.Annotate(err, "failed to set the deadline")
+	}
+
 	err = l.config.charmdir.Visit(func() error {
 		return l.do(c)
-	}, nil)
+	}, abort)
+	if err != nil {
+		fmt.Fprintf(c, "error: %v\n", err.Error())
+	} else {
+		fmt.Fprintf(c, "ok\n")
+	}
 	return errors.Trace(err)
 }
 
-func (l *handler) do(c net.Conn) (err error) {
-	defer func() {
-		if err != nil {
-			fmt.Fprintf(c, "error: %v\n", err.Error())
-		} else {
-			fmt.Fprintf(c, "ok\n")
-		}
-		c.Close()
-	}()
-
+func (l *handler) do(c net.Conn) error {
 	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect")
 	charmURL, validMetrics, err := readCharm(l.config.unitTag, paths)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	err = c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
-	if err != nil {
-		return errors.Annotate(err, "failed to set the deadline")
-	}
 	recorder, err := l.config.metricsFactory.Recorder(
 		validMetrics,
 		charmURL.String(),

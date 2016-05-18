@@ -113,8 +113,7 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 
 	conn, err := s.listener.trigger()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn.Calls(), gc.HasLen, 3)
-	conn.CheckCall(c, 2, "Close")
+	conn.CheckCallNames(c, "SetDeadline", "Write", "Close")
 
 	responseString := strings.Trim(string(conn.data), " \n\t")
 	c.Assert(responseString, gc.Equals, "ok")
@@ -153,11 +152,11 @@ func (s *handlerSuite) TestHandlerError(c *gc.C) {
 
 	conn, err := s.listener.trigger()
 	c.Assert(err, gc.ErrorMatches, "failed to collect metrics: error adding 'juju-units' metric: well, this is embarassing")
-	c.Assert(conn.Calls(), gc.HasLen, 3)
-	conn.CheckCall(c, 2, "Close")
+	conn.CheckCallNames(c, "SetDeadline", "Write", "Close")
 
 	responseString := strings.Trim(string(conn.data), " \n\t")
-	c.Assert(responseString, gc.Matches, ".*well, this is embarassing")
+	//c.Assert(responseString, gc.Matches, ".*well, this is embarassing")
+	c.Assert(responseString, gc.Equals, `error: failed to collect metrics: error adding 'juju-units' metric: well, this is embarassing`)
 	c.Assert(s.recorder.batches, gc.HasLen, 0)
 
 	workertest.CleanKill(c, worker)
@@ -171,7 +170,8 @@ type mockListener struct {
 
 func (l *mockListener) trigger() (*mockConnection, error) {
 	conn := &mockConnection{}
-	err := l.handler.Handle(conn)
+	dying := make(chan struct{})
+	err := l.handler.Handle(conn, dying)
 	if err != nil {
 		return conn, err
 	}
@@ -203,7 +203,8 @@ func (c *mockConnection) SetDeadline(t time.Time) error {
 // Write implements the net.Conn interface.
 func (c *mockConnection) Write(data []byte) (int, error) {
 	c.AddCall("Write", data)
-	c.data = data
+	c.data = make([]byte, len(data))
+	copy(c.data, data)
 	return len(data), nil
 }
 
