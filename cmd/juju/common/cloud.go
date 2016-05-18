@@ -40,7 +40,7 @@ func BuiltInClouds() map[string]cloud.Cloud {
 		if err != nil {
 			// Should never happen but it will on go 1.2
 			// because lxd provider is not built.
-			logger.Warningf("cloud %q not available on this platform", name)
+			logger.Errorf("cloud %q not available on this platform", name)
 			continue
 		}
 		builtIn[name] = aCloud

@@ -89,10 +89,12 @@ func (w *hostkeyreporter) run() error {
 
 func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
 	sshDir := w.sshDir()
-	if _, err := os.Stat(sshDir); os.IsNotExist(err) {
-		logger.Warningf("%s doesn't exist - giving up", sshDir)
+	_, err := os.Stat(sshDir)
+	if os.IsNotExist(err) {
+		logger.Errorf("%s doesn't exist - giving up", sshDir)
 		return nil, dependency.ErrUninstall
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -104,7 +106,7 @@ func (w *hostkeyreporter) readSSHKeys() ([]string, error) {
 	for _, filename := range filenames {
 		key, err := ioutil.ReadFile(filename)
 		if err != nil {
-			logger.Warningf("unable to read SSH host key (skipping): %v", err)
+			logger.Debugf("unable to read SSH host key (skipping): %v", err)
 			continue
 		}
 		keys = append(keys, string(key))

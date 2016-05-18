@@ -191,7 +191,7 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 		return err
 	}
 	if tools.SHA256 == "" {
-		logger.Warningf("no SHA-256 hash for %v", tools.SHA256)
+		logger.Errorf("no SHA-256 hash for %v", tools.SHA256) // TODO(dfc) can you spot the bug ?
 	} else if sha256 != tools.SHA256 {
 		return errors.Errorf("SHA-256 hash mismatch (%v/%v)", sha256, tools.SHA256)
 	}

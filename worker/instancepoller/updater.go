@@ -124,17 +124,13 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			// We don't know about the machine - start
 			// a goroutine to deal with it.
 			m, err := p.context.getMachine(tag)
-			if params.IsCodeNotFound(err) {
-				logger.Warningf("watcher gave notification of non-existent machine %q", tag.Id())
-				continue
-			}
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			// We don't poll manual machines.
 			isManual, err := m.IsManual()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if isManual {
 				continue

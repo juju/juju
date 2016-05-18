@@ -83,7 +83,7 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 
 	err = sendMetrics(st)
 	if err != nil {
-		logger.Warningf("failed to send leftover metrics: %v", err)
+		logger.Errorf("failed to send leftover metrics: %v", err)
 	}
 
 	// Return to the caller. If it's the CLI, it will finish up by calling the
