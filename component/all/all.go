@@ -21,6 +21,7 @@ type component interface {
 }
 
 var components = []component{
+	&auditComponent{},
 	&payloads{},
 	&resources{},
 }
