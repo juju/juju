@@ -2457,6 +2457,18 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(('juju', '--show-log', 'foo', '-m', 'qux',
                                  'bar', 'baz'))
 
+    def test_expect_returns_pexpect_spawn_object(self):
+        env = JujuData('qux')
+        client = EnvJujuClient(env, None, None)
+        with patch('pexpect.spawn') as mock:
+            process = client.expect('foo', ('bar', 'baz'))
+
+        self.assertIs(process, mock.return_value)
+        mock.assert_called_once_with(
+            'juju --show-log foo -m qux bar baz',
+            env=client._shell_environ()
+        )
+
     def test_juju_env(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')

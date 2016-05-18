@@ -15,6 +15,7 @@ import errno
 from itertools import chain
 import logging
 import os
+import pexpect
 import re
 from shutil import rmtree
 import subprocess
@@ -36,6 +37,7 @@ from utility import (
     ensure_dir,
     is_ipv6_address,
     pause,
+    quote,
     scoped_environ,
     split_address_port,
     temp_dir,
@@ -696,6 +698,36 @@ class EnvJujuClient:
         self.juju_timings.setdefault(args, []).append(
             (time.time() - start_time))
         return rval
+
+    def expect(self, command, args=(), sudo=False, include_e=True,
+               timeout=None, extra_env=None):
+        """Return a process object that is running an interactive `command`.
+
+        The interactive command ability is provided by using pexpect.
+
+        :param command: String of the juju command to run.
+        :param args: Tuple containing arguments for the juju `command`.
+        :param sudo: Whether to call `command` using sudo.
+        :param include_e: Boolean regarding supplying the juju environment to
+          `command`.
+        :param timeout: A float that, if provided, is the timeout in which the
+          `command` is run.
+
+        :return: A pexpect.spawn object that has been called with `command` and
+          `args`.
+
+        """
+        args = self._full_args(command, sudo, args, include_e=include_e,
+                               timeout=timeout)
+        log.info(' '.join(args))
+        env = self._shell_environ()
+        if extra_env is not None:
+            env.update(extra_env)
+        # pexpect.spawn expects a string. This is better than trying to extract
+        # command + args from the returned tuple (as there could be an intial
+        # timing command tacked on).
+        command_string = ' '.join(quote(a) for a in args)
+        return pexpect.spawn(command_string, env=env)
 
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args
@@ -2132,10 +2164,23 @@ class JujuData(SimpleEnvironment):
         return juju_data
 
     def load_yaml(self):
-        with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
-            self.credentials = yaml.safe_load(f)
-        with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-            self.clouds = yaml.safe_load(f)
+        try:
+            with open(os.path.join(self.juju_home, 'credentials.yaml')) as f:
+                self.credentials = yaml.safe_load(f)
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read credentials file: {}'.format(str(e)))
+            self.credentials = {}
+        try:
+            with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
+                self.clouds = yaml.safe_load(f)
+        except IOError as e:
+            if e.errno != errno.ENOENT:
+                raise RuntimeError(
+                    'Failed to read clouds file: {}'.format(str(e)))
+            # Default to an empty clouds file.
+            self.clouds = {'clouds': {}}
 
     @classmethod
     def from_config(cls, name):
