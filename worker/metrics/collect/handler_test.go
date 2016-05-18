@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type handlerSuite struct {
@@ -100,9 +101,7 @@ func (s *handlerSuite) TestListenerStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, worker)
 	s.listener.CheckCall(c, 0, "Stop")
 }
 
@@ -121,9 +120,7 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 	c.Assert(responseString, gc.Equals, "ok")
 	c.Assert(s.recorder.batches, gc.HasLen, 1)
 
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, worker)
 	s.listener.CheckCall(c, 0, "Stop")
 }
 
@@ -139,12 +136,10 @@ func (s *handlerSuite) TestReadCharmCalledOnEachTrigger(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(collect.ReadCharm, s.mockReadCharm.ReadCharm)
+	workertest.CleanKill(c, worker)
+
 	// Expect 3 calls to ReadCharm, one on start and one per handler call
 	s.mockReadCharm.CheckCallNames(c, "ReadCharm", "ReadCharm", "ReadCharm")
-
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
 	s.listener.CheckCall(c, 0, "Stop")
 }
 
@@ -165,9 +160,7 @@ func (s *handlerSuite) TestHandlerError(c *gc.C) {
 	c.Assert(responseString, gc.Matches, ".*well, this is embarassing")
 	c.Assert(s.recorder.batches, gc.HasLen, 0)
 
-	worker.Kill()
-	err = worker.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, worker)
 	s.listener.CheckCall(c, 0, "Stop")
 }
 

@@ -46,7 +46,7 @@ func (l *handler) Handle(c net.Conn) (err error) {
 func (l *handler) do(c net.Conn) (err error) {
 	defer func() {
 		if err != nil {
-			fmt.Fprintf(c, "%v\n", err.Error())
+			fmt.Fprintf(c, "error: %v\n", err.Error())
 		} else {
 			fmt.Fprintf(c, "ok\n")
 		}
