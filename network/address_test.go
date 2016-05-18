@@ -402,7 +402,7 @@ var selectInternalTests = []selectTest{{
 	},
 	1,
 }, {
-	"an IPv6 cloud local address is preferred to a public address the former appears first",
+	"an IPv6 cloud local address is preferred to a public address if the former appears first",
 	[]network.Address{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
