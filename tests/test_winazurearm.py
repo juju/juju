@@ -317,8 +317,38 @@ class WinAzureARMTestCase(TestCase):
         rgd1 = ResourceGroupDetails(client, ResourceGroup('one'), vms=[vm1])
         with patch('winazurearm.list_resources', autospec=True,
                    return_value=[rgd1]) as lr_mock:
+            # Passing just a name and group will take the group glob path.
             delete_instance(client, 'name-0', 'one')
         lr_mock.assert_called_once_with(client, glob='one', recursive=True)
         client.compute.virtual_machines.delete.assert_called_once_with(
             'one', 'name-0')
         self.assertIs(True, poller.is_done)
+
+    def test_delete_instance_with_id(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        poller = FakePoller()
+        client.compute.virtual_machines.delete.return_value = poller
+        vm1 = VirtualMachine('name-0', 'id-a')
+        rgd1 = ResourceGroupDetails(client, ResourceGroup('one'), vms=[vm1])
+        vm2 = VirtualMachine('name-0', 'id-b')
+        rgd2 = ResourceGroupDetails(client, ResourceGroup('two'), vms=[vm2])
+        with patch('winazurearm.list_resources', autospec=True,
+                   return_value=[rgd1, rgd2]) as lr_mock:
+            # Passing just an id will take the * glob path.
+            delete_instance(client, 'id-a')
+        lr_mock.assert_called_once_with(client, glob='*', recursive=True)
+        client.compute.virtual_machines.delete.assert_called_once_with(
+            'one', 'name-0')
+        self.assertIs(True, poller.is_done)
+
+    def test_delete_instance_without_match(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        client.init_services()
+        vm1 = VirtualMachine('name-0', 'id-a')
+        rgd1 = ResourceGroupDetails(client, ResourceGroup('one'), vms=[vm1])
+        with patch('winazurearm.list_resources', autospec=True,
+                   return_value=[rgd1]):
+            # Passing an non-existent id bypasses the call to delete.
+            delete_instance(client, 'id-z')
+        self.assertEqual(0, client.compute.virtual_machines.delete.call_count)

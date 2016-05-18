@@ -295,7 +295,7 @@ def delete_instance(client, name_id, resource_group=None):
             if not poller.done():
                 poller.result()
     else:
-        group_names = ', '.join([rgd.name for rdg in resources])
+        group_names = ', '.join([g.name for g in resources])
         print('The vm name {} was not found in {}'.format(
               name_id, group_names))
 
