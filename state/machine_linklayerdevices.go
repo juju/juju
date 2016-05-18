@@ -180,6 +180,16 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
+			allIds, err := m.st.allProviderIDsForModelCollection(linkLayerDevicesC, "link-layer devices")
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, args := range devicesArgs {
+				if allIds.Contains(string(args.ProviderID)) {
+					err := NewProviderIDNotUniqueError(args.ProviderID)
+					return nil, errors.Annotatef(err, "invalid device: %q", args.Name)
+				}
+			}
 		}
 
 		ops := []txn.Op{
@@ -374,10 +384,6 @@ func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *link
 	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(args.Name)
 
 	providerID := string(args.ProviderID)
-	if providerID != "" {
-		providerID = m.st.docID(providerID)
-	}
-
 	modelUUID := m.st.ModelUUID()
 
 	return &linkLayerDeviceDoc{
@@ -507,6 +513,7 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		ops = append(ops, assertLinkLayerDeviceExistsOp(existingParentDocID))
 		ops = append(ops, decrementDeviceNumChildrenOp(existingParentDocID))
 	}
+	// XXX this may need to set the provider id in providerIDsC
 	return append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc)), nil
 }
 
@@ -830,6 +837,8 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 		logger.Debugf("setting link-layer devices %+v", argsToSet)
 		if err := m.SetLinkLayerDevices(argsToSet...); IsProviderIDNotUniqueError(err) {
 			// FIXME: Make updating devices with unchanged ProviderID idempotent.
+			// FIXME: this obliterates the ProviderID of *all*
+			// devices if any *one* of them is not unique.
 			for i, args := range argsToSet {
 				args.ProviderID = ""
 				argsToSet[i] = args
@@ -853,6 +862,8 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDeviceAddress) error {
 	if err := m.SetDevicesAddresses(devicesAddresses...); IsProviderIDNotUniqueError(err) {
 		// FIXME: Make updating addresses with unchanged ProviderID idempotent.
+		// FIXME: this obliterates the ProviderID of *all*
+		// addresses if any *one* of them is not unique.
 		for i, args := range devicesAddresses {
 			args.ProviderID = ""
 			devicesAddresses[i] = args
