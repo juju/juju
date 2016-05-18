@@ -212,19 +212,19 @@ class Juju2Backend:
     def __init__(self, full_path, version, feature_flags, debug):
         self._version = version
         self._full_path = full_path
-        self.feature_flags = set()
+        self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
 
-    def clone(self, full_path, version, debug):
+    def clone(self, full_path, version, debug, feature_flags):
         if version is None:
             version = self.version
         if full_path is None:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        result = self.__class__(full_path, version, self.feature_flags, debug)
+        result = self.__class__(full_path, version, feature_flags, debug)
         return result
 
     @property
@@ -524,12 +524,11 @@ class EnvJujuClient:
         """
         if env is None:
             env = self.env
-        backend = self._backend.clone(full_path, version, debug)
         if cls is None:
             cls = self.__class__
+        feature_flags = self.feature_flags.intersection(cls.used_feature_flags)
+        backend = self._backend.clone(full_path, version, debug, feature_flags)
         other = cls.from_backend(backend, env)
-        other.feature_flags.update(
-            self.feature_flags.intersection(other.used_feature_flags))
         return other
 
     @classmethod

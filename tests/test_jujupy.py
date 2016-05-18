@@ -285,16 +285,19 @@ class FakeBackend:
         self.debug = debug
         self.juju_timings = {}
 
-    def clone(self, full_path=None,  version=None, debug=None):
+    def clone(self, full_path=None,  version=None, debug=None,
+              feature_flags=None):
         if version is None:
             version = self.version
         if full_path is None:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
+        if feature_flags is None:
+            feature_flags = set(self.feature_flags)
         controller_state = self.controller_state
-        return self.__class__(controller_state, set(self.feature_flags),
-                              version, full_path, debug)
+        return self.__class__(controller_state, feature_flags, version,
+                              full_path, debug)
 
     def set_feature(self, feature, enabled):
         if enabled:
@@ -475,6 +478,9 @@ class FakeJujuClient(EnvJujuClient):
     The state is provided by _backend.controller_state, so that multiple
     clients can manipulate the same state.
     """
+
+    used_feature_flags = frozenset(['address-allocation', 'jes'])
+
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=False, version='2.0.0', _backend=None):
         if env is None:
