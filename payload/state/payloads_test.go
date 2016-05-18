@@ -47,12 +47,10 @@ func (s *envPayloadsSuite) newPayload(name string) payload.FullPayloadInfo {
 }
 
 func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
-	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	s.persists.setPayload(id1, p1)
-	s.persists.setPayload(id2, p2)
+	s.persists.setPayload(p1)
+	s.persists.setPayload(p2)
 
 	ps := state.EnvPayloads{
 		Persist: s.persists,
@@ -68,10 +66,6 @@ func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
 }
 
 func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
-	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
-	id3 := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
-	id4 := "f47ac10b-58cc-4372-a567-0e02b2c3d482"
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
 	p2.Unit = "a-service/1"
@@ -80,10 +74,10 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 	p3.Machine = "2"
 	p4 := s.newPayload("spamspamspam")
 	p4.Unit = "a-service/1"
-	s.persists.setPayload(id1, p1)
-	s.persists.setPayload(id2, p2)
-	s.persists.setPayload(id3, p3)
-	s.persists.setPayload(id4, p4)
+	s.persists.setPayload(p1)
+	s.persists.setPayload(p2)
+	s.persists.setPayload(p3)
+	s.persists.setPayload(p4)
 
 	ps := state.EnvPayloads{
 		Persist: s.persists,
@@ -101,14 +95,12 @@ func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 }
 
 func (s *envPayloadsSuite) TestListAllFailed(c *gc.C) {
-	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	s.persists.setPayload(id1, p1)
-	s.persists.setPayload(id2, p2)
+	s.persists.setPayload(p1)
+	s.persists.setPayload(p2)
 
 	ps := state.EnvPayloads{
 		Persist: s.persists,
@@ -186,7 +178,7 @@ func (s *stubPayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	return fullPayloads, nil
 }
 
-func (s *stubPayloadsPersistence) setPayload(id string, pl payload.FullPayloadInfo) {
+func (s *stubPayloadsPersistence) setPayload(pl payload.FullPayloadInfo) {
 	if s.persists == nil {
 		s.persists = make(map[string]map[string]*fakePayloadsPersistence)
 	}
@@ -202,5 +194,5 @@ func (s *stubPayloadsPersistence) setPayload(id string, pl payload.FullPayloadIn
 		units[pl.Unit] = unitPayloads
 	}
 
-	unitPayloads.setPayload(id, &pl)
+	unitPayloads.setPayload(&pl)
 }

@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/payload"
 )
@@ -17,13 +16,12 @@ var logger = loggo.GetLogger("juju.payload.state")
 
 // Persistence exposes methods needed for payloads in state.
 type Persistence interface {
-	Track(id string, info payload.FullPayloadInfo) error
+	Track(info payload.FullPayloadInfo) error
 	// SetStatus updates the status for a payload.
-	SetStatus(id, status string) error
-	List(ids ...string) ([]payload.FullPayloadInfo, []string, error)
+	SetStatus(name, status string) error
+	List(names ...string) ([]payload.FullPayloadInfo, []string, error)
 	ListAll() ([]payload.FullPayloadInfo, error)
-	LookUp(name, rawID string) (string, error)
-	Untrack(id string) error
+	Untrack(name string) error
 }
 
 // UnitPayloads provides the functionality related to a unit's
@@ -39,8 +37,6 @@ type UnitPayloads struct {
 	// Machine identifies the unit's machine. This is the "machine ID"
 	// of the machine on which the unit is running.
 	Machine string
-
-	newID func() (string, error)
 }
 
 // NewUnitPayloads builds a UnitPayloads for a unit.
@@ -49,19 +45,8 @@ func NewUnitPayloads(persist Persistence, unit, machine string) *UnitPayloads {
 		Persist: persist,
 		Unit:    unit,
 		Machine: machine,
-		newID:   newID,
 	}
 }
-
-func newID() (string, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return "", errors.Annotate(err, "could not create new payload ID")
-	}
-	return uuid.String(), nil
-}
-
-// TODO(ericsnow) Return the new ID from Track()?
 
 // Track inserts the provided payload info in state. If the payload
 // is already in the DB then errors.AlreadyExists is returned.
@@ -76,14 +61,9 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 		Machine: uw.Machine,
 	}
 
-	id, err := uw.newID()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = uw.Persist.Track(id, full)
+	err := uw.Persist.Track(full)
 	if errors.Cause(err) == payload.ErrAlreadyExists {
-		return errors.Annotatef(err, "payload %s (already in state)", id)
+		return errors.Annotatef(err, "payload %s (already in state)", pl.Name)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -94,14 +74,14 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 
 // SetStatus updates the raw status for the identified payload to the
 // provided value.
-func (uw UnitPayloads) SetStatus(id, status string) error {
-	logger.Tracef("setting payload status for %q to %q", id, status)
+func (uw UnitPayloads) SetStatus(name, status string) error {
+	logger.Tracef("setting payload status for %q to %q", name, status)
 
 	if err := payload.ValidateState(status); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := uw.Persist.SetStatus(id, status); err != nil {
+	if err := uw.Persist.SetStatus(name, status); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -111,22 +91,22 @@ func (uw UnitPayloads) SetStatus(id, status string) error {
 // IDs. If none are provided then the list contains the info for all
 // payloads associated with the unit. Missing payloads
 // are ignored.
-func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
-	logger.Tracef("listing %v", ids)
+func (uw UnitPayloads) List(names ...string) ([]payload.Result, error) {
+	logger.Tracef("listing %v", names)
 	var err error
 	var payloads []payload.FullPayloadInfo
 	missingIDs := make(map[string]bool)
-	if len(ids) == 0 {
+	if len(names) == 0 {
 		payloads, err = uw.Persist.ListAll()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		for _ = range payloads {
-			ids = append(ids, "")
+			names = append(names, "")
 		}
 	} else {
 		var missing []string
-		payloads, missing, err = uw.Persist.List(ids...)
+		payloads, missing, err = uw.Persist.List(names...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -137,55 +117,57 @@ func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
 
 	var results []payload.Result
 	i := 0
-	for _, id := range ids {
-		if missingIDs[id] {
+	for _, name := range names {
+		if missingIDs[name] {
 			results = append(results, payload.Result{
-				ID:       id,
+				ID:       name,
 				NotFound: true,
-				Error:    errors.NotFoundf(id),
+				Error:    errors.NotFoundf(name),
 			})
 			continue
 		}
 		pl := payloads[i]
 		i += 1
 
+		// TODO(ericsnow) Ensure that pl.Name == name?
 		// TODO(ericsnow) Ensure that pl.Unit == uw.Unit?
 
 		result := payload.Result{
-			ID:      id,
+			ID:      pl.Name,
 			Payload: &pl,
-		}
-		if id == "" {
-			// TODO(ericsnow) Do this more efficiently.
-			id, err := uw.LookUp(pl.Name, pl.ID)
-			if err != nil {
-				id = ""
-				result.Error = errors.Trace(err)
-			}
-			result.ID = id
 		}
 		results = append(results, result)
 	}
 	return results, nil
 }
 
+// TODO(ericsnow) Drop LookUp in favor of calling List() directly.
+
 // LookUp returns the payload ID for the given name/rawID pair.
 func (uw UnitPayloads) LookUp(name, rawID string) (string, error) {
 	logger.Tracef("looking up payload id for %s/%s", name, rawID)
 
-	id, err := uw.Persist.LookUp(name, rawID)
+	results, err := uw.List(name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return id, nil
+	if results[0].NotFound {
+		return "", errors.Annotate(payload.ErrNotFound, name)
+	}
+	if results[0].Error != nil {
+		return "", errors.Trace(results[0].Error)
+	}
+	pl := results[0].Payload
+
+	return pl.Name, nil
 }
 
 // Untrack removes the identified payload from state. It does not
 // trigger the actual destruction of the payload.
-func (uw UnitPayloads) Untrack(id string) error {
-	logger.Tracef("untracking %q", id)
+func (uw UnitPayloads) Untrack(name string) error {
+	logger.Tracef("untracking %q", name)
 	// If the record wasn't found then we're already done.
-	err := uw.Persist.Untrack(id)
+	err := uw.Persist.Untrack(name)
 	if err != nil && errors.Cause(err) != payload.ErrNotFound {
 		return errors.Trace(err)
 	}
