@@ -239,10 +239,6 @@ type Config interface {
 	// the key is not found.
 	Value(key string) string
 
-	// PreferIPv6 returns whether to prefer using IPv6 addresses (if
-	// available) when connecting to the state or API server.
-	PreferIPv6() bool
-
 	// Model returns the tag for the model that the agent belongs to.
 	Model() names.ModelTag
 
@@ -372,7 +368,6 @@ type configInternal struct {
 	oldPassword       string
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
-	preferIPv6        bool
 	mongoVersion      string
 }
 
@@ -390,7 +385,6 @@ type AgentConfigParams struct {
 	APIAddresses      []string
 	CACert            string
 	Values            map[string]string
-	PreferIPv6        bool
 	MongoVersion      mongo.Version
 }
 
@@ -435,7 +429,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
-		preferIPv6:        configParams.PreferIPv6,
 		mongoVersion:      configParams.MongoVersion.String(),
 	}
 
@@ -664,10 +657,6 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) PreferIPv6() bool {
-	return c.preferIPv6
-}
-
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	if c.servingInfo == nil {
 		return params.StateServingInfo{}, false
@@ -781,9 +770,6 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	if isController {
 		port := servingInfo.APIPort
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		if c.preferIPv6 {
-			localAPIAddr = net.JoinHostPort("::1", strconv.Itoa(port))
-		}
 		addrInAddrs := false
 		for _, addr := range addrs {
 			if addr == localAPIAddr {
@@ -812,9 +798,6 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 		return nil, false
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
-	if c.preferIPv6 {
-		addr = net.JoinHostPort("::1", strconv.Itoa(ssi.StatePort))
-	}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
