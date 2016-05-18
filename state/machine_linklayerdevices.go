@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
+const entityNameLength = 16
+
 // LinkLayerDevice returns the link-layer device matching the given name. An
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
@@ -99,12 +101,8 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 		ops = append(ops, removeOps...)
 		if resultDoc.ProviderID != "" {
 			providerId := network.Id(resultDoc.ProviderID)
-			id := m.st.networkEntityGlobalKey("linklayerdevice", providerId)
-			ops = append(ops, txn.Op{
-				C:      providerIDsC,
-				Id:     id,
-				Remove: true,
-			})
+			op := m.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", providerId)
+			ops = append(ops, op)
 		}
 	}
 
@@ -222,7 +220,7 @@ func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
 	modelProviderIDs := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	iter := idCollection.Find(modelProviderIDs).Iter()
 	for iter.Next(&doc) {
-		localProviderID := st.localID(doc.ID)[16:]
+		localProviderID := st.localID(doc.ID)[entityNameLength:]
 		allProviderIDs.Add(localProviderID)
 	}
 	if err := iter.Close(); err != nil {

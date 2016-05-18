@@ -2318,6 +2318,15 @@ func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.I
 	}
 }
 
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Remove: true,
+	}
+}
+
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
 }
