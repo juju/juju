@@ -19,8 +19,8 @@ type payloadsTxnRunner interface {
 }
 
 type payloadsTransaction interface {
-	newOps(pq payloadsQueries) ([]txn.Op, error)
-	retryOps(pq payloadsQueries) ([]txn.Op, error)
+	checkAsserts(pq payloadsQueries) error
+	ops() []txn.Op
 }
 
 type payloadsTransactions struct {
@@ -29,30 +29,32 @@ type payloadsTransactions struct {
 }
 
 func (pt payloadsTransactions) run(ptxn payloadsTransaction) error {
-	buildTxn := pt.newTxnSource(ptxn)
+	buildTxn, err := pt.newTxnSource(ptxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := pt.runner.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) jujutxn.TransactionSource {
-	return func(attempt int) ([]txn.Op, error) {
-		if attempt == 0 {
-			ops, err := ptxn.newOps(pt.q)
-			if err != nil {
-				return nil, err
-			}
-			return ops, nil
-		} else {
-			ops, err := ptxn.retryOps(pt.q)
-			if err != nil {
-				return nil, err
+func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) (jujutxn.TransactionSource, error) {
+	if err := ptxn.checkAsserts(pt.q); err != nil {
+		// We cannot trace since mgo checks errors exactly.
+		return nil, err
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			// Fail immediately if we are retrying due to a failed assert.
+			if err := ptxn.checkAsserts(pt.q); err != nil {
+				return nil, errors.Trace(err)
 			}
 			// Probably a transient error, so try again.
-			return ops, nil
 		}
+		return ptxn.ops(), nil
 	}
+	return buildTxn, nil
 }
 
 type insertPayloadTxn struct {
@@ -61,90 +63,33 @@ type insertPayloadTxn struct {
 	p    payload.FullPayloadInfo
 }
 
-func (txn insertPayloadTxn) newOps(pq payloadsQueries) ([]txn.Op, error) {
-	_, err := pq.payloadByStateID(txn.unit, txn.stID)
+func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
+	_, err := pq.payloadByStateID(itxn.unit, itxn.stID)
 	if err == nil {
-		return nil, errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", txn.stID)
+		return errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", itxn.stID)
 	}
 	if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	// There is a *slight* race here...
 
-	ops := newInsertPayloadOps(txn.stID, txn.p)
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	return ops, nil
-}
-
-func (txn insertPayloadTxn) retryOps(pq payloadsQueries) ([]txn.Op, error) {
-	_, err := pq.payloadByName(txn.unit, txn.p.Name)
+	_, err = pq.payloadByName(itxn.unit, itxn.p.Name)
 	if err == nil {
-		return nil, errors.Annotatef(payload.ErrAlreadyExists, "(%s)", txn.p.FullID())
+		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.p.FullID())
 	}
 	if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	ops := newInsertPayloadOps(txn.stID, txn.p)
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	return ops, nil
+	return nil
 }
 
-type setPayloadStatusTxn struct {
-	unit   string
-	stID   string
-	status string
-}
-
-func (txn setPayloadStatusTxn) newOps(pq payloadsQueries) ([]txn.Op, error) {
-	doc, err := pq.payloadByStateID(txn.unit, txn.stID)
-	if errors.IsNotFound(err) {
-		return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", txn.stID)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	name := doc.Name
-
-	ops := newSetRawPayloadStatusOps(txn.unit, name, txn.stID, txn.status)
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	return ops, nil
-}
-
-func (txn setPayloadStatusTxn) retryOps(pq payloadsQueries) ([]txn.Op, error) {
-	return txn.newOps(pq)
-}
-
-type removePayloadTxn struct {
-	unit string
-	stID string
-}
-
-func (txn removePayloadTxn) newOps(pq payloadsQueries) ([]txn.Op, error) {
-	doc, err := pq.payloadByStateID(txn.unit, txn.stID)
-	if errors.IsNotFound(err) {
-		// Must have already beeen removed!
-		return nil, jujutxn.ErrNoOperations
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	name := doc.Name
-
-	ops := newRemovePayloadOps(txn.unit, name, txn.stID)
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	return ops, nil
-}
-
-func (txn removePayloadTxn) retryOps(pq payloadsQueries) ([]txn.Op, error) {
-	return txn.newOps(pq)
-}
-
-func newInsertPayloadOps(id string, p payload.FullPayloadInfo) []txn.Op {
+func (itxn insertPayloadTxn) ops() []txn.Op {
 	// We must also ensure that there isn't any collision on the
 	// state-provided ID. However, that isn't something we can do in
 	// a transaction.
-	doc := newPayloadDoc(id, p)
+
+	doc := newPayloadDoc(itxn.stID, itxn.p)
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	return []txn.Op{{
 		C:      payloadsC,
 		Id:     doc.DocID,
@@ -153,11 +98,32 @@ func newInsertPayloadOps(id string, p payload.FullPayloadInfo) []txn.Op {
 	}}
 }
 
-func newSetRawPayloadStatusOps(unit, name, stID, status string) []txn.Op {
-	id := payloadID(unit, name)
-	updates := bson.D{
-		{"state", status},
+type setPayloadStatusTxn struct {
+	unit   string
+	stID   string
+	name   string
+	status string
+}
+
+func (stxn *setPayloadStatusTxn) checkAsserts(pq payloadsQueries) error {
+	doc, err := pq.payloadByStateID(stxn.unit, stxn.stID)
+	if errors.IsNotFound(err) {
+		return errors.Annotatef(payload.ErrNotFound, "(%s)", stxn.stID)
 	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	stxn.name = doc.Name
+
+	return nil
+}
+
+func (stxn setPayloadStatusTxn) ops() []txn.Op {
+	id := payloadID(stxn.unit, stxn.name)
+	updates := bson.D{
+		{"state", stxn.status},
+	}
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	return []txn.Op{{
 		C:      payloadsC,
 		Id:     id,
@@ -166,12 +132,33 @@ func newSetRawPayloadStatusOps(unit, name, stID, status string) []txn.Op {
 	}, {
 		C:      payloadsC,
 		Id:     id,
-		Assert: bson.D{{"state-id", stID}},
+		Assert: bson.D{{"state-id", stxn.stID}},
 	}}
 }
 
-func newRemovePayloadOps(unit, name, stID string) []txn.Op {
-	id := payloadID(unit, name)
+type removePayloadTxn struct {
+	unit string
+	stID string
+	name string
+}
+
+func (rtxn *removePayloadTxn) checkAsserts(pq payloadsQueries) error {
+	doc, err := pq.payloadByStateID(rtxn.unit, rtxn.stID)
+	if errors.IsNotFound(err) {
+		// Must have already beeen removed!
+		return jujutxn.ErrNoOperations
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	rtxn.name = doc.Name
+
+	return nil
+}
+
+func (rtxn removePayloadTxn) ops() []txn.Op {
+	id := payloadID(rtxn.unit, rtxn.name)
+	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	return []txn.Op{{
 		C:      payloadsC,
 		Id:     id,
@@ -180,6 +167,6 @@ func newRemovePayloadOps(unit, name, stID string) []txn.Op {
 	}, {
 		C:      payloadsC,
 		Id:     id,
-		Assert: bson.D{{"state-id", stID}},
+		Assert: bson.D{{"state-id", rtxn.stID}},
 	}}
 }
