@@ -66,7 +66,7 @@ func newID() (string, error) {
 // TODO(ericsnow) Return the new ID from Track()?
 
 // Track inserts the provided payload info in state. If the payload
-// is already in the DB then errors.NotValid is returned.
+// is already in the DB then errors.AlreadyExists is returned.
 func (uw UnitPayloads) Track(pl payload.Payload) error {
 	logger.Tracef("tracking %#v", pl)
 
@@ -85,7 +85,7 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 
 	err = uw.Persist.Track(id, full)
 	if errors.Cause(err) == payload.ErrAlreadyExists {
-		return errors.NotValidf("payload %s (already in state)", id)
+		return errors.Annotatef(err, "payload %s (already in state)", id)
 	}
 	if err != nil {
 		return errors.Trace(err)

@@ -121,7 +121,7 @@ func (s *unitPayloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 
 	err := ps.Track(pl.Payload)
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (s *unitPayloadsSuite) TestSetStatusOkay(c *gc.C) {
