@@ -203,7 +203,12 @@ func (addr *Address) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", addr)
 
 	removeOp := removeIPAddressDocOp(addr.doc.DocID)
-	return addr.st.runTransaction([]txn.Op{removeOp})
+	ops := []txn.Op{removeOp}
+	if addr.ProviderID() != "" {
+		op := addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID())
+		ops = append(ops, op)
+	}
+	return addr.st.runTransaction(ops)
 }
 
 // removeIPAddressDocOpOp returns an operation to remove the ipAddressDoc

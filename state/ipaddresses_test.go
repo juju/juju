@@ -479,6 +479,26 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 	}
 }
 
+func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
+	device := s.addNamedDevice(c, "eth0")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   "id-0123",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	addresses, err := device.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.HasLen, 1)
+	addr := addresses[0]
+	err = addr.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ipAddressesStateSuite) checkAddressMatchesArgs(c *gc.C, address *state.Address, args state.LinkLayerDeviceAddress) {
 	c.Check(address.DeviceName(), gc.Equals, args.DeviceName)
 	c.Check(address.MachineID(), gc.Equals, s.machine.Id())
