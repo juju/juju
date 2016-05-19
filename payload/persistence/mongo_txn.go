@@ -29,18 +29,15 @@ type payloadsTransactions struct {
 }
 
 func (pt payloadsTransactions) run(ptxn payloadsTransaction) error {
-	buildTxn, err := pt.newTxnSource(ptxn)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	buildTxn := pt.newTxnSource(ptxn)
 	if err := pt.runner.Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) (jujutxn.TransactionSource, error) {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
+func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) jujutxn.TransactionSource {
+	return func(attempt int) ([]txn.Op, error) {
 		// We always check the asserts manually before returning ops.
 		if err := ptxn.checkAsserts(pt.queries); err != nil {
 			return nil, errors.Trace(err)
@@ -50,7 +47,6 @@ func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) (jujutxn.T
 
 		return ptxn.ops(), nil
 	}
-	return buildTxn, nil
 }
 
 type insertPayloadTxn struct {
