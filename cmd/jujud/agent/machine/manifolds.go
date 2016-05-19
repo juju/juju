@@ -439,6 +439,7 @@ const (
 	stateName              = "state"
 	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
+	apiConfigWatcherName   = "api-config-watcher"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
@@ -466,7 +467,6 @@ const (
 	resumerName              = "mgo-txn-resumer"
 	identityFileWriterName   = "ssh-identity-writer"
 	toolsVersionCheckerName  = "tools-version-checker"
-	apiConfigWatcherName     = "api-config-watcher"
 	machineActionName        = "machine-action-runner"
 	hostKeyReporterName      = "host-key-reporter"
 )
