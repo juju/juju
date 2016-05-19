@@ -706,9 +706,6 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
 	ipAddressDocID := m.st.docID(globalKey)
 	providerID := string(args.ProviderID)
-	if providerID != "" {
-		providerID = m.st.docID(providerID)
-	}
 
 	modelUUID := m.st.ModelUUID()
 
@@ -750,8 +747,14 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 		if err == mgo.ErrNotFound {
 			// Address does not exist yet - insert it.
 			ops = append(ops, insertIPAddressDocOp(&newDoc))
+			if newDoc.ProviderID != "" {
+				id := network.Id(newDoc.ProviderID)
+				ops = append(ops, m.st.networkEntityGlobalKeyOp("address", id))
+			}
 		} else if err == nil {
 			// Address already exists - update what's possible.
+			// XXX handle inserting providerIDsC record if adding a
+			// provider id.
 			ops = append(ops, updateIPAddressDocOp(&existingDoc, &newDoc))
 		} else {
 			return nil, errors.Trace(err)

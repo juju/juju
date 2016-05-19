@@ -213,6 +213,7 @@ func (dev *LinkLayerDevice) machineProxy(machineID string) *Machine {
 // was already removed. ErrParentDeviceHasChildren is returned if this device is
 // a parent to one or more existing devices and therefore cannot be removed.
 func (dev *LinkLayerDevice) Remove() (err error) {
+	// XXX remove providerIDsC records.
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", dev)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {

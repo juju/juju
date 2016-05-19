@@ -112,7 +112,7 @@ func (addr *Address) ProviderID() network.Id {
 }
 
 func (addr *Address) localProviderID() string {
-	return addr.st.localID(addr.doc.ProviderID)
+	return addr.doc.ProviderID
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
@@ -295,6 +295,7 @@ func findAddressesQuery(machineID, deviceName string) bson.D {
 }
 
 func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, error) {
+	// XXX remove providerIDsC records
 	var ops []txn.Op
 	callbackFunc := func(resultDoc *ipAddressDoc) {
 		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
