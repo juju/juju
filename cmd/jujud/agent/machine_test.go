@@ -1253,11 +1253,12 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	uuid := s.BackingState.ModelUUID()
 	timeout := time.After(coretesting.LongWait)
@@ -1280,12 +1281,13 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 func (s *MachineSuite) TestAddressAllocationModelWorkers(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 
-	tracker := newModelTracker(c)
+	tracker := NewEngineTracker()
 	almostAllWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	check := modelMatchFunc(c, tracker, append(
+	check := EngineMatchFunc(c, tracker, append(
 		almostAllWorkers, "address-cleaner",
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	uuid := s.BackingState.ModelUUID()
 	timeout := time.After(coretesting.LongWait)
@@ -1306,11 +1308,12 @@ func (s *MachineSuite) TestAddressAllocationModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	st, closer := s.setUpNewModel(c)
 	defer closer()
@@ -1333,11 +1336,12 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, migratingModelWorkers...,
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	st, closer := s.setUpNewModel(c)
 	defer closer()
@@ -1421,9 +1425,10 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, alwaysModelWorkers)
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, alwaysModelWorkers)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	timeout := time.After(coretesting.LongWait)
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
