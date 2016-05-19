@@ -53,7 +53,7 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var fullPayloads []payload.FullPayloadInfo
+	fullPayloads := make([]payload.FullPayloadInfo, 0, len(docs))
 	for _, doc := range docs {
 		p := doc.payload()
 		fullPayloads = append(fullPayloads, p)
@@ -105,14 +105,13 @@ func (pp Persistence) List(unit string, stIDs ...string) ([]payload.FullPayloadI
 		return nil, nil, errors.Trace(err)
 	}
 
-	var results []payload.FullPayloadInfo
-	for _, stID := range stIDs {
+	results := make([]payload.FullPayloadInfo, len(docs))
+	for i, stID := range stIDs {
 		doc, ok := docs[stID]
 		if !ok {
 			continue
 		}
-		p := doc.payload()
-		results = append(results, p)
+		results[i] = doc.payload()
 	}
 	return results, missing, nil
 }
@@ -127,7 +126,7 @@ func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, er
 		return nil, errors.Trace(err)
 	}
 
-	var results []payload.FullPayloadInfo
+	results := make([]payload.FullPayloadInfo, 0, len(docs))
 	for _, doc := range docs {
 		p := doc.payload()
 		results = append(results, p)

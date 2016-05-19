@@ -53,7 +53,7 @@ func (pq payloadsQueries) allByStateID(unit string) (map[string]payloadDoc, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results := make(map[string]payloadDoc)
+	results := make(map[string]payloadDoc, len(docs))
 	for _, doc := range docs {
 		id := doc.StateID
 		results[id] = doc
