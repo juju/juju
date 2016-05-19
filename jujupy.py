@@ -755,7 +755,7 @@ class EnvJujuClient:
             raise subprocess.CalledProcessError(retcode, full_args)
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False):
+               service=None, force=False, resource=None):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -765,7 +765,19 @@ class EnvJujuClient:
             args.extend(['--series', series])
         if force is True:
             args.extend(['--force'])
+        if resource is not None:
+            args.extend(['--resource', resource])
         return self.juju('deploy', tuple(args))
+
+    def attach(self, service, resource):
+        args = (service, resource)
+        return self.juju('attach', args)
+
+    def list_resources(self, service_or_unit, details=True):
+        args = ('--format', 'yaml', service_or_unit)
+        if details:
+            args = args + ('--details',)
+        return yaml_loads(self.get_juju_output('list-resources', *args))
 
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
