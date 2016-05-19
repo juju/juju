@@ -157,6 +157,9 @@ class ResourceGroupDetails:
         deleted. We know from logs that networks are are often that last
         resource to be deleted and may be delete quick enough for the test.
         A resource group with just a network is considered to be old.
+
+        :param now: The datetime object that is the basis for old age.
+        :param old_age: The age of the resource group to must be.
         """
         if old_age == 0:
             # In the case of O hours old, the caller is stating any resource
@@ -204,6 +207,12 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
     """Return a list of ResourceGroupDetails.
 
     Use print_out=True to print a listing of resources.
+
+    :param client: The ARMClient.
+    :param glob: The glob to find matching resource groups to delete.
+    :param recursive: Get the resources in the resource group?
+    :param print_out: Print the found resources to STDOUT?
+    :return: A list of ResourceGroupDetails
     """
     groups = []
     resource_groups = client.resource.resource_groups.list()
@@ -226,7 +235,13 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
 
 
 def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
-    """Delete old resource groups and return the number deleted."""
+    """Delete old resource groups and return the number deleted.
+
+    :param client: The ARMClient.
+    :param glob: The glob to find matching resource groups to delete.
+    :param old_age: The age of the resource group to delete.
+    :param now: The datetime object that is the basis for old age.
+    """
     if not now:
         now = datetime.now(pytz.utc)
     resources = list_resources(client, glob=glob, recursive=True)
@@ -263,6 +278,12 @@ def find_vm_instance(resources, name_id, resource_group):
 
     Juju 1.x shows the machine's id as the instance_id.
     Juju 2.x shows the machine's name in the resource group as the instance_id.
+
+    :param resources: A iterator of ResourceGroupDetails.
+    :param name_id: The name or id of a VM instance to find.
+    :param resource_group: The optional name of the resource group the
+        VM belongs to.
+    :return: A tuple of matching ResourceGroupDetails and VirtualMachine
     """
     for rgd in resources:
         for vm in rgd.vms:
