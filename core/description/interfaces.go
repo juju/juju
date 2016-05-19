@@ -122,6 +122,9 @@ type Machine interface {
 	PreferredPublicIPv4Address() Address
 	PreferredPrivateIPv4Address() Address
 	SetPreferredIPv4Addresses(publicIPv4 AddressArgs, privateIPv4 AddressArgs)
+	PreferredPublicIPv6Address() Address
+	PreferredPrivateIPv6Address() Address
+	SetPreferredIPv6Addresses(publicIPv6 AddressArgs, privateIPv6 AddressArgs)
 
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
