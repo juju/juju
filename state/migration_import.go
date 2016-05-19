@@ -415,6 +415,8 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		MachineAddresses:            i.makeAddresses(m.MachineAddresses()),
 		PreferredPrivateIPv4Address: i.makeAddress(m.PreferredPrivateIPv4Address()),
 		PreferredPublicIPv4Address:  i.makeAddress(m.PreferredPublicIPv4Address()),
+		PreferredPrivateIPv6Address: i.makeAddress(m.PreferredPrivateIPv6Address()),
+		PreferredPublicIPv6Address:  i.makeAddress(m.PreferredPublicIPv6Address()),
 		SupportedContainersKnown:    supportedSet,
 		SupportedContainers:         supportedContainers,
 		Placement:                   m.Placement(),
