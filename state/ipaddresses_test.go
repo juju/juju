@@ -499,6 +499,21 @@ func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   "id-0123",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	addrArgs.ProviderID = "id-0124"
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, gc.ErrorMatches, `.*cannot change ProviderID of link address "0.1.2.3"`)
+}
+
 func (s *ipAddressesStateSuite) checkAddressMatchesArgs(c *gc.C, address *state.Address, args state.LinkLayerDeviceAddress) {
 	c.Check(address.DeviceName(), gc.Equals, args.DeviceName)
 	c.Check(address.MachineID(), gc.Equals, s.machine.Id())
