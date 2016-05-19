@@ -760,6 +760,7 @@ class FakeBootstrapManager:
         try:
             self.entered_bootstrap = True
             self.client.env.juju_home = os.path.join(initial_home, 'isolated')
+            self.client.bootstrap()
             yield
         finally:
             self.exited_bootstrap = True

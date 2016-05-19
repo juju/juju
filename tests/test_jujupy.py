@@ -119,6 +119,10 @@ class FakeControllerState:
         state.controller.state = 'created'
         return state
 
+    def require_admin(self, operation, name):
+        if name != self.admin_model.name:
+            raise AdminOperation(operation)
+
     def bootstrap(self, model_name, config, separate_admin):
         default_model = self.add_model(model_name)
         default_model.name = model_name
@@ -141,9 +145,10 @@ class FakeEnvironmentState:
         self._clear()
         if controller is not None:
             self.controller = controller
+        else:
+            self.controller = FakeControllerState()
 
     def _clear(self):
-        self.controller = FakeControllerState()
         self.name = None
         self.machine_id_iter = count()
         self.state_servers = []
@@ -160,10 +165,6 @@ class FakeEnvironmentState:
     @property
     def state(self):
         return self.controller.state
-
-    def require_admin(self, operation):
-        if self.name != self.controller.admin_model.name:
-            raise AdminOperation(operation)
 
     def add_machine(self):
         machine_id = str(self.machine_id_iter.next())
@@ -208,7 +209,7 @@ class FakeEnvironmentState:
         self.controller.state = 'model-destroyed'
 
     def restore_backup(self):
-        self.require_admin('restore')
+        self.controller.require_admin('restore', self.name)
         if len(self.state_servers) > 0:
             exc = subprocess.CalledProcessError('Operation not permitted', 1,
                                                 2)
@@ -216,7 +217,7 @@ class FakeEnvironmentState:
             raise exc
 
     def enable_ha(self):
-        self.require_admin('enable-ha')
+        self.controller.require_admin('enable-ha', self.name)
         for n in range(2):
             self.state_servers.append(self.add_machine())
 
@@ -272,9 +273,10 @@ class FakeEnvironmentState:
 
 class FakeBackend:
 
-    def __init__(self, backing_state, feature_flags=None, version=None,
+    def __init__(self, controller_state, feature_flags=None, version=None,
                  full_path=None, debug=False):
-        self._backing_state = backing_state
+        assert isinstance(controller_state, FakeControllerState)
+        self.controller_state = controller_state
         if feature_flags is None:
             feature_flags = set()
         self._feature_flags = feature_flags
@@ -282,22 +284,18 @@ class FakeBackend:
         self.full_path = full_path
         self.debug = debug
 
-    def clone(self, backing_state=None):
-        if backing_state is None:
-            backing_state = self._backing_state
-        return self.__class__(backing_state, set(self._feature_flags))
-
-    @property
-    def backing_state(self):
-        return self._backing_state
-
-    @backing_state.setter
-    def backing_state(self, value):
-        self._backing_state = value
-
-    @property
-    def controller_state(self):
-        return self._backing_state.controller
+    def clone(self, full_path=None, version=None, debug=None,
+              controller_state=None):
+        if version is None:
+            version = self.version
+        if full_path is None:
+            full_path = self.full_path
+        if debug is None:
+            debug = self.debug
+        if controller_state is None:
+            controller_state = self.controller_state
+        return self.__class__(controller_state, set(self._feature_flags),
+                              version, full_path, debug)
 
     def set_feature(self, feature, enabled):
         if enabled:
@@ -309,7 +307,7 @@ class FakeBackend:
         return bool(feature in self._feature_flags)
 
     def make_state_backend(self, state):
-        new_backend = FakeBackend(state)
+        new_backend = FakeBackend(state.controller)
         new_backend.set_feature('jes', self.is_feature_enabled('jes'))
         return new_backend
 
@@ -323,20 +321,20 @@ class FakeBackend:
         config = copy.deepcopy(config)
         if bootstrap_series is not None:
             config['default-series'] = bootstrap_series
-        default_model = self.controller_state.bootstrap(
-            model_name, config, self.is_feature_enabled('jes'))
-        self._backing_state = default_model
+        self.controller_state.bootstrap(model_name, config,
+                                        self.is_feature_enabled('jes'))
 
     def quickstart(self, model_name, config, bundle):
         default_model = self.controller_state.bootstrap(
-            model_name, config,
-            self.is_feature_enabled('jes'))
-        model_state = self.controller_state.models[model_name]
-        model_state.deploy_bundle(bundle)
-        self._backing_state = default_model
+            model_name, config, self.is_feature_enabled('jes'))
+        default_model.deploy_bundle(bundle)
 
-    def destroy_environment(self):
-        self.backing_state.destroy_environment()
+    def destroy_environment(self, model_name):
+        try:
+            state = self.controller_state.models[model_name]
+        except KeyError:
+            return 0
+        state.destroy_environment()
         return 0
 
     def add_machines(self, model_state, args):
@@ -463,6 +461,9 @@ class FakeBackend:
             return info_string + register_string
         return ''
 
+    def pause(self, seconds):
+        pass
+
 
 class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
@@ -470,56 +471,53 @@ class FakeJujuClient(EnvJujuClient):
     This is a partial implementation, but should be suitable for many uses,
     and can be extended.
 
-    The state is provided by _backing_state, so that multiple clients can
-    manipulate the same state.
+    The state is provided by _backend.controller_state, so that multiple
+    clients can manipulate the same state.
     """
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False, version='2.0.0'):
-        backend_state = FakeEnvironmentState()
+                 jes_enabled=False, version='2.0.0', _backend=None):
         if env is None:
             env = JujuData('name', {
                 'type': 'foo',
                 'default-series': 'angsty',
                 }, juju_home='foo')
-        backend_state.name = env.environment
-        self._backend = FakeBackend(backend_state, version=version,
-                                    full_path=full_path, debug=debug)
-        self._backend.set_feature('jes', jes_enabled)
-        self.env = env
+        juju_home = env.juju_home
+        if juju_home is None:
+            juju_home = 'foo'
+        if _backend is None:
+            backend_state = FakeEnvironmentState()
+            backend_state.name = env.environment
+            _backend = FakeBackend(backend_state.controller, version=version,
+                                   full_path=full_path, debug=debug)
+            _backend.set_feature('jes', jes_enabled)
+        super(FakeJujuClient, self).__init__(
+            env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
-        self._separate_admin = jes_enabled
+
+    def _get_env(self, env):
+        return env
 
     @property
     def _jes_enabled(self):
         raise Exception
 
-    def clone(self, env, full_path=None, debug=None):
-        if full_path is None:
-            full_path = self.full_path
-        if debug is None:
-            debug = self.debug
-        client = self.__class__(env, full_path, debug,
-                                jes_enabled=self.is_jes_enabled())
-        model_name = env.environment
-        model_state = self._backend.controller_state.models.get(model_name)
-        client._backend = self._backend.clone(model_state)
-        return client
-
-    def pause(self, seconds):
-        pass
+    def clone(self, env, full_path=None, debug=None, backend=None):
+        controller_state = self._backend.controller_state
+        if backend is None:
+            backend = self._backend.clone(full_path, self.version, debug,
+                                          controller_state)
+        return self.from_backend(backend, env)
 
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
 
-    def get_matching_agent_version(self):
-        return '1.2-alpha3'
-
-    def _acquire_state_client(self, state):
+    def _acquire_state_client(self, state, backend=None):
         if state.name == self.model_name:
             return self
         new_env = self.env.clone(model_name=state.name)
-        new_client = self.clone(new_env)
-        new_client._backend = self._backend.make_state_backend(state)
+        if backend is None:
+            backend = self._backend.clone(controller_state=state.controller)
+        new_client = self.clone(new_env, backend=backend)
         return new_client
 
     def get_admin_client(self):
@@ -535,12 +533,6 @@ class FakeJujuClient(EnvJujuClient):
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
 
-    def enable_jes(self):
-        self._backend.set_feature('jes', True)
-
-    def disable_jes(self):
-        self._backend.set_feature('jes', False)
-
     def bootstrap(self, upload_tools=False, bootstrap_series=None):
         self._backend.bootstrap(
             self.env.environment, self.env.config, upload_tools,
@@ -554,7 +546,7 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.quickstart(self.env.environment, self.env.config, bundle)
 
     def destroy_environment(self, force=True, delete_jenv=False):
-        return self._backend.destroy_environment()
+        return self._backend.destroy_environment(self.model_name)
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
@@ -578,8 +570,7 @@ class FakeJujuClient(EnvJujuClient):
         pass
 
     def backup(self):
-        model_state = self._backend.controller_state.models[self.model_name]
-        model_state.require_admin('backup')
+        self._backend.controller_state.require_admin('backup', self.model_name)
 
     def _get_register_command(self, output):
         for row in output.split('\n'):
@@ -4939,7 +4930,8 @@ def stub_bootstrap(client):
 class TestMakeSafeConfig(TestCase):
 
     def test_default(self):
-        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}),
+                                version='1.2-alpha3-asdf-asdf')
         config = make_safe_config(client)
         self.assertEqual({
             'name': 'foo',
