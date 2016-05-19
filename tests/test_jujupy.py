@@ -279,37 +279,34 @@ class FakeBackend:
         self.controller_state = controller_state
         if feature_flags is None:
             feature_flags = set()
-        self._feature_flags = feature_flags
+        self.feature_flags = feature_flags
         self.version = version
         self.full_path = full_path
         self.debug = debug
+        self.juju_timings = {}
 
-    def clone(self, full_path=None, version=None, debug=None,
-              controller_state=None):
+    def clone(self, full_path=None,  version=None, debug=None,
+              feature_flags=None):
         if version is None:
             version = self.version
         if full_path is None:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        if controller_state is None:
-            controller_state = self.controller_state
-        return self.__class__(controller_state, set(self._feature_flags),
-                              version, full_path, debug)
+        if feature_flags is None:
+            feature_flags = set(self.feature_flags)
+        controller_state = self.controller_state
+        return self.__class__(controller_state, feature_flags, version,
+                              full_path, debug)
 
     def set_feature(self, feature, enabled):
         if enabled:
-            self._feature_flags.add(feature)
+            self.feature_flags.add(feature)
         else:
-            self._feature_flags.discard(feature)
+            self.feature_flags.discard(feature)
 
     def is_feature_enabled(self, feature):
-        return bool(feature in self._feature_flags)
-
-    def make_state_backend(self, state):
-        new_backend = FakeBackend(state.controller)
-        new_backend.set_feature('jes', self.is_feature_enabled('jes'))
-        return new_backend
+        return bool(feature in self.feature_flags)
 
     def deploy(self, model_state, charm_name, service_name=None, series=None):
         if service_name is None:
@@ -356,6 +353,11 @@ class FakeBackend:
         api_endpoint = '{}:23'.format(server_hostname)
         return {controller_name: {'details': {'api-endpoints': [
             api_endpoint]}}}
+
+    def list_models(self):
+        model_names = [state.name for state in
+                       self.controller_state.models.values()]
+        return {'models': [{'name': n} for n in model_names]}
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
@@ -445,6 +447,8 @@ class FakeBackend:
             model_state.restore_backup()
         if command == 'show-controller':
             return yaml.safe_dump(self.make_controller_dict(args[0]))
+        if command == 'list-models':
+            return yaml.safe_dump(self.list_models())
         if command == ('add-user'):
             permissions = 'read'
             if set(["--acl", "write"]).issubset(args):
@@ -474,6 +478,9 @@ class FakeJujuClient(EnvJujuClient):
     The state is provided by _backend.controller_state, so that multiple
     clients can manipulate the same state.
     """
+
+    used_feature_flags = frozenset(['address-allocation', 'jes'])
+
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=False, version='2.0.0', _backend=None):
         if env is None:
@@ -501,34 +508,11 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
-    def clone(self, env, full_path=None, debug=None, backend=None):
-        controller_state = self._backend.controller_state
-        if backend is None:
-            backend = self._backend.clone(full_path, self.version, debug,
-                                          controller_state)
-        return self.from_backend(backend, env)
-
     def by_version(self, env, path, debug):
         return FakeJujuClient(env, path, debug)
 
-    def _acquire_state_client(self, state, backend=None):
-        if state.name == self.model_name:
-            return self
-        new_env = self.env.clone(model_name=state.name)
-        if backend is None:
-            backend = self._backend.clone(controller_state=state.controller)
-        new_client = self.clone(new_env, backend=backend)
-        return new_client
-
-    def get_admin_client(self):
-        admin_model = self._backend.controller_state.admin_model
-        return self._acquire_state_client(admin_model)
-
-    def iter_model_clients(self):
-        if not self.is_jes_enabled():
-            raise JESNotSupported()
-        for state in self._backend.controller_state.models.values():
-            yield self._acquire_state_client(state)
+    def get_admin_model_name(self):
+        return self._backend.controller_state.admin_model.name
 
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
@@ -564,9 +548,6 @@ class FakeJujuClient(EnvJujuClient):
         return Status(status_dict, status_text)
 
     def wait_for_workloads(self, timeout=600):
-        pass
-
-    def get_juju_timings(self):
         pass
 
     def backup(self):

@@ -214,19 +214,19 @@ class Juju2Backend:
     def __init__(self, full_path, version, feature_flags, debug):
         self._version = version
         self._full_path = full_path
-        self.feature_flags = set()
+        self.feature_flags = feature_flags
         self.debug = debug
         self._timeout_path = get_timeout_path()
         self.juju_timings = {}
 
-    def clone(self, full_path, version, debug):
+    def clone(self, full_path, version, debug, feature_flags):
         if version is None:
             version = self.version
         if full_path is None:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        result = self.__class__(full_path, version, self.feature_flags, debug)
+        result = self.__class__(full_path, version, feature_flags, debug)
         return result
 
     @property
@@ -528,12 +528,11 @@ class EnvJujuClient:
         """
         if env is None:
             env = self.env
-        backend = self._backend.clone(full_path, version, debug)
         if cls is None:
             cls = self.__class__
+        feature_flags = self.feature_flags.intersection(cls.used_feature_flags)
+        backend = self._backend.clone(full_path, version, debug, feature_flags)
         other = cls.from_backend(backend, env)
-        other.feature_flags.update(
-            self.feature_flags.intersection(other.used_feature_flags))
         return other
 
     @classmethod
@@ -582,7 +581,6 @@ class EnvJujuClient:
         if debug is not _backend.debug:
             raise ValueError('debug mismatch: {} {}'.format(
                 debug, _backend.debug))
-        self.feature_flags = set()
         if env is not None:
             if juju_home is None:
                 if env.juju_home is None:
@@ -664,12 +662,10 @@ class EnvJujuClient:
         return tuple(args)
 
     def add_model(self, env):
-        # Temporary clone to generate bootstrap config.
-        with self.clone(env)._bootstrap_config() as config_file:
+        model_client = self.clone(env)
+        with model_client._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
-        # Since it happens after _add_model, this copy will have a
-        # correctly-cloned backend.
-        return self.clone(env)
+        return model_client
 
     def make_model_config(self):
         config_dict = make_safe_config(self)

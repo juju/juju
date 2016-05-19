@@ -42,7 +42,7 @@ class FakeBackendShellEnv(FakeBackend):
         if self.full_path is not None:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
-        flags = self._feature_flags.intersection(used_feature_flags)
+        flags = self.feature_flags.intersection(used_feature_flags)
         if flags:
             env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
         env['JUJU_DATA'] = juju_home
@@ -168,7 +168,7 @@ def make_fake_client():
     fake_client = FakeJujuClient()
     old_backend = fake_client._backend
     fake_client._backend = FakeBackendShellEnv(
-        old_backend.controller_state, old_backend._feature_flags,
+        old_backend.controller_state, old_backend.feature_flags,
         old_backend.version, old_backend.full_path, old_backend.debug)
     return fake_client
 
