@@ -24,109 +24,144 @@ type payloadsPersistenceSuite struct {
 }
 
 func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
+	id := "payload#a-unit/0#payloadA"
 	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
 
 	wp := s.NewPersistence()
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	okay, err := wp.Track(id, pl)
+	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	err := wp.Track(stID, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(okay, jc.IsTrue)
 	s.Stub.CheckCallNames(c, "All", "Run")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
-			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
+			Id:     id,
 			Assert: txn.DocMissing,
 			Insert: &persistence.PayloadDoc{
-				DocID:  "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
-				UnitID: "a-unit/0",
-
-				Name:  "payloadA",
-				Type:  "docker",
-				RawID: "payloadA-xyz",
-				State: "running",
+				DocID:     id,
+				UnitID:    "a-unit/0",
+				Name:      "payloadA",
+				MachineID: "0",
+				StateID:   stID,
+				Type:      "docker",
+				RawID:     "payloadA-xyz",
+				State:     "running",
 			},
 		},
 	}})
 }
 
-func (s *payloadsPersistenceSuite) TestTrackAlreadyExists(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+func (s *payloadsPersistenceSuite) TestTrackIDAlreadyExists(c *gc.C) {
+	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
 	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
-	s.SetDoc(id, pl)
+	s.SetDoc(stID, pl)
+
+	wp := s.NewPersistence()
+	err := wp.Track(stID, pl)
+
+	s.Stub.CheckCallNames(c, "All")
+	c.Check(errors.Cause(err), gc.Equals, payload.ErrAlreadyExists)
+}
+
+func (s *payloadsPersistenceSuite) TestTrackNameAlreadyExists(c *gc.C) {
+	id := "payload#a-unit/0#payloadA"
+	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
+	s.SetDoc("not-"+stID, pl)
 	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	wp := s.NewPersistence()
-	okay, err := wp.Track(id, pl)
+	err := wp.Track(stID, pl)
 
-	c.Check(okay, jc.IsFalse)
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-	s.Stub.CheckCallNames(c, "All")
-	s.State.CheckOps(c, nil)
+	s.Stub.CheckCallNames(c, "All", "Run", "All")
+	s.State.CheckOps(c, [][]txn.Op{{
+		{
+			C:      "payloads",
+			Id:     id,
+			Assert: txn.DocMissing,
+			Insert: &persistence.PayloadDoc{
+				DocID:     id,
+				UnitID:    "a-unit/0",
+				Name:      "payloadA",
+				MachineID: "0",
+				StateID:   stID,
+				Type:      "docker",
+				RawID:     "payloadA-xyz",
+				State:     "running",
+			},
+		},
+	}})
 }
 
-func (s *payloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
+func (s *payloadsPersistenceSuite) TestTrackLookupFailed(c *gc.C) {
+	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	failure := errors.Errorf("<failed!>")
+	s.Stub.SetErrors(failure)
+	pl := s.NewPayload("docker", "payloadA")
+
+	pp := s.NewPersistence()
+	err := pp.Track(id, pl)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
+	s.Stub.CheckCallNames(c, "All")
+}
+
+func (s *payloadsPersistenceSuite) TestTrackInsertFailed(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.Stub.SetErrors(nil, failure)
 	pl := s.NewPayload("docker", "payloadA")
 
 	pp := s.NewPersistence()
-	_, err := pp.Track(id, pl)
+	err := pp.Track(id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.Stub.CheckCallNames(c, "All", "Run")
 }
 
 func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	id := "payload#a-unit/0#payloadA"
+	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.NewPayload("docker", "payloadA/payloadA-xyz")
-	s.SetDoc(id, pl)
+	s.SetDoc(stID, pl)
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(id, payload.StateRunning)
+	err := pp.SetStatus(stID, payload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(okay, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
-			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
+			Id:     id,
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{
 					{"state", payload.StateRunning},
 				}},
 			},
+		}, {
+			C:      "payloads",
+			Id:     id,
+			Assert: bson.D{{"state-id", stID}},
 		},
 	}})
 }
 
 func (s *payloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	s.Stub.SetErrors(txn.ErrAborted)
+	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	okay, err := pp.SetStatus(id, payload.StateRunning)
-	c.Assert(err, jc.ErrorIsNil)
+	err := pp.SetStatus(id, payload.StateRunning)
 
-	c.Check(okay, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "Run")
-	s.State.CheckOps(c, [][]txn.Op{{
-		{
-			C:      "payloads",
-			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
-			Assert: txn.DocExists,
-			Update: bson.D{
-				{"$set", bson.D{
-					{"state", payload.StateRunning},
-				}},
-			},
-		},
-	}})
+	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
+	s.Stub.CheckCallNames(c, "Run", "All")
+	s.State.CheckOps(c, nil)
 }
 
 func (s *payloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
@@ -137,9 +172,10 @@ func (s *payloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.SetStatus(id, payload.StateRunning)
+	err := pp.SetStatus(id, payload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
+	s.State.CheckOps(c, nil)
 }
 
 func (s *payloadsPersistenceSuite) TestListOkay(c *gc.C) {
@@ -155,7 +191,7 @@ func (s *payloadsPersistenceSuite) TestListOkay(c *gc.C) {
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(payloads, jc.DeepEquals, []payload.Payload{pl})
+	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{pl})
 	c.Check(missing, gc.HasLen, 0)
 }
 
@@ -173,7 +209,7 @@ func (s *payloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
 
 	s.Stub.CheckCallNames(c, "All")
 	s.State.CheckNoOps(c)
-	c.Check(payloads, jc.DeepEquals, []payload.Payload{pl})
+	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{pl})
 	c.Check(missing, jc.DeepEquals, []string{missingID})
 }
 
@@ -226,7 +262,7 @@ func (s *payloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
 	c.Check(payloads, gc.HasLen, 0)
 }
 
-type byName []payload.Payload
+type byName []payload.FullPayloadInfo
 
 func (b byName) Len() int           { return len(b) }
 func (b byName) Less(i, j int) bool { return b[i].FullID() < b[j].FullID() }
@@ -243,44 +279,40 @@ func (s *payloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 }
 
 func (s *payloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+	id := "payload#a-unit/0#payloadA"
+	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.NewPayload("docker", "payloadA/xyz")
-	s.SetDoc(id, pl)
+	s.SetDoc(stID, pl)
 
 	pp := s.NewPersistence()
-	found, err := pp.Untrack(id)
+	err := pp.Untrack(stID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(found, jc.IsTrue)
-	s.Stub.CheckCallNames(c, "Run")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
-			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
+			Id:     id,
 			Assert: txn.DocExists,
 			Remove: true,
+		}, {
+			C:      "payloads",
+			Id:     id,
+			Assert: bson.D{{"state-id", stID}},
 		},
 	}})
 }
 
 func (s *payloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	s.Stub.SetErrors(txn.ErrAborted)
+	s.Stub.SetErrors(nil, txn.ErrAborted)
 
 	pp := s.NewPersistence()
-	found, err := pp.Untrack(id)
+	err := pp.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(found, jc.IsFalse)
-	s.Stub.CheckCallNames(c, "Run")
-	s.State.CheckOps(c, [][]txn.Op{{
-		{
-			C:      "payloads",
-			Id:     "payload#a-unit/0#f47ac10b-58cc-4372-a567-0e02b2c3d479",
-			Assert: txn.DocExists,
-			Remove: true,
-		},
-	}})
+	s.Stub.CheckCallNames(c, "Run", "All")
+	s.State.CheckOps(c, nil)
 }
 
 func (s *payloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
@@ -289,7 +321,8 @@ func (s *payloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	pp := s.NewPersistence()
-	_, err := pp.Untrack(id)
+	err := pp.Untrack(id)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
+	s.State.CheckOps(c, nil)
 }

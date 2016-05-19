@@ -16,22 +16,17 @@ import (
 
 var logger = loggo.GetLogger("juju.payload.persistence")
 
+var errNotFound = errors.NewNotFound(nil, "payload")
+
 // TODO(ericsnow) Merge Persistence and EnvPersistence.
 
 // TODO(ericsnow) Store status in the status collection?
-
-// TODO(ericsnow) Implement persistence using a TXN abstraction (used
-// in the business logic) with ops factories available from the
-// persistence layer.
 
 // TODO(ericsnow) Move PersistenceBase to the components package?
 
 // PersistenceBase exposes the core persistence functionality needed
 // for payloads.
 type PersistenceBase interface {
-	// One populates doc with the document corresponding to the given
-	// ID. Missing documents result in errors.NotFound.
-	One(collName, id string, doc interface{}) error
 	// All populates docs with the list of the documents corresponding
 	// to the provided query.
 	All(collName string, query, docs interface{}) error
@@ -43,14 +38,14 @@ type PersistenceBase interface {
 // Persistence exposes the high-level persistence functionality
 // related to payloads in Juju.
 type Persistence struct {
-	st   PersistenceBase
+	db   PersistenceBase
 	unit string
 }
 
 // NewPersistence builds a new Persistence based on the provided info.
-func NewPersistence(st PersistenceBase, unit string) *Persistence {
+func NewPersistence(db PersistenceBase, unit string) *Persistence {
 	return &Persistence{
-		st:   st,
+		db:   db,
 		unit: unit,
 	}
 }
@@ -58,80 +53,83 @@ func NewPersistence(st PersistenceBase, unit string) *Persistence {
 // Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(id string, pl payload.Payload) (bool, error) {
-	logger.Tracef("insertng %#v", pl)
+func (pp Persistence) Track(id string, pl payload.FullPayloadInfo) error {
+	pl.Unit = pp.unit
+	logger.Tracef("inserting %q - %#v", id, pl)
 
-	_, err := pp.LookUp(pl.Name, pl.ID)
+	_, err := pp.payloadByStateID(id)
 	if err == nil {
-		return false, errors.AlreadyExistsf("payload for %q", pl.FullID())
-	} else if !errors.IsNotFound(err) {
-		return false, errors.Annotate(err, "while checking for collisions")
+		return errors.Annotatef(payload.ErrAlreadyExists, "(ID %q)", id)
 	}
-	// TODO(ericsnow) There is a *slight* race here. I haven't found
-	// a simple way to check the secondary key in the transaction.
+	if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// There is a *slight* race here...
 
-	var okay bool
 	var ops []txn.Op
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	ops = append(ops, pp.newInsertPayloadOps(id, pl)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			okay = false
-			return nil, jujutxn.ErrNoOperations
+			_, err := pp.payloadByName(pl.Name)
+			if err == nil {
+				return nil, errors.Annotatef(payload.ErrAlreadyExists, "(%s)", pl.FullID())
+			}
+			if !errors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+			// Probably a transient error, so try again.
 		}
-		okay = true
 		return ops, nil
 	}
-	if err := pp.st.Run(buildTxn); err != nil {
-		return false, errors.Trace(err)
+	if err := pp.db.Run(buildTxn); err != nil {
+		return errors.Trace(err)
 	}
-	return okay, nil
+	return nil
 }
 
 // SetStatus updates the raw status for the identified payload in
 // persistence. The return value corresponds to whether or not the
 // record was found in persistence. Any other problem results in
 // an error. The payload is not checked for inconsistent records.
-func (pp Persistence) SetStatus(id, status string) (bool, error) {
-	logger.Tracef("setting status for %q", id)
+func (pp Persistence) SetStatus(stID, status string) error {
+	logger.Tracef("setting status for %q", stID)
 
-	var found bool
-	var ops []txn.Op
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newSetRawStatusOps(id, status)...)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			found = false
-			return nil, jujutxn.ErrNoOperations
+		doc, err := pp.payloadByStateID(stID)
+		if errors.IsNotFound(err) {
+			return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", stID)
 		}
-		found = true
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := doc.Name
+
+		var ops []txn.Op
+		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+		ops = append(ops, pp.newSetRawStatusOps(name, stID, status)...)
 		return ops, nil
 	}
-	if err := pp.st.Run(buildTxn); err != nil {
-		return false, errors.Trace(err)
+	if err := pp.db.Run(buildTxn); err != nil {
+		return errors.Trace(err)
 	}
-	return found, nil
+	return nil
 }
 
 // List builds the list of payloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
-func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
+func (pp Persistence) List(ids ...string) ([]payload.FullPayloadInfo, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	docs, err := pp.payloads(ids)
+	docs, missing, err := pp.payloads(ids)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	var results []payload.Payload
-	var missing []string
-	for _, id := range ids {
-		p, ok := pp.extractPayload(id, docs)
-		if !ok {
-			missing = append(missing, id)
-			continue
-		}
+	var results []payload.FullPayloadInfo
+	for id := range docs {
+		p, _ := pp.extractPayload(id, docs)
 		results = append(results, *p)
 	}
 	return results, missing, nil
@@ -139,7 +137,7 @@ func (pp Persistence) List(ids ...string) ([]payload.Payload, []string, error) {
 
 // ListAll builds the list of all payloads found in persistence.
 // Inconsistent records result in errors.NotValid.
-func (pp Persistence) ListAll() ([]payload.Payload, error) {
+func (pp Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.allPayloads()
@@ -147,7 +145,7 @@ func (pp Persistence) ListAll() ([]payload.Payload, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var results []payload.Payload
+	var results []payload.FullPayloadInfo
 	for id := range docs {
 		p, _ := pp.extractPayload(id, docs)
 		results = append(results, *p)
@@ -182,21 +180,25 @@ func (pp Persistence) LookUp(name, rawID string) (string, error) {
 // from persistence. Also returned is whether or not the payload was
 // found. If the records for the payload are not consistent then
 // errors.NotValid is returned.
-func (pp Persistence) Untrack(id string) (bool, error) {
-	var found bool
-	var ops []txn.Op
-	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-	ops = append(ops, pp.newRemovePayloadOps(id)...)
+func (pp Persistence) Untrack(stID string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			found = false
+		doc, err := pp.payloadByStateID(stID)
+		if errors.IsNotFound(err) {
+			// Must have already beeen removed!
 			return nil, jujutxn.ErrNoOperations
 		}
-		found = true
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		name := doc.Name
+
+		var ops []txn.Op
+		// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+		ops = append(ops, pp.newRemovePayloadOps(name, stID)...)
 		return ops, nil
 	}
-	if err := pp.st.Run(buildTxn); err != nil {
-		return false, errors.Trace(err)
+	if err := pp.db.Run(buildTxn); err != nil {
+		return errors.Trace(err)
 	}
-	return found, nil
+	return nil
 }

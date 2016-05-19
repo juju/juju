@@ -63,25 +63,9 @@ func (sp fakeStatePersistence) CheckNoOps(c *gc.C) {
 	c.Check(sp.ops, gc.HasLen, 0)
 }
 
-func (sp fakeStatePersistence) One(collName, id string, doc interface{}) error {
-	sp.AddCall("One", collName, id, doc)
-	if err := sp.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(sp.docs) == 0 {
-		return errors.NotFoundf(id)
-	}
-	found, ok := sp.docs[id]
-	if !ok {
-		return errors.NotFoundf(id)
-	}
-	actual := doc.(*payloadDoc)
-	*actual = *found
-	return nil
-}
-
 func (sp fakeStatePersistence) All(collName string, query, docs interface{}) error {
+	actual := docs.(*[]payloadDoc)
+
 	sp.AddCall("All", collName, query, docs)
 	if err := sp.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -90,8 +74,12 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 	var ids []string
 	elems := query.(bson.D)
 	if len(elems) < 1 {
-		err := errors.Errorf("bad query %v", query)
-		panic(err)
+		var all []payloadDoc
+		for _, doc := range sp.docs {
+			all = append(all, *doc)
+		}
+		*actual = all
+		return nil
 	}
 	switch elems[0].Name {
 	case "_id":
@@ -106,7 +94,12 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		}
 		ids = elems[0].Value.([]string)
 	case "unitid":
-		for id := range sp.docs {
+		for id, doc := range sp.docs {
+			// This is a temporary hack. It and the rest of the "fake"
+			// will be removed in a follow-up patch.
+			if len(elems) == 2 && elems[1].Name == "state-id" && doc.StateID != elems[1].Value.(string) {
+				continue
+			}
 			ids = append(ids, id)
 		}
 	default:
@@ -121,7 +114,6 @@ func (sp fakeStatePersistence) All(collName string, query, docs interface{}) err
 		}
 		found = append(found, *doc)
 	}
-	actual := docs.(*[]payloadDoc)
 	*actual = found
 	return nil
 }

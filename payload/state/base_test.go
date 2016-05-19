@@ -31,29 +31,32 @@ func (s *basePayloadsSuite) SetUpTest(c *gc.C) {
 	s.persist = &fakePayloadsPersistence{Stub: s.stub}
 }
 
-func (s *basePayloadsSuite) newPayload(pType string, id string) payload.Payload {
+func (s *basePayloadsSuite) newPayload(pType string, id string) payload.FullPayloadInfo {
 	name, rawID := payload.ParseID(id)
 	if rawID == "" {
 		rawID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
 	}
 
-	return payload.Payload{
-		PayloadClass: charm.PayloadClass{
-			Name: name,
-			Type: pType,
+	return payload.FullPayloadInfo{
+		Payload: payload.Payload{
+			PayloadClass: charm.PayloadClass{
+				Name: name,
+				Type: pType,
+			},
+			Status: payload.StateRunning,
+			ID:     rawID,
+			Unit:   "a-service/0",
 		},
-		Status: payload.StateRunning,
-		ID:     rawID,
-		Unit:   "a-service/0",
+		Machine: "0",
 	}
 }
 
 type fakePayloadsPersistence struct {
 	*gitjujutesting.Stub
-	payloads map[string]*payload.Payload
+	payloads map[string]*payload.FullPayloadInfo
 }
 
-func (s *fakePayloadsPersistence) checkPayload(c *gc.C, id string, expected payload.Payload) {
+func (s *fakePayloadsPersistence) checkPayload(c *gc.C, id string, expected payload.FullPayloadInfo) {
 	pl, ok := s.payloads[id]
 	if !ok {
 		c.Errorf("payload %q not found", id)
@@ -62,47 +65,47 @@ func (s *fakePayloadsPersistence) checkPayload(c *gc.C, id string, expected payl
 	}
 }
 
-func (s *fakePayloadsPersistence) setPayload(id string, pl *payload.Payload) {
+func (s *fakePayloadsPersistence) setPayload(id string, pl *payload.FullPayloadInfo) {
 	if s.payloads == nil {
-		s.payloads = make(map[string]*payload.Payload)
+		s.payloads = make(map[string]*payload.FullPayloadInfo)
 	}
 	s.payloads[id] = pl
 }
 
-func (s *fakePayloadsPersistence) Track(id string, pl payload.Payload) (bool, error) {
+func (s *fakePayloadsPersistence) Track(id string, pl payload.FullPayloadInfo) error {
 	s.AddCall("Track", id, pl)
 	if err := s.NextErr(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if _, ok := s.payloads[id]; ok {
-		return false, nil
+		return payload.ErrAlreadyExists
 	}
 	s.setPayload(id, &pl)
-	return true, nil
+	return nil
 }
 
-func (s *fakePayloadsPersistence) SetStatus(id, status string) (bool, error) {
+func (s *fakePayloadsPersistence) SetStatus(id, status string) error {
 	s.AddCall("SetStatus", id, status)
 	if err := s.NextErr(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	pl, ok := s.payloads[id]
 	if !ok {
-		return false, nil
+		return payload.ErrNotFound
 	}
 	pl.Status = status
-	return true, nil
+	return nil
 }
 
-func (s *fakePayloadsPersistence) List(ids ...string) ([]payload.Payload, []string, error) {
+func (s *fakePayloadsPersistence) List(ids ...string) ([]payload.FullPayloadInfo, []string, error) {
 	s.AddCall("List", ids)
 	if err := s.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	var payloads []payload.Payload
+	var payloads []payload.FullPayloadInfo
 	var missing []string
 	for _, id := range ids {
 		if pl, ok := s.payloads[id]; !ok {
@@ -114,13 +117,13 @@ func (s *fakePayloadsPersistence) List(ids ...string) ([]payload.Payload, []stri
 	return payloads, missing, nil
 }
 
-func (s *fakePayloadsPersistence) ListAll() ([]payload.Payload, error) {
+func (s *fakePayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	s.AddCall("ListAll")
 	if err := s.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var payloads []payload.Payload
+	var payloads []payload.FullPayloadInfo
 	for _, pl := range s.payloads {
 		payloads = append(payloads, *pl)
 	}
@@ -141,15 +144,15 @@ func (s *fakePayloadsPersistence) LookUp(name, rawID string) (string, error) {
 	return "", errors.NotFoundf("doc ID")
 }
 
-func (s *fakePayloadsPersistence) Untrack(id string) (bool, error) {
+func (s *fakePayloadsPersistence) Untrack(id string) error {
 	s.AddCall("Untrack", id)
 	if err := s.NextErr(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	if _, ok := s.payloads[id]; !ok {
-		return false, nil
+		return payload.ErrNotFound
 	}
 	delete(s.payloads, id)
-	return true, nil
+	return nil
 }

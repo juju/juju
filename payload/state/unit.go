@@ -18,13 +18,13 @@ var logger = loggo.GetLogger("juju.payload.state")
 
 // The persistence methods needed for payloads in state.
 type payloadsPersistence interface {
-	Track(id string, info payload.Payload) (bool, error)
+	Track(id string, info payload.FullPayloadInfo) error
 	// SetStatus updates the status for a payload.
-	SetStatus(id, status string) (bool, error)
-	List(ids ...string) ([]payload.Payload, []string, error)
-	ListAll() ([]payload.Payload, error)
+	SetStatus(id, status string) error
+	List(ids ...string) ([]payload.FullPayloadInfo, []string, error)
+	ListAll() ([]payload.FullPayloadInfo, error)
 	LookUp(name, rawID string) (string, error)
-	Untrack(id string) (bool, error)
+	Untrack(id string) error
 }
 
 // UnitPayloads provides the functionality related to a unit's
@@ -65,13 +65,17 @@ func newID() (string, error) {
 
 // TODO(ericsnow) Return the new ID from Track()?
 
-// Track inserts the provided payload info in state. The new Juju ID
-// for the payload is returned.
+// Track inserts the provided payload info in state. If the payload
+// is already in the DB then errors.AlreadyExists is returned.
 func (uw UnitPayloads) Track(pl payload.Payload) error {
 	logger.Tracef("tracking %#v", pl)
 
 	if err := pl.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad payload")
+	}
+	full := payload.FullPayloadInfo{
+		Payload: pl,
+		Machine: uw.Machine,
 	}
 
 	id, err := uw.newID()
@@ -79,12 +83,12 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 		return errors.Trace(err)
 	}
 
-	ok, err := uw.Persist.Track(id, pl)
+	err = uw.Persist.Track(id, full)
+	if errors.Cause(err) == payload.ErrAlreadyExists {
+		return errors.Annotatef(err, "payload %s (already in state)", id)
+	}
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if !ok {
-		return errors.NotValidf("payload %s (already in state)", id)
 	}
 
 	return nil
@@ -99,12 +103,8 @@ func (uw UnitPayloads) SetStatus(id, status string) error {
 		return errors.Trace(err)
 	}
 
-	found, err := uw.Persist.SetStatus(id, status)
-	if err != nil {
+	if err := uw.Persist.SetStatus(id, status); err != nil {
 		return errors.Trace(err)
-	}
-	if !found {
-		return errors.NotFoundf(id)
 	}
 	return nil
 }
@@ -116,7 +116,7 @@ func (uw UnitPayloads) SetStatus(id, status string) error {
 func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
 	logger.Tracef("listing %v", ids)
 	var err error
-	var payloads []payload.Payload
+	var payloads []payload.FullPayloadInfo
 	missingIDs := make(map[string]bool)
 	if len(ids) == 0 {
 		payloads, err = uw.Persist.ListAll()
@@ -154,11 +154,8 @@ func (uw UnitPayloads) List(ids ...string) ([]payload.Result, error) {
 		// TODO(ericsnow) Ensure that pl.Unit == uw.Unit?
 
 		result := payload.Result{
-			ID: id,
-			Payload: &payload.FullPayloadInfo{
-				Payload: pl,
-				Machine: uw.Machine,
-			},
+			ID:      id,
+			Payload: &pl,
 		}
 		if id == "" {
 			// TODO(ericsnow) Do this more efficiently.
@@ -190,8 +187,8 @@ func (uw UnitPayloads) LookUp(name, rawID string) (string, error) {
 func (uw UnitPayloads) Untrack(id string) error {
 	logger.Tracef("untracking %q", id)
 	// If the record wasn't found then we're already done.
-	_, err := uw.Persist.Untrack(id)
-	if err != nil {
+	err := uw.Persist.Untrack(id)
+	if err != nil && errors.Cause(err) != payload.ErrNotFound {
 		return errors.Trace(err)
 	}
 	return nil
