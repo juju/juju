@@ -120,6 +120,16 @@ class WinAzureARMTestCase(TestCase):
         di_mock.assert_called_once_with(
             client, 'instance-id', resource_group=None)
 
+    def test_main_delete_instance_not_found(self, is_mock):
+        client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
+        with patch('winazurearm.delete_instance', autospec=True,
+                   side_effect=ValueError) as di_mock:
+            code = main(['winazurearm.py', 'delete-instance', 'instance-id'])
+        self.assertEqual(1, code)
+        self.assertEqual(1, is_mock.call_count)
+        di_mock.assert_called_once_with(
+            client, 'instance-id', resource_group=None)
+
     def test_main_delete_instance_name_group(self, is_mock):
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         with patch('winazurearm.delete_instance', autospec=True) as di_mock:
@@ -350,5 +360,6 @@ class WinAzureARMTestCase(TestCase):
         with patch('winazurearm.list_resources', autospec=True,
                    return_value=[rgd1]):
             # Passing an non-existent id bypasses the call to delete.
-            delete_instance(client, 'id-z')
+            with self.assertRaises(ValueError):
+                delete_instance(client, 'id-z')
         self.assertEqual(0, client.compute.virtual_machines.delete.call_count)

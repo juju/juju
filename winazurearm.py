@@ -259,7 +259,7 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
 
 
 def find_vm_instance(resources, name_id, resource_group):
-    """Return a tuple of ResourceGroupDetails and VirtualMachine.
+    """Return a tuple of matching ResourceGroupDetails and VirtualMachine.
 
     Juju 1.x shows the machine's id as the instance_id.
     Juju 2.x shows the machine's name in the resource group as the instance_id.
@@ -275,11 +275,12 @@ def find_vm_instance(resources, name_id, resource_group):
 def delete_instance(client, name_id, resource_group=None):
     """Delete a VM instance.
 
-    When resource_group is provides, VM name is used to locate the VM.
+    When resource_group is provided, VM name is used to locate the VM.
     Otherwise, all resource groups are searched for a matching VM id.
 
     :param name_id: The name or id of a VM instance.
-    :param resource_group: The name of the resource group the VM belongs to.
+    :param resource_group: The optional name of the resource group the
+        VM belongs to.
     """
     if resource_group:
         glob = resource_group
@@ -296,8 +297,8 @@ def delete_instance(client, name_id, resource_group=None):
                 poller.result()
     else:
         group_names = ', '.join([g.name for g in resources])
-        print('The vm name {} was not found in {}'.format(
-              name_id, group_names))
+        raise ValueError(
+            'The vm name {} was not found in {}'.format(name_id, group_names))
 
 
 def parse_args(argv):
@@ -369,14 +370,19 @@ def main(argv):
         args.subscription_id, args.client_id, args.secret, args.tenant,
         read_only=args.dry_run)
     client.init_services()
-    if args.command == 'list-resources':
-        list_resources(
-            client, glob=args.filter, recursive=args.recursive, print_out=True)
-    elif args.command == 'delete-resources':
-        delete_resources(client, glob=args.filter, old_age=args.old_age)
-    elif args.command == 'delete-instance':
-        delete_instance(
-            client, args.name_id, resource_group=args.resource_group)
+    try:
+        if args.command == 'list-resources':
+            list_resources(
+                client, glob=args.filter, recursive=args.recursive,
+                print_out=True)
+        elif args.command == 'delete-resources':
+            delete_resources(client, glob=args.filter, old_age=args.old_age)
+        elif args.command == 'delete-instance':
+            delete_instance(
+                client, args.name_id, resource_group=args.resource_group)
+    except Exception as e:
+        print(e)
+        return 1
     return 0
 
 
