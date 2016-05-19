@@ -1,5 +1,6 @@
 """Tests for assess_mixed_images module."""
 
+from argparse import Namespace
 import logging
 from mock import (
     call,
@@ -23,12 +24,29 @@ class TestParseArgs(TestCase):
 
     def test_defaults(self):
         args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
-        self.assertEqual("an-env", args.env)
-        self.assertEqual("/bin/juju", args.juju_bin)
-        self.assertEqual("/tmp/logs", args.logs)
-        self.assertEqual("an-env-mod", args.temp_env_name)
-        self.assertEqual(False, args.debug)
-        self.assertEqual('trusty', args.series)
+        self.assertEqual(Namespace(
+            env='an-env',
+            juju_bin='/bin/juju',
+            logs='/tmp/logs',
+            temp_env_name='an-env-mod',
+            debug=False,
+            series='trusty',
+            agent_stream=None,
+            agent_url=None,
+            bootstrap_host=None,
+            upload_tools=False,
+            verbose=logging.INFO,
+            image_metadata_url=None,
+            keep_env=False,
+            machine=[],
+            region=None,
+            ), args)
+
+    def test_image_metadata_url(self):
+        args = parse_args([
+            'an-env', '/bin/juju', '/tmp/logs', 'an-env-mod',
+            '--image-metadata-url', 'http://example.com/images'])
+        self.assertEqual(args.image_metadata_url, 'http://example.com/images')
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
