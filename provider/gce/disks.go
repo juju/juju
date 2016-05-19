@@ -164,7 +164,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 			return
 		}
 		if err := v.gce.RemoveDisk(zone, volumeName); err != nil {
-			logger.Warningf("error cleaning up volume %v: %v", volumeName, err)
+			logger.Errorf("error cleaning up volume %v: %v", volumeName, err)
 		}
 	}()
 

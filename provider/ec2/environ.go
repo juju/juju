@@ -471,7 +471,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}
 
 	if spec.InstanceType.Deprecated {
-		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
+		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
 	}
 
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
@@ -922,7 +922,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		networkInterfacesResp, err = ec2Client.NetworkInterfaces(nil, filter)
 		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
 		if err != nil {
-			logger.Warningf("failed to get instance %q interfaces: %v (retrying)", instId, err)
+			logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, err)
 			continue
 		}
 		if len(networkInterfacesResp.Interfaces) == 0 {
@@ -973,14 +973,12 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
-		return network.SubnetInfo{}, err
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
 	}
 	// ec2 only uses IPv4 addresses for subnets
 	start, err := network.IPv4ToDecimal(ip)
 	if err != nil {
-		logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
-		return network.SubnetInfo{}, err
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid IP", cidr)
 	}
 	// First four addresses in a subnet are reserved, see
 	// http://goo.gl/rrWTIo
@@ -1336,7 +1334,7 @@ func (e *environ) portsInGroup(name string) (ports []network.PortRange, err erro
 	}
 	for _, p := range group.IPPerms {
 		if len(p.SourceIPs) != 1 {
-			logger.Warningf("unexpected IP permission found: %v", p)
+			logger.Errorf("expected exactly one IP permission, found: %v", p)
 			continue
 		}
 		ports = append(ports, network.PortRange{
@@ -1351,11 +1349,10 @@ func (e *environ) portsInGroup(name string) (ports []network.PortRange, err erro
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
-			e.Config().FirewallMode())
+		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Infof("opened ports in global group: %v", ports)
 	return nil
@@ -1363,11 +1360,10 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
-			e.Config().FirewallMode())
+		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Infof("closed ports in global group: %v", ports)
 	return nil
@@ -1375,8 +1371,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
-			e.Config().FirewallMode())
+		return nil, errors.Errorf("invalid firewall mode %q for retrieving ports from model", e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())
 }
@@ -1514,7 +1509,8 @@ func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
 	// instances that have been successfully terminated.
 	securityGroups, err := e.instanceSecurityGroups(ids, "shutting-down", "terminated")
 	if err != nil {
-		logger.Warningf("cannot determine security groups to delete: %v", err)
+		logger.Errorf("cannot determine security groups to delete: %v", err)
+		return
 	}
 
 	// TODO(perrito666) we need to tag global security groups to be able
@@ -1536,7 +1532,7 @@ func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
 			// In this case, our failure to delete security group is reasonable: it's still in use.
 			// 2. Some security groups may be shared by multiple instances,
 			// for example, global firewalling. We should not delete these.
-			logger.Warningf("provider failure: %v", err)
+			logger.Errorf("provider failure: %v", err)
 		}
 	}
 }
@@ -1570,8 +1566,7 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 		},
 	})
 	if err != nil {
-		logger.Warningf("cannot delete security group %q: consider deleting it manually", group.Name)
-		return lastErr
+		return errors.Annotatef(lastErr, "cannot delete security group %q: consider deleting it manually", group.Name)
 	}
 	return nil
 }
