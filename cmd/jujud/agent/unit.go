@@ -31,6 +31,9 @@ import (
 
 var (
 	agentLogger = loggo.GetLogger("juju.jujud")
+
+	// should be an explicit dependency, can't do it cleanly yet
+	unitManifolds = unit.Manifolds
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -169,7 +172,7 @@ func runUpgrades(tag names.Tag, dataDir string) {
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+	manifolds := unitManifolds(unit.ManifoldsConfig{
 		Agent:               agent.APIHostPortsSetter{a},
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,

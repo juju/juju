@@ -89,15 +89,20 @@ var (
 	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
 
 	// The following are defined as variables to allow the tests to
-	// intercept calls to the functions.
+	// intercept calls to the functions. In every case, they should
+	// be expressed as explicit dependencies, but nobody has yet had
+	// the intestinal fortitude to untangle this package. Be that
+	// person! Juju Needs You.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	modelManifolds        = model.Manifolds
 	newSingularRunner     = singular.New
 	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker = mongoupgrader.New
 	reportOpenedState     = func(io.Closer) {}
+
+	modelManifolds   = model.Manifolds
+	machineManifolds = machine.Manifolds
 )
 
 // Variable to override in tests, default is true
@@ -440,7 +445,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err != nil {
 			return nil, err
 		}
-		manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
 			RootDir:              a.rootDir,

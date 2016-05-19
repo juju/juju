@@ -1508,6 +1508,69 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
+func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
+	tracker := NewEngineTracker()
+	instrumented := TrackMachines(c, tracker, machineManifolds)
+	s.PatchValue(&machineManifolds, instrumented)
+
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for it to stabilise, running as normal.
+	id := a.Tag().String()
+	checkNotMigrating := EngineMatchFunc(c, tracker, append(
+		alwaysMachineWorkers, notMigratingMachineWorkers...,
+	))
+	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+}
+
+func (s *MachineSuite) TestMachineWorkersRespectMigration(c *gc.C) {
+	tracker := NewEngineTracker()
+	instrumented := TrackMachines(c, tracker, machineManifolds)
+	s.PatchValue(&machineManifolds, instrumented)
+
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for it to stabilise, running as normal.
+	id := a.Tag().String()
+	checkNotMigrating := EngineMatchFunc(c, tracker, append(
+		alwaysMachineWorkers, notMigratingMachineWorkers...,
+	))
+	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+
+	// Start a model migration.
+	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	mig, err := s.State.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: targetControllerTag,
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for it to stabilise, in migrating mode.
+	checkMigrating := EngineMatchFunc(c, tracker, alwaysMachineWorkers)
+	WaitMatch(c, checkMigrating, id, s.BackingState.StartSync)
+
+	// Cancel the migration.
+	err = mig.SetPhase(migration.ABORT)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mig.SetPhase(migration.ABORTDONE)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Wait for it to stabilise, running as normal again.
+	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+}
+
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	tracker := NewEngineTracker()
 	check := EngineMatchFunc(c, tracker, append(

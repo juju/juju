@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -70,8 +71,6 @@ var (
 	ReallyLongWait = coretesting.LongWait * 3
 
 	alwaysUnitWorkers = []string{
-		"api-caller",
-		"api-config-watcher",
 		"...",
 	}
 	aliveUnitWorkers = []string{
@@ -82,15 +81,34 @@ var (
 	}
 
 	alwaysMachineWorkers = []string{
+		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"...",
+		"state-config-watcher",
+		"termination-signal-handler",
+		"upgrader",
+		"upgrade-steps-gate",
+		"upgrade-steps-flag",
+		"upgrade-check-gate",
+		"upgrade-check-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-minion",
 	}
-	aliveMachineWorkers = []string{
-		"...",
-	}
-	migratingMachineWorkers = []string{
-		"...",
+	notMigratingMachineWorkers = []string{
+		"unconverted-api-workers",
+		"logging-config-updater",
+		"disk-manager",
+		"proxy-config-updater",
+		"api-address-updater",
+		"machiner",
+		"log-sender",
+		"unit-agent-deployer",
+		"ssh-authkeys-updater",
+		"storage-provisioner",
+		"machine-action-runner",
+		// "host-key-reporter", not stable, exits when done
+		// "reboot-executor", not stable, fails due to lp:XXX
 	}
 )
 
@@ -149,6 +167,22 @@ func EngineMatchFunc(c *gc.C, tracker *engineTracker, workers []string) func(str
 		c.Logf("%s: waiting for %v", id, missed.SortedValues())
 		c.Logf("%s: unexpected %v", id, extras.SortedValues())
 		return false
+	}
+}
+
+// WaitMatch returns only when the match func succeeds, or it times out.
+func WaitMatch(c *gc.C, match func(string) bool, id string, sync func()) {
+	timeout := time.After(coretesting.LongWait)
+	for {
+		if match(id) {
+			return
+		}
+		select {
+		case <-time.After(coretesting.ShortWait):
+			sync()
+		case <-timeout:
+			c.Fatalf("timed out waiting for workers")
+		}
 	}
 }
 
