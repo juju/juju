@@ -240,6 +240,8 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		"Placement",
 		"PreferredPrivateIPv4Address",
 		"PreferredPublicIPv4Address",
+		"PreferredPrivateIPv6Address",
+		"PreferredPublicIPv6Address",
 		"Principals",
 		"Series",
 		"SupportedContainers",
