@@ -940,7 +940,8 @@ func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
 		for j := 0; j < providerConfigsLength; j++ {
 			shuffledProviderConfigs := shuffleNetworkConfigs(expectedSortedProviderNetworkConfigs)
 
-			mergedConfigs := networkingcommon.MergeProviderAndObservedNetworkConfigs(shuffledProviderConfigs, shuffledObservedConfigs)
+			mergedConfigs, err := networkingcommon.MergeProviderAndObservedNetworkConfigs(shuffledProviderConfigs, shuffledObservedConfigs)
+			c.Assert(err, jc.ErrorIsNil)
 			jsonResult := s.networkConfigsAsJSON(c, mergedConfigs)
 			c.Check(jsonResult, gc.Equals, jsonExpected)
 		}
