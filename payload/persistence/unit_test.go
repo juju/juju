@@ -309,8 +309,8 @@ func (s *payloadsPersistenceSuite) TestUntrackMissing(c *gc.C) {
 
 	pp := s.NewPersistence()
 	err := pp.Untrack(id)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
 	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, nil)
 }

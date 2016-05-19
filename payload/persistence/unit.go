@@ -184,7 +184,8 @@ func (pp Persistence) Untrack(stID string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		doc, err := pp.payloadByStateID(stID)
 		if errors.IsNotFound(err) {
-			return nil, errors.Annotatef(payload.ErrNotFound, "(%s)", stID)
+			// Must have already beeen removed!
+			return nil, jujutxn.ErrNoOperations
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
