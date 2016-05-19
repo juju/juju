@@ -51,6 +51,12 @@ const (
 	IPv6Address AddressType = "ipv6"
 )
 
+// IsSameTypeOrHostHame returns whether current is the same as other, or either
+// of the types is a HostHame.
+func (current AddressType) IsSameTypeOrHostName(other AddressType) bool {
+	return current == other || (current == HostName || other == HostName)
+}
+
 // Scope denotes the context a location may apply to. If a name or
 // address can be reached from the wider internet, it is considered
 // public. A private network address is either specific to the cloud
@@ -360,6 +366,26 @@ func SelectPublicAddress(addresses []Address) (Address, bool) {
 	return addresses[index], true
 }
 
+// SelectPublicAddressWithType works like SelectPublicAddress, but only
+// considers addresses with the given addrType
+func SelectPublicAddressWithType(addresses []Address, addrType AddressType) (Address, bool) {
+	publicTypedMatch := func(addr Address) scopeMatch {
+		if !addr.Type.IsSameTypeOrHostName(addrType) {
+			return invalidScope
+		}
+
+		return publicMatch(addr)
+	}
+
+	index := bestAddressIndex(len(addresses), func(i int) Address {
+		return addresses[i]
+	}, publicTypedMatch)
+	if index < 0 {
+		return Address{}, false
+	}
+	return addresses[index], true
+}
+
 // SelectPublicHostPort picks one HostPort from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
@@ -381,6 +407,26 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, boo
 	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
+	if index < 0 {
+		return Address{}, false
+	}
+	return addresses[index], true
+}
+
+// SelectInternalAddressWithType works like SelectInternalAddress, but only
+// considers addresses with the given addrType
+func SelectInternalAddressWithType(addresses []Address, addrType AddressType, machineLocal bool) (Address, bool) {
+	internalTypedAddressMatch := func(addr Address) scopeMatch {
+		if !addr.Type.IsSameTypeOrHostName(addrType) {
+			return invalidScope
+		}
+
+		return internalAddressMatcher(machineLocal)(addr)
+	}
+
+	index := bestAddressIndex(len(addresses), func(i int) Address {
+		return addresses[i]
+	}, internalTypedAddressMatch)
 	if index < 0 {
 		return Address{}, false
 	}
