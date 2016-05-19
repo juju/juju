@@ -26,7 +26,6 @@ type hostPortTest struct {
 	about         string
 	hostPorts     []network.HostPort
 	expectedIndex int
-	preferIPv6    bool
 }
 
 // hostPortTest returns the HostPort equivalent test to the
@@ -40,7 +39,6 @@ func (t selectTest) hostPortTest() hostPortTest {
 		about:         t.about,
 		hostPorts:     hps,
 		expectedIndex: t.expectedIndex,
-		preferIPv6:    t.preferIPv6,
 	}
 }
 
@@ -54,40 +52,25 @@ func (t hostPortTest) expected() string {
 }
 
 func (*HostPortSuite) TestSelectPublicHostPort(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t0 := range selectPublicTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
 	}
 }
 
 func (*HostPortSuite) TestSelectInternalHostPort(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t0 := range selectInternalTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
 	}
 }
 
 func (*HostPortSuite) TestSelectInternalMachineHostPort(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t0 := range selectInternalMachineTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
 	}
 }
@@ -314,8 +297,7 @@ func (s *HostPortSuite) assertHostPorts(c *gc.C, actual []network.HostPort, expe
 
 func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 	hps := s.makeHostPorts()
-	// Simulate prefer-ipv6: false first.
-	network.SortHostPorts(hps, false)
+	network.SortHostPorts(hps)
 	s.assertHostPorts(c, hps,
 		// Public IPv4 addresses on top.
 		"0.1.2.0:1234",
@@ -355,49 +337,6 @@ func (s *HostPortSuite) TestSortHostPorts(c *gc.C) {
 		"[fe80::2]:1234",
 		"[fe80::2]:9999",
 		"[ff01::22]:1234",
-	)
-
-	// Now, simulate prefer-ipv6: true.
-	network.SortHostPorts(hps, true)
-	s.assertHostPorts(c, hps,
-		// Public IPv6 addresses on top.
-		"[2001:db8::1]:1234",
-		"[2001:db8::1]:1234",
-		"[2001:db8::1]:9999",
-		"[2001:db8::2]:1234",
-		// After that public IPv4 addresses.
-		"0.1.2.0:1234",
-		"7.8.8.8:1234",
-		"8.8.8.8:1234",
-		// Then hostnames.
-		"example.com:1234",
-		"example.net:1234",
-		"example.org:1234",
-		"invalid host:1234",
-		"localhost:1234",
-		"localhost:1234",
-		// Then IPv6 cloud-local addresses.
-		"[fc00::1]:1234",
-		"[fd00::22]:1234",
-		// Then IPv4 cloud-local addresses.
-		"10.0.0.1:1234",
-		"10.0.0.1:9999",
-		"172.16.0.1:1234",
-		// Then machine-local IPv6 addresses.
-		"[::1]:1234",
-		"[::1]:1234",
-		// Then machine-local IPv4 addresses.
-		"127.0.0.1:1234",
-		"127.0.0.1:1234",
-		"127.0.0.1:9999",
-		"127.0.1.1:1234",
-		// Finally, link-local IPv6 addresses.
-		"[fe80::2]:1234",
-		"[fe80::2]:9999",
-		"[ff01::22]:1234",
-		// Then link-local IPv4 addresses.
-		"169.254.1.1:1234",
-		"169.254.1.2:1234",
 	)
 }
 

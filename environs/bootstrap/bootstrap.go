@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -100,7 +99,6 @@ type BootstrapParams struct {
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
-	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
 		return errors.Errorf("model configuration has no admin-secret")
 	}

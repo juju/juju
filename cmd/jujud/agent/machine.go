@@ -55,7 +55,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -403,7 +402,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	agentConfig := a.CurrentConfig()
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
-	network.SetPreferIPv6(agentConfig.PreferIPv6())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err

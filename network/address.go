@@ -251,12 +251,8 @@ func deriveScope(addr Address) Scope {
 }
 
 // ExactScopeMatch checks if an address exactly matches any of the specified
-// scopes. An address will not match if globalPreferIPv6 is set and it isn't an
-// IPv6 address.
+// scopes.
 func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
-	if PreferIPv6() && addr.Type != IPv6Address {
-		return false
-	}
 	for _, scope := range addrScopes {
 		if addr.Scope == scope {
 			return true
@@ -355,7 +351,7 @@ func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []stri
 // are no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address is then ok is true.
 func SelectPublicAddress(addresses []Address) (Address, bool) {
-	index := bestAddressIndex(len(addresses), PreferIPv6(), func(i int) Address {
+	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
@@ -368,7 +364,7 @@ func SelectPublicAddress(addresses []Address) (Address, bool) {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
 func SelectPublicHostPort(hps []HostPort) string {
-	index := bestAddressIndex(len(hps), PreferIPv6(), func(i int) Address {
+	index := bestAddressIndex(len(hps), func(i int) Address {
 		return hps[i].Address
 	}, publicMatch)
 	if index < 0 {
@@ -382,7 +378,7 @@ func SelectPublicHostPort(hps []HostPort) string {
 // are no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address was found then ok is true.
 func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	index := bestAddressIndex(len(addresses), PreferIPv6(), func(i int) Address {
+	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -396,7 +392,7 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, boo
 // in its NetAddr form. If there are no suitable addresses, the empty
 // string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := bestAddressIndex(len(hps), PreferIPv6(), func(i int) Address {
+	index := bestAddressIndex(len(hps), func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -410,7 +406,7 @@ func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
 // communication and returns them in NetAddr form. If there are no
 // suitable addresses, an empty slice is returned.
 func SelectInternalHostPorts(hps []HostPort, machineLocal bool) []string {
-	indexes := bestAddressIndexes(len(hps), PreferIPv6(), func(i int) Address {
+	indexes := bestAddressIndexes(len(hps), func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 
@@ -426,7 +422,7 @@ func SelectInternalHostPorts(hps []HostPort, machineLocal bool) []string {
 // returns them in NetAddr form. If there are no suitable addresses
 // then an empty slice is returned.
 func PrioritizeInternalHostPorts(hps []HostPort, machineLocal bool) []string {
-	indexes := prioritizedAddressIndexes(len(hps), PreferIPv6(), func(i int) Address {
+	indexes := prioritizedAddressIndexes(len(hps), func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 
@@ -437,56 +433,38 @@ func PrioritizeInternalHostPorts(hps []HostPort, machineLocal bool) []string {
 	return out
 }
 
-func publicMatch(addr Address, preferIPv6 bool) scopeMatch {
+func publicMatch(addr Address) scopeMatch {
 	switch addr.Scope {
 	case ScopePublic:
-		return mayPreferIPv6(addr, exactScope, preferIPv6)
+		return exactScope
 	case ScopeCloudLocal, ScopeUnknown:
-		return mayPreferIPv6(addr, fallbackScope, preferIPv6)
+		return fallbackScope
 	}
 	return invalidScope
 }
 
-// mayPreferIPv6 returns mismatchedTypeExactScope or
-// mismatchedTypeFallbackScope (depending on originalScope) if addr's
-// type is IPv4, and preferIPv6 is true. When preferIPv6 is false, or
-// addr's type is IPv6 and preferIPv6 is true, returns the
-// originalScope unchanged.
-func mayPreferIPv6(addr Address, originalScope scopeMatch, preferIPv6 bool) scopeMatch {
-	if preferIPv6 && addr.Type != IPv6Address {
-		switch originalScope {
-		case exactScope:
-			return mismatchedTypeExactScope
-		case fallbackScope:
-			return mismatchedTypeFallbackScope
-		}
-		return invalidScope
-	}
-	return originalScope
-}
-
-func internalAddressMatcher(machineLocal bool) func(Address, bool) scopeMatch {
+func internalAddressMatcher(machineLocal bool) scopeMatchFunc {
 	if machineLocal {
 		return cloudOrMachineLocalMatch
 	}
 	return cloudLocalMatch
 }
 
-func cloudLocalMatch(addr Address, preferIPv6 bool) scopeMatch {
+func cloudLocalMatch(addr Address) scopeMatch {
 	switch addr.Scope {
 	case ScopeCloudLocal:
-		return mayPreferIPv6(addr, exactScope, preferIPv6)
+		return exactScope
 	case ScopePublic, ScopeUnknown:
-		return mayPreferIPv6(addr, fallbackScope, preferIPv6)
+		return fallbackScope
 	}
 	return invalidScope
 }
 
-func cloudOrMachineLocalMatch(addr Address, preferIPv6 bool) scopeMatch {
+func cloudOrMachineLocalMatch(addr Address) scopeMatch {
 	if addr.Scope == ScopeMachineLocal {
-		return mayPreferIPv6(addr, exactScope, preferIPv6)
+		return exactScope
 	}
-	return cloudLocalMatch(addr, preferIPv6)
+	return cloudLocalMatch(addr)
 }
 
 type scopeMatch int
@@ -495,33 +473,32 @@ const (
 	invalidScope scopeMatch = iota
 	exactScope
 	fallbackScope
-	mismatchedTypeExactScope
-	mismatchedTypeFallbackScope
 )
 
-// bestAddressIndexes returns the indexes of the addresses with the
-// best matching scope (according to the match func). An empty slice
-// is returned if there were no suitable addresses.
-func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) int {
-	indexes := bestAddressIndexes(numAddr, preferIPv6, getAddr, match)
+type scopeMatchFunc func(addr Address) scopeMatch
+
+type addressByIndexFunc func(index int) Address
+
+// bestAddressIndex returns the index of the addresses with the best matching
+// scope (according to the matchFunc). -1 is returned if there were no suitable
+// addresses.
+func bestAddressIndex(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) int {
+	indexes := bestAddressIndexes(numAddr, getAddrFunc, matchFunc)
 	if len(indexes) > 0 {
 		return indexes[0]
 	}
 	return -1
 }
 
-// bestAddressIndexes returns the indexes of the addresses with the
-// best matching scope and type (according to the match func). An
-// empty slice is returned if there were no suitable addresses.
-func bestAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) []int {
+// bestAddressIndexes returns the indexes of the addresses with the best
+// matching scope and type (according to the matchFunc). An empty slice is
+// returned if there were no suitable addresses.
+func bestAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) []int {
 	// Categorise addresses by scope and type matching quality.
-	matches := filterAndCollateAddressIndexes(numAddr, preferIPv6, getAddr, match)
+	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
 	allowedMatchTypes := []scopeMatch{exactScope, fallbackScope}
-	if preferIPv6 {
-		allowedMatchTypes = append(allowedMatchTypes, mismatchedTypeExactScope, mismatchedTypeFallbackScope)
-	}
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
 		if ok && len(indexes) > 0 {
@@ -531,15 +508,12 @@ func bestAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Addres
 	return []int{}
 }
 
-func prioritizedAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) []int {
+func prioritizedAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) []int {
 	// Categorise addresses by scope and type matching quality.
-	matches := filterAndCollateAddressIndexes(numAddr, preferIPv6, getAddr, match)
+	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
 	allowedMatchTypes := []scopeMatch{exactScope, fallbackScope}
-	if preferIPv6 {
-		allowedMatchTypes = append(allowedMatchTypes, mismatchedTypeExactScope, mismatchedTypeFallbackScope)
-	}
 	var prioritized []int
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
@@ -550,31 +524,27 @@ func prioritizedAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int)
 	return prioritized
 }
 
-func filterAndCollateAddressIndexes(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) map[scopeMatch][]int {
+func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc scopeMatchFunc) map[scopeMatch][]int {
 	// Categorise addresses by scope and type matching quality.
 	matches := make(map[scopeMatch][]int)
 	for i := 0; i < numAddr; i++ {
-		matchType := match(getAddr(i), preferIPv6)
+		matchType := matchFunc(getAddrFunc(i))
 		switch matchType {
-		case exactScope, fallbackScope, mismatchedTypeExactScope, mismatchedTypeFallbackScope:
+		case exactScope, fallbackScope:
 			matches[matchType] = append(matches[matchType], i)
 		}
 	}
 	return matches
 }
 
-// sortOrder calculates the "weight" of the address when sorting,
-// taking into account the preferIPv6 flag:
+// sortOrder calculates the "weight" of the address when sorting:
 // - public IPs first;
 // - hostnames after that, but "localhost" will be last if present;
 // - cloud-local next;
 // - machine-local next;
 // - link-local next;
 // - non-hostnames with unknown scope last.
-//
-// When preferIPv6 flag and the address type do not match, the order
-// is incremented to put non-preferred addresses after preferred.
-func (a Address) sortOrder(preferIPv6 bool) int {
+func (a Address) sortOrder() int {
 	order := 0xFF
 	switch a.Scope {
 	case ScopePublic:
@@ -592,14 +562,10 @@ func (a Address) sortOrder(preferIPv6 bool) int {
 		if a.Value == "localhost" {
 			order++
 		}
-	case IPv4Address:
-		if preferIPv6 {
-			order++
-		}
 	case IPv6Address:
-		if !preferIPv6 {
-			order++
-		}
+		// Prefer IPv4 over IPv6 addresses.
+		order++
+	case IPv4Address:
 	}
 	return order
 }
@@ -611,38 +577,18 @@ func (a addressesPreferringIPv4Slice) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
 	addr1 := a[i]
 	addr2 := a[j]
-	order1 := addr1.sortOrder(false)
-	order2 := addr2.sortOrder(false)
+	order1 := addr1.sortOrder()
+	order2 := addr2.sortOrder()
 	if order1 == order2 {
 		return addr1.Value < addr2.Value
 	}
 	return order1 < order2
 }
 
-type addressesPreferringIPv6Slice struct {
-	addressesPreferringIPv4Slice
-}
-
-func (a addressesPreferringIPv6Slice) Less(i, j int) bool {
-	addr1 := a.addressesPreferringIPv4Slice[i]
-	addr2 := a.addressesPreferringIPv4Slice[j]
-	order1 := addr1.sortOrder(true)
-	order2 := addr2.sortOrder(true)
-	if order1 == order2 {
-		return addr1.Value < addr2.Value
-	}
-	return order1 < order2
-}
-
-// SortAddresses sorts the given Address slice according to the
-// sortOrder of each address and the preferIpv6 flag. See
-// Address.sortOrder() for more info.
-func SortAddresses(addrs []Address, preferIPv6 bool) {
-	if preferIPv6 {
-		sort.Sort(addressesPreferringIPv6Slice{addressesPreferringIPv4Slice(addrs)})
-	} else {
-		sort.Sort(addressesPreferringIPv4Slice(addrs))
-	}
+// SortAddresses sorts the given Address slice according to the sortOrder of
+// each address. See Address.sortOrder() for more info.
+func SortAddresses(addrs []Address) {
+	sort.Sort(addressesPreferringIPv4Slice(addrs))
 }
 
 // DecimalToIPv4 converts a decimal to the dotted quad IP address format.

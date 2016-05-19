@@ -21,7 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
 )
 
@@ -161,7 +160,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// We can't always just use IsolationSuite because we still need
 	// PATH and possibly a couple other envars.
 	s.PatchEnvironment("BASH_ENV", "")
-	network.SetPreferIPv6(false)
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
