@@ -33,7 +33,7 @@ func (s *RenderersSuite) TestToBase64(c *gc.C) {
 
 func (s *RenderersSuite) TestWinEmbedInScript(c *gc.C) {
 	in := []byte("test")
-	expected := []byte(fmt.Sprintf(cloudconfig.UserdataScript, renderers.ToBase64(utils.Gzip(in))))
+	expected := []byte(fmt.Sprintf(cloudconfig.UserDataScript, renderers.ToBase64(utils.Gzip(in))))
 	out := renderers.WinEmbedInScript(in)
 	c.Assert(out, jc.DeepEquals, expected)
 }

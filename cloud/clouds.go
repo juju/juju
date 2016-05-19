@@ -3,7 +3,6 @@
 
 // Package cloud provides functionality to parse information
 // describing clouds, including regions, supported auth types etc.
-
 package cloud
 
 import (
@@ -20,7 +19,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-//go:generate go run ../generate/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015
+//go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
 
 // AuthType is the type of authentication used by the cloud.
 type AuthType string

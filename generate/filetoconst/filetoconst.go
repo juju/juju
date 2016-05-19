@@ -16,7 +16,7 @@ var fileTemplate = `
 // Copyright {{.CopyrightYear}} Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cloud
+package {{.Pkgname}}
 
 // Generated code - do not edit.
 
@@ -26,8 +26,8 @@ const {{.ConstName}} = {{.Content}}
 // This generator reads from a file and generates a Go file with the
 // file's content assigned to a go constant.
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Println("Usage: filetoconst <constname> <infile> <gofile> <copyrightyear>")
+	if len(os.Args) < 5 {
+		fmt.Println("Usage: filetoconst <constname> <infile> <gofile> <copyrightyear> <pkgname>")
 	}
 	data, err := ioutil.ReadFile(os.Args[2])
 	if err != nil {
@@ -45,6 +45,7 @@ func main() {
 		ConstName     string
 		Content       string
 		CopyrightYear string
+		Pkgname       string
 	}
 	contextData := fmt.Sprintf("\n%s", string(data))
 	// Quote any ` in the data.
@@ -53,6 +54,7 @@ func main() {
 		ConstName:     os.Args[1],
 		Content:       fmt.Sprintf("`%s`", contextData),
 		CopyrightYear: os.Args[4],
+		Pkgname:       os.Args[5],
 	})
 
 	err = ioutil.WriteFile(os.Args[3], buf.Bytes(), 0644)

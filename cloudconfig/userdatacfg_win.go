@@ -22,6 +22,9 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+//go:generate go run ../generate/filetoconst/filetoconst.go UserDataScript windowsuserdatafiles/userdata.ps1 winuserdatawrapper.go 2016 cloudconfig
+//go:generate go run ../generate/winuserdata/winuserdata.go 2016 winuserdata.go cloudconfig
+
 type aclType string
 
 const (
@@ -48,16 +51,17 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	if err != nil {
 		return err
 	}
+
 	renderer := w.conf.ShellRenderer()
 	dataDir := renderer.FromSlash(w.icfg.DataDir)
 	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
 	binDir := renderer.Join(baseDir, "bin")
 
-	w.conf.AddScripts(fmt.Sprintf(`%s`, winPowershellHelperFunctions))
+	w.conf.AddScripts(windowsPowershellHelpers)
 
 	// The jujud user only gets created on non-nano versions for now.
 	if !series.IsWindowsNano(w.icfg.Series) {
-		w.conf.AddScripts(fmt.Sprintf(`%s`, addJujudUser))
+		w.conf.AddScripts(addJujuUser)
 	}
 
 	w.conf.AddScripts(
