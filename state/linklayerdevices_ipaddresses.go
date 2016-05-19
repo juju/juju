@@ -108,11 +108,7 @@ func (addr *Address) DocID() string {
 
 // ProviderID returns the provider-specific IP address ID, if set.
 func (addr *Address) ProviderID() network.Id {
-	return network.Id(addr.localProviderID())
-}
-
-func (addr *Address) localProviderID() string {
-	return addr.doc.ProviderID
+	return network.Id(addr.doc.ProviderID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
