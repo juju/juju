@@ -1571,6 +1571,29 @@ class TestEnvJujuClient(ClientTest):
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--series', 'xenial'))
 
+    def test_deploy_resource(self):
+        env = EnvJujuClient(JujuData('foo', {'type': 'local'}), None, None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('local:blah', resource='foo=/path/dir')
+        mock_juju.assert_called_with(
+            'deploy', ('local:blah', '--resource', 'foo=/path/dir'))
+
+    def test_attach(self):
+        env = EnvJujuClient(JujuData('foo', {'type': 'local'}), None, None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.attach('foo', resource='foo=/path/dir')
+        mock_juju.assert_called_with('attach', ('foo', 'foo=/path/dir'))
+
+    def test_list_resources(self):
+        data = 'resourceid: resource/foo'
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with patch.object(
+                client, 'get_juju_output', return_value=data) as mock_gjo:
+            status = client.list_resources('foo')
+        self.assertEqual(status, yaml.safe_load(data))
+        mock_gjo.assert_called_with(
+            'list-resources', '--format', 'yaml', 'foo', '--details')
+
     def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
                                '1.23-series-arch', None)

@@ -10,6 +10,7 @@ from deploy_stack import BootstrapManager
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
     make_charm,
     temp_dir,
 )
@@ -19,10 +20,6 @@ __metaclass__ = type
 
 
 log = logging.getLogger("assess_version")
-
-
-class JujuAssertionError(AssertionError):
-    """Exception for juju assertion failures."""
 
 
 def assert_fail(client, charm, ver, cur, name):
