@@ -254,7 +254,8 @@ func (manager *containerManager) CreateContainer(
 		}
 
 		if err := callback(status.StatusProvisioning, "Cloning template container", nil); err != nil {
-			return nil, nil, errors.Annotate(err, "Cannot set instance status for container")
+			// if the callback fails, do not abort the operation.
+			logger.Errorf("Cannot set instance status for container: %v", err)
 		}
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
