@@ -303,6 +303,20 @@ class Juju2Backend:
             (time.time() - start_time))
         return rval
 
+    def expect(self, command, args, used_feature_flags, juju_home, model=None,
+               timeout=None, extra_env=None):
+        args = self.full_args(command, args, model, timeout)
+        log.info(' '.join(args))
+        env = self.shell_environ(used_feature_flags, juju_home)
+        if extra_env is not None:
+            env.update(extra_env)
+        # pexpect.spawn expects a string. This is better than trying to extract
+        # command + args from the returned tuple (as there could be an intial
+        # timing command tacked on).
+        command_string = ' '.join(quote(a) for a in args)
+        with scoped_environ(env):
+            return pexpect.spawn(command_string)
+
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
                    juju_home, model=None, timeout=None):
@@ -851,17 +865,10 @@ class EnvJujuClient:
           `args`.
 
         """
-        args = self._full_args(command, sudo, args, include_e=include_e,
-                               timeout=timeout)
-        log.info(' '.join(args))
-        env = self._shell_environ()
-        if extra_env is not None:
-            env.update(extra_env)
-        # pexpect.spawn expects a string. This is better than trying to extract
-        # command + args from the returned tuple (as there could be an intial
-        # timing command tacked on).
-        command_string = ' '.join(quote(a) for a in args)
-        return pexpect.spawn(command_string, env=env)
+        model = self._cmd_model(include_e, admin=False)
+        return self._backend.expect(
+            command, args, self.used_feature_flags, self.env.juju_home,
+            model, timeout, extra_env)
 
     def controller_juju(self, command, args):
         args = ('-c', self.env.controller.name) + args

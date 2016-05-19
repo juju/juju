@@ -492,7 +492,11 @@ def get_gce_expected_details_dict(user, credentials_path):
 def gce_credential_dict_generator():
     call_id = CredentialIdCounter.id('gce')
     creds = 'gce-credentials-{}'.format(call_id)
-    return dict(client_id=creds, client_email=creds, private_key=creds)
+    return dict(
+        client_id=creds,
+        client_email='{}@example.com'.format(creds),
+        private_key=creds,
+        )
 
 
 def parse_args(argv):
