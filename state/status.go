@@ -117,23 +117,20 @@ type setStatusParams struct {
 	// token, if present, must accept an *[]txn.Op passed to its Check method,
 	// and will prevent any change if it becomes invalid.
 	token leadership.Token
+
+	// udpated, the time the status was set.
+	updated *time.Time
 }
 
 // setStatus inteprets the supplied params as documented on the type.
 func setStatus(st *State, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
 
-	// TODO(fwereade): this can/should probably be recording the time the
-	// status was *set*, not the time it happened to arrive in state.
-	// We should almost certainly be accepting StatusInfo in the exposed
-	// SetStatus methods, for symetry with the Status methods.
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	now := time.Now().UnixNano()
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
 		StatusData: escapeKeys(params.rawData),
-		Updated:    now,
+		Updated:    params.updated.UnixNano(),
 	}
 	probablyUpdateStatusHistory(st, params.globalKey, doc)
 
@@ -219,13 +216,41 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 	}
 }
 
-func statusHistory(st *State, globalKey string, size int) ([]status.StatusInfo, error) {
-	statusHistory, closer := st.getCollection(statusesHistoryC)
+// statusHistoryArgs hold the arguments to call statusHistory.
+type statusHistoryArgs struct {
+	st        *State
+	globalKey string
+	filter    status.StatusHistoryFilter
+}
+
+func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
+	filter := args.filter
+	if err := args.filter.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating arguments")
+	}
+	statusHistory, closer := args.st.getCollection(statusesHistoryC)
 	defer closer()
 
-	var docs []historicalStatusDoc
-	query := statusHistory.Find(bson.D{{"globalkey", globalKey}})
-	err := query.Sort("-updated").Limit(size).All(&docs)
+	var (
+		docs  []historicalStatusDoc
+		query mongo.Query
+	)
+	baseQuery := bson.M{"globalkey": args.globalKey}
+	if filter.Delta != nil {
+		delta := *filter.Delta
+		// TODO(perrito666) 2016-05-02 lp:1558657
+		updated := time.Now().Add(-delta)
+		baseQuery = bson.M{"updated": bson.M{"$gt": updated.UnixNano()}, "globalkey": args.globalKey}
+	}
+	if filter.Date != nil {
+		baseQuery = bson.M{"updated": bson.M{"$gt": filter.Date.UnixNano()}, "globalkey": args.globalKey}
+	}
+	query = statusHistory.Find(baseQuery).Sort("-updated")
+	if filter.Size > 0 {
+		query = query.Limit(filter.Size)
+	}
+	err := query.All(&docs)
+
 	if err == mgo.ErrNotFound {
 		return []status.StatusInfo{}, errors.NotFoundf("status history")
 	} else if err != nil {
@@ -245,68 +270,73 @@ func statusHistory(st *State, globalKey string, size int) ([]status.StatusInfo, 
 }
 
 // PruneStatusHistory removes status history entries until
-// only the maxLogsPerEntity newest records per unit remain.
-func PruneStatusHistory(st *State, maxLogsPerEntity int) error {
-	history, closer := st.getCollection(statusesHistoryC)
+// only logs newer than <maxLogTime> remain and also ensures
+// that the collection is smaller than <maxLogsMB> after the
+// deletion.
+func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	if maxHistoryMB < 0 {
+		return errors.NotValidf("non-positive maxHistoryMB")
+	}
+	if maxHistoryTime < 0 {
+		return errors.NotValidf("non-positive maxHistoryTime")
+	}
+	if maxHistoryMB == 0 && maxHistoryTime == 0 {
+		return errors.NotValidf("backlog size and time constraints are both 0")
+	}
+	history, closer := st.getRawCollection(statusesHistoryC)
 	defer closer()
 
-	historyW := history.Writeable()
-
-	// TODO(fwereade): This is a very strange implementation.
-	//
-	// It goes to a lot of effort to keep a *different* span of history for
-	// each entity -- which effectively hides interaction history older than
-	// the recorded span of the most-frequently-updated object.
-	//
-	// It would be much less surprising -- and much more efficient -- to keep
-	// either a fixed total number of records, or a fixed total span of history,
-	// -- but either way we should be deleting only the oldest records at any
-	// given time.
-	globalKeys, err := getEntitiesWithStatuses(historyW)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, globalKey := range globalKeys {
-		keepUpTo, ok, err := getOldestTimeToKeep(historyW, globalKey, maxLogsPerEntity)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !ok {
-			continue
-		}
-		_, err = historyW.RemoveAll(bson.D{
-			{"globalkey", globalKey},
-			{"updated", bson.M{"$lt": keepUpTo}},
+	// Status Record Age
+	// TODO(perrito666): 2016-04-26 lp:1558657
+	if maxHistoryTime > 0 {
+		t := time.Now().Add(-maxHistoryTime)
+		_, err := history.RemoveAll(bson.D{
+			{"updated", bson.M{"$lt": t.UnixNano()}},
 		})
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-	return nil
-}
-
-// getOldestTimeToKeep returns the create time for the oldest
-// status log to be kept.
-func getOldestTimeToKeep(coll mongo.Collection, globalKey string, size int) (int64, bool, error) {
+	if maxHistoryMB == 0 {
+		return nil
+	}
+	// Collection Size
+	collMB, err := getCollectionMB(history)
+	if err != nil {
+		return errors.Annotate(err, "retrieving status history collection size")
+	}
+	if collMB <= maxHistoryMB {
+		return nil
+	}
+	// TODO(perrito666) explore if there would be any beneffit from having the
+	// size limit be per model
+	count, err := history.Count()
+	if err == mgo.ErrNotFound || count <= 0 {
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "counting status history records")
+	}
+	// We are making the assumption that status sizes can be averaged for
+	// large numbers and we will get a reasonable approach on the size.
+	// Note: Capped collections are not used for this because they, currently
+	// at least, lack a way to be resized and the size is expected to change
+	// as real life data of the history usage is gathered.
+	sizePerStatus := float64(collMB) / float64(count)
+	if sizePerStatus == 0 {
+		return errors.New("unexpected result calculating status history entry size")
+	}
+	deleteStatuses := count - int(float64(collMB-maxHistoryMB)/sizePerStatus)
 	result := historicalStatusDoc{}
-	err := coll.Find(bson.D{{"globalkey", globalKey}}).Sort("-updated").Skip(size - 1).One(&result)
-	if err == mgo.ErrNotFound {
-		return -1, false, nil
-	}
+	err = history.Find(nil).Sort("-updated").Skip(deleteStatuses).One(&result)
 	if err != nil {
-		return -1, false, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return result.Updated, true, nil
-
-}
-
-// getEntitiesWithStatuses returns the ids for all entities that
-// have history entries
-func getEntitiesWithStatuses(coll mongo.Collection) ([]string, error) {
-	var globalKeys []string
-	err := coll.Find(nil).Distinct("globalkey", &globalKeys)
+	_, err = history.RemoveAll(bson.D{
+		{"updated", bson.M{"$lt": result.Updated}},
+	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return globalKeys, nil
+	return nil
 }

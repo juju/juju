@@ -518,7 +518,13 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(status.StatusError, "gaaah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "gaaah",
+		Since:   &now,
+	}
+	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -544,7 +550,13 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetAgentStatus(status.StatusError, "gaaah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "gaaah",
+		Since:   &now,
+	}
+	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return u
 }
@@ -730,9 +742,9 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PublicAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": public no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address`)
 	_, err = s.APIState.Client().PublicAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": public no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address`)
 }
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
@@ -773,9 +785,9 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PrivateAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": private no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address`)
 	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": private no address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address`)
 }
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
@@ -1156,7 +1168,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:      "foo",
 			HardwareCharacteristics: hc,
-			Addrs: params.FromNetworkAddresses(addrs),
+			Addrs: params.FromNetworkAddresses(addrs...),
 		}
 	}
 	// This will cause the last add-machine to fail.
@@ -1400,7 +1412,13 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(status.StatusError, "error", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "error",
+		Since:   &now,
+	}
+	err = machine.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1415,7 +1433,13 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(status.StatusError, "error", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "error",
+		Since:   &now,
+	}
+	err = machine.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }

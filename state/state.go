@@ -32,18 +32,16 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	statelease "github.com/juju/juju/state/lease"
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -68,6 +66,10 @@ const (
 	singularControllerNamespace = "singular-controller"
 )
 
+type providerIdDoc struct {
+	ID string `bson:"_id"` // format: "<model-uuid>:<global-key>:<provider-id>"
+}
+
 // State represents the state of an model
 // managed by juju.
 type State struct {
@@ -79,17 +81,19 @@ type State struct {
 	database      Database
 	policy        Policy
 
-	// TODO(fwereade): move these out of state and make them independent
-	// workers on which state depends.
-	watcher  *watcher.Watcher
-	pwatcher *presence.Watcher
-	// leadershipManager keeps track of units' service leadership leases
-	// within this environment.
-	leadershipClient  corelease.Client
-	leadershipManager *lease.Manager
-	// singularManager keeps track of which controller machine is responsible
-	// for managing this state's environment.
-	singularManager *lease.Manager
+	// leaseClientId is used by the lease infrastructure to
+	// differentiate between machines whose clocks may be
+	// relatively-skewed.
+	leaseClientId string
+
+	// workers is responsible for keeping the various sub-workers
+	// available by starting new ones as they fail. It doesn't do
+	// that yet, but having a type that collects them together is the
+	// first step.
+	//
+	// note that the allManager stuff below probably ought to be
+	// folded in as well, but that feels like its own task.
+	workers workers.Workers
 
 	// mu guards allManager, allModelManager & allModelWatcherBacking
 	mu                     sync.Mutex
@@ -104,6 +108,12 @@ type State struct {
 // StateServingInfo holds information needed by a controller.
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
+//
+// NOTE(fwereade): the api/params type exists *purely* for representing
+// this data over the wire, and has a legitimate reason to exist. This
+// type does not: it's non-implementation-specific and shoudl be defined
+// under core/ somewhere, so it can be used both here and in the agent
+// without dragging unnecessary/irrelevant packages into scope.
 type StateServingInfo struct {
 	APIPort      int
 	StatePort    int
@@ -166,30 +176,53 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		if info.global {
 			continue
 		}
-		coll, closer := st.getCollection(name)
-		defer closer()
-
-		var ids []bson.M
-		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+		if info.rawAccess {
+			if err := st.removeAllInCollectionRaw(name); err != nil {
+				return errors.Trace(err)
+			}
+			continue
+		}
+		// TODO(rog): 2016-05-06 lp:1579010
+		// We can end up with an enormous transaction here,
+		// because we'll have one operation for each document in the
+		// whole model.
+		var err error
+		ops, err = st.appendRemoveAllInCollectionOps(ops, name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, id := range ids {
-			if info.rawAccess {
-				if err := coll.Writeable().RemoveId(id["_id"]); err != nil {
-					return errors.Trace(err)
-				}
-			} else {
-				ops = append(ops, txn.Op{
-					C:      name,
-					Id:     id["_id"],
-					Remove: true,
-				})
-			}
-		}
 	}
-
 	return st.runTransaction(ops)
+}
+
+// removeAllInCollectionRaw removes all the documents from the given
+// named collection.
+func (st *State) removeAllInCollectionRaw(name string) error {
+	coll, closer := st.getCollection(name)
+	defer closer()
+	_, err := coll.Writeable().RemoveAll(nil)
+	return errors.Trace(err)
+}
+
+// appendRemoveAllInCollectionOps appends to ops operations to
+// remove all the documents in the given named collection.
+func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]txn.Op, error) {
+	coll, closer := st.getCollection(name)
+	defer closer()
+
+	var ids []bson.M
+	err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, id := range ids {
+		ops = append(ops, txn.Op{
+			C:      name,
+			Id:     id["_id"],
+			Remove: true,
+		})
+	}
+	return ops, nil
 }
 
 // ForModel returns a connection to mongo for the specified model. The
@@ -205,18 +238,19 @@ func (st *State) ForModel(env names.ModelTag) (*State, error) {
 	return newState, nil
 }
 
-// start starts the presence watcher, leadership manager and images metadata storage,
-// and fills in the controllerTag field with the supplied value.
+// start makes a *State functional post-creation, by:
+//   * setting controllerTag and leaseClientId
+//   * starting lease managers and watcher backends
+//   * creating cloud metadata storage
 func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
 
-	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
 		// the machine that's executing the code -- but there doesn't seem to be
 		// an accessible alternative.
-		clientId = identity.String()
+		st.leaseClientId = identity.String()
 	} else {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and
@@ -226,63 +260,64 @@ func (st *State) start(controllerTag names.ModelTag) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		clientId = fmt.Sprintf("anon-%s", uuid.String())
+		st.leaseClientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
+	// now we've set up leaseClientId, we can use workersFactory
 
-	logger.Infof("creating lease clients as %s", clientId)
+	logger.Infof("starting standard state workers")
 	clock := GetClock()
-	datastore := &environMongo{st}
-	leadershipClient, err := statelease.NewClient(statelease.ClientConfig{
-		Id:         clientId,
-		Namespace:  serviceLeadershipNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
+	factory := workersFactory{
+		st:    st,
+		clock: clock,
+	}
+	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
+		Factory: factory,
+		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
+		Clock:   clock,
+		Delay:   time.Second,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership lease client")
+		return errors.Annotatef(err, "cannot create standard state workers")
 	}
-	st.leadershipClient = leadershipClient
-	logger.Infof("starting leadership lease manager")
-	leadershipManager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: leadershipSecretary{},
-		Client:    leadershipClient,
-		Clock:     clock,
-		MaxSleep:  time.Minute,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership lease manager")
-	}
-	st.leadershipManager = leadershipManager
-
-	singularClient, err := statelease.NewClient(statelease.ClientConfig{
-		Id:         clientId,
-		Namespace:  singularControllerNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create singular lease client")
-	}
-	logger.Infof("starting singular lease manager")
-	singularManager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: singularSecretary{st.modelTag.Id()},
-		Client:    singularClient,
-		Clock:     clock,
-		MaxSleep:  time.Minute,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create singular lease manager")
-	}
-	st.singularManager = singularManager
+	st.workers = workers
 
 	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.ModelUUID(), cloudimagemetadataC, datastore)
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
+		st.ModelUUID(),
+		cloudimagemetadataC,
+		&environMongo{st},
+	)
 
-	logger.Infof("starting presence watcher")
-	st.pwatcher = presence.NewWatcher(st.getPresence(), st.modelTag)
+	logger.Infof("started state for %s successfully", st.modelTag)
 	return nil
+}
+
+func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  serviceLeadershipNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      GetClock(),
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create leadership lease client")
+	}
+	return client, nil
+}
+
+func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      GetClock(),
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create singular lease client")
+	}
+	return client, nil
 }
 
 // ModelTag() returns the model tag for the model controlled by
@@ -338,9 +373,16 @@ func (st *State) EnsureModelRemoved() error {
 	return nil
 }
 
-// getPresence returns the presence m.
-func (st *State) getPresence() *mgo.Collection {
+// getPresenceCollection returns the raw mongodb presence collection,
+// which is needed to interact with the state/presence package.
+func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
+}
+
+// getTxnLogCollection returns the raw mongodb txns collection, which is
+// needed to interact with the state/watcher package.
+func (st *State) getTxnLogCollection() *mgo.Collection {
+	return st.session.DB(jujuDB).C(txnLogC)
 }
 
 // newDB returns a database connection using a new session, along with
@@ -1637,100 +1679,6 @@ func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
 	return fetchIPAddresses(st, isDeadDoc)
 }
 
-// AddSubnet creates and returns a new subnet
-func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
-
-	subnetID := st.docID(args.CIDR)
-	var modelLocalProviderID string
-	if args.ProviderId != "" {
-		modelLocalProviderID = st.docID(string(args.ProviderId))
-	}
-
-	subDoc := subnetDoc{
-		DocID:             subnetID,
-		ModelUUID:         st.ModelUUID(),
-		Life:              Alive,
-		CIDR:              args.CIDR,
-		VLANTag:           args.VLANTag,
-		ProviderId:        modelLocalProviderID,
-		AllocatableIPHigh: args.AllocatableIPHigh,
-		AllocatableIPLow:  args.AllocatableIPLow,
-		AvailabilityZone:  args.AvailabilityZone,
-		SpaceName:         args.SpaceName,
-	}
-	subnet = &Subnet{doc: subDoc, st: st}
-	err = subnet.Validate()
-	if err != nil {
-		return nil, err
-	}
-	ops := []txn.Op{
-		assertModelActiveOp(st.ModelUUID()),
-		{
-			C:      subnetsC,
-			Id:     subnetID,
-			Assert: txn.DocMissing,
-			Insert: subDoc,
-		},
-	}
-
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if err := checkModelActive(st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if _, err = st.Subnet(args.CIDR); err == nil {
-			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-	case nil:
-		// If the ProviderId was not unique adding the subnet can fail without
-		// an error. Refreshing catches this by returning NotFoundError.
-		err = subnet.Refresh()
-		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
-			}
-			return nil, errors.Trace(err)
-		}
-		return subnet, nil
-	}
-	return nil, errors.Trace(err)
-}
-
-func (st *State) Subnet(cidr string) (*Subnet, error) {
-	subnets, closer := st.getCollection(subnetsC)
-	defer closer()
-
-	doc := &subnetDoc{}
-	err := subnets.FindId(cidr).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("subnet %q", cidr)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
-	}
-	return &Subnet{st, *doc}, nil
-}
-
-// AllSubnets returns all known subnets in the model.
-func (st *State) AllSubnets() (subnets []*Subnet, err error) {
-	subnetsCollection, closer := st.getCollection(subnetsC)
-	defer closer()
-
-	docs := []subnetDoc{}
-	err = subnetsCollection.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all subnets")
-	}
-	for _, doc := range docs {
-		subnets = append(subnets, &Subnet{st, doc})
-	}
-	return subnets, nil
-}
-
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
 	services, closer := st.getCollection(servicesC)
@@ -1764,36 +1712,6 @@ func (st *State) AllServices() (services []*Service, err error) {
 		services = append(services, newService(st, &v))
 	}
 	return services, nil
-}
-
-// docID generates a globally unique id value
-// where the model uuid is prefixed to the
-// localID.
-func (st *State) docID(localID string) string {
-	return ensureModelUUID(st.ModelUUID(), localID)
-}
-
-// localID returns the local id value by stripping
-// off the model uuid prefix if it is there.
-func (st *State) localID(ID string) string {
-	modelUUID, localID, ok := splitDocID(ID)
-	if !ok || modelUUID != st.ModelUUID() {
-		return ID
-	}
-	return localID
-}
-
-// strictLocalID returns the local id value by removing the
-// model UUID prefix.
-//
-// If there is no prefix matching the State's model, an error is
-// returned.
-func (st *State) strictLocalID(ID string) (string, error) {
-	modelUUID, localID, ok := splitDocID(ID)
-	if !ok || modelUUID != st.ModelUUID() {
-		return "", errors.Errorf("unexpected id: %#v", ID)
-	}
-	return localID, nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
@@ -2162,8 +2080,8 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.watcher.StartSync()
-	st.pwatcher.Sync()
+	st.workers.TxnLogWatcher().StartSync()
+	st.workers.PresenceWatcher().Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password
@@ -2397,6 +2315,29 @@ func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
 	}}
 
 	return st.runTransaction(ops)
+}
+
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: providerIdDoc{ID: key},
+	}
+}
+
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Remove: true,
+	}
+}
+
+func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
+	return st.docID(globalKey + ":" + string(providerId))
 }
 
 var tagPrefix = map[byte]string{

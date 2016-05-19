@@ -772,9 +772,15 @@ func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // where not separate entities.
-func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.SetStatus(agentStatus, info, data)
+	s := status.StatusInfo{
+		Status:  agentStatus.Status,
+		Message: agentStatus.Message,
+		Data:    agentStatus.Data,
+		Since:   agentStatus.Since,
+	}
+	return agent.SetStatus(s)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
@@ -786,9 +792,15 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
+// or items as old as <date> or items newer than now - <delta> time
 // representing past statuses for this unit.
-func (u *Unit) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        u.st,
+		globalKey: u.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Status returns the status of the unit.
@@ -819,16 +831,17 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
-	if !status.ValidWorkloadStatus(unitStatus) {
-		return errors.Errorf("cannot set invalid status %q", unitStatus)
+func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
+	if !status.ValidWorkloadStatus(unitStatus.Status) {
+		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
-		status:    unitStatus,
-		message:   info,
-		rawData:   data,
+		status:    unitStatus.Status,
+		message:   unitStatus.Message,
+		rawData:   unitStatus.Data,
+		updated:   unitStatus.Since,
 	})
 }
 
@@ -1078,7 +1091,8 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	return u.st.pwatcher.Alive(u.globalAgentKey())
+	pwatcher := u.st.workers.PresenceWatcher()
+	return pwatcher.Alive(u.globalAgentKey())
 }
 
 // Tag returns a name identifying the unit.
@@ -1098,8 +1112,9 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.pwatcher.Watch(u.globalAgentKey(), ch)
-	defer u.st.pwatcher.Unwatch(u.globalAgentKey(), ch)
+	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher.Watch(u.globalAgentKey(), ch)
+	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1109,8 +1124,8 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 		case <-time.After(timeout):
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
-		case <-u.st.pwatcher.Dead():
-			return u.st.pwatcher.Err()
+		case <-pwatcher.Dead():
+			return pwatcher.Err()
 		}
 	}
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
@@ -1119,7 +1134,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // SetAgentPresence signals that the agent for unit u is alive.
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := u.st.getPresence()
+	presenceCollection := u.st.getPresenceCollection()
 	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
 	err := p.Start()
 	if err != nil {

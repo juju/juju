@@ -997,10 +997,14 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		Clock:                       clock.WallClock,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
-		EntityStatusHistoryCount:    100,
-		EntityStatusHistoryInterval: 5 * time.Minute,
 		InstPollerAggregationDelay:  3 * time.Second,
-		SpacesImportedGate:          a.discoverSpacesComplete,
+		// TODO(perrito666) the status history pruning numbers need
+		// to be adjusting, after collecting user data from large install
+		// bases, to numbers allowing a rich and useful back history.
+		StatusHistoryPrunerMaxHistoryTime: 336 * time.Hour, // 2 weeks
+		StatusHistoryPrunerMaxHistoryMB:   5120,            // 5G
+		StatusHistoryPrunerInterval:       5 * time.Minute,
+		SpacesImportedGate:                a.discoverSpacesComplete,
 	})
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {

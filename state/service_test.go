@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -2073,15 +2074,26 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
 	u1, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u1.SetStatus(status1, "status 1", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status1,
+		Message: "status 1",
+		Since:   &now,
+	}
+	err = u1.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status2,
+		Message: "status 2",
+		Since:   &now,
+	}
 	if status2 == status.StatusError {
-		err = u2.SetAgentStatus(status2, "status 2", nil)
+		err = u2.SetAgentStatus(sInfo)
 	} else {
-		err = u2.SetStatus(status2, "status 2", nil)
+		err = u2.SetStatus(sInfo)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 

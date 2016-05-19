@@ -351,8 +351,13 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, err
 	}
 
+	refURL, err := charm.ParseURL(charmRef)
+	if err != nil {
+		return id, nil, errors.Trace(err)
+	}
+
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, store, err := resolver.resolve(charmRef)
+	newURL, channel, supportedSeries, store, err := resolver.resolve(refURL)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
@@ -370,8 +375,7 @@ func (c *upgradeCharmCommand) addCharm(
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.
 	if *newURL == *oldURL {
-		newRef, _ := charm.ParseURL(charmRef)
-		if newRef.Revision != -1 {
+		if refURL.Revision != -1 {
 			return id, nil, fmt.Errorf("already running specified charm %q", newURL)
 		}
 		// No point in trying to upgrade a charm store charm when

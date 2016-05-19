@@ -87,6 +87,7 @@ func (c *usersCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	return c.out.Write(ctx, common.ModelUserInfoFromParams(result, time.Now()))
 }
 

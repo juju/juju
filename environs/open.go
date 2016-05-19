@@ -20,7 +20,7 @@ import (
 // ControllerModelName is the name of the admin model in each controller.
 const ControllerModelName = "admin"
 
-// adminUser is the initial admin user created for all controllers.
+// AdminUser is the initial admin user created for all controllers.
 const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.
@@ -238,6 +238,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 		return nil, "", errors.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	caCert, caKey, err := cert.NewCA(cfg.Name(), cfg.UUID(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
 		return nil, "", errors.Trace(err)

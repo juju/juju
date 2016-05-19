@@ -29,15 +29,17 @@ type noAddress struct {
 	errors.Err
 }
 
-// NoAddressf returns an error which satisfies IsNoAddress().
-func NoAddressf(format string, args ...interface{}) error {
-	newErr := errors.NewErr(format+" no address", args...)
+// NoAddressError returns an error which satisfies IsNoAddressError(). The given
+// addressKind specifies what kind of address is missing, usually "private" or
+// "public".
+func NoAddressError(addressKind string) error {
+	newErr := errors.NewErr("no %s address", addressKind)
 	newErr.SetLocation(1)
 	return &noAddress{newErr}
 }
 
-// IsNoAddress reports whether err was created with NoAddressf().
-func IsNoAddress(err error) bool {
+// IsNoAddressError reports whether err was created with NoAddressError().
+func IsNoAddressError(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*noAddress)
 	return ok
@@ -354,7 +356,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		return addresses
 	} else if err != nil {
 		// Just log it, as it's not fatal.
-		logger.Warningf("cannot open %q: %v", LXCNetDefaultConfig, err)
+		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
 		return addresses
 	}
 	defer file.Close()
@@ -410,7 +412,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 			// Discover all addresses of bridgeName interface.
 			addrs, err := InterfaceByNameAddrs(bridgeName)
 			if err != nil {
-				logger.Warningf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+				logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
 				continue
 			}
 			logger.Debugf("%q has addresses %v", bridgeName, addrs)
@@ -418,7 +420,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		logger.Warningf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
+		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
 	return addresses
 }

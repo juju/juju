@@ -616,7 +616,7 @@ func nextAvailableLUN(vm *compute.VirtualMachine) (int, error) {
 		for _, disk := range *vm.Properties.StorageProfile.DataDisks {
 			lun := to.Int(disk.Lun)
 			if lun < 0 || lun > 31 {
-				logger.Warningf("ignore disk with invalid LUN: %+v", disk)
+				logger.Debugf("ignore disk with invalid LUN: %+v", disk)
 				continue
 			}
 			inUse[lun] = true

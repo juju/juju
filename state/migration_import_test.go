@@ -28,9 +28,9 @@ type MigrationImportSuite struct {
 var _ = gc.Suite(&MigrationImportSuite{})
 
 func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported status.StatusHistoryGetter, size int) {
-	exportedHistory, err := exported.StatusHistory(size)
+	exportedHistory, err := exported.StatusHistory(status.StatusHistoryFilter{Size: size})
 	c.Assert(err, jc.ErrorIsNil)
-	importedHistory, err := imported.StatusHistory(size)
+	importedHistory, err := imported.StatusHistory(status.StatusHistoryFilter{Size: size})
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < size; i++ {
 		c.Check(importedHistory[i].Status, gc.Equals, exportedHistory[i].Status)
@@ -339,7 +339,9 @@ func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
 	defer newSt.Close()
 
 	leaders := make(map[string]string)
-	for key, value := range state.LeadershipLeases(newSt) {
+	leases, err := state.LeadershipLeases(newSt)
+	c.Assert(err, jc.ErrorIsNil)
+	for key, value := range leases {
 		leaders[key] = value.Holder
 	}
 	c.Assert(leaders, jc.DeepEquals, map[string]string{

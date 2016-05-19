@@ -4,6 +4,8 @@
 package joyent
 
 import (
+	"log"
+
 	"github.com/joyent/gocommon/client"
 	joyenterrors "github.com/joyent/gocommon/errors"
 	"github.com/joyent/gosdc/cloudapi"
@@ -18,6 +20,22 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")
+
+// TODO(ericsnow) gologWriter can go away once loggo.Logger has a GoLogger() method.
+
+type gologWriter struct {
+	loggo.Logger
+	level loggo.Level
+}
+
+func newGoLogger() *log.Logger {
+	return log.New(&gologWriter{logger, loggo.TRACE}, "", 0)
+}
+
+func (w *gologWriter) Write(p []byte) (n int, err error) {
+	w.Logf(w.level, string(p))
+	return len(p), nil
+}
 
 type joyentProvider struct {
 	environProviderCredentials

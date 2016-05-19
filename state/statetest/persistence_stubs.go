@@ -95,12 +95,8 @@ func (s *StubPersistence) run(buildTxn jujutxn.TransactionSource) error {
 		if errors.Cause(err) == txn.ErrAborted {
 			continue
 		}
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	}
-	return nil
 }
 
 func (s *StubPersistence) RunTransaction(ops []txn.Op) error {

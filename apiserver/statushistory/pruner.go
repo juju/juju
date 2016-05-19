@@ -28,10 +28,11 @@ func NewAPI(st *state.State, _ *common.Resources, auth common.Authorizer) (*API,
 }
 
 // Prune endpoint removes status history entries until
-// only the N newest records per unit remain.
+// only the ones newer than now - p.MaxHistoryTime remain and
+// the history is smaller than p.MaxHistoryMB.
 func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthModelManager() {
 		return common.ErrPerm
 	}
-	return state.PruneStatusHistory(api.st, p.MaxLogsPerEntity)
+	return state.PruneStatusHistory(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

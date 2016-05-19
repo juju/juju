@@ -10,16 +10,18 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/juju/worker/uniter"
 )
 
 // handlerConfig stores configuration values for the socketListener.
 type handlerConfig struct {
+	charmdir       fortress.Guest
+	agent          agent.Agent
 	unitTag        names.UnitTag
-	charmURL       *corecharm.URL
-	validMetrics   map[string]corecharm.Metric
 	metricsFactory spool.MetricFactory
 	runner         *hookRunner
 }
@@ -34,23 +36,36 @@ type handler struct {
 
 // Handle triggers the collect-metrics hook and writes collected metrics
 // to the specified connection.
-func (l *handler) Handle(c net.Conn) (err error) {
-	defer func() {
-		if err != nil {
-			fmt.Fprintf(c, "%v\n", err.Error())
-		} else {
-			fmt.Fprintf(c, "ok\n")
-		}
-		c.Close()
-	}()
+func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
+	defer c.Close()
+
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	err = c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
+	err := c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
 	if err != nil {
 		return errors.Annotate(err, "failed to set the deadline")
 	}
+
+	err = l.config.charmdir.Visit(func() error {
+		return l.do(c)
+	}, abort)
+	if err != nil {
+		fmt.Fprintf(c, "error: %v\n", err.Error())
+	} else {
+		fmt.Fprintf(c, "ok\n")
+	}
+	return errors.Trace(err)
+}
+
+func (l *handler) do(c net.Conn) error {
+	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect")
+	charmURL, validMetrics, err := readCharm(l.config.unitTag, paths)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	recorder, err := l.config.metricsFactory.Recorder(
-		l.config.validMetrics,
-		l.config.charmURL.String(),
+		validMetrics,
+		charmURL.String(),
 		l.config.unitTag.String(),
 	)
 	if err != nil {

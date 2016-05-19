@@ -142,6 +142,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot get model details")
 	}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 	modelInfo := make([]common.ModelInfo, 0, len(models))
 	for _, info := range paramsModelInfo {
@@ -240,7 +241,7 @@ func (c *modelsCommand) formatTabular(value interface{}) ([]byte, error) {
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	fmt.Fprintf(tw, "NAME")
+	fmt.Fprintf(tw, "MODEL")
 	if c.listUUID {
 		fmt.Fprintf(tw, "\tMODEL UUID")
 	}

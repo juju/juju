@@ -146,10 +146,10 @@ func (m *mockModel) Destroy() error {
 	return nil
 }
 
-func (m *mockModel) SetStatus(status status.Status, info string, data map[string]interface{}) error {
-	m.status = status
-	m.statusInfo = info
-	m.statusData = data
+func (m *mockModel) SetStatus(sInfo status.StatusInfo) error {
+	m.status = sInfo.Status
+	m.statusInfo = sInfo.Message
+	m.statusData = sInfo.Data
 	return nil
 }
 

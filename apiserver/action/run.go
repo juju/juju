@@ -33,6 +33,9 @@ func getAllUnitNames(st *state.State, units, services []string) (result []names.
 		}
 	}
 	for _, unitName := range unitsSet.SortedValues() {
+		if !names.IsValidUnit(unitName) {
+			return nil, errors.Errorf("invalid unit name %q", unitName)
+		}
 		result = append(result, names.NewUnitTag(unitName))
 	}
 	return result, nil

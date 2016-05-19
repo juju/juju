@@ -208,6 +208,7 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 		Remove: true,
 	}}
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	csRes := charmStoreResource{
 		Resource:   newRes.Resource.Resource,
 		id:         newRes.ID,

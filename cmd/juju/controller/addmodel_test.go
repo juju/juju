@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controller_test
@@ -25,7 +25,7 @@ import (
 
 type addSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake  *fakeCreateClient
+	fake  *fakeAddClient
 	store *jujuclienttesting.MemStore
 }
 
@@ -33,7 +33,7 @@ var _ = gc.Suite(&addSuite{})
 
 func (s *addSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeCreateClient{
+	s.fake = &fakeAddClient{
 		model: params.Model{
 			Name:     "test",
 			UUID:     "fake-model-uuid",
@@ -282,9 +282,9 @@ func (s *addSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-// fakeCreateClient is used to mock out the behavior of the real
-// CreateModel command.
-type fakeCreateClient struct {
+// fakeAddClient is used to mock out the behavior of the real
+// AddModel command.
+type fakeAddClient struct {
 	owner   string
 	account map[string]interface{}
 	config  map[string]interface{}
@@ -292,13 +292,13 @@ type fakeCreateClient struct {
 	model   params.Model
 }
 
-var _ controller.CreateModelAPI = (*fakeCreateClient)(nil)
+var _ controller.AddModelAPI = (*fakeAddClient)(nil)
 
-func (*fakeCreateClient) Close() error {
+func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
+func (*fakeAddClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
 	if provider == "" {
 		provider = "dummy"
 	}
@@ -307,7 +307,7 @@ func (*fakeCreateClient) ConfigSkeleton(provider, region string) (params.ModelCo
 		"controller": false,
 	}, nil
 }
-func (f *fakeCreateClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
+func (f *fakeAddClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
 	if f.err != nil {
 		return params.Model{}, f.err
 	}

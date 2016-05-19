@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/state/workers"
 )
 
 func removeLeadershipSettingsOp(serviceId string) txn.Op {
@@ -25,13 +25,13 @@ func leadershipSettingsKey(serviceId string) string {
 // LeadershipClaimer returns a leadership.Claimer for units and services in the
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
-	return leadershipClaimer{st.leadershipManager}
+	return leadershipClaimer{st.workers.LeadershipManager()}
 }
 
 // LeadershipChecker returns a leadership.Checker for units and services in the
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
-	return leadershipChecker{st.leadershipManager}
+	return leadershipChecker{st.workers.LeadershipManager()}
 }
 
 // HackLeadership stops the state's internal leadership manager to prevent it
@@ -50,8 +50,7 @@ func (st *State) HackLeadership() {
 	// close them all on their own schedule, without panics -- but the failure of
 	// the shared component should successfully goose them all into shutting down,
 	// in parallel, of their own accord.)
-	st.leadershipManager.Kill()
-	st.singularManager.Kill()
+	st.workers.Kill()
 }
 
 // buildTxnWithLeadership returns a transaction source that combines the supplied source
@@ -100,9 +99,9 @@ func (leadershipSecretary) CheckDuration(duration time.Duration) error {
 	return nil
 }
 
-// leadershipChecker implements leadership.Checker by wrapping a lease.Manager.
+// leadershipChecker implements leadership.Checker by wrapping a LeaseManager.
 type leadershipChecker struct {
-	manager *lease.Manager
+	manager workers.LeaseManager
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
@@ -131,9 +130,9 @@ func (t leadershipToken) Check(out interface{}) error {
 	return errors.Trace(err)
 }
 
-// leadershipClaimer implements leadership.Claimer by wrappping a lease.Manager.
+// leadershipClaimer implements leadership.Claimer by wrappping a LeaseManager.
 type leadershipClaimer struct {
-	manager *lease.Manager
+	manager workers.LeaseManager
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.

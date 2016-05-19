@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -79,14 +81,14 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 	if publicAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, jc.Satisfies, network.IsNoAddress)
+		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
 	c.Assert(addr.Value, gc.Equals, publicAddress)
 	privAddr, err := machine.PrivateAddress()
 	if privateAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		c.Assert(err, jc.Satisfies, network.IsNoAddress)
+		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
 	c.Assert(privAddr.Value, gc.Equals, privateAddress)
 }
@@ -271,7 +273,13 @@ func (s *upgradesSuite) TestAddFilesystemStatusDoesNotOverwrite(c *gc.C) {
 	_, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
-	err := filesystem.SetStatus(status.StatusDestroying, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusDestroying,
+		Message: "",
+		Since:   &now,
+	}
+	err := filesystem.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAddFilesystemStatus(c, filesystem, status.StatusDestroying)
 }

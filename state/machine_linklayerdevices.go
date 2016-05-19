@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
+const entityNameLength = 16
+
 // LinkLayerDevice returns the link-layer device matching the given name. An
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
@@ -97,6 +99,11 @@ func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
 	callbackFunc := func(resultDoc *linkLayerDeviceDoc) {
 		removeOps := removeLinkLayerDeviceUnconditionallyOps(resultDoc.DocID)
 		ops = append(ops, removeOps...)
+		if resultDoc.ProviderID != "" {
+			providerId := network.Id(resultDoc.ProviderID)
+			op := m.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", providerId)
+			ops = append(ops, op)
+		}
 	}
 
 	selectDocIDOnly := bson.D{{"_id", 1}}
@@ -159,11 +166,7 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		existingProviderIDs, err := m.st.allProviderIDsForModelLinkLayerDevices()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		newDocs, err := m.prepareToSetLinkLayerDevices(devicesArgs, existingProviderIDs)
+		newDocs, err := m.prepareToSetLinkLayerDevices(devicesArgs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -174,6 +177,16 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			}
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
+			}
+			allIds, err := m.st.allProviderIDsForLinkLayerDevices()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, args := range devicesArgs {
+				if allIds.Contains(string(args.ProviderID)) {
+					err := NewProviderIDNotUniqueError(args.ProviderID)
+					return nil, errors.Annotatef(err, "invalid device %q", args.Name)
+				}
 			}
 		}
 
@@ -194,8 +207,26 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	return nil
 }
 
-func (st *State) allProviderIDsForModelLinkLayerDevices() (set.Strings, error) {
-	return st.allProviderIDsForModelCollection(linkLayerDevicesC, "link-layer devices")
+func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
+	idCollection, closer := st.getCollection(providerIDsC)
+	defer closer()
+
+	allProviderIDs := set.NewStrings()
+	var doc struct {
+		ID string `bson:"_id"`
+	}
+
+	pattern := fmt.Sprintf("^%s:linklayerdevice:.+$", st.ModelUUID())
+	modelProviderIDs := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	iter := idCollection.Find(modelProviderIDs).Iter()
+	for iter.Next(&doc) {
+		localProviderID := st.localID(doc.ID)[entityNameLength:]
+		allProviderIDs.Add(localProviderID)
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return allProviderIDs, nil
 }
 
 func (st *State) allProviderIDsForModelCollection(collectionName, entityLabelPlural string) (_ set.Strings, err error) {
@@ -224,26 +255,22 @@ func (st *State) allProviderIDsForModelCollection(collectionName, entityLabelPlu
 	return allProviderIDs, nil
 }
 
-func (m *Machine) prepareToSetLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs, existingProviderIDs set.Strings) ([]linkLayerDeviceDoc, error) {
+func (m *Machine) prepareToSetLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs) ([]linkLayerDeviceDoc, error) {
 	var pendingDocs []linkLayerDeviceDoc
 	pendingNames := set.NewStrings()
-	allProviderIDs := set.NewStrings(existingProviderIDs.Values()...)
 
 	for _, args := range devicesArgs {
-		newDoc, err := m.prepareOneSetLinkLayerDeviceArgs(&args, pendingNames, allProviderIDs)
+		newDoc, err := m.prepareOneSetLinkLayerDeviceArgs(&args, pendingNames)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pendingNames.Add(args.Name)
 		pendingDocs = append(pendingDocs, *newDoc)
-		if args.ProviderID != "" {
-			allProviderIDs.Add(string(args.ProviderID))
-		}
 	}
 	return pendingDocs, nil
 }
 
-func (m *Machine) prepareOneSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pendingNames, allProviderIDs set.Strings) (_ *linkLayerDeviceDoc, err error) {
+func (m *Machine) prepareOneSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pendingNames set.Strings) (_ *linkLayerDeviceDoc, err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid device %q", args.Name)
 
 	if err := m.validateSetLinkLayerDeviceArgs(args); err != nil {
@@ -252,10 +279,6 @@ func (m *Machine) prepareOneSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pe
 
 	if pendingNames.Contains(args.Name) {
 		return nil, errors.NewNotValid(nil, "Name specified more than once")
-	}
-
-	if allProviderIDs.Contains(string(args.ProviderID)) {
-		return nil, NewProviderIDNotUniqueError(args.ProviderID)
 	}
 
 	return m.newLinkLayerDeviceDocFromArgs(args), nil
@@ -381,10 +404,6 @@ func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *link
 	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(args.Name)
 
 	providerID := string(args.ProviderID)
-	if providerID != "" {
-		providerID = m.st.docID(providerID)
-	}
-
 	modelUUID := m.st.ModelUUID()
 
 	return &linkLayerDeviceDoc{
@@ -461,6 +480,10 @@ func (m *Machine) insertLinkLayerDeviceOps(newDoc *linkLayerDeviceDoc) ([]txn.Op
 			ops = append(ops, incrementDeviceNumChildrenOp(newParentDocID))
 		}
 	}
+	if newDoc.ProviderID != "" {
+		id := network.Id(newDoc.ProviderID)
+		ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
+	}
 	return append(ops,
 		insertLinkLayerDeviceDocOp(newDoc),
 		insertLinkLayerDevicesRefsOp(modelUUID, linkLayerDeviceDocID),
@@ -510,7 +533,19 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		ops = append(ops, assertLinkLayerDeviceExistsOp(existingParentDocID))
 		ops = append(ops, decrementDeviceNumChildrenOp(existingParentDocID))
 	}
-	return append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc)), nil
+	ops = append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc))
+
+	if newDoc.ProviderID != "" {
+		if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
+			return nil, errors.Errorf("cannot change ProviderID of link layer device %q", existingDoc.Name)
+		}
+		if existingDoc.ProviderID != newDoc.ProviderID {
+			// Need to insert the new provider id in providerIDsC
+			id := network.Id(newDoc.ProviderID)
+			ops = append(ops, m.st.networkEntityGlobalKeyOp("linklayerdevice", id))
+		}
+	}
+	return ops, nil
 }
 
 // LinkLayerDeviceAddress contains an IP address assigned to a link-layer
@@ -698,11 +733,11 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 
 	globalKey := ipAddressGlobalKey(m.doc.Id, args.DeviceName, addressValue)
 	ipAddressDocID := m.st.docID(globalKey)
-
 	providerID := string(args.ProviderID)
 	if providerID != "" {
 		providerID = m.st.docID(providerID)
 	}
+
 	modelUUID := m.st.ModelUUID()
 
 	newDoc := &ipAddressDoc{
@@ -833,6 +868,8 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 		logger.Debugf("setting link-layer devices %+v", argsToSet)
 		if err := m.SetLinkLayerDevices(argsToSet...); IsProviderIDNotUniqueError(err) {
 			// FIXME: Make updating devices with unchanged ProviderID idempotent.
+			// FIXME: this obliterates the ProviderID of *all*
+			// devices if any *one* of them is not unique.
 			for i, args := range argsToSet {
 				args.ProviderID = ""
 				argsToSet[i] = args
@@ -856,6 +893,8 @@ func (m *Machine) SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs []Lin
 func (m *Machine) SetDevicesAddressesIdempotently(devicesAddresses []LinkLayerDeviceAddress) error {
 	if err := m.SetDevicesAddresses(devicesAddresses...); IsProviderIDNotUniqueError(err) {
 		// FIXME: Make updating addresses with unchanged ProviderID idempotent.
+		// FIXME: this obliterates the ProviderID of *all*
+		// addresses if any *one* of them is not unique.
 		for i, args := range devicesAddresses {
 			args.ProviderID = ""
 			devicesAddresses[i] = args

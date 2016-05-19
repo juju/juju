@@ -306,21 +306,22 @@ func (m *Model) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the model.
-func (m *Model) SetStatus(modelStatus status.Status, info string, data map[string]interface{}) error {
+func (m *Model) SetStatus(sInfo status.StatusInfo) error {
 	st, closeState, err := m.getState()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer closeState()
-	if !status.ValidModelStatus(modelStatus) {
-		return errors.Errorf("cannot set invalid status %q", modelStatus)
+	if !status.ValidModelStatus(sInfo.Status) {
+		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
 	return setStatus(st, setStatusParams{
 		badge:     "model",
 		globalKey: m.globalKey(),
-		status:    modelStatus,
-		message:   info,
-		rawData:   data,
+		status:    sInfo.Status,
+		message:   sInfo.Message,
+		rawData:   sInfo.Data,
+		updated:   sInfo.Since,
 	})
 }
 

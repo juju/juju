@@ -109,7 +109,6 @@ func fakeParamsResource(name string, data []byte) params.Resource {
 		Type:        "file",
 		Path:        name + ".tgz",
 		Description: "something about " + name,
-		Origin:      "store",
 		Revision:    len(name),
 		Fingerprint: fp.Bytes(),
 		Size:        int64(len(data)),

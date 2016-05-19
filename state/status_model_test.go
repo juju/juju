@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -51,16 +53,29 @@ func (s *ModelStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.model.SetStatus(status.Status("vliegkat"), "orville", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Status("vliegkat"),
+		Message: "orville",
+		Since:   &now,
+	}
+	err := s.model.SetStatus(sInfo)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *ModelStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.model.SetStatus(status.StatusAvailable, "blah", map[string]interface{}{
-		"pew.pew": "zap",
-	})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusAvailable,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"pew.pew": "zap",
+		},
+		Since: &now,
+	}
+	err := s.model.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -94,7 +109,13 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err = s.st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.model.SetStatus(status.StatusAvailable, "not really", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusAvailable,
+		Message: "not really",
+		Since:   &now,
+	}
+	err = s.model.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: model not found`)
 
 	_, err = s.model.Status()
@@ -102,11 +123,17 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.model.SetStatus(status.StatusAvailable, "blah", map[string]interface{}{
-		"$foo.bar.baz": map[string]interface{}{
-			"pew.pew": "zap",
-		},
-	})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusAvailable,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"$foo.bar.baz": map[string]interface{}{
+				"pew.pew": "zap",
+			}},
+		Since: &now,
+	}
+	err := s.model.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	model, err := s.State.GetModel(s.model.ModelTag())

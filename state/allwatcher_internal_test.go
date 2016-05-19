@@ -204,7 +204,13 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetStatus(status.StatusError, m.Tag().String(), nil)
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  status.StatusError,
+			Message: m.Tag().String(),
+			Since:   &now,
+		}
+		err = m.SetStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, jc.ErrorIsNil)
@@ -992,7 +998,13 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = m.SetStatus("error", "pete tong", nil)
+				now := time.Now()
+				sInfo := status.StatusInfo{
+					Status:  status.StatusError,
+					Message: "pete tong",
+					Since:   &now,
+				}
+				err = m.SetStatus(sInfo)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1732,7 +1744,13 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetStatus(status.StatusError, "failure", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusError,
+				Message: "failure",
+				Since:   &now,
+			}
+			err = m.SetStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1847,7 +1865,13 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetStatus(status.StatusStarted, "", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusStarted,
+				Message: "",
+				Since:   &now,
+			}
+			err = m.SetStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2286,7 +2310,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPorts("tcp", 5555, 5558)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(status.StatusError, "failure", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusError,
+				Message: "failure",
+				Since:   &now,
+			}
+			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2485,7 +2515,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(status.StatusError, "failure", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusError,
+				Message: "failure",
+				Since:   &now,
+			}
+			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2570,7 +2606,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(status.StatusIdle, "", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusIdle,
+				Message: "",
+				Since:   &now,
+			}
+			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2617,9 +2659,20 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(status.StatusIdle, "", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusIdle,
+				Message: "",
+				Since:   &now,
+			}
+			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(status.StatusMaintenance, "doing work", nil)
+			sInfo = status.StatusInfo{
+				Status:  status.StatusMaintenance,
+				Message: "doing work",
+				Since:   &now,
+			}
+			err = u.SetStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2666,11 +2719,18 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetAgentStatus(status.StatusError, "hook error", map[string]interface{}{
-				"1st-key": "one",
-				"2nd-key": 2,
-				"3rd-key": true,
-			})
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusError,
+				Message: "hook error",
+				Data: map[string]interface{}{
+					"1st-key": "one",
+					"2nd-key": 2,
+					"3rd-key": true,
+				},
+				Since: &now,
+			}
+			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -2719,7 +2779,13 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(status.StatusActive, "", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.StatusActive,
+				Message: "",
+				Since:   &now,
+			}
+			err = u.SetStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{

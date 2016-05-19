@@ -258,7 +258,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Jobs:        jobs,
 		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               params.NetworkAddresses(p.Addrs),
+		Addresses:               params.NetworkAddresses(p.Addrs...),
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {

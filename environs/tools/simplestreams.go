@@ -432,6 +432,7 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 // streamMetadata contains all known metadata so that the correct index files can be written.
 // Only product files for the specified streams are written.
 func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, streams []string, writeMirrors ShouldWriteMirrors) error {
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	updated := time.Now()
 	index, legacyIndex, products, err := MarshalToolsMetadataJSON(streamMetadata, updated)
 	if err != nil {

@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"gopkg.in/juju/environschema.v1"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -54,6 +56,17 @@ type EnvironProvider interface {
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
 
 	ProviderCredentials
+}
+
+// ProviderSchema can be implemented by a provider to provide
+// access to its configuration schema. Once all providers implement
+// this, it will be included in the EnvironProvider type and the
+// information made available over the API.
+type ProviderSchema interface {
+	// Schema returns the schema for the provider. It should
+	// include all fields defined in environs/config, conventionally
+	// by calling config.Schema.
+	Schema() environschema.Fields
 }
 
 // BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
