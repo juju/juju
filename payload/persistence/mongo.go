@@ -89,11 +89,10 @@ func (d payloadDoc) payload() payload.FullPayloadInfo {
 }
 
 func (d payloadDoc) definition() charm.PayloadClass {
-	definition := charm.PayloadClass{
+	return charm.PayloadClass{
 		Name: d.Name,
 		Type: d.Type,
 	}
-	return definition
 }
 
 func (d payloadDoc) match(name, rawID string) bool {
