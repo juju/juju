@@ -360,23 +360,6 @@ func SelectPublicAddress(addresses []Address) (Address, bool) {
 	return addresses[index], true
 }
 
-// SelectPublicAddressWithType picks one address from a slice that would be
-// appropriate to display as a publicly accessible endpoint, taking addrType
-// into account. If there are no suitable addresses, then ok is false (and an
-// empty address is returned). If a suitable address is then ok is true.
-func SelectPublicAddressWithType(addresses []Address, addrType AddressType) (Address, bool) {
-	publicTypedMatch := func(addr Address, addrType AddressType) scopeMatch {
-		return publicMatch(addr, addr.Type == addrType)
-	}
-	index := bestAddressOfTypeIndex(len(addresses), addrType, func(i int) Address {
-		return addresses[i]
-	}, publicTypedMatch)
-	if index < 0 {
-		return Address{}, false
-	}
-	return addresses[index], true
-}
-
 // SelectPublicHostPort picks one HostPort from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
@@ -398,20 +381,6 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, boo
 	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
-	if index < 0 {
-		return Address{}, false
-	}
-	return addresses[index], true
-}
-
-// SelectInternalAddressWithType picks one address from a slice that can be used
-// as an endpoint for juju internal communication. If there are are no suitable
-// addresses, then ok is false (and an empty address is returned). If a suitable
-// address was found then ok is true.
-func SelectInternalAddressWithType(addresses []Address, addrType AddressType, machineLocal bool) (Address, bool) {
-	index := bestAddressOfTypeIndex(len(addresses), addrType, func(i int) Address {
-		return addresses[i]
-	}, internalTypedAddressMatcher(addrType, machineLocal))
 	if index < 0 {
 		return Address{}, false
 	}
@@ -496,10 +465,6 @@ func cloudOrMachineLocalMatch(addr Address) scopeMatch {
 		return exactScope
 	}
 	return cloudLocalMatch(addr)
-}
-
-func cloudOrMachineLocalTypedMatch(addr Address, addrType AddressType) scopeMatch {
-	return cloudOrMachineLocalMatch(addr, addr.Type == addrType)
 }
 
 type scopeMatch int

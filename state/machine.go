@@ -1298,18 +1298,18 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 
 	// Always prefer an exact match if available.
 	checkScopeIPv4 := func(addr address) bool {
-		return network.ExactTypeAndScopeMatch(addr.networkAddress(), network.IPv4Address, network.ScopePublic)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
 	}
 	checkScopeIPv6 := func(addr address) bool {
-		return network.ExactTypeAndScopeMatch(addr.networkAddress(), network.IPv6Address, network.ScopePublic)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
 	}
 	// Without an exact match, prefer a fallback match.
 	getIPv4Addr := func(addresses []address) network.Address {
-		addr, _ := network.SelectPublicAddressWithType(networkAddresses(addresses), network.IPv4Address)
+		addr, _ := network.SelectPublicAddress(networkAddresses(addresses))
 		return addr
 	}
 	getIPv6Addr := func(addresses []address) network.Address {
-		addr, _ := network.SelectPublicAddressWithType(networkAddresses(addresses), network.IPv6Address)
+		addr, _ := network.SelectPublicAddress(networkAddresses(addresses))
 		return addr
 	}
 
@@ -1338,26 +1338,18 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 
 	// Always prefer an exact match if available.
 	checkScopeIPv4 := func(addr address) bool {
-		return network.ExactTypeAndScopeMatch(
-			addr.networkAddress(),
-			network.IPv4Address,
-			network.ScopeMachineLocal, network.ScopeCloudLocal,
-		)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
 	checkScopeIPv6 := func(addr address) bool {
-		return network.ExactTypeAndScopeMatch(
-			addr.networkAddress(),
-			network.IPv6Address,
-			network.ScopeMachineLocal, network.ScopeCloudLocal,
-		)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
 	}
 	// Without an exact match, prefer a fallback match.
 	getIPv4Addr := func(addresses []address) network.Address {
-		addr, _ := network.SelectInternalAddressWithType(networkAddresses(addresses), network.IPv4Address, false)
+		addr, _ := network.SelectInternalAddress(networkAddresses(addresses), false)
 		return addr
 	}
 	getIPv6Addr := func(addresses []address) network.Address {
-		addr, _ := network.SelectInternalAddressWithType(networkAddresses(addresses), network.IPv6Address, false)
+		addr, _ := network.SelectInternalAddress(networkAddresses(addresses), false)
 		return addr
 	}
 
