@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-const entityNameLength = 16
-
 // LinkLayerDevice returns the link-layer device matching the given name. An
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
@@ -208,6 +206,14 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 }
 
 func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
+	return st.allProviderIDsForEntity("linklayerdevice")
+}
+
+func (st *State) allProviderIDsForAddresses() (set.Strings, error) {
+	return st.allProviderIDsForEntity("address")
+}
+
+func (st *State) allProviderIDsForEntity(entityName string) (set.Strings, error) {
 	idCollection, closer := st.getCollection(providerIDsC)
 	defer closer()
 
@@ -216,11 +222,11 @@ func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
 		ID string `bson:"_id"`
 	}
 
-	pattern := fmt.Sprintf("^%s:linklayerdevice:.+$", st.ModelUUID())
+	pattern := fmt.Sprintf("^%s:%s:.+$", st.ModelUUID(), entityName)
 	modelProviderIDs := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	iter := idCollection.Find(modelProviderIDs).Iter()
 	for iter.Next(&doc) {
-		localProviderID := st.localID(doc.ID)[entityNameLength:]
+		localProviderID := st.localID(doc.ID)[len(entityName)+1:]
 		allProviderIDs.Add(localProviderID)
 	}
 	if err := iter.Close(); err != nil {
@@ -582,6 +588,16 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			}
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
+			}
+			allIds, err := m.st.allProviderIDsForAddresses()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			for _, args := range devicesAddresses {
+				if allIds.Contains(string(args.ProviderID)) {
+					err := NewProviderIDNotUniqueError(args.ProviderID)
+					return nil, errors.Annotatef(err, "invalid address %q", args.CIDRAddress)
+				}
 			}
 		}
 
