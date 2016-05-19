@@ -753,9 +753,17 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 			}
 		} else if err == nil {
 			// Address already exists - update what's possible.
-			// XXX handle inserting providerIDsC record if adding a
-			// provider id.
 			ops = append(ops, updateIPAddressDocOp(&existingDoc, &newDoc))
+			if newDoc.ProviderID != "" {
+				if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
+					return nil, errors.Errorf("cannot change ProviderID of link address %q", existingDoc.Value)
+				}
+				if existingDoc.ProviderID != newDoc.ProviderID {
+					// Need to insert the new provider id in providerIDsC
+					id := network.Id(newDoc.ProviderID)
+					ops = append(ops, m.st.networkEntityGlobalKeyOp("address", id))
+				}
+			}
 		} else {
 			return nil, errors.Trace(err)
 		}
