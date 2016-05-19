@@ -55,7 +55,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 // Manifold returns a Manifold that encapsulates the instancepoller worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName, config.EnvironName},
-		Start:  config.start,
+		Inputs: []string{
+			config.APICallerName,
+			config.EnvironName,
+			config.ClockName,
+		},
+		Start: config.start,
 	}
 }
