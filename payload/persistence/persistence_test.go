@@ -69,7 +69,7 @@ func (s *payloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	err := wp.Track("a-unit/0", stID, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All", "All", "Run")
+	s.Stub.CheckCallNames(c, "Run", "All", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
@@ -99,7 +99,7 @@ func (s *payloadsPersistenceSuite) TestTrackRetryOkay(c *gc.C) {
 	err := wp.Track("a-unit/0", stID, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All", "All", "Run", "All", "All")
+	s.Stub.CheckCallNames(c, "Run", "All", "All", "All", "All")
 	s.State.CheckOps(c, [][]txn.Op{
 		{{
 			C:      "payloads",
@@ -142,7 +142,7 @@ func (s *payloadsPersistenceSuite) TestTrackIDAlreadyExists(c *gc.C) {
 	wp := s.NewPersistence()
 	err := wp.Track("a-unit/0", stID, pl)
 
-	s.Stub.CheckCallNames(c, "All")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrAlreadyExists)
 }
 
@@ -156,7 +156,7 @@ func (s *payloadsPersistenceSuite) TestTrackNameAlreadyExists(c *gc.C) {
 	err := wp.Track("a-unit/0", stID, pl)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-	s.Stub.CheckCallNames(c, "All", "All")
+	s.Stub.CheckCallNames(c, "Run", "All", "All")
 	s.State.CheckNoOps(c)
 }
 
@@ -170,7 +170,7 @@ func (s *payloadsPersistenceSuite) TestTrackLookupFailed(c *gc.C) {
 	err := pp.Track("a-unit/0", id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "All")
+	s.Stub.CheckCallNames(c, "Run", "All")
 }
 
 func (s *payloadsPersistenceSuite) TestTrackInsertFailed(c *gc.C) {
@@ -183,7 +183,7 @@ func (s *payloadsPersistenceSuite) TestTrackInsertFailed(c *gc.C) {
 	err := pp.Track("a-unit/0", id, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "All", "All", "Run")
+	s.Stub.CheckCallNames(c, "Run", "All", "All")
 }
 
 func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
@@ -196,7 +196,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
 	err := pp.SetStatus("a-unit/0", stID, payload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All", "Run")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
@@ -222,7 +222,7 @@ func (s *payloadsPersistenceSuite) TestSetStatusMissing(c *gc.C) {
 	err := pp.SetStatus("a-unit/0", id, payload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
-	s.Stub.CheckCallNames(c, "All")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, nil)
 }
 
@@ -350,7 +350,7 @@ func (s *payloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
 	err := pp.Untrack("a-unit/0", stID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All", "Run")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",
@@ -373,7 +373,7 @@ func (s *payloadsPersistenceSuite) TestUntrackCheckFailed(c *gc.C) {
 	pp := s.NewPersistence()
 	err := pp.Untrack("a-unit/0", id)
 
-	s.Stub.CheckCallNames(c, "All")
+	s.Stub.CheckCallNames(c, "Run", "All")
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	s.State.CheckOps(c, nil)
 }
@@ -390,7 +390,7 @@ func (s *payloadsPersistenceSuite) TestUntrackRetryFailed(c *gc.C) {
 	err := pp.Untrack("a-unit/0", stID)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "All", "Run", "All")
+	s.Stub.CheckCallNames(c, "Run", "All", "All")
 	s.State.CheckOps(c, [][]txn.Op{{
 		{
 			C:      "payloads",

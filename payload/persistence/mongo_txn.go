@@ -40,18 +40,14 @@ func (pt payloadsTransactions) run(ptxn payloadsTransaction) error {
 }
 
 func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) (jujutxn.TransactionSource, error) {
-	if err := ptxn.checkAsserts(pt.queries); err != nil {
-		// We cannot trace since mgo checks errors exactly.
-		return nil, err
-	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			// Fail immediately if we are retrying due to a failed assert.
-			if err := ptxn.checkAsserts(pt.queries); err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Probably a transient error, so try again.
+		// We always check the asserts manually before returning ops.
+		if err := ptxn.checkAsserts(pt.queries); err != nil {
+			return nil, errors.Trace(err)
 		}
+		// If the asserts check out then it was probably a transient
+		// error, so try again.
+
 		return ptxn.ops(), nil
 	}
 	return buildTxn, nil
