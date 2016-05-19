@@ -4,7 +4,6 @@
 package persistence_test
 
 import (
-	"reflect"
 	"sort"
 
 	"github.com/juju/errors"
@@ -18,53 +17,42 @@ import (
 
 type PayloadsPersistenceSuite struct {
 	testing.IsolationSuite
-
-	Stub *testing.Stub
-	db   *persistence.StubPersistenceBase
 }
 
 var _ = gc.Suite(&PayloadsPersistenceSuite{})
 
-func (s *PayloadsPersistenceSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	s.Stub = &testing.Stub{}
-	s.db = &persistence.StubPersistenceBase{Stub: s.Stub}
-}
-
-func (s *PayloadsPersistenceSuite) NewPersistence() *persistence.Persistence {
-	return persistence.NewPersistence(s.db)
-}
-
 func (s *PayloadsPersistenceSuite) TestListAllOkay(c *gc.C) {
-	p1 := newPayload("0", "a-unit/0", "docker", "spam/spam-xyz")
+	f := persistence.NewPayloadPersistenceFixture()
+	p1 := f.NewPayload("0", "a-unit/0", "docker", "spam/spam-xyz")
 	p1.Labels = []string{"a-tag"}
-	p2 := newPayload("0", "a-unit/0", "docker", "eggs/eggs-xyz")
+	p2 := f.NewPayload("0", "a-unit/0", "docker", "eggs/eggs-xyz")
 	p2.Labels = []string{"a-tag"}
-	s.db.SetDocs(p1, p2)
-	persist := s.NewPersistence()
+	f.SetDocs(p1, p2)
+	persist := f.NewPersistence()
 
 	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkPayloads(c, payloads, p1, p2)
-	s.Stub.CheckCallNames(c, "All")
+	f.CheckPayloads(c, payloads, p1, p2)
+	f.Stub.CheckCallNames(c, "All")
 }
 
 func (s *PayloadsPersistenceSuite) TestListAllEmpty(c *gc.C) {
-	persist := s.NewPersistence()
+	f := persistence.NewPayloadPersistenceFixture()
+	persist := f.NewPersistence()
 
 	payloads, err := persist.ListAll()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(payloads, gc.HasLen, 0)
-	s.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckCallNames(c, "All")
 }
 
 func (s *PayloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
+	f := persistence.NewPayloadPersistenceFixture()
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
-	persist := s.NewPersistence()
+	f.Stub.SetErrors(failure)
+	persist := f.NewPersistence()
 
 	_, err := persist.ListAll()
 
@@ -72,129 +60,134 @@ func (s *PayloadsPersistenceSuite) TestListAllFailed(c *gc.C) {
 }
 
 func (s *PayloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
-	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	wp := s.NewPersistence()
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
+	wp := f.NewPersistence()
 
-	err := wp.Track("a-unit/0", stID, pl)
+	err := wp.Track("a-unit/0", f.StateID, pl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "Run")
+	f.Stub.CheckCallNames(c, "Run")
 }
 
-func (s *PayloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+func (s *PayloadsPersistenceSuite) TestTrackInsertFailed(c *gc.C) {
+	f := persistence.NewPayloadPersistenceFixture()
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA")
-	pp := s.NewPersistence()
+	f.Stub.SetErrors(failure)
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA")
+	pp := f.NewPersistence()
 
-	err := pp.Track("a-unit/0", id, pl)
+	err := pp.Track("a-unit/0", f.StateID, pl)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "Run")
+	f.Stub.CheckCallNames(c, "Run")
 }
 
 func (s *PayloadsPersistenceSuite) TestSetStatusOkay(c *gc.C) {
-	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	s.db.SetDoc(stID, pl)
-	pp := s.NewPersistence()
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
+	stID := f.SetDoc(pl)
+	pp := f.NewPersistence()
 
 	err := pp.SetStatus("a-unit/0", stID, payload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "Run")
+	f.Stub.CheckCallNames(c, "Run")
 }
 
 func (s *PayloadsPersistenceSuite) TestSetStatusFailed(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	s.db.SetDoc(id, pl)
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
+	stID := f.SetDoc(pl)
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
+	f.Stub.SetErrors(failure)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
-	err := pp.SetStatus("a-unit/0", id, payload.StateRunning)
+	err := pp.SetStatus("a-unit/0", stID, payload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "Run")
+	f.Stub.CheckCallNames(c, "Run")
 }
 
 func (s *PayloadsPersistenceSuite) TestListOkay(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA/xyz")
-	s.db.SetDoc(id, pl)
-	other := newPayload("0", "a-unit/0", "docker", "payloadB/abc")
-	s.db.AddDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/xyz")
+	stID := f.SetDoc(pl)
+	other := f.NewPayload("0", "a-unit/0", "docker", "payloadB/abc")
+	f.DB.AddDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
-	payloads, missing, err := pp.List("a-unit/0", id)
+	payloads, missing, err := pp.List("a-unit/0", stID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckCallNames(c, "All")
 	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{pl})
 	c.Check(missing, gc.HasLen, 0)
 }
 
 func (s *PayloadsPersistenceSuite) TestListSomeMissing(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadB/abc")
-	s.db.SetDoc(id, pl)
-	other := newPayload("0", "a-unit/0", "docker", "payloadA/xyz")
-	s.db.AddDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
-
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadB/abc")
+	stID := f.SetDoc(pl)
+	other := f.NewPayload("0", "a-unit/0", "docker", "payloadA/xyz")
+	f.DB.AddDoc("f47ac10b-58cc-4372-a567-0e02b2c3d480", other)
 	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d481"
-	pp := s.NewPersistence()
-	payloads, missing, err := pp.List("a-unit/0", id, missingID)
+	pp := f.NewPersistence()
+
+	payloads, missing, err := pp.List("a-unit/0", stID, missingID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckCallNames(c, "All")
 	c.Check(payloads, jc.DeepEquals, []payload.FullPayloadInfo{pl})
 	c.Check(missing, jc.DeepEquals, []string{missingID})
 }
 
 func (s *PayloadsPersistenceSuite) TestListEmpty(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pp := s.NewPersistence()
-	payloads, missing, err := pp.List("a-unit/0", id)
+	f := persistence.NewPayloadPersistenceFixture()
+	pp := f.NewPersistence()
+
+	payloads, missing, err := pp.List("a-unit/0", f.StateID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckCallNames(c, "All")
 	c.Check(payloads, gc.HasLen, 0)
-	c.Check(missing, jc.DeepEquals, []string{id})
+	c.Check(missing, jc.DeepEquals, []string{f.StateID})
 }
 
 func (s *PayloadsPersistenceSuite) TestListFailure(c *gc.C) {
+	f := persistence.NewPayloadPersistenceFixture()
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
+	f.Stub.SetErrors(failure)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
 	_, _, err := pp.List("a-unit/0")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *PayloadsPersistenceSuite) TestListAllForUnitOkay(c *gc.C) {
-	existing := newPayloads("0", "a-unit/0", "docker", "payloadA/xyz", "payloadB/abc")
-	s.db.SetDocs(existing...)
+	f := persistence.NewPayloadPersistenceFixture()
+	existing := f.NewPayloads("0", "a-unit/0", "docker", "payloadA/xyz", "payloadB/abc")
+	f.SetDocs(existing...)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
 	payloads, err := pp.ListAllForUnit("a-unit/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckCallNames(c, "All")
 	sort.Sort(byName(payloads))
 	sort.Sort(byName(existing))
 	c.Check(payloads, jc.DeepEquals, existing)
 }
 
 func (s *PayloadsPersistenceSuite) TestListAllForUnitEmpty(c *gc.C) {
-	pp := s.NewPersistence()
+	f := persistence.NewPayloadPersistenceFixture()
+	pp := f.NewPersistence()
+
 	payloads, err := pp.ListAllForUnit("a-unit/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckCallNames(c, "All")
 	c.Check(payloads, gc.HasLen, 0)
 }
 
@@ -205,81 +198,38 @@ func (b byName) Less(i, j int) bool { return b[i].FullID() < b[j].FullID() }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 
 func (s *PayloadsPersistenceSuite) TestListAllForUnitFailed(c *gc.C) {
+	f := persistence.NewPayloadPersistenceFixture()
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
+	f.Stub.SetErrors(failure)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
 	_, err := pp.ListAllForUnit("a-unit/0")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *PayloadsPersistenceSuite) TestUntrackOkay(c *gc.C) {
-	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA/xyz")
-	s.db.SetDoc(stID, pl)
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/xyz")
+	stID := f.SetDoc(pl)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
 	err := pp.Untrack("a-unit/0", stID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCallNames(c, "Run")
+	f.Stub.CheckCallNames(c, "Run")
 }
 
 func (s *PayloadsPersistenceSuite) TestUntrackFailed(c *gc.C) {
-	stID := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	pl := newPayload("0", "a-unit/0", "docker", "payloadA/xyz")
-	s.db.SetDoc(stID, pl)
+	f := persistence.NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/xyz")
+	stID := f.SetDoc(pl)
 	failure := errors.Errorf("<failed!>")
-	s.Stub.SetErrors(failure)
+	f.Stub.SetErrors(failure)
+	pp := f.NewPersistence()
 
-	pp := s.NewPersistence()
 	err := pp.Untrack("a-unit/0", stID)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.Stub.CheckCallNames(c, "Run")
-}
-
-func newPayloads(machine, unit, pType string, ids ...string) []payload.FullPayloadInfo {
-	var payloads []payload.FullPayloadInfo
-	for _, id := range ids {
-		pl := newPayload(machine, unit, pType, id)
-		payloads = append(payloads, pl)
-	}
-	return payloads
-}
-
-var newPayload = persistence.NewPayload
-
-func checkPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...payload.FullPayloadInfo) {
-	remainder := make([]payload.FullPayloadInfo, len(payloads))
-	copy(remainder, payloads)
-	var noMatch []payload.FullPayloadInfo
-	for _, expected := range expectedList {
-		found := false
-		for i, payload := range remainder {
-			if reflect.DeepEqual(payload, expected) {
-				remainder = append(remainder[:i], remainder[i+1:]...)
-				found = true
-				break
-			}
-		}
-		if !found {
-			noMatch = append(noMatch, expected)
-		}
-	}
-
-	ok1 := c.Check(noMatch, gc.HasLen, 0)
-	ok2 := c.Check(remainder, gc.HasLen, 0)
-	if !ok1 || !ok2 {
-		c.Logf("<<<<<<<<\nexpected:")
-		for _, payload := range expectedList {
-			c.Logf("%#v", payload)
-		}
-		c.Logf("--------\ngot:")
-		for _, payload := range payloads {
-			c.Logf("%#v", payload)
-		}
-		c.Logf(">>>>>>>>")
-	}
+	f.Stub.CheckCallNames(c, "Run")
 }
