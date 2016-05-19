@@ -64,9 +64,22 @@ func (s *PayloadsPersistenceSuite) TestTrackOkay(c *gc.C) {
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
 	wp := f.NewPersistence()
 
-	err := wp.Track(pl.Unit, pl)
+	err := wp.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)
 
+	f.Stub.CheckCallNames(c, "Run")
+}
+
+func (s *PayloadsPersistenceSuite) TestTrackFailed(c *gc.C) {
+	f := persistence.NewPayloadPersistenceFixture()
+	failure := errors.Errorf("<failed!>")
+	f.Stub.SetErrors(failure)
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA")
+	pp := f.NewPersistence()
+
+	err := pp.Track(pl)
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
 	f.Stub.CheckCallNames(c, "Run")
 }
 

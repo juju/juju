@@ -27,7 +27,7 @@ var _ = gc.Suite(&PayloadsMongoSuite{})
 func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	itxn := insertPayloadTxn{pl.Unit, pl}
+	itxn := insertPayloadTxn{pl}
 
 	ops := itxn.ops()
 
@@ -52,7 +52,7 @@ func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 func (s *PayloadsMongoSuite) TestInsertCheckAssertsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	itxn := insertPayloadTxn{pl.Unit, pl}
+	itxn := insertPayloadTxn{pl}
 
 	err := itxn.checkAsserts(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,7 +64,7 @@ func (s *PayloadsMongoSuite) TestInsertCheckAssertsAlreadyExists(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
 	f.SetDocs(pl)
-	itxn := insertPayloadTxn{pl.Unit, pl}
+	itxn := insertPayloadTxn{pl}
 
 	err := itxn.checkAsserts(f.Queries)
 

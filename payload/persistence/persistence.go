@@ -64,10 +64,9 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 // Track adds records for the payload to persistence. If the payload
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
-func (pp Persistence) Track(unit string, pl payload.FullPayloadInfo) error {
+func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
 	logger.Tracef("inserting %q - %#v", pl.Name, pl)
 	txn := &insertPayloadTxn{
-		unit:    unit,
 		payload: pl,
 	}
 	if err := pp.txns.run(txn); err != nil {

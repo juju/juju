@@ -50,12 +50,11 @@ func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) jujutxn.Tr
 }
 
 type insertPayloadTxn struct {
-	unit    string
 	payload payload.FullPayloadInfo
 }
 
 func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
-	query := payloadIDQuery(itxn.unit, itxn.payload.Name)
+	query := payloadIDQuery(itxn.payload.Unit, itxn.payload.Name)
 	_, err := pq.one(query)
 	if err == nil {
 		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.payload.FullID())

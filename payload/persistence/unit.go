@@ -26,8 +26,7 @@ func NewUnitPersistence(pp *Persistence, unit string) *UnitPersistence {
 // is already there then false gets returned (true if inserted).
 // Existing records are not checked for consistency.
 func (up UnitPersistence) Track(pl payload.FullPayloadInfo) error {
-	pl.Unit = up.unit
-	return up.pp.Track(up.unit, pl)
+	return up.pp.Track(pl)
 }
 
 // SetStatus updates the raw status for the identified payload in
