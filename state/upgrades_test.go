@@ -55,6 +55,16 @@ func (s *upgradesSuite) removePreferredAddressFields(c *gc.C, machine *Machine) 
 		bson.D{{"$unset", bson.D{{"preferredprivateipv4address", ""}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$unset", bson.D{{"preferredpublicipv6address", ""}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$unset", bson.D{{"preferredprivateipv6address", ""}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) setPreferredAddressFields(c *gc.C, machine *Machine, addr string) {
@@ -70,6 +80,16 @@ func (s *upgradesSuite) setPreferredAddressFields(c *gc.C, machine *Machine, add
 	err = machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
 		bson.D{{"$set", bson.D{{"preferredprivateipv4address", stateAddr}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$set", bson.D{{"preferredpublicipv6address", stateAddr}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machinesCol.Update(
+		bson.D{{"_id", s.state.docID(machine.Id())}},
+		bson.D{{"$set", bson.D{{"preferredprivateipv6address", stateAddr}}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
