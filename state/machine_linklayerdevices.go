@@ -229,32 +229,6 @@ func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
 	return allProviderIDs, nil
 }
 
-func (st *State) allProviderIDsForModelCollection(collectionName, entityLabelPlural string) (_ set.Strings, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot get ProviderIDs for all %s", entityLabelPlural)
-
-	entities, closer := st.getCollection(collectionName)
-	defer closer()
-
-	allProviderIDs := set.NewStrings()
-	var doc struct {
-		ProviderID string `bson:"providerid"`
-	}
-
-	pattern := fmt.Sprintf("^%s:.+$", st.ModelUUID())
-	modelProviderIDs := bson.D{{"providerid", bson.D{{"$regex", pattern}}}}
-	onlyProviderIDField := bson.D{{"providerid", 1}}
-
-	iter := entities.Find(modelProviderIDs).Select(onlyProviderIDField).Iter()
-	for iter.Next(&doc) {
-		localProviderID := st.localID(doc.ProviderID)
-		allProviderIDs.Add(localProviderID)
-	}
-	if err := iter.Close(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return allProviderIDs, nil
-}
-
 func (m *Machine) prepareToSetLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs) ([]linkLayerDeviceDoc, error) {
 	var pendingDocs []linkLayerDeviceDoc
 	pendingNames := set.NewStrings()
@@ -597,11 +571,7 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		existingProviderIDs, err := m.st.allProviderIDsForModelIPAddresses()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		newDocs, err := m.prepareToSetDevicesAddresses(devicesAddresses, existingProviderIDs)
+		newDocs, err := m.prepareToSetDevicesAddresses(devicesAddresses)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -632,38 +602,24 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 	return nil
 }
 
-func (st *State) allProviderIDsForModelIPAddresses() (set.Strings, error) {
-	return st.allProviderIDsForModelCollection(ipAddressesC, "IP addresses")
-}
-
-func (m *Machine) prepareToSetDevicesAddresses(devicesAddresses []LinkLayerDeviceAddress, existingProviderIDs set.Strings) ([]ipAddressDoc, error) {
+func (m *Machine) prepareToSetDevicesAddresses(devicesAddresses []LinkLayerDeviceAddress) ([]ipAddressDoc, error) {
 	var pendingDocs []ipAddressDoc
-	allProviderIDs := set.NewStrings(existingProviderIDs.Values()...)
-
 	for _, args := range devicesAddresses {
-		newDoc, err := m.prepareOneSetDevicesAddresses(&args, allProviderIDs)
+		newDoc, err := m.prepareOneSetDevicesAddresses(&args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pendingDocs = append(pendingDocs, *newDoc)
-		if args.ProviderID != "" {
-			allProviderIDs.Add(string(args.ProviderID))
-		}
 	}
 	return pendingDocs, nil
 }
 
-func (m *Machine) prepareOneSetDevicesAddresses(args *LinkLayerDeviceAddress, allProviderIDs set.Strings) (_ *ipAddressDoc, err error) {
+func (m *Machine) prepareOneSetDevicesAddresses(args *LinkLayerDeviceAddress) (_ *ipAddressDoc, err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid address %q", args.CIDRAddress)
 
 	if err := m.validateSetDevicesAddressesArgs(args); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if allProviderIDs.Contains(string(args.ProviderID)) {
-		return nil, NewProviderIDNotUniqueError(args.ProviderID)
-	}
-
 	return m.newIPAddressDocFromArgs(args)
 }
 
