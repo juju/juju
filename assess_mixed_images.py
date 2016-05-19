@@ -23,8 +23,6 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_mixed_images")
 
-IMG_URL = 'https://s3.amazonaws.com/temp-streams/aws-image-streams/'
-
 
 def assess_mixed_images(client):
     charm_path = local_charm_path(charm='dummy-sink', juju_ver=client.version,
