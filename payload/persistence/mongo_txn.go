@@ -24,8 +24,8 @@ type payloadsTransaction interface {
 }
 
 type payloadsTransactions struct {
-	q      payloadsQueries
-	runner payloadsTxnRunner
+	queries payloadsQueries
+	runner  payloadsTxnRunner
 }
 
 func (pt payloadsTransactions) run(ptxn payloadsTransaction) error {
@@ -40,14 +40,14 @@ func (pt payloadsTransactions) run(ptxn payloadsTransaction) error {
 }
 
 func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) (jujutxn.TransactionSource, error) {
-	if err := ptxn.checkAsserts(pt.q); err != nil {
+	if err := ptxn.checkAsserts(pt.queries); err != nil {
 		// We cannot trace since mgo checks errors exactly.
 		return nil, err
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// Fail immediately if we are retrying due to a failed assert.
-			if err := ptxn.checkAsserts(pt.q); err != nil {
+			if err := ptxn.checkAsserts(pt.queries); err != nil {
 				return nil, errors.Trace(err)
 			}
 			// Probably a transient error, so try again.
@@ -58,9 +58,9 @@ func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) (jujutxn.T
 }
 
 type insertPayloadTxn struct {
-	unit string
-	stID string
-	p    payload.FullPayloadInfo
+	unit    string
+	stID    string
+	payload payload.FullPayloadInfo
 }
 
 func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
@@ -72,9 +72,9 @@ func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
 		return errors.Trace(err)
 	}
 
-	_, err = pq.payloadByName(itxn.unit, itxn.p.Name)
+	_, err = pq.payloadByName(itxn.unit, itxn.payload.Name)
 	if err == nil {
-		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.p.FullID())
+		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.payload.FullID())
 	}
 	if !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -88,7 +88,7 @@ func (itxn insertPayloadTxn) ops() []txn.Op {
 	// state-provided ID. However, that isn't something we can do in
 	// a transaction.
 
-	doc := newPayloadDoc(itxn.stID, itxn.p)
+	doc := newPayloadDoc(itxn.stID, itxn.payload)
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	return []txn.Op{{
 		C:      payloadsC,

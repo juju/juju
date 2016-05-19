@@ -15,7 +15,7 @@ type payloadsDBQueryer interface {
 }
 
 type payloadsQueries struct {
-	q payloadsDBQueryer
+	querier payloadsDBQueryer
 }
 
 func (pq payloadsQueries) one(unit string, query bson.D) (payloadDoc, error) {
@@ -24,7 +24,7 @@ func (pq payloadsQueries) one(unit string, query bson.D) (payloadDoc, error) {
 	}
 	var docs []payloadDoc
 	query = append(bson.D{{"unitid", unit}}, query...)
-	if err := pq.q.All(payloadsC, query, &docs); err != nil {
+	if err := pq.querier.All(payloadsC, query, &docs); err != nil {
 		return payloadDoc{}, errors.Trace(err)
 	}
 	if len(docs) > 1 {
@@ -42,7 +42,7 @@ func (pq payloadsQueries) all(unit string) ([]payloadDoc, error) {
 	if unit != "" {
 		query = bson.D{{"unitid", unit}}
 	}
-	if err := pq.q.All(payloadsC, query, &docs); err != nil {
+	if err := pq.querier.All(payloadsC, query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return docs, nil

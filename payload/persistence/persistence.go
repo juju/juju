@@ -26,20 +26,20 @@ type PersistenceBase interface {
 // UnitPersistence exposes the high-level persistence functionality
 // related to payloads in Juju.
 type Persistence struct {
-	q payloadsQueries
-	t payloadsTransactions
+	queries payloadsQueries
+	txns    payloadsTransactions
 }
 
 // NewPersistence wraps the "db" in a new Persistence.
 func NewPersistence(db PersistenceBase) *Persistence {
 	queries := payloadsQueries{
-		q: db,
+		querier: db,
 	}
 	return &Persistence{
-		q: queries,
-		t: payloadsTransactions{
-			q:      queries,
-			runner: db,
+		queries: queries,
+		txns: payloadsTransactions{
+			queries: queries,
+			runner:  db,
 		},
 	}
 }
@@ -48,7 +48,7 @@ func NewPersistence(db PersistenceBase) *Persistence {
 func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
-	docs, err := pp.q.all("")
+	docs, err := pp.queries.all("")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -67,11 +67,11 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 func (pp Persistence) Track(unit, stID string, pl payload.FullPayloadInfo) error {
 	logger.Tracef("inserting %q - %#v", stID, pl)
 	txn := &insertPayloadTxn{
-		unit: unit,
-		stID: stID,
-		p:    pl,
+		unit:    unit,
+		stID:    stID,
+		payload: pl,
 	}
-	if err := pp.t.run(txn); err != nil {
+	if err := pp.txns.run(txn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -88,7 +88,7 @@ func (pp Persistence) SetStatus(unit, stID, status string) error {
 		stID:   stID,
 		status: status,
 	}
-	if err := pp.t.run(txn); err != nil {
+	if err := pp.txns.run(txn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -100,7 +100,7 @@ func (pp Persistence) SetStatus(unit, stID, status string) error {
 func (pp Persistence) List(unit string, stIDs ...string) ([]payload.FullPayloadInfo, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	docs, missing, err := pp.q.unitPayloads(unit, stIDs)
+	docs, missing, err := pp.queries.unitPayloads(unit, stIDs)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -122,7 +122,7 @@ func (pp Persistence) List(unit string, stIDs ...string) ([]payload.FullPayloadI
 func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
-	docs, err := pp.q.allByStateID(unit)
+	docs, err := pp.queries.allByStateID(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,7 +139,7 @@ func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, er
 func (pp Persistence) LookUp(unit, name, rawID string) (string, error) {
 	// TODO(ericsnow) This could be more efficient.
 
-	docs, err := pp.q.allByStateID(unit)
+	docs, err := pp.queries.allByStateID(unit)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -167,7 +167,7 @@ func (pp Persistence) Untrack(unit, stID string) error {
 		unit: unit,
 		stID: stID,
 	}
-	if err := pp.t.run(txn); err != nil {
+	if err := pp.txns.run(txn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
