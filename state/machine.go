@@ -141,9 +141,17 @@ type machineDoc struct {
 	// machine when a public IPv4 address is requested.
 	PreferredPublicIPv4Address address `bson:",omitempty"`
 
+	// PreferredPublicIPv6Address is the preferred address to be used for the
+	// machine when a public IPv6 address is requested.
+	PreferredPublicIPv6Address address `bson:",omitempty"`
+
 	// PreferredPrivateIPv4Address is the preferred address to be used for the
 	// machine when a private IPv4 address is requested.
 	PreferredPrivateIPv4Address address `bson:",omitempty"`
+
+	// PreferredPrivateIPv6Address is the preferred address to be used for the
+	// machine when a private IPv6 address is requested.
+	PreferredPrivateIPv6Address address `bson:",omitempty"`
 
 	// The SupportedContainers attributes are used to advertise what containers this
 	// machine is capable of hosting.
@@ -1166,12 +1174,18 @@ func containsAddress(addresses []address, address address) bool {
 // PublicAddress returns a public address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PublicAddress() (network.Address, error) {
-	publicAddress := m.doc.PreferredPublicIPv4Address.networkAddress()
-	var err error
-	if publicAddress.Value == "" {
-		err = network.NoAddressError("public")
+	publicIPv4Address := m.doc.PreferredPublicIPv4Address.networkAddress()
+	publicIPv6Address := m.doc.PreferredPublicIPv6Address.networkAddress()
+	switch {
+	case publicIPv4Address.Value != "":
+		logger.Debugf("using machine %q preferred public IPv4 address %q", m.Id(), publicIPv4Address)
+		return publicIPv4Address, nil
+	case publicIPv6Address.Value != "":
+		logger.Debugf("using machine %q preferred public IPv6 address %q (no IPv4)", m.Id(), publicIPv6Address)
+		return publicIPv6Address, nil
 	}
-	return publicAddress, err
+
+	return network.Address{}, network.NoAddressError("public")
 }
 
 // maybeGetNewAddress determines if the current address is the most appropriate
@@ -1182,12 +1196,14 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 	// For picking the best address, try provider addresses first.
 	var newAddr address
 	netAddr := getAddr(providerAddresses)
+	logger.Debugf("got potential provider address %q (%#v)", netAddr, netAddr)
 	if netAddr.Value == "" {
 		netAddr = getAddr(machineAddresses)
 		newAddr = fromNetworkAddress(netAddr, OriginMachine)
 	} else {
 		newAddr = fromNetworkAddress(netAddr, OriginProvider)
 	}
+	logger.Debugf("checking whether to set address %+v as preferred", newAddr)
 	// The order of these checks is important. If the stored address is
 	// empty we *always* want to check for a new address so we do that
 	// first. If the stored address is unavilable we also *must* check for
@@ -1196,12 +1212,17 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 	// that. Finally we check to see if a better match on scope from the
 	// same origin is available.
 	if addr.Value == "" {
+		if newAddr.Value != "" {
+			logger.Debugf("new address %+v picked for the first time", newAddr)
+		}
 		return newAddr, newAddr.Value != ""
 	}
 	if !containsAddress(providerAddresses, addr) && !containsAddress(machineAddresses, addr) {
+		logger.Debugf("found new address %+v missing from both existing machine %+v and provider addresses %+v", newAddr, machineAddresses, providerAddresses)
 		return newAddr, true
 	}
 	if Origin(addr.Origin) != OriginProvider && Origin(newAddr.Origin) == OriginProvider {
+		logger.Debugf("picking new provider address %+v over existing machine address %+v", newAddr, addr)
 		return newAddr, true
 	}
 	if !checkScope(addr) {
@@ -1209,7 +1230,11 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 		// have already caught that, and for the inverse we don't want to
 		// replace the address.
 		if addr.Origin == newAddr.Origin {
-			return newAddr, checkScope(newAddr)
+			newScope := checkScope(newAddr)
+			if newScope {
+				logger.Debugf("found new address %+v with same origin as existing address %+v", newAddr, addr)
+			}
+			return newAddr, newScope
 		}
 	}
 	return addr, false
@@ -1218,24 +1243,45 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 // PrivateAddress returns a private address for the machine. If no address is
 // available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PrivateAddress() (network.Address, error) {
-	privateAddress := m.doc.PreferredPrivateIPv4Address.networkAddress()
-	var err error
-	if privateAddress.Value == "" {
-		err = network.NoAddressError("private")
+	privateIPv4Address := m.doc.PreferredPrivateIPv4Address.networkAddress()
+	privateIPv6Address := m.doc.PreferredPrivateIPv6Address.networkAddress()
+	switch {
+	case privateIPv4Address.Value != "":
+		logger.Debugf("using machine %q preferred private IPv4 address %q", m.Id(), privateIPv4Address)
+		return privateIPv4Address, nil
+	case privateIPv6Address.Value != "":
+		logger.Debugf("using machine %q preferred private IPv6 address %q (no IPv4)", m.Id(), privateIPv6Address)
+		return privateIPv6Address, nil
 	}
-	return privateAddress, err
+
+	return network.Address{}, network.NoAddressError("private")
 }
 
 func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
-	fieldName := "preferredprivateipv4address"
-	current := m.doc.PreferredPrivateIPv4Address
-	if isPublic {
+	isIPv6 := addr.AddressType == string(network.IPv6Address)
+	var (
+		fieldName    string
+		currentValue address
+	)
+	switch {
+	case isPublic && !isIPv6:
 		fieldName = "preferredpublicipv4address"
-		current = m.doc.PreferredPublicIPv4Address
+		currentValue = m.doc.PreferredPublicIPv4Address
+	case isPublic && isIPv6:
+		fieldName = "preferredpublicipv6address"
+		currentValue = m.doc.PreferredPublicIPv6Address
+	case !isPublic && !isIPv6:
+		fieldName = "preferredprivateipv4address"
+		currentValue = m.doc.PreferredPrivateIPv4Address
+	case !isPublic && isIPv6:
+		fieldName = "preferredprivateipv6address"
+		currentValue = m.doc.PreferredPrivateIPv6Address
 	}
+	logger.Debugf("preparing to set %+v preferred (public? %v) address of machine %q", addr, isPublic, m.Id())
+
 	// Assert that the field is either missing (never been set) or is
 	// unchanged from its previous value.
-	assert := bson.D{{"$or", []bson.D{{{fieldName, current}}, {{fieldName, nil}}}}}
+	assert := bson.D{{"$or", []bson.D{{{fieldName, currentValue}}, {{fieldName, nil}}}}}
 
 	ops := []txn.Op{{
 		C:      machinesC,
@@ -1247,46 +1293,91 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 }
 
 func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
-	publicAddress := m.doc.PreferredPublicIPv4Address
+	publicIPv4Address := m.doc.PreferredPublicIPv4Address
+	publicIPv6Address := m.doc.PreferredPublicIPv6Address
+
 	// Always prefer an exact match if available.
-	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
+	checkScopeIPv4 := func(addr address) bool {
+		return network.ExactTypeAndScopeMatch(addr.networkAddress(), network.IPv4Address, network.ScopePublic)
+	}
+	checkScopeIPv6 := func(addr address) bool {
+		return network.ExactTypeAndScopeMatch(addr.networkAddress(), network.IPv6Address, network.ScopePublic)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) network.Address {
-		addr, _ := network.SelectPublicAddress(networkAddresses(addresses))
+	getIPv4Addr := func(addresses []address) network.Address {
+		addr, _ := network.SelectPublicAddressWithType(networkAddresses(addresses), network.IPv4Address)
+		return addr
+	}
+	getIPv6Addr := func(addresses []address) network.Address {
+		addr, _ := network.SelectPublicAddressWithType(networkAddresses(addresses), network.IPv6Address)
 		return addr
 	}
 
-	newAddr, changed := maybeGetNewAddress(publicAddress, providerAddresses, machineAddresses, getAddr, checkScope)
-	if !changed {
-		// No change, so no ops.
-		return []txn.Op{}, publicAddress, false
+	newAddr, changed := maybeGetNewAddress(publicIPv4Address, providerAddresses, machineAddresses, getIPv4Addr, checkScopeIPv4)
+	if changed {
+		logger.Debugf("changing machine %q preferred public IPv4 address to %+v from %+v", m.Id(), newAddr, publicIPv4Address)
+		return m.setPreferredAddressOps(newAddr, true), newAddr, true
+	}
+	newAddr, changed = maybeGetNewAddress(publicIPv6Address, providerAddresses, machineAddresses, getIPv6Addr, checkScopeIPv6)
+	if changed {
+		logger.Debugf("changing machine %q preferred public IPv6 address to %+v from %+v", m.Id(), newAddr, publicIPv6Address)
+		return m.setPreferredAddressOps(newAddr, true), newAddr, true
 	}
 
-	ops := m.setPreferredAddressOps(newAddr, true)
-	return ops, newAddr, true
+	// No change, so no ops.
+	logger.Debugf(
+		"machine %q preferred public address (IPv4 %+v, IPv6 %+v) has not changed",
+		m.Id(), publicIPv4Address, publicIPv6Address,
+	)
+	return []txn.Op{}, address{}, false
 }
 
 func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
-	privateAddress := m.doc.PreferredPrivateIPv4Address
+	privateIPv4Address := m.doc.PreferredPrivateIPv4Address
+	privateIPv6Address := m.doc.PreferredPrivateIPv6Address
+
 	// Always prefer an exact match if available.
-	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
+	checkScopeIPv4 := func(addr address) bool {
+		return network.ExactTypeAndScopeMatch(
+			addr.networkAddress(),
+			network.IPv4Address,
+			network.ScopeMachineLocal, network.ScopeCloudLocal,
+		)
+	}
+	checkScopeIPv6 := func(addr address) bool {
+		return network.ExactTypeAndScopeMatch(
+			addr.networkAddress(),
+			network.IPv6Address,
+			network.ScopeMachineLocal, network.ScopeCloudLocal,
+		)
 	}
 	// Without an exact match, prefer a fallback match.
-	getAddr := func(addresses []address) network.Address {
-		addr, _ := network.SelectInternalAddress(networkAddresses(addresses), false)
+	getIPv4Addr := func(addresses []address) network.Address {
+		addr, _ := network.SelectInternalAddressWithType(networkAddresses(addresses), network.IPv4Address, false)
+		return addr
+	}
+	getIPv6Addr := func(addresses []address) network.Address {
+		addr, _ := network.SelectInternalAddressWithType(networkAddresses(addresses), network.IPv6Address, false)
 		return addr
 	}
 
-	newAddr, changed := maybeGetNewAddress(privateAddress, providerAddresses, machineAddresses, getAddr, checkScope)
-	if !changed {
-		// No change, so no ops.
-		return []txn.Op{}, privateAddress, false
+	newAddr, changed := maybeGetNewAddress(privateIPv4Address, providerAddresses, machineAddresses, getIPv4Addr, checkScopeIPv4)
+	if changed {
+		logger.Debugf("changing machine %q preferred private IPv4 address to %+v from %+v", m.Id(), newAddr, privateIPv4Address)
+		return m.setPreferredAddressOps(newAddr, false), newAddr, true
 	}
-	ops := m.setPreferredAddressOps(newAddr, false)
-	return ops, newAddr, true
+	newAddr, changed = maybeGetNewAddress(privateIPv6Address, providerAddresses, machineAddresses, getIPv6Addr, checkScopeIPv6)
+	if changed {
+		logger.Debugf("changing machine %q preferred private IPv6 address to %+v from %+v", m.Id(), newAddr, privateIPv6Address)
+		return m.setPreferredAddressOps(newAddr, false), newAddr, true
+	}
+
+	// No change, so no ops.
+	logger.Debugf(
+		"machine %q preferred private address (IPv4 %+v, IPv6 %+v) has not changed",
+		m.Id(), privateIPv4Address, privateIPv6Address,
+	)
+	return []txn.Op{}, address{}, false
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
