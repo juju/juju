@@ -449,8 +449,10 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	// no address is available, in which case the empty address is returned
 	// and setting the preferred address to an empty one is the correct
 	// thing to do when none is available.
-	privateAddr, _ := network.SelectInternalAddress(template.Addresses, false)
-	publicAddr, _ := network.SelectPublicAddress(template.Addresses)
+	privateIPv4Addr, _ := network.SelectInternalAddressWithType(template.Addresses, network.IPv4Address, false)
+	privateIPv6Addr, _ := network.SelectInternalAddressWithType(template.Addresses, network.IPv6Address, false)
+	publicIPv4Addr, _ := network.SelectPublicAddressWithType(template.Addresses, network.IPv4Address)
+	publicIPv6Addr, _ := network.SelectPublicAddressWithType(template.Addresses, network.IPv6Address)
 	return &machineDoc{
 		DocID:                       st.docID(id),
 		Id:                          id,
@@ -462,8 +464,10 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Life:                        Alive,
 		Nonce:                       template.Nonce,
 		Addresses:                   fromNetworkAddresses(template.Addresses, OriginMachine),
-		PreferredPrivateIPv4Address: fromNetworkAddress(privateAddr, OriginMachine),
-		PreferredPublicIPv4Address:  fromNetworkAddress(publicAddr, OriginMachine),
+		PreferredPrivateIPv4Address: fromNetworkAddress(privateIPv4Addr, OriginMachine),
+		PreferredPublicIPv4Address:  fromNetworkAddress(publicIPv4Addr, OriginMachine),
+		PreferredPrivateIPv6Address: fromNetworkAddress(privateIPv6Addr, OriginMachine),
+		PreferredPublicIPv6Address:  fromNetworkAddress(publicIPv6Addr, OriginMachine),
 		NoVote:    template.NoVote,
 		Placement: template.Placement,
 	}
