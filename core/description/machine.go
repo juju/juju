@@ -32,6 +32,8 @@ type machine struct {
 
 	PreferredPublicIPv4Address_  *address `yaml:"preferred-public-ipv4-address,omitempty"`
 	PreferredPrivateIPv4Address_ *address `yaml:"preferred-private-ipv4-address,omitempty"`
+	PreferredPublicIPv6Address_  *address `yaml:"preferred-public-ipv6-address,omitempty"`
+	PreferredPrivateIPv6Address_ *address `yaml:"preferred-private-ipv6-address,omitempty"`
 
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
@@ -210,6 +212,34 @@ func (m *machine) SetPreferredIPv4Addresses(publicIPv4 AddressArgs, privateIPv4 
 	}
 }
 
+// PreferredPublicIPv6Address implements Machine.
+func (m *machine) PreferredPublicIPv6Address() Address {
+	// To avoid typed nils check nil here.
+	if m.PreferredPublicIPv6Address_ == nil {
+		return nil
+	}
+	return m.PreferredPublicIPv6Address_
+}
+
+// PreferredPrivateIPv6Address implements Machine.
+func (m *machine) PreferredPrivateIPv6Address() Address {
+	// To avoid typed nils check nil here.
+	if m.PreferredPrivateIPv6Address_ == nil {
+		return nil
+	}
+	return m.PreferredPrivateIPv6Address_
+}
+
+// SetPreferredIPv6Addresses implements Machine.
+func (m *machine) SetPreferredIPv6Addresses(publicIPv6 AddressArgs, privateIPv6 AddressArgs) {
+	if publicIPv6.Value != "" {
+		m.PreferredPublicIPv6Address_ = newAddress(publicIPv6)
+	}
+	if privateIPv6.Value != "" {
+		m.PreferredPrivateIPv6Address_ = newAddress(privateIPv6)
+	}
+}
+
 // Tools implements Machine.
 func (m *machine) Tools() AgentTools {
 	// To avoid a typed nil, check before returning.
@@ -379,6 +409,8 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"machine-addresses":              schema.List(schema.StringMap(schema.Any())),
 		"preferred-public-ipv4-address":  schema.StringMap(schema.Any()),
 		"preferred-private-ipv4-address": schema.StringMap(schema.Any()),
+		"preferred-public-ipv6-address":  schema.StringMap(schema.Any()),
+		"preferred-private-ipv6-address": schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
@@ -393,6 +425,8 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"machine-addresses":              schema.Omit,
 		"preferred-public-ipv4-address":  schema.Omit,
 		"preferred-private-ipv4-address": schema.Omit,
+		"preferred-public-ipv6-address":  schema.Omit,
+		"preferred-private-ipv6-address": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -493,6 +527,22 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 			return nil, errors.Trace(err)
 		}
 		result.PreferredPrivateIPv4Address_ = privateIPv4Address
+	}
+
+	if address, ok := valid["preferred-public-ipv6-address"]; ok {
+		publicIPv6Address, err := importAddress(address.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.PreferredPublicIPv6Address_ = publicIPv6Address
+	}
+
+	if address, ok := valid["preferred-private-ipv6-address"]; ok {
+		privateIPv6Address, err := importAddress(address.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.PreferredPrivateIPv6Address_ = privateIPv6Address
 	}
 
 	machineList := valid["containers"].([]interface{})
