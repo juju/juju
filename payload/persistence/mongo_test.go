@@ -18,8 +18,6 @@ import (
 // These tests are a low-level sanity check in support of more complete
 // integration testing done in state/payloads_test.go.
 
-var _ = gc.Suite(&PayloadsMongoSuite{})
-
 type PayloadsMongoSuite struct {
 	testing.IsolationSuite
 
@@ -27,6 +25,8 @@ type PayloadsMongoSuite struct {
 	db      *StubPersistenceBase
 	queries payloadsQueries
 }
+
+var _ = gc.Suite(&PayloadsMongoSuite{})
 
 func (s *PayloadsMongoSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)

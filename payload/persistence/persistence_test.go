@@ -16,14 +16,14 @@ import (
 	"github.com/juju/juju/payload/persistence"
 )
 
-var _ = gc.Suite(&PayloadsPersistenceSuite{})
-
 type PayloadsPersistenceSuite struct {
 	testing.IsolationSuite
 
 	Stub *testing.Stub
 	db   *persistence.StubPersistenceBase
 }
+
+var _ = gc.Suite(&PayloadsPersistenceSuite{})
 
 func (s *PayloadsPersistenceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
