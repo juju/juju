@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -18,7 +18,7 @@ var createLock = cmdutil.HookExecutionLock
 
 // ManifoldConfig specifies the names a machinelock manifold should use to
 // address its dependencies.
-type ManifoldConfig util.AgentManifoldConfig
+type ManifoldConfig engine.AgentManifoldConfig
 
 // Manifold returns a dependency.Manifold that governs the construction of
 // and access to a machine-wide lock intended to prevent various operations
@@ -28,8 +28,8 @@ type ManifoldConfig util.AgentManifoldConfig
 // Clients can access the lock by passing a **fslock.Lock into the out param
 // of their dependency.Context's Get method.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	manifold := util.AgentManifold(util.AgentManifoldConfig(config), newWorker)
-	manifold.Output = util.ValueWorkerOutput
+	manifold := engine.AgentManifold(engine.AgentManifoldConfig(config), newWorker)
+	manifold.Output = engine.ValueWorkerOutput
 	return manifold
 }
 
@@ -40,5 +40,5 @@ func newWorker(a agent.Agent) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return util.NewValueWorker(lock)
+	return engine.NewValueWorker(lock)
 }
