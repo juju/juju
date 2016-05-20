@@ -461,6 +461,13 @@ class FakeBackend:
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
 
+    @contextmanager
+    def juju_async(self, command, args, used_feature_flags,
+                   juju_home, model=None, timeout=None):
+        yield
+        self.juju(command, args, used_feature_flags,
+                  juju_home, model, timeout=timeout)
+
     def get_juju_output(self, command, args, used_feature_flags,
                         juju_home, model=None, timeout=None):
         if model is not None:
@@ -546,10 +553,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
-
-    @contextmanager
-    def bootstrap_async(self, upload_tools=False):
-        yield
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment(self.model_name)
