@@ -222,7 +222,15 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 				return nil, err
 			}
 		}
-		return removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
+		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
+		if err != nil {
+			return nil, err
+		}
+		if dev.ProviderID() != "" {
+			op := dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID())
+			ops = append(ops, op)
+		}
+		return ops, nil
 	}
 	return dev.st.run(buildTxn)
 }
