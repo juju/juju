@@ -240,6 +240,23 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesSuccess(c *gc.C) {
 	s.removeAllAddressesOnMachineAndAssertNoneRemain(c)
 }
 
+func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesRemovesProviderIDReferences(c *gc.C) {
+	s.addNamedDevice(c, "foo")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "foo",
+		ConfigMethod: state.StaticAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   "bar",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.removeAllAddressesOnMachineAndAssertNoneRemain(c)
+
+	// Re-adding the same address to a new device should now succeed.
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ipAddressesStateSuite) addTwoDevicesWithTwoAddressesEach(c *gc.C) []*state.Address {
 	_, device1Addresses := s.addNamedDeviceWithAddresses(c, "eth1", "10.20.0.1/16", "10.20.0.2/16")
 	_, device2Addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.100.2/16", "fc00::/64")

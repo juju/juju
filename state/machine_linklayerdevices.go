@@ -822,7 +822,7 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	}
 
 	findQuery := findAddressesQuery(m.doc.Id, "")
-	if err := m.st.forEachIPAddressDoc(findQuery, nil, callbackFunc); err != nil {
+	if err := m.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allAddresses, nil

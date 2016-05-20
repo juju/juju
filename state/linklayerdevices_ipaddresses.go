@@ -296,14 +296,17 @@ func findAddressesQuery(machineID, deviceName string) bson.D {
 }
 
 func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, error) {
-	// XXX remove providerIDsC records
 	var ops []txn.Op
 	callbackFunc := func(resultDoc *ipAddressDoc) {
 		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
+		if resultDoc.ProviderID != "" {
+			addrID := network.Id(resultDoc.ProviderID)
+			op := st.networkEntityGlobalKeyRemoveOp("address", addrID)
+			ops = append(ops, op)
+		}
 	}
 
-	selectDocIDOnly := bson.D{{"_id", 1}}
-	err := st.forEachIPAddressDoc(findQuery, selectDocIDOnly, callbackFunc)
+	err := st.forEachIPAddressDoc(findQuery, callbackFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -311,14 +314,11 @@ func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, er
 	return ops, nil
 }
 
-func (st *State) forEachIPAddressDoc(findQuery, docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
+func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
 	addresses, closer := st.getCollection(ipAddressesC)
 	defer closer()
 
 	query := addresses.Find(findQuery)
-	if docFieldsToSelect != nil {
-		query = query.Select(docFieldsToSelect)
-	}
 	iter := query.Iter()
 
 	var resultDoc ipAddressDoc

@@ -464,7 +464,7 @@ func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
 	}
 
 	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
-	if err := dev.st.forEachIPAddressDoc(findQuery, nil, callbackFunc); err != nil {
+	if err := dev.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allAddresses, nil
