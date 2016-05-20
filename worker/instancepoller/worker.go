@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api/instancepoller"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -21,7 +20,7 @@ type Config struct {
 	Clock   clock.Clock
 	Delay   time.Duration
 	Facade  *instancepoller.API
-	Environ environs.Environ
+	Environ instanceGetter
 }
 
 func (config Config) Validate() error {
