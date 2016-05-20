@@ -282,12 +282,12 @@ class TestWriteStreams(TestCase):
                     with patch('sys.stderr'):
                         write_streams(credentials, china_credentials, now,
                                       streams)
+            self.assertFalse(
+                os.path.exists(os.path.join(streams, 'streams', 'v1',
+                                            'index2.json')))
             index = load_json(streams, 'index.json')
-            index2 = load_json(streams, 'index2.json')
             releases = load_json(streams, 'com.ubuntu.cloud.released-aws.json')
             irc_mock.assert_called_once_with(credentials, china_credentials)
-        self.assertEqual(
-            {'format': 'index:1.0', 'updated': 'now', 'index': {}}, index)
         self.assertEqual(
             {'format': 'index:1.0', 'updated': 'now', 'index': {
                 'com.ubuntu.cloud.released:aws': {
@@ -297,7 +297,7 @@ class TestWriteStreams(TestCase):
                     'path': 'streams/v1/com.ubuntu.cloud.released-aws.json',
                     'products': ['com.ubuntu.cloud:server:centos7:amd64'],
                     }
-                }}, index2)
+                }}, index)
         expected = {
             'content_id': 'com.ubuntu.cloud.released:aws',
             'format': 'products:1.0',

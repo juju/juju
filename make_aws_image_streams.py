@@ -11,6 +11,7 @@ import yaml
 
 from boto import ec2
 from simplestreams.generate_simplestreams import (
+    FileNamer,
     generate_index,
     items2content_trees,
     json_dump,
@@ -18,9 +19,15 @@ from simplestreams.generate_simplestreams import (
 from simplestreams.json2streams import (
     Item,
     JujuFileNamer,
-    write_release_index,
     )
 from simplestreams import util
+
+
+class WindowsFriendlyNamer(JujuFileNamer):
+
+    @classmethod
+    def get_index_path(cls):
+        return FileNamer.get_index_path()
 
 
 def get_parameters(argv=None):
@@ -205,7 +212,7 @@ def write_juju_streams(out_d, trees, updated, sticky):
     # Based on simplestreams.json2streams.write_juju_streams +
     # simplestreams.generate_simplestreams.write_streams,
     # but allows sticky to be specified.
-    namer = JujuFileNamer
+    namer = WindowsFriendlyNamer
     index = generate_index(trees, updated, namer)
     to_write = [(namer.get_index_path(), index,)]
     # Don't let products_condense modify the input
@@ -221,7 +228,6 @@ def write_juju_streams(out_d, trees, updated, sticky):
         util.mkdir_p(os.path.dirname(filef))
         json_dump(data, filef)
         out_filenames.append(filef)
-    out_filenames.append(write_release_index(out_d))
     return out_filenames
 
 
