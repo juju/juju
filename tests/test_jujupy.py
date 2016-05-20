@@ -427,6 +427,15 @@ class FakeBackend:
                     model_state.remove_container(machine_id)
                 else:
                     model_state.remove_machine(machine_id)
+            if command == 'quickstart':
+                parser = ArgumentParser()
+                parser.add_argument('--constraints')
+                parser.add_argument('--no-browser', action='store_true')
+                parser.add_argument('bundle')
+                parsed = parser.parse_args(args)
+                # Released quickstart doesn't seem to provide the config via
+                # the commandline.
+                self.quickstart(model, {}, parsed.bundle)
         else:
             if command == 'bootstrap':
                 self.bootstrap(args)
@@ -541,9 +550,6 @@ class FakeJujuClient(EnvJujuClient):
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
         yield
-
-    def quickstart(self, bundle):
-        self._backend.quickstart(self.env.environment, self.env.config, bundle)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         return self._backend.destroy_environment(self.model_name)
