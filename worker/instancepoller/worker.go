@@ -70,7 +70,13 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.aggregator, err = newAggregator(u.config)
+	u.aggregator, err = newAggregator(
+		aggregatorConfig{
+			Clock:   u.config.Clock,
+			Delay:   u.config.Delay,
+			Environ: u.config.Environ,
+		},
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}

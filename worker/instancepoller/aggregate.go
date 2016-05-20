@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -17,13 +18,19 @@ type instanceGetter interface {
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 }
 
+type aggregatorConfig struct {
+	Clock   clock.Clock
+	Delay   time.Duration
+	Environ instanceGetter
+}
+
 type aggregator struct {
-	config   Config
+	config   aggregatorConfig
 	catacomb catacomb.Catacomb
 	reqc     chan instanceInfoReq
 }
 
-func newAggregator(config Config) (*aggregator, error) {
+func newAggregator(config aggregatorConfig) (*aggregator, error) {
 	a := &aggregator{
 		config: config,
 		reqc:   make(chan instanceInfoReq),
@@ -65,25 +72,32 @@ func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 
 func (a *aggregator) loop() error {
 	var (
-		ready <-chan time.Time
-		reqs  []instanceInfoReq
+		next time.Time
+		reqs []instanceInfoReq
 	)
 
 	for {
+		var ready <-chan time.Time
+		if !next.IsZero() {
+			when := next.Add(a.config.Delay)
+			ready = clock.Alarm(a.config.Clock, when)
+		}
 		select {
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 
 		case req := <-a.reqc:
 			reqs = append(reqs, req)
-			if ready == nil {
-				ready = a.config.Clock.After(a.config.Delay)
+
+			if next.IsZero() {
+				next = a.config.Clock.Now()
 			}
+
 		case <-ready:
 			if err := a.doRequests(reqs); err != nil {
 				return errors.Trace(err)
 			}
-			ready = nil
+			next = time.Time{}
 			reqs = nil
 		}
 	}
