@@ -5,83 +5,41 @@ package persistence
 
 import (
 	"fmt"
+	"reflect"
 
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/testing"
 )
 
-type BaseSuite struct {
-	testing.BaseSuite
-
-	Stub    *gitjujutesting.Stub
-	State   *fakeStatePersistence
-	Unit    string
-	Machine string
+type PayloadPersistenceFixture struct {
+	Stub    *testing.Stub
+	DB      *StubPersistenceBase
+	Queries payloadsQueries
+	StateID string
 }
 
-func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.Stub = &gitjujutesting.Stub{}
-	s.State = &fakeStatePersistence{Stub: s.Stub}
-	s.Unit = "a-unit/0"
-	s.Machine = "0"
-}
-
-type PayloadDoc payloadDoc
-
-func (doc PayloadDoc) convert() *payloadDoc {
-	return (*payloadDoc)(&doc)
-}
-
-func (s *BaseSuite) NewDoc(id string, pl payload.FullPayloadInfo) *payloadDoc {
-	return &payloadDoc{
-		DocID:     "payload#" + s.Unit + "#" + pl.Name,
-		UnitID:    s.Unit,
-		Name:      pl.Name,
-		MachineID: pl.Machine,
-		StateID:   id,
-		Type:      pl.Type,
-		State:     pl.Status,
-		Labels:    append([]string{}, pl.Labels...),
-		RawID:     pl.ID,
+func NewPayloadPersistenceFixture() *PayloadPersistenceFixture {
+	stub := &testing.Stub{}
+	db := &StubPersistenceBase{Stub: stub}
+	return &PayloadPersistenceFixture{
+		Stub:    stub,
+		DB:      db,
+		Queries: payloadsQueries{db},
+		StateID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
 	}
 }
 
-func (s *BaseSuite) SetDoc(id string, pl payload.FullPayloadInfo) *payloadDoc {
-	payloadDoc := s.NewDoc(id, pl)
-	s.State.SetDocs(payloadDoc)
-	return payloadDoc
+func (f PayloadPersistenceFixture) NewPersistence() *Persistence {
+	return NewPersistence(f.DB)
 }
 
-func (s *BaseSuite) RemoveDoc(name string) {
-	docID := "payload#" + s.Unit + "#" + name
-	delete(s.State.docs, docID)
-}
-
-func (s *BaseSuite) NewPersistence() *Persistence {
-	return NewPersistence(s.State)
-}
-
-func (s *BaseSuite) SetUnit(id string) {
-	s.Unit = id
-}
-
-func (s *BaseSuite) NewPayloads(pType string, ids ...string) []payload.FullPayloadInfo {
-	var payloads []payload.FullPayloadInfo
-	for _, id := range ids {
-		pl := s.NewPayload(pType, id)
-		payloads = append(payloads, pl)
-	}
-	return payloads
-}
-
-func (s *BaseSuite) NewPayload(pType string, id string) payload.FullPayloadInfo {
+func (f PayloadPersistenceFixture) NewPayload(machine, unit, pType string, id string) payload.FullPayloadInfo {
 	name, pluginID := payload.ParseID(id)
 	if pluginID == "" {
 		pluginID = fmt.Sprintf("%s-%s", name, utils.MustNewUUID())
@@ -95,8 +53,111 @@ func (s *BaseSuite) NewPayload(pType string, id string) payload.FullPayloadInfo 
 			},
 			ID:     pluginID,
 			Status: "running",
-			Unit:   s.Unit,
+			Unit:   unit,
 		},
-		Machine: s.Machine,
+		Machine: machine,
 	}
+}
+
+func (f PayloadPersistenceFixture) NewPayloads(machine, unit, pType string, ids ...string) []payload.FullPayloadInfo {
+	var payloads []payload.FullPayloadInfo
+	for _, id := range ids {
+		pl := f.NewPayload(machine, unit, pType, id)
+		payloads = append(payloads, pl)
+	}
+	return payloads
+}
+
+func (f PayloadPersistenceFixture) SetDocs(payloads ...payload.FullPayloadInfo) []string {
+	return f.DB.SetDocs(payloads...)
+}
+
+func (f PayloadPersistenceFixture) SetDoc(pl payload.FullPayloadInfo) string {
+	f.DB.SetDoc(f.StateID, pl)
+	return f.StateID
+}
+
+func (f PayloadPersistenceFixture) CheckPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...payload.FullPayloadInfo) {
+	remainder := make([]payload.FullPayloadInfo, len(payloads))
+	copy(remainder, payloads)
+	var noMatch []payload.FullPayloadInfo
+	for _, expected := range expectedList {
+		found := false
+		for i, payload := range remainder {
+			if reflect.DeepEqual(payload, expected) {
+				remainder = append(remainder[:i], remainder[i+1:]...)
+				found = true
+				break
+			}
+		}
+		if !found {
+			noMatch = append(noMatch, expected)
+		}
+	}
+
+	ok1 := c.Check(noMatch, gc.HasLen, 0)
+	ok2 := c.Check(remainder, gc.HasLen, 0)
+	if !ok1 || !ok2 {
+		c.Logf("<<<<<<<<\nexpected:")
+		for _, payload := range expectedList {
+			c.Logf("%#v", payload)
+		}
+		c.Logf("--------\ngot:")
+		for _, payload := range payloads {
+			c.Logf("%#v", payload)
+		}
+		c.Logf(">>>>>>>>")
+	}
+}
+
+type StubPersistenceBase struct {
+	*testing.Stub
+
+	ReturnAll []*payloadDoc
+}
+
+func (s *StubPersistenceBase) AddDoc(stID string, pl payload.FullPayloadInfo) {
+	doc := newPayloadDoc(stID, pl)
+	s.ReturnAll = append(s.ReturnAll, doc)
+}
+
+func (s *StubPersistenceBase) SetDoc(stID string, pl payload.FullPayloadInfo) {
+	doc := newPayloadDoc(stID, pl)
+	s.ReturnAll = []*payloadDoc{doc}
+}
+
+func (s *StubPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) []string {
+	docs := make([]*payloadDoc, len(payloads))
+	stIDs := make([]string, len(payloads))
+	for i, pl := range payloads {
+		stID := fmt.Sprint(i)
+		docs[i] = newPayloadDoc(stID, pl)
+		stIDs[i] = stID
+	}
+	s.ReturnAll = docs
+	return stIDs
+}
+
+func (s *StubPersistenceBase) All(collName string, query, docs interface{}) error {
+	s.AddCall("All", collName, query, docs)
+	if err := s.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	actual := docs.(*[]payloadDoc)
+	var copied []payloadDoc
+	for _, doc := range s.ReturnAll {
+		copied = append(copied, *doc)
+	}
+	*actual = copied
+	return nil
+}
+
+func (s *StubPersistenceBase) Run(transactions jujutxn.TransactionSource) error {
+	s.AddCall("Run", transactions)
+	if err := s.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
