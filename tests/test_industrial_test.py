@@ -1836,7 +1836,13 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
     def test_get_bootstrap_client(self):
         client = FakeJujuClient(full_path='c', debug=True)
         puj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'], None)
-        bootstrap_client = puj_attempt.get_bootstrap_client(client)
+
+        def by_version(env, path, debug):
+            return FakeJujuClient(env, path, debug)
+
+        with patch.object(client, 'by_version', by_version):
+            bootstrap_client = puj_attempt.get_bootstrap_client(client)
+
         self.assertIsNot(bootstrap_client, client)
         self.assertIs(client.debug, bootstrap_client.debug)
         self.assertIs(client.env, bootstrap_client.env)

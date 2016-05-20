@@ -546,9 +546,6 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
-    def by_version(self, env, path, debug):
-        return FakeJujuClient(env, path, debug)
-
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
 
