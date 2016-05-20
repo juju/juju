@@ -60,7 +60,7 @@ func (pq payloadsQueries) unitPayloadsByName(unit string) (map[string]payloadDoc
 	if unit == "" {
 		return nil, errors.NewNotValid(nil, "missing unit ID")
 	}
-	docs, err := pq.all("")
+	docs, err := pq.all(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
