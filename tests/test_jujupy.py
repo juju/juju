@@ -328,11 +328,12 @@ class FakeBackend:
             config = yaml.safe_load(config_file)
         cloud_region = parsed.cloud_name_region.split('/', 1)
         cloud = cloud_region[0]
+        # Although they are specified with specific arguments instead of as
+        # config, these values are listed by get-model-config:
+        # name, region, type (from cloud).
         config['type'] = cloud
         if len(cloud_region) > 1:
             config['region'] = cloud_region[1]
-        else:
-            config['region'] = ''
         config['name'] = parsed.default_model
         if parsed.bootstrap_series is not None:
             config['default-series'] = parsed.bootstrap_series
