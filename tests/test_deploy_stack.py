@@ -757,6 +757,7 @@ class FakeBootstrapManager:
     def bootstrap_context(self, machines):
         initial_home = self.client.env.juju_home
         self.client.env.environment = self.client.env.environment + '-temp'
+        self.client.env.controller.name = self.client.env.environment
         try:
             self.entered_bootstrap = True
             self.client.env.juju_home = os.path.join(initial_home, 'isolated')
@@ -1356,6 +1357,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             'default-series': 'wacky',
             'tools-metadata-url': 'url',
             'type': 'foo',
+            'region': 'bar',
+            'test-mode': True,
             }, client.get_model_config())
         ue_mock.assert_called_with(client.env, 'bar', agent_url='url',
                                    region=None)

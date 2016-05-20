@@ -313,12 +313,30 @@ class FakeBackend:
             service_name = charm_name.split(':')[-1].split('/')[-1]
         model_state.deploy(charm_name, service_name)
 
-    def bootstrap(self, model_name, config, upload_tools=False,
-                  bootstrap_series=None):
-        config = copy.deepcopy(config)
-        if bootstrap_series is not None:
-            config['default-series'] = bootstrap_series
-        self.controller_state.bootstrap(model_name, config,
+    def bootstrap(self, args):
+        parser = ArgumentParser()
+        parser.add_argument('controller_name')
+        parser.add_argument('cloud_name_region')
+        parser.add_argument('--constraints')
+        parser.add_argument('--config')
+        parser.add_argument('--default-model')
+        parser.add_argument('--agent-version')
+        parser.add_argument('--bootstrap-series')
+        parser.add_argument('--upload-tools', action='store_true')
+        parsed = parser.parse_args(args)
+        with open(parsed.config) as config_file:
+            config = yaml.safe_load(config_file)
+        cloud_region = parsed.cloud_name_region.split('/', 1)
+        cloud = cloud_region[0]
+        config['type'] = cloud
+        if len(cloud_region) > 1:
+            config['region'] = cloud_region[1]
+        else:
+            config['region'] = ''
+        config['name'] = parsed.default_model
+        if parsed.bootstrap_series is not None:
+            config['default-series'] = parsed.bootstrap_series
+        self.controller_state.bootstrap(parsed.default_model, config,
                                         self.is_feature_enabled('jes'))
 
     def quickstart(self, model_name, config, bundle):
@@ -410,6 +428,8 @@ class FakeBackend:
                 else:
                     model_state.remove_machine(machine_id)
         else:
+            if command == 'bootstrap':
+                self.bootstrap(args)
             if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
                     return
@@ -487,6 +507,7 @@ class FakeJujuClient(EnvJujuClient):
             env = JujuData('name', {
                 'type': 'foo',
                 'default-series': 'angsty',
+                'region': 'bar',
                 }, juju_home='foo')
         juju_home = env.juju_home
         if juju_home is None:
@@ -516,11 +537,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def is_jes_enabled(self):
         return self._backend.is_feature_enabled('jes')
-
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
-        self._backend.bootstrap(
-            self.env.environment, self.env.config, upload_tools,
-            bootstrap_series)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
