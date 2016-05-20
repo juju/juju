@@ -2372,3 +2372,5 @@ func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 	_, err = m.AddAction("benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 }
+
+// TODO: tests: check Public|PrivateAddress() returns IPv6 if IPv4 N/A
