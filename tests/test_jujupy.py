@@ -549,12 +549,6 @@ class FakeJujuClient(EnvJujuClient):
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
 
-    def is_jes_enabled(self):
-        return self._backend.is_feature_enabled('jes')
-
-    def destroy_environment(self, force=True, delete_jenv=False):
-        return self._backend.destroy_environment(self.model_name)
-
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
 
@@ -575,6 +569,12 @@ class FakeJujuClient(EnvJujuClient):
 
     def backup(self):
         self._backend.controller_state.require_admin('backup', self.model_name)
+
+
+class FakeJujuClientJESFlag(FakeJujuClient):
+
+    def is_jes_enabled(self):
+        return self._backend.is_feature_enabled('jes')
 
 
 class TestErroredUnit(TestCase):

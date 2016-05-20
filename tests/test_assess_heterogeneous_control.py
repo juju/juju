@@ -134,7 +134,7 @@ class TestTestControlHeterogeneous(TestCase):
         # Prevent teardown
         bs_manager.tear_down_client = MagicMock()
         bs_manager.tear_down_client.destroy_environment.return_value = 0
-        with patch.object(client, 'destroy_environment', return_value=0):
+        with patch.object(client, 'kill_controller'):
             test_control_heterogeneous(bs_manager, client, True)
         models = client._backend.controller_state.models
         model_state = models[client.model_name]

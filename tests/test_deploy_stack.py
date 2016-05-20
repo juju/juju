@@ -779,7 +779,10 @@ class FakeBootstrapManager:
             self.exited_runtime = True
 
     def tear_down(self):
-        self.tear_down_client.destroy_environment()
+        tear_down_meth = getattr(
+            self.tear_down_client, 'destroy_environment',
+            self.tear_down_client.kill_controller)
+        tear_down_meth()
         self.torn_down = True
 
     @contextmanager
@@ -1283,7 +1286,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         bs_manager = BootstrapManager(
             'foobar', client, client,
             None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
+            True, True)
         with patch.object(bs_manager, 'dump_all_logs', autospec=True):
             with bs_manager.runtime_context([]):
                 self.assertEqual({
@@ -1296,7 +1299,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         bs_manager = BootstrapManager(
             'foobar', client, client,
             None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
+            True, True)
         bs_manager.known_hosts = {}
         with patch.object(bs_manager.client, 'add_ssh_machines',
                           autospec=True) as ads_mock:
@@ -1312,7 +1315,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             bs_manager = BootstrapManager(
                 'foobar', client, client,
                 None, [], None, None, None, None, log_dir, False,
-                False, False)
+                True, True)
             bs_manager.known_hosts['0'] = 'example.org'
             with patch.object(bs_manager.client, 'add_ssh_machines',
                               autospec=True) as ads_mock:
@@ -1327,7 +1330,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             bs_manager = BootstrapManager(
                 'foobar', client, client,
                 None, [], None, None, None, None, log_dir, False,
-                False, False)
+                True, True)
             juju_home = os.path.join(root, 'juju-home')
             os.mkdir(juju_home)
             client.env.juju_home = juju_home

@@ -69,6 +69,7 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
+    FakeJujuClientJESFlag,
     observable_temp_file,
     )
 from test_substrate import (
@@ -894,9 +895,9 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', False, True)])
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          old_client._backend.controller_state.state)
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          new_client._backend.controller_state.state)
 
     def test_run_stages_new_fail(self):
@@ -915,9 +916,9 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', True, False)])
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          old_client._backend.controller_state.state)
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          new_client._backend.controller_state.state)
 
     def test_run_stages_both_fail(self):
@@ -936,9 +937,9 @@ class TestIndustrialTest(JujuPyTestCase):
                 ('bootstrap', True, True),
                 ('prepare-suite', True, True),
                 ('foo-id', False, False)])
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          old_client._backend.controller_state.state)
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          new_client._backend.controller_state.state)
 
     def test_run_stages_recover_failure(self):
@@ -988,9 +989,9 @@ class TestIndustrialTest(JujuPyTestCase):
                            fake_bootstrap_manager):
                     industrial.run_attempt()
         self.assertEqual(2, le_mock.call_count)
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          old_client._backend.controller_state.state)
-        self.assertEqual('destroyed',
+        self.assertEqual('controller-killed',
                          new_client._backend.controller_state.state)
 
 
@@ -2158,7 +2159,7 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', None)
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
-            client = FakeJujuClient()
+            client = FakeJujuClientJESFlag()
             attempt_suite.iter_steps(client)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream=None, agent_url=None,
@@ -2171,7 +2172,7 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', 'bar-stream')
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
-            client = FakeJujuClient()
+            client = FakeJujuClientJESFlag()
             iterator = attempt_suite.iter_steps(client)
         self.assertEqual(iterator, mock_ibms.return_value)
         mock_bm.assert_called_once_with(
