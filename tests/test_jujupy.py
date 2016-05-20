@@ -576,12 +576,6 @@ class FakeJujuClient(EnvJujuClient):
     def backup(self):
         self._backend.controller_state.require_admin('backup', self.model_name)
 
-    def _get_register_command(self, output):
-        for row in output.split('\n'):
-            if 'juju register' in row:
-                return row.strip().lstrip()
-        raise AssertionError('Juju register command not found in output')
-
 
 class TestErroredUnit(TestCase):
 
