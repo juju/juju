@@ -49,23 +49,32 @@ func NewUnitPayloads(persist Persistence, unit, machine string) *UnitPayloads {
 }
 
 // Track inserts the provided payload info in state. If the payload
-// is already in the DB then errors.AlreadyExists is returned.
+// is already in the DB then it is replaced.
 func (uw UnitPayloads) Track(pl payload.Payload) error {
 	logger.Tracef("tracking %#v", pl)
+
+	// TODO(ericsnow) The unit should probably not be a part
+	// of payload.Payload...
+	//pl.Unit = uw.Unit
 
 	if err := pl.Validate(); err != nil {
 		return errors.NewNotValid(err, "bad payload")
 	}
+
+	if existing, err := uw.lookUp(pl.Name); err != nil {
+		if errors.Cause(err) != payload.ErrNotFound {
+			return errors.Trace(err)
+		}
+		// Wasn't found, so we're okay.
+	} else {
+		loggo.Info("payload %q (raw: %q) already exists; replacing...", pl.Name, existing.ID)
+	}
+
 	full := payload.FullPayloadInfo{
 		Payload: pl,
 		Machine: uw.Machine,
 	}
-
-	err := uw.Persist.Track(full)
-	if errors.Cause(err) == payload.ErrAlreadyExists {
-		return errors.Annotatef(err, "payload %s (already in state)", pl.Name)
-	}
-	if err != nil {
+	if err := uw.Persist.Track(full); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -73,7 +82,8 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 }
 
 // SetStatus updates the raw status for the identified payload to the
-// provided value.
+// provided value. If the payload is missing then payload.ErrNotFound
+// is returned.
 func (uw UnitPayloads) SetStatus(name, status string) error {
 	logger.Tracef("setting payload status for %q to %q", name, status)
 
@@ -146,24 +156,34 @@ func (uw UnitPayloads) List(names ...string) ([]payload.Result, error) {
 // LookUp returns the payload ID for the given name/rawID pair.
 func (uw UnitPayloads) LookUp(name, rawID string) (string, error) {
 	logger.Tracef("looking up payload id for %s/%s", name, rawID)
-
-	results, err := uw.List(name)
+	pl, err := uw.lookUp(name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if results[0].NotFound {
-		return "", errors.Annotate(payload.ErrNotFound, name)
-	}
-	if results[0].Error != nil {
-		return "", errors.Trace(results[0].Error)
-	}
-	pl := results[0].Payload
-
 	return pl.Name, nil
 }
 
+func (uw UnitPayloads) lookUp(name string) (payload.FullPayloadInfo, error) {
+	var pl payload.FullPayloadInfo
+
+	results, err := uw.List(name)
+	if err != nil {
+		return pl, errors.Trace(err)
+	}
+	if results[0].NotFound {
+		return pl, errors.Annotate(payload.ErrNotFound, name)
+	}
+	if results[0].Error != nil {
+		return pl, errors.Trace(results[0].Error)
+	}
+	pl = results[0].Payload
+
+	return pl, nil
+}
+
 // Untrack removes the identified payload from state. It does not
-// trigger the actual destruction of the payload.
+// trigger the actual destruction of the payload. If the payload is
+// missing then this is a noop.
 func (uw UnitPayloads) Untrack(name string) error {
 	logger.Tracef("untracking %q", name)
 	// If the record wasn't found then we're already done.

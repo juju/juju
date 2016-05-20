@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -34,9 +33,8 @@ func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 	f.Stub.CheckNoCalls(c)
 	id := "payload#a-unit/0#payloadA"
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
-		C:      "payloads",
-		Id:     id,
-		Assert: txn.DocMissing,
+		C:  "payloads",
+		Id: id,
 		Insert: &payloadDoc{
 			DocID:     id,
 			UnitID:    "a-unit/0",
@@ -57,7 +55,7 @@ func (s *PayloadsMongoSuite) TestInsertCheckAssertsMissing(c *gc.C) {
 	err := itxn.checkAsserts(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
-	f.Stub.CheckCallNames(c, "All")
+	f.Stub.CheckNoCalls(c)
 }
 
 func (s *PayloadsMongoSuite) TestInsertCheckAssertsAlreadyExists(c *gc.C) {
@@ -67,9 +65,9 @@ func (s *PayloadsMongoSuite) TestInsertCheckAssertsAlreadyExists(c *gc.C) {
 	itxn := insertPayloadTxn{pl}
 
 	err := itxn.checkAsserts(f.Queries)
+	c.Assert(err, jc.ErrorIsNil)
 
-	f.Stub.CheckCallNames(c, "All")
-	c.Check(errors.Cause(err), gc.Equals, payload.ErrAlreadyExists)
+	f.Stub.CheckNoCalls(c)
 }
 
 func (s *PayloadsMongoSuite) TestSetStatusOps(c *gc.C) {
@@ -151,5 +149,5 @@ func (s *PayloadsMongoSuite) TestRemoveCheckAssertsMissing(c *gc.C) {
 	err := rtxn.checkAsserts(f.Queries)
 
 	f.Stub.CheckCallNames(c, "All")
-	c.Check(errors.Cause(err), gc.Equals, jujutxn.ErrNoOperations)
+	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
 }

@@ -54,25 +54,19 @@ type insertPayloadTxn struct {
 }
 
 func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
-	query := payloadIDQuery(itxn.payload.Unit, itxn.payload.Name)
-	_, err := pq.one(query)
-	if err == nil {
-		return errors.Annotatef(payload.ErrAlreadyExists, "(%s)", itxn.payload.FullID())
-	}
-	if !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-
+	// "insert" has no asserts, so there's nothing to check here.
 	return nil
 }
 
 func (itxn insertPayloadTxn) ops() []txn.Op {
 	doc := newPayloadDoc(itxn.payload)
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
+
+	// Note that we do not assert txn.DocMissing here. If it already
+	// exists then we replace the existing one.
 	return []txn.Op{{
 		C:      payloadsC,
 		Id:     doc.DocID,
-		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
 }
@@ -119,8 +113,9 @@ func (rtxn *removePayloadTxn) checkAsserts(pq payloadsQueries) error {
 	query := payloadIDQuery(rtxn.unit, rtxn.name)
 	_, err := pq.one(query)
 	if errors.IsNotFound(err) {
-		// Must have already beeen removed!
-		return jujutxn.ErrNoOperations
+		// Must have already beeen removed! The business logic
+		// (i.e. state) can decide whether or not to ignore this.
+		return errors.Annotatef(payload.ErrNotFound, "(%s)", rtxn.name)
 	}
 	if err != nil {
 		return errors.Trace(err)

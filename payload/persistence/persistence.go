@@ -62,7 +62,7 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 }
 
 // Track adds records for the payload to persistence. If the payload
-// is already there then payload.ErrAlreadyExists is returned.
+// is already there then it is replaced with the new one.
 func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
 	logger.Tracef("inserting %q - %#v", pl.Name, pl)
 	txn := &insertPayloadTxn{
@@ -131,7 +131,8 @@ func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, er
 // (when you factor in status stored in a separate collection)?
 
 // Untrack removes all records associated with the identified payload
-// from persistence. If the payload is not there then it's a noop.
+// from persistence. If the payload is not there then
+// payload.ErrNotFound is returned.
 func (pp Persistence) Untrack(unit, name string) error {
 	txn := &removePayloadTxn{
 		unit: unit,
