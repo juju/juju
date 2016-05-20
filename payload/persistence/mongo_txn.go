@@ -67,10 +67,6 @@ func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
 }
 
 func (itxn insertPayloadTxn) ops() []txn.Op {
-	// We must also ensure that there isn't any collision on the
-	// state-provided ID. However, that isn't something we can do in
-	// a transaction.
-
 	doc := newPayloadDoc(itxn.payload)
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
 	return []txn.Op{{

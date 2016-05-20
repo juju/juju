@@ -62,8 +62,7 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 }
 
 // Track adds records for the payload to persistence. If the payload
-// is already there then false gets returned (true if inserted).
-// Existing records are not checked for consistency.
+// is already there then payload.ErrAlreadyExists is returned.
 func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
 	logger.Tracef("inserting %q - %#v", pl.Name, pl)
 	txn := &insertPayloadTxn{
@@ -76,9 +75,8 @@ func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
 }
 
 // SetStatus updates the raw status for the identified payload in
-// persistence. The return value corresponds to whether or not the
-// record was found in persistence. Any other problem results in
-// an error. The payload is not checked for inconsistent records.
+// persistence. If the payload is not there then payload.ErrNotFound
+// is returned.
 func (pp Persistence) SetStatus(unit, name, status string) error {
 	logger.Tracef("setting status for %q", name)
 	txn := &setPayloadStatusTxn{
@@ -111,7 +109,6 @@ func (pp Persistence) List(unit string, names ...string) ([]payload.FullPayloadI
 }
 
 // ListAllForUnit builds the list of all payloads found in persistence.
-// Inconsistent records result in errors.NotValid.
 func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
@@ -134,9 +131,7 @@ func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, er
 // (when you factor in status stored in a separate collection)?
 
 // Untrack removes all records associated with the identified payload
-// from persistence. Also returned is whether or not the payload was
-// found. If the records for the payload are not consistent then
-// errors.NotValid is returned.
+// from persistence. If the payload is not there then it's a noop.
 func (pp Persistence) Untrack(unit, name string) error {
 	txn := &removePayloadTxn{
 		unit: unit,
