@@ -32,7 +32,7 @@ SUPPORTED_RELEASES = """\
 15.04 vivid HISTORIC
 15.10 wily SUPPORTED
 16.04 xenial LTS
-16.10 yakety DEVEL
+16.10 yakkety DEVEL
 """
 
 
