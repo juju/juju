@@ -571,12 +571,6 @@ class FakeJujuClient(EnvJujuClient):
         self._backend.controller_state.require_admin('backup', self.model_name)
 
 
-class FakeJujuClientJESFlag(FakeJujuClient):
-
-    def is_jes_enabled(self):
-        return self._backend.is_feature_enabled('jes')
-
-
 class TestErroredUnit(TestCase):
 
     def test_output(self):

@@ -69,7 +69,6 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
-    FakeJujuClientJESFlag,
     observable_temp_file,
     )
 from test_substrate import (
@@ -2159,12 +2158,12 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', None)
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
-            client = FakeJujuClientJESFlag()
+            client = FakeJujuClient()
             attempt_suite.iter_steps(client)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream=None, agent_url=None,
-            bootstrap_host=None, jes_enabled=False, keep_env=True,
-            log_dir='qux-1', machines=[], permanent=False,
+            bootstrap_host=None, jes_enabled=True, keep_env=True,
+            log_dir='qux-1', machines=[], permanent=True,
             region=None, series=None)
 
     def test_iter_steps_agent_stream(self):
@@ -2172,13 +2171,13 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', 'bar-stream')
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
-            client = FakeJujuClientJESFlag()
+            client = FakeJujuClient()
             iterator = attempt_suite.iter_steps(client)
         self.assertEqual(iterator, mock_ibms.return_value)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream='bar-stream', agent_url=None,
-            bootstrap_host=None, jes_enabled=False, keep_env=True,
-            log_dir='qux-1', machines=[], permanent=False,
+            bootstrap_host=None, jes_enabled=True, keep_env=True,
+            log_dir='qux-1', machines=[], permanent=True,
             region=None, series=None)
 
     def test__iter_bs_manager_steps(self):
