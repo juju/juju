@@ -94,19 +94,19 @@ class TestAssessRecovery(TestCase):
             assess_recovery(bs_manager, 'ha-backup', 'trusty')
 
     def test_admin_model_backup(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = FakeJujuClient()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'backup', 'trusty')
 
     def test_admin_model_ha(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = FakeJujuClient()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha', 'trusty')
 
     def test_admin_model_ha_backup(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = FakeJujuClient()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha-backup', 'trusty')

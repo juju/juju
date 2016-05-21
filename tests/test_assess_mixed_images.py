@@ -82,7 +82,7 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_mixed_images(self):
-        mock_client = FakeJujuClient(jes_enabled=True)
+        mock_client = FakeJujuClient()
         mock_client.bootstrap()
         assess_mixed_images(mock_client)
         self.assertEqual({

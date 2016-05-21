@@ -1223,7 +1223,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(0, imc_mock.call_count)
 
     def test_dump_all_multi_model(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = FakeJujuClient()
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
@@ -1243,7 +1243,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             del_mock.mock_calls)
 
     def test_dump_all_multi_model_iter_failure(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = FakeJujuClient()
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
@@ -1341,7 +1341,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                         raise LoggedException()
 
     def test_booted_context_omits_supported(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = FakeJujuClient()
         client.env.juju_home = use_context(self, temp_dir())
         client.bootstrap_replaces = {'agent-version', 'series',
                                      'bootstrap-host', 'agent-stream'}

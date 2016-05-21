@@ -521,7 +521,7 @@ class FakeJujuClient(EnvJujuClient):
     default_backend = FakeBackend
 
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=True, version='2.0.0', _backend=None):
+                 version='2.0.0', _backend=None):
         if env is None:
             env = JujuData('name', {
                 'type': 'foo',
@@ -536,9 +536,7 @@ class FakeJujuClient(EnvJujuClient):
             _backend = self.default_backend(
                 backend_state, version=version, full_path=full_path,
                 debug=debug)
-            if not jes_enabled:
-                raise JESNotSupported()
-            _backend.set_feature('jes', jes_enabled)
+            _backend.set_feature('jes', True)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
@@ -581,7 +579,7 @@ class FakeJujuClientOptionalJES(FakeJujuClient):
                  jes_enabled=True, version='2.0.0', _backend=None):
 
         super(FakeJujuClientOptionalJES, self).__init__(env, full_path,
-              debug, jes_enabled=True, version=version, _backend=_backend)
+              debug, version=version, _backend=_backend)
         if _backend is None:
             self._backend.set_feature('jes', jes_enabled)
 
