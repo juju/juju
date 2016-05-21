@@ -519,7 +519,7 @@ class FakeJujuClient(EnvJujuClient):
     used_feature_flags = frozenset(['address-allocation', 'jes'])
 
     def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False, version='2.0.0', _backend=None):
+                 jes_enabled=True, version='2.0.0', _backend=None):
         if env is None:
             env = JujuData('name', {
                 'type': 'foo',

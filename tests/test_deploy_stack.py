@@ -1264,7 +1264,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             del_mock.mock_calls)
 
     def test_dump_all_logs_uses_known_hosts(self):
-        client = FakeJujuClient()
+        client = FakeJujuClient(jes_enabled=False)
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
                 'foobar', client, client,

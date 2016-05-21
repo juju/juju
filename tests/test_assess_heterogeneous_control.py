@@ -129,7 +129,7 @@ class TestAssessHeterogeneous(TestCase):
 class TestTestControlHeterogeneous(TestCase):
 
     def test_test_control_heterogeneous(self):
-        client = FakeJujuClient()
+        client = FakeJujuClient(jes_enabled=False)
         bs_manager = FakeBootstrapManager(client)
         # Prevent teardown
         bs_manager.tear_down_client = MagicMock()

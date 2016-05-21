@@ -42,7 +42,7 @@ class TestParseArgs(TestCase):
 class TestSetCharmStoreIP(TestCase):
 
     def test_default_as_admin(self):
-        client = FakeJujuClient()
+        client = FakeJujuClient(jes_enabled=False)
         client.bootstrap()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             _set_charm_store_ip(client, '1.2.3.4')

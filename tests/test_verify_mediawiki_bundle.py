@@ -169,7 +169,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
         self.assertIsNone(ctx)
 
     def deploy_mediawiki(self):
-        client = FakeJujuClient()
+        client = FakeJujuClient(jes_enabled=False)
         client.bootstrap()
         client.deploy('haproxy')
         client.deploy('mediawiki')
