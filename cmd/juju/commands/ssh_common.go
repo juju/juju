@@ -88,7 +88,7 @@ func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // initRun initializes the API connection if required, and determines
-// whether SSH proxying is required. It must be called at the of the
+// if SSH proxying is required. It must be called at the top of the
 // command's Run method.
 //
 // The apiClient, apiAddr and proxy fields are initialized after this
@@ -204,12 +204,12 @@ func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error
 	return c.knownHostsPath, nil
 }
 
-// proxySSH returns false if both c.proxy and
-// the proxy-ssh environment configuration
-// are false -- otherwise it returns true.
+// proxySSH returns false if both c.proxy and the proxy-ssh model
+// configuration are false -- otherwise it returns true.
 func (c *SSHCommon) proxySSH() (bool, error) {
 	if c.proxy {
-		// No need to check the API if
+		// No need to check the API if user explictly requested
+		// proxying.
 		return true, nil
 	}
 	proxy, err := c.apiClient.Proxy()

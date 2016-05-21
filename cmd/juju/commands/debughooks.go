@@ -31,8 +31,8 @@ type debugHooksCommand struct {
 const debugHooksDoc = `
 Interactively debug a hook remotely on a service unit.
 
-See the "juju help ssh" for information about the SSH related options accepted
-by the debug-hooks command.
+See the "juju help ssh" for information about SSH related options
+accepted by the debug-hooks command.
 `
 
 func (c *debugHooksCommand) Info() *cmd.Info {
