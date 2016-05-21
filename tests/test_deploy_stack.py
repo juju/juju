@@ -71,6 +71,7 @@ from tests import (
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
+    FakeJujuClientOptionalJES,
     FakePopen,
     observable_temp_file,
 )
@@ -1264,7 +1265,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             del_mock.mock_calls)
 
     def test_dump_all_logs_uses_known_hosts(self):
-        client = FakeJujuClient(jes_enabled=False)
+        client = FakeJujuClientOptionalJES(jes_enabled=False)
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
                 'foobar', client, client,

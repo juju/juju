@@ -15,7 +15,10 @@ from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import (
+    FakeJujuClient,
+    FakeJujuClientOptionalJES,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -42,7 +45,7 @@ class TestParseArgs(TestCase):
 class TestSetCharmStoreIP(TestCase):
 
     def test_default_as_admin(self):
-        client = FakeJujuClient(jes_enabled=False)
+        client = FakeJujuClientOptionalJES(jes_enabled=False)
         client.bootstrap()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             _set_charm_store_ip(client, '1.2.3.4')

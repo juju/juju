@@ -536,6 +536,8 @@ class FakeJujuClient(EnvJujuClient):
             _backend = self.default_backend(
                 backend_state, version=version, full_path=full_path,
                 debug=debug)
+            if not jes_enabled:
+                raise JESNotSupported()
             _backend.set_feature('jes', jes_enabled)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
@@ -571,6 +573,17 @@ class FakeJujuClient(EnvJujuClient):
 
     def backup(self):
         self._backend.controller_state.require_admin('backup', self.model_name)
+
+
+class FakeJujuClientOptionalJES(FakeJujuClient):
+
+    def __init__(self, env=None, full_path=None, debug=False,
+                 jes_enabled=True, version='2.0.0', _backend=None):
+
+        super(FakeJujuClientOptionalJES, self).__init__(env, full_path,
+              debug, jes_enabled=True, version=version, _backend=_backend)
+        if _backend is None:
+            self._backend.set_feature('jes', jes_enabled)
 
 
 class TestErroredUnit(TestCase):

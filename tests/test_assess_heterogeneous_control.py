@@ -18,8 +18,10 @@ from jujupy import (
     _temp_env,
     )
 from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import FakeJujuClient
-
+from tests.test_jujupy import (
+    FakeJujuClient,
+    FakeJujuClientOptionalJES,
+    )
 
 __metaclass__ = type
 
@@ -129,7 +131,7 @@ class TestAssessHeterogeneous(TestCase):
 class TestTestControlHeterogeneous(TestCase):
 
     def test_test_control_heterogeneous(self):
-        client = FakeJujuClient(jes_enabled=False)
+        client = FakeJujuClientOptionalJES(jes_enabled=False)
         bs_manager = FakeBootstrapManager(client)
         # Prevent teardown
         bs_manager.tear_down_client = MagicMock()
