@@ -35,7 +35,12 @@ var allowedMethodsDuringUpgrades = map[string]set.Strings{
 		"AbortCurrentUpgrade", // for "juju upgrade-juju", so that we can reset upgrade to re-run
 
 	),
-	"SSHClient": nil, // allow all SSH client related calls
+	"SSHClient": set.NewStrings( // allow all SSH client related calls
+		"PublicAddress",
+		"PrivateAddress",
+		"PublicKeys",
+		"Proxy",
+	),
 	"Pinger": set.NewStrings(
 		"Ping",
 	),
@@ -45,9 +50,6 @@ func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
 	methods, ok := allowedMethodsDuringUpgrades[rootName]
 	if !ok {
 		return false
-	}
-	if methods.Size() == 0 {
-		return true
 	}
 	return methods.Contains(methodName)
 }
