@@ -532,11 +532,10 @@ class FakeJujuClient(EnvJujuClient):
         if juju_home is None:
             juju_home = 'foo'
         if _backend is None:
-            backend_state = FakeEnvironmentState()
-            backend_state.name = env.environment
+            backend_state = FakeControllerState()
             _backend = self.default_backend(
-                backend_state.controller, version=version,
-                full_path=full_path, debug=debug)
+                backend_state, version=version, full_path=full_path,
+                debug=debug)
             _backend.set_feature('jes', jes_enabled)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
