@@ -518,6 +518,8 @@ class FakeJujuClient(EnvJujuClient):
 
     used_feature_flags = frozenset(['address-allocation', 'jes'])
 
+    default_backend = FakeBackend
+
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=True, version='2.0.0', _backend=None):
         if env is None:
@@ -532,8 +534,9 @@ class FakeJujuClient(EnvJujuClient):
         if _backend is None:
             backend_state = FakeEnvironmentState()
             backend_state.name = env.environment
-            _backend = FakeBackend(backend_state.controller, version=version,
-                                   full_path=full_path, debug=debug)
+            _backend = self.default_backend(
+                backend_state.controller, version=version,
+                full_path=full_path, debug=debug)
             _backend.set_feature('jes', jes_enabled)
         super(FakeJujuClient, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
