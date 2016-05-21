@@ -59,7 +59,7 @@ var sshTests = []struct {
 	{
 		about:       "connect to machine 1 which has no SSH host keys",
 		args:        []string{"1"},
-		expectedErr: `retrieving SSH host keys for "1": no keys available`,
+		expectedErr: `retrieving SSH host keys for "1": keys not found`,
 	},
 	{
 		about: "connect to machine 1 which has no SSH host keys, no host key checks",
@@ -223,7 +223,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
 	_, err := coretesting.RunCommand(c, newSSHCommand(), args...)
-	c.Assert(err, gc.ErrorMatches, ".+ no address")
+	c.Assert(err, gc.ErrorMatches, "no .+ address")
 	c.Assert(called, gc.Equals, 2)
 
 	called = 0

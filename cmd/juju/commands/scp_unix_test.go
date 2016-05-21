@@ -54,7 +54,7 @@ var scpTests = []struct {
 	}, {
 		about: "scp when no keys available",
 		args:  []string{"foo", "1:"},
-		error: `retrieving SSH host keys for "1": no keys available`,
+		error: `retrieving SSH host keys for "1": keys not found`,
 	}, {
 		about: "scp when no keys available, with --no-host-key-checks",
 		args:  []string{"--no-host-key-checks", "foo", "1:"},

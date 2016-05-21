@@ -58,10 +58,6 @@ func (facade *Facade) addressCall(callName, target string) (string, error) {
 	return out.Results[0].Address, nil
 }
 
-// ErrNoKeys is returned when they are no public keys for a target
-// stored in the controller.
-var ErrNoKeys = errors.New("no keys available")
-
 // PublicKeys returns the SSH public host keys for the SSH target
 // provided. The target may be provided as a machine ID or unit name.
 func (facade *Facade) PublicKeys(target string) ([]string, error) {
@@ -78,9 +74,6 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 		return nil, countError(len(out.Results))
 	}
 	if err := out.Results[0].Error; err != nil {
-		if params.IsCodeNotFound(err) {
-			return nil, ErrNoKeys
-		}
 		return nil, errors.Trace(err)
 	}
 	return out.Results[0].PublicKeys, nil
