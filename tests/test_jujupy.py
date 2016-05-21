@@ -306,6 +306,8 @@ class FakeBackend:
             self.feature_flags.discard(feature)
 
     def is_feature_enabled(self, feature):
+        if feature == 'jes':
+            return True
         return bool(feature in self.feature_flags)
 
     def deploy(self, model_state, charm_name, service_name=None, series=None):
@@ -506,6 +508,12 @@ class FakeBackend:
         pass
 
 
+class FakeBackendOptionalJES(FakeBackend):
+
+    def is_feature_enabled(self, feature):
+        return bool(feature in self.feature_flags)
+
+
 class FakeJujuClient(EnvJujuClient):
     """A fake juju client for tests.
 
@@ -515,8 +523,6 @@ class FakeJujuClient(EnvJujuClient):
     The state is provided by _backend.controller_state, so that multiple
     clients can manipulate the same state.
     """
-
-    used_feature_flags = frozenset(['address-allocation', 'jes'])
 
     default_backend = FakeBackend
 
@@ -574,6 +580,10 @@ class FakeJujuClient(EnvJujuClient):
 
 
 class FakeJujuClientOptionalJES(FakeJujuClient):
+
+    used_feature_flags = frozenset(['address-allocation', 'jes'])
+
+    default_backend = FakeBackendOptionalJES
 
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=True, version='2.0.0', _backend=None):
