@@ -547,9 +547,6 @@ class FakeJujuClient(EnvJujuClient):
             env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
 
-    def _get_env(self, env):
-        return env
-
     @property
     def _jes_enabled(self):
         raise Exception
@@ -969,8 +966,9 @@ class TestEnvJujuClient(ClientTest):
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
     def test_get_matching_agent_version(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
-                               '1.23-series-arch', None)
+        client = EnvJujuClient(
+            JujuData(None, {'type': 'local'}, juju_home='foo'),
+                            '1.23-series-arch', None)
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
@@ -4978,8 +4976,9 @@ def stub_bootstrap(client):
 class TestMakeSafeConfig(TestCase):
 
     def test_default(self):
-        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}),
-                                version='1.2-alpha3-asdf-asdf')
+        client = FakeJujuClient(JujuData('foo', {'type': 'bar'},
+                                         juju_home='foo'),
+                                         version='1.2-alpha3-asdf-asdf')
         config = make_safe_config(client)
         self.assertEqual({
             'name': 'foo',
@@ -4990,8 +4989,7 @@ class TestMakeSafeConfig(TestCase):
 
     def test_local(self):
         with temp_dir() as juju_home:
-            env = SimpleEnvironment('foo', {'type': 'local'},
-                                    juju_home=juju_home)
+            env = JujuData('foo', {'type': 'local'}, juju_home=juju_home)
             client = FakeJujuClient(env)
             with patch('jujupy.check_free_disk_space'):
                 config = make_safe_config(client)
@@ -4999,7 +4997,8 @@ class TestMakeSafeConfig(TestCase):
                          config['root-dir'])
 
     def test_bootstrap_replaces_agent_version(self):
-        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        client = FakeJujuClient(JujuData('foo', {'type': 'bar'},
+                                juju_home='foo'))
         client.bootstrap_replaces = {'agent-version'}
         self.assertNotIn('agent-version', make_safe_config(client))
         client.env.config['agent-version'] = '1.23'
