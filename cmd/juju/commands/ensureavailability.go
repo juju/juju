@@ -24,8 +24,10 @@ import (
 // EnsureAvailabilityCommand makes the system highly available.
 type EnsureAvailabilityCommand struct {
 	envcmd.EnvCommandBase
-	out      cmd.Output
-	haClient EnsureAvailabilityClient
+	out cmd.Output
+
+	// newHAClientFunc returns HA Client to be used by the command.
+	newHAClientFunc func() (EnsureAvailabilityClient, error)
 
 	// NumStateServers specifies the number of state servers to make available.
 	NumStateServers int
@@ -42,6 +44,20 @@ type EnsureAvailabilityCommand struct {
 	Placement []string
 	// PlacementSpec holds the unparsed placement directives argument (--to).
 	PlacementSpec string
+}
+
+func NewEnsureAvailabilityCommand() *EnsureAvailabilityCommand {
+	haCommand := &EnsureAvailabilityCommand{}
+	haCommand.newHAClientFunc = func() (EnsureAvailabilityClient, error) {
+		root, err := haCommand.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get API connection")
+		}
+
+		// NewClient does not return an error, so we'll return nil
+		return highavailability.NewClient(root), nil
+	}
+	return haCommand
 }
 
 const ensureAvailabilityDoc = `
@@ -186,29 +202,15 @@ type EnsureAvailabilityClient interface {
 		placement []string) (params.StateServersChanges, error)
 }
 
-func (c *EnsureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, error) {
-	if c.haClient != nil {
-		return c.haClient, nil
-	}
-
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get API connection")
-	}
-
-	// NewClient does not return an error, so we'll return nil
-	return highavailability.NewClient(root), nil
-}
-
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
 func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
-	haClient, err := c.getHAClient()
+	haClient, err := c.newHAClientFunc()
 	if err != nil {
 		return err
 	}
-
 	defer haClient.Close()
+
 	ensureAvailabilityResult, err := haClient.EnsureAvailability(
 		c.NumStateServers,
 		c.Constraints,

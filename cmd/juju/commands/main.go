@@ -202,7 +202,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewSuperCommand())
 
 	// Manage state server availability
-	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+	r.Register(wrapEnvCommand(NewEnsureAvailabilityCommand()))
 
 	// Manage and control services
 	r.Register(service.NewSuperCommand())
