@@ -2543,20 +2543,21 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
 
-        def check_env(*args, **kwargs):
-            return 'foojuju-backup-24.tgzz'
-        with patch('subprocess.check_output',
-                   side_effect=check_env) as co_mock:
+        with patch(
+                'subprocess.Popen',
+                return_value=FakePopen('foojuju-backup-24.tgzz', '', 0),
+                ) as popen_mock:
             backup_file = client.backup()
         self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
-        assert_juju_call(self, co_mock, client, ('juju', '--show-log',
+        assert_juju_call(self, popen_mock, client, ('juju', '--show-log',
                          'create-backup', '-m', 'qux'))
 
     def test_juju_backup_with_tar_gz(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output',
-                   return_value='foojuju-backup-123-456.tar.gzbar'):
+        with patch('subprocess.Popen',
+                   return_value=FakePopen(
+                       'foojuju-backup-123-456.tar.gzbar', '', 0)):
             backup_file = client.backup()
         self.assertEqual(
             backup_file, os.path.abspath('juju-backup-123-456.tar.gz'))
@@ -2564,7 +2565,7 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_backup_no_file(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output', return_value=''):
+        with patch('subprocess.Popen', return_value=FakePopen('', '', 0)):
             with self.assertRaisesRegexp(
                     Exception, 'The backup file was not found in output'):
                 client.backup()
@@ -2572,8 +2573,8 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_backup_wrong_file(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output',
-                   return_value='mumu-backup-24.tgz'):
+        with patch('subprocess.Popen',
+                   return_value=FakePopen('mumu-backup-24.tgz', '', 0)):
             with self.assertRaisesRegexp(
                     Exception, 'The backup file was not found in output'):
                 client.backup()
@@ -2585,8 +2586,8 @@ class TestEnvJujuClient(ClientTest):
 
         def side_effect(*args, **kwargs):
             self.assertEqual(environ, os.environ)
-            return 'foojuju-backup-123-456.tar.gzbar'
-        with patch('subprocess.check_output', side_effect=side_effect):
+            return FakePopen('foojuju-backup-123-456.tar.gzbar', '', 0)
+        with patch('subprocess.Popen', side_effect=side_effect):
             client.backup()
             self.assertNotEqual(environ, os.environ)
 
