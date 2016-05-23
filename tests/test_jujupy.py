@@ -531,7 +531,7 @@ class FakeBackendOptionalJES(FakeBackend):
 
 
 def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
-                   _backend=None):
+                   _backend=None, cls=EnvJujuClient):
     if env is None:
         env = JujuData('name', {
             'type': 'foo',
@@ -547,9 +547,23 @@ def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
             backend_state, version=version, full_path=full_path,
             debug=debug)
         _backend.set_feature('jes', True)
-    client = EnvJujuClient(
+    client = cls(
         env, version, full_path, juju_home, debug, _backend=_backend)
     client.bootstrap_replaces = {}
+    return client
+
+
+def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
+                                  jes_enabled=True, version='2.0.0',
+                                  _backend=None):
+    if _backend is None:
+        backend_state = FakeControllerState()
+        _backend = FakeBackendOptionalJES(
+            backend_state, version=version, full_path=full_path,
+            debug=debug)
+        _backend.set_feature('jes', jes_enabled)
+    client = FakeJujuClient(env, full_path, debug, version, _backend,
+                            cls=FakeJujuClientOptionalJES)
     return client
 
 
@@ -558,27 +572,6 @@ class FakeJujuClientOptionalJES(EnvJujuClient):
     used_feature_flags = frozenset(['address-allocation', 'jes'])
 
     default_backend = FakeBackendOptionalJES
-
-    def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=True, version='2.0.0', _backend=None):
-        if env is None:
-            env = JujuData('name', {
-                'type': 'foo',
-                'default-series': 'angsty',
-                'region': 'bar',
-                }, juju_home='foo')
-        juju_home = env.juju_home
-        if juju_home is None:
-            juju_home = 'foo'
-        if _backend is None:
-            backend_state = FakeControllerState()
-            _backend = self.default_backend(
-                backend_state, version=version, full_path=full_path,
-                debug=debug)
-            _backend.set_feature('jes', jes_enabled)
-        super(FakeJujuClientOptionalJES, self).__init__(
-            env, version, full_path, juju_home, debug, _backend=_backend)
-        self.bootstrap_replaces = {}
 
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name

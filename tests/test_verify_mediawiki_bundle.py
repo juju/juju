@@ -10,7 +10,7 @@ from assess_min_version import JujuAssertionError
 import tests
 from tests.test_jujupy import (
     FakeJujuClient,
-    FakeJujuClientOptionalJES,
+    fake_juju_client_optional_jes,
     )
 import verify_mediawiki_bundle
 from verify_mediawiki_bundle import(
@@ -172,7 +172,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
         self.assertIsNone(ctx)
 
     def deploy_mediawiki(self):
-        client = FakeJujuClientOptionalJES(jes_enabled=False)
+        client = fake_juju_client_optional_jes(jes_enabled=False)
         client.bootstrap()
         client.deploy('haproxy')
         client.deploy('mediawiki')

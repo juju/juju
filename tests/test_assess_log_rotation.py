@@ -25,7 +25,7 @@ from jujupy import (
 from tests import TestCase
 from tests.test_jujupy import (
     FakeJujuClient,
-    FakeJujuClientOptionalJES,
+    fake_juju_client_optional_jes,
     )
 
 good_yaml = \
@@ -191,7 +191,7 @@ class TestMachineRoation(TestCase):
             'machine-size', 'megs=300', 'machine=0')
 
     def test_respects_machine_id_1(self):
-        client = FakeJujuClientOptionalJES(jes_enabled=False)
+        client = fake_juju_client_optional_jes(jes_enabled=False)
         client.bootstrap()
         client.deploy('fill-logs')
         with patch('assess_log_rotation.test_rotation') as tr_mock:
