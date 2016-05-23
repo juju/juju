@@ -85,24 +85,44 @@ class TestAssess(TestCase):
         mock_client = FakeJujuClient()
         mock_client.bootstrap()
         assess_mixed_images(mock_client)
-        self.assertEqual({
+        expected = {
             'machines': {
-                '0': {'dns-name': '0.example.com', 'instance-id': '0'},
-                '1': {'dns-name': '1.example.com', 'instance-id': '1'},
+                '0': {
+                    'dns-name': '0.example.com',
+                    'instance-id': '0',
+                    'juju-status': {'current': 'idle'},
+                    },
+                '1': {
+                    'dns-name': '1.example.com',
+                    'instance-id': '1',
+                    'juju-status': {'current': 'idle'},
+                    },
                 },
             'services': {
                 'dummy-sink': {
                     'exposed': False,
                     'relations': {'source': ['dummy-source']},
-                    'units': {'dummy-sink/0': {'machine': '0'}}
+                    'units': {
+                        'dummy-sink/0': {
+                            'machine': '0',
+                            'juju-status': {'current': 'idle'},
+                            },
+                        }
                     },
                 'dummy-source': {
                     'exposed': False,
                     'relations': {},
-                    'units': {'dummy-source/0': {'machine': '1'}}
+                    'units': {
+                        'dummy-source/0': {
+                            'machine': '1',
+                            'juju-status': {'current': 'idle'},
+                            }
+                        }
                     }
                 }
-            }, mock_client.get_status().status)
+            }
+        actual = mock_client.get_status().status
+        self.assertEqual(expected, actual)
 
     def test_mixed_images_charm_2x(self):
         mock_client = FakeJujuClient()

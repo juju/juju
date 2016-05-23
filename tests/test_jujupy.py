@@ -248,7 +248,7 @@ class FakeEnvironmentState:
     def get_status_dict(self):
         machines = {}
         for machine_id in self.machines:
-            machine_dict = {}
+            machine_dict = {'juju-status': {'current': 'idle'}}
             hostname = self.machine_host_names.get(machine_id)
             machine_dict['instance-id'] = machine_id
             if hostname is not None:
@@ -262,7 +262,9 @@ class FakeEnvironmentState:
         for service, units in self.services.items():
             unit_map = {}
             for unit_id, machine_id in units:
-                unit_map[unit_id] = {'machine': machine_id}
+                unit_map[unit_id] = {
+                    'machine': machine_id,
+                    'juju-status': {'current': 'idle'}}
             services[service] = {
                 'units': unit_map,
                 'relations': self.relations.get(service, {}),
@@ -556,9 +558,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
-
-    def wait_for_started(self, timeout=1200, start=None):
-        return self.get_status()
 
     def wait_for_workloads(self, timeout=600):
         pass
