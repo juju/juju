@@ -65,6 +65,11 @@ current working directory:
 
     juju scp bob@3:'file1 file2' .
 
+Copy file.dat from machine 0 to the machine hosting unit foo/0 (-3
+causes the transfer to be made via the client):
+
+    juju scp -- -3 0:file.dat foo/0:
+
 See also: 
     ssh`
 
