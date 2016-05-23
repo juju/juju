@@ -54,6 +54,9 @@ type resolvedTarget struct {
 }
 
 func (t *resolvedTarget) userHost() string {
+	if t.user == "" {
+		return t.host
+	}
 	return t.user + "@" + t.host
 }
 
@@ -278,6 +281,10 @@ func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
 		return out, nil
 	}
 
+	if out.user == "" {
+		out.user = "ubuntu"
+	}
+
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
@@ -316,7 +323,7 @@ func splitUserTarget(target string) (string, string) {
 	if i := strings.IndexRune(target, '@'); i != -1 {
 		return target[:i], target[i+1:]
 	}
-	return "ubuntu", target
+	return "", target
 }
 
 func newKnownHostsBuilder() *knownHostsBuilder {

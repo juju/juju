@@ -148,7 +148,14 @@ var scpTests = []struct {
 		about: "scp from arbitrary host name to current dir",
 		args:  []string{"some.host:foo", "."},
 		expected: argsSpec{
-			args:            "ubuntu@some.host:foo .",
+			args:            "some.host:foo .",
+			hostKeyChecking: "",
+		},
+	}, {
+		about: "scp from arbitrary user & host to current dir",
+		args:  []string{"someone@some.host:foo", "."},
+		expected: argsSpec{
+			args:            "someone@some.host:foo .",
 			hostKeyChecking: "",
 		},
 	}, {
@@ -159,7 +166,7 @@ var scpTests = []struct {
 		about: "scp with arbitrary host name and an entity, --no-host-key-checks",
 		args:  []string{"--no-host-key-checks", "some.host:foo", "0:"},
 		expected: argsSpec{
-			args:            "ubuntu@some.host:foo ubuntu@0.public:",
+			args:            "some.host:foo ubuntu@0.public:",
 			hostKeyChecking: "no",
 			knownHosts:      "null",
 		},

@@ -132,11 +132,17 @@ func expandArgs(args []string, resolveTarget func(string) (*resolvedTarget, erro
 			outArgs[i] = arg
 			continue
 		}
+
 		target, err := resolveTarget(v[0])
 		if err != nil {
 			return nil, nil, err
 		}
-		outArgs[i] = target.user + "@" + net.JoinHostPort(target.host, v[1])
+		arg := net.JoinHostPort(target.host, v[1])
+		if target.user != "" {
+			arg = target.user + "@" + arg
+		}
+		outArgs[i] = arg
+
 		targets = append(targets, target)
 	}
 	return outArgs, targets, nil
