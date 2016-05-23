@@ -862,36 +862,6 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	return result.NetworkHostsPorts(), nil
 }
 
-// EnsureAvailability ensures the availability of Juju state servers.
-// DEPRECATED: remove when we stop supporting 1.20 and earlier servers.
-// This API is now on the HighAvailability facade.
-func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
-	var results params.StateServersChangeResults
-	envTag, err := c.st.EnvironTag()
-	if err != nil {
-		return params.StateServersChanges{}, errors.Trace(err)
-	}
-	arg := params.StateServersSpecs{
-		Specs: []params.StateServersSpec{{
-			EnvironTag:      envTag.String(),
-			NumStateServers: numStateServers,
-			Constraints:     cons,
-			Series:          series,
-		}}}
-	err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
-	if err != nil {
-		return params.StateServersChanges{}, err
-	}
-	if len(results.Results) != 1 {
-		return params.StateServersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return params.StateServersChanges{}, result.Error
-	}
-	return result.Result, nil
-}
-
 // AgentVersion reports the version number of the api server.
 func (c *Client) AgentVersion() (version.Number, error) {
 	var result params.AgentVersionResult
