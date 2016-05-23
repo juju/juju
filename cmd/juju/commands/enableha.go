@@ -22,14 +22,26 @@ import (
 )
 
 func newEnableHACommand() cmd.Command {
-	return modelcmd.Wrap(&enableHACommand{})
+	haCommand := &enableHACommand{}
+	haCommand.newHAClientFunc = func() (MakeHAClient, error) {
+		root, err := haCommand.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get API connection")
+		}
+
+		// NewClient does not return an error, so we'll return nil
+		return highavailability.NewClient(root), nil
+	}
+	return modelcmd.Wrap(haCommand)
 }
 
 // enableHACommand makes the controller highly available.
 type enableHACommand struct {
 	modelcmd.ModelCommandBase
-	out      cmd.Output
-	haClient MakeHAClient
+	out cmd.Output
+
+	// newHAClientFunc returns HA Client to be used by the command.
+	newHAClientFunc func() (MakeHAClient, error)
 
 	// NumControllers specifies the number of controllers to make available.
 	NumControllers int
@@ -190,24 +202,10 @@ type MakeHAClient interface {
 		placement []string) (params.ControllersChanges, error)
 }
 
-func (c *enableHACommand) getHAClient() (MakeHAClient, error) {
-	if c.haClient != nil {
-		return c.haClient, nil
-	}
-
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get API connection")
-	}
-
-	// NewClient does not return an error, so we'll return nil
-	return highavailability.NewClient(root), nil
-}
-
 // Run connects to the environment specified on the command line
 // and calls EnableHA.
 func (c *enableHACommand) Run(ctx *cmd.Context) error {
-	haClient, err := c.getHAClient()
+	haClient, err := c.newHAClientFunc()
 	if err != nil {
 		return err
 	}
