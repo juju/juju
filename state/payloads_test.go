@@ -163,12 +163,20 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	// Ensure duplicates are a noop.
-	err = st.Track(pl)
+	// Ensure existing ones are replaced.
+	update := pl
+	update.ID = "abc"
+	err = st.Track(update)
 	c.Check(err, jc.ErrorIsNil)
 	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(results, gc.HasLen, 1)
+	c.Check(results, jc.DeepEquals, []payload.Result{{
+		ID: id,
+		Payload: &payload.FullPayloadInfo{
+			Payload: update,
+			Machine: machine,
+		},
+	}})
 
 	err = st.Untrack(id)
 	c.Assert(err, jc.ErrorIsNil)
