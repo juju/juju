@@ -1291,7 +1291,7 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		if !addrType.IsSameTypeOrHostName(addr.networkAddress().Type) {
+		if !addrType.IsConsistentWith(addr.networkAddress().Type) {
 			return false
 		}
 		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
@@ -1319,7 +1319,7 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		if !addrType.IsSameTypeOrHostName(addr.networkAddress().Type) {
+		if !addrType.IsConsistentWith(addr.networkAddress().Type) {
 			return false
 		}
 		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
