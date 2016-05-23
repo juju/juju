@@ -560,6 +560,23 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveSuccess(c *gc.C) {
 	s.assertNoDevicesOnMachine(c, s.machine)
 }
 
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveRemovesProviderID(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:       "foo",
+		Type:       state.EthernetDevice,
+		ProviderID: "bar",
+	}
+	err := s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+	device, err := s.machine.LinkLayerDevice("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.removeDeviceAndAssertSuccess(c, device)
+	// Re-adding the same device should now succeed.
+	err = s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *linkLayerDevicesStateSuite) removeDeviceAndAssertSuccess(c *gc.C, givenDevice *state.LinkLayerDevice) {
 	err := givenDevice.Remove()
 	c.Assert(err, jc.ErrorIsNil)
