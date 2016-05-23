@@ -248,19 +248,17 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 			done <- connectSSH(hc.client, address, hc.checkHostScript)
 		}()
 		select {
-		case <-hc.closed:
-			return hc, lastErr
 		case <-dying:
 			return hc, lastErr
 		case lastErr = <-done:
 			if lastErr == nil {
 				return hc, nil
-			} else {
-				logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 			}
+			logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 		}
 		select {
 		case <-hc.closed:
+			return hc, lastErr
 		case <-dying:
 		case <-time.After(hc.checkDelay):
 		}

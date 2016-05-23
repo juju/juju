@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"sort"
 
 	"github.com/juju/errors"
@@ -65,7 +66,8 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 
 func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
-	t.DefaultBaseURL = "file://" + storageDir + "/tools"
+	baseUrlPath := filepath.Join(storageDir, "tools")
+	t.DefaultBaseURL = utils.MakeFileURL(baseUrlPath)
 	t.ToolsFixture.SetUpTest(c)
 	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 	t.ConfigStore = configstore.NewMem()
