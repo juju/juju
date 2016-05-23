@@ -14,28 +14,28 @@ var logger = loggo.GetLogger("juju.payload.persistence")
 
 // TODO(ericsnow) Store status in the status collection?
 
-// TODO(ericsnow) Move PersistenceBase to the components package?
+// TODO(ericsnow) Move PayloadsPersistenceBase to the components package?
 
-// PersistenceBase exposes the core persistence functionality needed
+// PayloadsPersistenceBase exposes the core persistence functionality needed
 // for payloads.
-type PersistenceBase interface {
+type PayloadsPersistenceBase interface {
 	payloadsDBQueryer
 	payloadsTxnRunner
 }
 
-// UnitPersistence exposes the high-level persistence functionality
+// PayloadsPersistence exposes the high-level persistence functionality
 // related to payloads in Juju.
-type Persistence struct {
+type PayloadsPersistence struct {
 	queries payloadsQueries
 	txns    payloadsTransactions
 }
 
-// NewPersistence wraps the "db" in a new Persistence.
-func NewPersistence(db PersistenceBase) *Persistence {
+// NewPayloadsPersistence wraps the "db" in a new PayloadsPersistence.
+func NewPayloadsPersistence(db PayloadsPersistenceBase) *PayloadsPersistence {
 	queries := payloadsQueries{
 		querier: db,
 	}
-	return &Persistence{
+	return &PayloadsPersistence{
 		queries: queries,
 		txns: payloadsTransactions{
 			queries: queries,
@@ -45,7 +45,7 @@ func NewPersistence(db PersistenceBase) *Persistence {
 }
 
 // ListAll returns the list of all payloads in the model.
-func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
+func (pp *PayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 	logger.Tracef("listing all payloads")
 
 	docs, err := pp.queries.all("")
@@ -63,7 +63,7 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 
 // Track adds records for the payload to persistence. If the payload
 // is already there then it is replaced with the new one.
-func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
+func (pp PayloadsPersistence) Track(pl payload.FullPayloadInfo) error {
 	logger.Tracef("inserting %q - %#v", pl.Name, pl)
 	txn := &upsertPayloadTxn{
 		payload: pl,
@@ -77,7 +77,7 @@ func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
 // SetStatus updates the raw status for the identified payload in
 // persistence. If the payload is not there then payload.ErrNotFound
 // is returned.
-func (pp Persistence) SetStatus(unit, name, status string) error {
+func (pp PayloadsPersistence) SetStatus(unit, name, status string) error {
 	logger.Tracef("setting status for %q", name)
 	txn := &setPayloadStatusTxn{
 		unit:   unit,
@@ -93,7 +93,7 @@ func (pp Persistence) SetStatus(unit, name, status string) error {
 // List builds the list of payloads found in persistence which match
 // the provided IDs. The lists of IDs with missing records is also
 // returned.
-func (pp Persistence) List(unit string, names ...string) ([]payload.FullPayloadInfo, []string, error) {
+func (pp PayloadsPersistence) List(unit string, names ...string) ([]payload.FullPayloadInfo, []string, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, missing, err := pp.queries.someUnitPayloads(unit, names)
@@ -109,7 +109,7 @@ func (pp Persistence) List(unit string, names ...string) ([]payload.FullPayloadI
 }
 
 // ListAllForUnit builds the list of all payloads found in persistence.
-func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, error) {
+func (pp PayloadsPersistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, error) {
 	// TODO(ericsnow) Ensure that the unit is Alive?
 
 	docs, err := pp.queries.unitPayloadsByName(unit)
@@ -133,7 +133,7 @@ func (pp Persistence) ListAllForUnit(unit string) ([]payload.FullPayloadInfo, er
 // Untrack removes all records associated with the identified payload
 // from persistence. If the payload is not there then
 // payload.ErrNotFound is returned.
-func (pp Persistence) Untrack(unit, name string) error {
+func (pp PayloadsPersistence) Untrack(unit, name string) error {
 	txn := &removePayloadTxn{
 		unit: unit,
 		name: name,

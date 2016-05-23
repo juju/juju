@@ -19,14 +19,14 @@ import (
 
 type PayloadPersistenceFixture struct {
 	Stub    *testing.Stub
-	DB      *StubPersistenceBase
+	DB      *StubPayloadsPersistenceBase
 	Queries payloadsQueries
 	StateID string
 }
 
 func NewPayloadPersistenceFixture() *PayloadPersistenceFixture {
 	stub := &testing.Stub{}
-	db := &StubPersistenceBase{Stub: stub}
+	db := &StubPayloadsPersistenceBase{Stub: stub}
 	return &PayloadPersistenceFixture{
 		Stub:    stub,
 		DB:      db,
@@ -35,8 +35,8 @@ func NewPayloadPersistenceFixture() *PayloadPersistenceFixture {
 	}
 }
 
-func (f PayloadPersistenceFixture) NewPersistence() *Persistence {
-	return NewPersistence(f.DB)
+func (f PayloadPersistenceFixture) NewPersistence() *PayloadsPersistence {
+	return NewPayloadsPersistence(f.DB)
 }
 
 func (f PayloadPersistenceFixture) NewPayload(machine, unit, pType string, id string) payload.FullPayloadInfo {
@@ -105,18 +105,18 @@ func (f PayloadPersistenceFixture) CheckPayloads(c *gc.C, payloads []payload.Ful
 	}
 }
 
-type StubPersistenceBase struct {
+type StubPayloadsPersistenceBase struct {
 	*testing.Stub
 
 	ReturnAll []*payloadDoc
 }
 
-func (s *StubPersistenceBase) AddDoc(pl payload.FullPayloadInfo) {
+func (s *StubPayloadsPersistenceBase) AddDoc(pl payload.FullPayloadInfo) {
 	doc := newPayloadDoc(pl)
 	s.ReturnAll = append(s.ReturnAll, doc)
 }
 
-func (s *StubPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) {
+func (s *StubPayloadsPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) {
 	docs := make([]*payloadDoc, len(payloads))
 	for i, pl := range payloads {
 		docs[i] = newPayloadDoc(pl)
@@ -124,7 +124,7 @@ func (s *StubPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) {
 	s.ReturnAll = docs
 }
 
-func (s *StubPersistenceBase) All(collName string, query, docs interface{}) error {
+func (s *StubPayloadsPersistenceBase) All(collName string, query, docs interface{}) error {
 	s.AddCall("All", collName, query, docs)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -139,7 +139,7 @@ func (s *StubPersistenceBase) All(collName string, query, docs interface{}) erro
 	return nil
 }
 
-func (s *StubPersistenceBase) Run(transactions jujutxn.TransactionSource) error {
+func (s *StubPayloadsPersistenceBase) Run(transactions jujutxn.TransactionSource) error {
 	s.AddCall("Run", transactions)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
