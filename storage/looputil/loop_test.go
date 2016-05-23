@@ -50,6 +50,16 @@ func (s *LoopUtilSuite) TestDetachLoopDevicesListBadOutput(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `listing loop devices: cannot parse loop device info from "bad output"`)
 }
 
+func (s *LoopUtilSuite) TestDetachLoopDevicesListEmptyInodeOK(c *gc.C) {
+	commands := &mockRunCommand{c: c}
+	defer commands.assertDrained()
+	commands.expect("losetup", "-a").respond("/dev/loop0: []: (/var/lib/lxc-btrfs.img)", nil)
+
+	m := looputil.NewTestLoopDeviceManager(commands.run, nil, nil)
+	err := m.DetachLoopDevices("", "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *LoopUtilSuite) TestDetachLoopDevicesListBadInode(c *gc.C) {
 	commands := &mockRunCommand{c: c}
 	defer commands.assertDrained()
