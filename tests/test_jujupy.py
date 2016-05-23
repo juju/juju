@@ -559,9 +559,6 @@ class FakeJujuClient(EnvJujuClient):
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
 
-    def wait_for_workloads(self, timeout=600):
-        pass
-
     def backup(self):
         self._backend.controller_state.require_admin('backup', self.model_name)
 
