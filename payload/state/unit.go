@@ -67,7 +67,7 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 		}
 		// Wasn't found, so we're okay.
 	} else {
-		logger.Infof("payload %q (raw: %q) already exists; replacing...", pl.Name, existing.ID)
+		logger.Debugf("payload %q (raw: %q) already exists; replacing...", pl.Name, existing.ID)
 	}
 
 	full := payload.FullPayloadInfo{
