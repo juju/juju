@@ -507,6 +507,9 @@ class FakeBackend:
         if command == 'show-status':
             status_dict = model_state.get_status_dict()
             return yaml.safe_dump(status_dict)
+        if command == 'create-backup':
+            self.controller_state.require_admin('backup', model)
+            return 'juju-backup-0.tar.gz'
         return ''
 
     def pause(self, seconds):
@@ -555,9 +558,6 @@ class FakeJujuClient(EnvJujuClient):
     @property
     def _jes_enabled(self):
         raise Exception
-
-    def backup(self):
-        self._backend.controller_state.require_admin('backup', self.model_name)
 
 
 class FakeJujuClientOptionalJES(FakeJujuClient):
