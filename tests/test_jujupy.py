@@ -556,9 +556,6 @@ class FakeJujuClient(EnvJujuClient):
     def _jes_enabled(self):
         raise Exception
 
-    def get_admin_model_name(self):
-        return self._backend.controller_state.admin_model.name
-
     def backup(self):
         self._backend.controller_state.require_admin('backup', self.model_name)
 
@@ -576,6 +573,9 @@ class FakeJujuClientOptionalJES(FakeJujuClient):
               debug, version=version, _backend=_backend)
         if _backend is None:
             self._backend.set_feature('jes', jes_enabled)
+
+    def get_admin_model_name(self):
+        return self._backend.controller_state.admin_model.name
 
 
 class TestErroredUnit(TestCase):
