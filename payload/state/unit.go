@@ -67,7 +67,7 @@ func (uw UnitPayloads) Track(pl payload.Payload) error {
 		}
 		// Wasn't found, so we're okay.
 	} else {
-		loggo.Info("payload %q (raw: %q) already exists; replacing...", pl.Name, existing.ID)
+		logger.Infof("payload %q (raw: %q) already exists; replacing...", pl.Name, existing.ID)
 	}
 
 	full := payload.FullPayloadInfo{
@@ -176,7 +176,7 @@ func (uw UnitPayloads) lookUp(name string) (payload.FullPayloadInfo, error) {
 	if results[0].Error != nil {
 		return pl, errors.Trace(results[0].Error)
 	}
-	pl = results[0].Payload
+	pl = *results[0].Payload
 
 	return pl, nil
 }

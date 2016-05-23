@@ -30,7 +30,7 @@ func (s *unitPayloadsSuite) TestTrackOkay(c *gc.C) {
 	err := ps.Track(pl.Payload)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Track")
+	s.stub.CheckCallNames(c, "List", "Track")
 	c.Check(s.persist.payloads, gc.HasLen, 1)
 	s.persist.checkPayload(c, pl.Name, pl)
 }

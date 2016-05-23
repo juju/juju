@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -164,9 +163,9 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 		},
 	}})
 
-	// Ensure duplicates are not allowed.
+	// Ensure duplicates are a noop.
 	err = st.Track(pl)
-	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Check(err, jc.ErrorIsNil)
 	results, err = st.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.HasLen, 1)
