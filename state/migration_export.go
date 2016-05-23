@@ -259,12 +259,12 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	exMachine.SetAddresses(
 		e.newAddressArgsSlice(machine.doc.MachineAddresses),
 		e.newAddressArgsSlice(machine.doc.Addresses))
-	exMachine.SetPreferredIPv4Addresses(
+	exMachine.SetPreferredAddresses(
 		e.newAddressArgs(machine.doc.PreferredPublicIPv4Address),
-		e.newAddressArgs(machine.doc.PreferredPrivateIPv4Address))
-	exMachine.SetPreferredIPv6Addresses(
 		e.newAddressArgs(machine.doc.PreferredPublicIPv6Address),
-		e.newAddressArgs(machine.doc.PreferredPrivateIPv6Address))
+		e.newAddressArgs(machine.doc.PreferredPrivateIPv4Address),
+		e.newAddressArgs(machine.doc.PreferredPrivateIPv6Address),
+	)
 
 	// We fully expect the machine to have tools set, and that there is
 	// some instance data.
