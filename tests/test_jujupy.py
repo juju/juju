@@ -522,7 +522,29 @@ class FakeBackendOptionalJES(FakeBackend):
         return bool(feature in self.feature_flags)
 
 
-class FakeJujuClient(EnvJujuClient):
+def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
+                   _backend=None):
+        if env is None:
+            env = JujuData('name', {
+                'type': 'foo',
+                'default-series': 'angsty',
+                'region': 'bar',
+                }, juju_home='foo')
+        juju_home = env.juju_home
+        if juju_home is None:
+            juju_home = 'foo'
+        if _backend is None:
+            backend_state = FakeControllerState()
+            _backend = FakeBackend(
+                backend_state, version=version, full_path=full_path,
+                debug=debug)
+            _backend.set_feature('jes', True)
+        self = EnvJujuClient(
+            env, version, full_path, juju_home, debug, _backend=_backend)
+        self.bootstrap_replaces = {}
+        return self
+
+class FakeJujuClient_(EnvJujuClient):
     """A fake juju client for tests.
 
     This is a partial implementation, but should be suitable for many uses,
@@ -551,7 +573,7 @@ class FakeJujuClient(EnvJujuClient):
                 backend_state, version=version, full_path=full_path,
                 debug=debug)
             _backend.set_feature('jes', True)
-        super(FakeJujuClient, self).__init__(
+        super(FakeJujuClient_, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
 
@@ -560,7 +582,7 @@ class FakeJujuClient(EnvJujuClient):
         raise Exception
 
 
-class FakeJujuClientOptionalJES(FakeJujuClient):
+class FakeJujuClientOptionalJES(FakeJujuClient_):
 
     used_feature_flags = frozenset(['address-allocation', 'jes'])
 
