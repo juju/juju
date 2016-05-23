@@ -286,17 +286,21 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	s.addOpenedPorts(m)
 
 	// Just use one set of address args for both machine and provider.
-	addrArgs := []AddressArgs{
-		{
-			Value: "10.0.0.10",
-			Type:  "special",
-		}, {
-			Value: "10.1.2.3",
-			Type:  "other",
-		},
-	}
+	addrArgs := []AddressArgs{{
+		Value: "10.0.0.10",
+		Type:  "special",
+	}, {
+		Value: "2001:db8::/64",
+		Type:  "special",
+	}, {
+		Value: "10.1.2.3",
+		Type:  "other",
+	}, {
+		Value: "fc00:123::/64",
+		Type:  "other",
+	}}
 	m.SetAddresses(addrArgs, addrArgs)
-	m.SetPreferredIPv4Addresses(addrArgs[0], addrArgs[1])
+	m.SetPreferredAddresses(addrArgs[0], addrArgs[1], addrArgs[2], addrArgs[3])
 
 	// Make sure the machine is valid.
 	c.Assert(m.Validate(), jc.ErrorIsNil)
