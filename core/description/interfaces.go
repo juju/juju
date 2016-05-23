@@ -119,12 +119,9 @@ type Machine interface {
 	MachineAddresses() []Address
 	SetAddresses(machine []AddressArgs, provider []AddressArgs)
 
-	PreferredPublicIPv4Address() Address
-	PreferredPrivateIPv4Address() Address
-	SetPreferredIPv4Addresses(publicIPv4 AddressArgs, privateIPv4 AddressArgs)
-	PreferredPublicIPv6Address() Address
-	PreferredPrivateIPv6Address() Address
-	SetPreferredIPv6Addresses(publicIPv6 AddressArgs, privateIPv6 AddressArgs)
+	PreferredPublicAddress(addressType AddressType) Address
+	PreferredPrivateAddress(addressType AddressType) Address
+	SetPreferredAddresses(publicIPv4, publicIPv6, privateIPv4, privateIPv6 AddressArgs)
 
 	Tools() AgentTools
 	SetTools(AgentToolsArgs)
