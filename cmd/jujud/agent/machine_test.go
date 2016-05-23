@@ -1588,6 +1588,8 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
+	c.Skip("test disabled as flaky, see lp:1584626")
+
 	tracker := newModelTracker(c)
 	check := modelMatchFunc(c, tracker, append(
 		alwaysModelWorkers, deadModelWorkers...,
