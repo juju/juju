@@ -532,25 +532,25 @@ class FakeBackendOptionalJES(FakeBackend):
 
 def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
                    _backend=None):
-        if env is None:
-            env = JujuData('name', {
-                'type': 'foo',
-                'default-series': 'angsty',
-                'region': 'bar',
-                }, juju_home='foo')
-        juju_home = env.juju_home
-        if juju_home is None:
-            juju_home = 'foo'
-        if _backend is None:
-            backend_state = FakeControllerState()
-            _backend = FakeBackend(
-                backend_state, version=version, full_path=full_path,
-                debug=debug)
-            _backend.set_feature('jes', True)
-        client = EnvJujuClient(
-            env, version, full_path, juju_home, debug, _backend=_backend)
-        client.bootstrap_replaces = {}
-        return client
+    if env is None:
+        env = JujuData('name', {
+            'type': 'foo',
+            'default-series': 'angsty',
+            'region': 'bar',
+            }, juju_home='foo')
+    juju_home = env.juju_home
+    if juju_home is None:
+        juju_home = 'foo'
+    if _backend is None:
+        backend_state = FakeControllerState()
+        _backend = FakeBackend(
+            backend_state, version=version, full_path=full_path,
+            debug=debug)
+        _backend.set_feature('jes', True)
+    client = EnvJujuClient(
+        env, version, full_path, juju_home, debug, _backend=_backend)
+    client.bootstrap_replaces = {}
+    return client
 
 
 class FakeJujuClientOptionalJES(EnvJujuClient):
