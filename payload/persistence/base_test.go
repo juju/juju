@@ -68,13 +68,8 @@ func (f PayloadPersistenceFixture) NewPayloads(machine, unit, pType string, ids 
 	return payloads
 }
 
-func (f PayloadPersistenceFixture) SetDocs(payloads ...payload.FullPayloadInfo) []string {
-	return f.DB.SetDocs(payloads...)
-}
-
-func (f PayloadPersistenceFixture) SetDoc(pl payload.FullPayloadInfo) string {
-	f.DB.SetDoc(f.StateID, pl)
-	return f.StateID
+func (f PayloadPersistenceFixture) SetDocs(payloads ...payload.FullPayloadInfo) {
+	f.DB.SetDocs(payloads...)
 }
 
 func (f PayloadPersistenceFixture) CheckPayloads(c *gc.C, payloads []payload.FullPayloadInfo, expectedList ...payload.FullPayloadInfo) {
@@ -116,26 +111,17 @@ type StubPersistenceBase struct {
 	ReturnAll []*payloadDoc
 }
 
-func (s *StubPersistenceBase) AddDoc(stID string, pl payload.FullPayloadInfo) {
-	doc := newPayloadDoc(stID, pl)
+func (s *StubPersistenceBase) AddDoc(pl payload.FullPayloadInfo) {
+	doc := newPayloadDoc(pl)
 	s.ReturnAll = append(s.ReturnAll, doc)
 }
 
-func (s *StubPersistenceBase) SetDoc(stID string, pl payload.FullPayloadInfo) {
-	doc := newPayloadDoc(stID, pl)
-	s.ReturnAll = []*payloadDoc{doc}
-}
-
-func (s *StubPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) []string {
+func (s *StubPersistenceBase) SetDocs(payloads ...payload.FullPayloadInfo) {
 	docs := make([]*payloadDoc, len(payloads))
-	stIDs := make([]string, len(payloads))
 	for i, pl := range payloads {
-		stID := fmt.Sprint(i)
-		docs[i] = newPayloadDoc(stID, pl)
-		stIDs[i] = stID
+		docs[i] = newPayloadDoc(pl)
 	}
 	s.ReturnAll = docs
-	return stIDs
 }
 
 func (s *StubPersistenceBase) All(collName string, query, docs interface{}) error {

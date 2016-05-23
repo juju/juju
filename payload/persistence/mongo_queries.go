@@ -18,12 +18,8 @@ type payloadsQueries struct {
 	querier payloadsDBQueryer
 }
 
-func (pq payloadsQueries) one(unit string, query bson.D) (payloadDoc, error) {
-	if unit == "" {
-		return payloadDoc{}, errors.NewNotValid(nil, "missing unit ID")
-	}
+func (pq payloadsQueries) one(query bson.D) (payloadDoc, error) {
 	var docs []payloadDoc
-	query = append(bson.D{{"unitid", unit}}, query...)
 	if err := pq.querier.All(payloadsC, query, &docs); err != nil {
 		return payloadDoc{}, errors.Trace(err)
 	}
@@ -48,58 +44,47 @@ func (pq payloadsQueries) all(unit string) ([]payloadDoc, error) {
 	return docs, nil
 }
 
-func (pq payloadsQueries) allByStateID(unit string) (map[string]payloadDoc, error) {
-	docs, err := pq.all(unit)
+func (pq payloadsQueries) allByName() (map[string]payloadDoc, error) {
+	docs, err := pq.all("")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	results := make(map[string]payloadDoc, len(docs))
 	for _, doc := range docs {
-		id := doc.StateID
-		results[id] = doc
+		results[doc.Name] = doc
 	}
 	return results, nil
 }
 
-func (pq payloadsQueries) unitPayloads(unit string, ids []string) (map[string]payloadDoc, []string, error) {
+func (pq payloadsQueries) unitPayloadsByName(unit string) (map[string]payloadDoc, error) {
 	if unit == "" {
-		return nil, nil, errors.NewNotValid(nil, "missing unit ID")
+		return nil, errors.NewNotValid(nil, "missing unit ID")
 	}
-	all, err := pq.allByStateID(unit)
+	docs, err := pq.all(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make(map[string]payloadDoc)
+	for _, doc := range docs {
+		results[doc.Name] = doc
+	}
+	return results, nil
+}
+
+func (pq payloadsQueries) someUnitPayloads(unit string, names []string) ([]payloadDoc, []string, error) {
+	all, err := pq.unitPayloadsByName(unit)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	results := make(map[string]payloadDoc)
+	var results []payloadDoc
 	var missing []string
-	for _, id := range ids {
-		if doc, ok := all[id]; ok {
-			results[id] = doc
+	for _, name := range names {
+		if doc, ok := all[name]; ok {
+			results = append(results, doc)
 		} else {
-			missing = append(missing, id)
+			missing = append(missing, name)
 		}
 	}
 	return results, missing, nil
-}
-
-func (pq payloadsQueries) payloadByStateID(unit, stID string) (payloadDoc, error) {
-	if stID == "" {
-		return payloadDoc{}, errors.NotFoundf("")
-	}
-	doc, err := pq.one(unit, bson.D{{"state-id", stID}})
-	if err != nil {
-		return payloadDoc{}, errors.Trace(err)
-	}
-	return doc, nil
-}
-
-func (pq payloadsQueries) payloadByName(unit, name string) (payloadDoc, error) {
-	if name == "" {
-		return payloadDoc{}, errors.NotFoundf("")
-	}
-	doc, err := pq.one(unit, bson.D{{"name", name}})
-	if err != nil {
-		return payloadDoc{}, errors.Trace(err)
-	}
-	return doc, nil
 }

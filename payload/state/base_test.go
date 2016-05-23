@@ -65,23 +65,23 @@ func (s *fakePayloadsPersistence) checkPayload(c *gc.C, id string, expected payl
 	}
 }
 
-func (s *fakePayloadsPersistence) setPayload(id string, pl *payload.FullPayloadInfo) {
+func (s *fakePayloadsPersistence) setPayload(pl *payload.FullPayloadInfo) {
 	if s.payloads == nil {
 		s.payloads = make(map[string]*payload.FullPayloadInfo)
 	}
-	s.payloads[id] = pl
+	s.payloads[pl.Name] = pl
 }
 
-func (s *fakePayloadsPersistence) Track(id string, pl payload.FullPayloadInfo) error {
-	s.AddCall("Track", id, pl)
+func (s *fakePayloadsPersistence) Track(pl payload.FullPayloadInfo) error {
+	s.AddCall("Track", pl)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if _, ok := s.payloads[id]; ok {
+	if _, ok := s.payloads[pl.Name]; ok {
 		return payload.ErrAlreadyExists
 	}
-	s.setPayload(id, &pl)
+	s.setPayload(&pl)
 	return nil
 }
 
@@ -128,20 +128,6 @@ func (s *fakePayloadsPersistence) ListAll() ([]payload.FullPayloadInfo, error) {
 		payloads = append(payloads, *pl)
 	}
 	return payloads, nil
-}
-
-func (s *fakePayloadsPersistence) LookUp(name, rawID string) (string, error) {
-	s.AddCall("LookUp", name, rawID)
-	if err := s.NextErr(); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	for id, pl := range s.payloads {
-		if pl.Name == name && pl.ID == rawID {
-			return id, nil
-		}
-	}
-	return "", errors.NotFoundf("doc ID")
 }
 
 func (s *fakePayloadsPersistence) Untrack(id string) error {

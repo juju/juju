@@ -6,7 +6,6 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/payload"
@@ -17,27 +16,9 @@ var _ = gc.Suite(&unitPayloadsSuite{})
 
 type unitPayloadsSuite struct {
 	basePayloadsSuite
-	id string
-}
-
-func (s *unitPayloadsSuite) newID() (string, error) {
-	s.stub.AddCall("newID")
-	if err := s.stub.NextErr(); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return s.id, nil
-}
-
-func (s *unitPayloadsSuite) TestNewID(c *gc.C) {
-	id, err := state.NewID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(id, jc.Satisfies, utils.IsValidUUIDString)
 }
 
 func (s *unitPayloadsSuite) TestTrackOkay(c *gc.C) {
-	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
 
 	ps := state.UnitPayloads{
@@ -45,18 +26,16 @@ func (s *unitPayloadsSuite) TestTrackOkay(c *gc.C) {
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	ps = state.SetNewID(ps, s.newID)
 
 	err := ps.Track(pl.Payload)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "newID", "Track")
+	s.stub.CheckCallNames(c, "List", "Track")
 	c.Check(s.persist.payloads, gc.HasLen, 1)
-	s.persist.checkPayload(c, s.id, pl)
+	s.persist.checkPayload(c, pl.Name, pl)
 }
 
 func (s *unitPayloadsSuite) TestTrackInvalid(c *gc.C) {
-	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("", "payloadA/payloadA-xyz")
 
 	ps := state.UnitPayloads{
@@ -64,7 +43,6 @@ func (s *unitPayloadsSuite) TestTrackInvalid(c *gc.C) {
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	ps = state.SetNewID(ps, s.newID)
 
 	err := ps.Track(pl.Payload)
 
@@ -72,7 +50,6 @@ func (s *unitPayloadsSuite) TestTrackInvalid(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
-	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
@@ -82,7 +59,6 @@ func (s *unitPayloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	ps = state.SetNewID(ps, s.newID)
 
 	err := ps.Track(pl.Payload)
 
@@ -90,7 +66,6 @@ func (s *unitPayloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestTrackInsertFailed(c *gc.C) {
-	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
@@ -100,7 +75,6 @@ func (s *unitPayloadsSuite) TestTrackInsertFailed(c *gc.C) {
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	ps = state.SetNewID(ps, s.newID)
 
 	err := ps.Track(pl.Payload)
 
@@ -108,16 +82,14 @@ func (s *unitPayloadsSuite) TestTrackInsertFailed(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestTrackAlreadyExists(c *gc.C) {
-	s.id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
-	s.persist.setPayload(s.id, &pl)
+	s.persist.setPayload(&pl)
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	ps = state.SetNewID(ps, s.newID)
 
 	err := ps.Track(pl.Payload)
 
@@ -125,9 +97,8 @@ func (s *unitPayloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestSetStatusOkay(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
-	s.persist.setPayload(id, &pl)
+	s.persist.setPayload(&pl)
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -135,72 +106,66 @@ func (s *unitPayloadsSuite) TestSetStatusOkay(c *gc.C) {
 		Machine: "0",
 	}
 
-	err := ps.SetStatus(id, payload.StateRunning)
+	err := ps.SetStatus(pl.Name, payload.StateRunning)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetStatus")
-	current := s.persist.payloads[id]
+	current := s.persist.payloads[pl.Name]
 	c.Check(current.Status, jc.DeepEquals, payload.StateRunning)
 }
 
 func (s *unitPayloadsSuite) TestSetStatusFailed(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
-	s.persist.setPayload(id, &pl)
+	s.persist.setPayload(&pl)
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	err := ps.SetStatus(id, payload.StateRunning)
+	err := ps.SetStatus(pl.Name, payload.StateRunning)
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *unitPayloadsSuite) TestSetStatusMissing(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	err := ps.SetStatus(id, payload.StateRunning)
+	err := ps.SetStatus("payloadA", payload.StateRunning)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *unitPayloadsSuite) TestListOkay(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	otherID := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
 	other := s.newPayload("docker", "payloadB/payloadB-abc")
-	s.persist.setPayload(id, &pl)
-	s.persist.setPayload(otherID, &other)
+	s.persist.setPayload(&pl)
+	s.persist.setPayload(&other)
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 	}
-	results, err := ps.List(id)
+	results, err := ps.List(pl.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "List")
 	c.Check(results, jc.DeepEquals, []payload.Result{{
-		ID:      id,
+		ID:      pl.Name,
 		Payload: &pl,
 	}})
 }
 
 func (s *unitPayloadsSuite) TestListAll(c *gc.C) {
-	id1 := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-	id2 := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
 	pl1 := s.newPayload("docker", "payloadA/payloadA-xyz")
 	pl2 := s.newPayload("docker", "payloadB/payloadB-abc")
-	s.persist.setPayload(id1, &pl1)
-	s.persist.setPayload(id2, &pl2)
+	s.persist.setPayload(&pl1)
+	s.persist.setPayload(&pl2)
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
@@ -210,7 +175,7 @@ func (s *unitPayloadsSuite) TestListAll(c *gc.C) {
 	results, err := ps.List()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ListAll", "LookUp", "LookUp")
+	s.stub.CheckCallNames(c, "ListAll")
 	c.Assert(results, gc.HasLen, 2)
 	if results[0].Payload.Name == "payloadA" {
 		c.Check(results[0].Payload, jc.DeepEquals, &pl1)
@@ -237,42 +202,40 @@ func (s *unitPayloadsSuite) TestListFailed(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestListMissing(c *gc.C) {
-	missingID := "f47ac10b-58cc-4372-a567-0e02b2c3d480"
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
-	s.persist.setPayload(id, &pl)
+	s.persist.setPayload(&pl)
+	missingName := "not-" + pl.Name
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	results, err := ps.List(id, missingID)
+	results, err := ps.List(pl.Name, missingName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 2)
 	c.Check(results[1].Error, gc.NotNil)
 	results[1].Error = nil
 	c.Check(results, jc.DeepEquals, []payload.Result{{
-		ID:      id,
+		ID:      pl.Name,
 		Payload: &pl,
 	}, {
-		ID:       missingID,
+		ID:       missingName,
 		NotFound: true,
 	}})
 }
 
 func (s *unitPayloadsSuite) TestUntrackOkay(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	pl := s.newPayload("docker", "payloadA/payloadA-xyz")
-	s.persist.setPayload(id, &pl)
+	s.persist.setPayload(&pl)
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	err := ps.Untrack(id)
+	err := ps.Untrack(pl.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Untrack")
@@ -280,13 +243,12 @@ func (s *unitPayloadsSuite) TestUntrackOkay(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestUntrackMissing(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	ps := state.UnitPayloads{
 		Persist: s.persist,
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	err := ps.Untrack(id)
+	err := ps.Untrack("payloadA")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Untrack")
@@ -294,7 +256,6 @@ func (s *unitPayloadsSuite) TestUntrackMissing(c *gc.C) {
 }
 
 func (s *unitPayloadsSuite) TestUntrackFailed(c *gc.C) {
-	id := "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	failure := errors.Errorf("<failed!>")
 	s.stub.SetErrors(failure)
 
@@ -303,7 +264,7 @@ func (s *unitPayloadsSuite) TestUntrackFailed(c *gc.C) {
 		Unit:    "a-service/0",
 		Machine: "0",
 	}
-	err := ps.Untrack(id)
+	err := ps.Untrack("payloadA")
 
 	s.stub.CheckCallNames(c, "Untrack")
 	c.Check(errors.Cause(err), gc.Equals, failure)
