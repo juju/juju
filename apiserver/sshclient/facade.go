@@ -51,7 +51,7 @@ func (facade *Facade) getAddresses(args params.Entities, getter func(SSHMachine)
 	for i, entity := range args.Entities {
 		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
-			out.Results[i].Error = common.ServerError(common.ErrPerm)
+			out.Results[i].Error = common.ServerError(err)
 		} else {
 			address, err := getter(machine)
 			if err != nil {
@@ -73,7 +73,7 @@ func (facade *Facade) PublicKeys(args params.Entities) (params.SSHPublicKeysResu
 	for i, entity := range args.Entities {
 		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
-			out.Results[i].Error = common.ServerError(common.ErrPerm)
+			out.Results[i].Error = common.ServerError(err)
 		} else {
 			keys, err := facade.backend.GetSSHHostKeys(machine.MachineTag())
 			if err != nil {

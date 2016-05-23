@@ -4,24 +4,13 @@
 package commands
 
 import (
-	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
-	"strings"
 
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -31,122 +20,148 @@ type SSHSuite struct {
 	SSHCommonSuite
 }
 
-type SSHCommonSuite struct {
-	testing.JujuConnSuite
-	bin string
-}
-
-func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	ssh.ClearClientKeys()
-	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
-
-	s.bin = c.MkDir()
-	s.PatchEnvPathPrepend(s.bin)
-	for _, name := range patchedCommands {
-		f, err := os.OpenFile(filepath.Join(s.bin, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = f.Write([]byte(fakecommand))
-		c.Assert(err, jc.ErrorIsNil)
-		err = f.Close()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	client, _ := ssh.NewOpenSSHClient()
-	s.PatchValue(&ssh.DefaultClient, client)
-}
-
-const (
-	args                = `-o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 `
-	withProxy           = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false localhost nc %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
-	commonArgsWithProxy = withProxy + `-o UserKnownHostsFile /dev/null `
-	commonArgs          = args + `-o UserKnownHostsFile /dev/null `
-	sshArgs             = args + `-t -t -o UserKnownHostsFile /dev/null `
-	sshArgsWithProxy    = withProxy + `-t -t -o UserKnownHostsFile /dev/null `
-)
-
 var sshTests = []struct {
-	about  string
-	args   []string
-	result string
+	about       string
+	args        []string
+	expected    argsSpec
+	expectedErr string
 }{
 	{
-		"connect to machine 0",
-		[]string{"ssh", "0"},
-		sshArgs + "ubuntu@admin-0.dns",
+		about: "connect to machine 0",
+		args:  []string{"0"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true,
+			args:            "ubuntu@0.public",
+		},
 	},
 	{
-		"connect to machine 0 and pass extra arguments",
-		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "ubuntu@admin-0.dns uname -a",
+		about: "connect to machine 0 and pass extra arguments",
+		args:  []string{"0", "uname", "-a"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true,
+			args:            "ubuntu@0.public uname -a",
+		},
 	},
 	{
-		"connect to unit mysql/0",
-		[]string{"ssh", "mysql/0"},
-		sshArgs + "ubuntu@admin-0.dns",
+		about: "connect to machine 0 with no pseudo-tty",
+		args:  []string{"--pty=false", "0"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       false,
+			args:            "ubuntu@0.public",
+		},
 	},
 	{
-		"connect to unit mongodb/1 as the mongo user",
-		[]string{"ssh", "mongo@mongodb/1"},
-		sshArgs + "mongo@admin-2.dns",
+		about:       "connect to machine 1 which has no SSH host keys",
+		args:        []string{"1"},
+		expectedErr: `retrieving SSH host keys for "1": keys not found`,
 	},
 	{
-		"connect to unit mongodb/1 and pass extra arguments",
-		[]string{"ssh", "mongodb/1", "ls", "/"},
-		sshArgs + "ubuntu@admin-2.dns ls /",
+		about: "connect to machine 1 which has no SSH host keys, no host key checks",
+		args:  []string{"--no-host-key-checks", "1"},
+		expected: argsSpec{
+			hostKeyChecking: "no",
+			knownHosts:      "null",
+			enablePty:       true,
+			args:            "ubuntu@1.public",
+		},
 	},
 	{
-		"connect to unit mysql/0 with proxy",
-		[]string{"ssh", "--proxy=true", "mysql/0"},
-		sshArgsWithProxy + "ubuntu@admin-0.internal",
+		about: "connect to arbitrary (non-entity) hostname",
+		args:  []string{"foo@some.host"},
+		expected: argsSpec{
+			// In this case, use the user's own known_hosts and own
+			// StrictHostKeyChecking config.
+			hostKeyChecking: "",
+			knownHosts:      "",
+			enablePty:       true,
+			args:            "foo@some.host",
+		},
+	},
+	{
+		about: "connect to unit mysql/0",
+		args:  []string{"mysql/0"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true,
+			args:            "ubuntu@0.public",
+		},
+	},
+	{
+		about: "connect to unit mysql/0 as the mongo user",
+		args:  []string{"mongo@mysql/0"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true,
+			args:            "mongo@0.public",
+		},
+	},
+	{
+		about: "connect to unit mysql/0 and pass extra arguments",
+		args:  []string{"mysql/0", "ls", "/"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true,
+			args:            "ubuntu@0.public ls /",
+		},
+	},
+	{
+		about: "connect to unit mysql/0 with proxy",
+		args:  []string{"--proxy=true", "mysql/0"},
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true,
+			withProxy:       true,
+			args:            "ubuntu@0.private",
+		},
 	},
 }
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
-	m := s.makeMachines(3, c, true)
-	ch := testcharms.Repo.CharmDir("dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      "dummy-1-sha256",
-	}
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	srv := s.AddTestingService(c, "mysql", dummy)
-	s.addUnit(srv, m[0], c)
-
-	srv = s.AddTestingService(c, "mongodb", dummy)
-	s.addUnit(srv, m[1], c)
-	s.addUnit(srv, m[2], c)
+	s.setupModel(c)
 
 	for i, t := range sshTests {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
-		ctx := coretesting.Context(c)
-		jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-		jujucmd.Register(newSSHCommand())
 
-		code := cmd.Main(jujucmd, ctx, t.args)
-		c.Check(code, gc.Equals, 0)
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-		c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, t.result)
+		ctx, err := coretesting.RunCommand(c, newSSHCommand(), t.args...)
+		if t.expectedErr != "" {
+			c.Check(err, gc.ErrorMatches, t.expectedErr)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+			stdout := coretesting.Stdout(ctx)
+			t.expected.check(c, stdout)
+		}
 	}
 }
 
-func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
-	s.makeMachines(1, c, true)
+func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
+	s.setupModel(c)
+
 	// Setting proxy-ssh=true in the environment overrides --proxy.
 	err := s.State.UpdateModelConfig(map[string]interface{}{"proxy-ssh": true}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := coretesting.Context(c)
-	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(newSSHCommand())
-	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, sshArgsWithProxy+"ubuntu@admin-0.internal")
+
+	ctx, err := coretesting.RunCommand(c, newSSHCommand(), "0")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+	expectedArgs := argsSpec{
+		hostKeyChecking: "yes",
+		knownHosts:      "0",
+		enablePty:       true,
+		withProxy:       true,
+		args:            "ubuntu@0.private",
+	}
+	expectedArgs.check(c, coretesting.Stdout(ctx))
 }
 
 func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
@@ -165,7 +180,7 @@ func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
 			continue
 		}
 		c.Logf("checking %q", name)
-		c.Check(apiserver.IsMethodAllowedDuringUpgrade("Client", name), jc.IsTrue)
+		c.Check(apiserver.IsMethodAllowedDuringUpgrade("SSHClient", name), jc.IsTrue)
 	}
 }
 
@@ -194,69 +209,33 @@ func (s *SSHSuite) TestSSHCommandHostAddressRetryProxy(c *gc.C) {
 }
 
 func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
-	m := s.makeMachines(1, c, false)
-	ctx := coretesting.Context(c)
+	m := s.Factory.MakeMachine(c, nil)
+	s.setKeys(c, m)
 
-	var called int
-	next := func() bool {
+	called := 0
+	attemptStarter := &callbackAttemptStarter{next: func() bool {
 		called++
 		return called < 2
-	}
-	attemptStarter := &callbackAttemptStarter{next: next}
+	}}
 	s.PatchValue(&sshHostFromTargetAttemptStrategy, attemptStarter)
 
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	code := cmd.Main(newSSHCommand(), ctx, args)
-	c.Check(code, gc.Equals, 1)
+	_, err := coretesting.RunCommand(c, newSSHCommand(), args...)
+	c.Assert(err, gc.ErrorMatches, "no .+ address")
 	c.Assert(called, gc.Equals, 2)
+
 	called = 0
 	attemptStarter.next = func() bool {
 		called++
 		if called > 1 {
-			s.setAddresses(m[0], c)
+			s.setAddresses(c, m)
 		}
 		return true
 	}
-	code = cmd.Main(newSSHCommand(), ctx, args)
-	c.Check(code, gc.Equals, 0)
+
+	_, err = coretesting.RunCommand(c, newSSHCommand(), args...)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 2)
-}
-
-func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
-	addrPub := network.NewScopedAddress(
-		fmt.Sprintf("admin-%s.dns", m.Id()),
-		network.ScopePublic,
-	)
-	addrPriv := network.NewScopedAddress(
-		fmt.Sprintf("admin-%s.internal", m.Id()),
-		network.ScopeCloudLocal,
-	)
-	err := m.SetProviderAddresses(addrPub, addrPriv)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*state.Machine {
-	var machines = make([]*state.Machine, n)
-	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-		if setAddresses {
-			s.setAddresses(m, c)
-		}
-		// must set an instance id as the ssh command uses that as a signal the
-		// machine has been provisioned
-		inst, md := testing.AssertStartInstance(c, s.Environ, m.Id())
-		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", md), gc.IsNil)
-		machines[i] = m
-	}
-	return machines
-}
-
-func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *gc.C) {
-	u, err := srv.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.AssignToMachine(m)
-	c.Assert(err, jc.ErrorIsNil)
 }
