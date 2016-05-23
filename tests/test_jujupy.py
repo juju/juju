@@ -564,14 +564,11 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
         _backend.set_feature('jes', jes_enabled)
     client = FakeJujuClient(env, full_path, debug, version, _backend,
                             cls=FakeJujuClientOptionalJES)
+    used_feature_flags = frozenset(['address-allocation', 'jes'])
     return client
 
 
 class FakeJujuClientOptionalJES(EnvJujuClient):
-
-    used_feature_flags = frozenset(['address-allocation', 'jes'])
-
-    default_backend = FakeBackendOptionalJES
 
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
