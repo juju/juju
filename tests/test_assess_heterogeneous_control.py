@@ -19,7 +19,7 @@ from jujupy import (
     )
 from tests.test_deploy_stack import FakeBootstrapManager
 from tests.test_jujupy import (
-    FakeJujuClient,
+    fake_juju_client,
     fake_juju_client_optional_jes,
     )
 
@@ -145,8 +145,8 @@ class TestTestControlHeterogeneous(TestCase):
         self.assertEqual(client.env.juju_home, 'foo')
 
     def test_same_home(self):
-        initial_client = FakeJujuClient(version='1.25')
-        other_client = FakeJujuClient(
+        initial_client = fake_juju_client(version='1.25')
+        other_client = fake_juju_client(
             env=initial_client.env,
             _backend=initial_client._backend.clone(version='2.0.0'))
         bs_manager = FakeBootstrapManager(initial_client)
@@ -159,7 +159,7 @@ class TestTestControlHeterogeneous(TestCase):
 class TestCheckSeries(TestCase):
 
     def test_check_series(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         check_series(client)
 
@@ -176,7 +176,7 @@ class TestCheckSeries(TestCase):
         gjo_mock.assert_called_once_with('ssh', 2, 'lsb_release', '-c')
 
     def test_check_series_exceptionl(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with self.assertRaisesRegexp(
                 AssertionError, 'Series is angsty, not xenial'):

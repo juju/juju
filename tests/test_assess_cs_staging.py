@@ -16,7 +16,7 @@ from tests import (
     TestCase,
 )
 from tests.test_jujupy import (
-    FakeJujuClient,
+    fake_juju_client,
     fake_juju_client_optional_jes,
     )
 
@@ -53,7 +53,7 @@ class TestSetCharmStoreIP(TestCase):
             'ssh', ('0', _get_ssh_script('1.2.3.4')))
 
     def test_separate_admin(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         admin_client = client.get_admin_client()
         # Force get_admin_client to return the *same* client, instead of an

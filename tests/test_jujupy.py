@@ -530,8 +530,8 @@ class FakeBackendOptionalJES(FakeBackend):
         return bool(feature in self.feature_flags)
 
 
-def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
-                   _backend=None, cls=EnvJujuClient):
+def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
+                     _backend=None, cls=EnvJujuClient):
     if env is None:
         env = JujuData('name', {
             'type': 'foo',
@@ -562,8 +562,8 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
             backend_state, version=version, full_path=full_path,
             debug=debug)
         _backend.set_feature('jes', jes_enabled)
-    client = FakeJujuClient(env, full_path, debug, version, _backend,
-                            cls=FakeJujuClientOptionalJES)
+    client = fake_juju_client(env, full_path, debug, version, _backend,
+                              cls=FakeJujuClientOptionalJES)
     return client
 
 
@@ -2930,12 +2930,12 @@ class TestEnvJujuClient(ClientTest):
                           'to model "y"\nPlease send this command to x:\n',
                           '    juju register AaBbCc'])
         output_cmd = 'juju register AaBbCc'
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         register_cmd = fake_client._get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)
 
     def test_revoke(self):
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         username = 'fakeuser'
         model = 'foo'
         default_permissions = 'read'
@@ -2965,7 +2965,7 @@ class TestEnvJujuClient(ClientTest):
                                                 include_e=False)
 
     def test_add_user(self):
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         username = 'fakeuser'
         model = 'foo'
         permissions = 'write'
@@ -4963,9 +4963,9 @@ def stub_bootstrap(client):
 class TestMakeSafeConfig(TestCase):
 
     def test_default(self):
-        client = FakeJujuClient(JujuData('foo', {'type': 'bar'},
-                                         juju_home='foo'),
-                                version='1.2-alpha3-asdf-asdf')
+        client = fake_juju_client(JujuData('foo', {'type': 'bar'},
+                                           juju_home='foo'),
+                                  version='1.2-alpha3-asdf-asdf')
         config = make_safe_config(client)
         self.assertEqual({
             'name': 'foo',
@@ -4977,15 +4977,15 @@ class TestMakeSafeConfig(TestCase):
     def test_local(self):
         with temp_dir() as juju_home:
             env = JujuData('foo', {'type': 'local'}, juju_home=juju_home)
-            client = FakeJujuClient(env)
+            client = fake_juju_client(env)
             with patch('jujupy.check_free_disk_space'):
                 config = make_safe_config(client)
         self.assertEqual(get_local_root(client.env.juju_home, client.env),
                          config['root-dir'])
 
     def test_bootstrap_replaces_agent_version(self):
-        client = FakeJujuClient(JujuData('foo', {'type': 'bar'},
-                                juju_home='foo'))
+        client = fake_juju_client(JujuData('foo', {'type': 'bar'},
+                                  juju_home='foo'))
         client.bootstrap_replaces = {'agent-version'}
         self.assertNotIn('agent-version', make_safe_config(client))
         client.env.config['agent-version'] = '1.23'

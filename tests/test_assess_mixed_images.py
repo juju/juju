@@ -17,7 +17,7 @@ from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(TestCase):
@@ -60,7 +60,7 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        client = FakeJujuClient()
+        client = fake_juju_client()
         with patch("assess_mixed_images.configure_logging",
                    autospec=True) as mock_cl:
             with patch("assess_mixed_images.BootstrapManager.booted_context",
@@ -82,7 +82,7 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_mixed_images(self):
-        mock_client = FakeJujuClient()
+        mock_client = fake_juju_client()
         mock_client.bootstrap()
         assess_mixed_images(mock_client)
         expected = {
@@ -125,7 +125,7 @@ class TestAssess(TestCase):
         self.assertEqual(expected, actual)
 
     def test_mixed_images_charm_2x(self):
-        mock_client = FakeJujuClient()
+        mock_client = fake_juju_client()
         mock_client.bootstrap()
         with patch.object(mock_client, 'deploy') as mock_d:
             with patch('assess_mixed_images.assess_juju_relations',
@@ -136,7 +136,7 @@ class TestAssess(TestCase):
         mock_ajr.assert_called_once_with(mock_client)
 
     def test_mixed_images_charm_1x(self):
-        mock_client = FakeJujuClient(version='1.25.0')
+        mock_client = fake_juju_client(version='1.25.0')
         mock_client.bootstrap()
         with patch.object(mock_client, 'deploy') as mock_d:
             with patch('assess_mixed_images.assess_juju_relations',

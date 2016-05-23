@@ -20,7 +20,7 @@ from tests import (
     FakeHomeTestCase,
     TestCase,
 )
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(TestCase):
@@ -76,37 +76,37 @@ class TestAssessRecovery(TestCase):
                     yield
 
     def test_backup(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'backup', 'trusty')
 
     def test_ha(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha', 'trusty')
 
     def test_ha_backup(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha-backup', 'trusty')
 
     def test_admin_model_backup(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'backup', 'trusty')
 
     def test_admin_model_ha(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha', 'trusty')
 
     def test_admin_model_ha_backup(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha-backup', 'trusty')

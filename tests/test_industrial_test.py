@@ -68,7 +68,7 @@ from tests import (
 from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
-    FakeJujuClient,
+    fake_juju_client,
     FakePopen,
     observable_temp_file,
     )
@@ -639,7 +639,7 @@ class TestMultiIndustrialTest(TestCase):
             ]), log_dir, 5, 10)
 
         def side_effect(env, full_path=None, debug=False):
-            return FakeJujuClient(None, full_path, debug)
+            return fake_juju_client(None, full_path, debug)
 
         with self.patch_client(side_effect):
             with patch('industrial_test.BootstrapManager',
@@ -671,7 +671,7 @@ class TestMultiIndustrialTest(TestCase):
             ]), log_dir, 5, 6)
 
         def side_effect(env, full_path=None, debug=False):
-            return FakeJujuClient(None, full_path, debug)
+            return fake_juju_client(None, full_path, debug)
 
         with self.patch_client(side_effect):
             with patch('industrial_test.BootstrapManager',
@@ -705,7 +705,7 @@ class TestMultiIndustrialTest(TestCase):
             log_dir, 5, 4)
 
         def side_effect(env, full_path=None, debug=False):
-            return FakeJujuClient(None, full_path, debug)
+            return fake_juju_client(None, full_path, debug)
 
         with self.patch_client(side_effect):
             with patch('industrial_test.BootstrapManager',
@@ -877,8 +877,8 @@ class TestIndustrialTest(JujuPyTestCase):
         self.assertEqual(len(cc_mock.mock_calls), 0)
 
     def test_run_stages_old_fail(self):
-        old_client = FakeJujuClient()
-        new_client = FakeJujuClient(full_path='bar-path')
+        old_client = fake_juju_client()
+        new_client = fake_juju_client(full_path='bar-path')
         industrial = IndustrialTest(old_client, new_client, [
             FakeStepAttempt.from_result(False, True),
             FakeStepAttempt.from_result(True, True)])
@@ -901,8 +901,8 @@ class TestIndustrialTest(JujuPyTestCase):
                          new_client._backend.controller_state.state)
 
     def test_run_stages_new_fail(self):
-        old_client = FakeJujuClient()
-        new_client = FakeJujuClient(full_path='bar-path')
+        old_client = fake_juju_client()
+        new_client = fake_juju_client(full_path='bar-path')
         log_dir = use_context(self, temp_dir())
         suite_factory = AttemptSuiteFactory([
             FakeAttemptClass('foo', True, False, new_path='bar-path'),
@@ -922,8 +922,8 @@ class TestIndustrialTest(JujuPyTestCase):
                          new_client._backend.controller_state.state)
 
     def test_run_stages_both_fail(self):
-        old_client = FakeJujuClient()
-        new_client = FakeJujuClient()
+        old_client = fake_juju_client()
+        new_client = fake_juju_client()
         log_dir = use_context(self, temp_dir())
         suite = AttemptSuiteFactory([
             FakeAttemptClass('foo', False, False),
@@ -943,8 +943,8 @@ class TestIndustrialTest(JujuPyTestCase):
                          new_client._backend.controller_state.state)
 
     def test_run_stages_recover_failure(self):
-        old_client = FakeJujuClient()
-        new_client = FakeJujuClient()
+        old_client = fake_juju_client()
+        new_client = fake_juju_client()
         fsa = FakeStepAttempt([('foo', True, False), ('bar', True, True)])
         industrial = IndustrialTest(old_client, new_client, [
             fsa, FakeStepAttempt.from_result(True, True)])
@@ -970,8 +970,8 @@ class TestIndustrialTest(JujuPyTestCase):
             list(industrial.run_stages())
 
     def test_run_attempt(self):
-        old_client = FakeJujuClient()
-        new_client = FakeJujuClient()
+        old_client = fake_juju_client()
+        new_client = fake_juju_client()
         attempt = FakeStepAttempt.from_result(True, True)
         log_dir = use_context(self, temp_dir())
         suite = AttemptSuiteFactory([attempt]).factory([], log_dir, None)
@@ -1299,7 +1299,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
             iterator.next()
 
     def test_iter_steps_kill_controller(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
@@ -1729,7 +1729,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
 
     def get_wait_until_removed_timeout(self, container_type):
         deploy_many = DeployManyAttempt()
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         with patch('industrial_test.wait_until_removed') as wur_mock:
@@ -1835,11 +1835,11 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
             PrepareUpgradeJujuAttempt.factory([], None)
 
     def test_get_bootstrap_client(self):
-        client = FakeJujuClient(full_path='c', debug=True)
+        client = fake_juju_client(full_path='c', debug=True)
         puj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'], None)
 
         def by_version(env, path, debug):
-            return FakeJujuClient(env, path, debug)
+            return fake_juju_client(env, path, debug)
 
         with patch.object(client, 'by_version', by_version):
             bootstrap_client = puj_attempt.get_bootstrap_client(client)
@@ -2159,7 +2159,7 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', None)
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
-            client = FakeJujuClient()
+            client = fake_juju_client()
             attempt_suite.iter_steps(client)
         mock_bm.assert_called_once_with(
             'name', client, client, agent_stream=None, agent_url=None,
@@ -2172,7 +2172,7 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([], bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, 'asdf', 'bar-stream')
         with self.iter_steps_cxt(attempt_suite) as (mock_ibms, mock_bm):
-            client = FakeJujuClient()
+            client = fake_juju_client()
             iterator = attempt_suite.iter_steps(client)
         self.assertEqual(iterator, mock_ibms.return_value)
         mock_bm.assert_called_once_with(
@@ -2188,7 +2188,7 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([fake_1, fake_2],
                                       bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, None, None)
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = FakeBootstrapManager(client)
         steps = list(attempt_suite._iter_bs_manager_steps(
             bs_manager, client, fake_bootstrap(), True))
@@ -2213,7 +2213,7 @@ class TestAttemptSuite(TestCase):
         factory = AttemptSuiteFactory([fake_1],
                                       bootstrap_attempt=fake_bootstrap)
         attempt_suite = AttemptSuite(factory, None, None, None)
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = FakeBootstrapManager(client, keep_env=True)
         with self.assertRaisesRegexp(Exception, 'fake exception'):
             list(attempt_suite._iter_bs_manager_steps(
