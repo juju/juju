@@ -547,10 +547,10 @@ def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
                 backend_state, version=version, full_path=full_path,
                 debug=debug)
             _backend.set_feature('jes', True)
-        self = EnvJujuClient(
+        client = EnvJujuClient(
             env, version, full_path, juju_home, debug, _backend=_backend)
-        self.bootstrap_replaces = {}
-        return self
+        client.bootstrap_replaces = {}
+        return client
 
 
 class FakeJujuClientOptionalJES(EnvJujuClient):
