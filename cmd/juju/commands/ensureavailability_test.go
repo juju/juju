@@ -101,7 +101,9 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 var _ = gc.Suite(&EnsureAvailabilitySuite{})
 
 func (s *EnsureAvailabilitySuite) runEnsureAvailability(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := &EnsureAvailabilityCommand{haClient: s.fake}
+	command := &EnsureAvailabilityCommand{newHAClientFunc: func() (EnsureAvailabilityClient, error) {
+		return s.fake, nil
+	}}
 	return coretesting.RunCommand(c, envcmd.Wrap(command), args...)
 }
 
@@ -252,7 +254,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityEndToEnd(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), "-n", "3")
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(NewEnsureAvailabilityCommand()), "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Machine 0 is demoted because it hasn't reported its presence
