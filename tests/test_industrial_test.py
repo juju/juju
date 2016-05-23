@@ -69,6 +69,7 @@ from tests.test_deploy_stack import FakeBootstrapManager
 from test_jujupy import (
     assert_juju_call,
     FakeJujuClient,
+    FakePopen,
     observable_temp_file,
     )
 from test_substrate import (
@@ -1765,7 +1766,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         def check_output(*args, **kwargs):
             if args == (('juju', '--show-log', 'create-backup', '-m',
                          admin_client.env.environment,),):
-                return 'juju-backup-24.tgz'
+                return FakePopen('juju-backup-24.tgz', '', 0)
             self.assertEqual([], args)
         initial_status = {
             'machines': {'0': {
@@ -1776,7 +1777,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         iterator = iter_steps_validate_info(self, br_attempt, client)
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         with patch_status(admin_client, initial_status) as gs_mock:
-            with patch('subprocess.check_output',
+            with patch('subprocess.Popen',
                        side_effect=check_output) as co_mock:
                 with patch('subprocess.check_call') as cc_mock:
                     with patch.object(client, 'get_admin_client',
