@@ -569,8 +569,8 @@ class FakeJujuClientOptionalJES(FakeJujuClient):
     def __init__(self, env=None, full_path=None, debug=False,
                  jes_enabled=True, version='2.0.0', _backend=None):
 
-        super(FakeJujuClientOptionalJES, self).__init__(env, full_path,
-              debug, version=version, _backend=_backend)
+        super(FakeJujuClientOptionalJES, self).__init__(
+            env, full_path, debug, version=version, _backend=_backend)
         if _backend is None:
             self._backend.set_feature('jes', jes_enabled)
 
@@ -955,7 +955,7 @@ class TestEnvJujuClient(ClientTest):
     def test_get_matching_agent_version(self):
         client = EnvJujuClient(
             JujuData(None, {'type': 'local'}, juju_home='foo'),
-                            '1.23-series-arch', None)
+            '1.23-series-arch', None)
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
@@ -4965,7 +4965,7 @@ class TestMakeSafeConfig(TestCase):
     def test_default(self):
         client = FakeJujuClient(JujuData('foo', {'type': 'bar'},
                                          juju_home='foo'),
-                                         version='1.2-alpha3-asdf-asdf')
+                                version='1.2-alpha3-asdf-asdf')
         config = make_safe_config(client)
         self.assertEqual({
             'name': 'foo',
