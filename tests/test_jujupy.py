@@ -502,6 +502,9 @@ class FakeBackend:
                 'Please send this command to {}\n    juju register {}' \
                 .format(username, code)
             return info_string + register_string
+        if command == 'show-status':
+            status_dict = model_state.get_status_dict()
+            return yaml.safe_dump(status_dict)
         return ''
 
     def pause(self, seconds):
@@ -556,18 +559,6 @@ class FakeJujuClient(EnvJujuClient):
 
     def wait_for_started(self, timeout=1200, start=None):
         return self.get_status()
-
-    def get_status(self, admin=False):
-        try:
-            model_state = self._backend.controller_state.models[
-                self.model_name]
-        except KeyError:
-            # Really, this should raise, but that would break tests.
-            status_dict = {'services': {}, 'machines': {}}
-        else:
-            status_dict = model_state.get_status_dict()
-        status_text = yaml.safe_dump(status_dict)
-        return Status(status_dict, status_text)
 
     def wait_for_workloads(self, timeout=600):
         pass
