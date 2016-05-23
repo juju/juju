@@ -65,7 +65,7 @@ func (pp *Persistence) ListAll() ([]payload.FullPayloadInfo, error) {
 // is already there then it is replaced with the new one.
 func (pp Persistence) Track(pl payload.FullPayloadInfo) error {
 	logger.Tracef("inserting %q - %#v", pl.Name, pl)
-	txn := &insertPayloadTxn{
+	txn := &upsertPayloadTxn{
 		payload: pl,
 	}
 	if err := pp.txns.run(txn); err != nil {

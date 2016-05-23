@@ -23,18 +23,22 @@ type PayloadsMongoSuite struct {
 
 var _ = gc.Suite(&PayloadsMongoSuite{})
 
-func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
+func (s *PayloadsMongoSuite) TestUpsertOpsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	itxn := insertPayloadTxn{pl}
+	utxn := upsertPayloadTxn{
+		payload: pl,
+		exists:  false,
+	}
 
-	ops := itxn.ops()
+	ops := utxn.ops()
 
 	f.Stub.CheckNoCalls(c)
 	id := "payload#a-unit/0#payloadA"
 	c.Check(ops, jc.DeepEquals, []txn.Op{{
-		C:  "payloads",
-		Id: id,
+		C:      "payloads",
+		Id:     id,
+		Assert: txn.DocMissing,
 		Insert: &payloadDoc{
 			DocID:     id,
 			UnitID:    "a-unit/0",
@@ -47,27 +51,97 @@ func (s *PayloadsMongoSuite) TestInsertOps(c *gc.C) {
 	}})
 }
 
-func (s *PayloadsMongoSuite) TestInsertCheckAssertsMissing(c *gc.C) {
+func (s *PayloadsMongoSuite) TestUpsertOpsExists(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
-	itxn := insertPayloadTxn{pl}
+	utxn := upsertPayloadTxn{
+		payload: pl,
+		exists:  true,
+	}
 
-	err := itxn.checkAsserts(f.Queries)
-	c.Assert(err, jc.ErrorIsNil)
+	ops := utxn.ops()
 
 	f.Stub.CheckNoCalls(c)
+	id := "payload#a-unit/0#payloadA"
+	c.Check(ops, jc.DeepEquals, []txn.Op{{
+		C:      "payloads",
+		Id:     id,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "payloads",
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: &payloadDoc{
+			DocID:     id,
+			UnitID:    "a-unit/0",
+			Name:      "payloadA",
+			MachineID: "0",
+			Type:      "docker",
+			RawID:     "payloadA-xyz",
+			State:     "running",
+		},
+	}})
 }
 
-func (s *PayloadsMongoSuite) TestInsertCheckAssertsAlreadyExists(c *gc.C) {
+func (s *PayloadsMongoSuite) TestUpsertCheckAssertsMissing(c *gc.C) {
+	f := NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
+	utxn := upsertPayloadTxn{
+		payload: pl,
+	}
+
+	err := utxn.checkAssertsAndUpdate(f.Queries)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f.Stub.CheckCallNames(c, "All")
+	c.Check(utxn.exists, jc.IsFalse)
+}
+
+func (s *PayloadsMongoSuite) TestUpsertCheckAssertsWasFound(c *gc.C) {
+	f := NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
+	utxn := upsertPayloadTxn{
+		payload: pl,
+		exists:  true,
+	}
+
+	err := utxn.checkAssertsAndUpdate(f.Queries)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f.Stub.CheckCallNames(c, "All")
+	c.Check(utxn.exists, jc.IsFalse)
+}
+
+func (s *PayloadsMongoSuite) TestUpsertCheckAssertsAlreadyExists(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
 	f.SetDocs(pl)
-	itxn := insertPayloadTxn{pl}
+	utxn := upsertPayloadTxn{
+		payload: pl,
+	}
 
-	err := itxn.checkAsserts(f.Queries)
+	err := utxn.checkAssertsAndUpdate(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
-	f.Stub.CheckNoCalls(c)
+	f.Stub.CheckCallNames(c, "All")
+	c.Check(utxn.exists, jc.IsTrue)
+}
+
+func (s *PayloadsMongoSuite) TestUpsertCheckAssertsWasMissing(c *gc.C) {
+	f := NewPayloadPersistenceFixture()
+	pl := f.NewPayload("0", "a-unit/0", "docker", "payloadA/payloadA-xyz")
+	f.SetDocs(pl)
+	utxn := upsertPayloadTxn{
+		payload: pl,
+		exists:  false,
+	}
+
+	err := utxn.checkAssertsAndUpdate(f.Queries)
+	c.Assert(err, jc.ErrorIsNil)
+
+	f.Stub.CheckCallNames(c, "All")
+	c.Check(utxn.exists, jc.IsTrue)
 }
 
 func (s *PayloadsMongoSuite) TestSetStatusOps(c *gc.C) {
@@ -97,7 +171,7 @@ func (s *PayloadsMongoSuite) TestSetStatusCheckAssertsExists(c *gc.C) {
 	f.SetDocs(pl)
 	stxn := setPayloadStatusTxn{pl.Unit, pl.Name, payload.StateRunning}
 
-	err := stxn.checkAsserts(f.Queries)
+	err := stxn.checkAssertsAndUpdate(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.Stub.CheckCallNames(c, "All")
@@ -107,7 +181,7 @@ func (s *PayloadsMongoSuite) TestSetStatusCheckAssertsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	stxn := setPayloadStatusTxn{"a-unit/0", "", payload.StateRunning}
 
-	err := stxn.checkAsserts(f.Queries)
+	err := stxn.checkAssertsAndUpdate(f.Queries)
 
 	f.Stub.CheckCallNames(c, "All")
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)
@@ -136,7 +210,7 @@ func (s *PayloadsMongoSuite) TestRemoveCheckAssertsExists(c *gc.C) {
 	f.SetDocs(pl)
 	rtxn := removePayloadTxn{pl.Unit, pl.Name}
 
-	err := rtxn.checkAsserts(f.Queries)
+	err := rtxn.checkAssertsAndUpdate(f.Queries)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f.Stub.CheckCallNames(c, "All")
@@ -146,7 +220,7 @@ func (s *PayloadsMongoSuite) TestRemoveCheckAssertsMissing(c *gc.C) {
 	f := NewPayloadPersistenceFixture()
 	rtxn := removePayloadTxn{"a-unit/0", "payloadA"}
 
-	err := rtxn.checkAsserts(f.Queries)
+	err := rtxn.checkAssertsAndUpdate(f.Queries)
 
 	f.Stub.CheckCallNames(c, "All")
 	c.Check(errors.Cause(err), gc.Equals, payload.ErrNotFound)

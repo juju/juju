@@ -19,7 +19,7 @@ type payloadsTxnRunner interface {
 }
 
 type payloadsTransaction interface {
-	checkAsserts(pq payloadsQueries) error
+	checkAssertsAndUpdate(pq payloadsQueries) error
 	ops() []txn.Op
 }
 
@@ -39,7 +39,7 @@ func (pt payloadsTransactions) run(ptxn payloadsTransaction) error {
 func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) jujutxn.TransactionSource {
 	return func(attempt int) ([]txn.Op, error) {
 		// We always check the asserts manually before returning ops.
-		if err := ptxn.checkAsserts(pt.queries); err != nil {
+		if err := ptxn.checkAssertsAndUpdate(pt.queries); err != nil {
 			return nil, errors.Trace(err)
 		}
 		// If the asserts check out then it was probably a transient
@@ -49,26 +49,43 @@ func (pt payloadsTransactions) newTxnSource(ptxn payloadsTransaction) jujutxn.Tr
 	}
 }
 
-type insertPayloadTxn struct {
+type upsertPayloadTxn struct {
 	payload payload.FullPayloadInfo
+
+	exists bool
 }
 
-func (itxn insertPayloadTxn) checkAsserts(pq payloadsQueries) error {
-	// "insert" has no asserts, so there's nothing to check here.
+func (utxn *upsertPayloadTxn) checkAssertsAndUpdate(pq payloadsQueries) error {
+	utxn.exists = false
+	query := payloadIDQuery(utxn.payload.Unit, utxn.payload.Name)
+	_, err := pq.one(query)
+	if err == nil {
+		utxn.exists = true
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
-func (itxn insertPayloadTxn) ops() []txn.Op {
-	doc := newPayloadDoc(itxn.payload)
+func (utxn upsertPayloadTxn) ops() []txn.Op {
+	doc := newPayloadDoc(utxn.payload)
+	var ops []txn.Op
+	if utxn.exists {
+		ops = append(ops, txn.Op{
+			C:      payloadsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
 	// TODO(ericsnow) Add unitPersistence.newEnsureAliveOp(pp.unit)?
-
-	// Note that we do not assert txn.DocMissing here. If it already
-	// exists then we replace the existing one.
-	return []txn.Op{{
+	return append(ops, txn.Op{
 		C:      payloadsC,
 		Id:     doc.DocID,
+		Assert: txn.DocMissing,
 		Insert: doc,
-	}}
+	})
 }
 
 type setPayloadStatusTxn struct {
@@ -77,7 +94,7 @@ type setPayloadStatusTxn struct {
 	status string
 }
 
-func (stxn *setPayloadStatusTxn) checkAsserts(pq payloadsQueries) error {
+func (stxn *setPayloadStatusTxn) checkAssertsAndUpdate(pq payloadsQueries) error {
 	query := payloadIDQuery(stxn.unit, stxn.name)
 	_, err := pq.one(query)
 	if errors.IsNotFound(err) {
@@ -109,7 +126,7 @@ type removePayloadTxn struct {
 	name string
 }
 
-func (rtxn *removePayloadTxn) checkAsserts(pq payloadsQueries) error {
+func (rtxn *removePayloadTxn) checkAssertsAndUpdate(pq payloadsQueries) error {
 	query := payloadIDQuery(rtxn.unit, rtxn.name)
 	_, err := pq.one(query)
 	if errors.IsNotFound(err) {
