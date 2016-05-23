@@ -1,16 +1,13 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence
+package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/payload"
 )
-
-var logger = loggo.GetLogger("juju.payload.persistence")
 
 // TODO(ericsnow) Store status in the status collection?
 

@@ -20,10 +20,10 @@ import (
 	internalserver "github.com/juju/juju/payload/api/private/server"
 	"github.com/juju/juju/payload/api/server"
 	"github.com/juju/juju/payload/context"
-	"github.com/juju/juju/payload/persistence"
 	payloadstate "github.com/juju/juju/payload/state"
 	"github.com/juju/juju/payload/status"
 	"github.com/juju/juju/state"
+	persistence "github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -202,13 +202,13 @@ func (payloads) registerState() {
 	}
 
 	newUnitPayloads := func(db state.Persistence, unit, machine string) (state.UnitPayloads, error) {
-		persist := persistence.NewPersistence(db)
-		unitPersist := persistence.NewUnitPersistence(persist, unit)
+		persist := persistence.NewPayloadsPersistence(db)
+		unitPersist := persistence.NewUnitPayloadsPersistence(persist, unit)
 		return payloadstate.NewUnitPayloads(unitPersist, unit, machine), nil
 	}
 
 	newEnvPayloads := func(db state.Persistence) (state.EnvPayloads, error) {
-		persist := persistence.NewPersistence(db)
+		persist := persistence.NewPayloadsPersistence(db)
 		envPayloads := payloadstate.EnvPayloads{
 			Persist: persist,
 		}
