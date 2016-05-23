@@ -274,6 +274,14 @@ class FakeEnvironmentState:
 
 
 class FakeBackend:
+    """A fake juju backend for tests.
+
+    This is a partial implementation, but should be suitable for many uses,
+    and can be extended.
+
+    The state is provided by controller_state, so that multiple clients and
+    backends can manipulate the same state.
+    """
 
     def __init__(self, controller_state, feature_flags=None, version=None,
                  full_path=None, debug=False):
@@ -544,20 +552,15 @@ def FakeJujuClient(env=None, full_path=None, debug=False, version='2.0.0',
         self.bootstrap_replaces = {}
         return self
 
-class FakeJujuClient_(EnvJujuClient):
-    """A fake juju client for tests.
 
-    This is a partial implementation, but should be suitable for many uses,
-    and can be extended.
+class FakeJujuClientOptionalJES(EnvJujuClient):
 
-    The state is provided by _backend.controller_state, so that multiple
-    clients can manipulate the same state.
-    """
+    used_feature_flags = frozenset(['address-allocation', 'jes'])
 
-    default_backend = FakeBackend
+    default_backend = FakeBackendOptionalJES
 
     def __init__(self, env=None, full_path=None, debug=False,
-                 version='2.0.0', _backend=None):
+                 jes_enabled=True, version='2.0.0', _backend=None):
         if env is None:
             env = JujuData('name', {
                 'type': 'foo',
@@ -572,29 +575,10 @@ class FakeJujuClient_(EnvJujuClient):
             _backend = self.default_backend(
                 backend_state, version=version, full_path=full_path,
                 debug=debug)
-            _backend.set_feature('jes', True)
-        super(FakeJujuClient_, self).__init__(
+            _backend.set_feature('jes', jes_enabled)
+        super(FakeJujuClientOptionalJES, self).__init__(
             env, version, full_path, juju_home, debug, _backend=_backend)
         self.bootstrap_replaces = {}
-
-    @property
-    def _jes_enabled(self):
-        raise Exception
-
-
-class FakeJujuClientOptionalJES(FakeJujuClient_):
-
-    used_feature_flags = frozenset(['address-allocation', 'jes'])
-
-    default_backend = FakeBackendOptionalJES
-
-    def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=True, version='2.0.0', _backend=None):
-
-        super(FakeJujuClientOptionalJES, self).__init__(
-            env, full_path, debug, version=version, _backend=_backend)
-        if _backend is None:
-            self._backend.set_feature('jes', jes_enabled)
 
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
