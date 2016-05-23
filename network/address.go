@@ -51,10 +51,12 @@ const (
 	IPv6Address AddressType = "ipv6"
 )
 
-// IsSameTypeOrHostHame returns whether current is the same as other, or either
-// of the types is a HostHame.
-func (current AddressType) IsSameTypeOrHostName(other AddressType) bool {
-	return current == other || (current == HostName || other == HostName)
+// IsConsistentWith returns whether current is the same as other, or either of
+// the types is a HostHame. Hostnames potentially resolve to one or more IPv4,
+// IPv6 or even both address types, so without actually resolving them we can
+// reasonably treat them as IPv4 or IPv6, depending on context.
+func (current AddressType) IsConsistentWith(other AddressType) bool {
+	return current == other || current == HostName || other == HostName
 }
 
 // Scope denotes the context a location may apply to. If a name or
@@ -357,29 +359,25 @@ func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []stri
 // are no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address is then ok is true.
 func SelectPublicAddress(addresses []Address) (Address, bool) {
-	index := bestAddressIndex(len(addresses), func(i int) Address {
-		return addresses[i]
-	}, publicMatch)
-	if index < 0 {
-		return Address{}, false
-	}
-	return addresses[index], true
+	return selectPublicAddressOptionallyWithType(addresses, "")
 }
 
 // SelectPublicAddressWithType works like SelectPublicAddress, but only
 // considers addresses with the given addrType
 func SelectPublicAddressWithType(addresses []Address, addrType AddressType) (Address, bool) {
-	publicTypedMatch := func(addr Address) scopeMatch {
-		if !addr.Type.IsSameTypeOrHostName(addrType) {
-			return invalidScope
-		}
+	return selectPublicAddressOptionallyWithType(addresses, addrType)
+}
 
-		return publicMatch(addr)
+func selectPublicAddressOptionallyWithType(addresses []Address, addrType AddressType) (Address, bool) {
+	matcher := publicMatch
+	if addrType != "" {
+		matcher = publicTypedMatcher(addrType)
 	}
 
 	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
-	}, publicTypedMatch)
+	}, matcher)
+
 	if index < 0 {
 		return Address{}, false
 	}
@@ -404,32 +402,29 @@ func SelectPublicHostPort(hps []HostPort) string {
 // are no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address was found then ok is true.
 func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
-	index := bestAddressIndex(len(addresses), func(i int) Address {
-		return addresses[i]
-	}, internalAddressMatcher(machineLocal))
-	if index < 0 {
-		return Address{}, false
-	}
-	return addresses[index], true
+	return selectInternalAddressOptionallyWithType(addresses, "", machineLocal)
 }
 
 // SelectInternalAddressWithType works like SelectInternalAddress, but only
 // considers addresses with the given addrType
 func SelectInternalAddressWithType(addresses []Address, addrType AddressType, machineLocal bool) (Address, bool) {
-	internalTypedAddressMatch := func(addr Address) scopeMatch {
-		if !addr.Type.IsSameTypeOrHostName(addrType) {
-			return invalidScope
-		}
+	return selectInternalAddressOptionallyWithType(addresses, addrType, machineLocal)
+}
 
-		return internalAddressMatcher(machineLocal)(addr)
+func selectInternalAddressOptionallyWithType(addresses []Address, addrType AddressType, machineLocal bool) (Address, bool) {
+	matcher := internalAddressMatcher(machineLocal)
+	if addrType != "" {
+		matcher = internalTypedAddressMatcher(machineLocal, addrType)
 	}
 
 	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
-	}, internalTypedAddressMatch)
+	}, matcher)
+
 	if index < 0 {
 		return Address{}, false
 	}
+
 	return addresses[index], true
 }
 
@@ -489,11 +484,31 @@ func publicMatch(addr Address) scopeMatch {
 	return invalidScope
 }
 
+func publicTypedMatcher(addrType AddressType) scopeMatchFunc {
+	return func(addr Address) scopeMatch {
+		if !addr.Type.IsConsistentWith(addrType) {
+			return invalidScope
+		}
+
+		return publicMatch(addr)
+	}
+}
+
 func internalAddressMatcher(machineLocal bool) scopeMatchFunc {
 	if machineLocal {
 		return cloudOrMachineLocalMatch
 	}
 	return cloudLocalMatch
+}
+
+func internalTypedAddressMatcher(machineLocal bool, addrType AddressType) scopeMatchFunc {
+	return func(addr Address) scopeMatch {
+		if !addr.Type.IsConsistentWith(addrType) {
+			return invalidScope
+		}
+
+		return internalAddressMatcher(machineLocal)(addr)
+	}
 }
 
 func cloudLocalMatch(addr Address) scopeMatch {
