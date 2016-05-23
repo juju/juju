@@ -184,56 +184,54 @@ func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 	}
 }
 
-// PreferredPublicIPv4Address implements Machine.
-func (m *machine) PreferredPublicIPv4Address() Address {
-	// To avoid typed nils check nil here.
-	if m.PreferredPublicIPv4Address_ == nil {
+// PreferredPublicAddress implements Machine.
+func (m *machine) PreferredPublicAddress(addressType AddressType) Address {
+	switch addressType {
+	case IPv4Address, HostName:
+		// To avoid typed nils check nil here.
+		if m.PreferredPublicIPv4Address_ != nil {
+			return m.PreferredPublicIPv4Address_
+		}
+		return nil
+	case IPv6Address:
+		// To avoid typed nils check nil here.
+		if m.PreferredPublicIPv6Address_ != nil {
+			return m.PreferredPublicIPv6Address_
+		}
 		return nil
 	}
-	return m.PreferredPublicIPv4Address_
+	return nil
 }
 
-// PreferredPrivateIPv4Address implements Machine.
-func (m *machine) PreferredPrivateIPv4Address() Address {
-	// To avoid typed nils check nil here.
-	if m.PreferredPrivateIPv4Address_ == nil {
+// PreferredPrivateAddress implements Machine.
+func (m *machine) PreferredPrivateAddress(addressType AddressType) Address {
+	switch addressType {
+	case IPv4Address, HostName:
+		// To avoid typed nils check nil here.
+		if m.PreferredPrivateIPv4Address_ != nil {
+			return m.PreferredPrivateIPv4Address_
+		}
+		return nil
+	case IPv6Address:
+		// To avoid typed nils check nil here.
+		if m.PreferredPrivateIPv6Address_ != nil {
+			return m.PreferredPrivateIPv6Address_
+		}
 		return nil
 	}
-	return m.PreferredPrivateIPv4Address_
+	return nil
 }
 
-// SetPreferredIPv4Addresses implements Machine.
-func (m *machine) SetPreferredIPv4Addresses(publicIPv4 AddressArgs, privateIPv4 AddressArgs) {
+// SetPreferredAddresses implements Machine.
+func (m *machine) SetPreferredAddresses(publicIPv4, publicIPv6, privateIPv4, privateIPv6 AddressArgs) {
 	if publicIPv4.Value != "" {
 		m.PreferredPublicIPv4Address_ = newAddress(publicIPv4)
 	}
-	if privateIPv4.Value != "" {
-		m.PreferredPrivateIPv4Address_ = newAddress(privateIPv4)
-	}
-}
-
-// PreferredPublicIPv6Address implements Machine.
-func (m *machine) PreferredPublicIPv6Address() Address {
-	// To avoid typed nils check nil here.
-	if m.PreferredPublicIPv6Address_ == nil {
-		return nil
-	}
-	return m.PreferredPublicIPv6Address_
-}
-
-// PreferredPrivateIPv6Address implements Machine.
-func (m *machine) PreferredPrivateIPv6Address() Address {
-	// To avoid typed nils check nil here.
-	if m.PreferredPrivateIPv6Address_ == nil {
-		return nil
-	}
-	return m.PreferredPrivateIPv6Address_
-}
-
-// SetPreferredIPv6Addresses implements Machine.
-func (m *machine) SetPreferredIPv6Addresses(publicIPv6 AddressArgs, privateIPv6 AddressArgs) {
 	if publicIPv6.Value != "" {
 		m.PreferredPublicIPv6Address_ = newAddress(publicIPv6)
+	}
+	if privateIPv4.Value != "" {
+		m.PreferredPrivateIPv4Address_ = newAddress(privateIPv4)
 	}
 	if privateIPv6.Value != "" {
 		m.PreferredPrivateIPv6Address_ = newAddress(privateIPv6)
