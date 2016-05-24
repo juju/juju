@@ -76,7 +76,7 @@ func (p *permission) access() description.Access {
 }
 
 func (p *permission) isGreaterAccess(a description.Access) bool {
-	return stringToAccess(p.doc.Access).IsGreaterAccess(a)
+	return stringToAccess(p.doc.Access).LessAccessThan(a)
 }
 
 func permissionID(objectKey, subjectKey string) string {

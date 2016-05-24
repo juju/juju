@@ -177,15 +177,14 @@ func (e *exporter) modelUsers() error {
 		return errors.Trace(err)
 	}
 	for _, user := range users {
-		var access string
+		var access description.Access
 		switch {
 		case user.IsAdmin():
-			access = string(description.AdminAccess)
+			access = description.AdminAccess
 		case user.IsReadWrite():
-			access = string(description.WriteAccess)
+			access = description.WriteAccess
 		default:
-			access = string(description.ReadAccess)
-
+			access = description.ReadAccess
 		}
 
 		lastConn := lastConnections[strings.ToLower(user.UserName())]
@@ -195,7 +194,7 @@ func (e *exporter) modelUsers() error {
 			CreatedBy:      names.NewUserTag(user.CreatedBy()),
 			DateCreated:    user.DateCreated(),
 			LastConnection: lastConn,
-			Access:         stringToAccess(access),
+			Access:         access,
 		}
 		e.model.AddUser(arg)
 	}

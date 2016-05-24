@@ -137,7 +137,7 @@ func (e *ModelUser) SetAccess(access description.Access) error {
 	op := updatePermissionOp(modelGlobalKey, e.globalKey(), access)
 	err := e.st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
-		return errors.Errorf("no existing permissions found for %q", e.UserName())
+		return errors.NotFoundf("existing permissions")
 	}
 	if err != nil {
 		return errors.Trace(err)

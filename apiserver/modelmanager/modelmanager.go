@@ -621,6 +621,8 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 	}
 
 	// Default to read access if not otherwise specified.
+	// TODO(perrito666) If the client does not know what it wants
+	// perhaps we should just err out.
 	if stateAccess == description.UndefinedAccess {
 		stateAccess = description.ReadAccess
 	}

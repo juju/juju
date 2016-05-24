@@ -36,9 +36,9 @@ func (a Access) Validate() error {
 	return errors.NotValidf("access level %s", a)
 }
 
-// IsGreaterAccess returns true if the provided access is greater than
+// LessAccessThan returns true if the provided access is greater than
 // the current.
-func (a Access) IsGreaterAccess(access Access) bool {
+func (a Access) LessAccessThan(access Access) bool {
 	switch a {
 	case UndefinedAccess:
 		return access == ReadAccess ||
@@ -53,8 +53,8 @@ func (a Access) IsGreaterAccess(access Access) bool {
 	return false
 }
 
-// accessField returns a Checker that accepts a string value only and returns
-// it unprocessed.
+// accessField returns a Checker that accepts a string value only
+// and returns a valid Access or an error.
 func accessField() schema.Checker {
 	return accessC{}
 }
