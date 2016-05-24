@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -30,17 +31,17 @@ type userWithPermissions interface {
 	IsAdmin() bool
 }
 
-func checkModelUserHasRightAccess(c *gc.C, expected state.Access, user userWithPermissions) {
+func checkModelUserHasRightAccess(c *gc.C, expected description.Access, user userWithPermissions) {
 	switch expected {
-	case state.ReadAccess:
+	case description.ReadAccess:
 		c.Assert(user.IsReadOnly(), jc.IsTrue)
 		c.Assert(user.IsReadWrite(), jc.IsFalse)
 		c.Assert(user.IsAdmin(), jc.IsFalse)
-	case state.WriteAccess:
+	case description.WriteAccess:
 		c.Assert(user.IsReadOnly(), jc.IsFalse)
 		c.Assert(user.IsReadWrite(), jc.IsTrue)
 		c.Assert(user.IsAdmin(), jc.IsFalse)
-	case state.AdminAccess:
+	case description.AdminAccess:
 		c.Assert(user.IsReadOnly(), jc.IsFalse)
 		c.Assert(user.IsReadWrite(), jc.IsFalse)
 		c.Assert(user.IsAdmin(), jc.IsTrue)
@@ -51,17 +52,25 @@ func checkModelUserHasRightAccess(c *gc.C, expected state.Access, user userWithP
 
 func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	now := state.NowToTheSecond()
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:        "validusername",
+			NoModelUser: true,
+		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.WriteAccess})
+	modelUser, err := s.State.AddModelUser(
+		state.ModelUserSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.WriteAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
 	c.Assert(modelUser.ModelTag(), gc.Equals, s.modelTag)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	checkModelUserHasRightAccess(c, state.WriteAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.WriteAccess, modelUser)
 	c.Assert(modelUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(modelUser.DateCreated().Equal(now) || modelUser.DateCreated().After(now), jc.IsTrue)
 	when, err := modelUser.LastConnection()
@@ -74,7 +83,7 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	c.Assert(modelUser.ModelTag(), gc.Equals, s.modelTag)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	checkModelUserHasRightAccess(c, state.WriteAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.WriteAccess, modelUser)
 	c.Assert(modelUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(modelUser.DateCreated().Equal(now) || modelUser.DateCreated().After(now), jc.IsTrue)
 	when, err = modelUser.LastConnection()
@@ -83,80 +92,119 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 }
 
 func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:        "validusername",
+			NoModelUser: true,
+		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.ReadAccess})
+	modelUser, err := s.State.AddModelUser(
+		state.ModelUserSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.ReadAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	checkModelUserHasRightAccess(c, state.ReadAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.ReadAccess, modelUser)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
-	checkModelUserHasRightAccess(c, state.ReadAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.ReadAccess, modelUser)
 }
 
 func (s *ModelUserSuite) TestAddReadWriteModelUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:        "validusername",
+			NoModelUser: true,
+		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.WriteAccess})
+	modelUser, err := s.State.AddModelUser(
+		state.ModelUserSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.WriteAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	checkModelUserHasRightAccess(c, state.WriteAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.WriteAccess, modelUser)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
-	checkModelUserHasRightAccess(c, state.WriteAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.WriteAccess, modelUser)
 }
 
 func (s *ModelUserSuite) TestAddAdminModelUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:        "validusername",
+			NoModelUser: true,
+		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.AdminAccess})
+	modelUser, err := s.State.AddModelUser(
+		state.ModelUserSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.AdminAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(modelUser.DisplayName(), gc.Equals, user.DisplayName())
-	checkModelUserHasRightAccess(c, state.AdminAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.AdminAccess, modelUser)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName(), gc.Equals, "validusername@local")
-	checkModelUserHasRightAccess(c, state.AdminAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.AdminAccess, modelUser)
 }
 
 func (s *ModelUserSuite) TestDefaultAccessModelUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:        "validusername",
+			NoModelUser: true,
+		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
+	modelUser, err := s.State.AddModelUser(
+		state.ModelUserSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	checkModelUserHasRightAccess(c, state.ReadAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.ReadAccess, modelUser)
 }
 
 func (s *ModelUserSuite) TestSetAccessModelUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	user := s.Factory.MakeUser(c,
+		&factory.UserParams{
+			Name:        "validusername",
+			NoModelUser: true,
+		})
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag(), Access: state.AdminAccess})
+	modelUser, err := s.State.AddModelUser(
+		state.ModelUserSpec{
+			User:      user.UserTag(),
+			CreatedBy: createdBy.UserTag(),
+			Access:    description.AdminAccess,
+		})
 	c.Assert(err, jc.ErrorIsNil)
-	checkModelUserHasRightAccess(c, state.AdminAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.AdminAccess, modelUser)
 
-	modelUser.SetAccess(state.ReadAccess)
+	modelUser.SetAccess(description.ReadAccess)
 
 	modelUser, err = s.State.ModelUser(user.UserTag())
-	checkModelUserHasRightAccess(c, state.ReadAccess, modelUser)
+	checkModelUserHasRightAccess(c, description.ReadAccess, modelUser)
 }
 
 func (s *ModelUserSuite) TestCaseUserNameVsId(c *gc.C) {
@@ -425,7 +473,7 @@ func (s *ModelUserSuite) TestIsControllerAdministrator(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsTrue)
 
-	readonly := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ReadAccess})
+	readonly := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
 	isAdmin, err = s.State.IsControllerAdministrator(readonly.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isAdmin, jc.IsFalse)

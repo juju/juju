@@ -174,14 +174,14 @@ func (e *exporter) modelUsers() error {
 		return errors.Trace(err)
 	}
 	for _, user := range users {
-		var access string
+		var access description.Access
 		switch {
 		case user.IsAdmin():
-			access = string(AdminAccess)
+			access = description.AdminAccess
 		case user.IsReadWrite():
-			access = string(WriteAccess)
+			access = description.WriteAccess
 		default:
-			access = string(ReadAccess)
+			access = description.ReadAccess
 
 		}
 

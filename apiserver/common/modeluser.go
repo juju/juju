@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 )
 
@@ -50,4 +51,17 @@ func ModelUserInfo(user ModelUser) (params.ModelUserInfo, error) {
 		Access:         access,
 	}
 	return userInfo, nil
+}
+
+// StateToParamsModelAccess converts description.Access to params.AccessPermission.
+func StateToParamsModelAccess(stateAccess description.Access) (params.ModelAccessPermission, error) {
+	switch stateAccess {
+	case description.ReadAccess:
+		return params.ModelReadAccess, nil
+	case description.WriteAccess:
+		return params.ModelWriteAccess, nil
+	case description.AdminAccess:
+		return params.ModelAdminAccess, nil
+	}
+	return "", errors.Errorf("invalid model access permission %q", stateAccess)
 }

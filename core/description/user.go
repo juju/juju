@@ -22,7 +22,7 @@ type UserArgs struct {
 	CreatedBy      names.UserTag
 	DateCreated    time.Time
 	LastConnection time.Time
-	Access         string
+	Access         Access
 }
 
 func newUser(args UserArgs) *user {
@@ -45,7 +45,7 @@ type user struct {
 	DisplayName_ string    `yaml:"display-name,omitempty"`
 	CreatedBy_   string    `yaml:"created-by"`
 	DateCreated_ time.Time `yaml:"date-created"`
-	Access_      string    `yaml:"access"`
+	Access_      Access    `yaml:"access"`
 	// Can't use omitempty with time.Time, it just doesn't work,
 	// so use a pointer in the struct.
 	LastConnection_ *time.Time `yaml:"last-connection,omitempty"`
@@ -82,20 +82,17 @@ func (u *user) LastConnection() time.Time {
 
 // IsRead implements User.
 func (u *user) IsReadOnly() bool {
-	// string used here to avoid dependency on state.
-	return u.Access_ == "read"
+	return u.Access_ == ReadAccess
 }
 
 // IsReadWrite implements User.
 func (u *user) IsReadWrite() bool {
-	// string used here to avoid dependency on state.
-	return u.Access_ == "write"
+	return u.Access_ == WriteAccess
 }
 
 // IsAdmin implements User.
 func (u *user) IsAdmin() bool {
-	// string used here to avoid dependency on state.
-	return u.Access_ == "admin"
+	return u.Access_ == AdminAccess
 }
 
 func importUsers(source map[string]interface{}) ([]*user, error) {
@@ -145,7 +142,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		"read-only":       schema.Bool(),
 		"date-created":    schema.Time(),
 		"last-connection": schema.Time(),
-		"access":          schema.String(),
+		"access":          accessField(),
 	}
 
 	// Some values don't have to be there.
@@ -168,7 +165,7 @@ func importUserV1(source map[string]interface{}) (*user, error) {
 		DisplayName_: valid["display-name"].(string),
 		CreatedBy_:   valid["created-by"].(string),
 		DateCreated_: valid["date-created"].(time.Time),
-		Access_:      valid["access"].(string),
+		Access_:      valid["access"].(Access),
 	}
 
 	lastConn := valid["last-connection"].(time.Time)
