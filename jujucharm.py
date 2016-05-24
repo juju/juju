@@ -28,11 +28,12 @@ class Charm:
         with open(os.path.join(directory, "metadata.yaml"), "w") as f:
             yaml.safe_dump(self.metadata, f, default_flow_style=False)
 
-    def to_repo(self, repo):
-        """Serialize charm into a repository of charms."""
-        charm_dir = os.path.join(repo, charm.series, charm.metadata["name"])
+    def to_repo_dir(self, repo_dir):
+        """Serialize charm into a directory for a repository of charms."""
+        charm_dir = os.path.join(repo_dir, self.series, self.metadata["name"])
         os.makedirs(charm_dir)
         self.to_dir(charm_dir)
+        return charm_dir
 
     @property
     def series(self):

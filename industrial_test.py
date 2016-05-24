@@ -496,7 +496,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
             # TODO(gz): Pull most of this logic into jujucharm
             charm = Charm('mycharm', 'Test charm', series='trusty')
             charm.metadata['description'] = 'Charm for industrial testing.'
-            charm.to_repo(temp_repository)
+            charm_root = charm.to_repo_dir(temp_repository)
             charm_path = local_charm_path(
                 charm='mycharm', juju_ver=client.version, series='trusty',
                 repository=os.path.dirname(charm_root))

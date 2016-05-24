@@ -42,8 +42,8 @@ import sys
 
 from deploy_stack import BootstrapManager
 from jujucharm import (
+    Charm,
     local_charm_path,
-    make_charm,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -84,11 +84,8 @@ def assess_multi_series_charms(client):
     ]
     with temp_dir() as repository:
         charm_name = 'dummy'
-        charm_dir = os.path.join(repository, 'trusty', charm_name)
-        os.makedirs(charm_dir)
-        make_charm(
-            charm_dir, min_ver=None, series=['trusty', 'xenial'],
-            name=charm_name)
+        charm = Charm(charm_name, 'Test charm', series=['trusty', 'xenial'])
+        charm_dir = charm.to_repo_dir(repository)
         charm_path = local_charm_path(
             charm=charm_name, juju_ver=client.version, series='trusty',
             repository=os.path.dirname(charm_dir))
