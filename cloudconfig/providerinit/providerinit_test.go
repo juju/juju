@@ -385,12 +385,18 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
+	// first part
+	ugot := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
+	// append header
+	header := "#ps1_sysnative\r\n"
+	var got []byte
+	// concat them
+	got = append(got, header...)
+	got = append(got, ugot...)
 
 	cicompose, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)
 	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(string(expected), gc.Equals, string(got))
 }

@@ -24,7 +24,12 @@ func ToBase64(data []byte) []byte {
 // which has the userdata embedded as base64(gzip(userdata))
 func WinEmbedInScript(udata []byte) []byte {
 	encUserdata := ToBase64(utils.Gzip(udata))
-	return []byte(fmt.Sprintf(cloudconfig.UserDataScript, encUserdata))
+	var wrapped []byte
+	header := "#ps1_sysnative\r\n"
+	script := fmt.Sprintf(cloudconfig.UserDataScript, encUserdata)
+	wrapped = append(wrapped, header...)
+	wrapped = append(wrapped, script...)
+	return wrapped
 }
 
 // AddPowershellTags adds <powershell>...</powershell> to it's input

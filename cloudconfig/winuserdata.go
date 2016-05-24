@@ -57,7 +57,6 @@ namespace PSCloudbase
 		public static extern uint GetLastError();
 	}
 }
-
 "@
 
 Add-Type -TypeDefinition $Source -Language CSharp
@@ -389,7 +388,6 @@ namespace PSCarbon
 		}
 	}
 }
-
 "@
 
 Add-Type -TypeDefinition $SourcePolicy -Language CSharp
@@ -431,6 +429,7 @@ $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
 $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $secpasswd)
 `
 const windowsPowershellHelpers = `
+
 $ErrorActionPreference = "Stop"
 
 function ExecRetry($command, $retryInterval = 15)
@@ -666,4 +665,5 @@ Function Invoke-FastWebRequest {
 		$outStream.Close()
 	}
 }
+
 `
