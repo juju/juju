@@ -14,15 +14,73 @@ type subnets struct {
 }
 
 type subnet struct {
+	ProviderId_       string `yaml:"provider-id,omitempty"`
+	CIDR_             string `yaml:"cidr"`
+	VLANTag_          int    `yaml:"vlantag"`
+	AvailabilityZone_ string `yaml:"availabilityzone"`
+	SpaceName_        string `yaml:"spacename"`
+
+	// These will be deprecated once the address allocation strategy for
+	// EC2 is changed. They are unused already on MAAS.
+	AllocatableIPHigh_ string `yaml:"allocatableiphigh,omitempty"`
+	AllocatableIPLow_  string `yaml:"allocatableiplow,omitempty"`
 }
 
 // SubnetArgs is an argument struct used to create a
 // new internal subnet type that supports the Subnet interface.
 type SubnetArgs struct {
+	// XXX should this be network.Id? It isn't in space.go
+	ProviderId       string
+	CIDR             string
+	VLANTag          int
+	AvailabilityZone string
+	SpaceName        string
+
+	// These will be deprecated once the address allocation strategy for
+	// EC2 is changed. They are unused already on MAAS.
+	AllocatableIPHigh string
+	AllocatableIPLow  string
 }
 
 func newSubnet(args SubnetArgs) *subnet {
-	return &subnet{}
+	return &subnet{
+		ProviderId_:        string(args.ProviderId),
+		CIDR_:              args.CIDR,
+		VLANTag_:           args.VLANTag,
+		AvailabilityZone_:  args.AvailabilityZone,
+		AllocatableIPHigh_: args.AllocatableIPHigh,
+		AllocatableIPLow_:  args.AllocatableIPLow,
+	}
+}
+
+// ProviderId implements Subnet.
+func (s *subnet) ProviderId() string {
+	return s.ProviderId_
+}
+
+// CIDR implements Subnet.
+func (s *subnet) CIDR() string {
+	return s.CIDR_
+}
+
+// VLANTag implements Subnet.
+func (s *subnet) VLANTag() int {
+	return s.VLANTag_
+}
+
+// AvailabilityZone implements Subnet.
+func (s *subnet) AvailabilityZone() string {
+	return s.AvailabilityZone_
+}
+
+// AllocatableIPHigh implements Subnet.
+func (s *subnet) AllocatableIPHigh() string {
+	return s.AllocatableIPHigh_
+}
+
+// AllocatableIPLow implements Subnet.
+func (s *subnet) AllocatableIPLow() string {
+	return s.AllocatableIPLow_
 }
 
 func importSubnets(source map[string]interface{}) ([]*subnet, error) {
