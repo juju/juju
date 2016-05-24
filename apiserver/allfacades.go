@@ -22,6 +22,7 @@ import (
 	_ "github.com/juju/juju/apiserver/environment"
 	_ "github.com/juju/juju/apiserver/environmentmanager"
 	_ "github.com/juju/juju/apiserver/firewaller"
+	_ "github.com/juju/juju/apiserver/highavailability"
 	_ "github.com/juju/juju/apiserver/imagemanager"
 	_ "github.com/juju/juju/apiserver/imagemetadata"
 	_ "github.com/juju/juju/apiserver/instancepoller"
