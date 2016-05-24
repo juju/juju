@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/logfwd/syslog"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -149,6 +150,21 @@ const (
 	// 'ubuntu-cloudimg-query' executable uses to find container images. This
 	// is primarily for enabling Juju to work cleanly in a closed network.
 	CloudImageBaseURL = "cloudimg-base-url"
+
+	// LogFwdSyslogHost sets the hostname:port of the syslog server.
+	LogFwdSyslogHost = "logfwd-syslog-host"
+
+	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
+	// server certificate.
+	LogFwdSyslogCACert = "logfwd-syslog-ca-cert"
+
+	// LogFwdSyslogClientCert sets the client certificate for syslog
+	// forwarding.
+	LogFwdSyslogClientCert = "logfwd-syslog-client-cert"
+
+	// LogFwdSyslogClientKey sets the client key for syslog
+	// forwarding.
+	LogFwdSyslogClientKey = "logfwd-syslog-client-key"
 
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
@@ -465,6 +481,12 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
+		if err := lfCfg.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if uuid := cfg.UUID(); !utils.IsValidUUIDString(uuid) {
 		return errors.Errorf("uuid: expected UUID, got string(%q)", uuid)
 	}
@@ -698,6 +720,37 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 		opts.AddressesDelay = time.Duration(v) * time.Second
 	}
 	return opts
+}
+
+// LogFwdSyslog returns the syslog forwarding config.
+func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
+	partial := false
+	var lfCfg syslog.RawConfig
+
+	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
+		partial = true
+		lfCfg.Host = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
+		partial = true
+		lfCfg.ClientCACert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
+		partial = true
+		lfCfg.ClientCert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
+		partial = true
+		lfCfg.ClientKey = s.(string)
+	}
+
+	if !partial {
+		return nil, false
+	}
+	return &lfCfg, true
 }
 
 // AdminSecret returns the administrator password.
@@ -975,7 +1028,10 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-timeout":          schema.Omit,
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
-	"rsyslog-ca-cert":            schema.Omit,
+	LogFwdSyslogHost:             schema.Omit,
+	LogFwdSyslogCACert:           schema.Omit,
+	LogFwdSyslogClientCert:       schema.Omit,
+	LogFwdSyslogClientKey:        schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
@@ -1381,8 +1437,23 @@ global or per instance security groups.`,
 		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
-	"rsyslog-ca-cert": {
-		Description: `The certificate of the CA that signed the rsyslog certificate, in PEM format.`,
+	LogFwdSyslogHost: {
+		Description: `LogFwdSyslogHost specifies the hostname:port of the syslog server.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogCACert: {
+		Description: `The certificate of the CA that signed the syslog certificate, in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogClientCert: {
+		Description: `The syslog client certificate in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogClientKey: {
+		Description: `The syslog client key in PEM format.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

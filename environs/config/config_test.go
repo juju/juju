@@ -652,8 +652,72 @@ var configTests = []configTest{
 			"resource-tags": []string{"a"},
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
-	},
-	{
+	}, {
+		about:       "Invalid syslog ca cert format",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":                      "my-type",
+			"name":                      "my-name",
+			"logfwd-syslog-host":        "localhost:1234",
+			"logfwd-syslog-ca-cert":     "abc",
+			"logfwd-syslog-client-cert": caCert,
+			"logfwd-syslog-client-key":  caKey,
+		}),
+		err: "syslog forwarding config has invalid CA certificate: no certificates found",
+	}, {
+		about:       "Invalid syslog ca cert",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":                      "my-type",
+			"name":                      "my-name",
+			"logfwd-syslog-host":        "localhost:1234",
+			"logfwd-syslog-ca-cert":     invalidCACert,
+			"logfwd-syslog-client-cert": caCert,
+			"logfwd-syslog-client-key":  caKey,
+		}),
+		err: "syslog forwarding config has invalid CA certificate: asn1: syntax error: data truncated",
+	}, {
+		about:       "invalid syslog cert",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logfwd-syslog-host":        "10.0.0.1:12345",
+			"logfwd-syslog-ca-cert":     caCert,
+			"logfwd-syslog-client-cert": invalidCACert,
+			"logfwd-syslog-client-key":  caKey,
+		}),
+		err: "syslog forwarding config has invalid SSL certificate: asn1: syntax error: data truncated",
+	}, {
+		about:       "invalid syslog key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logfwd-syslog-host":        "10.0.0.1:12345",
+			"logfwd-syslog-ca-cert":     caCert,
+			"logfwd-syslog-client-cert": caCert,
+			"logfwd-syslog-client-key":  invalidCAKey,
+		}),
+		err: "syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: failed to parse private key",
+	}, {
+		about:       "Mismatched syslog cert and key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logfwd-syslog-host":        "10.0.0.1:12345",
+			"logfwd-syslog-ca-cert":     caCert,
+			"logfwd-syslog-client-cert": caCert,
+			"logfwd-syslog-client-key":  caKey2,
+		}),
+		err: "syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: private key does not match public key",
+	}, {
+		about:       "Valid syslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":                      "my-type",
+			"name":                      "my-name",
+			"logfwd-syslog-host":        "localhost:1234",
+			"logfwd-syslog-ca-cert":     caCert,
+			"logfwd-syslog-client-cert": caCert,
+			"logfwd-syslog-client-key":  caKey,
+		}),
+	}, {
 		about:       "Invalid identity URL value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -921,6 +985,29 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		// Content of all the files that are read by default.
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
+	}
+
+	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
+	if v, ok := test.attrs["logcfg-syslog-ca-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientCACert, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientCACert, gc.Equals, "")
+	}
+	if v, ok := test.attrs["logcfg-syslog-client-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientCert, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientCert, gc.Equals, "")
+	}
+	if v, ok := test.attrs["logcfg-syslog-client-key"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientKey, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientKey, gc.Equals, "")
 	}
 
 	cert, certPresent := controllerCfg.CACert()
