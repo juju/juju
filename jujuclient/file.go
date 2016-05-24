@@ -58,7 +58,7 @@ func (s *store) lock(operation string) (*fslock.Lock, error) {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof("breaking jujuclient lock: %s, lock holder message: %s", lockName, lock.Message())
+	logger.Infof("breaking jujuclient lock: %s", lockName)
 
 	// If we are unable to acquire the lock within the lockTimeout,
 	// consider it broken for some reason, and break it.

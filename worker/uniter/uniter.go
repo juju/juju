@@ -148,10 +148,7 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 			return u.loop(uniterParams.UnitTag)
 		},
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return u, nil
+	return u, errors.Trace(err)
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
@@ -159,7 +156,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err == worker.ErrTerminateAgent {
 			return err
 		}
-		return fmt.Errorf("failed to initialize uniter for %q: %v", unitTag, err)
+		return errors.Annotatef(err, "failed to initialize uniter for %q", unitTag)
 	}
 	logger.Infof("unit %q started", u.unit)
 
@@ -390,12 +387,16 @@ func (u *Uniter) terminate() error {
 	}
 }
 
-func (u *Uniter) setupLocks() (err error) {
-	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
+func (u *Uniter) setupLocks() error {
+	msg, err := u.hookLock.Message()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if u.hookLock.IsLocked() && msg != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
 		// before unlocking, and have been restarted by the init system.
-		parts := strings.SplitN(message, ":", 2)
+		parts := strings.SplitN(msg, ":", 2)
 		if len(parts) > 1 && parts[0] == u.unit.Name() {
 			if err := u.hookLock.BreakLock(); err != nil {
 				return err
