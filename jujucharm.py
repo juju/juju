@@ -20,8 +20,8 @@ class Charm:
             "summary": summary,
             "maintainer": (
                 self.DEFAULT_MAINTAINER if maintainer is None else maintainer),
+            "series": self.DEFAULT_SERIES if series is None else series
         }
-        self.series = self.DEFAULT_SERIES if series is None else series
 
     def to_dir(self, directory):
         """Serialize charm into a new directory."""
@@ -30,21 +30,18 @@ class Charm:
 
     def to_repo_dir(self, repo_dir):
         """Serialize charm into a directory for a repository of charms."""
-        charm_dir = os.path.join(repo_dir, self.series, self.metadata["name"])
+        charm_dir = os.path.join(
+            repo_dir, self.default_series, self.metadata["name"])
         os.makedirs(charm_dir)
         self.to_dir(charm_dir)
         return charm_dir
 
     @property
-    def series(self):
-        series = self.metadata["series"]
-        if series and isinstance(series, list):
+    def default_series(self):
+        series = self.metadata.get("series", self.DEFAULT_SERIES)
+        if series and isinstance(series, (tuple, list)):
             return series[0]
         return series
-
-    @series.setter
-    def series(self, series):
-        self.metadata["series"] = series
 
 
 def local_charm_path(charm, juju_ver, series=None, repository=None,
@@ -70,14 +67,3 @@ def local_charm_path(charm, juju_ver, series=None, repository=None,
                 os.environ['JUJU_REPOSITORY'], charm_dir[platform])
             abs_path = os.path.join(repository, charm)
         return abs_path
-
-
-def make_charm(charm_dir, min_ver='1.25.0', name='dummy',
-               description='description', summary='summary', series='trusty'):
-    charm = Charm(name, summary, series=series)
-    charm.metadata['description'] = description
-    if min_ver is not None:
-        charm.metadata['min-juju-version'] = min_ver
-    if series is None:
-        del charm.metadata["series"]
-    charm.to_dir(charm_dir)

@@ -7,7 +7,6 @@ import yaml
 from jujucharm import (
     Charm,
     local_charm_path,
-    make_charm,
 )
 from tests import (
     temp_os_env,
@@ -16,6 +15,68 @@ from tests import (
 from utility import (
     temp_dir,
 )
+
+
+class TestCharm(TestCase):
+
+    def test_create_default(self):
+        charm = Charm('test', 'a summary')
+        expected = {
+            'name': 'test',
+            'summary': 'a summary',
+            'series': ('xenial', 'trusty'),
+            'maintainer': 'juju-qa@lists.canonical.com',
+        }
+        self.assertEqual(charm.metadata, expected)
+
+    def test_default_series_default(self):
+        charm = Charm('test', 'a summary')
+        self.assertEqual(charm.default_series, 'xenial')
+
+    def test_default_series_unset(self):
+        charm = Charm('test', 'a summary')
+        del charm.metadata['series']
+        self.assertEqual(charm.default_series, 'xenial')
+
+    def test_default_series_single(self):
+        charm = Charm('test', 'a summary', series='wily')
+        self.assertEqual(charm.default_series, 'wily')
+
+    def test_default_series_list(self):
+        charm = Charm('test', 'a summary', series=['trusty', 'xenial'])
+        self.assertEqual(charm.default_series, 'trusty')
+
+    def test_to_dir(self):
+        charm = Charm('test', 'a summary')
+        charm.metadata['description'] = 'a description'
+        del charm.metadata['maintainer']
+        with temp_dir() as charm_dir:
+            charm.to_dir(charm_dir)
+            filename = os.path.join(charm_dir, 'metadata.yaml')
+            with open(filename) as f:
+                metadata = yaml.load(f)
+        expected = {
+            'name': 'test',
+            'summary': 'a summary',
+            'description': 'a description',
+            'series': ['xenial', 'trusty'],
+        }
+        self.assertEqual(metadata, expected)
+
+    def test_to_repo_dir(self):
+        charm = Charm('test', 'a summary', series='wily')
+        with temp_dir() as repo_dir:
+            charm.to_repo_dir(repo_dir)
+            filename = os.path.join(repo_dir, 'wily', 'test', 'metadata.yaml')
+            with open(filename) as f:
+                metadata = yaml.load(f)
+        expected = {
+            'name': 'test',
+            'summary': 'a summary',
+            'series': 'wily',
+            'maintainer': Charm.DEFAULT_MAINTAINER,
+        }
+        self.assertEqual(metadata, expected)
 
 
 class TestLocalCharm(TestCase):
@@ -52,46 +113,3 @@ class TestLocalCharm(TestCase):
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
             path = local_charm_path(charm, '2.0.0', platform='centos')
         self.assertEqual(path, '/home/foo/repository/charms-centos/mysql')
-
-
-class TestMakeCharm(TestCase):
-
-    def test_make_charm(self):
-        with temp_dir() as charm_dir:
-            make_charm(charm_dir)
-            metadata = os.path.join(charm_dir, 'metadata.yaml')
-            with open(metadata, 'r') as f:
-                content = yaml.load(f)
-        self.assertEqual(content['name'], 'dummy')
-        self.assertEqual(content['min-juju-version'], '1.25.0')
-        self.assertEqual(content['summary'], 'summary')
-
-    def test_make_charm_non_default(self):
-        with temp_dir() as charm_dir:
-            make_charm(charm_dir, min_ver='2.0.0', name='foo',
-                       description='bar', summary='foobar',
-                       series=['trusty', 'xenial'])
-            metadata = os.path.join(charm_dir, 'metadata.yaml')
-            with open(metadata, 'r') as f:
-                content = yaml.load(f)
-        expected = {'series': ['trusty', 'xenial'],
-                    'name': 'foo',
-                    'description': 'bar',
-                    'maintainer': Charm.DEFAULT_MAINTAINER,
-                    'min-juju-version': '2.0.0',
-                    'summary': 'foobar'}
-        self.assertEqual(content, expected)
-
-    def test_make_charm_none(self):
-        with temp_dir() as charm_dir:
-            make_charm(charm_dir, min_ver=None, name='mycharm',
-                       description='foo-description', summary='foo-summary',
-                       series=None)
-            metadata = os.path.join(charm_dir, 'metadata.yaml')
-            with open(metadata, 'r') as f:
-                content = yaml.safe_load(f)
-        expected = {'name': 'mycharm',
-                    'description': 'foo-description',
-                    'maintainer': Charm.DEFAULT_MAINTAINER,
-                    'summary': 'foo-summary'}
-        self.assertEqual(content, expected)
