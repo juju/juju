@@ -92,10 +92,6 @@ func (s *clientLegacySuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *clientLegacySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
-	assertEnsureAvailability(c, &s.JujuConnSuite)
-}
-
 func (s *clientLegacySuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
 	client := highavailability.NewClient(s.APIState)
 	_, err := client.EnsureAvailability(3, constraints.Value{}, "", []string{"machine"})

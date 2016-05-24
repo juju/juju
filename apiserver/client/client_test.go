@@ -76,54 +76,6 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	return pinger
 }
 
-func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, jc.ErrorIsNil)
-	// We have to ensure the agents are alive, or EnsureAvailability will
-	// create more to replace them.
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-
-	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
-	results, err := s.client.EnsureAvailability(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	result := results.Results[0]
-	c.Assert(result.Error, gc.IsNil)
-	ensureAvailabilityResult := result.Result
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err = s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	c.Assert(machines[1].Series(), gc.Equals, "quantal")
-	c.Assert(machines[2].Series(), gc.Equals, "quantal")
-}
-
-func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BlockAllChanges(c, "TestBlockEnsureAvailabilityDeprecated")
-
-	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
-	results, err := s.client.EnsureAvailability(arg)
-	s.AssertBlocked(c, err, "TestBlockEnsureAvailabilityDeprecated")
-	c.Assert(results.Results, gc.HasLen, 0)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-}
-
 func (s *serverSuite) TestEnvUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
 	owner, err := s.State.EnvironmentUser(testAdmin)

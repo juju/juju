@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/environs/config"
@@ -1046,22 +1045,6 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
-}
-
-// EnsureAvailability ensures the availability of Juju state servers.
-// DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
-// This API is now on the HighAvailability facade.
-func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return params.StateServersChangeResults{}, errors.Trace(err)
-	}
-	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
-	for i, stateServersSpec := range args.Specs {
-		result, err := highavailability.EnsureAvailabilitySingle(c.api.state, stateServersSpec)
-		results.Results[i].Result = result
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
 }
 
 // DestroyEnvironment will try to destroy the current environment.
