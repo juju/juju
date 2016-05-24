@@ -14,9 +14,12 @@ type subnets struct {
 }
 
 type subnet struct {
-	ProviderId_       string `yaml:"provider-id,omitempty"`
-	CIDR_             string `yaml:"cidr"`
-	VLANTag_          int    `yaml:"vlantag"`
+	ProviderId_ string `yaml:"provider-id,omitempty"`
+	CIDR_       string `yaml:"cidr"`
+	VLANTag_    int    `yaml:"vlantag"`
+
+	// XXX should AvailabilityZone and SpaceName be omitempty? (i.e.
+	// optional)
 	AvailabilityZone_ string `yaml:"availabilityzone"`
 	SpaceName_        string `yaml:"spacename"`
 
@@ -123,8 +126,21 @@ var subnetDeserializationFuncs = map[int]subnetDeserializationFunc{
 }
 
 func importSubnetV1(source map[string]interface{}) (*subnet, error) {
-	fields := schema.Fields{}
-	defaults := schema.Defaults{}
+	fields := schema.Fields{
+		"provider-id":       schema.String(),
+		"vlantag":           schema.Int(),
+		"spacename":         schema.String(),
+		"availabilityzone":  schema.String(),
+		"allocatableiphigh": schema.String(),
+		"allocatableiplow":  schema.String(),
+	}
+
+	// XXX are spacename and availabilityzone optional?
+	defaults := schema.Defaults{
+		"provider-id":       "",
+		"allocatableiphigh": "",
+		"allocatableiplow":  "",
+	}
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
