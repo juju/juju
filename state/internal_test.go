@@ -56,6 +56,6 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
-	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 }
