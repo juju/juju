@@ -57,8 +57,8 @@ def verify_status(status, resource_id, name, fingerprint, size):
         raise JujuAssertionError('Resource id not found.')
 
 
-def push_resource(client, resource_name, finger_print, size, args, deploy=True,
-                  resource_file=None):
+def push_resource(client, resource_name, finger_print, size, agent_timeout,
+                  resource_timeout, deploy=True, resource_file=None):
     charm_name = 'dummy-resource'
     charm_path = local_charm_path(charm=charm_name, juju_ver=client.version)
     if resource_file is None:
@@ -73,10 +73,10 @@ def push_resource(client, resource_name, finger_print, size, args, deploy=True,
         client.deploy(charm_path, resource=resource_arg)
     else:
         client.attach(charm_name, resource=resource_arg)
-    client.wait_for_started(timeout=args.agent_timeout)
+    client.wait_for_started(timeout=agent_timeout)
     resource_id = '{}/{}'.format(charm_name, resource_name)
     client.wait_for_resource(
-        resource_id, charm_name, timeout=args.resource_timeout)
+        resource_id, charm_name, timeout=resource_timeout)
     status = client.list_resources(charm_name)
     verify_status(status, resource_id, resource_name, finger_print, size)
     client.show_status()
@@ -88,7 +88,7 @@ def fill_dummy_file(file_path, size):
         f.write('\0')
 
 
-def large_assess(client, args):
+def large_assess(client, agent_timeout, resource_timeout):
     tests = [
         {"size": 1024 * 1024 * 10,
          "finger_print": ('d7c014629d74ae132cc9f88e3ec2f31652f40a7a1fcc52c54b'
@@ -103,33 +103,37 @@ def large_assess(client, args):
         with NamedTemporaryFile(suffix=".txt") as temp_file:
             fill_dummy_file(temp_file.name, size=test['size'])
             push_resource(
-                client, 'bar', test['finger_print'], test['size'], args,
-                deploy=False, resource_file=temp_file.name)
+                client, 'bar', test['finger_print'], test['size'],
+                agent_timeout, resource_timeout, deploy=False,
+                resource_file=temp_file.name)
 
 
 def assess_resources(client, args):
     finger_print = ('4ddc48627c6404e538bb0957632ef68618c0839649d9ad9e41ad94472'
                     'c1589f4b7f9d830df6c4b209d7eb1b4b5522c4d')
     size = 27
-    push_resource(client, 'foo', finger_print, size, args)
+    push_resource(client, 'foo', finger_print, size, args.agent_timeout,
+                  args.resource_timeout)
     finger_print = ('ffbf43d68a6960de63908bb05c14a026abeda136119d3797431bdd7b'
                     '469c1f027e57a28aeec0df01a792e9e70aad2d6b')
     size = 17
-    push_resource(client, 'bar', finger_print, size, args, deploy=False)
+    push_resource(client, 'bar', finger_print, size, args.agent_timeout,
+                  args.resource_timeout, deploy=False)
     finger_print = ('2a3821585efcccff1562efea4514dd860cd536441954e182a764991'
                     '0e21f6a179a015677a68a351a11d3d2f277e551e4')
     size = 27
-    push_resource(client, 'bar', finger_print, size, args, deploy=False,
-                  resource_file='baz.txt')
+    push_resource(client, 'bar', finger_print, size, args.agent_timeout,
+                  args.resource_timeout, deploy=False, resource_file='baz.txt')
     with NamedTemporaryFile(suffix=".txt") as temp_file:
         size = 1024 * 1024
         finger_print = ('3164673a8ac27576ab5fc06b9adc4ce0aca5bd3025384b1cf2128'
                         'a8795e747c431e882785a0bf8dc70b42995db388575')
         fill_dummy_file(temp_file.name, size=size)
-        push_resource(client, 'bar', finger_print, size, args, deploy=False,
+        push_resource(client, 'bar', finger_print, size, args.agent_timeout,
+                      args.resource_timeout, deploy=False,
                       resource_file=temp_file.name)
     if args.large_test_enabled:
-        large_assess(client, args)
+        large_assess(client, args.agent_timeout, args.resource_timeout)
 
 
 def parse_args(argv):

@@ -87,26 +87,24 @@ class TestAssessResources(TestCase):
             verify_status(make_resource_list(), 'NO_ID', 'foo', '1234', 27)
 
     def test_push_resource(self):
-        args = make_args()
         mock_client = Mock(
             spec=["deploy", "wait_for_started", "list_resources",
                   "wait_for_resource", "show_status"])
         mock_client.version = '2.0.0'
         mock_client.list_resources.return_value = make_resource_list()
-        push_resource(mock_client, 'foo', '1234', 27, args)
+        push_resource(mock_client, 'foo', '1234', 27, 1800, 1800)
         mock_client.deploy.assert_called_once_with(
             'dummy-resource', resource='foo=dummy-resource/foo.txt')
         mock_client.wait_for_started.assert_called_once_with(timeout=1800)
         mock_client.show_status.assert_called_once_with()
 
     def test_push_resource_attach(self):
-        args = make_args()
         mock_client = Mock(
             spec=["attach", "wait_for_started", "list_resources",
                   "wait_for_resource", "show_status"])
         mock_client.version = '2.0.0'
         mock_client.list_resources.return_value = make_resource_list()
-        push_resource(mock_client, 'foo', '1234', 27, args, deploy=False)
+        push_resource(mock_client, 'foo', '1234', 27, 1800, 1800, deploy=False)
         mock_client.attach.assert_called_once_with(
             'dummy-resource', resource='foo=dummy-resource/foo.txt')
         mock_client.wait_for_started.assert_called_once_with(timeout=1800)
@@ -123,20 +121,21 @@ class TestAssessResources(TestCase):
             call(
                 None, 'foo',
                 '4ddc48627c6404e538bb0957632ef68618c0839649d9ad9e41ad94472c158'
-                '9f4b7f9d830df6c4b209d7eb1b4b5522c4d', 27, args),
+                '9f4b7f9d830df6c4b209d7eb1b4b5522c4d', 27, 1800, 1800),
             call(
                 None, 'bar',
                 'ffbf43d68a6960de63908bb05c14a026abeda136119d3797431bdd7b469c1'
-                'f027e57a28aeec0df01a792e9e70aad2d6b', 17, args, deploy=False),
+                'f027e57a28aeec0df01a792e9e70aad2d6b', 17, 1800, 1800,
+                deploy=False),
             call(
                 None, 'bar',
                 '2a3821585efcccff1562efea4514dd860cd536441954e182a7649910e21f6'
-                'a179a015677a68a351a11d3d2f277e551e4', 27, args, deploy=False,
-                resource_file='baz.txt'),
+                'a179a015677a68a351a11d3d2f277e551e4', 27, 1800, 1800,
+                deploy=False, resource_file='baz.txt'),
             call(
                 None, 'bar',
                 '3164673a8ac27576ab5fc06b9adc4ce0aca5bd3025384b1cf2128a8795e74'
-                '7c431e882785a0bf8dc70b42995db388575', 1024 * 1024, args,
+                '7c431e882785a0bf8dc70b42995db388575', 1024 * 1024, 1800, 1800,
                 deploy=False, resource_file='/tmp/fake'),
         ]
         self.assertEqual(mock_p.mock_calls, calls)
@@ -158,50 +157,50 @@ class TestAssessResources(TestCase):
             call(
                 None, 'foo',
                 '4ddc48627c6404e538bb0957632ef68618c0839649d9ad9e41ad94472c158'
-                '9f4b7f9d830df6c4b209d7eb1b4b5522c4d', 27, args),
+                '9f4b7f9d830df6c4b209d7eb1b4b5522c4d', 27, 1800, 1800),
             call(
                 None, 'bar',
                 'ffbf43d68a6960de63908bb05c14a026abeda136119d3797431bdd7b469c1'
-                'f027e57a28aeec0df01a792e9e70aad2d6b', 17, args, deploy=False),
+                'f027e57a28aeec0df01a792e9e70aad2d6b', 17, 1800, 1800,
+                deploy=False),
             call(
                 None, 'bar',
                 '2a3821585efcccff1562efea4514dd860cd536441954e182a7649910e21f6'
-                'a179a015677a68a351a11d3d2f277e551e4', 27, args, deploy=False,
-                resource_file='baz.txt'),
+                'a179a015677a68a351a11d3d2f277e551e4', 27, 1800, 1800,
+                deploy=False, resource_file='baz.txt'),
             call(None, 'bar',
                  '3164673a8ac27576ab5fc06b9adc4ce0aca5bd3025384b1cf2128a8795e7'
-                 '47c431e882785a0bf8dc70b42995db388575', 1024 * 1024, args,
-                 deploy=False, resource_file='/tmp/fake')]
+                 '47c431e882785a0bf8dc70b42995db388575', 1024 * 1024, 1800,
+                 1800, deploy=False, resource_file='/tmp/fake')]
         self.assertEqual(mock_p.mock_calls, calls)
         mock_fdf.assert_called_once_with('/tmp/fake', 1024 * 1024)
-        mock_lt.assert_called_once_with(None, args)
+        mock_lt.assert_called_once_with(None, 1800, 1800)
 
     def test_large_tests(self):
         fake_file = FakeFile()
-        args = make_args()
         with patch("assess_resources.push_resource", autospec=True) as mock_pr:
             with patch('assess_resources.NamedTemporaryFile',
                        autospec=True) as mock_ntf:
                 mock_ntf.return_value.__enter__.return_value = fake_file
                 with patch('assess_resources.fill_dummy_file',
                            autospec=True):
-                    large_assess(None, args)
+                    large_assess(None, 1800, 1800)
         calls = [
             call(
                 None, 'bar',
                 'd7c014629d74ae132cc9f88e3ec2f31652f40a7a1fcc52c54b04d6c0d0891'
-                '69bcd55958d1277b4cdf6262f21c712d0a7', 1024 * 1024 * 10, args,
-                deploy=False, resource_file='/tmp/fake'),
+                '69bcd55958d1277b4cdf6262f21c712d0a7', 1024 * 1024 * 10, 1800,
+                1800, deploy=False, resource_file='/tmp/fake'),
             call(
                 None, 'bar',
                 'c11e93892b66de781e4d0883efe10482f8d1642f3b6574ba2ee0da6f8db03'
-                'f53c0eadfb5e5e0463574c113024ded369e', 1024 * 1024 * 100, args,
-                deploy=False, resource_file='/tmp/fake'),
+                'f53c0eadfb5e5e0463574c113024ded369e', 1024 * 1024 * 100, 1800,
+                1800, deploy=False, resource_file='/tmp/fake'),
             call(
                 None, 'bar',
                 '77db39eca74c6205e31a7701e488a1df4b9b38a527a6084bdbb6843fd430a'
-                '0b51047378ee0255e633b32c0dda3cf43ab', 1024 * 1024 * 200,
-                args, deploy=False, resource_file='/tmp/fake')]
+                '0b51047378ee0255e633b32c0dda3cf43ab', 1024 * 1024 * 200, 1800,
+                1800, deploy=False, resource_file='/tmp/fake')]
         self.assertEqual(mock_pr.mock_calls, calls)
 
 
