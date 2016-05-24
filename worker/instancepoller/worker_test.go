@@ -54,9 +54,11 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// Most functionality is already tested in detail - we
 	// just need to test that things are wired together
 	// correctly.
-	// TODO(redir): Do we need these anymore?
+
+	// TODO(redir): per fwereade these should be in the worker config.
 	s.PatchValue(&ShortPoll, 10*time.Millisecond)
 	s.PatchValue(&LongPoll, 10*time.Millisecond)
+
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w, err := NewWorker(Config{

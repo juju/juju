@@ -24,6 +24,20 @@ type aggregatorConfig struct {
 	Environ instanceGetter
 }
 
+func (c aggregatorConfig) validate() error {
+	if c.Clock == nil {
+		return errors.NotValidf("nil clock.Clock")
+	}
+	if c.Delay == 0 {
+		return errors.NotValidf("zero Delay")
+	}
+	if c.Environ == nil {
+		return errors.NotValidf("nil Environ")
+	}
+	return nil
+
+}
+
 type aggregator struct {
 	config   aggregatorConfig
 	catacomb catacomb.Catacomb
@@ -31,6 +45,9 @@ type aggregator struct {
 }
 
 func newAggregator(config aggregatorConfig) (*aggregator, error) {
+	if err := config.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	a := &aggregator{
 		config: config,
 		reqc:   make(chan instanceInfoReq),
@@ -117,6 +134,8 @@ func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
 			reply.info, reply.err = a.instInfo(req.instId, insts[i])
 		}
 		select {
+		// Per review http://reviews.vapour.ws/r/4885/ it's dumb to block
+		// the main goroutine on these responses.
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case req.reply <- reply:

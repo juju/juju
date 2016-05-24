@@ -24,6 +24,12 @@ type Config struct {
 }
 
 func (config Config) Validate() error {
+	if config.Clock == nil {
+		return errors.NotValidf("nil clock.Clock")
+	}
+	if config.Delay == 0 {
+		return errors.NotValidf("zero Delay")
+	}
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
