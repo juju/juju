@@ -27,7 +27,7 @@ from run_deployer import (
     parse_args,
     )
 import tests
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(tests.TestCase):
@@ -200,7 +200,7 @@ class TestAssessDeployer(tests.TestCase):
         args = self.make_args(
             juju_bin='baz/juju', upgrade=True,
             upgrade_condition=['bla/0:clock_skew', 'foo/1:fill_disk'])
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with patch('run_deployer.EnvJujuClient.by_version',
                    return_value=client):
@@ -239,7 +239,7 @@ class FakeRemote():
 class TestApplyCondition(tests.TestCase):
 
     def test_apply_condition_clock_skew(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         remote = FakeRemote()
         with patch('run_deployer.remote_from_unit',
                    return_value=remote, autospec=True) as ru_mock:
@@ -248,7 +248,7 @@ class TestApplyCondition(tests.TestCase):
         self.assertEqual(CLOCK_SKEW_SCRIPT, remote.command)
 
     def test_apply_condition_raises_ErrUnitCondition(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         remote = FakeRemote()
         with patch('run_deployer.remote_from_unit',
                    return_value=remote) as rfu_mock:

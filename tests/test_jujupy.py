@@ -248,7 +248,7 @@ class FakeEnvironmentState:
     def get_status_dict(self):
         machines = {}
         for machine_id in self.machines:
-            machine_dict = {}
+            machine_dict = {'juju-status': {'current': 'idle'}}
             hostname = self.machine_host_names.get(machine_id)
             machine_dict['instance-id'] = machine_id
             if hostname is not None:
@@ -262,7 +262,9 @@ class FakeEnvironmentState:
         for service, units in self.services.items():
             unit_map = {}
             for unit_id, machine_id in units:
-                unit_map[unit_id] = {'machine': machine_id}
+                unit_map[unit_id] = {
+                    'machine': machine_id,
+                    'juju-status': {'current': 'idle'}}
             services[service] = {
                 'units': unit_map,
                 'relations': self.relations.get(service, {}),
@@ -272,6 +274,14 @@ class FakeEnvironmentState:
 
 
 class FakeBackend:
+    """A fake juju backend for tests.
+
+    This is a partial implementation, but should be suitable for many uses,
+    and can be extended.
+
+    The state is provided by controller_state, so that multiple clients and
+    backends can manipulate the same state.
+    """
 
     def __init__(self, controller_state, feature_flags=None, version=None,
                  full_path=None, debug=False):
@@ -306,6 +316,8 @@ class FakeBackend:
             self.feature_flags.discard(feature)
 
     def is_feature_enabled(self, feature):
+        if feature == 'jes':
+            return True
         return bool(feature in self.feature_flags)
 
     def deploy(self, model_state, charm_name, service_name=None, series=None):
@@ -313,12 +325,31 @@ class FakeBackend:
             service_name = charm_name.split(':')[-1].split('/')[-1]
         model_state.deploy(charm_name, service_name)
 
-    def bootstrap(self, model_name, config, upload_tools=False,
-                  bootstrap_series=None):
-        config = copy.deepcopy(config)
-        if bootstrap_series is not None:
-            config['default-series'] = bootstrap_series
-        self.controller_state.bootstrap(model_name, config,
+    def bootstrap(self, args):
+        parser = ArgumentParser()
+        parser.add_argument('controller_name')
+        parser.add_argument('cloud_name_region')
+        parser.add_argument('--constraints')
+        parser.add_argument('--config')
+        parser.add_argument('--default-model')
+        parser.add_argument('--agent-version')
+        parser.add_argument('--bootstrap-series')
+        parser.add_argument('--upload-tools', action='store_true')
+        parsed = parser.parse_args(args)
+        with open(parsed.config) as config_file:
+            config = yaml.safe_load(config_file)
+        cloud_region = parsed.cloud_name_region.split('/', 1)
+        cloud = cloud_region[0]
+        # Although they are specified with specific arguments instead of as
+        # config, these values are listed by get-model-config:
+        # name, region, type (from cloud).
+        config['type'] = cloud
+        if len(cloud_region) > 1:
+            config['region'] = cloud_region[1]
+        config['name'] = parsed.default_model
+        if parsed.bootstrap_series is not None:
+            config['default-series'] = parsed.bootstrap_series
+        self.controller_state.bootstrap(parsed.default_model, config,
                                         self.is_feature_enabled('jes'))
 
     def quickstart(self, model_name, config, bundle):
@@ -409,7 +440,18 @@ class FakeBackend:
                     model_state.remove_container(machine_id)
                 else:
                     model_state.remove_machine(machine_id)
+            if command == 'quickstart':
+                parser = ArgumentParser()
+                parser.add_argument('--constraints')
+                parser.add_argument('--no-browser', action='store_true')
+                parser.add_argument('bundle')
+                parsed = parser.parse_args(args)
+                # Released quickstart doesn't seem to provide the config via
+                # the commandline.
+                self.quickstart(model, {}, parsed.bundle)
         else:
+            if command == 'bootstrap':
+                self.bootstrap(args)
             if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
                     return
@@ -431,6 +473,13 @@ class FakeBackend:
                 parser.add_argument('model_name')
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
+
+    @contextmanager
+    def juju_async(self, command, args, used_feature_flags,
+                   juju_home, model=None, timeout=None):
+        yield
+        self.juju(command, args, used_feature_flags,
+                  juju_home, model, timeout=timeout)
 
     def get_juju_output(self, command, args, used_feature_flags,
                         juju_home, model=None, timeout=None):
@@ -463,101 +512,66 @@ class FakeBackend:
                 'Please send this command to {}\n    juju register {}' \
                 .format(username, code)
             return info_string + register_string
+        if command == 'show-status':
+            status_dict = model_state.get_status_dict()
+            return yaml.safe_dump(status_dict)
+        if command == 'create-backup':
+            self.controller_state.require_admin('backup', model)
+            return 'juju-backup-0.tar.gz'
         return ''
 
     def pause(self, seconds):
         pass
 
 
-class FakeJujuClient(EnvJujuClient):
-    """A fake juju client for tests.
+class FakeBackendOptionalJES(FakeBackend):
 
-    This is a partial implementation, but should be suitable for many uses,
-    and can be extended.
+    def is_feature_enabled(self, feature):
+        return bool(feature in self.feature_flags)
 
-    The state is provided by _backend.controller_state, so that multiple
-    clients can manipulate the same state.
-    """
 
-    used_feature_flags = frozenset(['address-allocation', 'jes'])
+def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
+                     _backend=None, cls=EnvJujuClient):
+    if env is None:
+        env = JujuData('name', {
+            'type': 'foo',
+            'default-series': 'angsty',
+            'region': 'bar',
+            }, juju_home='foo')
+    juju_home = env.juju_home
+    if juju_home is None:
+        juju_home = 'foo'
+    if _backend is None:
+        backend_state = FakeControllerState()
+        _backend = FakeBackend(
+            backend_state, version=version, full_path=full_path,
+            debug=debug)
+        _backend.set_feature('jes', True)
+    client = cls(
+        env, version, full_path, juju_home, debug, _backend=_backend)
+    client.bootstrap_replaces = {}
+    return client
 
-    def __init__(self, env=None, full_path=None, debug=False,
-                 jes_enabled=False, version='2.0.0', _backend=None):
-        if env is None:
-            env = JujuData('name', {
-                'type': 'foo',
-                'default-series': 'angsty',
-                }, juju_home='foo')
-        juju_home = env.juju_home
-        if juju_home is None:
-            juju_home = 'foo'
-        if _backend is None:
-            backend_state = FakeEnvironmentState()
-            backend_state.name = env.environment
-            _backend = FakeBackend(backend_state.controller, version=version,
-                                   full_path=full_path, debug=debug)
-            _backend.set_feature('jes', jes_enabled)
-        super(FakeJujuClient, self).__init__(
-            env, version, full_path, juju_home, debug, _backend=_backend)
-        self.bootstrap_replaces = {}
 
-    def _get_env(self, env):
-        return env
+def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
+                                  jes_enabled=True, version='2.0.0',
+                                  _backend=None):
+    if _backend is None:
+        backend_state = FakeControllerState()
+        _backend = FakeBackendOptionalJES(
+            backend_state, version=version, full_path=full_path,
+            debug=debug)
+        _backend.set_feature('jes', jes_enabled)
+    client = fake_juju_client(env, full_path, debug, version, _backend,
+                              cls=FakeJujuClientOptionalJES)
+    client.used_feature_flags = frozenset(['address-allocation', 'jes'])
+    return client
 
-    @property
-    def _jes_enabled(self):
-        raise Exception
 
-    def by_version(self, env, path, debug):
-        return FakeJujuClient(env, path, debug)
+class FakeJujuClientOptionalJES(EnvJujuClient):
 
     def get_admin_model_name(self):
         return self._backend.controller_state.admin_model.name
-
-    def is_jes_enabled(self):
-        return self._backend.is_feature_enabled('jes')
-
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
-        self._backend.bootstrap(
-            self.env.environment, self.env.config, upload_tools,
-            bootstrap_series)
-
-    @contextmanager
-    def bootstrap_async(self, upload_tools=False):
-        yield
-
-    def quickstart(self, bundle):
-        self._backend.quickstart(self.env.environment, self.env.config, bundle)
-
-    def destroy_environment(self, force=True, delete_jenv=False):
-        return self._backend.destroy_environment(self.model_name)
-
-    def wait_for_started(self, timeout=1200, start=None):
-        return self.get_status()
-
-    def get_status(self, admin=False):
-        try:
-            model_state = self._backend.controller_state.models[
-                self.model_name]
-        except KeyError:
-            # Really, this should raise, but that would break tests.
-            status_dict = {'services': {}, 'machines': {}}
-        else:
-            status_dict = model_state.get_status_dict()
-        status_text = yaml.safe_dump(status_dict)
-        return Status(status_dict, status_text)
-
-    def wait_for_workloads(self, timeout=600):
-        pass
-
-    def backup(self):
-        self._backend.controller_state.require_admin('backup', self.model_name)
-
-    def _get_register_command(self, output):
-        for row in output.split('\n'):
-            if 'juju register' in row:
-                return row.strip().lstrip()
-        raise AssertionError('Juju register command not found in output')
 
 
 class TestErroredUnit(TestCase):
@@ -935,8 +949,9 @@ class TestEnvJujuClient(ClientTest):
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
     def test_get_matching_agent_version(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'local'}),
-                               '1.23-series-arch', None)
+        client = EnvJujuClient(
+            JujuData(None, {'type': 'local'}, juju_home='foo'),
+            '1.23-series-arch', None)
         self.assertEqual('1.23.1', client.get_matching_agent_version())
         self.assertEqual('1.23', client.get_matching_agent_version(
                          no_build=True))
@@ -2524,20 +2539,21 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
 
-        def check_env(*args, **kwargs):
-            return 'foojuju-backup-24.tgzz'
-        with patch('subprocess.check_output',
-                   side_effect=check_env) as co_mock:
+        with patch(
+                'subprocess.Popen',
+                return_value=FakePopen('foojuju-backup-24.tgzz', '', 0),
+                ) as popen_mock:
             backup_file = client.backup()
         self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
-        assert_juju_call(self, co_mock, client, ('juju', '--show-log',
+        assert_juju_call(self, popen_mock, client, ('juju', '--show-log',
                          'create-backup', '-m', 'qux'))
 
     def test_juju_backup_with_tar_gz(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output',
-                   return_value='foojuju-backup-123-456.tar.gzbar'):
+        with patch('subprocess.Popen',
+                   return_value=FakePopen(
+                       'foojuju-backup-123-456.tar.gzbar', '', 0)):
             backup_file = client.backup()
         self.assertEqual(
             backup_file, os.path.abspath('juju-backup-123-456.tar.gz'))
@@ -2545,7 +2561,7 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_backup_no_file(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output', return_value=''):
+        with patch('subprocess.Popen', return_value=FakePopen('', '', 0)):
             with self.assertRaisesRegexp(
                     Exception, 'The backup file was not found in output'):
                 client.backup()
@@ -2553,8 +2569,8 @@ class TestEnvJujuClient(ClientTest):
     def test_juju_backup_wrong_file(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch('subprocess.check_output',
-                   return_value='mumu-backup-24.tgz'):
+        with patch('subprocess.Popen',
+                   return_value=FakePopen('mumu-backup-24.tgz', '', 0)):
             with self.assertRaisesRegexp(
                     Exception, 'The backup file was not found in output'):
                 client.backup()
@@ -2566,8 +2582,8 @@ class TestEnvJujuClient(ClientTest):
 
         def side_effect(*args, **kwargs):
             self.assertEqual(environ, os.environ)
-            return 'foojuju-backup-123-456.tar.gzbar'
-        with patch('subprocess.check_output', side_effect=side_effect):
+            return FakePopen('foojuju-backup-123-456.tar.gzbar', '', 0)
+        with patch('subprocess.Popen', side_effect=side_effect):
             client.backup()
             self.assertNotEqual(environ, os.environ)
 
@@ -2911,12 +2927,12 @@ class TestEnvJujuClient(ClientTest):
                           'to model "y"\nPlease send this command to x:\n',
                           '    juju register AaBbCc'])
         output_cmd = 'juju register AaBbCc'
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         register_cmd = fake_client._get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)
 
     def test_revoke(self):
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         username = 'fakeuser'
         model = 'foo'
         default_permissions = 'read'
@@ -2946,7 +2962,7 @@ class TestEnvJujuClient(ClientTest):
                                                 include_e=False)
 
     def test_add_user(self):
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         username = 'fakeuser'
         model = 'foo'
         permissions = 'write'
@@ -4944,8 +4960,9 @@ def stub_bootstrap(client):
 class TestMakeSafeConfig(TestCase):
 
     def test_default(self):
-        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}),
-                                version='1.2-alpha3-asdf-asdf')
+        client = fake_juju_client(JujuData('foo', {'type': 'bar'},
+                                           juju_home='foo'),
+                                  version='1.2-alpha3-asdf-asdf')
         config = make_safe_config(client)
         self.assertEqual({
             'name': 'foo',
@@ -4956,16 +4973,16 @@ class TestMakeSafeConfig(TestCase):
 
     def test_local(self):
         with temp_dir() as juju_home:
-            env = SimpleEnvironment('foo', {'type': 'local'},
-                                    juju_home=juju_home)
-            client = FakeJujuClient(env)
+            env = JujuData('foo', {'type': 'local'}, juju_home=juju_home)
+            client = fake_juju_client(env)
             with patch('jujupy.check_free_disk_space'):
                 config = make_safe_config(client)
         self.assertEqual(get_local_root(client.env.juju_home, client.env),
                          config['root-dir'])
 
     def test_bootstrap_replaces_agent_version(self):
-        client = FakeJujuClient(SimpleEnvironment('foo', {'type': 'bar'}))
+        client = fake_juju_client(JujuData('foo', {'type': 'bar'},
+                                  juju_home='foo'))
         client.bootstrap_replaces = {'agent-version'}
         self.assertNotIn('agent-version', make_safe_config(client))
         client.env.config['agent-version'] = '1.23'

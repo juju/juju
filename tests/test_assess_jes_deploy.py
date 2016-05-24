@@ -16,7 +16,7 @@ from jujupy import (
     SimpleEnvironment,
 )
 import tests
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 
 
 class TestJES(tests.FakeHomeTestCase):
@@ -129,7 +129,7 @@ class TestJES(tests.FakeHomeTestCase):
 class TestHostedEnvironment(tests.FakeHomeTestCase):
 
     def test_hosted_environment(self):
-        hosting_client = FakeJujuClient(jes_enabled=True)
+        hosting_client = fake_juju_client()
         log_dir = os.path.join(self.home_dir, 'logs')
         os.mkdir(log_dir)
         with hosted_environment(hosting_client, log_dir, 'bar') as client:
@@ -142,7 +142,7 @@ class TestHostedEnvironment(tests.FakeHomeTestCase):
         self.assertTrue(os.path.isdir(os.path.join(log_dir, 'bar')))
 
     def test_gathers_machine_logs(self):
-        hosting_client = FakeJujuClient(jes_enabled=True)
+        hosting_client = fake_juju_client()
         log_dir = os.path.join(self.home_dir, 'logs')
         os.mkdir(log_dir)
         with patch("deploy_stack.copy_remote_logs", autospec=True) as mock_crl:

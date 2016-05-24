@@ -30,7 +30,7 @@ from tests import (
     TestCase,
 )
 from tests.test_jujupy import (
-    FakeJujuClient,
+    fake_juju_client,
     FakeBackend,
 )
 
@@ -127,9 +127,9 @@ class TestAsserts(TestCase):
         users = [read_user, write_user]
 
         for user in users:
-            fake_client = FakeJujuClient()
-            fake_admin_client = FakeJujuClient()
-            with patch("test_jujupy.FakeJujuClient.revoke", return_value=True):
+            fake_client = fake_juju_client()
+            fake_admin_client = fake_juju_client()
+            with patch("jujupy.EnvJujuClient.revoke", return_value=True):
                 with patch("assess_user_grant_revoke.assert_read",
                            return_value=True) as read_mock:
                     with patch("assess_user_grant_revoke.assert_write",
@@ -140,7 +140,7 @@ class TestAsserts(TestCase):
                         self.assertEqual(write_mock.call_count, 2)
 
     def test_assert_read(self):
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         with patch.object(fake_client, 'show_status', return_value=True):
             assert_read(fake_client, True)
             with self.assertRaises(JujuAssertionError):
@@ -152,7 +152,7 @@ class TestAsserts(TestCase):
                 assert_read(fake_client, True)
 
     def test_assert_write(self):
-        fake_client = FakeJujuClient()
+        fake_client = fake_juju_client()
         with patch.object(fake_client, 'deploy', return_value=True):
             assert_write(fake_client, True)
             with self.assertRaises(JujuAssertionError):
@@ -165,7 +165,7 @@ class TestAsserts(TestCase):
 
 
 def make_fake_client():
-    fake_client = FakeJujuClient()
+    fake_client = fake_juju_client()
     old_backend = fake_client._backend
     fake_client._backend = FakeBackendShellEnv(
         old_backend.controller_state, old_backend.feature_flags,
@@ -207,7 +207,7 @@ class TestAssess(TestCase):
         fake_client_environ = fake_client._shell_environ()
         cloned, cloned_environ = create_cloned_environment(fake_client,
                                                            'fakehome')
-        self.assertIs(FakeJujuClient, type(cloned))
+        self.assertIs(fake_client.__class__, type(cloned))
         self.assertEqual(cloned.env.juju_home, 'fakehome')
         self.assertNotEqual(cloned_environ, fake_client_environ)
         self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')

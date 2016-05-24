@@ -1285,15 +1285,8 @@ class EnvJujuClient:
         self.juju('upgrade-mongo', ())
 
     def backup(self):
-        environ = self._shell_environ()
         try:
-            # Mutate os.environ instead of supplying env parameter so Windows
-            # can search env['PATH']
-            with scoped_environ(environ):
-                args = self._full_args(
-                    'create-backup', False, (), include_e=True)
-                log.info(' '.join(args))
-                output = subprocess.check_output(args)
+            output = self.get_juju_output('create-backup')
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise
