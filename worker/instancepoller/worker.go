@@ -20,7 +20,7 @@ type Config struct {
 	Clock   clock.Clock
 	Delay   time.Duration
 	Facade  *instancepoller.API
-	Environ instanceGetter
+	Environ InstanceGetter
 }
 
 func (config Config) Validate() error {

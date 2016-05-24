@@ -4,11 +4,11 @@
 package instancepoller
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -118,7 +118,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	}()
 
 	// Unwind the test clock
-	waitAlarms(c, clock, delay, 1)
+	waitAlarms(c, clock, 1)
 	clock.Advance(delay)
 
 	wg.Wait()
@@ -170,7 +170,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	go checkInfo("foo3", "ok-ish")
 
 	// Unwind the testing clock to let our requests through.
-	waitAlarms(c, clock, delay, 2)
+	waitAlarms(c, clock, 2)
 	clock.Advance(delay)
 
 	// Check we're still alive.
@@ -227,7 +227,7 @@ func (s *aggregateSuite) TestKillingWorkerKillsPendinReqs(c *gc.C) {
 	go checkInfo("foo2")
 
 	// Advance the clock and kill the worker.
-	waitAlarms(c, clock, delay, 1)
+	waitAlarms(c, clock, 1)
 	clock.Advance(delay - time.Nanosecond)
 	aggregator.Kill()
 
@@ -283,7 +283,7 @@ func (s *aggregateSuite) TestMultipleBatches(c *gc.C) {
 	go checkInfo("foo3", "ok-ish")
 
 	// Unwind the testing clock to let our requests through.
-	waitAlarms(c, clock, delay, 2)
+	waitAlarms(c, clock, 2)
 	clock.Advance(delay)
 
 	// Check we're still alive
@@ -359,7 +359,7 @@ func (s *aggregateSuite) TestInstancesErrors(c *gc.C) {
 	}()
 
 	// Unwind to let our request through.
-	waitAlarms(c, clock, delay, 1)
+	waitAlarms(c, clock, 1)
 	clock.Advance(delay)
 
 	wg.Wait()
@@ -410,7 +410,7 @@ func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	go checkInfo("foo2", "", errors.New("instance foo2 not found"))
 
 	// Unwind the testing clock to let our requests through.
-	waitAlarms(c, clock, delay, 2)
+	waitAlarms(c, clock, 2)
 	clock.Advance(delay)
 
 	// Check we're still alive.
@@ -419,7 +419,7 @@ func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	// Wait until the checkers pass.
 	wg.Wait()
 
-	// Now kill the worker so we don't have a race in the following assertions.
+	// Now kill the worker so we don't risk a race in the following assertions.
 	workertest.CleanKill(c, aggregator)
 
 	// Ensure we got our list back with the correct length.
@@ -432,8 +432,8 @@ func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	c.Assert(testGetter.counter, gc.Equals, int32(1))
 }
 
-func waitAlarms(c *gc.C, clock *testing.Clock, delay time.Duration, count int) {
-	timeout := time.After(delay)
+func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
+	timeout := time.After(testing.LongWait)
 	for i := 0; i < count; i++ {
 		select {
 		case <-clock.Alarms():

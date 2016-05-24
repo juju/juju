@@ -14,14 +14,14 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-type instanceGetter interface {
+type InstanceGetter interface {
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 }
 
 type aggregatorConfig struct {
 	Clock   clock.Clock
 	Delay   time.Duration
-	Environ instanceGetter
+	Environ InstanceGetter
 }
 
 func (c aggregatorConfig) validate() error {
