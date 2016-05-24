@@ -325,7 +325,10 @@ func (t *logTailer) processCollection() error {
 		}
 	}
 
-	iter := query.Sort("t").Iter()
+	// In tests, sorting by time can leave the results
+	// underconstrained - include document id for deterministic
+	// ordering in those cases.
+	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
 		select {
