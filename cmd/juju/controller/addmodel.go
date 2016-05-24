@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -17,6 +18,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
+
+// Lowercase letters, digits and (non-leading) hyphens, as per LP:1568944 #5.
+var validModelName = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
 
 // NewAddModelCommand returns a command to add a model.
 func NewAddModelCommand() cmd.Command {
@@ -48,6 +52,7 @@ The credentials used to add the model are the ones used to create any
 future resources within the model (` + "`juju deploy`, `juju add-unit`" + `).
 Model names can be duplicated across controllers but must be unique for
 any given controller.
+Model names may only contain lowercase letters, digits and hyphens.
 The necessary configuration must be available, either via the controller
 configuration (known to Juju upon its creation), command line arguments,
 or configuration file (--config). For 'ec2' and 'openstack' cloud types,
@@ -82,6 +87,10 @@ func (c *addModelCommand) Init(args []string) error {
 		return errors.New("model name is required")
 	}
 	c.Name, args = args[0], args[1:]
+
+	if !validModelName.MatchString(c.Name) {
+		return errors.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", c.Name)
+	}
 
 	if c.Owner != "" && !names.IsValidUser(c.Owner) {
 		return errors.Errorf("%q is not a valid user", c.Owner)
