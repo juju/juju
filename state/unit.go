@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -1629,6 +1630,15 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	return u.assignToNewMachine(template, "", containerType)
 }
 
+type byStorageInstance []StorageAttachment
+
+func (b byStorageInstance) Len() int      { return len(b) }
+func (b byStorageInstance) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+
+func (b byStorageInstance) Less(i, j int) bool {
+	return b[i].StorageInstance().String() < b[j].StorageInstance().String()
+}
+
 // machineStorageParams returns parameters for creating volumes/filesystems
 // and volume/filesystem attachments for a machine that the unit will be
 // assigned to.
@@ -1653,6 +1663,9 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
+
+	// Sort storage attachments so the volume ids are consistent (for testing).
+	sort.Sort(byStorageInstance(storageAttachments))
 
 	chMeta := ch.Meta()
 
