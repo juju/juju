@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -59,7 +60,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	// Firstly share a model with a user
 	username := "bar@ubuntuone"
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
-		User: username, Access: state.ReadAccess})
+		User: username, Access: description.ReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need

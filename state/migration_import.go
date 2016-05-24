@@ -188,14 +188,14 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		var access Access
+		var access description.Access
 		switch {
 		case user.IsReadOnly():
-			access = ReadAccess
+			access = description.ReadAccess
 		case user.IsReadWrite():
-			access = WriteAccess
+			access = description.WriteAccess
 		default:
-			access = AdminAccess
+			access = description.AdminAccess
 		}
 		ops = append(ops, createModelUserOps(
 			modelUUID,

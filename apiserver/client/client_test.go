@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -82,8 +83,8 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
 	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: state.WriteAccess})
-	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: state.WriteAccess})
+	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: description.WriteAccess})
+	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: description.WriteAccess})
 
 	results, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)

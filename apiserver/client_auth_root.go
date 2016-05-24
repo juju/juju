@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/rpc"
@@ -45,6 +46,7 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 
 	// Check if our call requires higher access than the user has.
 	if doesCallRequireAdmin(rootName, methodName) && !r.user.IsAdmin() {
+		logger.Debugf("THE METHOD %s.%s MIGHT REQUIRE ADMIN", rootName, methodName)
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
@@ -61,11 +63,26 @@ func isCallAllowableByReadOnlyUser(facade, _ /*method*/ string) bool {
 	return restrictedRootNames.Contains(facade)
 }
 
+var modelManagerMethods = set.NewStrings(
+	"ModifyModelAccess",
+	"CreateModel",
+)
+
+var controllerMethods = set.NewStrings(
+	"DestroyController",
+)
+
 func doesCallRequireAdmin(facade, method string) bool {
 	// TODO(perrito666) This should filter adding users to controllers.
 	// TODO(perrito666) Add an exaustive list of facades/methods that are
 	// admin only and put them in an authoritative source to be re-used.
 	// TODO(perrito666) This is a stub, the idea is to maintain the current
 	// status of permissions until we decide what goes to admin only.
+	switch facade {
+	case "ModelManager":
+		return modelManagerMethods.Contains(method)
+	case "Controller":
+		return controllerMethods.Contains(method)
+	}
 	return false
 }

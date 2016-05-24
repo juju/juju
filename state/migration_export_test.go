@@ -152,7 +152,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    state.ReadAccess,
+		Access:    description.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(bob, lastConnection)
