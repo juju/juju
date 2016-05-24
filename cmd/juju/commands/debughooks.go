@@ -30,6 +30,9 @@ type debugHooksCommand struct {
 
 const debugHooksDoc = `
 Interactively debug a hook remotely on a service unit.
+
+See the "juju help ssh" for information about SSH related options
+accepted by the debug-hooks command.
 `
 
 func (c *debugHooksCommand) Info() *cmd.Info {
@@ -118,12 +121,11 @@ func (c *debugHooksCommand) validateHooks() error {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.apiClient, err = c.initAPIClient()
+	err := c.initRun()
 	if err != nil {
 		return err
 	}
-	defer c.apiClient.Close()
+	defer c.cleanupRun()
 	err = c.validateHooks()
 	if err != nil {
 		return err

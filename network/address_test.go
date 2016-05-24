@@ -248,7 +248,6 @@ type selectTest struct {
 	about         string
 	addresses     []network.Address
 	expectedIndex int
-	preferIPv6    bool
 }
 
 // expected returns the expected address for the test.
@@ -263,21 +262,18 @@ var selectPublicTests = []selectTest{{
 	"no addresses gives empty string result",
 	[]network.Address{},
 	-1,
-	false,
 }, {
 	"a public IPv4 address is selected",
 	[]network.Address{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 	},
 	0,
-	false,
 }, {
 	"a public IPv6 address is selected",
 	[]network.Address{
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
 	},
 	0,
-	false,
 }, {
 	"first public address is selected",
 	[]network.Address{
@@ -285,7 +281,6 @@ var selectPublicTests = []selectTest{{
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
 	},
 	0,
-	false,
 }, {
 	"the first public address is selected when cloud local fallbacks exist",
 	[]network.Address{
@@ -295,38 +290,24 @@ var selectPublicTests = []selectTest{{
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
 	},
 	1,
-	false,
-}, {
-	"IPv6 public address is preferred to a cloud local one when preferIPv6 is true",
-	[]network.Address{
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("172.16.1.1", network.ScopeCloudLocal),
-		network.NewScopedAddress("fc00:1", network.ScopeCloudLocal),
-		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
-	},
-	3,
-	true,
 }, {
 	"a machine IPv4 local address is not selected",
 	[]network.Address{
 		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
 	},
 	-1,
-	false,
 }, {
 	"a machine IPv6 local address is not selected",
 	[]network.Address{
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),
 	},
 	-1,
-	false,
 }, {
 	"a link-local IPv4 address is not selected",
 	[]network.Address{
 		network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
 	},
 	-1,
-	false,
 }, {
 	"a link-local (multicast or not) IPv6 address is not selected",
 	[]network.Address{
@@ -335,7 +316,6 @@ var selectPublicTests = []selectTest{{
 		network.NewScopedAddress("ff02::1:1", network.ScopeLinkLocal),
 	},
 	-1,
-	false,
 }, {
 	"a public name is preferred to an unknown or cloud local address",
 	[]network.Address{
@@ -345,7 +325,6 @@ var selectPublicTests = []selectTest{{
 		network.NewScopedAddress("public.invalid.testing", network.ScopePublic),
 	},
 	3,
-	false,
 }, {
 	"first unknown address selected",
 	// NOTE(dimitern): Not using NewScopedAddress() below as it derives the
@@ -355,7 +334,6 @@ var selectPublicTests = []selectTest{{
 		{Value: "8.8.8.8", Scope: network.ScopeUnknown},
 	},
 	0,
-	false,
 }, {
 	"first public address is picked when both public IPs and public hostnames exist",
 	[]network.Address{
@@ -364,27 +342,11 @@ var selectPublicTests = []selectTest{{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 	},
 	1,
-	false,
-}, {
-	"first public IPv6 address is picked when both public IPs and public hostnames exist when preferIPv6 is true",
-	[]network.Address{
-		network.NewScopedAddress("10.0.0.1", network.ScopeUnknown),
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("example.com", network.ScopePublic),
-		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
-	},
-	3,
-	true,
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t := range selectPublicTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		expectAddr, expectOK := t.expected()
 		actualAddr, actualOK := network.SelectPublicAddress(t.addresses)
 		c.Check(actualOK, gc.Equals, expectOK)
@@ -396,39 +358,18 @@ var selectInternalTests = []selectTest{{
 	"no addresses gives empty string result",
 	[]network.Address{},
 	-1,
-	false,
 }, {
 	"a public IPv4 address is selected",
 	[]network.Address{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 	},
 	0,
-	false,
 }, {
 	"a public IPv6 address is selected",
 	[]network.Address{
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
 	},
 	0,
-	false,
-}, {
-	"a public IPv6 address is selected when both IPv4 and IPv6 addresses exist and preferIPv6 is true",
-	[]network.Address{
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
-	},
-	1,
-	true,
-}, {
-	"the first public IPv4 address is selected when preferIPv6 is true and no IPv6 addresses",
-	[]network.Address{
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
-		network.NewScopedAddress("8.8.4.4", network.ScopePublic),
-	},
-	1,
-	true,
 }, {
 	"a cloud local IPv4 address is selected",
 	[]network.Address{
@@ -436,7 +377,6 @@ var selectInternalTests = []selectTest{{
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 	},
 	1,
-	false,
 }, {
 	"a cloud local IPv6 address is selected",
 	[]network.Address{
@@ -444,7 +384,6 @@ var selectInternalTests = []selectTest{{
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
 	},
 	0,
-	false,
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.Address{
@@ -453,7 +392,6 @@ var selectInternalTests = []selectTest{{
 		network.NewScopedAddress("fe80::1", network.ScopeLinkLocal),
 	},
 	-1,
-	false,
 }, {
 	"a cloud local address is preferred to a public address",
 	[]network.Address{
@@ -463,9 +401,8 @@ var selectInternalTests = []selectTest{{
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 	},
 	1,
-	false,
 }, {
-	"an IPv6 cloud local address is preferred to a public address when preferIPv6 is true",
+	"an IPv6 cloud local address is preferred to a public address if the former appears first",
 	[]network.Address{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
@@ -473,17 +410,11 @@ var selectInternalTests = []selectTest{{
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 	},
 	2,
-	false,
 }}
 
 func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t := range selectInternalTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		expectAddr, expectOK := t.expected()
 		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, false)
 		c.Check(actualOK, gc.Equals, expectOK)
@@ -500,9 +431,8 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 	},
 	0,
-	false,
 }, {
-	"first cloud local hostname is selected when preferIPv6 is false",
+	"first cloud local hostname is selected",
 	[]network.Address{
 		network.NewScopedAddress("example.com", network.ScopePublic),
 		network.NewScopedAddress("cloud1.internal", network.ScopeCloudLocal),
@@ -510,46 +440,6 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewScopedAddress("example.org", network.ScopePublic),
 	},
 	1,
-	false,
-}, {
-	"first cloud local hostname is selected when preferIPv6 is true (public first)",
-	[]network.Address{
-		network.NewScopedAddress("example.org", network.ScopePublic),
-		network.NewScopedAddress("example.com", network.ScopePublic),
-		network.NewScopedAddress("cloud1.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("cloud2.internal", network.ScopeCloudLocal),
-	},
-	2,
-	true,
-}, {
-	"first cloud local hostname is selected when preferIPv6 is true (public last)",
-	[]network.Address{
-		network.NewScopedAddress("cloud1.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("cloud2.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("example.org", network.ScopePublic),
-		network.NewScopedAddress("example.com", network.ScopePublic),
-	},
-	0,
-	true,
-}, {
-	"first IPv6 cloud local address is selected when preferIPv6 is true",
-	[]network.Address{
-		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
-	},
-	2,
-	true,
-}, {
-	"first IPv4 cloud local address is selected when preferIPv6 is true and no IPv6 addresses",
-	[]network.Address{
-		network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
-		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
-		network.NewScopedAddress("172.16.1.1", network.ScopeCloudLocal),
-	},
-	1,
-	true,
 }, {
 	"first machine local address is selected",
 	[]network.Address{
@@ -557,27 +447,8 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),
 	},
 	0,
-	false,
 }, {
-	"first IPv6 machine local address is selected when preferIPv6 is true",
-	[]network.Address{
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("::1", network.ScopeMachineLocal),
-		network.NewScopedAddress("fe80::1", network.ScopeLinkLocal),
-	},
-	1,
-	true,
-}, {
-	"first IPv4 machine local address is selected when preferIPv6 is true and no IPv6 addresses",
-	[]network.Address{
-		network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("127.0.0.2", network.ScopeMachineLocal),
-	},
-	1,
-	true,
-}, {
-	"first machine local address is selected when preferIPv6 is false even with public/cloud hostnames",
+	"first machine local address is selected even with public/cloud hostnames",
 	[]network.Address{
 		network.NewScopedAddress("public.example.com", network.ScopePublic),
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),
@@ -588,9 +459,8 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewScopedAddress("127.0.0.2", network.ScopeMachineLocal),
 	},
 	1,
-	false,
 }, {
-	"first cloud local hostname is selected when preferIPv6 is false even with other machine/cloud addresses",
+	"first cloud local hostname is selected even with other machine/cloud addresses",
 	[]network.Address{
 		network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
 		network.NewScopedAddress("cloud-unknown.internal", network.ScopeUnknown),
@@ -600,42 +470,11 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewScopedAddress("127.0.0.2", network.ScopeMachineLocal),
 	},
 	2,
-	false,
-}, {
-	"first IPv6 machine local address is selected when preferIPv6 is true even with public/cloud hostnames",
-	[]network.Address{
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("public.example.com", network.ScopePublic),
-		network.NewScopedAddress("unknown.example.com", network.ScopeUnknown),
-		network.NewScopedAddress("cloud.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("::1", network.ScopeMachineLocal),
-		network.NewScopedAddress("fe80::1", network.ScopeLinkLocal),
-	},
-	4,
-	true,
-}, {
-	"first IPv6 cloud local address is selected when preferIPv6 is true even with cloud local hostnames",
-	[]network.Address{
-		network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
-		network.NewScopedAddress("cloud-unknown.internal", network.ScopeUnknown),
-		network.NewScopedAddress("cloud-local.internal", network.ScopeCloudLocal),
-		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewScopedAddress("fc00::2", network.ScopeCloudLocal),
-		network.NewScopedAddress("127.0.0.2", network.ScopeMachineLocal),
-	},
-	3,
-	true,
 }}
 
 func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t := range selectInternalMachineTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		expectAddr, expectOK := t.expected()
 		actualAddr, actualOK := network.SelectInternalAddress(t.addresses, true)
 		c.Check(actualOK, gc.Equals, expectOK)
@@ -644,33 +483,21 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 }
 
 type selectInternalHostPortsTest struct {
-	about      string
-	addresses  []network.HostPort
-	expected   []string
-	preferIPv6 bool
+	about     string
+	addresses []network.HostPort
+	expected  []string
 }
 
 var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 	"no addresses gives empty string result",
 	[]network.HostPort{},
 	[]string{},
-	false,
 }, {
 	"a public IPv4 address is selected",
 	[]network.HostPort{
 		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 9999},
 	},
 	[]string{"8.8.8.8:9999"},
-	false,
-}, {
-	"public IPv6 addresses selected when both IPv4 and IPv6 addresses exist and preferIPv6 is true",
-	[]network.HostPort{
-		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 9999},
-		{network.NewScopedAddress("2001:db8::1", network.ScopePublic), 8888},
-		{network.NewScopedAddress("2002:db8::1", network.ScopePublic), 9999},
-	},
-	[]string{"[2001:db8::1]:8888", "[2002:db8::1]:9999"},
-	true,
 }, {
 	"a cloud local IPv4 addresses are selected",
 	[]network.HostPort{
@@ -679,7 +506,6 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 1234},
 	},
 	[]string{"10.1.0.1:8888", "10.0.0.1:1234"},
-	false,
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.HostPort{
@@ -688,7 +514,6 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("fe80::1", network.ScopeLinkLocal), 333},
 	},
 	[]string{},
-	false,
 }, {
 	"cloud local addresses are preferred to a public addresses",
 	[]network.HostPort{
@@ -698,25 +523,11 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
 	},
 	[]string{"[fc00::1]:123", "10.0.0.1:4444"},
-	false,
-}, {
-	"IPv4 addresses are used when prefer-IPv6 is set but no IPv6 addresses are available",
-	[]network.HostPort{
-		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 123},
-		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
-	},
-	[]string{"10.0.0.1:4444"},
-	true,
 }}
 
 func (s *AddressSuite) TestSelectInternalHostPorts(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t := range selectInternalHostPortsTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalHostPorts(t.addresses, false), gc.DeepEquals, t.expected)
 	}
 }
@@ -725,23 +536,12 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 	"no addresses gives empty string result",
 	[]network.HostPort{},
 	[]string{},
-	false,
 }, {
 	"a public IPv4 address is selected",
 	[]network.HostPort{
 		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 9999},
 	},
 	[]string{"8.8.8.8:9999"},
-	false,
-}, {
-	"public IPv6 addresses selected when both IPv4 and IPv6 addresses exist and preferIPv6 is true",
-	[]network.HostPort{
-		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 9999},
-		{network.NewScopedAddress("2001:db8::1", network.ScopePublic), 8888},
-		{network.NewScopedAddress("2002:db8::1", network.ScopePublic), 9999},
-	},
-	[]string{"[2001:db8::1]:8888", "[2002:db8::1]:9999", "8.8.8.8:9999"},
-	true,
 }, {
 	"a cloud local IPv4 addresses are selected",
 	[]network.HostPort{
@@ -750,7 +550,6 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 1234},
 	},
 	[]string{"10.1.0.1:8888", "10.0.0.1:1234", "8.8.8.8:123"},
-	false,
 }, {
 	"a machine local or link-local address is not selected",
 	[]network.HostPort{
@@ -759,7 +558,6 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("fe80::1", network.ScopeLinkLocal), 333},
 	},
 	[]string{},
-	false,
 }, {
 	"cloud local addresses are preferred to a public addresses",
 	[]network.HostPort{
@@ -769,25 +567,11 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
 	},
 	[]string{"[fc00::1]:123", "10.0.0.1:4444", "[2001:db8::1]:123", "8.8.8.8:123"},
-	false,
-}, {
-	"IPv4 addresses are used when prefer-IPv6 is set but no IPv6 addresses are available",
-	[]network.HostPort{
-		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 123},
-		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
-	},
-	[]string{"10.0.0.1:4444", "8.8.8.8:123"},
-	true,
 }}
 
 func (s *AddressSuite) TestPrioritizeInternalHostPorts(c *gc.C) {
-	oldValue := network.PreferIPv6()
-	defer func() {
-		network.SetPreferIPv6(oldValue)
-	}()
 	for i, t := range prioritizeInternalHostPortsTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.SetPreferIPv6(t.preferIPv6)
 		prioritized := network.PrioritizeInternalHostPorts(t.addresses, false)
 		c.Check(prioritized, gc.DeepEquals, t.expected)
 	}
@@ -878,8 +662,7 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 		"example.com",
 		"8.8.8.8",
 	)
-	// Simulate prefer-ipv6: false first.
-	network.SortAddresses(addrs, false)
+	network.SortAddresses(addrs)
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses(
 		// Public IPv4 addresses on top.
 		"7.8.8.8",
@@ -901,31 +684,6 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 		"169.254.1.2",
 		// Finally, link-local IPv6 addresses.
 		"fe80::2",
-	))
-
-	// Now, simulate prefer-ipv6: true.
-	network.SortAddresses(addrs, true)
-	c.Assert(addrs, jc.DeepEquals, network.NewAddresses(
-		// Public IPv6 addresses on top.
-		"2001:db8::1",
-		// After that public IPv4 addresses.
-		"7.8.8.8",
-		"8.8.8.8",
-		// Then hostnames.
-		"example.com",
-		"localhost",
-		// Then IPv6 cloud-local addresses.
-		"fc00::1",
-		// Then IPv4 cloud-local addresses.
-		"172.16.0.1",
-		// Then machine-local IPv6 addresses.
-		"::1",
-		// Then machine-local IPv4 addresses.
-		"127.0.0.1",
-		// Then link-local IPv6 addresses.
-		"fe80::2",
-		// Finally, link-local IPv4 addresses.
-		"169.254.1.2",
 	))
 }
 
@@ -955,7 +713,6 @@ func (*AddressSuite) TestDecimalToIPv4(c *gc.C) {
 }
 
 func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
-	network.SetPreferIPv6(false)
 	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
 	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
 	c.Assert(match, jc.IsTrue)
@@ -967,33 +724,6 @@ func (*AddressSuite) TestExactScopeMatch(c *gc.C) {
 	c.Assert(match, jc.IsFalse)
 	match = network.ExactScopeMatch(addr, network.ScopePublic)
 	c.Assert(match, jc.IsTrue)
-}
-
-func (*AddressSuite) TestExactScopeMatchHonoursPreferIPv6(c *gc.C) {
-	network.SetPreferIPv6(true)
-	addr := network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal)
-	match := network.ExactScopeMatch(addr, network.ScopeCloudLocal)
-	c.Assert(match, jc.IsFalse)
-	match = network.ExactScopeMatch(addr, network.ScopePublic)
-	c.Assert(match, jc.IsFalse)
-
-	addr = network.NewScopedAddress("8.8.8.8", network.ScopePublic)
-	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
-	c.Assert(match, jc.IsFalse)
-	match = network.ExactScopeMatch(addr, network.ScopePublic)
-	c.Assert(match, jc.IsFalse)
-
-	addr = network.NewScopedAddress("2001:db8::ff00:42:8329", network.ScopePublic)
-	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
-	c.Assert(match, jc.IsFalse)
-	match = network.ExactScopeMatch(addr, network.ScopePublic)
-	c.Assert(match, jc.IsTrue)
-
-	addr = network.NewScopedAddress("fc00::1", network.ScopeCloudLocal)
-	match = network.ExactScopeMatch(addr, network.ScopeCloudLocal)
-	c.Assert(match, jc.IsTrue)
-	match = network.ExactScopeMatch(addr, network.ScopePublic)
-	c.Assert(match, jc.IsFalse)
 }
 
 func (s *AddressSuite) TestResolvableHostnames(c *gc.C) {

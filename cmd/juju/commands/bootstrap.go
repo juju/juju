@@ -366,14 +366,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		if oldCurrentController != "" {
 			if err := modelcmd.WriteCurrentController(oldCurrentController); err != nil {
-				logger.Warningf(
+				logger.Errorf(
 					"cannot reset current controller to %q: %v",
 					oldCurrentController, err,
 				)
 			}
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Warningf(
+			logger.Errorf(
 				"cannot destroy newly created controller %q details: %v",
 				c.controllerName, err,
 			)
@@ -430,7 +430,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Warningf(`
+				logger.Infof(`
 bootstrap failed but --keep-broken was specified so model is not being destroyed.
 When you are finished diagnosing the problem, remember to run juju destroy-model --force
 to clean up the model.`[1:])

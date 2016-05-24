@@ -609,7 +609,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		"shazam":             "Captain Marvel",
 	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
+	c.Assert(c.GetTestLog(), jc.Contains, `INFO juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *LxcSuite) TestCreateContainer(c *gc.C) {
@@ -1110,7 +1110,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.link = lxcbr0",
 			"lxc.network.flags = up",
 		},
-		logContains:       `WARNING juju.container.lxc network type missing, using the default "bridge" config`,
+		logContains:       `INFO juju.container.lxc network type missing, using the default "bridge" config`,
 		logDoesNotContain: `INFO juju.container.lxc setting MTU to 0 for LXC network interfaces`,
 	}, {
 		about:  "default config",
@@ -1249,7 +1249,7 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 	log := c.GetTestLog()
 	c.Assert(log, jc.Contains,
-		`WARNING juju.container.lxc unknown network type "foo", using the default "bridge" config`,
+		`INFO juju.container.lxc unknown network type "foo", using the default "bridge" config`,
 	)
 }
 

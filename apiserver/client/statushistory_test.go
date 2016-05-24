@@ -73,10 +73,9 @@ func checkStatusInfo(c *gc.C, obtained []params.DetailedStatus, expected []statu
 }
 
 func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
-	tag := names.NewUnitTag("unit/1")
 	r := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 0},
 		}}})
@@ -85,11 +84,10 @@ func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
 }
 
 func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
-	tag := names.NewUnitTag("unit/1")
 	now := time.Now()
 	r := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 1, Date: &now},
 		}}})
@@ -99,7 +97,7 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 	yesterday := time.Hour * 24
 	r = s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 1, Delta: &yesterday},
 		}}})
@@ -108,7 +106,7 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 
 	r = s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Date: &now, Delta: &yesterday},
 		}}})
@@ -132,10 +130,9 @@ func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
-	tag := names.NewUnitTag("unit/0")
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-0",
 			Kind:   status.KindWorkload.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
@@ -163,10 +160,9 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
-	tag := names.NewUnitTag("unit/0")
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-0",
 			Kind:   status.KindUnitAgent.String(),
 			Filter: params.StatusHistoryFilter{Size: 10},
 		}}})
@@ -198,10 +194,9 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 			Status: status.StatusIdle,
 		},
 	})
-	tag := names.NewUnitTag("unit/0")
 	h := s.api.StatusHistory(params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
-			Tag:    tag,
+			Tag:    "unit-unit-0",
 			Kind:   status.KindUnit.String(),
 			Filter: params.StatusHistoryFilter{Size: 3},
 		}}})

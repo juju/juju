@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/altoros/gosigma/mock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -108,7 +109,7 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	ids = append(ids, instance.Id("fake-instance"))
 	instances, err = env.Instances(ids)
 	c.Assert(instances, gc.NotNil)
-	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
 	c.Check(instances, gc.HasLen, 3)
 	c.Check(instances[0], gc.NotNil)
 	c.Check(instances[1], gc.NotNil)
@@ -119,7 +120,7 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 
 	instances, err = env.Instances(ids)
 	c.Assert(instances, gc.NotNil)
-	c.Assert(err, gc.Equals, environs.ErrNoInstances)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.HasLen, 3)
 	c.Check(instances[0], gc.IsNil)
 	c.Check(instances[1], gc.IsNil)

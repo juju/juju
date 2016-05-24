@@ -513,7 +513,6 @@ type ContainerConfig struct {
 	Proxy                   proxy.Settings
 	AptProxy                proxy.Settings
 	AptMirror               string
-	PreferIPv6              bool
 	AllowLXCLoopMounts      bool
 	*UpdateBehavior
 }

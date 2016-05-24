@@ -108,14 +108,14 @@ func (st *State) Cleanup() (err error) {
 		default:
 			handler, ok := cleanupHandlers[doc.Kind]
 			if !ok {
-				err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
+				err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 			} else {
 				persist := st.newPersistence()
 				err = handler(st, persist, doc.Prefix)
 			}
 		}
 		if err != nil {
-			logger.Warningf("cleanup failed: %v", err)
+			logger.Errorf("cleanup failed: %v", err)
 			continue
 		}
 		ops := []txn.Op{{
@@ -124,7 +124,7 @@ func (st *State) Cleanup() (err error) {
 			Remove: true,
 		}}
 		if err := st.runTransaction(ops); err != nil {
-			logger.Warningf("cannot remove empty cleanup document: %v", err)
+			return errors.Annotate(err, "cannot remove empty cleanup document")
 		}
 	}
 	return nil

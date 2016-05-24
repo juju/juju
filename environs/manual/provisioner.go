@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -77,7 +76,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
 			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
-				logger.Warningf("error cleaning up machine: %s", cleanupErr)
+				logger.Errorf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
 		}
@@ -158,11 +157,9 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	var addrs []network.Address
-	if addr, err := HostAddress(hostname); err != nil {
-		logger.Warningf("failed to compute public address for %q: %v", hostname, err)
-	} else {
-		addrs = append(addrs, addr)
+	addr, err := HostAddress(hostname)
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to compute public address for %q", hostname)
 	}
 
 	provisioned, err := checkProvisioned(hostname)
@@ -197,7 +194,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
-		Addrs:                   params.FromNetworkAddresses(addrs),
+		Addrs:                   params.FromNetworkAddresses(addr),
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
 	return machineParams, nil

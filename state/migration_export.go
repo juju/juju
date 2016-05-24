@@ -396,7 +396,10 @@ func (e *exporter) services() error {
 		return errors.Trace(err)
 	}
 
-	leaders := e.readServiceLeaders()
+	leaders, err := e.readServiceLeaders()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	for _, service := range services {
 		serviceUnits := e.units[service.Name()]
@@ -408,12 +411,17 @@ func (e *exporter) services() error {
 	return nil
 }
 
-func (e *exporter) readServiceLeaders() map[string]string {
-	result := make(map[string]string)
-	for key, value := range e.st.leadershipClient.Leases() {
+func (e *exporter) readServiceLeaders() (map[string]string, error) {
+	client, err := e.st.getLeadershipLeaseClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	leases := client.Leases()
+	result := make(map[string]string, len(leases))
+	for key, value := range leases {
 		result[key] = value.Holder
 	}
-	return result
+	return result, nil
 }
 
 func (e *exporter) addService(service *Service, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {

@@ -685,7 +685,6 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-	c.Assert(result.PreferIPv6, jc.IsFalse)
 }
 
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {

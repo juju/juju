@@ -298,32 +298,14 @@ func allCollections() collectionSchema {
 			}},
 		},
 		// TODO(dimitern): End of obsolete networking collections.
-		providerIDsC: {},
-		spacesC:      {},
-		subnetsC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		linkLayerDevicesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
+		providerIDsC:          {},
+		spacesC:               {},
+		subnetsC:              {},
+		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		endpointBindingsC: {},
-		openedPortsC:      {},
+		ipAddressesC:          {},
+		endpointBindingsC:     {},
+		openedPortsC:          {},
 
 		// -----
 

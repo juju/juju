@@ -7,25 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 )
-
-var logger = loggo.GetLogger("juju.worker")
 
 // RestartDelay holds the length of time that a worker
 // will wait between exiting and restarting.
 const RestartDelay = 3 * time.Second
-
-// Worker is implemented by a running worker.
-type Worker interface {
-	// Kill asks the worker to stop without necessarily
-	// waiting for it to do so.
-	Kill()
-	// Wait waits for the worker to exit and returns any
-	// error encountered when it was running.
-	Wait() error
-}
 
 // Runner is implemented by instances capable of starting and stopping workers.
 type Runner interface {
@@ -131,12 +118,6 @@ func (runner *runner) Wait() error {
 func (runner *runner) Kill() {
 	logger.Debugf("killing runner %p", runner)
 	runner.tomb.Kill(nil)
-}
-
-// Stop kills the given worker and waits for it to exit.
-func Stop(worker Worker) error {
-	worker.Kill()
-	return worker.Wait()
 }
 
 type workerInfo struct {
@@ -280,45 +261,4 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 	}
 	logger.Infof("stopped %q, err: %v", id, err)
 	runner.donec <- doneInfo{id, err}
-}
-
-// Workers is an order-preserving registry of worker factory functions.
-type Workers struct {
-	ids   []string
-	funcs map[string]func() (Worker, error)
-}
-
-// NewWorkers returns a new Workers.
-func NewWorkers() Workers {
-	return Workers{
-		funcs: make(map[string]func() (Worker, error)),
-	}
-}
-
-// IDs returns the list of registered worker IDs.
-func (r Workers) IDs() []string {
-	ids := make([]string, len(r.ids))
-	copy(ids, r.ids)
-	return ids
-}
-
-// Add registered the factory function for the identified worker.
-func (r *Workers) Add(id string, newWorker func() (Worker, error)) error {
-	if _, ok := r.funcs[id]; ok {
-		return errors.Errorf("worker %q already registered", id)
-	}
-	r.funcs[id] = newWorker
-	r.ids = append(r.ids, id)
-	return nil
-}
-
-// Start starts all the registered workers under the given runner.
-func (r *Workers) Start(runner Runner) error {
-	for _, id := range r.ids {
-		newWorker := r.funcs[id]
-		if err := runner.StartWorker(id, newWorker); err != nil {
-			return errors.Annotatef(err, "worker %q failed to start", id)
-		}
-	}
-	return nil
 }

@@ -767,7 +767,9 @@ func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expecte
 	client := st.Client()
 
 	// ModelUUID looks at the env tag on the api state connection.
-	c.Assert(client.ModelUUID(), gc.Equals, expected.Id())
+	uuid, err := client.ModelUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, expected.Id())
 
 	// ModelInfo calls a remote method that looks up the environment.
 	info, err := client.ModelInfo()

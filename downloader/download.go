@@ -185,6 +185,6 @@ func cleanTempFile(f *os.File) {
 
 	f.Close()
 	if err := os.Remove(f.Name()); err != nil {
-		logger.Warningf("cannot remove temp file %q: %v", f.Name(), err)
+		logger.Errorf("cannot remove temp file %q: %v", f.Name(), err)
 	}
 }

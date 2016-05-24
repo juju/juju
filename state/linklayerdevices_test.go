@@ -264,18 +264,6 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateNameAnd
 	s.assertMachineSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, s.otherStateMachine, args, s.otherState.ModelUUID())
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateNameAndProviderIDFailsInSameModel(c *gc.C) {
-	args := state.LinkLayerDeviceArgs{
-		Name:       "foo",
-		Type:       state.EthernetDevice,
-		ProviderID: "42",
-	}
-	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
-
-	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args, `ProviderID\(s\) not unique: 42`)
-	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
-}
-
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesProviderIDWhenNotSetOriginally(c *gc.C) {
 	args := state.LinkLayerDeviceArgs{
 		Name: "foo",
@@ -285,6 +273,34 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesProviderIDWhe
 
 	args.ProviderID = "42"
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesFailsForProviderIDChange(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:       "foo",
+		Type:       state.EthernetDevice,
+		ProviderID: "42",
+	}
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
+
+	args.ProviderID = "43"
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `cannot change ProviderID of link layer device "foo"`)
+}
+
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdateWithDuplicateProviderIDFails(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:       "foo",
+		Type:       state.EthernetDevice,
+		ProviderID: "42",
+	}
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
+	args.Name = "bar"
+	args.ProviderID = ""
+	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
+
+	args.ProviderID = "42"
+	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args, `ProviderID\(s\) not unique: 42`)
+	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesDoesNotClearProviderIDOnceSet(c *gc.C) {
@@ -542,6 +558,23 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveSuccess(c *gc.C) {
 
 	s.removeDeviceAndAssertSuccess(c, existingDevice)
 	s.assertNoDevicesOnMachine(c, s.machine)
+}
+
+func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveRemovesProviderID(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name:       "foo",
+		Type:       state.EthernetDevice,
+		ProviderID: "bar",
+	}
+	err := s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+	device, err := s.machine.LinkLayerDevice("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.removeDeviceAndAssertSuccess(c, device)
+	// Re-adding the same device should now succeed.
+	err = s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *linkLayerDevicesStateSuite) removeDeviceAndAssertSuccess(c *gc.C, givenDevice *state.LinkLayerDevice) {

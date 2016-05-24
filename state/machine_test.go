@@ -1709,35 +1709,6 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		"127.0.0.1",
 		"fe80::1",
 	))
-
-	// Now simulate prefer-ipv6: true
-	c.Assert(
-		s.State.UpdateModelConfig(
-			map[string]interface{}{"prefer-ipv6": true},
-			nil, nil,
-		),
-		gc.IsNil,
-	)
-
-	err = machine.SetProviderAddresses(providerAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetMachineAddresses(machineAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
-		"2001:db8::1",
-		"8.8.8.8",
-		"example.org",
-		"fc00::1",
-		"::1",
-		"127.0.0.2",
-		"localhost",
-		"fd00::1",
-		"192.168.0.1",
-		"127.0.0.1",
-		"fe80::1",
-	))
 }
 
 func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C) {

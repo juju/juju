@@ -198,7 +198,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	output := testing.Stderr(ctx)
 
 	expectedOutput := `Added charm "cs:trusty/starsay-1" to the model.
-Deploying charm "cs:trusty/starsay-1" with the charm series "trusty".
+Deploying charm "cs:trusty/starsay-1" with the user specified series "trusty".
 `
 	c.Assert(output, gc.Equals, expectedOutput)
 	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")

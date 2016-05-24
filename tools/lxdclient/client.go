@@ -279,7 +279,7 @@ func checkLXDBridgeConfiguration(conf string) error {
 		if strings.HasPrefix(line, "USE_LXD_BRIDGE=") {
 			b, err := strconv.ParseBool(strings.Trim(line[len("USE_LXD_BRIDGE="):], " \""))
 			if err != nil {
-				logger.Warningf("couldn't parse bool, skipping USE_LXD_BRIDGE check: %s", err)
+				logger.Debugf("couldn't parse bool, skipping USE_LXD_BRIDGE check: %s", err)
 				continue
 			}
 

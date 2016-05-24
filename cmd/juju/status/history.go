@@ -131,12 +131,21 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 	filterArgs := status.StatusHistoryFilter{
 		Size:  c.backlogSize,
 		Delta: delta,
-		Date:  &c.date,
+	}
+	if !c.date.IsZero() {
+		filterArgs.Date = &c.date
 	}
 	var tag names.Tag
-	if kind == status.KindUnit || kind == status.KindWorkload || kind == status.KindUnitAgent {
+	switch kind {
+	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
+		if !names.IsValidUnit(c.entityName) {
+			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
+		}
 		tag = names.NewUnitTag(c.entityName)
-	} else {
+	default:
+		if names.IsValidMachine(c.entityName) {
+			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
+		}
 		tag = names.NewMachineTag(c.entityName)
 	}
 	statuses, err := apiclient.StatusHistory(kind, tag, filterArgs)

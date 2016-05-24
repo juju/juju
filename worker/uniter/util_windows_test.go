@@ -13,10 +13,16 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// Command suffix for the hooks
-var cmdSuffix = ".cmd"
-
 var (
+	// We use -ldflags -X main.FLAGSFROMENVIRONMENT=true to toggle a
+	// variable that will force windows to read flags from the environment
+	// instead of the registry.
+	// If this gets removed FLAGSFROMENVIRONMENT should also be abolished.
+	jujudBuildArgs = []string{"go", "build", "-ldflags", "-X main.FLAGSFROMENVIRONMENT=true", "github.com/juju/juju/cmd/jujud"}
+
+	// Command suffix for the hooks
+	cmdSuffix = ".cmd"
+
 	// Variables for changed hooks. These are used in uniter_test
 	appendConfigChanged            = "config-get.exe --format yaml --output config.out"
 	uniterRelationsCustomizeScript = "relation-ids.exe db > relations.out"

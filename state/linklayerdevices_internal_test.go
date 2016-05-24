@@ -56,15 +56,9 @@ func (s *linkLayerDevicesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *gc.C)
 
 func (s *linkLayerDevicesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c *gc.C) {
 	const localProviderID = "foo"
-	globalProviderID := coretesting.ModelTag.Id() + ":" + localProviderID
-
 	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{ProviderID: localProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
-	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 
-	result = s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{ProviderID: globalProviderID})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
-	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
 }
 
 func (s *linkLayerDevicesInternalSuite) TestParentDeviceReturnsNoErrorWhenParentNameNotSet(c *gc.C) {

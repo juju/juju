@@ -310,7 +310,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 			return
 		}
 		if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
-			logger.Warningf("error cleaning up volume %v: %v", volumeId, err)
+			logger.Errorf("error cleaning up volume %v: %v", volumeId, err)
 		}
 	}()
 

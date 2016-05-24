@@ -73,7 +73,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
-		PreferIPv6:                     false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	}
@@ -129,7 +128,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
-		PreferIPv6:                     false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	})
@@ -387,7 +385,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	got := []byte(fmt.Sprintf(cloudconfig.UserdataScript, base64Data))
+	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
 
 	cicompose, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)

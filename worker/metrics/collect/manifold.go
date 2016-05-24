@@ -156,11 +156,12 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	if len(validMetrics) > 0 && charmURL.Schema == "local" {
 		h := newHandler(handlerConfig{
+			charmdir:       charmdir,
+			agent:          agent,
 			unitTag:        unitTag,
-			charmURL:       charmURL,
-			validMetrics:   validMetrics,
 			metricsFactory: metricFactory,
 			runner:         runner,
 		})

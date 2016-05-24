@@ -9,10 +9,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
+	"github.com/juju/juju/cmd/modelcmd"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,7 +27,11 @@ var _ = gc.Suite(&collectMetricsSuite{})
 
 func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	runClient := &testRunClient{}
+	serviceClient := &testServiceClient{}
+	serviceClient.charmURL = "local:quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
+	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
 
 	actionTag1 := names.NewActionTag("01234567-89ab-cdef-0123-456789abcdef")
 	actionTag2 := names.NewActionTag("11234567-89ab-cdef-0123-456789abcdef")
@@ -312,6 +319,18 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	}
 }
 
+func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
+	runClient := &testRunClient{}
+	serviceClient := &testServiceClient{}
+	serviceClient.charmURL = "cs:quantal/charm"
+	s.PatchValue(metricsdebug.NewAPIConn, noConn)
+	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
+	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
+	_, err := coretesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), "foobar")
+	c.Assert(err, gc.ErrorMatches, `"foobar" is not a local charm`)
+	runClient.CheckCallNames(c, "Close")
+}
+
 type testRunClient struct {
 	action.APIClient
 	testing.Stub
@@ -344,4 +363,22 @@ func (t *testRunClient) reset() {
 	t.ResetCalls()
 	t.results = nil
 	t.err = ""
+}
+
+type testServiceClient struct {
+	testing.Stub
+	charmURL string
+}
+
+func (t *testServiceClient) GetCharmURL(service string) (*charm.URL, error) {
+	url := charm.MustParseURL(t.charmURL)
+	return url, t.NextErr()
+}
+
+func (t *testServiceClient) Close() error {
+	return t.NextErr()
+}
+
+func noConn(_ modelcmd.ModelCommandBase) (api.Connection, error) {
+	return nil, nil
 }

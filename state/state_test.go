@@ -3012,51 +3012,6 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 
 type attrs map[string]interface{}
 
-func (s *StateSuite) TestWatchModelConfig(c *gc.C) {
-	w := s.State.WatchModelConfig()
-	defer statetesting.AssertStop(c, w)
-
-	// TODO(fwereade) just use a NotifyWatcher and NotifyWatcherC to test it.
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case got := <-w.Changes():
-			c.Fatalf("got unexpected change: %#v", got)
-		case <-time.After(testing.ShortWait):
-		}
-	}
-	assertChange := func(change attrs) {
-		cfg, err := s.State.ModelConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		cfg, err = cfg.Apply(change)
-		c.Assert(err, jc.ErrorIsNil)
-		if change != nil {
-			err = s.State.UpdateModelConfig(change, nil, nil)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		s.State.StartSync()
-		select {
-		case got, ok := <-w.Changes():
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(got.AllAttrs(), gc.DeepEquals, cfg.AllAttrs())
-		case <-time.After(testing.LongWait):
-			c.Fatalf("did not get change: %#v", change)
-		}
-		assertNoChange()
-	}
-	assertChange(nil)
-	assertChange(attrs{"default-series": "another-series"})
-	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
-}
-
-func (s *StateSuite) TestWatchModelConfigDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
-		w := st.WatchModelConfig()
-		<-w.Changes()
-		return w
-	})
-}
-
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
@@ -3084,59 +3039,6 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-}
-
-func (s *StateSuite) TestWatchModelConfigCorruptConfig(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Corrupt the model configuration.
-	settings := s.Session.DB("juju").C("settings")
-	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"settings.name", 1}}}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-
-	// Start watching the configuration.
-	watcher := s.State.WatchModelConfig()
-	defer watcher.Stop()
-	done := make(chan *config.Config)
-	go func() {
-		select {
-		case cfg, ok := <-watcher.Changes():
-			if !ok {
-				c.Errorf("watcher channel closed")
-			} else {
-				done <- cfg
-			}
-		case <-time.After(5 * time.Second):
-			c.Fatalf("no model configuration observed")
-		}
-	}()
-
-	s.State.StartSync()
-
-	// The invalid configuration must not have been generated.
-	select {
-	case <-done:
-		c.Fatalf("configuration returned too soon")
-	case <-time.After(testing.ShortWait):
-	}
-
-	// Fix the configuration.
-	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$set", bson.D{{"settings.name", "foo"}}}})
-	c.Assert(err, jc.ErrorIsNil)
-	fixed := cfg.AllAttrs()
-	err = s.State.UpdateModelConfig(fixed, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	select {
-	case got := <-done:
-		c.Assert(got.AllAttrs(), gc.DeepEquals, fixed)
-	case <-time.After(5 * time.Second):
-		c.Fatalf("no model configuration observed")
-	}
 }
 
 func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {

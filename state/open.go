@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker"
 )
 
 // Open connects to the server described by the given
@@ -249,9 +249,9 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-// newState creates an incomplete *State, with a configured watcher but no
-// pwatcher, leadershipManager, or controllerTag. You must start() the returned
-// *State before it will function correctly.
+// newState creates an incomplete *State, with no running workers or
+// controllerTag. You must start() the returned *State before it will
+// function correctly.
 func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, dialOpts mongo.DialOpts, policy Policy) (_ *State, resultErr error) {
 	// Set up database.
 	rawDB := session.DB(jujuDB)
@@ -271,7 +271,6 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 		session:       session,
 		database:      database,
 		policy:        policy,
-		watcher:       watcher.New(rawDB.C(txnLogC)),
 	}, nil
 }
 
@@ -289,28 +288,16 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 
-	// TODO(fwereade): we have no defence against these components failing
-	// and leaving other parts of state going. They should be managed by a
-	// dependency.Engine (or perhaps worker.Runner).
 	var errs []error
 	handle := func(name string, err error) {
 		if err != nil {
 			errs = append(errs, errors.Annotatef(err, "error stopping %s", name))
 		}
 	}
+	if st.workers != nil {
+		handle("standard workers", worker.Stop(st.workers))
+	}
 
-	handle("transaction watcher", st.watcher.Stop())
-	if st.pwatcher != nil {
-		handle("presence watcher", st.pwatcher.Stop())
-	}
-	if st.leadershipManager != nil {
-		st.leadershipManager.Kill()
-		handle("leadership manager", st.leadershipManager.Wait())
-	}
-	if st.singularManager != nil {
-		st.singularManager.Kill()
-		handle("singular manager", st.singularManager.Wait())
-	}
 	st.mu.Lock()
 	if st.allManager != nil {
 		handle("allwatcher manager", st.allManager.Stop())

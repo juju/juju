@@ -60,7 +60,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(fwereade) GAAAAAAAAAAAAAAAAAH this is LUDICROUS.
-	cmd := exec.Command("go", "build", "github.com/juju/juju/cmd/jujud")
+	cmd := exec.Command(jujudBuildArgs[0], jujudBuildArgs[1:]...)
 	cmd.Dir = toolsDir
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))

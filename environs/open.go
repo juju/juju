@@ -20,7 +20,7 @@ import (
 // ControllerModelName is the name of the admin model in each controller.
 const ControllerModelName = "admin"
 
-// adminUser is the initial admin user created for all controllers.
+// AdminUser is the initial admin user created for all controllers.
 const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.

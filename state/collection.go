@@ -11,17 +11,6 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// getCollection fetches a named collection using a new session if the
-// database has previously been logged in to. It returns the
-// collection and a closer function for the session.
-//
-// If the collection stores documents for multiple models, the
-// returned collection will automatically perform model
-// filtering where possible. See modelStateCollection below.
-func (st *State) getCollection(name string) (mongo.Collection, func()) {
-	return st.database.GetCollection(name)
-}
-
 // getRawCollection returns the named mgo Collection. As no automatic
 // model filtering is performed by the returned collection it
 // should be rarely used. getCollection() should be used in almost all

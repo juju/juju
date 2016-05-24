@@ -253,9 +253,9 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Annotate(err, "failed to reorder network settings")
 		}
 
-		err = callback(status.StatusProvisioning, "Cloning template container", nil)
-		if err != nil {
-			logger.Warningf("Cannot set instance status for container: %v", err)
+		if err := callback(status.StatusProvisioning, "Cloning template container", nil); err != nil {
+			// if the callback fails, do not abort the operation.
+			logger.Errorf("Cannot set instance status for container: %v", err)
 		}
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
@@ -891,7 +891,7 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 	case container.BridgeNetwork:
 		data.Type = "veth"
 	default:
-		logger.Warningf(
+		logger.Infof(
 			"unknown network type %q, using the default %q config",
 			config.NetworkType, container.BridgeNetwork,
 		)
@@ -917,7 +917,7 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 			nic.IPv4Gateway = iface.GatewayAddress.Value
 		}
 		if iface.MACAddress == "" || nic.MACAddress == "" {
-			logger.Warningf(
+			logger.Infof(
 				"empty MAC address %q from config for %q (rendered as %q)",
 				iface.MACAddress, iface.InterfaceName, nic.MACAddress,
 			)
@@ -949,7 +949,7 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 func generateNetworkConfig(config *container.NetworkConfig) string {
 	if config == nil {
 		config = DefaultNetworkConfig()
-		logger.Warningf("network type missing, using the default %q config", config.NetworkType)
+		logger.Infof("network type missing, using the default %q config", config.NetworkType)
 	}
 	return networkConfigTemplate(*config)
 }

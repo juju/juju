@@ -108,11 +108,7 @@ func (addr *Address) DocID() string {
 
 // ProviderID returns the provider-specific IP address ID, if set.
 func (addr *Address) ProviderID() network.Id {
-	return network.Id(addr.localProviderID())
-}
-
-func (addr *Address) localProviderID() string {
-	return addr.st.localID(addr.doc.ProviderID)
+	return network.Id(addr.doc.ProviderID)
 }
 
 // MachineID returns the ID of the machine this IP address belongs to.
@@ -207,7 +203,12 @@ func (addr *Address) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove %s", addr)
 
 	removeOp := removeIPAddressDocOp(addr.doc.DocID)
-	return addr.st.runTransaction([]txn.Op{removeOp})
+	ops := []txn.Op{removeOp}
+	if addr.ProviderID() != "" {
+		op := addr.st.networkEntityGlobalKeyRemoveOp("address", addr.ProviderID())
+		ops = append(ops, op)
+	}
+	return addr.st.runTransaction(ops)
 }
 
 // removeIPAddressDocOpOp returns an operation to remove the ipAddressDoc
@@ -298,10 +299,14 @@ func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, er
 	var ops []txn.Op
 	callbackFunc := func(resultDoc *ipAddressDoc) {
 		ops = append(ops, removeIPAddressDocOp(resultDoc.DocID))
+		if resultDoc.ProviderID != "" {
+			addrID := network.Id(resultDoc.ProviderID)
+			op := st.networkEntityGlobalKeyRemoveOp("address", addrID)
+			ops = append(ops, op)
+		}
 	}
 
-	selectDocIDOnly := bson.D{{"_id", 1}}
-	err := st.forEachIPAddressDoc(findQuery, selectDocIDOnly, callbackFunc)
+	err := st.forEachIPAddressDoc(findQuery, callbackFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,14 +314,11 @@ func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, er
 	return ops, nil
 }
 
-func (st *State) forEachIPAddressDoc(findQuery, docFieldsToSelect bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
+func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
 	addresses, closer := st.getCollection(ipAddressesC)
 	defer closer()
 
 	query := addresses.Find(findQuery)
-	if docFieldsToSelect != nil {
-		query = query.Select(docFieldsToSelect)
-	}
 	iter := query.Iter()
 
 	var resultDoc ipAddressDoc

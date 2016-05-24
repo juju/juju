@@ -768,14 +768,17 @@ func (c *Config) ControllerUUID() string {
 // DefaultSeries returns the configured default Ubuntu series for the environment,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
-	if s, ok := c.defined["default-series"]; ok {
-		if series, ok := s.(string); ok && series != "" {
-			return series, true
-		} else if !ok {
-			logger.Warningf("invalid default-series: %q", s)
-		}
+	s, ok := c.defined["default-series"]
+	if !ok {
+		return "", false
 	}
-	return "", false
+	switch s := s.(type) {
+	case string:
+		return s, s != ""
+	default:
+		logger.Errorf("invalid default-series: %q", s)
+		return "", false
+	}
 }
 
 // StatePort returns the controller port for the environment.
@@ -1006,13 +1009,6 @@ func (c *Config) ImageMetadataURL() (string, bool) {
 // Development returns whether the environment is in development mode.
 func (c *Config) Development() bool {
 	return c.defined["development"].(bool)
-}
-
-// PreferIPv6 returns whether IPv6 addresses for API endpoints and
-// machines will be preferred (when available) over IPv4.
-func (c *Config) PreferIPv6() bool {
-	v, _ := c.defined["prefer-ipv6"].(bool)
-	return v
 }
 
 // EnableOSRefreshUpdate returns whether or not newly provisioned
@@ -1332,7 +1328,6 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                false,
 	"proxy-ssh":                false,
 	"lxc-clone-aufs":           false,
-	"prefer-ipv6":              false,
 	"enable-os-refresh-update": schema.Omit,
 	"enable-os-upgrade":        schema.Omit,
 }
@@ -1357,7 +1352,6 @@ func allDefaults() schema.Defaults {
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
 		"proxy-ssh":                  false,
-		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
@@ -1404,7 +1398,6 @@ var immutableAttributes = []string{
 	LxcClone,
 	LXCDefaultMTU,
 	"lxc-clone-aufs",
-	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
 }
@@ -1435,7 +1428,7 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 		if fields[name] == nil {
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
-				logger.Warningf("unknown config field %q", name)
+				logger.Errorf("unknown config field %q", name)
 			}
 			result[name] = value
 		}
@@ -1448,11 +1441,11 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 func (cfg *Config) GenerateControllerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return "", "", fmt.Errorf("model configuration has no ca-cert")
+		return "", "", errors.New("model configuration has no ca-cert")
 	}
 	caKey, hasCAKey := cfg.CAPrivateKey()
 	if !hasCAKey {
-		return "", "", fmt.Errorf("model configuration has no ca-private-key")
+		return "", "", errors.New("model configuration has no ca-private-key")
 	}
 	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
@@ -1774,12 +1767,6 @@ global or per instance security groups.`,
 	NoProxyKey: {
 		Description: "List of domain addresses not to be proxied (comma-separated)",
 		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	"prefer-ipv6": {
-		Description: `Whether to prefer IPv6 over IPv4 addresses for API endpoints and machines`,
-		Type:        environschema.Tbool,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	ProvisionerHarvestModeKey: {

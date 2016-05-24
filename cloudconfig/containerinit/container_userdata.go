@@ -226,7 +226,7 @@ func TemplateUserData(
 	// we need to enable apt-get update regardless of the environ
 	// setting, otherwise provisioning will fail.
 	if series == "precise" && !enablePackageUpdates {
-		logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
+		logger.Infof("series %q requires cloud-tools archive: enabling updates", series)
 		enablePackageUpdates = true
 	}
 
