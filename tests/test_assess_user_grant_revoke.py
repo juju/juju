@@ -129,7 +129,7 @@ class TestAsserts(TestCase):
         for user in users:
             fake_client = FakeJujuClient()
             fake_admin_client = FakeJujuClient()
-            with patch("test_jujupy.FakeJujuClient.revoke", return_value=True):
+            with patch.object(FakeJujuClient, "revoke", return_value=True):
                 with patch("assess_user_grant_revoke.assert_read",
                            return_value=True) as read_mock:
                     with patch("assess_user_grant_revoke.assert_write",
@@ -223,13 +223,13 @@ class TestAssess(TestCase):
                 username + '_controller',
                 username + '_password',
                 username + '_password',
-                pexpect.exceptions.EOF
+                pexpect.EOF
             ],
             [
                 '(?i)name .*: ',
                 '(?i)password',
                 '(?i)password',
-                pexpect.exceptions.EOF,
+                pexpect.EOF,
             ]
         )
 
