@@ -458,7 +458,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	subnetsMap := valid["subnets"].(map[string]interface{})
 	subnets, err := importSubnets(subnetsMap)
 	if err != nil {
-		return nil, erros.Annotate(err, "subnets")
+		return nil, errors.Annotate(err, "subnets")
 	}
 	result.setSubnets(subnets)
 
