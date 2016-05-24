@@ -94,6 +94,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
+	if err := restore.subnets(); err != nil {
+		return nil, nil, errors.Annotate(err, "subnets")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -798,6 +801,18 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) subnets() error {
+	i.logger.Debugf("importing subnets")
+	for _ = range i.model.Subnets() {
+		_, err := i.st.AddSubnet(SubnetInfo{})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing subnets succeeded")
+	return nil
 }
 
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {
