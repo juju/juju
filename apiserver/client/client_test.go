@@ -83,8 +83,8 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
 	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
-	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
+	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: state.WriteAccess})
+	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: state.WriteAccess})
 
 	results, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,21 +98,21 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 			&params.ModelUserInfo{
 				UserName:    owner.UserName(),
 				DisplayName: owner.DisplayName(),
-				Access:      "write",
+				Access:      "admin",
 			},
 		}, {
 			localUser1,
 			&params.ModelUserInfo{
 				UserName:    "ralphdoe@local",
 				DisplayName: "Ralph Doe",
-				Access:      "write",
+				Access:      "admin",
 			},
 		}, {
 			localUser2,
 			&params.ModelUserInfo{
 				UserName:    "samsmith@local",
 				DisplayName: "Sam Smith",
-				Access:      "write",
+				Access:      "admin",
 			},
 		}, {
 			remoteUser1,

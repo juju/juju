@@ -425,32 +425,16 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 
 // resolveStateAccess returns the state representation of the logical model
 // access type.
-func resolveStateAccess(access permission.ModelAccess) (state.ModelAccess, error) {
-	var fail state.ModelAccess
+func resolveStateAccess(access permission.ModelAccess) (state.Access, error) {
+	var fail state.Access
 	switch access {
 	case permission.ModelReadAccess:
-		return state.ModelReadAccess, nil
+		return state.ReadAccess, nil
 	case permission.ModelWriteAccess:
-		// TODO: Initially, we'll map "write" access to admin-level access.
-		// Post Juju-2.0, support for more nuanced access will be added to the
-		// permission business logic and state model.
-		return state.ModelAdminAccess, nil
+		return state.WriteAccess, nil
 	}
 	logger.Errorf("invalid access permission: %+v", access)
 	return fail, errors.Errorf("invalid access permission")
-}
-
-// isGreaterAccess returns whether the new access provides more permissions
-// than the current access.
-// TODO(cmars): If/when more access types are implemented in state,
-//   the implementation of this function will certainly need to change, and it
-//   should be abstracted away to juju/permission as pure business logic
-//   instead of operating on state values.
-func isGreaterAccess(currentAccess, newAccess state.ModelAccess) bool {
-	if currentAccess == state.ModelReadAccess && newAccess == state.ModelAdminAccess {
-		return true
-	}
-	return false
 }
 
 func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.UserTag) error {
@@ -473,7 +457,7 @@ func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.Us
 		}
 		return errors.Annotate(err, "could not retrieve user")
 	}
-	if currentUser.Access() != state.ModelAdminAccess {
+	if !currentUser.IsAdmin() {
 		return common.ErrPerm
 	}
 	return nil
@@ -511,34 +495,42 @@ func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, apiUser, targe
 			}
 
 			// Only set access if greater access is being granted.
-			if isGreaterAccess(modelUser.Access(), stateAccess) {
+			if modelUser.IsGreaterAccess(stateAccess) {
 				err = modelUser.SetAccess(stateAccess)
 				if err != nil {
 					return errors.Annotate(err, "could not set model access for user")
 				}
 			} else {
-				return errors.Errorf("user already has %q access", modelUser.Access())
+				return errors.Errorf("user already has %q access or greater", stateAccess)
 			}
 			return nil
 		}
 		return errors.Annotate(err, "could not grant model access")
 
 	case params.RevokeModelAccess:
-		if stateAccess == state.ModelReadAccess {
+		switch stateAccess {
+		case state.ReadAccess:
 			// Revoking read access removes all access.
 			err := st.RemoveModelUser(targetUserTag)
 			return errors.Annotate(err, "could not revoke model access")
-
-		} else if stateAccess == state.ModelAdminAccess {
-			// Revoking admin access sets read-only.
+		case state.WriteAccess:
+			// Revoking write access sets read-only.
 			modelUser, err := st.ModelUser(targetUserTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			err = modelUser.SetAccess(state.ModelReadAccess)
+			err = modelUser.SetAccess(state.ReadAccess)
 			return errors.Annotate(err, "could not set model access to read-only")
+		case state.AdminAccess:
+			// Revoking admin access sets read-write.
+			modelUser, err := st.ModelUser(targetUserTag)
+			if err != nil {
+				return errors.Annotate(err, "could not look up model access for user")
+			}
+			err = modelUser.SetAccess(state.WriteAccess)
+			return errors.Annotate(err, "could not set model access to read-write")
 
-		} else {
+		default:
 			return errors.Errorf("don't know how to revoke %q access", stateAccess)
 		}
 
@@ -555,6 +547,8 @@ func FromModelAccessParam(paramAccess params.ModelAccessPermission) (permission.
 		return permission.ModelReadAccess, nil
 	case params.ModelWriteAccess:
 		return permission.ModelWriteAccess, nil
+	case params.ModelAdminAccess:
+		return permission.ModelAdminAccess, nil
 	}
 	return fail, errors.Errorf("invalid model access permission %q", paramAccess)
 }

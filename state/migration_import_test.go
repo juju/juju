@@ -134,9 +134,9 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) *state.ModelUser {
-	access := state.ModelAdminAccess
+	access := state.AdminAccess
 	if readOnly {
-		access = state.ModelReadAccess
+		access = state.ReadAccess
 	}
 	user, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      names.NewUserTag(name),
@@ -156,7 +156,7 @@ func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser *state.
 	c.Assert(newUser.DisplayName(), gc.Equals, oldUser.DisplayName())
 	c.Assert(newUser.CreatedBy(), gc.Equals, oldUser.CreatedBy())
 	c.Assert(newUser.DateCreated(), gc.Equals, oldUser.DateCreated())
-	c.Assert(newUser.ReadOnly(), gc.Equals, oldUser.ReadOnly())
+	c.Assert(newUser.IsReadOnly(), gc.Equals, newUser.IsReadOnly())
 
 	connTime, err := oldUser.LastConnection()
 	if state.IsNeverConnectedError(err) {

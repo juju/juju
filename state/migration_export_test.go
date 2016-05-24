@@ -160,7 +160,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    state.ModelReadAccess,
+		Access:    state.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(bob, lastConnection)
@@ -181,14 +181,14 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.ReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.IsReadOnly(), jc.IsFalse)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.ReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
