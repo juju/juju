@@ -1,6 +1,9 @@
 #!/bin/bash
 
+set -x
 RES_NAME="bar"
+
+START_TIME=$(date +%s)
 RES_PATH=$(2>&1 resource-get $RES_NAME)
 if [ $? -ne 0 ]; then
   RES_GET_STDERR=$RES_PATH
@@ -8,6 +11,6 @@ if [ $? -ne 0 ]; then
   exit 0
 fi
 
-set -e
-status-set maintenance "path: $RES_PATH"
-#status-set maintenance $(cat $RES_PATH)
+TOTAL=$(($(date +%s) - $START_TIME))
+SIZE=$(du -b $RES_PATH | cut -f1)
+status-set maintenance "Path: $RES_PATH Time: $TOTAL sec Size: $SIZE bytes"
