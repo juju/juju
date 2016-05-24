@@ -79,7 +79,9 @@ from tests import (
     TestCase,
     FakeHomeTestCase,
 )
+from tests.test_assess_resources import make_resource_list
 from utility import (
+    JujuResourceTimeout,
     scoped_environ,
     temp_dir,
 )
@@ -1593,6 +1595,33 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(status, yaml.safe_load(data))
         mock_gjo.assert_called_with(
             'list-resources', '--format', 'yaml', 'foo', '--details')
+
+    def test_wait_for_resource(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with patch.object(
+                client, 'list_resources',
+                return_value=make_resource_list()) as mock_lr:
+            client.wait_for_resource('dummy-resource/foo', 'foo')
+        mock_lr.assert_called_once_with('foo')
+
+    def test_wait_for_resource_timeout(self):
+        client = EnvJujuClient(JujuData('local'), None, None)
+        resource_list = make_resource_list()
+        resource_list['resources'][0]['expected']['resourceid'] = 'bad_id'
+        with patch.object(
+                client, 'list_resources',
+                return_value=resource_list) as mock_lr:
+            with patch('jujupy.until_timeout', autospec=True,
+                       return_value=[0, 1]) as mock_ju:
+                with patch('time.sleep', autospec=True) as mock_ts:
+                    with self.assertRaisesRegexp(
+                            JujuResourceTimeout,
+                            'Timeout waiting for a resource to be downloaded'):
+                        client.wait_for_resource('dummy-resource/foo', 'foo')
+        calls = [call('foo'), call('foo')]
+        self.assertEqual(mock_lr.mock_calls, calls)
+        self.assertEqual(mock_ts.mock_calls, [call(.1), call(.1)])
+        self.assertEqual(mock_ju.mock_calls, [call(60)])
 
     def test_deploy_bundle_2x(self):
         client = EnvJujuClient(JujuData('an_env', None),
