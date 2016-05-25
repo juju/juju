@@ -83,6 +83,10 @@ done
 SKIPPED=""
 for host in $MASTER $SLAVES; do
     update_jenkins $host || SKIPPED="$SKIPPED $host"
+    if [[ $host == "xenial-slave.vapour.ws" ]]; then
+        echo "Curtis removed juju-deployer package to test the branch."
+        ssh $host sudo apt-get remove -y juju-deployer python-jujuclient
+    fi
 done
 # win-slaves have a different user and directory layout tan POSIX hosts.
 for host in $WIN_SLAVES; do
