@@ -808,6 +808,7 @@ func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
 		_, err := i.st.AddSubnet(SubnetInfo{
+			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			VLANTag:           subnet.VLANTag(),
 			AvailabilityZone:  subnet.AvailabilityZone(),

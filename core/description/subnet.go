@@ -132,6 +132,7 @@ var subnetDeserializationFuncs = map[int]subnetDeserializationFunc{
 
 func importSubnetV1(source map[string]interface{}) (*subnet, error) {
 	fields := schema.Fields{
+		"cidr":              schema.String(),
 		"provider-id":       schema.String(),
 		"vlantag":           schema.Int(),
 		"spacename":         schema.String(),
@@ -157,8 +158,9 @@ func importSubnetV1(source map[string]interface{}) (*subnet, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 	return &subnet{
+		CIDR_:              valid["cidr"].(string),
 		ProviderId_:        valid["provider-id"].(string),
-		VLANTag_:           valid["vlantag"].(int),
+		VLANTag_:           int(valid["vlantag"].(int64)),
 		SpaceName_:         valid["spacename"].(string),
 		AvailabilityZone_:  valid["availabilityzone"].(string),
 		AllocatableIPHigh_: valid["allocatableiphigh"].(string),
