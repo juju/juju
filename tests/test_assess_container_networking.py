@@ -62,7 +62,6 @@ class JujuMock(EnvJujuClient):
             container_type = bits[0]
 
             n = 0
-            c_name = machine + '/' + container_type + '/' + str(n)
             self._model_state.add_container(container_type, machine, n)
         else:
             # normal machine

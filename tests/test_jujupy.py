@@ -61,8 +61,6 @@ from jujupy import (
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
-    LXC_MACHINE,
-    LXD_MACHINE,
     Machine,
     make_client,
     make_safe_config,
