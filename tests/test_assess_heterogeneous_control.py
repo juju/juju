@@ -18,8 +18,10 @@ from jujupy import (
     _temp_env,
     )
 from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import FakeJujuClient
-
+from tests.test_jujupy import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 
 __metaclass__ = type
 
@@ -129,12 +131,12 @@ class TestAssessHeterogeneous(TestCase):
 class TestTestControlHeterogeneous(TestCase):
 
     def test_test_control_heterogeneous(self):
-        client = FakeJujuClient()
+        client = fake_juju_client_optional_jes(jes_enabled=False)
         bs_manager = FakeBootstrapManager(client)
         # Prevent teardown
         bs_manager.tear_down_client = MagicMock()
         bs_manager.tear_down_client.destroy_environment.return_value = 0
-        with patch.object(client, 'destroy_environment', return_value=0):
+        with patch.object(client, 'kill_controller'):
             test_control_heterogeneous(bs_manager, client, True)
         models = client._backend.controller_state.models
         model_state = models[client.model_name]
@@ -143,8 +145,8 @@ class TestTestControlHeterogeneous(TestCase):
         self.assertEqual(client.env.juju_home, 'foo')
 
     def test_same_home(self):
-        initial_client = FakeJujuClient(version='1.25')
-        other_client = FakeJujuClient(
+        initial_client = fake_juju_client(version='1.25')
+        other_client = fake_juju_client(
             env=initial_client.env,
             _backend=initial_client._backend.clone(version='2.0.0'))
         bs_manager = FakeBootstrapManager(initial_client)
@@ -157,7 +159,7 @@ class TestTestControlHeterogeneous(TestCase):
 class TestCheckSeries(TestCase):
 
     def test_check_series(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         check_series(client)
 
@@ -174,7 +176,7 @@ class TestCheckSeries(TestCase):
         gjo_mock.assert_called_once_with('ssh', 2, 'lsb_release', '-c')
 
     def test_check_series_exceptionl(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with self.assertRaisesRegexp(
                 AssertionError, 'Series is angsty, not xenial'):

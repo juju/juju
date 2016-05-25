@@ -36,6 +36,7 @@ from utility import (
     ensure_deleted,
     ensure_dir,
     is_ipv6_address,
+    JujuResourceTimeout,
     pause,
     quote,
     scoped_environ,
@@ -910,6 +911,21 @@ class EnvJujuClient:
             args = args + ('--details',)
         return yaml_loads(self.get_juju_output('list-resources', *args))
 
+    def wait_for_resource(self, resource_id, service_or_unit, timeout=60):
+        log.info('Waiting for resource. Resource id:{}'.format(resource_id))
+        for _ in until_timeout(timeout):
+            resources = self.list_resources(service_or_unit)['resources']
+            for resource in resources:
+                if resource['expected']['resourceid'] == resource_id:
+                    if (resource['expected']['fingerprint'] ==
+                            resource['unit']['fingerprint']):
+                        return
+            time.sleep(.1)
+        raise JujuResourceTimeout(
+            'Timeout waiting for a resource to be downloaded. '
+            'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
+                    resource_id, service_or_unit, timeout))
+
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
         if charm_path is not None:
@@ -1285,15 +1301,8 @@ class EnvJujuClient:
         self.juju('upgrade-mongo', ())
 
     def backup(self):
-        environ = self._shell_environ()
         try:
-            # Mutate os.environ instead of supplying env parameter so Windows
-            # can search env['PATH']
-            with scoped_environ(environ):
-                args = self._full_args(
-                    'create-backup', False, (), include_e=True)
-                log.info(' '.join(args))
-                output = subprocess.check_output(args)
+            output = self.get_juju_output('create-backup')
         except subprocess.CalledProcessError as e:
             log.info(e.output)
             raise

@@ -20,14 +20,19 @@ from time import (
 from tempfile import mkdtemp
 import warnings
 import xml.etree.ElementTree as ET
-import yaml
 # Export shell quoting function which has moved in newer python versions
 try:
     from shlex import quote
 except ImportError:
     from pipes import quote
 
+from jujucharm import (
+    local_charm_path,
+)
+
 quote
+
+local_charm_path
 
 
 # Equivalent of socket.EAI_NODATA when using windows sockets
@@ -95,6 +100,10 @@ class ErrJujuPath(Exception):
 
 class JujuAssertionError(AssertionError):
     """Exception for juju assertion failures."""
+
+
+class JujuResourceTimeout(Exception):
+    """A timeout exception for a resource not being downloaded into a unit."""
 
 
 class enforce_juju_path(argparse.Action):
@@ -446,43 +455,3 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
-
-
-def local_charm_path(charm, juju_ver, series=None, repository=None,
-                     platform='ubuntu'):
-    """Create either Juju 1.x or 2.x local charm path."""
-    if juju_ver.startswith('1.'):
-        if series:
-            series = '{}/'.format(series)
-        else:
-            series = ''
-        local_path = 'local:{}{}'.format(series, charm)
-        return local_path
-    else:
-        charm_dir = {
-            'ubuntu': 'charms',
-            'win': 'charms-win',
-            'centos': 'charms-centos'}
-        abs_path = charm
-        if repository:
-            abs_path = os.path.join(repository, charm)
-        elif os.environ.get('JUJU_REPOSITORY'):
-            repository = os.path.join(
-                os.environ['JUJU_REPOSITORY'], charm_dir[platform])
-            abs_path = os.path.join(repository, charm)
-        return abs_path
-
-
-def make_charm(charm_dir, min_ver='1.25.0', name='dummy',
-               description='description', summary='summary', series='trusty'):
-    metadata = os.path.join(charm_dir, 'metadata.yaml')
-    content = {}
-    content['name'] = name
-    if min_ver is not None:
-        content['min-juju-version'] = min_ver
-    content['summary'] = summary
-    content['description'] = description
-    if series is not None:
-        content['series'] = [series] if isinstance(series, str) else series
-    with open(metadata, 'w') as f:
-        yaml.safe_dump(content, f, default_flow_style=False)

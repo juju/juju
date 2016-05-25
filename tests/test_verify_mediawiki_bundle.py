@@ -8,7 +8,10 @@ from mock import (
 
 from assess_min_version import JujuAssertionError
 import tests
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 import verify_mediawiki_bundle
 from verify_mediawiki_bundle import(
     assess_mediawiki_bundle,
@@ -104,7 +107,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
         ssl_mock.assert_called_once_with()
 
     def test_verify_service_misconfigured(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         client.deploy('haproxy')
         client.deploy('mysql')
@@ -169,7 +172,7 @@ class TestVerifyMediaWikiBundle(tests.TestCase):
         self.assertIsNone(ctx)
 
     def deploy_mediawiki(self):
-        client = FakeJujuClient()
+        client = fake_juju_client_optional_jes(jes_enabled=False)
         client.bootstrap()
         client.deploy('haproxy')
         client.deploy('mediawiki')

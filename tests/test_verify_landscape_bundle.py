@@ -3,7 +3,7 @@ from mock import (
 )
 
 import tests
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 from verify_landscape_bundle import(
     assess_landscape_bundle,
 )
@@ -12,7 +12,7 @@ from verify_landscape_bundle import(
 class TestVerifyLandscapeBundle(tests.TestCase):
 
     def test_assert_landscape_bundle(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         services = ['haproxy', 'landscape-server', 'postgresql',
                     'rabbitmq-server']
         with patch('verify_landscape_bundle.verify_services',
