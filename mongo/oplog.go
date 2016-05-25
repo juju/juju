@@ -5,12 +5,21 @@ package mongo
 
 import (
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
+)
+
+const (
+	// Used to identify a "collection truncated" error from Mongo -
+	// sometimes raised when we have an open cursor on a capped
+	// collection and the "emptycapped" command is run.
+	getMoreCode      = 17406
+	truncatedMessage = "collection truncated"
 )
 
 // OplogDoc represents a document in the oplog.rs collection.
@@ -216,18 +225,32 @@ func (t *OplogTailer) loop() error {
 			}
 			idsForLastTimestamp = append(idsForLastTimestamp, doc.OperationId)
 		} else {
-			if err := iter.Err(); err != nil && err != mgo.ErrCursor {
+			if err := iter.Err(); err != nil && !isExpiredCursor(err) {
 				return err
 			}
 			if iter.Timeout() {
 				continue
 			}
-			// No timeout and no error so cursor must have
-			// expired. Force it to be recreated next loop by marking
-			// it as nil.
+			// Either there's no error or the error is an expired
+			// cursor. Force recreating the iterator next loop by
+			// marking it as nil.
 			iter = nil
 		}
 	}
+}
+
+func isExpiredCursor(err error) bool {
+	if err == mgo.ErrCursor {
+		return true
+	}
+	// Mongo 3.2 will return these errors when a capped collection is truncated.
+	// TODO(babbageclunk) - PR for mgo to raise a nicer one?
+	queryError, ok := err.(*mgo.QueryError)
+	if !ok {
+		return false
+	}
+	return queryError.Code == getMoreCode &&
+		strings.HasSuffix(queryError.Message, truncatedMessage)
 }
 
 func isRealOplog(c *mgo.Collection) bool {
