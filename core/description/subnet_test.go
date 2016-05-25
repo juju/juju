@@ -29,14 +29,22 @@ func (s *SubnetSerializationSuite) SetUpTest(c *gc.C) {
 
 func (s *SubnetSerializationSuite) TestNewSubnet(c *gc.C) {
 	args := SubnetArgs{
-		Name:       "special",
-		Public:     true,
-		ProviderID: "magic",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        "magic",
+		VLANTag:           64,
+		SpaceName:         "foo",
+		AvailabilityZone:  "bar",
+		AllocatableIPHigh: "10.0.0.255",
+		AllocatableIPLow:  "10.0.0.0",
 	}
 	subnet := newSubnet(args)
-	c.Assert(subnet.Name(), gc.Equals, args.Name)
-	c.Assert(subnet.Public(), gc.Equals, args.Public)
-	c.Assert(subnet.ProviderID(), gc.Equals, args.ProviderID)
+	c.Assert(subnet.CIDR(), gc.Equals, args.CIDR)
+	c.Assert(subnet.ProviderId(), gc.Equals, args.ProviderId)
+	c.Assert(subnet.VLANTag(), gc.Equals, args.VLANTag)
+	c.Assert(subnet.SpaceName(), gc.Equals, args.SpaceName)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, args.AvailabilityZone)
+	c.Assert(subnet.AllocatableIPHigh(), gc.Equals, args.AllocatableIPHigh)
+	c.Assert(subnet.AllocatableIPLow(), gc.Equals, args.AllocatableIPLow)
 }
 
 func (s *SubnetSerializationSuite) TestParsingSerializedData(c *gc.C) {
@@ -44,11 +52,15 @@ func (s *SubnetSerializationSuite) TestParsingSerializedData(c *gc.C) {
 		Version: 1,
 		Subnets_: []*subnet{
 			newSubnet(SubnetArgs{
-				Name:       "special",
-				Public:     true,
-				ProviderID: "magic",
+				CIDR:              "10.0.0.0/24",
+				ProviderId:        "magic",
+				VLANTag:           64,
+				SpaceName:         "foo",
+				AvailabilityZone:  "bar",
+				AllocatableIPHigh: "10.0.0.255",
+				AllocatableIPLow:  "10.0.0.0",
 			}),
-			newSubnet(SubnetArgs{Name: "foo"}),
+			newSubnet(SubnetArgs{CIDR: "10.0.1.0/24"}),
 		},
 	}
 

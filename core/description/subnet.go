@@ -48,6 +48,7 @@ type SubnetArgs struct {
 func newSubnet(args SubnetArgs) *subnet {
 	return &subnet{
 		ProviderId_:        string(args.ProviderId),
+		SpaceName_:         args.SpaceName,
 		CIDR_:              args.CIDR,
 		VLANTag_:           args.VLANTag,
 		AvailabilityZone_:  args.AvailabilityZone,
