@@ -19,7 +19,7 @@ Grants access to a Juju user for a model.`[1:]
 var usageGrantDetails = `
 By default, the controller is the current controller.
 Model access can also be granted at user-addition time with the `[1:] + "`juju add-\nuser`" + ` command.
-Users with read access are limited in what they can do with models: ` + "`juju \nlist-models`, `juju list-machines`, and `juju status`" + `.
+Users with read access are limited in what they can do with models: ` + "`juju \nmodels`, `juju machines`, and `juju status`" + `.
 
 Examples:
 Grant user 'joe' default (read) access to model 'mymodel':

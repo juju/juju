@@ -159,9 +159,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "list-controllers"}, // global flags before
-		{"list-controllers", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "list-controllers", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "controllers"}, // global flags before
+		{"controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -368,6 +368,7 @@ var commandNames = []string{
 	"add-units",
 	"add-user",
 	"agree",
+	"all-blocks",
 	"allocate",
 	"autoload-credentials",
 	"backups",
@@ -377,6 +378,7 @@ var commandNames = []string{
 	"change-user-password",
 	"charm",
 	"collect-metrics",
+	"controllers",
 	"create-backup",
 	"create-budget",
 	"create-storage-pool",
@@ -410,6 +412,7 @@ var commandNames = []string{
 	"list-agreements",
 	"list-all-blocks",
 	"list-backups",
+	"list-blocks",
 	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
@@ -493,6 +496,7 @@ var commandNames = []string{
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"users",
 	"version",
 }
 

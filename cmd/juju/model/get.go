@@ -36,7 +36,7 @@ Examples:
     juju get-model-config default-series
     juju get-model-config -m mymodel type
 
-See also: list-models
+See also: models
           set-model-config
           unset-model-config
 `

@@ -19,7 +19,7 @@ The following sections are included: ID, STATE, DNS, INS-ID, SERIES, AZ
 Note: AZ above is the cloud region's availability zone.
 
 Examples:
-     juju list-machines
+     juju machines
 
 See also: 
     status`
@@ -44,17 +44,17 @@ type listMachinesCommand struct {
 // Info implements Command.Info.
 func (c *listMachinesCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-machines",
+		Name:    "machines",
 		Purpose: usageListMachinesSummary,
 		Doc:     usageListMachinesDetails,
-		Aliases: []string{"machines", "machine", "list-machine"},
+		Aliases: []string{"list-machines", "machine", "list-machine"},
 	}
 }
 
-// Init ensures the list-machines Command does not take arguments.
+// Init ensures the machines Command does not take arguments.
 func (c *listMachinesCommand) Init(args []string) (err error) {
 	if args != nil {
-		return errors.Errorf("The list-machines command does not take any arguments")
+		return errors.Errorf("The machines command does not take any arguments")
 	}
 	return nil
 }

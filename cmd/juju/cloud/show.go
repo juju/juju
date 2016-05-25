@@ -28,7 +28,7 @@ Examples:
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
 
-See also: list-clouds
+See also: clouds
           update-clouds
 `
 

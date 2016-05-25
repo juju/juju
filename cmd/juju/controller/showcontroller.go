@@ -27,7 +27,7 @@ Examples:
     juju show-controller aws google
     
 See also: 
-    list-controllers`[1:]
+    controllers`[1:]
 
 // NewShowControllerCommand returns a command to show details of the desired controllers.
 func NewShowControllerCommand() cmd.Command {
