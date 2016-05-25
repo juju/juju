@@ -826,10 +826,11 @@ func (i *importer) subnets() error {
 
 func (i *importer) addSubnet(args SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		subnet, ops, err := i.st.addSubnetOps(args)
+		subnet, err := i.st.newSubnetFromArgs(args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		ops := i.st.addSubnetOps(args)
 		if attempt != 0 {
 			if _, err = i.st.Subnet(args.CIDR); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)

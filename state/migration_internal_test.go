@@ -516,6 +516,31 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
 }
 
+func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// DocID is the env + name
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Always alive, not explicitly exported.
+		"Life",
+
+		// Currently unused (never set or exposed).
+		"IsPublic",
+	)
+	migrated := set.NewStrings(
+		"CIDR",
+		"VLANTag",
+		"SpaceName",
+		"ProviderId",
+		"AvailabilityZone",
+		"AllocatableIPHigh",
+		"AllocatableIPLow",
+	)
+	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
+}
+
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
 	expected := getExportedFields(doc)
 	unknown := expected.Difference(fields)
