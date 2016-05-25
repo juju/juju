@@ -1001,7 +1001,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 	// alphabetically. This is because SetParentLinkLayerDevices()
 	// uses a natural sort ordering and we want to verify the
 	// pairing between the container's NIC name and its parent in
-	// the host machine in this unit test.
+	// the host machine during this unit test.
 
 	devicesArgs := []state.LinkLayerDeviceArgs{
 		state.LinkLayerDeviceArgs{
@@ -1024,12 +1024,22 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPa
 			Name: "br-eth0",
 			Type: state.BridgeDevice,
 		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth4",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth3",
+			Type: state.BridgeDevice,
+		},
 	}
 
 	expectedParents := []string{
 		"br-eth0",
 		"br-eth1",
 		"br-eth2",
+		"br-eth3",
+		"br-eth4",
 		"br-eth10",
 		"br-eth10.100",
 	}
