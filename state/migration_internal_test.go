@@ -45,6 +45,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// relation
 		relationsC,
 		relationScopesC,
+
+		// networking
+		subnetsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -143,7 +146,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		providerIDsC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
-		subnetsC,
 		spacesC,
 
 		// actions
