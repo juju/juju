@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/status"
@@ -111,14 +110,13 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	err := modelcmd.WriteCurrentController("testing")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}
-	err = s.store.UpdateModel("testing", "admin@local", "mymodel", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("testing", "admin@local", "mymodel", jujuclient.ModelDetails{
 		testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

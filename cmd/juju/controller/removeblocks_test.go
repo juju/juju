@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -27,11 +26,9 @@ var _ = gc.Suite(&removeBlocksSuite{})
 func (s *removeBlocksSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 
-	err := modelcmd.WriteCurrentController("fake")
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.api = &fakeRemoveBlocksAPI{}
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "fake"
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 }
 
