@@ -26,11 +26,11 @@ try:
 except ImportError:
     from pipes import quote
 
-quote
-
 from jujucharm import (
     local_charm_path,
 )
+
+quote
 
 local_charm_path
 
