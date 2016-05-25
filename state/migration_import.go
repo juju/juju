@@ -807,7 +807,7 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
 	for _, subnet := range i.model.Subnets() {
-		_, err := i.st.AddSubnet(SubnetInfo{
+		err := i.addSubnet(SubnetInfo{
 			CIDR:              subnet.CIDR(),
 			ProviderId:        network.Id(subnet.ProviderId()),
 			VLANTag:           subnet.VLANTag(),
@@ -821,6 +821,32 @@ func (i *importer) subnets() error {
 		}
 	}
 	i.logger.Debugf("importing subnets succeeded")
+	return nil
+}
+
+func (i *importer) addSubnet(args SubnetInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		subnet, ops, err := i.st.addSubnetOps(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if attempt != 0 {
+			if _, err = i.st.Subnet(args.CIDR); err == nil {
+				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+			}
+			if err := subnet.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		return ops, nil
+	}
+	err := i.st.run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

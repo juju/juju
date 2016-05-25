@@ -513,11 +513,10 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
-	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
-	c.Assert(subnet.CIDR(), gc.Equals, "")
 }
 
 // newModel replaces the uuid and name of the config attributes so we
