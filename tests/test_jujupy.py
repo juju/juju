@@ -130,7 +130,7 @@ class FakeControllerState:
         default_model = self.add_model(model_name)
         default_model.name = model_name
         if separate_admin:
-            admin_model = default_model.controller.add_model('admin')
+            admin_model = default_model.controller.add_model('controller')
         else:
             admin_model = default_model
         self.admin_model = admin_model
@@ -1159,10 +1159,11 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
         with patch.object(client, 'get_admin_model_name',
-                          return_value='admin') as gamn_mock:
+                          return_value='controller') as gamn_mock:
             full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
         self.assertEqual((
-            'juju', '--show-log', 'bar', '-m', 'admin', 'baz', 'qux'), full)
+            'juju', '--show-log', 'bar', '-m', 'controller', 'baz', 'qux'),
+            full)
         gamn_mock.assert_called_once_with()
 
     def test__bootstrap_config(self):

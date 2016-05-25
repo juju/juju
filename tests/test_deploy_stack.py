@@ -1238,7 +1238,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         self.assertItemsEqual(
             [call(client, os.path.join(log_dir, 'name'), None, {}),
-             call(clients['admin'], os.path.join(log_dir, 'admin'),
+             call(clients['controller'], os.path.join(log_dir, 'controller'),
                   'foo/models/cache.yaml', {})],
             del_mock.mock_calls)
 
@@ -1260,7 +1260,7 @@ class TestBootstrapManager(FakeHomeTestCase):
 
         self.assertItemsEqual(
             [call(client, os.path.join(log_dir, 'name'), None, {}),
-             call(clients['admin'], os.path.join(log_dir, 'admin'),
+             call(clients['controller'], os.path.join(log_dir, 'controller'),
                   'foo/models/cache.yaml', {})],
             del_mock.mock_calls)
 
