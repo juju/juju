@@ -27,11 +27,9 @@ func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no controller specified(.|\n)*")
 }
 
-func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
-	// If there is a current-controller file, use that.
-	err := modelcmd.WriteCurrentController("foo")
-	c.Assert(err, jc.ErrorIsNil)
+func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
+	store.CurrentControllerName = "foo"
 	store.Accounts["foo"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "bar@baz",
 	}
@@ -42,9 +40,8 @@ func (s *ControllerCommandSuite) TestControllerCommandInitSystemFile(c *gc.C) {
 func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	// Take controller name from command line arg, and it trumps the current-
 	// controller file.
-	err := modelcmd.WriteCurrentController("foo")
-	c.Assert(err, jc.ErrorIsNil)
 	store := jujuclienttesting.NewMemStore()
+	store.CurrentControllerName = "foo"
 	store.Accounts["explicit"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "bar@baz",
 	}

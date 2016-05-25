@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -31,9 +30,8 @@ func (s *BaseCloudImageMetadataSuite) SetUpTest(c *gc.C) {
 func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	err := modelcmd.WriteCurrentController("testing")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",

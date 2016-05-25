@@ -4,7 +4,6 @@
 package instancepoller
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type aggregateSuite struct {
@@ -52,6 +52,7 @@ func (t *testInstance) Status() instance.InstanceStatus {
 }
 
 type testInstanceGetter struct {
+	sync.RWMutex
 	// ids is set when the Instances method is called.
 	ids     []instance.Id
 	results map[instance.Id]instance.Instance
@@ -84,206 +85,360 @@ func (tig *testInstanceGetter) newTestInstance(id instance.Id, status string, ad
 	return thisInstance
 }
 
+// Test that one request gets sent after suitable delay.
 func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
+	// We setup a couple variables here so that we can use them locally without
+	// type assertions. Then we use them in the aggregatorConfig.
 	testGetter := new(testInstanceGetter)
-	instance1 := testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
-	aggregator := newAggregator(testGetter)
+	clock := testing.NewClock(time.Now())
+	delay := time.Minute
+	cfg := aggregatorConfig{
+		Clock:   clock,
+		Delay:   delay,
+		Environ: testGetter,
+	}
 
-	info, err := aggregator.instanceInfo("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, gc.DeepEquals, instanceInfo{
-		status:    instance.InstanceStatus{Status: status.StatusUnknown, Message: "foobar"},
-		addresses: instance1.addresses,
-	})
-	c.Assert(testGetter.ids, gc.DeepEquals, []instance.Id{"foo"})
+	// Add a new test instance.
+	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
+
+	aggregator, err := newAggregator(cfg)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Ensure the worker is killed and cleaned up if the test exits early.
+	defer workertest.CleanKill(c, aggregator)
+
+	// Create a test in a goroutine and make sure we wait for it to finish.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		info, err := aggregator.instanceInfo("foo")
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(info.status.Message, gc.DeepEquals, "foobar")
+	}()
+
+	// Unwind the test clock
+	waitAlarms(c, clock, 1)
+	clock.Advance(delay)
+
+	wg.Wait()
+
+	// Ensure we kill the worker before looking at our testInstanceGetter to
+	// ensure there's no possibility of a race.
+	workertest.CleanKill(c, aggregator)
+
+	ids := testGetter.ids
+	c.Assert(ids, gc.DeepEquals, []instance.Id{"foo"})
 }
 
+// Test several requests in a short space of time get batched.
 func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
-	s.PatchValue(&gatherTime, 30*time.Millisecond)
+	// We setup a couple variables here so that we can use them locally without
+	// type assertions. Then we use them in the aggregatorConfig.
 	testGetter := new(testInstanceGetter)
+	clock := testing.NewClock(time.Now())
+	delay := time.Minute
+	cfg := aggregatorConfig{
+		Clock:   clock,
+		Delay:   delay,
+		Environ: testGetter,
+	}
+
+	// Setup multiple instances to batch
+	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
+	testGetter.newTestInstance("foo2", "not foobar", []string{"192.168.1.2"})
+	testGetter.newTestInstance("foo3", "ok-ish", []string{"192.168.1.3"})
+
+	aggregator, err := newAggregator(cfg)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Ensure the worker is killed and cleaned up if the test exits early.
+	defer workertest.CleanKill(c, aggregator)
+
+	// Create a closure for tests we can launch in goroutines.
+	var wg sync.WaitGroup
+	checkInfo := func(id instance.Id, expectStatus string) {
+		defer wg.Done()
+		info, err := aggregator.instanceInfo(id)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(info.status.Message, gc.Equals, expectStatus)
+	}
+
+	// Launch and wait for these
+	wg.Add(2)
+	go checkInfo("foo2", "not foobar")
+	go checkInfo("foo3", "ok-ish")
+
+	// Unwind the testing clock to let our requests through.
+	waitAlarms(c, clock, 2)
+	clock.Advance(delay)
+
+	// Check we're still alive.
+	workertest.CheckAlive(c, aggregator)
+
+	// Wait until the tests pass.
+	wg.Wait()
+
+	// Ensure we kill the worker before looking at our testInstanceGetter to
+	// ensure there's no possibility of a race.
+	workertest.CleanKill(c, aggregator)
+
+	// Ensure we got our list back with the expected contents.
+	c.Assert(testGetter.ids, jc.SameContents, []instance.Id{"foo2", "foo3"})
+
+	// Ensure we called instances once and have no errors there.
+	c.Assert(testGetter.err, jc.ErrorIsNil)
+	c.Assert(testGetter.counter, gc.DeepEquals, int32(1))
+}
+
+// Test that advancing delay-time.Nanosecond and then killing causes all
+// pending reqs to fail.
+func (s *aggregateSuite) TestKillingWorkerKillsPendinReqs(c *gc.C) {
+	// Setup local variables.
+	testGetter := new(testInstanceGetter)
+	clock := testing.NewClock(time.Now())
+	delay := time.Minute
+	cfg := aggregatorConfig{
+		Clock:   clock,
+		Delay:   delay,
+		Environ: testGetter,
+	}
 
 	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
-	aggregator := newAggregator(testGetter)
+	testGetter.newTestInstance("foo2", "not foobar", []string{"192.168.1.2"})
+	testGetter.newTestInstance("foo3", "ok-ish", []string{"192.168.1.3"})
 
-	replyChan := make(chan instanceInfoReply)
-	req := instanceInfoReq{
-		reply:  replyChan,
-		instId: instance.Id("foo"),
+	aggregator, err := newAggregator(cfg)
+	c.Check(err, jc.ErrorIsNil)
+
+	defer workertest.CleanKill(c, aggregator)
+
+	// Set up a couple tests we can launch.
+	var wg sync.WaitGroup
+	checkInfo := func(id instance.Id) {
+		defer wg.Done()
+		info, err := aggregator.instanceInfo(id)
+		c.Check(err.Error(), gc.Equals, "instanceInfo call aborted")
+		c.Check(info.status.Message, gc.Equals, "")
 	}
-	aggregator.reqc <- req
-	reply := <-replyChan
-	c.Assert(reply.err, gc.IsNil)
+
+	// Launch a couple tests.
+	wg.Add(2)
+	go checkInfo("foo2")
+
+	// Advance the clock and kill the worker.
+	waitAlarms(c, clock, 1)
+	clock.Advance(delay - time.Nanosecond)
+	aggregator.Kill()
+
+	go checkInfo("foo3")
+
+	// Make sure we're dead.
+	workertest.CheckKilled(c, aggregator)
+	wg.Wait()
+
+	// Make sure we have no ids, since we're dead.
+	c.Assert(len(testGetter.ids), gc.DeepEquals, 0)
+
+	// Ensure we called instances once and have no errors there.
+	c.Assert(testGetter.err, jc.ErrorIsNil)
+	c.Assert(testGetter.counter, gc.DeepEquals, int32(0))
+
+}
+
+// Test that having sent/advanced/received one batch, you can
+// send/advance/receive again and that works, too.
+func (s *aggregateSuite) TestMultipleBatches(c *gc.C) {
+	// Setup some local variables.
+	testGetter := new(testInstanceGetter)
+	clock := testing.NewClock(time.Now())
+	delay := time.Second
+	cfg := aggregatorConfig{
+		Clock:   clock,
+		Delay:   delay,
+		Environ: testGetter,
+	}
 
 	testGetter.newTestInstance("foo2", "not foobar", []string{"192.168.1.2"})
 	testGetter.newTestInstance("foo3", "ok-ish", []string{"192.168.1.3"})
 
+	aggregator, err := newAggregator(cfg)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Ensure the worker is killed and cleaned up if the test exits early.
+	defer workertest.CleanKill(c, aggregator)
+
+	// Create a checker we can launch as goroutines
 	var wg sync.WaitGroup
 	checkInfo := func(id instance.Id, expectStatus string) {
+		defer wg.Done()
 		info, err := aggregator.instanceInfo(id)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(info.status.Message, gc.Equals, expectStatus)
-		wg.Done()
 	}
 
+	// Launch and wait for these
 	wg.Add(2)
 	go checkInfo("foo2", "not foobar")
 	go checkInfo("foo3", "ok-ish")
+
+	// Unwind the testing clock to let our requests through.
+	waitAlarms(c, clock, 2)
+	clock.Advance(delay)
+
+	// Check we're still alive
+	workertest.CheckAlive(c, aggregator)
+
+	// Wait until the checkers pass
+	// TODO(redir): These could block forever, we should make the effort to be
+	// robust here per http://reviews.vapour.ws/r/4885/
 	wg.Wait()
 
+	// Ensure we got our list back with the expected length.
 	c.Assert(len(testGetter.ids), gc.DeepEquals, 2)
-}
 
-// notifyingInstanceGetter wraps testInstanceGetter, notifying via
-// a channel when Instances() is called.
-type notifyingInstanceGetter struct {
-	testInstanceGetter
-	instancesc chan bool
-}
+	// And then a second batch
+	testGetter.newTestInstance("foo4", "spam", []string{"192.168.1.4"})
+	testGetter.newTestInstance("foo5", "eggs", []string{"192.168.1.5"})
 
-func (g *notifyingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	g.instancesc <- true
-	return g.testInstanceGetter.Instances(ids)
-}
+	// Launch and wait for this second batch
+	wg.Add(2)
+	go checkInfo("foo4", "spam")
+	go checkInfo("foo5", "eggs")
 
-func (s *aggregateSuite) TestDyingWhileHandlingRequest(c *gc.C) {
-	// This tests a regression where the aggregator couldn't shut down
-	// if the the tomb was killed while a request was being handled,
-	// leaving the reply channel unread.
-
-	s.PatchValue(&gatherTime, 30*time.Millisecond)
-
-	// Set up the aggregator with the instance getter.
-	testGetter := &notifyingInstanceGetter{instancesc: make(chan bool)}
-	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
-	aggregator := newAggregator(testGetter)
-
-	// Make a request with a reply channel that will never be read.
-	req := instanceInfoReq{
-		reply:  make(chan instanceInfoReply),
-		instId: instance.Id("foo"),
+	for i := 0; i < 2; i++ {
+		// Unwind again to let our next batch through.
+		<-clock.Alarms()
 	}
-	aggregator.reqc <- req
+	// // Advance the clock again.
+	clock.Advance(delay)
 
-	// Wait for Instances to be called.
-	select {
-	case <-testGetter.instancesc:
-	case <-time.After(testing.LongWait):
-		c.Fatal("Instances() not called")
+	// Check we're still alive
+	workertest.CheckAlive(c, aggregator)
+
+	// Wait until the checkers pass
+	wg.Wait()
+
+	// Shutdown the worker.
+	workertest.CleanKill(c, aggregator)
+
+	// Ensure we got our list back with the correct length
+	c.Assert(len(testGetter.ids), gc.DeepEquals, 2)
+
+	// Ensure we called instances once and have no errors there.
+	c.Assert(testGetter.err, jc.ErrorIsNil)
+	c.Assert(testGetter.counter, gc.Equals, int32(2))
+}
+
+// Test that things behave as expected when env.Instances errors.
+func (s *aggregateSuite) TestInstancesErrors(c *gc.C) {
+	// Setup local variables.
+	testGetter := new(testInstanceGetter)
+	clock := testing.NewClock(time.Now())
+	delay := time.Millisecond
+	cfg := aggregatorConfig{
+		Clock:   clock,
+		Delay:   delay,
+		Environ: testGetter,
 	}
 
-	// Now we know the request is being handled - kill the aggregator.
-	aggregator.Kill()
-	done := make(chan error)
+	testGetter.newTestInstance("foo", "foobar", []string{"192.168.1.2"})
+	testGetter.err = environs.ErrNoInstances
+	aggregator, err := newAggregator(cfg)
+	c.Check(err, jc.ErrorIsNil)
+
+	defer workertest.CleanKill(c, aggregator)
+
+	// Launch test in a goroutine and wait for it.
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		done <- aggregator.Wait()
+		defer wg.Done()
+		_, err = aggregator.instanceInfo("foo")
+		c.Assert(err, gc.Equals, environs.ErrNoInstances)
 	}()
 
-	// The aggregator should stop.
-	select {
-	case err := <-done:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("aggregator didn't stop")
-	}
+	// Unwind to let our request through.
+	waitAlarms(c, clock, 1)
+	clock.Advance(delay)
+
+	wg.Wait()
+
+	// Kill the worker so we know there is no race checking the erroringTestGetter.
+	workertest.CleanKill(c, aggregator)
+
+	c.Assert(testGetter.err, gc.Equals, environs.ErrNoInstances)
+	c.Assert(testGetter.counter, gc.Equals, int32(1))
 }
 
-type batchingInstanceGetter struct {
-	sync.RWMutex
-	testInstanceGetter
-	wg         sync.WaitGroup
-	aggregator *aggregator
-	totalCount int
-	batchSize  int
-	started    int
-}
-
-func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	insts, err := g.testInstanceGetter.Instances(ids)
-	g.startRequests()
-	return insts, err
-}
-
-func (g *batchingInstanceGetter) startRequests() {
-	n := g.totalCount - g.started
-	if n > g.batchSize {
-		n = g.batchSize
-	}
-	for i := 0; i < n; i++ {
-		g.startRequest()
-	}
-}
-
-func (g *batchingInstanceGetter) startRequest() {
-	g.started++
-	go func() {
-		g.RLock()
-		defer g.RUnlock()
-		_, err := g.aggregator.instanceInfo("foo")
-		if err != nil {
-			panic(err)
-		}
-		g.wg.Done()
-	}()
-}
-
-func (s *aggregateSuite) TestBatching(c *gc.C) {
-	s.PatchValue(&gatherTime, 10*time.Millisecond)
-	var testGetter batchingInstanceGetter
-	testGetter.Lock()
-	testGetter.aggregator = newAggregator(&testGetter)
-	// We only need to inform the system about 1 instance, because all the
-	// requests are for the same instance.
-	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.totalCount = 100
-	testGetter.batchSize = 10
-	testGetter.wg.Add(testGetter.totalCount)
-	// startRequest will trigger one request, which ends up calling
-	// Instances, which will turn around and trigger batchSize requests,
-	// which should get aggregated into a single call to Instances, which
-	// then should trigger another round of batchSize requests.
-	testGetter.startRequest()
-	testGetter.Unlock()
-	testGetter.wg.Wait()
-	c.Assert(testGetter.counter, gc.Equals, int32(testGetter.totalCount/testGetter.batchSize)+1)
-}
-
-func (s *aggregateSuite) TestError(c *gc.C) {
+func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	testGetter := new(testInstanceGetter)
-	ourError := fmt.Errorf("Some error")
-	testGetter.err = ourError
+	clock := testing.NewClock(time.Now())
+	delay := time.Second
 
-	aggregator := newAggregator(testGetter)
+	cfg := aggregatorConfig{
+		Clock:   clock,
+		Delay:   delay,
+		Environ: testGetter,
+	}
 
-	_, err := aggregator.instanceInfo("foo")
-	c.Assert(err, gc.Equals, ourError)
-}
-
-func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
-	testGetter := new(testInstanceGetter)
 	testGetter.err = environs.ErrPartialInstances
+	testGetter.newTestInstance("foo", "not foobar", []string{"192.168.1.2"})
 
-	aggregator := newAggregator(testGetter)
-	_, err := aggregator.instanceInfo("foo")
+	aggregator, err := newAggregator(cfg)
+	c.Check(err, jc.ErrorIsNil)
 
-	c.Assert(err, gc.ErrorMatches, "instance foo not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	// Ensure the worker is killed and cleaned up if the test exits early.
+	defer workertest.CleanKill(c, aggregator)
+
+	// // Create a checker we can launch as goroutines
+	var wg sync.WaitGroup
+	checkInfo := func(id instance.Id, expectStatus string, expectedError error) {
+		defer wg.Done()
+		info, err := aggregator.instanceInfo(id)
+		if expectedError == nil {
+			c.Check(err, jc.ErrorIsNil)
+		} else {
+			c.Check(err.Error(), gc.Equals, expectedError.Error())
+		}
+		c.Check(info.status.Message, gc.Equals, expectStatus)
+	}
+
+	// Launch and wait for these
+	wg.Add(2)
+	go checkInfo("foo", "not foobar", nil)
+	go checkInfo("foo2", "", errors.New("instance foo2 not found"))
+
+	// Unwind the testing clock to let our requests through.
+	waitAlarms(c, clock, 2)
+	clock.Advance(delay)
+
+	// Check we're still alive.
+	workertest.CheckAlive(c, aggregator)
+
+	// Wait until the checkers pass.
+	wg.Wait()
+
+	// Now kill the worker so we don't risk a race in the following assertions.
+	workertest.CleanKill(c, aggregator)
+
+	// Ensure we got our list back with the correct length.
+	c.Assert(len(testGetter.ids), gc.Equals, 2)
+
+	// Ensure we called instances once.
+	// TODO(redir): all this stuff is really crying out to be, e.g.
+	// testGetter.CheckOneCall(c, "foo", "foo2") per
+	// http://reviews.vapour.ws/r/4885/
+	c.Assert(testGetter.counter, gc.Equals, int32(1))
 }
 
-func (s *aggregateSuite) TestAddressesError(c *gc.C) {
-	testGetter := new(testInstanceGetter)
-	instance1 := testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
-	ourError := fmt.Errorf("gotcha")
-	instance1.err = ourError
-
-	aggregator := newAggregator(testGetter)
-	_, err := aggregator.instanceInfo("foo")
-	c.Assert(err, gc.Equals, ourError)
-}
-
-func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
-	testGetter := new(testInstanceGetter)
-	aggregator := newAggregator(testGetter)
-	aggregator.Kill()
-	err := aggregator.Wait()
-	c.Assert(err, jc.ErrorIsNil)
+func waitAlarms(c *gc.C, clock *testing.Clock, count int) {
+	timeout := time.After(testing.LongWait)
+	for i := 0; i < count; i++ {
+		select {
+		case <-clock.Alarms():
+		case <-timeout:
+			c.Fatalf("timed out waiting for %dth alarm set", i)
+		}
+	}
 }

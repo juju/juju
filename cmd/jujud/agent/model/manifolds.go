@@ -61,6 +61,10 @@ type ManifoldsConfig struct {
 	// Only a few workers have been converted to use them fo far.
 	Clock clock.Clock
 
+	// InstPollerAggregationDelay is the delay before sending a batch of
+	// requests in the instancpoller.Worker's aggregate loop.
+	InstPollerAggregationDelay time.Duration
+
 	// RunFlagDuration defines for how long this controller will ask
 	// for model administration rights; most of the workers controlled
 	// by this agent will only be started when the run flag is known
@@ -216,6 +220,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     servicescaler.New,
 		})),
 		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
+			ClockName:     clockName,
+			Delay:         config.InstPollerAggregationDelay,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 		})),
