@@ -20,6 +20,9 @@ import json
 import shutil
 
 from chaos import background_chaos
+from jujucharm import (
+    local_charm_path,
+)
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -53,7 +56,6 @@ from utility import (
     configure_logging,
     ensure_deleted,
     ensure_dir,
-    local_charm_path,
     LoggedException,
     PortTimeoutError,
     print_now,

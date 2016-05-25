@@ -105,7 +105,7 @@ class TestAssess(TestCase):
         mock_client = Mock(spec=["deploy", "wait_for_started"])
         mock_assertion = Mock(spec=[])
         with patch("assess_min_version.temp_dir", autospec=True) as mock_td:
-            with patch("assess_min_version.make_charm",
+            with patch("assess_min_version.make_minver_charm",
                        autospec=True) as mock_mc:
                 assess_deploy(
                     mock_client, mock_assertion, "2.1", "2.0", "dummy")
