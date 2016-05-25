@@ -51,7 +51,7 @@ from utility import (
     temp_dir,
 )
 from assess_heterogeneous_control import check_series
-from assess_min_version import JujuAssertionError
+from utility import JujuAssertionError
 
 
 __metaclass__ = type

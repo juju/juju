@@ -10,7 +10,6 @@ import os
 import StringIO
 import subprocess
 
-from assess_min_version import JujuAssertionError
 from assess_multi_series_charms import (
     assert_deploy,
     assess_multi_series_charms,
@@ -22,7 +21,10 @@ from tests import (
     parse_error,
     TestCase,
 )
-from utility import temp_dir
+from utility import (
+    JujuAssertionError,
+    temp_dir,
+)
 
 
 class TestParseArgs(TestCase):

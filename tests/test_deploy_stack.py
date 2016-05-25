@@ -70,7 +70,8 @@ from tests import (
 )
 from test_jujupy import (
     assert_juju_call,
-    FakeJujuClient,
+    fake_juju_client,
+    fake_juju_client_optional_jes,
     FakePopen,
     observable_temp_file,
 )
@@ -188,7 +189,8 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_dump_juju_timings(self):
         env = JujuData('foo', {'type': 'bar'})
         client = EnvJujuClient(env, None, None)
-        client.juju_timings = {("juju", "op1"): [1], ("juju", "op2"): [2]}
+        client._backend.juju_timings = {("juju", "op1"): [1],
+                                        ("juju", "op2"): [2]}
         expected = {"juju op1": [1], "juju op2": [2]}
         with temp_dir() as fake_dir:
             dump_juju_timings(client, fake_dir)
@@ -637,7 +639,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         ct_mock.assert_called_once_with(client, 'fake-token')
 
     def test_deploy_dummy_stack_centos(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with patch.object(client, 'deploy', autospec=True) as dp_mock:
             with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
@@ -648,7 +650,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         self.assertEqual(dp_mock.mock_calls, calls)
 
     def test_deploy_dummy_stack_win(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with patch.object(client, 'deploy', autospec=True) as dp_mock:
             with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
@@ -756,9 +758,11 @@ class FakeBootstrapManager:
     def bootstrap_context(self, machines):
         initial_home = self.client.env.juju_home
         self.client.env.environment = self.client.env.environment + '-temp'
+        self.client.env.controller.name = self.client.env.environment
         try:
             self.entered_bootstrap = True
             self.client.env.juju_home = os.path.join(initial_home, 'isolated')
+            self.client.bootstrap()
             yield
         finally:
             self.exited_bootstrap = True
@@ -776,7 +780,10 @@ class FakeBootstrapManager:
             self.exited_runtime = True
 
     def tear_down(self):
-        self.tear_down_client.destroy_environment()
+        tear_down_meth = getattr(
+            self.tear_down_client, 'destroy_environment',
+            self.tear_down_client.kill_controller)
+        tear_down_meth()
         self.torn_down = True
 
     @contextmanager
@@ -1004,7 +1011,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                 agent_stream=None, region=None, log_dir=None, keep_env=None)
 
     def test_aws_machines_updates_bootstrap_host(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.env.config['type'] = 'manual'
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
@@ -1039,7 +1046,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         return client
 
     def test_bootstrap_context_tear_down(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.env.juju_home = use_context(self, temp_dir())
         initial_home = client.env.juju_home
         bs_manager = BootstrapManager(
@@ -1141,7 +1148,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertEqual(orig_home, get_juju_home())
 
     def test_bootstrap_context_calls_update_env(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.env.juju_home = use_context(self, temp_dir())
         ue_mock = use_context(
             self, patch('deploy_stack.update_env', wraps=update_env))
@@ -1162,7 +1169,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             'bootstrap.example.org', 22, timeout=120)
 
     def test_bootstrap_context_calls_update_env_omit(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.env.juju_home = use_context(self, temp_dir())
         ue_mock = use_context(
             self, patch('deploy_stack.update_env', wraps=update_env))
@@ -1203,7 +1210,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual('barfoo', tear_down_client.env.juju_home)
 
     def test_dump_all_no_jes_one_model(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
@@ -1216,7 +1223,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(0, imc_mock.call_count)
 
     def test_dump_all_multi_model(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = fake_juju_client()
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
@@ -1236,7 +1243,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             del_mock.mock_calls)
 
     def test_dump_all_multi_model_iter_failure(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = fake_juju_client()
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
@@ -1258,7 +1265,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             del_mock.mock_calls)
 
     def test_dump_all_logs_uses_known_hosts(self):
-        client = FakeJujuClient()
+        client = fake_juju_client_optional_jes(jes_enabled=False)
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
                 'foobar', client, client,
@@ -1275,12 +1282,12 @@ class TestBootstrapManager(FakeHomeTestCase):
                 })
 
     def test_runtime_context_looks_up_host(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         bs_manager = BootstrapManager(
             'foobar', client, client,
             None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
+            True, True)
         with patch.object(bs_manager, 'dump_all_logs', autospec=True):
             with bs_manager.runtime_context([]):
                 self.assertEqual({
@@ -1288,12 +1295,12 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     @patch('deploy_stack.dump_env_logs_known_hosts', autospec=True)
     def test_runtime_context_addable_machines_no_known_hosts(self, del_mock):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         bs_manager = BootstrapManager(
             'foobar', client, client,
             None, [], None, None, None, None, client.env.juju_home, False,
-            False, False)
+            True, True)
         bs_manager.known_hosts = {}
         with patch.object(bs_manager.client, 'add_ssh_machines',
                           autospec=True) as ads_mock:
@@ -1303,13 +1310,13 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     @patch('deploy_stack.BootstrapManager.dump_all_logs', autospec=True)
     def test_runtime_context_addable_machines_with_known_hosts(self, dal_mock):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
                 'foobar', client, client,
                 None, [], None, None, None, None, log_dir, False,
-                False, False)
+                True, True)
             bs_manager.known_hosts['0'] = 'example.org'
             with patch.object(bs_manager.client, 'add_ssh_machines',
                               autospec=True) as ads_mock:
@@ -1317,14 +1324,14 @@ class TestBootstrapManager(FakeHomeTestCase):
                     ads_mock.assert_called_once_with(['baz'])
 
     def test_booted_context_handles_logged_exception(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         with temp_dir() as root:
             log_dir = os.path.join(root, 'log-dir')
             os.mkdir(log_dir)
             bs_manager = BootstrapManager(
                 'foobar', client, client,
                 None, [], None, None, None, None, log_dir, False,
-                False, False)
+                True, True)
             juju_home = os.path.join(root, 'juju-home')
             os.mkdir(juju_home)
             client.env.juju_home = juju_home
@@ -1334,7 +1341,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                         raise LoggedException()
 
     def test_booted_context_omits_supported(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = fake_juju_client()
         client.env.juju_home = use_context(self, temp_dir())
         client.bootstrap_replaces = {'agent-version', 'series',
                                      'bootstrap-host', 'agent-stream'}
@@ -1354,6 +1361,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             'default-series': 'wacky',
             'tools-metadata-url': 'url',
             'type': 'foo',
+            'region': 'bar',
+            'test-mode': True,
             }, client.get_model_config())
         ue_mock.assert_called_with(client.env, 'bar', agent_url='url',
                                    region=None)

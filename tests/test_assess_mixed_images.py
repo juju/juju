@@ -1,5 +1,6 @@
 """Tests for assess_mixed_images module."""
 
+from argparse import Namespace
 import logging
 from mock import (
     call,
@@ -16,19 +17,36 @@ from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(TestCase):
 
     def test_defaults(self):
         args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
-        self.assertEqual("an-env", args.env)
-        self.assertEqual("/bin/juju", args.juju_bin)
-        self.assertEqual("/tmp/logs", args.logs)
-        self.assertEqual("an-env-mod", args.temp_env_name)
-        self.assertEqual(False, args.debug)
-        self.assertEqual('trusty', args.series)
+        self.assertEqual(Namespace(
+            env='an-env',
+            juju_bin='/bin/juju',
+            logs='/tmp/logs',
+            temp_env_name='an-env-mod',
+            debug=False,
+            series='trusty',
+            agent_stream=None,
+            agent_url=None,
+            bootstrap_host=None,
+            upload_tools=False,
+            verbose=logging.INFO,
+            image_metadata_url=None,
+            keep_env=False,
+            machine=[],
+            region=None,
+            ), args)
+
+    def test_image_metadata_url(self):
+        args = parse_args([
+            'an-env', '/bin/juju', '/tmp/logs', 'an-env-mod',
+            '--image-metadata-url', 'http://example.com/images'])
+        self.assertEqual(args.image_metadata_url, 'http://example.com/images')
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
@@ -42,7 +60,7 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        client = FakeJujuClient()
+        client = fake_juju_client()
         with patch("assess_mixed_images.configure_logging",
                    autospec=True) as mock_cl:
             with patch("assess_mixed_images.BootstrapManager.booted_context",
@@ -64,30 +82,50 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_mixed_images(self):
-        mock_client = FakeJujuClient(jes_enabled=True)
+        mock_client = fake_juju_client()
         mock_client.bootstrap()
         assess_mixed_images(mock_client)
-        self.assertEqual({
+        expected = {
             'machines': {
-                '0': {'dns-name': '0.example.com', 'instance-id': '0'},
-                '1': {'dns-name': '1.example.com', 'instance-id': '1'},
+                '0': {
+                    'dns-name': '0.example.com',
+                    'instance-id': '0',
+                    'juju-status': {'current': 'idle'},
+                    },
+                '1': {
+                    'dns-name': '1.example.com',
+                    'instance-id': '1',
+                    'juju-status': {'current': 'idle'},
+                    },
                 },
             'services': {
                 'dummy-sink': {
                     'exposed': False,
                     'relations': {'source': ['dummy-source']},
-                    'units': {'dummy-sink/0': {'machine': '0'}}
+                    'units': {
+                        'dummy-sink/0': {
+                            'machine': '0',
+                            'juju-status': {'current': 'idle'},
+                            },
+                        }
                     },
                 'dummy-source': {
                     'exposed': False,
                     'relations': {},
-                    'units': {'dummy-source/0': {'machine': '1'}}
+                    'units': {
+                        'dummy-source/0': {
+                            'machine': '1',
+                            'juju-status': {'current': 'idle'},
+                            }
+                        }
                     }
                 }
-            }, mock_client.get_status().status)
+            }
+        actual = mock_client.get_status().status
+        self.assertEqual(expected, actual)
 
     def test_mixed_images_charm_2x(self):
-        mock_client = FakeJujuClient()
+        mock_client = fake_juju_client()
         mock_client.bootstrap()
         with patch.object(mock_client, 'deploy') as mock_d:
             with patch('assess_mixed_images.assess_juju_relations',
@@ -98,7 +136,7 @@ class TestAssess(TestCase):
         mock_ajr.assert_called_once_with(mock_client)
 
     def test_mixed_images_charm_1x(self):
-        mock_client = FakeJujuClient(version='1.25.0')
+        mock_client = fake_juju_client(version='1.25.0')
         mock_client.bootstrap()
         with patch.object(mock_client, 'deploy') as mock_d:
             with patch('assess_mixed_images.assess_juju_relations',

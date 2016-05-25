@@ -8,8 +8,9 @@ import yaml
 
 from assess_block import (
     assess_block,
-    parse_args,
+    make_block_list,
     main,
+    parse_args,
 )
 from tests import (
     parse_error,
@@ -57,30 +58,64 @@ class TestMain(TestCase):
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, 'trusty')
 
 
 class TestAssess(TestCase):
 
     def test_block(self):
-        mock_client = Mock([
-            "juju", "wait_for_started", "get_juju_output", "deploy"])
+        mock_client = Mock(spec=[
+            "juju", "wait_for_started", "get_juju_output",
+            "remove_service", "env", "deploy", "expose",
+            "destroy-model", "remove-machine", "get_status"])
+        mock_client.destroy_model_command = 'destroy-model'
         mock_client.get_juju_output.side_effect = [
-            yaml.dump([
-                {'block': 'destroy-model', 'enabled': False},
-                {'block': 'remove-object', 'enabled': False},
-                {'block': 'all-changes', 'enabled': False}]),
-            yaml.dump([
-                {'block': 'destroy-model', 'enabled': False},
-                {'block': 'remove-object', 'enabled': False},
-                {'block': 'all-changes', 'enabled': True, 'message': ''}]),
-            yaml.dump([
-                {'block': 'destroy-model', 'enabled': False},
-                {'block': 'remove-object', 'enabled': False},
-                {'block': 'all-changes', 'enabled': False}]),
+            yaml.dump(make_block_list(mock_client, False, False, False)),
+            yaml.dump(make_block_list(mock_client, True, False, False)),
+            yaml.dump(make_block_list(mock_client, False, False, False)),
+            yaml.dump(make_block_list(mock_client, False, True, False)),
+            yaml.dump(make_block_list(mock_client, False, False, False)),
+            yaml.dump(make_block_list(mock_client, False, False, True)),
+            yaml.dump(make_block_list(mock_client, False, False, False))
             ]
-        assess_block(mock_client)
-        mock_client.wait_for_started.assert_called_once_with()
-        self.assertEqual([
-            call('block all-changes', ()),
-            call('unblock all-changes', ())], mock_client.juju.mock_calls)
+        mock_client.env.environment = 'foo'
+        mock_client.version = '1.25'
+        with patch('assess_block.deploy_dummy_stack', autospec=True):
+            with patch('assess_block.wait_for_removed_services',
+                       autospec=True):
+                assess_block(mock_client, 'trusty')
+        mock_client.wait_for_started.assert_called_with()
+        self.assertEqual([call('block destroy-model', ()),
+                          call('destroy-model',
+                               ('-y', 'foo'), include_e=False),
+                          call('unblock destroy-model', ()),
+                          call('block remove-object', ()),
+                          call('destroy-model',
+                               ('-y', 'foo'), include_e=False),
+                          call('remove-service',
+                               ('dummy-source',), include_e=True),
+                          call('remove-unit',
+                               ('dummy-source/1',), include_e=True),
+                          call('remove-relation',
+                               ('dummy-source', 'dummy-sink'), include_e=True),
+                          call('unblock remove-object', ()),
+                          call('remove-relation',
+                               ('dummy-source', 'dummy-sink')),
+                          call('block all-changes', ()),
+                          call('add-relation',
+                               ('dummy-source', 'dummy-sink'), include_e=True),
+                          call('unexpose',
+                               ('dummy-sink',), include_e=True),
+                          call('remove-service',
+                               ('dummy-sink',), include_e=True),
+                          call('unblock all-changes', ()),
+                          call('unexpose', ('dummy-sink',)),
+                          call('block all-changes', ()),
+                          call('expose', ('dummy-sink',), include_e=True),
+                          call('unblock all-changes', ()),
+                          call('remove-service', ('dummy-sink',)),
+                          call('block all-changes', ()),
+                          call('destroy-model',
+                               ('-y', 'foo'), include_e=False),
+                          call('unblock all-changes', ())],
+                         mock_client.juju.mock_calls)

@@ -98,6 +98,14 @@ class ErrJujuPath(Exception):
     """An exception for an invalid juju binary path."""
 
 
+class JujuAssertionError(AssertionError):
+    """Exception for juju assertion failures."""
+
+
+class JujuResourceTimeout(Exception):
+    """A timeout exception for a resource not being downloaded into a unit."""
+
+
 class enforce_juju_path(argparse.Action):
     """Enforces that a path ending with juju is given."""
     def __call__(self, parser, namespace, values, option_string=None):

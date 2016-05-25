@@ -15,7 +15,7 @@ from tests import (
     use_context,
 )
 from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import fake_juju_client
 from utility import temp_dir
 
 
@@ -105,7 +105,7 @@ class TestQuickstartTest(FakeHomeTestCase):
                     steps.close()
 
     def test_iter_steps_context(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = FakeBootstrapManager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         step_iter = quickstart.iter_steps()
@@ -114,7 +114,8 @@ class TestQuickstartTest(FakeHomeTestCase):
         self.assertIs(False, bs_manager.entered_bootstrap)
         self.assertIs(False, bs_manager.exited_bootstrap)
         step_iter.next()
-        backing_state = client._backend.backing_state
+        models = client._backend.controller_state.models
+        backing_state = models[client.model_name]
         self.assertEqual('/tmp/bundle.yaml', backing_state.current_bundle)
         self.assertIs(True, bs_manager.entered_top)
         self.assertIs(True, bs_manager.entered_bootstrap)
@@ -152,7 +153,7 @@ class TestQuickstartTest(FakeHomeTestCase):
         self.assertIs(True, bs_manager.exited_top)
 
     def test_iter_steps_wait_fail(self):
-        client = FakeJujuClient()
+        client = fake_juju_client()
         bs_manager = FakeBootstrapManager(client)
         quickstart = QuickstartTest(bs_manager, '/tmp/bundle.yaml', 2)
         step_iter = quickstart.iter_steps()

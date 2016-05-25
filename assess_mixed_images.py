@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import argparse
 import logging
-import os
 import sys
 
 from deploy_stack import (
@@ -23,8 +22,6 @@ __metaclass__ = type
 
 
 log = logging.getLogger("assess_mixed_images")
-
-IMG_URL = 'https://s3.amazonaws.com/temp-streams/aws-image-streams/'
 
 
 def assess_mixed_images(client):
@@ -47,6 +44,7 @@ def parse_args(argv):
     add_basic_testing_arguments(parser)
     # Fallback behaviour fails without --bootstrap-series: Bug 1560625
     parser.set_defaults(series='trusty')
+    parser.add_argument('--image-metadata-url')
     return parser.parse_args(argv)
 
 
@@ -55,11 +53,8 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
-    client.env.config['image-metadata-url'] = IMG_URL
-    key_path = os.path.join(client.env.juju_home,
-                            'juju-qa-public.key')
-    log.info("Using JUJU_STREAMS_PUBLICKEY_FILE=%s", key_path)
-    os.environ['JUJU_STREAMS_PUBLICKEY_FILE'] = key_path
+    if args.image_metadata_url is not None:
+        client.env.config['image-metadata-url'] = args.image_metadata_url
     with bs_manager.booted_context(args.upload_tools):
         assess_mixed_images(bs_manager.client)
     return 0

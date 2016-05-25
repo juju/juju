@@ -15,7 +15,6 @@ from assess_min_version import (
     assess_min_version,
     assert_pass,
     get_current_version,
-    JujuAssertionError,
     main,
     parse_args,
 )
@@ -23,6 +22,7 @@ from tests import (
     parse_error,
     TestCase,
 )
+from utility import JujuAssertionError
 
 
 class TestParseArgs(TestCase):

@@ -15,7 +15,10 @@ from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import FakeJujuClient
+from tests.test_jujupy import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -42,7 +45,7 @@ class TestParseArgs(TestCase):
 class TestSetCharmStoreIP(TestCase):
 
     def test_default_as_admin(self):
-        client = FakeJujuClient()
+        client = fake_juju_client_optional_jes(jes_enabled=False)
         client.bootstrap()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             _set_charm_store_ip(client, '1.2.3.4')
@@ -50,7 +53,7 @@ class TestSetCharmStoreIP(TestCase):
             'ssh', ('0', _get_ssh_script('1.2.3.4')))
 
     def test_separate_admin(self):
-        client = FakeJujuClient(jes_enabled=True)
+        client = fake_juju_client()
         client.bootstrap()
         admin_client = client.get_admin_client()
         # Force get_admin_client to return the *same* client, instead of an
