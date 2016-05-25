@@ -81,18 +81,18 @@ while [[ "${1-}" != "" ]]; do
 done
 
 SKIPPED=""
-for host in $MASTER $SLAVES; do
-    update_jenkins $host || SKIPPED="$SKIPPED $host"
-    if [[ $host == "xenial-slave.vapour.ws" ]]; then
+for hostname in $MASTER $SLAVES; do
+    update_jenkins $hostname || SKIPPED="$SKIPPED $hostname"
+    if [[ $hostname == "xenial-slave.vapour.ws" ]]; then
         echo "Curtis removed juju-deployer package to test the branch."
-        ssh $host sudo apt-get remove -y juju-deployer python-jujuclient
+        ssh $hostname sudo apt-get remove -y juju-deployer python-jujuclient
     fi
 done
 # win-slaves have a different user and directory layout tan POSIX hosts.
-for host in $WIN_SLAVES; do
+for hostname in $WIN_SLAVES; do
     zip -q -r repository.zip $REPOSITORY -x *.bzr*
-    scp repository.zip Administrator@$host:/cygdrive/c/Users/Administrator/
-    ssh Administrator@$host << EOT
+    scp repository.zip Administrator@$hostname:/cygdrive/c/Users/Administrator/
+    ssh Administrator@$hostname << EOT
 bzr pull -d ./juju-release-tools
 bzr pull -d ./juju-ci-tools
 /cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
