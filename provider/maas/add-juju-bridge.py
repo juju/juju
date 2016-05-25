@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 
 class SeekableIterator(object):
@@ -76,6 +77,9 @@ class LogicalInterface(object):
     def bridge_now(self, prefix, bridge_name):
         # https://wiki.archlinux.org/index.php/Network_bridge
         # ip addr delete dev <interface name> <cidr>
+        if not self.is_active or self.is_bridged:
+            return
+
         if bridge_name is None:
             bridge_name = prefix + self.name
 
@@ -84,17 +88,10 @@ class LogicalInterface(object):
             'parent': self.name,
         }
 
-        for o in self.options:
-            if o.startswith('vlan') or o.startswith('bond'):
-                continue
-            option = o.split()
-            if len(option) < 2:
-                args[option[0]] = ""
-            else:
-                args[option[0]] = option[1]
-
         addr = check_shell_cmd('ip -d addr show {parent}'.format(**args))
         flags = re.search('<(.*?)>', addr).group(1).split(',')
+        v4addrs = re.findall('\s+inet (\S+) ', addr)
+        v6addrs = re.findall('\s+inet6 (\S+) ', addr)
         for exclude_flag in ['LOOPBACK', 'SLAVE']:
             if exclude_flag in flags:
                 # Don't bridge the loopback interface or slaves of bonds.
@@ -103,22 +100,43 @@ class LogicalInterface(object):
         # Save routes
         routes = check_shell_cmd('ip route show dev {parent}'.format(**args))
 
-        print_shell_cmd('ip link add name {bridge} type bridge'.format(**args))
-        print_shell_cmd('ip link set {bridge} up'.format(**args))
-        print_shell_cmd('ip link set {parent} master {bridge}'.format(**args))
+        # Add the bridge
+        retry_cmd('ip link add name {bridge} type bridge'.format(**args))
+        retry_cmd('ip link set {bridge} up'.format(**args))
+        retry_cmd('ip link set {parent} master {bridge}'.format(**args))
 
-        if 'address' in args:
-            print_shell_cmd('ip addr delete dev {parent} {address}'.format(**args))
+        # Look for /run/dhclient.{parent}.pid and, if found, the interface is
+        # DHCP and we need to release dhclient against the parent and start it
+        # against the bridge.
+        if os.path.isfile('/run/dhclient.{parent}.pid'.format(**args)):
+            # DHCP
+            with open('/run/dhclient.{parent}.pid'.format(**args)) as f:
+                pid = f.read().rstrip()
+                with open('/proc/{}/cmdline'.format(pid)) as proc:
+                    # /proc/<pid>/cmdline separates args with 0, not a space.
+                    dh_args = proc.read().split(chr(0))
+                start = ' '.join(dh_args)
+                start = re.sub(args['parent'], args['bridge'], start)
+                start = re.sub(' -1 ', ' ', start)
 
-            cmd = 'ip addr add dev {bridge} {address}'
-            if 'netmask' in args:
-                cmd += '/{netmask}'
+            print('Restarting dhclient')
+            dh_args[1:1] = ['-r']
+            print_shell_cmd(' '.join(dh_args))
+            print_shell_cmd(start)
+        else:
+            # Static address allocation
+            addresses = v4addrs + v6addrs
+            for args['address'] in addresses:
+                # Move address from parent to bridge
+                retry_cmd('ip addr delete dev {parent} {address}'.format(**args))
+                retry_cmd('ip addr add dev {bridge} {address}'.format(**args))
 
-            print_shell_cmd(cmd.format(**args))
+            for route in routes.splitlines():
+                # ip route replace will add missing routes or update existing
+                # ones. Move routes from parent to bridge.
+                retry_cmd('ip route replace {} dev {bridge}'.format(route, **args))
 
-        for route in routes.splitlines():
-            # ip route replace will add missing routes or update existing ones.
-            print_shell_cmd('ip route replace {} dev {bridge}'.format(route, **args))
+        print('Done bridging {parent} with {bridge}'.format(**args))
 
     # Returns an ordered set of stanzas to bridge this interface
     def bridge(self, prefix, bridge_name, add_auto_stanza):
@@ -318,6 +336,18 @@ def shell_cmd(s):
     p = subprocess.Popen(s, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     return [out, err, p.returncode]
+
+
+def retry_cmd(s):
+    print(s)
+    rc = 1
+    tries = 100
+    while rc and tries > 0:
+        rc = subprocess.call(s, shell=True)
+        time.sleep(1)
+        tries -= 1
+        if rc:
+            print('.')
 
 
 def print_shell_cmd(s, verbose=True, exit_on_error=False):
