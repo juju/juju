@@ -46,7 +46,7 @@ func (s *debugLogBaseSuite) TestNoAuth(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "auth failed: invalid request format")
+	assertJSONError(c, reader, "auth failed: request format not valid")
 	s.assertWebsocketClosed(c, reader)
 }
 
@@ -60,7 +60,7 @@ func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "auth failed: invalid entity name or password")
+	assertJSONError(c, reader, "auth failed: permission denied")
 	s.assertWebsocketClosed(c, reader)
 }
 

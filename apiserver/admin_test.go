@@ -135,7 +135,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	}, {
 		tag:      "user-unknown",
 		password: "password",
-		err:      "invalid entity name or password",
+		err:      "permission denied",
 		code:     params.CodeUnauthorized,
 	}, {
 		tag:      "bar",
@@ -495,7 +495,7 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
 	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
@@ -904,7 +904,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	defer st.Close()
 
 	err = st.Login(machine.Tag().String(), password, "nonce")
-	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
 func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.EnvironTag) {

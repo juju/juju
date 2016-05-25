@@ -45,7 +45,7 @@ func NewRsyslogAPI(st *state.State, resources *common.Resources, authorizer comm
 func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.ErrorResult, error) {
 	var result params.ErrorResult
 	if !api.canModify {
-		result.Error = common.ServerError(common.ErrBadCreds)
+		result.Error = common.ServerError(common.ErrPerm)
 		return result, nil
 	}
 	if _, err := cert.ParseCert(string(args.CACert)); err != nil {

@@ -66,22 +66,22 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return nil, errors.New("invalid request format")
+		return nil, errors.NotValidf("request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return nil, errors.New("invalid request format")
+		return nil, errors.NotValidf("request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
 	if len(tagPass) != 2 {
-		return nil, errors.New("invalid request format")
+		return nil, errors.NotValidf("request format")
 	}
 	// Ensure that a sensible tag was passed.
 	tag, err := names.ParseTag(tagPass[0])
 	if err != nil {
-		return nil, common.ErrBadCreds
+		return nil, errors.NotValidf("authentication")
 	}
 	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
@@ -100,7 +100,7 @@ func (h *httpStateWrapper) authenticateUser(r *http.Request) error {
 	case names.UserTag:
 		return nil
 	default:
-		return common.ErrBadCreds
+		return common.ErrPerm
 	}
 }
 
@@ -115,6 +115,6 @@ func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error)
 	case names.UnitTag:
 		return tag, nil
 	default:
-		return nil, common.ErrBadCreds
+		return nil, common.ErrPerm
 	}
 }
