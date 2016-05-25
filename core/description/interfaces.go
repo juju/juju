@@ -310,4 +310,11 @@ type Endpoint interface {
 
 // Subnet represents a network subnet.
 type Subnet interface {
+	ProviderId() string
+	CIDR() string
+	VLANTag() int
+	AvailabilityZone() string
+	SpaceName() string
+	AllocatableIPHigh() string
+	AllocatableIPLow() string
 }

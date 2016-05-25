@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
@@ -805,8 +806,15 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 
 func (i *importer) subnets() error {
 	i.logger.Debugf("importing subnets")
-	for _ = range i.model.Subnets() {
-		_, err := i.st.AddSubnet(SubnetInfo{})
+	for _, subnet := range i.model.Subnets() {
+		_, err := i.st.AddSubnet(SubnetInfo{
+			ProviderId:        network.Id(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
+			AllocatableIPHigh: subnet.AllocatableIPHigh(),
+			AllocatableIPLow:  subnet.AllocatableIPLow(),
+		})
 		if err != nil {
 			return errors.Trace(err)
 		}

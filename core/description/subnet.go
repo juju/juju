@@ -61,6 +61,11 @@ func (s *subnet) ProviderId() string {
 	return s.ProviderId_
 }
 
+// SpaceName implements Subnet.
+func (s *subnet) SpaceName() string {
+	return s.SpaceName_
+}
+
 // CIDR implements Subnet.
 func (s *subnet) CIDR() string {
 	return s.CIDR_
