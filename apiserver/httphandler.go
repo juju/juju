@@ -62,7 +62,7 @@ func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, e
 
 // authenticate parses HTTP basic authentication and authorizes the
 // request by looking up the provided tag and password against state.
-func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
+func (h *httpStateWrapper) authenticate(r *http.Request, acceptTag acceptTagFunc) (names.Tag, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
@@ -83,6 +83,9 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	if err != nil {
 		return nil, err
 	}
+	if !acceptTag(tag) {
+		return nil, common.ErrPerm
+	}
 	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
@@ -91,30 +94,39 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	return tag, err
 }
 
+type acceptTagFunc func(tag names.Tag) bool
+
 func (h *httpStateWrapper) authenticateUser(r *http.Request) error {
-	tag, err := h.authenticate(r)
+	acceptTag := func(tag names.Tag) bool {
+		switch tag.(type) {
+		case names.UserTag:
+			return true
+		default:
+			return false
+		}
+	}
+	_, err := h.authenticate(r, acceptTag)
 	if err != nil {
 		return err
 	}
-	switch tag.(type) {
-	case names.UserTag:
-		return nil
-	default:
-		return common.ErrPerm
-	}
+	return nil
 }
 
 func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error) {
-	tag, err := h.authenticate(r)
+	acceptTag := func(tag names.Tag) bool {
+		switch tag.(type) {
+		case names.MachineTag:
+			return true
+		case names.UnitTag:
+			return true
+		default:
+			return false
+		}
+	}
+
+	tag, err := h.authenticate(r, acceptTag)
 	if err != nil {
 		return nil, err
 	}
-	switch tag.(type) {
-	case names.MachineTag:
-		return tag, nil
-	case names.UnitTag:
-		return tag, nil
-	default:
-		return nil, common.ErrPerm
-	}
+	return tag, nil
 }
