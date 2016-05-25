@@ -106,7 +106,7 @@ def version_dir_from_branch(directory, branch_name):
     named charm, tagged v6, which should end up in
     $GOPATH/src/gokpg.in/juju/charm.v6
     """
-    if re.match('[v]\d', branch_name) and len(branch_name) == 2:
+    if re.match('[v]\d\Z', branch_name):
         return directory + '.' + branch_name
     return directory
 
