@@ -595,8 +595,15 @@ func (e *exporter) subnets() error {
 	}
 	e.logger.Debugf("read %d subnets", len(subnets))
 
-	for _ = range subnets {
-		e.model.AddSubnet(description.SubnetArgs{})
+	for _, subnet := range subnets {
+		e.model.AddSubnet(description.SubnetArgs{
+			ProviderId:        string(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
+			AllocatableIPHigh: subnet.AllocatableIPHigh(),
+			AllocatableIPLow:  subnet.AllocatableIPLow(),
+		})
 	}
 	return nil
 }
