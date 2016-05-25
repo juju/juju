@@ -48,6 +48,7 @@ from jujupy import (
     EnvJujuClient2A2,
     EnvJujuClient2B2,
     EnvJujuClient2B3,
+    EnvJujuClient2B7,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -297,7 +298,7 @@ class FakeBackend:
         self.debug = debug
         self.juju_timings = {}
 
-    def clone(self, full_path=None,  version=None, debug=None,
+    def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
         if version is None:
             version = self.version
@@ -1007,6 +1008,7 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-beta5'
             yield '2.0-beta6'
             yield '2.0-beta7'
+            yield '2.0-beta8'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -1068,8 +1070,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta6')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B7)
             self.assertEqual(client.version, '2.0-beta7')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta8')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
@@ -2062,7 +2067,7 @@ class TestEnvJujuClient(ClientTest):
     def test_get_admin_model_name(self):
         models = {
             'models': [
-                {'name': 'admin', 'model-uuid': 'aaaa'},
+                {'name': 'controller', 'model-uuid': 'aaaa'},
                 {'name': 'bar', 'model-uuid': 'bbbb'}],
             'current-model': 'bar'
         }
@@ -2071,7 +2076,7 @@ class TestEnvJujuClient(ClientTest):
                           return_value=models) as gm_mock:
             admin_name = client.get_admin_model_name()
         self.assertEqual(0, gm_mock.call_count)
-        self.assertEqual('admin', admin_name)
+        self.assertEqual('controller', admin_name)
 
     def test_get_admin_model_name_without_admin(self):
         models = {
@@ -2083,21 +2088,22 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value=models):
             admin_name = client.get_admin_model_name()
-        self.assertEqual('admin', admin_name)
+        self.assertEqual('controller', admin_name)
 
     def test_get_admin_model_name_no_models(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value={}):
             admin_name = client.get_admin_model_name()
-        self.assertEqual('admin', admin_name)
+        self.assertEqual('controller', admin_name)
 
     def test_get_admin_client(self):
         client = EnvJujuClient(
             JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
         admin_client = client.get_admin_client()
         admin_env = admin_client.env
-        self.assertEqual('admin', admin_env.environment)
-        self.assertEqual({'bar': 'baz', 'name': 'admin'}, admin_env.config)
+        self.assertEqual('controller', admin_env.environment)
+        self.assertEqual(
+            {'bar': 'baz', 'name': 'controller'}, admin_env.config)
 
     def test_list_controllers(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -3006,6 +3012,49 @@ class TestEnvJujuClient(ClientTest):
         self.assertTrue(output.startswith('juju register'))
 
 
+class TestEnvJujuClient2B7(ClientTest):
+
+    def test_get_admin_model_name(self):
+        models = {
+            'models': [
+                {'name': 'admin', 'model-uuid': 'aaaa'},
+                {'name': 'bar', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        client = EnvJujuClient2B7(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models',
+                          return_value=models) as gm_mock:
+            admin_name = client.get_admin_model_name()
+        self.assertEqual(0, gm_mock.call_count)
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_model_name_without_admin(self):
+        models = {
+            'models': [
+                {'name': 'bar', 'model-uuid': 'aaaa'},
+                {'name': 'baz', 'model-uuid': 'bbbb'}],
+            'current-model': 'bar'
+        }
+        client = EnvJujuClient2B7(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models', return_value=models):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_model_name_no_models(self):
+        client = EnvJujuClient2B7(JujuData('foo'), None, None)
+        with patch.object(client, 'get_models', return_value={}):
+            admin_name = client.get_admin_model_name()
+        self.assertEqual('admin', admin_name)
+
+    def test_get_admin_client(self):
+        client = EnvJujuClient2B7(
+            JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
+        admin_client = client.get_admin_client()
+        admin_env = admin_client.env
+        self.assertEqual('admin', admin_env.environment)
+        self.assertEqual({'bar': 'baz', 'name': 'admin'}, admin_env.config)
+
+
 class TestEnvJujuClient2B3(ClientTest):
 
     def test_add_model_hypenated_controller(self):
@@ -3272,6 +3321,7 @@ class TestEnvJujuClient1X(ClientTest):
             yield '2.0-beta5'
             yield '2.0-beta6'
             yield '2.0-beta7'
+            yield '2.0-beta8'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -3333,8 +3383,11 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B3)
             self.assertEqual(client.version, '2.0-beta6')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B7)
             self.assertEqual(client.version, '2.0-beta7')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta8')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
