@@ -449,7 +449,7 @@ class FakeBackend:
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         if command == 'list-models':
             return yaml.safe_dump(self.list_models())
-        if command == ('add-user'):
+        if command == 'add-user':
             permissions = 'read'
             if set(["--acl", "write"]).issubset(args):
                 permissions = 'write'
@@ -467,9 +467,13 @@ class FakeBackend:
 
 
 def get_user_register_command_info(username):
-    code = b64encode(sha512(username).digest())
+    code = get_user_register_token(username)
     return 'Please send this command to {}\n    juju register {}'.format(
         username, code)
+
+
+def get_user_register_token(username):
+    return b64encode(sha512(username).digest())
 
 
 class FakeJujuClient(EnvJujuClient):
@@ -2957,6 +2961,11 @@ class TestEnvJujuClient(ClientTest):
                 '--models', model or fake_client.env.environment,
                 '--acl', permissions or 'read',
                 '-c', fake_client.env.controller.name]
+
+        # Ensure add_user returns expected value.
+        self.assertEqual(
+            fake_client.add_user(username),
+            get_user_register_token(username))
 
         with patch.object(fake_client, 'get_juju_output',
                           return_value=output) as get_output:
