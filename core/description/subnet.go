@@ -18,8 +18,6 @@ type subnet struct {
 	CIDR_       string `yaml:"cidr"`
 	VLANTag_    int    `yaml:"vlantag"`
 
-	// XXX should AvailabilityZone and SpaceName be omitempty? (i.e.
-	// optional)
 	AvailabilityZone_ string `yaml:"availabilityzone"`
 	SpaceName_        string `yaml:"spacename"`
 
@@ -32,7 +30,6 @@ type subnet struct {
 // SubnetArgs is an argument struct used to create a
 // new internal subnet type that supports the Subnet interface.
 type SubnetArgs struct {
-	// XXX should this be network.Id? It isn't in space.go
 	ProviderId       string
 	CIDR             string
 	VLANTag          int
@@ -142,7 +139,6 @@ func importSubnetV1(source map[string]interface{}) (*subnet, error) {
 		"allocatableiplow":  schema.String(),
 	}
 
-	// XXX are spacename and availabilityzone optional?
 	defaults := schema.Defaults{
 		"provider-id":       "",
 		"allocatableiphigh": "",
