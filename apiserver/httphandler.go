@@ -81,7 +81,7 @@ func (h *httpStateWrapper) authenticate(r *http.Request) (names.Tag, error) {
 	// Ensure that a sensible tag was passed.
 	tag, err := names.ParseTag(tagPass[0])
 	if err != nil {
-		return nil, errors.NotValidf("authentication")
+		return nil, err
 	}
 	_, _, err = checkCreds(h.state, params.LoginRequest{
 		AuthTag:     tagPass[0],
