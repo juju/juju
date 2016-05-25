@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -889,11 +888,11 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 		}
 	}
 
-	sort.Strings(bridgeDeviceNames)
-	logger.Debugf("using host machine %q bridge devices: %v", m.Id(), bridgeDeviceNames)
+	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
+	logger.Debugf("using host machine %q bridge devices: %v", m.Id(), sortedBridgeDeviceNames)
 	containerDevicesArgs := make([]LinkLayerDeviceArgs, len(bridgeDeviceNames))
 
-	for i, hostBridgeName := range bridgeDeviceNames {
+	for i, hostBridgeName := range sortedBridgeDeviceNames {
 		hostBridge := bridgeDevicesByName[hostBridgeName]
 		containerDevicesArgs[i] = LinkLayerDeviceArgs{
 			Name:        fmt.Sprintf("eth%d", i),
