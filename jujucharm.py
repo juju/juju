@@ -18,9 +18,8 @@ class Charm:
         self.metadata = {
             "name": name,
             "summary": summary,
-            "maintainer": (
-                self.DEFAULT_MAINTAINER if maintainer is None else maintainer),
-            "series": self.DEFAULT_SERIES if series is None else series
+            "maintainer": maintainer or self.DEFAULT_MAINTAINER,
+            "series": series or self.DEFAULT_SERIES,
         }
         self._hook_scripts = {}
 
