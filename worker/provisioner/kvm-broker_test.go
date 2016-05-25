@@ -96,7 +96,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -368,7 +368,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)

@@ -236,8 +236,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace: c.namespace(),
-		Remote:    remote,
+		Remote: remote,
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {
@@ -256,10 +255,7 @@ func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*envi
 	}
 	clientCfg = nonlocal
 
-	c.attrs[cfgNamespace] = clientCfg.Namespace
-
 	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
-
 	c.attrs[cfgServerPEMCert] = clientCfg.Remote.ServerPEMCert
 
 	var cert lxdclient.Cert

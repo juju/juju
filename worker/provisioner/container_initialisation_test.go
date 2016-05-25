@@ -300,7 +300,7 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	expect := func(expect string) {
 		cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg[container.ConfigName], gc.Equals, expect)
+		c.Assert(cfg[container.ConfigModelUUID], gc.Equals, expect)
 	}
 	expect("juju")
 	s.agentConfig.SetValue(agent.Namespace, "any-old-thing")
