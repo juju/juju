@@ -721,19 +721,19 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'deploy-many'}
         yield results
-        service_names = []
+        application_names = []
         machine_names = sorted(new_machines, key=int)
         machine_type = client.preferred_container()
         for machine_name in machine_names:
             target = '{}:{}'.format(machine_type, machine_name)
             for container in range(self.container_count):
-                service = 'ubuntu{}x{}'.format(machine_name, container)
+                application = 'ubuntu{}x{}'.format(machine_name, container)
                 # Work around bug #1540900: juju deploy ignores model
                 # default-series
                 series = client.env.config['default-series']
-                client.deploy('ubuntu', service=service, to=target,
+                client.deploy('ubuntu', service=application, to=target,
                               series=series)
-                service_names.append(service)
+                application_names.append(application)
         timeout_start = datetime.now()
         yield results
         status = client.wait_for_started(start=timeout_start)
@@ -741,10 +741,11 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'remove-machine-many-container'}
         yield results
-        services = [status.status['services'][key] for key in service_names]
+        applications = [status.get_applications()[key]
+                        for key in application_names]
         container_machines = set()
-        for service in services:
-            for unit in service['units'].values():
+        for application in applications:
+            for unit in application['units'].values():
                 container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
         remove_timeout = {

@@ -92,7 +92,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 'machines': {
                     '0': {'agent-state': 'started'}
                 },
-                'services': {
+                'applications': {
                     'ser1': {
                         'units': {
                             'bar': {
@@ -133,7 +133,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 'machines': {
                     '0': {'agent-state': 'started'}
                 },
-                'services': {
+                'applications': {
                     'jenkins': {
                         'units': {
                             'foo': {
@@ -173,7 +173,7 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 'machines': {
                     '0': {'agent-state': 'started'}
                 },
-                'services': {
+                'applications': {
                     'jenkins': {
                         'units': {
                             'foo': {
@@ -240,7 +240,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 'machines': {
                     '0': {'agent-state': 'started'}
                 },
-                'services': {
+                'applications': {
                     'jenkins': {
                         'units': {
                             'foo': {
@@ -299,7 +299,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 'machines': {
                     '0': {'agent-state': 'started'}
                 },
-                'services': {
+                'applications': {
                     'jenkins': {
                         'units': {
                             'bar': {
@@ -370,7 +370,7 @@ class TestUnleashOnce(FakeHomeTestCase):
                 'machines': {
                     '0': {'agent-state': 'started'}
                 },
-                'services': {
+                'applications': {
                     'jenkins': {
                         'units': {
                             'foo': {

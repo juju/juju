@@ -53,18 +53,18 @@ def wait_for_http(url, timeout=600):
 def verify_services(client, expected_services, scheme='http', text=None,
                     haproxy_exposed=False):
     status = client.get_status()
-    if sorted(status.status['services']) != sorted(expected_services):
+    if sorted(status.get_applications()) != sorted(expected_services):
         raise JujuAssertionError('Unexpected service configuration: {}'.format(
-            status.status['services']))
+            status.get_applications()))
     if not haproxy_exposed:
-        if status.status['services']['haproxy']['exposed']:
+        if status.get_applications()['haproxy']['exposed']:
             raise JujuAssertionError('haproxy is exposed.')
         client.juju('expose', ('haproxy',))
     status = client.get_status()
-    if not status.status['services']['haproxy']['exposed']:
+    if not status.get_applications()['haproxy']['exposed']:
         raise JujuAssertionError('haproxy is not exposed.')
     machine_num = (
-        status.status['services']['haproxy']['units']['haproxy/0']['machine'])
+        status.get_applications()['haproxy']['units']['haproxy/0']['machine'])
     haproxy_dns_name = status.status['machines'][machine_num]['dns-name']
     url = '{}://{}'.format(scheme, haproxy_dns_name)
     req = wait_for_http(url)
@@ -83,11 +83,11 @@ def assess_mediawiki_bundle(client):
     client.juju('add-unit', ('mysql-slave',))
     client.wait_for_started()
     status = client.get_status()
-    mediawiki_units = status.status['services']['mediawiki']['units'].values()
+    mediawiki_units = status.get_applications()['mediawiki']['units'].values()
     if len(mediawiki_units) != 2:
         raise JujuAssertionError(
             'Unexpected mediawiki units: {}'.format(mediawiki_units))
-    mysql_units = status.status['services']['mysql-slave']['units'].values()
+    mysql_units = status.get_applications()['mysql-slave']['units'].values()
     if len(mysql_units) != 2:
         raise JujuAssertionError(
             'Unexpected mysql-slave units: {}'.format(mysql_units))

@@ -48,6 +48,7 @@ from jujupy import (
     EnvJujuClient2A2,
     EnvJujuClient2B2,
     EnvJujuClient2B3,
+    EnvJujuClient2B7,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -66,6 +67,7 @@ from jujupy import (
     make_safe_config,
     parse_new_state_server_from_error,
     SimpleEnvironment,
+    ServiceStatus,
     Status,
     SYSTEM,
     tear_down,
@@ -86,6 +88,15 @@ from utility import (
 
 
 __metaclass__ = type
+
+
+def c_output(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        if 'service' in result:
+            raise AssertionError('Result contained service')
+        return result
+    return wrapper
 
 
 class AdminOperation(Exception):
@@ -270,7 +281,7 @@ class FakeEnvironmentState:
                 'relations': self.relations.get(service, {}),
                 'exposed': service in self.exposed,
                 }
-        return {'machines': machines, 'services': services}
+        return {'machines': machines, 'applications': services}
 
 
 class FakeBackend:
@@ -392,6 +403,8 @@ class FakeBackend:
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
+        if 'service' in command:
+            raise Exception('No service')
         if model is not None:
             model_state = self.controller_state.models[model]
             if command == 'enable-ha':
@@ -409,9 +422,7 @@ class FakeBackend:
                 parsed = parser.parse_args(args)
                 self.deploy(model_state, parsed.charm_name,
                             parsed.service_name, parsed.series)
-            if command == 'destroy-service':
-                model_state.destroy_service(*args)
-            if command == 'remove-service':
+            if command == 'remove-application':
                 model_state.destroy_service(*args)
             if command == 'add-relation':
                 if args[0] == 'dummy-source':
@@ -481,8 +492,11 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
+    @c_output
     def get_juju_output(self, command, args, used_feature_flags,
                         juju_home, model=None, timeout=None):
+        if 'service' in command:
+            raise Exception('No service')
         if model is not None:
             model_state = self.controller_state.models[model]
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
@@ -522,6 +536,21 @@ class FakeBackend:
 
     def pause(self, seconds):
         pass
+
+
+class FakeBackend2B7(FakeBackend):
+
+    def juju(self, command, args, used_feature_flags,
+             juju_home, model=None, check=True, timeout=None, extra_env=None):
+        if model is not None:
+            model_state = self.controller_state.models[model]
+        if command == 'destroy-service':
+            model_state.destroy_service(*args)
+        if command == 'remove-service':
+            model_state.destroy_service(*args)
+        return super(FakeBackend2B7).juju(command, args, used_feature_flags,
+                                          juju_home, model, check, timeout,
+                                          extra_env)
 
 
 class FakeBackendOptionalJES(FakeBackend):
@@ -627,6 +656,16 @@ class TestJuju2Backend(TestCase):
         backend = Juju2Backend('/bin/path', '2.0', set(), False)
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
+
+
+class TestEnvJujuClient2B7(ClientTest):
+
+    def test_remove_service(self):
+        env = EnvJujuClient2B7(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('remove-service', ('mondogb',))
 
 
 class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
@@ -1526,7 +1565,7 @@ class TestEnvJujuClient(ClientTest):
             machines:
               "0":
                 {0}: {1}
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1640,7 +1679,7 @@ class TestEnvJujuClient(ClientTest):
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.remove_service('mondogb')
-        mock_juju.assert_called_with('remove-service', ('mondogb',))
+        mock_juju.assert_called_with('remove-application', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient(
@@ -1874,7 +1913,7 @@ class TestEnvJujuClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1897,7 +1936,7 @@ class TestEnvJujuClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1915,7 +1954,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_wait_for_workload(self):
         initial_status = Status.from_text("""\
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1927,7 +1966,7 @@ class TestEnvJujuClient(ClientTest):
                         current: unknown
         """)
         final_status = Status(copy.deepcopy(initial_status.status), None)
-        final_status.status['services']['jenkins']['units']['jenkins/0'][
+        final_status.status['applications']['jenkins']['units']['jenkins/0'][
             'workload-status']['current'] = 'active'
         client = EnvJujuClient(JujuData('local'), None, None)
         writes = []
@@ -2267,7 +2306,7 @@ class TestEnvJujuClient(ClientTest):
             'machines': {
                 '0': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'baz': 'qux'}
@@ -2284,7 +2323,7 @@ class TestEnvJujuClient(ClientTest):
             'machines': {
                 '0': {'agent-state': 'started'},
             },
-            'services': {},
+            'applications': {},
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch('jujupy.until_timeout', lambda x: range(0)):
@@ -3650,7 +3689,7 @@ class TestEnvJujuClient1X(ClientTest):
             result = client.get_status()
         gjo_mock.assert_called_once_with(
             'status', '--format', 'yaml', admin=False)
-        self.assertEqual(Status, type(result))
+        self.assertEqual(ServiceStatus, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
     def test_get_status_retries_on_error(self):
@@ -4010,7 +4049,7 @@ class TestEnvJujuClient1X(ClientTest):
                         'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_workload(self):
-        initial_status = Status.from_text("""\
+        initial_status = ServiceStatus.from_text("""\
             services:
               jenkins:
                 units:
@@ -5165,7 +5204,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
             },
-            'services': {}}, '')
+            'applications': {}}, '')
         self.assertEqual(list(status.iter_machines()),
                          [('1', status.status['machines']['1'])])
 
@@ -5174,14 +5213,14 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
             },
-            'services': {}}, '')
+            'applications': {}}, '')
         self.assertEqual(list(status.iter_machines(containers=True)), [
             ('1', status.status['machines']['1']),
             ('1/lxc/0', {'baz': 'qux'}),
         ])
 
     def test_agent_items_empty(self):
-        status = Status({'machines': {}, 'services': {}}, '')
+        status = Status({'machines': {}, 'applications': {}}, '')
         self.assertItemsEqual([], status.agent_items())
 
     def test_agent_items(self):
@@ -5189,7 +5228,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar'}
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {
@@ -5214,7 +5253,7 @@ class TestStatus(FakeHomeTestCase):
                     '2': {'qux': 'baz'},
                 }}
             },
-            'services': {}
+            'applications': {}
         }, '')
         expected = [
             ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
@@ -5237,7 +5276,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5272,7 +5311,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5289,7 +5328,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5314,7 +5353,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {},
             },
-            'services': {
+            'applications': {
                 'ubuntu': {},
                 'jenkins': {
                     'units': {
@@ -5358,7 +5397,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5380,7 +5419,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5402,7 +5441,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-status': {'current': 'bad'}},
@@ -5425,7 +5464,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'juju-status': {'current': 'good'}},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'juju-status': {'current': 'bad'}},
@@ -5448,7 +5487,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5466,7 +5505,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'started'},
                 '2': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {
@@ -5490,7 +5529,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'started'},
                 '2': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {
@@ -5513,7 +5552,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'agent-state': 'any-error'},
             },
-            'services': {}
+            'applications': {}
         }, '')
         with self.assertRaisesRegexp(ErroredUnit,
                                      '1 is in state any-error'):
@@ -5523,7 +5562,7 @@ class TestStatus(FakeHomeTestCase):
         status = Status({
             'machines': {'0': {
                 'agent-state-info': failure}},
-            'services': {},
+            'applications': {},
         }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
             status.check_agents_started()
@@ -5552,7 +5591,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'agent-state-info': 'any-error'},
             },
-            'services': {}
+            'applications': {}
         }, '')
         with self.assertRaisesRegexp(ErroredUnit,
                                      '1 is in state any-error'):
@@ -5564,7 +5603,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-version': '1.6.2'},
                 '2': {'agent-version': '1.6.1'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/0': {
@@ -5586,7 +5625,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'juju-status': {'version': '1.6.2'}},
                 '2': {'juju-status': {'version': '1.6.1'}},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/0': {
@@ -5637,7 +5676,7 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(status.status_text, text)
         self.assertEqual(status.status, {
             'machines': {'0': {'agent-state': 'pending'}},
-            'services': {'jenkins': {'units': {'jenkins/0': {
+            'applications': {'jenkins': {'units': {'jenkins/0': {
                 'agent-state': 'horsefeathers'}}}}
         })
 
@@ -5651,6 +5690,528 @@ class TestStatus(FakeHomeTestCase):
             },
         }
         status = Status({
+            'machines': {
+                '1': {'agent-state': 'started'},
+            },
+            'applications': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/0': unit_with_subordinates,
+                    }
+                },
+                'application': {
+                    'units': {
+                        'application/0': started_unit,
+                        'application/1': started_unit,
+                    }
+                },
+            }
+        }, '')
+        expected = [
+            ('application/0', started_unit),
+            ('application/1', started_unit),
+            ('jenkins/0', unit_with_subordinates),
+            ('nrpe/0', started_unit),
+            ('ntp/0', started_unit),
+        ]
+        gen = status.iter_units()
+        self.assertIsInstance(gen, types.GeneratorType)
+        self.assertEqual(expected, list(gen))
+
+
+class TestServiceStatus(FakeHomeTestCase):
+
+    def test_iter_machines_no_containers(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
+            },
+            'services': {}}, '')
+        self.assertEqual(list(status.iter_machines()),
+                         [('1', status.status['machines']['1'])])
+
+    def test_iter_machines_containers(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
+            },
+            'services': {}}, '')
+        self.assertEqual(list(status.iter_machines(containers=True)), [
+            ('1', status.status['machines']['1']),
+            ('1/lxc/0', {'baz': 'qux'}),
+        ])
+
+    def test_agent_items_empty(self):
+        status = ServiceStatus({'machines': {}, 'services': {}}, '')
+        self.assertItemsEqual([], status.agent_items())
+
+    def test_agent_items(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'foo': 'bar'}
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'subordinates': {
+                                'sub': {'baz': 'qux'}
+                            }
+                        }
+                    }
+                }
+            }
+        }, '')
+        expected = [
+            ('1', {'foo': 'bar'}),
+            ('jenkins/1', {'subordinates': {'sub': {'baz': 'qux'}}}),
+            ('sub', {'baz': 'qux'})]
+        self.assertItemsEqual(expected, status.agent_items())
+
+    def test_agent_items_containers(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {
+                    '2': {'qux': 'baz'},
+                }}
+            },
+            'services': {}
+        }, '')
+        expected = [
+            ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
+            ('2', {'qux': 'baz'})
+        ]
+        self.assertItemsEqual(expected, status.agent_items())
+
+    def test_get_service_count_zero(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+        }, '')
+        self.assertEqual(0, status.get_service_count())
+
+    def test_get_service_count(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {'agent-state': 'started'},
+                    }
+                },
+                'juju-reports': {
+                    'units': {
+                        'juju-reports/0': {'agent-state': 'pending'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(3, status.get_service_count())
+
+    def test_get_service_unit_count_zero(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+        }, '')
+        self.assertEqual(0, status.get_service_unit_count('jenkins'))
+
+    def test_get_service_unit_count(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                        'jenkins/2': {'agent-state': 'bad'},
+                        'jenkins/3': {'agent-state': 'bad'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(3, status.get_service_unit_count('jenkins'))
+
+    def test_get_unit(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {'agent-state': 'started'},
+                    }
+                },
+            }
+        }, '')
+        self.assertEqual(
+            status.get_unit('jenkins/1'), {'agent-state': 'bad'})
+        self.assertEqual(
+            status.get_unit('jenkins/2'), {'agent-state': 'started'})
+        with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
+            status.get_unit('jenkins/3')
+
+    def test_service_subordinate_units(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {},
+            },
+            'services': {
+                'ubuntu': {},
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'subordinates': {
+                                'chaos-monkey/0': {'agent-state': 'started'},
+                            }
+                        }
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {
+                            'subordinates': {
+                                'chaos-monkey/1': {'agent-state': 'started'}
+                            }
+                        },
+                        'jenkins/3': {
+                            'subordinates': {
+                                'chaos-monkey/2': {'agent-state': 'started'}
+                            }
+                        }
+                    }
+                }
+            }
+        }, '')
+        self.assertItemsEqual(
+            status.service_subordinate_units('ubuntu'),
+            [])
+        self.assertItemsEqual(
+            status.service_subordinate_units('jenkins'),
+            [('chaos-monkey/0', {'agent-state': 'started'},)])
+        self.assertItemsEqual(
+            status.service_subordinate_units('dummy-sink'), [
+                ('chaos-monkey/1', {'agent-state': 'started'}),
+                ('chaos-monkey/2', {'agent-state': 'started'})]
+            )
+
+    def test_get_open_ports(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'jenkins/2': {'open-ports': ['42/tcp']},
+                    }
+                },
+            }
+        }, '')
+        self.assertEqual(status.get_open_ports('jenkins/1'), [])
+        self.assertEqual(status.get_open_ports('jenkins/2'), ['42/tcp'])
+
+    def test_agent_states_with_agent_state(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                        'jenkins/2': {'agent-state': 'good'},
+                    }
+                }
+            }
+        }, '')
+        expected = {
+            'good': ['1', 'jenkins/2'],
+            'bad': ['jenkins/1'],
+            'no-agent': ['2'],
+        }
+        self.assertEqual(expected, status.agent_states())
+
+    def test_agent_states_with_agent_status(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-status': {'current': 'bad'}},
+                        'jenkins/2': {'agent-status': {'current': 'good'}},
+                        'jenkins/3': {},
+                    }
+                }
+            }
+        }, '')
+        expected = {
+            'good': ['1', 'jenkins/2'],
+            'bad': ['jenkins/1'],
+            'no-agent': ['2', 'jenkins/3'],
+        }
+        self.assertEqual(expected, status.agent_states())
+
+    def test_agent_states_with_juju_status(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'juju-status': {'current': 'good'}},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'juju-status': {'current': 'bad'}},
+                        'jenkins/2': {'juju-status': {'current': 'good'}},
+                        'jenkins/3': {},
+                    }
+                }
+            }
+        }, '')
+        expected = {
+            'good': ['1', 'jenkins/2'],
+            'bad': ['jenkins/1'],
+            'no-agent': ['2', 'jenkins/3'],
+        }
+        self.assertEqual(expected, status.agent_states())
+
+    def test_check_agents_started_not_started(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                        'jenkins/2': {'agent-state': 'good'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(status.agent_states(),
+                         status.check_agents_started('env1'))
+
+    def test_check_agents_started_all_started_with_agent_state(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'started'},
+                '2': {'agent-state': 'started'},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'agent-state': 'started',
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-state': 'started'
+                                }
+                            }
+                        },
+                        'jenkins/2': {'agent-state': 'started'},
+                    }
+                }
+            }
+        }, '')
+        self.assertIs(None, status.check_agents_started('env1'))
+
+    def test_check_agents_started_all_started_with_agent_status(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'started'},
+                '2': {'agent-state': 'started'},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'agent-status': {'current': 'idle'},
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-status': {'current': 'idle'}
+                                }
+                            }
+                        },
+                        'jenkins/2': {'agent-status': {'current': 'idle'}},
+                    }
+                }
+            }
+        }, '')
+        self.assertIs(None, status.check_agents_started('env1'))
+
+    def test_check_agents_started_agent_error(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state': 'any-error'},
+            },
+            'services': {}
+        }, '')
+        with self.assertRaisesRegexp(ErroredUnit,
+                                     '1 is in state any-error'):
+            status.check_agents_started('env1')
+
+    def do_check_agents_started_failure(self, failure):
+        status = ServiceStatus({
+            'machines': {'0': {
+                'agent-state-info': failure}},
+            'services': {},
+        }, '')
+        with self.assertRaises(ErroredUnit) as e_cxt:
+            status.check_agents_started()
+        e = e_cxt.exception
+        self.assertEqual(
+            str(e), '0 is in state {}'.format(failure))
+        self.assertEqual(e.unit_name, '0')
+        self.assertEqual(e.state, failure)
+
+    def test_check_agents_cannot_set_up_groups(self):
+        self.do_check_agents_started_failure('cannot set up groups foobar')
+
+    def test_check_agents_error(self):
+        self.do_check_agents_started_failure('error executing "lxc-start"')
+
+    def test_check_agents_cannot_run_instances(self):
+        self.do_check_agents_started_failure('cannot run instances')
+
+    def test_check_agents_cannot_run_instance(self):
+        self.do_check_agents_started_failure('cannot run instance')
+
+    def test_check_agents_started_agent_info_error(self):
+        # Sometimes the error is indicated in a special 'agent-state-info'
+        # field.
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-state-info': 'any-error'},
+            },
+            'services': {}
+        }, '')
+        with self.assertRaisesRegexp(ErroredUnit,
+                                     '1 is in state any-error'):
+            status.check_agents_started('env1')
+
+    def test_get_agent_versions_1x(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'agent-version': '1.6.2'},
+                '2': {'agent-version': '1.6.1'},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/0': {
+                            'agent-version': '1.6.1'},
+                        'jenkins/1': {},
+                    },
+                }
+            }
+        }, '')
+        self.assertEqual({
+            '1.6.2': {'1'},
+            '1.6.1': {'jenkins/0', '2'},
+            'unknown': {'jenkins/1'},
+        }, status.get_agent_versions())
+
+    def test_get_agent_versions_2x(self):
+        status = ServiceStatus({
+            'machines': {
+                '1': {'juju-status': {'version': '1.6.2'}},
+                '2': {'juju-status': {'version': '1.6.1'}},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/0': {
+                            'juju-status': {'version': '1.6.1'}},
+                        'jenkins/1': {},
+                    },
+                }
+            }
+        }, '')
+        self.assertEqual({
+            '1.6.2': {'1'},
+            '1.6.1': {'jenkins/0', '2'},
+            'unknown': {'jenkins/1'},
+        }, status.get_agent_versions())
+
+    def test_iter_new_machines(self):
+        old_status = ServiceStatus({
+            'machines': {
+                'bar': 'bar_info',
+            }
+        }, '')
+        new_status = ServiceStatus({
+            'machines': {
+                'foo': 'foo_info',
+                'bar': 'bar_info',
+            }
+        }, '')
+        self.assertItemsEqual(new_status.iter_new_machines(old_status),
+                              [('foo', 'foo_info')])
+
+    def test_get_instance_id(self):
+        status = ServiceStatus({
+            'machines': {
+                '0': {'instance-id': 'foo-bar'},
+                '1': {},
+            }
+        }, '')
+        self.assertEqual(status.get_instance_id('0'), 'foo-bar')
+        with self.assertRaises(KeyError):
+            status.get_instance_id('1')
+        with self.assertRaises(KeyError):
+            status.get_instance_id('2')
+
+    def test_from_text(self):
+        text = TestEnvJujuClient1X.make_status_yaml(
+            'agent-state', 'pending', 'horsefeathers')
+        status = ServiceStatus.from_text(text)
+        self.assertEqual(status.status_text, text)
+        self.assertEqual(status.status, {
+            'machines': {'0': {'agent-state': 'pending'}},
+            'services': {'jenkins': {'units': {'jenkins/0': {
+                'agent-state': 'horsefeathers'}}}}
+        })
+
+    def test_iter_units(self):
+        started_unit = {'agent-state': 'started'}
+        unit_with_subordinates = {
+            'agent-state': 'started',
+            'subordinates': {
+                'ntp/0': started_unit,
+                'nrpe/0': started_unit,
+            },
+        }
+        status = ServiceStatus({
             'machines': {
                 '1': {'agent-state': 'started'},
             },
