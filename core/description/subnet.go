@@ -147,10 +147,16 @@ func importSubnetV1(source map[string]interface{}) (*subnet, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "subnet v1 schema check failed")
 	}
-	// XXX valid
-	_ = coerced.(map[string]interface{})
+	valid := coerced.(map[string]interface{})
 
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	return &subnet{}, nil
+	return &subnet{
+		ProviderId_:        valid["provider-id"].(string),
+		VLANTag_:           valid["vlantag"].(int),
+		SpaceName_:         valid["spacename"].(string),
+		AvailabilityZone_:  valid["availabilityzone"].(string),
+		AllocatableIPHigh_: valid["allocatableiphigh"].(string),
+		AllocatableIPLow_:  valid["allocatableiplow"].(string),
+	}, nil
 }
