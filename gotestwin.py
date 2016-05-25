@@ -32,6 +32,7 @@ def main():
             'install': {'ci': [
                 tarfile,
                 join(scripts, 'gotesttarfile.py'),
+                join(scripts, 'jujucharm.py'),
                 join(scripts, 'utility.py'),
                 ]},
             'command': [
