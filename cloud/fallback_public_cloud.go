@@ -5,7 +5,8 @@ package cloud
 
 // Generated code - do not edit.
 
-const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju update-clouds" to refresh.
+const fallbackPublicCloudInfo = `
+# DO NOT EDIT, will be overwritten, use "juju update-clouds" to refresh.
 clouds:
   aws:
     type: ec2
