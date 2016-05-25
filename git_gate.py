@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import argparse
 import os
-import re
 import subprocess
 import sys
 
@@ -52,8 +51,6 @@ def go_test(args, gopath):
     git = SubcommandRunner("git")
 
     final_project = args.project
-    if args.project_ref:
-        final_project = version_dir_from_branch(args.project, args.project_ref)
     if args.feature_branch:
         final_project = from_feature_dir(args.project)
 
@@ -92,23 +89,6 @@ def go_test(args, gopath):
         godeps("-u", tsv_path)
     go("build", project_ellipsis)
     go("test", project_ellipsis)
-
-
-def version_dir_from_branch(directory, branch_name):
-    """
-    For branches of repos that are versioned with gopkg.in,  we need to
-    do some special handling, since the test code expects the version to be
-    appended to the reponame with a ".".  However, the version is different
-    than the base gopkg.in branch.  To account for this, we use the convention
-    that a version branch is named v[0-9], and clone accordingly.
-
-    Thus, the branch for gopkg.in/juju/charm.v6 would be from a git repo
-    named charm, tagged v6, which should end up in
-    $GOPATH/src/gokpg.in/juju/charm.v6
-    """
-    if re.match('[v]\d\Z', branch_name):
-        return directory + '.' + branch_name
-    return directory
 
 
 def from_feature_dir(directory):
