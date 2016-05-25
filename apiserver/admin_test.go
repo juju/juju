@@ -50,29 +50,25 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 }
 
 type loginV0Suite struct {
-	loginSuite
+	baseLoginSuite
 }
 
 var _ = gc.Suite(&loginV0Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 0)
-			},
+	baseLoginSuite{
+		setAdminApi: func(srv *apiserver.Server) {
+			apiserver.SetAdminApiVersions(srv, 0)
 		},
 	},
 })
 
 type loginV1Suite struct {
-	loginSuite
+	baseLoginSuite
 }
 
 var _ = gc.Suite(&loginV1Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 1)
-			},
+	baseLoginSuite{
+		setAdminApi: func(srv *apiserver.Server) {
+			apiserver.SetAdminApiVersions(srv, 1)
 		},
 	},
 })
@@ -135,7 +131,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	}, {
 		tag:      "user-unknown",
 		password: "password",
-		err:      "permission denied",
+		err:      "invalid entity name or password",
 		code:     params.CodeUnauthorized,
 	}, {
 		tag:      "bar",
@@ -495,7 +491,7 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
 	_, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
 
 func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
