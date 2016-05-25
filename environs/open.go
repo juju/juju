@@ -260,9 +260,12 @@ func Destroy(
 	env Environ,
 	store jujuclient.ControllerRemover,
 ) error {
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
 	err := store.RemoveController(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.Destroy())
+	return nil
 }
