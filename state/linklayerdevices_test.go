@@ -998,7 +998,7 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
 func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
 	// The device names chosen and the order are very explicit. We
 	// need to ensure that we have a list that does not sort well
-	// alpahbetically. This is because SetParentLinkLayerDevices()
+	// alphabetically. This is because SetParentLinkLayerDevices()
 	// uses a natural sort ordering and we want to verify the
 	// pairing between the container's NIC name and its parent in
 	// the host machine in this unit test.
