@@ -241,8 +241,11 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 	}
 	entity, err := st.FindEntity(tag)
 	if errors.IsNotFound(err) {
+		// We return the same error when an entity does not exist as for a bad
+		// password, so that we don't allow unauthenticated users to find
+		// information about existing entities.
 		logger.Debugf("entity %q not found", tag)
-		return nil, nil, common.ErrPerm
+		return nil, nil, common.ErrBadCreds
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -271,7 +274,7 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForEnvUser bool) (
 		if lookForEnvUser {
 			envUser, err := st.EnvironmentUser(user.UserTag())
 			if err != nil {
-				return nil, nil, errors.Wrap(err, common.ErrPerm)
+				return nil, nil, errors.Wrap(err, common.ErrBadCreds)
 			}
 			// The last connection for the environment takes precedence over
 			// the local user last login time.
