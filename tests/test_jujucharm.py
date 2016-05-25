@@ -52,8 +52,8 @@ class TestCharm(TestCase):
         del charm.metadata['maintainer']
         with temp_dir() as charm_dir:
             charm.to_dir(charm_dir)
-            filename = os.path.join(charm_dir, 'metadata.yaml')
-            with open(filename) as f:
+            metafile = os.path.join(charm_dir, 'metadata.yaml')
+            with open(metafile) as f:
                 metadata = yaml.load(f)
         expected = {
             'name': 'test',
@@ -67,8 +67,8 @@ class TestCharm(TestCase):
         charm = Charm('test', 'a summary', series='wily')
         with temp_dir() as repo_dir:
             charm.to_repo_dir(repo_dir)
-            filename = os.path.join(repo_dir, 'wily', 'test', 'metadata.yaml')
-            with open(filename) as f:
+            metafile = os.path.join(repo_dir, 'wily', 'test', 'metadata.yaml')
+            with open(metafile) as f:
                 metadata = yaml.load(f)
         expected = {
             'name': 'test',
@@ -77,6 +77,34 @@ class TestCharm(TestCase):
             'maintainer': Charm.DEFAULT_MAINTAINER,
         }
         self.assertEqual(metadata, expected)
+
+    def test_add_hook_script(self):
+        charm = Charm('test', 'a summary')
+        config_changed = '#!/bin/sh\necho changed'
+        charm.add_hook_script('config-changed', config_changed)
+        with temp_dir() as charm_dir:
+            charm.to_dir(charm_dir)
+            hookfile = os.path.join(charm_dir, 'hooks', 'config-changed')
+            self.assertTrue(os.access(hookfile, os.X_OK))
+            with open(hookfile) as f:
+                self.assertEqual(f.read(), config_changed)
+
+    def test_add_hook_multiple(self):
+        charm = Charm('test', 'a summary')
+        config_changed = '#!/bin/sh\necho changed'
+        upgrade_charm = '#!/bin/sh\necho upgraded'
+        charm.add_hook_script('config-changed', config_changed)
+        charm.add_hook_script('upgrade-charm', upgrade_charm)
+        with temp_dir() as charm_dir:
+            charm.to_dir(charm_dir)
+            changedfile = os.path.join(charm_dir, 'hooks', 'config-changed')
+            self.assertTrue(os.access(changedfile, os.X_OK))
+            with open(changedfile) as f:
+                self.assertEqual(f.read(), config_changed)
+            upgradedfile = os.path.join(charm_dir, 'hooks', 'upgrade-charm')
+            self.assertTrue(os.access(upgradedfile, os.X_OK))
+            with open(upgradedfile) as f:
+                self.assertEqual(f.read(), upgrade_charm)
 
 
 class TestLocalCharm(TestCase):
