@@ -32,7 +32,8 @@ const lxdDefaultProfileName = "default"
 // the local provider, so the APIs probably need to be changed to pass extra
 // args around. I'm punting for now.
 type containerManager struct {
-	name string
+	modelUUID string
+	namespace instance.Namespace
 	// A cached client.
 	client *lxdclient.Client
 }
@@ -40,10 +41,9 @@ type containerManager struct {
 // containerManager implements container.Manager.
 var _ container.Manager = (*containerManager)(nil)
 
-func ConnectLocal(namespace string) (*lxdclient.Client, error) {
+func ConnectLocal() (*lxdclient.Client, error) {
 	cfg := lxdclient.Config{
-		Namespace: namespace,
-		Remote:    lxdclient.Local,
+		Remote: lxdclient.Local,
 	}
 
 	cfg, err := cfg.WithDefaults()
@@ -64,13 +64,25 @@ func ConnectLocal(namespace string) (*lxdclient.Client, error) {
 // TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
 // functionality.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	name := conf.PopValue(container.ConfigName)
-	if name == "" {
-		return nil, errors.Errorf("name is required")
+	modelUUID := conf.PopValue(container.ConfigModelUUID)
+	if modelUUID == "" {
+		return nil, errors.Errorf("model UUID is required")
+	}
+	namespace, err := instance.NewNamespace(names.NewModelTag(modelUUID))
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	conf.WarnAboutUnused()
-	return &containerManager{name: name}, nil
+	return &containerManager{
+		modelUUID: modelUUID,
+		namespace: namespace,
+	}, nil
+}
+
+// Namespace implements container.Manager.
+func (manager *containerManager) Namespace() instance.Namespace {
+	return manager.namespace
 }
 
 func (manager *containerManager) CreateContainer(
@@ -88,7 +100,7 @@ func (manager *containerManager) CreateContainer(
 	}()
 
 	if manager.client == nil {
-		manager.client, err = ConnectLocal(manager.name)
+		manager.client, err = ConnectLocal()
 		if err != nil {
 			err = errors.Annotatef(err, "failed to connect to local LXD")
 			return
@@ -105,9 +117,10 @@ func (manager *containerManager) CreateContainer(
 		return
 	}
 
-	name := names.NewMachineTag(instanceConfig.MachineId).String()
-	if manager.name != "" {
-		name = fmt.Sprintf("%s-%s", manager.name, name)
+	machineTag := names.NewMachineTag(instanceConfig.MachineId)
+	name, err := manager.namespace.Hostname(machineTag)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
@@ -119,7 +132,7 @@ func (manager *containerManager) CreateContainer(
 		lxdclient.UserdataKey: string(userData),
 		// An extra piece of info to let people figure out where this
 		// thing came from.
-		"user.juju-environment": manager.name,
+		"user.juju-model": manager.modelUUID,
 
 		// Make sure these come back up on host reboot.
 		"boot.autostart": "true",
@@ -162,24 +175,24 @@ func (manager *containerManager) CreateContainer(
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	if manager.client == nil {
 		var err error
-		manager.client, err = ConnectLocal(manager.name)
+		manager.client, err = ConnectLocal()
 		if err != nil {
 			return err
 		}
 	}
-	return errors.Trace(manager.client.RemoveInstances(manager.name, string(id)))
+	return errors.Trace(manager.client.RemoveInstances(manager.namespace.Prefix(), string(id)))
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
 	result = []instance.Instance{}
 	if manager.client == nil {
-		manager.client, err = ConnectLocal(manager.name)
+		manager.client, err = ConnectLocal()
 		if err != nil {
 			return
 		}
 	}
 
-	lxdInstances, err := manager.client.Instances(manager.name)
+	lxdInstances, err := manager.client.Instances(manager.namespace.Prefix())
 	if err != nil {
 		return
 	}
@@ -199,7 +212,7 @@ func (manager *containerManager) IsInitialized() bool {
 	// NewClient does a roundtrip to the server to make sure it understands
 	// the versions, so all we need to do is connect above and we're done.
 	var err error
-	manager.client, err = ConnectLocal(manager.name)
+	manager.client, err = ConnectLocal()
 	return err == nil
 }
 
@@ -217,15 +230,13 @@ func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (lxdclient.Devi
 
 	if deviceName == "" {
 		return nil, errors.Errorf("invalid device name")
-	} else {
-		device["name"] = deviceName
 	}
+	device["name"] = deviceName
 
 	if parentDevice == "" {
 		return nil, errors.Errorf("invalid parent device name")
-	} else {
-		device["parent"] = parentDevice
 	}
+	device["parent"] = parentDevice
 
 	if hwAddr != "" {
 		device["hwaddr"] = hwAddr

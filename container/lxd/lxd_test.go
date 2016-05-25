@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -43,7 +44,7 @@ var _ = gc.Suite(&LxdSuite{})
 
 func (t *LxdSuite) makeManager(c *gc.C, name string) container.Manager {
 	config := container.ManagerConfig{
-		container.ConfigName: name,
+		container.ConfigModelUUID: testing.ModelTag.Id(),
 	}
 
 	manager, err := lxd.NewContainerManager(config)
@@ -54,7 +55,7 @@ func (t *LxdSuite) makeManager(c *gc.C, name string) container.Manager {
 
 func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 	c.Skip("Test skipped because it talks directly to LXD agent.")
-	lxdClient, err := lxd.ConnectLocal("")
+	lxdClient, err := lxd.ConnectLocal()
 	c.Assert(err, jc.ErrorIsNil)
 
 	/* create a container to make sure isn't deleted */

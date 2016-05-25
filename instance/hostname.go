@@ -29,3 +29,46 @@ func Hostname(model names.ModelTag, machine names.MachineTag) (string, error) {
 
 	return "juju-" + suffix + "-" + machineID, nil
 }
+
+// Namespace provides a way to generate machine hostanmes with a given prefix.
+type Namespace interface {
+	// Prefix returns the common part of the hostnames. i.e. 'juju-xxxxxx-'
+	Prefix() string
+	// Hostname returns a name suitable to be used for a machine hostname.
+	// This function returns an error if the machine tags is invalid.
+	Hostname(machine names.MachineTag) (string, error)
+}
+
+type namespace struct {
+	name string
+}
+
+// NewNamespace returns a Namespace identified by the last six hex digits of the
+// model UUID. NewNamespace returns an error if the model tag is invalid.
+func NewNamespace(model names.ModelTag) (Namespace, error) {
+	uuid := model.Id()
+	// TODO: would be nice if the tags exported a method Valid().
+	if !names.IsValidModel(uuid) {
+		return nil, errors.Errorf("model ID %q is not a valid model", uuid)
+	}
+	// The suffix is the last six hex digits of the model uuid.
+	suffix := uuid[len(uuid)-6:]
+
+	return &namespace{name: suffix}, nil
+}
+
+// Hostname implements Namespace.
+func (n *namespace) Hostname(machine names.MachineTag) (string, error) {
+	machineID := machine.Id()
+	if !names.IsValidMachine(machineID) {
+		return "", errors.Errorf("machine ID %q is not a valid machine", machineID)
+	}
+	machineID = strings.Replace(machineID, "/", "-", -1)
+
+	return n.Prefix() + machineID, nil
+}
+
+// Prefix implements Namespace.
+func (n *namespace) Prefix() string {
+	return "juju-" + n.name + "-"
+}

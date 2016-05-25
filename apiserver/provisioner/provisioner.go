@@ -234,7 +234,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		return result, err
 	}
 	cfg := make(map[string]string)
-	cfg[container.ConfigName] = container.DefaultNamespace
+	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
 
 	switch args.Type {
 	case instance.LXC:

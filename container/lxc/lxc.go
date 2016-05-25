@@ -80,7 +80,7 @@ func containerDirFilesystem() (string, error) {
 }
 
 type containerManager struct {
-	name              string
+	namespace         instance.Namespace
 	logdir            string
 	createWithClone   bool
 	useAUFS           bool
@@ -101,10 +101,15 @@ func newContainerManager(
 	imageURLGetter container.ImageURLGetter,
 	loopDeviceManager looputil.LoopDeviceManager,
 ) (container.Manager, error) {
-	name := conf.PopValue(container.ConfigName)
-	if name == "" {
-		return nil, errors.Errorf("name is required")
+	modelUUID := conf.PopValue(container.ConfigModelUUID)
+	if modelUUID == "" {
+		return nil, errors.Errorf("model UUID is required")
 	}
+	namespace, err := instance.NewNamespace(names.NewModelTag(modelUUID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
 		logDir = agent.DefaultPaths.LogDir
@@ -134,7 +139,7 @@ func newContainerManager(
 	logger.Tracef("backing filesystem: %q", backingFS)
 	conf.WarnAboutUnused()
 	return &containerManager{
-		name:              name,
+		namespace:         namespace,
 		logdir:            logDir,
 		createWithClone:   useClone,
 		useAUFS:           useAUFS,
@@ -159,6 +164,11 @@ func preferFastLXC(release string) bool {
 		return false
 	}
 	return value >= 14.04
+}
+
+// Namespace implements container.Manager.
+func (manager *containerManager) Namespace() instance.Namespace {
+	return manager.namespace
 }
 
 // CreateContainer creates or clones an LXC container.
@@ -190,9 +200,10 @@ func (manager *containerManager) CreateContainer(
 		}
 	}(time.Now())
 
-	name := names.NewMachineTag(instanceConfig.MachineId).String()
-	if manager.name != "" {
-		name = fmt.Sprintf("%s-%s", manager.name, name)
+	machineTag := names.NewMachineTag(instanceConfig.MachineId)
+	name, err := manager.namespace.Hostname(machineTag)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Create the cloud-init.
@@ -789,11 +800,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		logger.Errorf("failed getting all instances: %v", err)
 		return
 	}
-	managerPrefix := ""
-	if manager.name != "" {
-		managerPrefix = fmt.Sprintf("%s-", manager.name)
-	}
-
+	managerPrefix := manager.namespace.Prefix()
 	for _, container := range containers {
 		// Filter out those not starting with our name.
 		name := container.Name()

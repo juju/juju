@@ -80,7 +80,9 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 ) instance.Instance {
 
 	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
-		name := "test-" + names.NewMachineTag(instanceConfig.MachineId).String()
+		machineTag := names.NewMachineTag(instanceConfig.MachineId)
+		name, err := manager.Namespace().Hostname(machineTag)
+		c.Assert(err, jc.ErrorIsNil)
 		EnsureLXCRootFSEtcNetwork(c, name)
 	}
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
