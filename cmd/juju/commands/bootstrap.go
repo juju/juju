@@ -344,6 +344,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		config.UUIDKey:           controllerUUID.String(),
 		config.ControllerUUIDKey: controllerUUID.String(),
 	}
+	for k, v := range cloud.Config {
+		configAttrs[k] = v
+	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
 		return errors.Trace(err)
