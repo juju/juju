@@ -116,7 +116,7 @@ func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error)
 }
 
 type authorisation struct {
-	acceptFunc    common.AuthFunc
+	acceptFunc    common.GetAuthFunc
 	deniedMessage string
 }
 

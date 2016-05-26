@@ -60,7 +60,7 @@ func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "auth failed: permission denied")
+	assertJSONError(c, reader, "auth failed: tag machine-0 not accepted")
 	s.assertWebsocketClosed(c, reader)
 }
 
