@@ -169,21 +169,31 @@ class FakeEnvironmentState:
     def state(self):
         return self.controller.state
 
-    def add_machine(self):
-        machine_id = str(self.machine_id_iter.next())
+    def add_machine(self, host_name=None, machine_id=None):
+        if machine_id is None:
+            machine_id = str(self.machine_id_iter.next())
         self.machines.add(machine_id)
-        self.machine_host_names[machine_id] = '{}.example.com'.format(
-            machine_id)
+        if host_name is None:
+            host_name = '{}.example.com'.format(machine_id)
+        self.machine_host_names[machine_id] = host_name
         return machine_id
 
     def add_ssh_machines(self, machines):
         for machine in machines:
             self.add_machine()
 
-    def add_container(self, container_type):
-        host = self.add_machine()
-        container_name = '{}/{}/{}'.format(host, container_type, '0')
-        self.containers[host] = {container_name}
+    def add_container(self, container_type, host=None, container_num=None):
+        if host is None:
+            host = self.add_machine()
+        host_containers = self.containers.setdefault(host, set())
+        if container_num is None:
+            same_type_containers = [x for x in host_containers if
+                                    container_type in x]
+            container_num = len(same_type_containers)
+        container_name = '{}/{}/{}'.format(host, container_type, container_num)
+        host_containers.add(container_name)
+        host_name = '{}.example.com'.format(container_name)
+        self.machine_host_names[container_name] = host_name
 
     def remove_container(self, container_id):
         for containers in self.containers.values():
@@ -260,7 +270,13 @@ class FakeEnvironmentState:
             if machine_id in self.state_servers:
                 machine_dict['controller-member-status'] = 'has-vote'
         for host, containers in self.containers.items():
-            machines[host]['containers'] = dict((c, {}) for c in containers)
+            container_dict = dict((c, {}) for c in containers)
+            for container in containers:
+                dns_name = self.machine_host_names.get(container)
+                if dns_name is not None:
+                    container_dict[container]['dns-name'] = dns_name
+
+            machines[host]['containers'] = container_dict
         services = {}
         for service, units in self.services.items():
             unit_map = {}
@@ -374,8 +390,22 @@ class FakeBackend:
         ssh_machines = [a[4:] for a in args if a.startswith('ssh:')]
         if len(ssh_machines) == len(args):
             return model_state.add_ssh_machines(ssh_machines)
-        (container_type,) = args
-        model_state.add_container(container_type)
+        parser = ArgumentParser()
+        parser.add_argument('host_placement', nargs='*')
+        parser.add_argument('-n', type=int, dest='count', default='1')
+        parsed = parser.parse_args(args)
+        if len(parsed.host_placement) == 1:
+            split = parsed.host_placement[0].split(':')
+            if len(split) == 1:
+                container_type = split[0]
+                host = None
+            else:
+                container_type, host = split
+            for x in range(parsed.count):
+                model_state.add_container(container_type, host=host)
+        else:
+            for x in range(parsed.count):
+                model_state.add_machine()
 
     def get_admin_model_name(self):
         return self.controller_state.admin_model.name
@@ -395,6 +425,8 @@ class FakeBackend:
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
+        if isinstance(args, basestring):
+            args = (args,)
         if model is not None:
             model_state = self.controller_state.models[model]
             if command == 'enable-ha':
