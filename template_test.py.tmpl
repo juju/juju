@@ -13,6 +13,7 @@ from tests import (
     parse_error,
     TestCase,
 )
+from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(TestCase):
@@ -61,9 +62,15 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_TEMPLATE(self):
-        mock_client = Mock(spec=["juju", "wait_for_started"])
-        assess_TEMPLATE(mock_client)
-        mock_client.juju.assert_called_once_with(
+        # Using fake_client means that deploy and get_status have plausible
+        # results.  Wrapping it in a Mock causes every call to be recorded, and
+        # allows assertions to be made.
+        fake_client = Mock(wraps=fake_juju_client())
+        fake_client.bootstrap()
+        assess_TEMPLATE(fake_client)
+        fake_client.juju.assert_called_once_with(
             'deploy', ('local:trusty/my-charm',))
-        mock_client.wait_for_started.assert_called_once_with()
+        fake_client.wait_for_started.assert_called_once_with()
+        self.assertEqual(
+            1, fake_client.get_status().get_service_unit_count('my-charm'))
         self.assertNotIn("TODO", self.log_stream.getvalue())
