@@ -479,7 +479,12 @@ class BootstrapManager:
     @classmethod
     def from_args(cls, args):
         env = SimpleEnvironment.from_config(args.env)
-        client = EnvJujuClient.by_version(env, args.juju_bin, debug=args.debug)
+        if args.juju_bin == 'FAKE':
+            from tests.test_jujupy import fake_juju_client
+            client = fake_juju_client(env=env)
+        else:
+            client = EnvJujuClient.by_version(env, args.juju_bin,
+                                              debug=args.debug)
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
@@ -669,6 +674,9 @@ class BootstrapManager:
         """Dump logs for all models in the bootstrapped controller."""
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.
+        from tests.test_jujupy import FakeBackend
+        if isinstance(self.client._backend, FakeBackend):
+            return
         admin_client = self.client.get_admin_client()
         if not self.jes_enabled:
             clients = [self.client]
