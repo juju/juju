@@ -24,7 +24,6 @@ from jujupy import (
     )
 from utility import (
     configure_logging,
-    enforce_juju_path,
     ensure_dir,
     temp_dir,
     )
@@ -503,8 +502,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Test autoload-credentials command.")
     parser.add_argument(
-        'juju_bin', action=enforce_juju_path,
-        help='Full path to the Juju binary.')
+        'juju_bin', help='Full path to the Juju binary.')
     parser.add_argument(
         '--verbose', action='store_const',
         default=logging.INFO, const=logging.DEBUG,
