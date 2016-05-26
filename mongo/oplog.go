@@ -18,6 +18,7 @@ const (
 	// Used to identify a "collection truncated" error from Mongo -
 	// sometimes raised when we have an open cursor on a capped
 	// collection and the "emptycapped" command is run.
+	// https://github.com/mongodb/mongo/blob/master/docs/errors.md#srcmongodbquerynew_findcpp
 	getMoreCode      = 17406
 	truncatedMessage = "collection truncated"
 )
