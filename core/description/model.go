@@ -251,7 +251,7 @@ func (m *model) IPAddresses() []IPAddress {
 // AddIPAddress implements Model.
 func (m *model) AddIPAddress(args IPAddressArgs) IPAddress {
 	addr := newIPAddress(args)
-	m.IPAddresses_.IPAddresses = append(m.IPAddresses_.IPAddresses_, addr)
+	m.IPAddresses_.IPAddresses_ = append(m.IPAddresses_.IPAddresses_, addr)
 	return addr
 }
 

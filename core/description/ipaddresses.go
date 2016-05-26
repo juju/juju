@@ -8,9 +8,9 @@ import (
 	"github.com/juju/schema"
 )
 
-type ipaddresss struct {
-	Version     int          `yaml:"version"`
-	IPAddresss_ []*ipaddress `yaml:"ipaddresss"`
+type ipaddresses struct {
+	Version      int          `yaml:"version"`
+	IPAddresses_ []*ipaddress `yaml:"ipaddresses"`
 }
 
 type ipaddress struct {
@@ -25,11 +25,11 @@ func newIPAddress(args IPAddressArgs) *ipaddress {
 	return &ipaddress{}
 }
 
-func importIPAddresss(source map[string]interface{}) ([]*ipaddress, error) {
-	checker := versionedChecker("ipaddresss")
+func importIPAddresses(source map[string]interface{}) ([]*ipaddress, error) {
+	checker := versionedChecker("ipaddresses")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "ipaddresss version schema check failed")
+		return nil, errors.Annotatef(err, "ipaddresses version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
@@ -38,7 +38,7 @@ func importIPAddresss(source map[string]interface{}) ([]*ipaddress, error) {
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["ipaddresss"].([]interface{})
+	sourceList := valid["ipaddresses"].([]interface{})
 	return importIPAddressList(sourceList, importFunc)
 }
 

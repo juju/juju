@@ -591,6 +591,14 @@ func (e *exporter) relations() error {
 
 func (e *exporter) ipaddresses() error {
 	ipaddresses, err := e.st.AllIPAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d ip addresses", len(ipaddresses))
+	for _, address := range ipaddresses {
+		e.model.AddIPAddress(description.IPAddressArgs{})
+	}
+	return nil
 }
 
 func (e *exporter) readAllRelationScopes() (set.Strings, error) {

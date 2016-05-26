@@ -340,7 +340,7 @@ func (st *State) AllIPAddresses() (addresses []*Address, err error) {
 		return nil, errors.Errorf("cannot get all ip addresses")
 	}
 	for _, a := range sdocs {
-		addresses = append(services, newIPAddress(st, &a))
+		addresses = append(addresses, newIPAddress(st, a))
 	}
-	return address, nil
+	return addresses, nil
 }

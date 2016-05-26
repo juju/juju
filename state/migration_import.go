@@ -94,6 +94,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
+	if err := restore.ipaddresses(); err != nil {
+		return nil, nil, errors.Annotate(err, "ipaddresses")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -798,6 +801,19 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) ipaddresses() error {
+	i.logger.Debugf("importing ip addresses")
+	for _ = range i.model.IPAddresses() {
+		_, err := i.st.AddIPAddress()
+		if err != nil {
+			i.logger.Errorf("error importing ip address: %s", err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ip addresses succeeded")
+	return nil
 }
 
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {
