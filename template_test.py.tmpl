@@ -64,7 +64,8 @@ class TestAssess(TestCase):
     def test_TEMPLATE(self):
         # Using fake_client means that deploy and get_status have plausible
         # results.  Wrapping it in a Mock causes every call to be recorded, and
-        # allows assertions to be made.
+        # allows assertions to be made about calls.  Mocks and the fake client
+        # can also be used separately.
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         assess_TEMPLATE(fake_client)
