@@ -85,6 +85,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.ipaddresses(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -583,6 +587,10 @@ func (e *exporter) relations() error {
 		}
 	}
 	return nil
+}
+
+func (e *exporter) ipaddresses() error {
+	ipaddresses, err := e.st.AllIPAddresses()
 }
 
 func (e *exporter) readAllRelationScopes() (set.Strings, error) {
