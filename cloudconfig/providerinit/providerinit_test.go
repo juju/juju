@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -380,22 +381,20 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 
 	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
+
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	// first part
-	ugot := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
-	// append header
-	header := "#ps1_sysnative\r\n"
-	var got []byte
-	// concat them
-	got = append(got, header...)
-	got = append(got, ugot...)
 
 	cicompose, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)
+
+	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
+	// first part
+	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
+	got = renderers.PrependWinPS1Header(got)
 	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(expected), gc.Equals, string(got))

@@ -24,11 +24,22 @@ func ToBase64(data []byte) []byte {
 // which has the userdata embedded as base64(gzip(userdata))
 func WinEmbedInScript(udata []byte) []byte {
 	encUserdata := ToBase64(utils.Gzip(udata))
+	// place the encUseData inside the "%s" marked sign
+	userDataScript := []byte(fmt.Sprintf(cloudconfig.UserDataScript, encUserdata))
+	// prepend the powershell script in a safe mode
+	return PrependWinPS1Header(userDataScript)
+}
+
+// PrependWinPS1Header appends in the begining the header "#ps1_sysnative\r\n"
+// for powershell scripts. In order to fix the cloudbase-init unsupported
+// format error, the powershell needs a custom header like this one, else
+// it will complain like in this bug.
+// https://bugs.launchpad.net/juju-core/+bug/1585430
+func PrependWinPS1Header(userDataScript []byte) []byte {
 	var wrapped []byte
 	header := "#ps1_sysnative\r\n"
-	script := fmt.Sprintf(cloudconfig.UserDataScript, encUserdata)
 	wrapped = append(wrapped, header...)
-	wrapped = append(wrapped, script...)
+	wrapped = append(wrapped, userDataScript...)
 	return wrapped
 }
 

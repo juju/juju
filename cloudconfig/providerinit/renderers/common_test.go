@@ -43,6 +43,13 @@ func (s *RenderersSuite) TestWinEmbedInScript(c *gc.C) {
 	c.Assert(out, jc.DeepEquals, expected)
 }
 
+func (s *RenderersSuite) TestPrependWinPS1Header(c *gc.C) {
+	in := []byte("test")
+	expected := []byte("#ps1_sysnative\r\ntest")
+	out := renderers.PrependWinPS1Header(in)
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
 func (s *RenderersSuite) TestAddPowershellTags(c *gc.C) {
 	in := []byte("test")
 	expected := []byte(`<powershell>` + string(in) + `</powershell>`)
