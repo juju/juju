@@ -24,7 +24,7 @@ log = logging.getLogger("assess_TEMPLATE")
 
 def assess_TEMPLATE(client):
     # Deploy charms, there are several under ./repository
-    client.juju("deploy", ('local:trusty/my-charm',))
+    client.deploy('local:trusty/my-charm')
     # Wait for the deployment to finish.
     client.wait_for_started()
     log.info("TODO: Add log line about any test")

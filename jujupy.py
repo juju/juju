@@ -357,6 +357,10 @@ class Juju2Backend:
     def full_path(self):
         return self._full_path
 
+    @property
+    def juju_name(self):
+        return os.path.basename(self._full_path)
+
     def _get_attr_tuple(self):
         return (self._version, self._full_path, self.feature_flags,
                 self.debug, self.juju_timings)
@@ -400,7 +404,8 @@ class Juju2Backend:
         # model flag goes.  Everything in the command string is put before the
         # -m flag.
         command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
+                args)
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
@@ -538,7 +543,8 @@ class Juju1XBackend(Juju2A2Backend):
         # <env> flag goes.  Everything in the command string is put before the
         # -e flag.
         command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
+                args)
 
 
 class EnvJujuClient:
