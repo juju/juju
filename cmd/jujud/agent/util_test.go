@@ -68,7 +68,7 @@ func modelMatchFunc(c *gc.C, tracker *modelTracker, workers []string) func(strin
 	expect := set.NewStrings(workers...)
 	return func(uuid string) bool {
 		actual := tracker.Workers(uuid)
-		c.Logf("\n%s: has workers %v", uuid, actual.SortedValues())
+		c.Logf("%s: has workers %v", uuid, actual.SortedValues())
 		extras := actual.Difference(expect)
 		missed := expect.Difference(actual)
 		if len(extras) == 0 && len(missed) == 0 {
