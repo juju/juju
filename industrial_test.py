@@ -736,10 +736,11 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'remove-machine-many-container'}
         yield results
-        services = [status.status['services'][key] for key in service_names]
+        applications = [status.get_applications()[key]
+                        for key in service_names]
         container_machines = set()
-        for service in services:
-            for unit in service['units'].values():
+        for application in applications:
+            for unit in application['units'].values():
                 container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
         remove_timeout = {
