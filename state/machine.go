@@ -1163,31 +1163,36 @@ func containsAddress(addresses []address, address address) bool {
 	return false
 }
 
-// PublicAddress returns a public address for the machine. If no address is
-// available it returns an error that satisfies network.IsNoAddressError().
+// PublicAddress returns the preferred public address for the machine. If no
+// address is available it returns an error that satisfies
+// network.IsNoAddressError().
 func (m *Machine) PublicAddress() (network.Address, error) {
-	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
-	var err error
+	publicAddress := m.doc.PreferredPublicAddress
 	if publicAddress.Value == "" {
-		err = network.NoAddressError("public")
+		return network.Address{}, network.NoAddressError("public")
 	}
-	return publicAddress, err
+
+	return publicAddress.networkAddress(), nil
 }
 
 // maybeGetNewAddress determines if the current address is the most appropriate
 // match, and if not it selects the best from the slice of all available
 // addresses. It returns the new address and a bool indicating if a different
-// one was picked.
+// one was picked. IPv6 addresses are rejected (see LP bug #1574844).
 func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []address, getAddr func([]address) network.Address, checkScope func(address) bool) (address, bool) {
 	// For picking the best address, try provider addresses first.
 	var newAddr address
-	netAddr := getAddr(providerAddresses)
-	if netAddr.Value == "" {
-		netAddr = getAddr(machineAddresses)
-		newAddr = fromNetworkAddress(netAddr, OriginMachine)
-	} else {
+	if netAddr := getAddr(providerAddresses); netAddr.Value != "" {
 		newAddr = fromNetworkAddress(netAddr, OriginProvider)
+	} else if netAddr := getAddr(machineAddresses); netAddr.Value != "" {
+		newAddr = fromNetworkAddress(netAddr, OriginMachine)
 	}
+
+	if newAddr.Value == "" || newAddr.AddressType == string(network.IPv6Address) {
+		// We never want to store an empty or IPv6Address as preferred
+		return addr, false
+	}
+
 	// The order of these checks is important. If the stored address is
 	// empty we *always* want to check for a new address so we do that
 	// first. If the stored address is unavilable we also *must* check for
@@ -1196,7 +1201,7 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 	// that. Finally we check to see if a better match on scope from the
 	// same origin is available.
 	if addr.Value == "" {
-		return newAddr, newAddr.Value != ""
+		return newAddr, true
 	}
 	if !containsAddress(providerAddresses, addr) && !containsAddress(machineAddresses, addr) {
 		return newAddr, true
@@ -1215,21 +1220,24 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 	return addr, false
 }
 
-// PrivateAddress returns a private address for the machine. If no address is
-// available it returns an error that satisfies network.IsNoAddressError().
+// PrivateAddress returns a the preferred private address for the machine. If no
+// address is available it returns an error that satisfies
+// network.IsNoAddressError().
 func (m *Machine) PrivateAddress() (network.Address, error) {
-	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
-	var err error
+	privateAddress := m.doc.PreferredPrivateAddress
 	if privateAddress.Value == "" {
-		err = network.NoAddressError("private")
+		return network.Address{}, network.NoAddressError("private")
 	}
-	return privateAddress, err
+
+	return privateAddress.networkAddress(), nil
 }
 
 func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
+	label := "private"
 	fieldName := "preferredprivateaddress"
 	current := m.doc.PreferredPrivateAddress
 	if isPublic {
+		label = "public"
 		fieldName = "preferredpublicaddress"
 		current = m.doc.PreferredPublicAddress
 	}
@@ -1243,6 +1251,8 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
 		Assert: assert,
 	}}
+
+	logger.Tracef("about to set %q as prefered %s address of machine %q", addr, label, m.Id())
 	return ops
 }
 
@@ -1258,9 +1268,14 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 		return addr
 	}
 
+	if publicAddress.Value == "" {
+		logger.Debugf("machine %q has no preferred public address set yet", m.Id())
+	}
+
 	newAddr, changed := maybeGetNewAddress(publicAddress, providerAddresses, machineAddresses, getAddr, checkScope)
 	if !changed {
 		// No change, so no ops.
+		logger.Tracef("machine %q has no better candidate for preferred public address", m.Id())
 		return []txn.Op{}, publicAddress, false
 	}
 
@@ -1280,66 +1295,58 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 		return addr
 	}
 
+	if privateAddress.Value == "" {
+		logger.Debugf("machine %q has no preferred private address set yet", m.Id())
+	}
+
 	newAddr, changed := maybeGetNewAddress(privateAddress, providerAddresses, machineAddresses, getAddr, checkScope)
 	if !changed {
 		// No change, so no ops.
+		logger.Tracef("machine %q has no better candidate for preferred private address", m.Id())
 		return []txn.Op{}, privateAddress, false
 	}
 	ops := m.setPreferredAddressOps(newAddr, false)
 	return ops, newAddr, true
 }
 
-// SetProviderAddresses records any addresses related to the machine, sourced
-// by asking the provider.
-func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
-	mdoc, err := m.st.getMachineDoc(m.Id())
-	if err != nil {
-		return errors.Annotatef(err, "cannot refresh provider addresses for machine %s", m)
+// SetProviderAddresses updates the addresses originating from the provider with
+// the given addresses.
+func (m *Machine) SetProviderAddresses(addresses ...network.Address) error {
+	if err := m.setAddresses(addresses, "addresses"); err != nil {
+		return errors.Trace(err)
 	}
-	if err = m.setAddresses(addresses, &mdoc.Addresses, "addresses"); err != nil {
-		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
-	}
-	m.doc.Addresses = mdoc.Addresses
+	m.doc.Addresses = fromNetworkAddresses(addresses, OriginProvider)
 	return nil
 }
 
-// ProviderAddresses returns any hostnames and ips associated with a machine,
-// as determined by asking the provider.
-func (m *Machine) ProviderAddresses() (addresses []network.Address) {
-	for _, address := range m.doc.Addresses {
-		addresses = append(addresses, address.networkAddress())
-	}
-	return
+// ProviderAddresses returns all addresses of the machine originating from the
+// provider.
+func (m *Machine) ProviderAddresses() []network.Address {
+	return networkAddresses(m.doc.Addresses)
 }
 
-// MachineAddresses returns any hostnames and ips associated with a machine,
-// determined by asking the machine itself.
-func (m *Machine) MachineAddresses() (addresses []network.Address) {
-	for _, address := range m.doc.MachineAddresses {
-		addresses = append(addresses, address.networkAddress())
-	}
-	return
+// MachineAddresses returns all addresses of the machine originating from the
+// machine itself.
+func (m *Machine) MachineAddresses() []network.Address {
+	return networkAddresses(m.doc.MachineAddresses)
 }
 
-// SetMachineAddresses records any addresses related to the machine, sourced
-// by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
-	mdoc, err := m.st.getMachineDoc(m.Id())
-	if err != nil {
-		return errors.Annotatef(err, "cannot refresh machine addresses for machine %s", m)
+// SetMachineAddresses updates the addresses originating from the machine itself
+// with the given addresses.
+func (m *Machine) SetMachineAddresses(addresses ...network.Address) error {
+	if err := m.setAddresses(addresses, "machineaddresses"); err != nil {
+		return errors.Trace(err)
 	}
-	if err = m.setAddresses(addresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
-		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
-	}
-	m.doc.MachineAddresses = mdoc.MachineAddresses
+	m.doc.MachineAddresses = fromNetworkAddresses(addresses, OriginMachine)
 	return nil
 }
 
 // setAddresses updates the machine's addresses (either Addresses or
-// MachineAddresses, depending on the field argument). Changes are
-// only predicated on the machine not being Dead; concurrent address
-// changes are ignored.
-func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
+// MachineAddresses, depending on the fieldName argument) and sets the preferred
+// private / public addresses to use (if not already set). Changes are only
+// predicated on the machine being Alive; concurrent address changes are
+// ignored.
+func (m *Machine) setAddresses(addresses []network.Address, fieldName string) error {
 	var addressesToSet []network.Address
 	if !m.IsContainer() {
 		// Check addresses first. We'll only add those addresses
@@ -1359,9 +1366,15 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		}
 		ipDocValues := set.NewStrings()
 		for _, ipDoc := range ipDocs {
+			if ipDoc.Value == "" {
+				continue
+			}
 			ipDocValues.Add(ipDoc.Value)
 		}
 		for _, address := range addresses {
+			if address.Value == "" {
+				continue
+			}
 			if !ipDocValues.Contains(address.Value) {
 				addressesToSet = append(addressesToSet, address)
 			}
@@ -1385,31 +1398,31 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		changedPrivate, changedPublic bool
 		err                           error
 	)
-	machine := m
+	machine := &Machine{st: m.st, doc: m.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
-			if machine, err = machine.st.Machine(machine.doc.Id); err != nil {
+			if machine, err = m.st.Machine(machine.Id()); err != nil {
 				return nil, err
 			}
 		}
-		if machine.doc.Life == Dead {
+		if machine.Life() != Alive {
 			return nil, errNotAlive
 		}
 		ops := []txn.Op{{
 			C:      machinesC,
 			Id:     machine.doc.DocID,
-			Assert: notDeadDoc,
+			Assert: isAliveDoc,
 			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
 		}}
 
 		var providerAddresses []address
 		var machineAddresses []address
 		if fieldName == "machineaddresses" {
-			providerAddresses = machine.doc.Addresses
-			machineAddresses = stateAddresses
+			providerAddresses = append([]address(nil), machine.doc.Addresses...)
+			machineAddresses = append([]address(nil), stateAddresses...)
 		} else {
-			machineAddresses = machine.doc.MachineAddresses
-			providerAddresses = stateAddresses
+			machineAddresses = append([]address(nil), machine.doc.MachineAddresses...)
+			providerAddresses = append([]address(nil), stateAddresses...)
 		}
 
 		var setPrivateAddressOps, setPublicAddressOps []txn.Op
@@ -1419,18 +1432,17 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
 	}
-	err = m.st.run(buildTxn)
-	if err == txn.ErrAborted {
-		return ErrDead
-	} else if err != nil {
+
+	if err := m.st.run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 
-	*field = stateAddresses
 	if changedPrivate {
+		logger.Infof("machine %q has new preferred private address %q", m.Id(), newPrivate.networkAddress())
 		m.doc.PreferredPrivateAddress = newPrivate
 	}
 	if changedPublic {
+		logger.Infof("machine %q has new preferred public address %q", m.Id(), newPublic.networkAddress())
 		m.doc.PreferredPublicAddress = newPublic
 	}
 	return nil
