@@ -75,6 +75,7 @@ func (s *envManagerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := environmentmanager.NewEnvironmentManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *envManagerSuite) createArgs(c *gc.C, owner names.UserTag) params.EnvironmentCreateArgs {
@@ -130,6 +131,7 @@ func (s *envManagerSuite) TestNonAdminCannotCreateEnvironmentForSomeoneElse(c *g
 	owner := names.NewUserTag("external@remote")
 	_, err := s.envmanager.CreateEnvironment(s.createArgs(c, owner))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *envManagerSuite) TestRestrictedProviderFields(c *gc.C) {
@@ -360,6 +362,7 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 	other := names.NewUserTag("other@remote")
 	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 type fakeProvider struct {

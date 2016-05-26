@@ -67,6 +67,7 @@ func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	_, err := diskmanager.NewDiskManagerAPI(nil, nil, s.authorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {

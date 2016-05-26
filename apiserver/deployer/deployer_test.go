@@ -112,6 +112,7 @@ func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(aDeployer, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {

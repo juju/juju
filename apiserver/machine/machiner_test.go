@@ -51,6 +51,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {

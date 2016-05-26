@@ -63,6 +63,7 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {

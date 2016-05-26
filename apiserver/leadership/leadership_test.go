@@ -275,5 +275,6 @@ func (s *leadershipSuite) TestCreateUnauthorized(c *gc.C) {
 	ldrSvc, err := leadership.NewLeadershipService(nil, authorizer)
 	c.Check(ldrSvc, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	c.Check(err, jc.Satisfies, errors.IsUnauthorized)
 }

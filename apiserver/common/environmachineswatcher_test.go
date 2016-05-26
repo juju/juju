@@ -65,5 +65,6 @@ func (s *environMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	)
 	_, err := e.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	c.Assert(resources.Count(), gc.Equals, 0)
 }

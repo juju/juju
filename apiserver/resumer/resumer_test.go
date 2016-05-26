@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/resumer"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -44,6 +45,7 @@ func (s *ResumerSuite) TestNewResumerAPIRequiresEnvironManager(c *gc.C) {
 	api, err := resumer.NewResumerAPI(nil, nil, anAuthoriser)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *ResumerSuite) TestResumeTransactionsFailure(c *gc.C) {

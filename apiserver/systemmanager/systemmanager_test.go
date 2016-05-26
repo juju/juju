@@ -56,6 +56,7 @@ func (s *systemManagerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *systemManagerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
@@ -66,6 +67,7 @@ func (s *systemManagerSuite) TestNewAPIRefusesNonAdmins(c *gc.C) {
 	endPoint, err := systemmanager.NewSystemManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *systemManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environment, expected *state.Environment) {

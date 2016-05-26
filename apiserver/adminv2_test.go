@@ -14,15 +14,13 @@ import (
 )
 
 type loginV2Suite struct {
-	loginSuite
+	baseLoginSuite
 }
 
 var _ = gc.Suite(&loginV2Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 2)
-			},
+	baseLoginSuite{
+		setAdminApi: func(srv *apiserver.Server) {
+			apiserver.SetAdminApiVersions(srv, 2)
 		},
 	},
 })

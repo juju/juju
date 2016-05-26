@@ -901,6 +901,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 
 	err = st.Login(machine.Tag().String(), password, "nonce")
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.EnvironTag) {

@@ -78,6 +78,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonEnvironManagerUser(
 	err := factory(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *firewallerBaseSuite) testLife(
