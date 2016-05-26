@@ -72,7 +72,7 @@ func (s *logsinkSuite) TestNoAuth(c *gc.C) {
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFailsWithEntityError(c, header, "tag user-username-178@local not accepted")
+	s.checkAuthFailsWithEntityError(c, header, "tag kind user not valid")
 }
 
 func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {

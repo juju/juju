@@ -62,7 +62,7 @@ func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, e
 
 // authenticate parses HTTP basic authentication and authorizes the
 // request by looking up the provided tag and password against state.
-func (h *httpStateWrapper) authenticate(r *http.Request, auth authorisation) (names.Tag, error) {
+func (h *httpStateWrapper) authenticate(r *http.Request, authFunc common.GetAuthFunc) (names.Tag, error) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
@@ -83,7 +83,7 @@ func (h *httpStateWrapper) authenticate(r *http.Request, auth authorisation) (na
 	if err != nil {
 		return nil, err
 	}
-	if ok, err := auth.checkPermissions(tag); !ok {
+	if ok, err := checkPermissions(tag, authFunc); !ok {
 		return nil, err
 	}
 	_, _, err = checkCreds(h.state, params.LoginRequest{
@@ -95,8 +95,7 @@ func (h *httpStateWrapper) authenticate(r *http.Request, auth authorisation) (na
 }
 
 func (h *httpStateWrapper) authenticateUser(r *http.Request) error {
-	allow := authorisation{common.AuthFuncForTagKind(names.UserTagKind), "not accepted"}
-	if _, err := h.authenticate(r, allow); err != nil {
+	if _, err := h.authenticate(r, common.AuthFuncForTagKind(names.UserTagKind)); err != nil {
 		return err
 	}
 	return nil
@@ -108,25 +107,20 @@ func (h *httpStateWrapper) authenticateAgent(r *http.Request) (names.Tag, error)
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
 
-	tag, err := h.authenticate(r, authorisation{authFunc, "not accepted"})
+	tag, err := h.authenticate(r, authFunc)
 	if err != nil {
 		return nil, err
 	}
 	return tag, nil
 }
 
-type authorisation struct {
-	acceptFunc    common.GetAuthFunc
-	deniedMessage string
-}
-
-func (a *authorisation) checkPermissions(tag names.Tag) (bool, error) {
-	accept, err := a.acceptFunc()
+func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error) {
+	accept, err := acceptFunc()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	if accept(tag) {
 		return true, nil
 	}
-	return false, errors.Errorf("tag %v %v", tag, a.deniedMessage)
+	return false, errors.NotValidf("tag kind %v", tag.Kind())
 }
