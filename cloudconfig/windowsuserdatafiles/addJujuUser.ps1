@@ -18,8 +18,7 @@ function create-account ([string]$accountName, [string]$accountDescription, [str
 }
 
 $Source = @"
-%s
-"@
+%s"@
 
 Add-Type -TypeDefinition $Source -Language CSharp
 
@@ -64,8 +63,7 @@ function Get-RandomPassword
 }
 
 $SourcePolicy = @"
-%s
-"@
+%s"@
 
 Add-Type -TypeDefinition $SourcePolicy -Language CSharp
 
