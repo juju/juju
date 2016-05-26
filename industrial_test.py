@@ -9,6 +9,7 @@ from itertools import count
 import json
 import logging
 import os
+import shutil
 import sys
 from textwrap import dedent
 
@@ -16,6 +17,10 @@ from deploy_stack import (
     BootstrapManager,
     wait_for_state_server_to_shutdown,
     )
+from jujucharm import (
+    Charm,
+    local_charm_path,
+)
 from jujupy import (
     AgentsNotStarted,
     AGENTS_READY,
@@ -34,8 +39,6 @@ from substrate import (
 from utility import (
     configure_logging,
     LoggedException,
-    local_charm_path,
-    make_charm,
     temp_dir,
     until_timeout,
     )
@@ -491,12 +494,9 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
     def iter_steps(self, client):
         yield self.prepare.as_result()
         with temp_dir() as temp_repository:
-            charm_root = os.path.join(temp_repository, 'trusty', 'mycharm')
-            os.makedirs(charm_root)
-            make_charm(
-                charm_root, min_ver=None, name='mycharm',
-                description='foo-description', summary='foo-summary',
-                series=['trusty'])
+            charm = Charm('mycharm', 'Test charm', series='trusty')
+            charm.metadata['description'] = 'Charm for industrial testing.'
+            charm_root = charm.to_repo_dir(temp_repository)
             charm_path = local_charm_path(
                 charm='mycharm', juju_ver=client.version, series='trusty',
                 repository=os.path.dirname(charm_root))
@@ -504,16 +504,16 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
             yield self.prepare.as_result()
             client.wait_for_started()
             yield self.prepare.as_result()
-            hooks_path = os.path.join(charm_root, 'hooks')
-            os.mkdir(hooks_path)
-            self.add_hook(hooks_path, 'config-changed', dedent("""\
+            charm.add_hook_script('config-changed', dedent("""\
                 #!/bin/sh
                 open-port 34
                 """))
-            self.add_hook(hooks_path, 'upgrade-charm', dedent("""\
+            charm.add_hook_script('upgrade-charm', dedent("""\
                 #!/bin/sh
                 open-port 42
                 """))
+            shutil.rmtree(charm_root)
+            charm.to_repo_dir(temp_repository)
             yield self.prepare.as_result(True)
             yield self.upgrade.as_result()
             client.upgrade_charm('mycharm', charm_root)
@@ -525,11 +525,6 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
             else:
                 raise Exception('42 and/or 34 not opened.')
             yield self.upgrade.as_result(True)
-
-    def add_hook(self, hooks_path, hook_name, hook_contents):
-        with open(os.path.join(hooks_path, hook_name), 'w') as f:
-            os.fchmod(f.fileno(), 0o755)
-            f.write(hook_contents)
 
 
 @contextmanager

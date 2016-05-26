@@ -6,12 +6,12 @@ import logging
 import subprocess
 import sys
 
+from jujucharm import Charm
 from deploy_stack import BootstrapManager
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    make_charm,
     temp_dir,
 )
 
@@ -45,10 +45,17 @@ def get_current_version(client, juju_path):
     return '-'.join(current)
 
 
+def make_minver_charm(charm_dir, min_ver):
+    charm = Charm('minver',
+                  'Test charm for min-juju-version {}'.format(min_ver))
+    charm.metadata['min-juju-version'] = min_ver
+    charm.to_dir(charm_dir)
+
+
 def assess_deploy(client, assertion, ver, current, name):
     with temp_dir() as charm_dir:
         log.info("Testing min version {}".format(ver))
-        make_charm(charm_dir, ver)
+        make_minver_charm(charm_dir, ver)
         assertion(client, charm_dir, ver, current, name)
 
 

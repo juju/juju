@@ -36,6 +36,7 @@ from utility import (
     ensure_deleted,
     ensure_dir,
     is_ipv6_address,
+    JujuResourceTimeout,
     pause,
     quote,
     scoped_environ,
@@ -650,6 +651,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient2B2
         elif re.match('^2\.0-(beta[3-6])', version):
             client_class = EnvJujuClient2B3
+        elif re.match('^2\.0-(beta7)', version):
+            client_class = EnvJujuClient2B7
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
@@ -1031,6 +1034,21 @@ class EnvJujuClient:
             args = args + ('--details',)
         return yaml_loads(self.get_juju_output('list-resources', *args))
 
+    def wait_for_resource(self, resource_id, service_or_unit, timeout=60):
+        log.info('Waiting for resource. Resource id:{}'.format(resource_id))
+        for _ in until_timeout(timeout):
+            resources = self.list_resources(service_or_unit)['resources']
+            for resource in resources:
+                if resource['expected']['resourceid'] == resource_id:
+                    if (resource['expected']['fingerprint'] ==
+                            resource['unit']['fingerprint']):
+                        return
+            time.sleep(.1)
+        raise JujuResourceTimeout(
+            'Timeout waiting for a resource to be downloaded. '
+            'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
+                resource_id, service_or_unit, timeout))
+
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
         if charm_path is not None:
@@ -1209,7 +1227,7 @@ class EnvJujuClient:
         Return the name of the environment when an 'admin' model does
         not exist.
         """
-        return 'admin'
+        return 'controller'
 
     def _acquire_model_client(self, name):
         """Get a client for a model with the supplied name.
@@ -1506,7 +1524,7 @@ class EnvJujuClient:
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
 
-    def revoke(self, username, models=None,  permissions='read'):
+    def revoke(self, username, models=None, permissions='read'):
         if models is None:
             models = self.env.environment
 
@@ -1518,6 +1536,14 @@ class EnvJujuClient:
 class EnvJujuClient2B7(EnvJujuClient):
 
     status_class = ServiceStatus
+
+    def get_admin_model_name(self):
+        """Return the name of the 'admin' model.
+
+        Return the name of the environment when an 'admin' model does
+        not exist.
+        """
+        return 'admin'
 
     def remove_service(self, service):
         self.juju('remove-service', (service,))
