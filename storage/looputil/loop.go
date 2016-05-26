@@ -64,6 +64,9 @@ func (m *loopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
 		if !strings.HasPrefix(info.backingFile, prefix) {
 			continue
 		}
+		if info.backingInode == 0 {
+			continue
+		}
 		rootedBackingFile := path.Join(rootfs, info.backingFile)
 		st, err := m.stat(rootedBackingFile)
 		if os.IsNotExist(err) {
@@ -110,7 +113,8 @@ func loopDevices(run runFunc) ([]loopDeviceInfo, error) {
 
 // e.g. "/dev/loop0: [0021]:7504142 (/tmp/test.dat)"
 //      "/dev/loop0: [002f]:7504142 (/tmp/test.dat (deleted))"
-var loopDeviceInfoRegexp = regexp.MustCompile(`^([^ ]+): \[[[:xdigit:]]+\]:(\d+) \((.*?)(?: \(.*\))?\)$`)
+//      "/dev/loop0: []: (/var/lib/lxc-btrfs.img)"
+var loopDeviceInfoRegexp = regexp.MustCompile(`^([^ ]+): \[[[:xdigit:]]*\]:(\d*) \((.*?)(?: \(.*\))?\)$`)
 
 func parseLoopDeviceInfo(line string) (loopDeviceInfo, error) {
 	submatch := loopDeviceInfoRegexp.FindStringSubmatch(line)
@@ -119,9 +123,15 @@ func parseLoopDeviceInfo(line string) (loopDeviceInfo, error) {
 	}
 	name := submatch[1]
 	backingFile := submatch[3]
-	backingInode, err := strconv.ParseUint(submatch[2], 10, 64)
-	if err != nil {
-		return loopDeviceInfo{}, errors.Annotate(err, "parsing inode")
+	var (
+		backingInode uint64
+		err          error
+	)
+	if submatch[2] != "" {
+		backingInode, err = strconv.ParseUint(submatch[2], 10, 64)
+		if err != nil {
+			return loopDeviceInfo{}, errors.Annotate(err, "parsing inode")
+		}
 	}
 	return loopDeviceInfo{name, backingFile, backingInode}, nil
 }

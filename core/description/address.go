@@ -8,6 +8,15 @@ import (
 	"github.com/juju/schema"
 )
 
+// AddressType shadows the equivalent type in the network package.
+type AddressType string
+
+const (
+	HostName    AddressType = "hostname"
+	IPv4Address AddressType = "ipv4"
+	IPv6Address AddressType = "ipv6"
+)
+
 // AddressArgs is an argument struct used to create a new internal address
 // type that supports the Address interface.
 type AddressArgs struct {

@@ -397,27 +397,29 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 		return nil, errors.Trace(err)
 	}
 	return &machineDoc{
-		DocID:                    i.st.docID(id),
-		Id:                       id,
-		ModelUUID:                i.st.ModelUUID(),
-		Nonce:                    m.Nonce(),
-		Series:                   m.Series(),
-		ContainerType:            m.ContainerType(),
-		Principals:               nil, // Set during unit import.
-		Life:                     Alive,
-		Tools:                    i.makeTools(m.Tools()),
-		Jobs:                     jobs,
-		NoVote:                   true,  // State servers can't be migrated yet.
-		HasVote:                  false, // State servers can't be migrated yet.
-		PasswordHash:             m.PasswordHash(),
-		Clean:                    true, // check this later
-		Addresses:                i.makeAddresses(m.ProviderAddresses()),
-		MachineAddresses:         i.makeAddresses(m.MachineAddresses()),
-		PreferredPrivateAddress:  i.makeAddress(m.PreferredPrivateAddress()),
-		PreferredPublicAddress:   i.makeAddress(m.PreferredPublicAddress()),
-		SupportedContainersKnown: supportedSet,
-		SupportedContainers:      supportedContainers,
-		Placement:                m.Placement(),
+		DocID:                       i.st.docID(id),
+		Id:                          id,
+		ModelUUID:                   i.st.ModelUUID(),
+		Nonce:                       m.Nonce(),
+		Series:                      m.Series(),
+		ContainerType:               m.ContainerType(),
+		Principals:                  nil, // Set during unit import.
+		Life:                        Alive,
+		Tools:                       i.makeTools(m.Tools()),
+		Jobs:                        jobs,
+		NoVote:                      true,  // State servers can't be migrated yet.
+		HasVote:                     false, // State servers can't be migrated yet.
+		PasswordHash:                m.PasswordHash(),
+		Clean:                       true, // check this later
+		Addresses:                   i.makeAddresses(m.ProviderAddresses()),
+		MachineAddresses:            i.makeAddresses(m.MachineAddresses()),
+		PreferredPrivateIPv4Address: i.makeAddress(m.PreferredPrivateAddress(description.IPv4Address)),
+		PreferredPublicIPv4Address:  i.makeAddress(m.PreferredPublicAddress(description.IPv4Address)),
+		PreferredPrivateIPv6Address: i.makeAddress(m.PreferredPrivateAddress(description.IPv6Address)),
+		PreferredPublicIPv6Address:  i.makeAddress(m.PreferredPublicAddress(description.IPv6Address)),
+		SupportedContainersKnown:    supportedSet,
+		SupportedContainers:         supportedContainers,
+		Placement:                   m.Placement(),
 	}, nil
 }
 

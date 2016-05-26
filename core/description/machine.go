@@ -30,8 +30,10 @@ type machine struct {
 	ProviderAddresses_ []*address `yaml:"provider-addresses,omitempty"`
 	MachineAddresses_  []*address `yaml:"machine-addresses,omitempty"`
 
-	PreferredPublicAddress_  *address `yaml:"preferred-public-address,omitempty"`
-	PreferredPrivateAddress_ *address `yaml:"preferred-private-address,omitempty"`
+	PreferredPublicIPv4Address_  *address `yaml:"preferred-public-ipv4-address,omitempty"`
+	PreferredPrivateIPv4Address_ *address `yaml:"preferred-private-ipv4-address,omitempty"`
+	PreferredPublicIPv6Address_  *address `yaml:"preferred-public-ipv6-address,omitempty"`
+	PreferredPrivateIPv6Address_ *address `yaml:"preferred-private-ipv6-address,omitempty"`
 
 	Tools_ *agentTools `yaml:"tools"`
 	Jobs_  []string    `yaml:"jobs"`
@@ -183,30 +185,56 @@ func (m *machine) SetAddresses(margs []AddressArgs, pargs []AddressArgs) {
 }
 
 // PreferredPublicAddress implements Machine.
-func (m *machine) PreferredPublicAddress() Address {
-	// To avoid typed nils check nil here.
-	if m.PreferredPublicAddress_ == nil {
+func (m *machine) PreferredPublicAddress(addressType AddressType) Address {
+	switch addressType {
+	case IPv4Address, HostName:
+		// To avoid typed nils check nil here.
+		if m.PreferredPublicIPv4Address_ != nil {
+			return m.PreferredPublicIPv4Address_
+		}
+		return nil
+	case IPv6Address:
+		// To avoid typed nils check nil here.
+		if m.PreferredPublicIPv6Address_ != nil {
+			return m.PreferredPublicIPv6Address_
+		}
 		return nil
 	}
-	return m.PreferredPublicAddress_
+	return nil
 }
 
 // PreferredPrivateAddress implements Machine.
-func (m *machine) PreferredPrivateAddress() Address {
-	// To avoid typed nils check nil here.
-	if m.PreferredPrivateAddress_ == nil {
+func (m *machine) PreferredPrivateAddress(addressType AddressType) Address {
+	switch addressType {
+	case IPv4Address, HostName:
+		// To avoid typed nils check nil here.
+		if m.PreferredPrivateIPv4Address_ != nil {
+			return m.PreferredPrivateIPv4Address_
+		}
+		return nil
+	case IPv6Address:
+		// To avoid typed nils check nil here.
+		if m.PreferredPrivateIPv6Address_ != nil {
+			return m.PreferredPrivateIPv6Address_
+		}
 		return nil
 	}
-	return m.PreferredPrivateAddress_
+	return nil
 }
 
 // SetPreferredAddresses implements Machine.
-func (m *machine) SetPreferredAddresses(public AddressArgs, private AddressArgs) {
-	if public.Value != "" {
-		m.PreferredPublicAddress_ = newAddress(public)
+func (m *machine) SetPreferredAddresses(publicIPv4, publicIPv6, privateIPv4, privateIPv6 AddressArgs) {
+	if publicIPv4.Value != "" {
+		m.PreferredPublicIPv4Address_ = newAddress(publicIPv4)
 	}
-	if private.Value != "" {
-		m.PreferredPrivateAddress_ = newAddress(private)
+	if publicIPv6.Value != "" {
+		m.PreferredPublicIPv6Address_ = newAddress(publicIPv6)
+	}
+	if privateIPv4.Value != "" {
+		m.PreferredPrivateIPv4Address_ = newAddress(privateIPv4)
+	}
+	if privateIPv6.Value != "" {
+		m.PreferredPrivateIPv6Address_ = newAddress(privateIPv6)
 	}
 }
 
@@ -375,10 +403,12 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"containers":           schema.List(schema.StringMap(schema.Any())),
 		"opened-ports":         schema.StringMap(schema.Any()),
 
-		"provider-addresses":        schema.List(schema.StringMap(schema.Any())),
-		"machine-addresses":         schema.List(schema.StringMap(schema.Any())),
-		"preferred-public-address":  schema.StringMap(schema.Any()),
-		"preferred-private-address": schema.StringMap(schema.Any()),
+		"provider-addresses":             schema.List(schema.StringMap(schema.Any())),
+		"machine-addresses":              schema.List(schema.StringMap(schema.Any())),
+		"preferred-public-ipv4-address":  schema.StringMap(schema.Any()),
+		"preferred-private-ipv4-address": schema.StringMap(schema.Any()),
+		"preferred-public-ipv6-address":  schema.StringMap(schema.Any()),
+		"preferred-private-ipv6-address": schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
@@ -386,13 +416,15 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"container-type": "",
 		// Even though we are expecting instance data for every machine,
 		// it isn't strictly necessary, so we allow it to not exist here.
-		"instance":                  schema.Omit,
-		"supported-containers":      schema.Omit,
-		"opened-ports":              schema.Omit,
-		"provider-addresses":        schema.Omit,
-		"machine-addresses":         schema.Omit,
-		"preferred-public-address":  schema.Omit,
-		"preferred-private-address": schema.Omit,
+		"instance":                       schema.Omit,
+		"supported-containers":           schema.Omit,
+		"opened-ports":                   schema.Omit,
+		"provider-addresses":             schema.Omit,
+		"machine-addresses":              schema.Omit,
+		"preferred-public-ipv4-address":  schema.Omit,
+		"preferred-private-ipv4-address": schema.Omit,
+		"preferred-public-ipv6-address":  schema.Omit,
+		"preferred-private-ipv6-address": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -479,20 +511,36 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		result.MachineAddresses_ = machineAddresses
 	}
 
-	if address, ok := valid["preferred-public-address"]; ok {
-		publicAddress, err := importAddress(address.(map[string]interface{}))
+	if address, ok := valid["preferred-public-ipv4-address"]; ok {
+		publicIPv4Address, err := importAddress(address.(map[string]interface{}))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result.PreferredPublicAddress_ = publicAddress
+		result.PreferredPublicIPv4Address_ = publicIPv4Address
 	}
 
-	if address, ok := valid["preferred-private-address"]; ok {
-		privateAddress, err := importAddress(address.(map[string]interface{}))
+	if address, ok := valid["preferred-private-ipv4-address"]; ok {
+		privateIPv4Address, err := importAddress(address.(map[string]interface{}))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result.PreferredPrivateAddress_ = privateAddress
+		result.PreferredPrivateIPv4Address_ = privateIPv4Address
+	}
+
+	if address, ok := valid["preferred-public-ipv6-address"]; ok {
+		publicIPv6Address, err := importAddress(address.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.PreferredPublicIPv6Address_ = publicIPv6Address
+	}
+
+	if address, ok := valid["preferred-private-ipv6-address"]; ok {
+		privateIPv6Address, err := importAddress(address.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.PreferredPrivateIPv6Address_ = privateIPv6Address
 	}
 
 	machineList := valid["containers"].([]interface{})

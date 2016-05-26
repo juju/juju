@@ -47,12 +47,12 @@ func (s *upgradesSuite) removePreferredAddressFields(c *gc.C, machine *Machine) 
 
 	err := machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.D{{"preferredpublicaddress", ""}}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machinesCol.Update(
-		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.D{{"preferredprivateaddress", ""}}}},
+		bson.D{{"$unset", bson.D{
+			{"preferredpublicipv4address", nil},
+			{"preferredpublicipv6address", nil},
+			{"preferredprivateipv4address", nil},
+			{"preferredprivateipv6address", nil},
+		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -64,33 +64,59 @@ func (s *upgradesSuite) setPreferredAddressFields(c *gc.C, machine *Machine, add
 	stateAddr := fromNetworkAddress(network.NewAddress(addr), OriginUnknown)
 	err := machinesCol.Update(
 		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$set", bson.D{{"preferredpublicaddress", stateAddr}}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machinesCol.Update(
-		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$set", bson.D{{"preferredprivateaddress", stateAddr}}}},
+		bson.D{{"$set", bson.D{
+			{"preferredpublicipv4address", stateAddr},
+			{"preferredpublicipv6address", stateAddr},
+			{"preferredprivateipv4address", stateAddr},
+			{"preferredprivateipv6address", stateAddr},
+		}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAddress string) {
+func assertMachineAddresses(c *gc.C, machine *Machine, publicAddresses, privateAddresses []string) {
 	err := machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+
 	addr, err := machine.PublicAddress()
-	if publicAddress != "" {
+	if len(publicAddresses) > 0 {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
-	c.Assert(addr.Value, gc.Equals, publicAddress)
+
+	// Since PublicAddress() will return IPv4 if available or IPv6 otherwise, we
+	// need to check at least one is set.
+	atLeastOneFound := false
+	for _, publicAddress := range publicAddresses {
+		if addr.Value == publicAddress {
+			atLeastOneFound = true
+		}
+	}
+	c.Assert(
+		atLeastOneFound || len(publicAddresses) == 0, jc.IsTrue,
+		gc.Commentf("none of the expected %+v public addresses found!", publicAddresses),
+	)
+
 	privAddr, err := machine.PrivateAddress()
-	if privateAddress != "" {
+	if len(privateAddresses) > 0 {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
-	c.Assert(privAddr.Value, gc.Equals, privateAddress)
+
+	// Since PrivateAddress() will return IPv4 if available or IPv6 otherwise,
+	// we need to check at least one is set.
+	atLeastOneFound = false
+	for _, privateAddress := range privateAddresses {
+		if privAddr.Value == privateAddress {
+			atLeastOneFound = true
+		}
+	}
+	c.Assert(
+		atLeastOneFound || len(privateAddresses) == 0, jc.IsTrue,
+		gc.Commentf("none of the expected %+v private addresses found!", privateAddresses),
+	)
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
@@ -139,9 +165,9 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 	err := AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	assertMachineAddresses(c, m1, []string{"8.8.8.8"}, []string{"8.8.8.8"})
+	assertMachineAddresses(c, m2, []string{"8.8.4.4"}, []string{"10.0.0.2"})
+	assertMachineAddresses(c, m3, nil, nil)
 }
 
 func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
@@ -153,16 +179,16 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
 	err := AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	assertMachineAddresses(c, m1, []string{"8.8.8.8"}, []string{"8.8.8.8"})
+	assertMachineAddresses(c, m2, []string{"8.8.4.4"}, []string{"10.0.0.2"})
+	assertMachineAddresses(c, m3, nil, nil)
 
 	err = AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	assertMachineAddresses(c, m1, []string{"8.8.8.8"}, []string{"8.8.8.8"})
+	assertMachineAddresses(c, m2, []string{"8.8.4.4"}, []string{"10.0.0.2"})
+	assertMachineAddresses(c, m3, nil, nil)
 }
 
 func (s *upgradesSuite) TestAddPreferredAddressesToMachinesUpdatesExistingFields(c *gc.C) {
@@ -191,9 +217,17 @@ func (s *upgradesSuite) TestAddPreferredAddressesToMachinesUpdatesExistingFields
 	err := AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	// Since both PrivateAddress() and PublicAddress() can return IPv4 if
+	// available, or IPv6 otherwise, we need to expect both options below, the
+	// second one (1.1.2.2) being the IPv6 case.
+	possibleAddressesMachine0 := []string{"8.8.8.8", "1.1.2.2"}
+	possiblePublicAddressesMachine1 := []string{"8.8.4.4", "1.1.2.2"}
+	possiblePrivateAddressesMachine1 := []string{"10.0.0.2", "1.1.2.2"}
+	possibleAddressesMachine2 := []string{"1.1.2.2"}
+
+	assertMachineAddresses(c, m1, possibleAddressesMachine0, possibleAddressesMachine0)
+	assertMachineAddresses(c, m2, possiblePublicAddressesMachine1, possiblePrivateAddressesMachine1)
+	assertMachineAddresses(c, m3, possibleAddressesMachine2, possibleAddressesMachine2)
 }
 
 func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
