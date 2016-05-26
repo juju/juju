@@ -9,7 +9,7 @@ REPOSITORY=${JUJU_REPOSITORY:-$(dirname $SCRIPTS)/repository}
 MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     wily-slave.vapour.ws xenial-slave.vapour.ws \
-    ppc64el-slave.vapour.ws i386-slave.vapour.ws arm64-slave.vapour.ws \
+    ppc64el-slave.vapour.ws arm64-slave.vapour.ws \
     kvm-slave.vapour.ws jujuqa-stack-slave.internal \
     munna-maas-slave.vapour.ws  silcoon-maas-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
