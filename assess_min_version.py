@@ -49,7 +49,7 @@ def make_minver_charm(charm_dir, min_ver):
     charm = Charm('minver',
                   'Test charm for min-juju-version {}'.format(min_ver))
     charm.metadata['min-juju-version'] = min_ver
-    charm.to_dir(min_ver)
+    charm.to_dir(charm_dir)
 
 
 def assess_deploy(client, assertion, ver, current, name):
