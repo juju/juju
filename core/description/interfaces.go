@@ -60,6 +60,9 @@ type Model interface {
 	Relations() []Relation
 	AddRelation(RelationArgs) Relation
 
+	IPAddresses() []IPAddress
+	AddIPAddress(IPAddressArgs) IPAddress
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -303,4 +306,8 @@ type Endpoint interface {
 
 	Settings(unitName string) map[string]interface{}
 	SetUnitSettings(unitName string, settings map[string]interface{})
+}
+
+// IPAddress represents an IP address.
+type IPAddress interface {
 }
