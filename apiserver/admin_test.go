@@ -50,29 +50,25 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 }
 
 type loginV0Suite struct {
-	loginSuite
+	baseLoginSuite
 }
 
 var _ = gc.Suite(&loginV0Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 0)
-			},
+	baseLoginSuite{
+		setAdminApi: func(srv *apiserver.Server) {
+			apiserver.SetAdminApiVersions(srv, 0)
 		},
 	},
 })
 
 type loginV1Suite struct {
-	loginSuite
+	baseLoginSuite
 }
 
 var _ = gc.Suite(&loginV1Suite{
-	loginSuite{
-		baseLoginSuite{
-			setAdminApi: func(srv *apiserver.Server) {
-				apiserver.SetAdminApiVersions(srv, 1)
-			},
+	baseLoginSuite{
+		setAdminApi: func(srv *apiserver.Server) {
+			apiserver.SetAdminApiVersions(srv, 1)
 		},
 	},
 })
@@ -904,7 +900,8 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	defer st.Close()
 
 	err = st.Login(machine.Tag().String(), password, "nonce")
-	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+	c.Assert(err, gc.ErrorMatches, `permission denied`)
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st api.Connection, expected names.EnvironTag) {

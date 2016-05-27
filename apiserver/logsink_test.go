@@ -66,19 +66,19 @@ func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "invalid request format")
+	s.checkAuthFails(c, nil, "request format not valid")
 }
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFailsWithEntityError(c, header)
+	s.checkAuthFailsWithEntityError(c, header, "tag kind user not valid")
 }
 
 func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add("X-Juju-Nonce", s.nonce)
-	s.checkAuthFailsWithEntityError(c, header)
+	s.checkAuthFailsWithEntityError(c, header, "invalid entity name or password")
 }
 
 func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
@@ -87,8 +87,8 @@ func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
 	s.checkAuthFails(c, header, "machine 0 not provisioned")
 }
 
-func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header) {
-	s.checkAuthFails(c, header, "invalid entity name or password")
+func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header, msg string) {
+	s.checkAuthFails(c, header, msg)
 }
 
 func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {

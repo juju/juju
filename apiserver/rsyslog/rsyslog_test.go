@@ -95,7 +95,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 
 	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	err = unitState.Rsyslog().SetRsyslogCert(coretesting.CACert, coretesting.CAKey)
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	// Verify no change was effected.
 	verifyRsyslogCACert(c, unitState.Rsyslog(), "", "")
