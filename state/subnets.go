@@ -327,7 +327,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 
 	// pick a new random decimal between the low and high bounds that
 	// doesn't match an existing one
-	newDecimal := pickAddress(lowDecimal, highDecimal, allocated)
+	newDecimal := PickAddress(lowDecimal, highDecimal, allocated)
 
 	// convert it back to a dotted-quad
 	newIP := network.DecimalToIPv4(newDecimal)
@@ -343,7 +343,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 // e.g. pickAddress(uint32(2700), uint32(2800), map[uint32]bool{uint32(2701): true})
 // The allocated map is just being used as a set of unavailable addresses, so
 // the bool value isn't significant.
-var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
+var PickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
 	// +1 because Int63n will pick a number up to, but not including, the
 	// bounds we provide.
 	bounds := uint32(high-low) + 1

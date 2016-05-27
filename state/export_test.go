@@ -51,7 +51,6 @@ var (
 	PortsGlobalKey         = portsGlobalKey
 	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 	ServiceGlobalKey       = serviceGlobalKey
