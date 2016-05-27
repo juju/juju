@@ -24,6 +24,13 @@ type ControllerDetails struct {
 
 	// CACert is a security certificate for this controller.
 	CACert string `yaml:"ca-cert"`
+
+	// Cloud is the name of the cloud that this controller runs in.
+	Cloud string `yaml:"cloud"`
+
+	// CloudRegion is the name of the cloud region that this controller
+	// runs in. This will be empty for clouds without regions.
+	CloudRegion string `yaml:"region,omitempty"`
 }
 
 // ModelDetails holds details of a model.
