@@ -672,9 +672,10 @@ class BootstrapManager:
 
     def dump_all_logs(self):
         """Dump logs for all models in the bootstrapped controller."""
-        from tests.test_jujupy import FakeBackend  # Circular imports
-        if isinstance(self.client._backend, FakeBackend):
-            return
+        if sys.platform != 'win32':
+            from tests.test_jujupy import FakeBackend  # Circular imports
+            if isinstance(self.client._backend, FakeBackend):
+                return
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.
         admin_client = self.client.get_admin_client()
