@@ -205,6 +205,7 @@ func (s *keyManagerSuite) TestAddJujuSystemKeyNotMachine(c *gc.C) {
 	}
 	_, err = s.keymanager.AddKeys(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	s.assertEnvironKeys(c, []string{key1})
 }
 
