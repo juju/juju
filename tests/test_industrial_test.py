@@ -5,6 +5,7 @@ from contextlib import (
     closing,
     contextmanager,
     )
+import json
 import os
 from tempfile import (
     mkdtemp,
@@ -146,10 +147,10 @@ def patch_status(client, *statuses):
     """
     kwargs = {}
     if len(statuses) > 1:
-        kwargs['side_effect'] = (Status.from_text(yaml.safe_dump(s))
+        kwargs['side_effect'] = (Status.from_text(json.dumps(s))
                                  for s in statuses).next
     else:
-        kwargs['return_value'] = Status.from_text(yaml.safe_dump(statuses[0]))
+        kwargs['return_value'] = Status.from_text(json.dumps(statuses[0]))
     if client is not None:
         return patch.object(client, 'get_status', autospec=True, **kwargs)
     return patch('jujupy.EnvJujuClient.get_status', autospec=True, **kwargs)
