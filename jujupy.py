@@ -565,7 +565,9 @@ class EnvJujuClient:
         elif self.env is None or not include_e:
             return None
         else:
-            return self.model_name
+            return '{controller}:{model}'.format(
+                controller=self.env.controller.name,
+                model=self.model_name)
 
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
@@ -1077,8 +1079,9 @@ class EnvJujuClient:
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
+        # This should be using controller name
         output = self.get_juju_output(
-            'list-models', '-c', self.env.environment, '--format', 'yaml',
+            'list-models', '-c', self.env.controller.name, '--format', 'yaml',
             include_e=False)
         models = yaml_loads(output)
         return models
