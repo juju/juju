@@ -6,8 +6,8 @@ package description
 import (
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // HasAnnotations defines the common methods for setting and
@@ -207,7 +207,7 @@ type Service interface {
 	HasConstraints
 	HasStatusHistory
 
-	Tag() names.ServiceTag
+	Tag() names.ApplicationTag
 	Name() string
 	Series() string
 	Subordinate() bool

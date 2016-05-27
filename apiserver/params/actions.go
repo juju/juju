@@ -131,7 +131,7 @@ type ServicesCharmActionsResults struct {
 // If an error such as a missing charm or malformed service name occurs, it
 // is encapsulated in this type.
 type ServiceCharmActionsResult struct {
-	ServiceTag string         `json:"servicetag,omitempty"`
-	Actions    *charm.Actions `json:"actions,omitempty"`
-	Error      *Error         `json:"error,omitempty"`
+	ApplicationTag string         `json:"ApplicationTag,omitempty"`
+	Actions        *charm.Actions `json:"actions,omitempty"`
+	Error          *Error         `json:"error,omitempty"`
 }

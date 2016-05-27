@@ -6,7 +6,7 @@ package firewaller
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
@@ -16,7 +16,7 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  names.ServiceTag
+	tag  names.ApplicationTag
 	life params.Life
 }
 
@@ -26,7 +26,7 @@ func (s *Service) Name() string {
 }
 
 // Tag returns the service tag.
-func (s *Service) Tag() names.ServiceTag {
+func (s *Service) Tag() names.ApplicationTag {
 	return s.tag
 }
 

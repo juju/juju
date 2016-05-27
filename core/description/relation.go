@@ -143,7 +143,7 @@ type endpoints struct {
 }
 
 type endpoint struct {
-	ServiceName_ string `yaml:"service-name"`
+	ServiceName_ string `yaml:"application-name"`
 	Name_        string `yaml:"name"`
 	Role_        string `yaml:"role"`
 	Interface_   string `yaml:"interface"`
@@ -277,14 +277,14 @@ var endpointDeserializationFuncs = map[int]endpointDeserializationFunc{
 
 func importEndpointV1(source map[string]interface{}) (*endpoint, error) {
 	fields := schema.Fields{
-		"service-name":  schema.String(),
-		"name":          schema.String(),
-		"role":          schema.String(),
-		"interface":     schema.String(),
-		"optional":      schema.Bool(),
-		"limit":         schema.Int(),
-		"scope":         schema.String(),
-		"unit-settings": schema.StringMap(schema.StringMap(schema.Any())),
+		"application-name": schema.String(),
+		"name":             schema.String(),
+		"role":             schema.String(),
+		"interface":        schema.String(),
+		"optional":         schema.Bool(),
+		"limit":            schema.Int(),
+		"scope":            schema.String(),
+		"unit-settings":    schema.StringMap(schema.StringMap(schema.Any())),
 	}
 
 	checker := schema.FieldMap(fields, nil) // No defaults.
@@ -298,7 +298,7 @@ func importEndpointV1(source map[string]interface{}) (*endpoint, error) {
 	// contains fields of the right type.
 
 	result := &endpoint{
-		ServiceName_:  valid["service-name"].(string),
+		ServiceName_:  valid["application-name"].(string),
 		Name_:         valid["name"].(string),
 		Role_:         valid["role"].(string),
 		Interface_:    valid["interface"].(string),

@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // NewStatePool returns a new StatePool instance. It takes a State

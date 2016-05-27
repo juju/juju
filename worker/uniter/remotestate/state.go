@@ -4,8 +4,8 @@
 package remotestate
 
 import (
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -45,7 +45,7 @@ type Service interface {
 	// Refresh syncs this value with the api server.
 	Refresh() error
 	// Tag returns the tag for this service.
-	Tag() names.ServiceTag
+	Tag() names.ApplicationTag
 	// Watch returns a watcher that fires when this service changes.
 	Watch() (watcher.NotifyWatcher, error)
 	// WatchLeadershipSettings returns a watcher that fires when the leadership

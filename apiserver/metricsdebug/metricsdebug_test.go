@@ -144,7 +144,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 		about: "not such service",
 		params: params.MeterStatusParams{
 			Statuses: []params.MeterStatusParam{{
-				Tag:  "service-missing",
+				Tag:  "application-missing",
 				Code: "AMBER",
 				Info: "test",
 			},
@@ -260,7 +260,7 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
 	})
 
 	args := params.Entities{Entities: []params.Entity{
-		{"service-metered"},
+		{"application-metered"},
 	}}
 
 	metrics, err := s.metricsdebug.GetMetrics(args)

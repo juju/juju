@@ -6,9 +6,9 @@ package uniter
 import (
 	"os"
 
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/operation"
 )

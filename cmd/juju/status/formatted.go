@@ -67,7 +67,7 @@ type serviceStatus struct {
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo    statusInfoContents    `json:"service-status,omitempty" yaml:"service-status"`
+	StatusInfo    statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`

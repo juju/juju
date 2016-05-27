@@ -207,7 +207,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		"db-client":       "db",
 		"admin-api":       "internal",
 		"cluster":         "public",
-		"foo-bar":         "public", // like for relations, uses the service-default.
+		"foo-bar":         "public", // like for relations, uses the application-default.
 	})
 }
 

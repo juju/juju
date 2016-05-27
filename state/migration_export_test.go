@@ -7,10 +7,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
@@ -108,7 +108,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	err = s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
 	c.Assert(err, jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
-	fooSeq := s.setRandSequenceValue(c, "service-foo")
+	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 
 	model, err := s.State.Export()
@@ -128,8 +128,8 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
 	c.Assert(constraints.Memory(), gc.Equals, 8*gig)
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
-		"machine":     machineSeq,
-		"service-foo": fooSeq,
+		"machine":         machineSeq,
+		"application-foo": fooSeq,
 		// blocks is added by the switch block on call above.
 		"block": 1,
 	})
@@ -248,7 +248,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 
 	exported := services[0]
 	c.Assert(exported.Name(), gc.Equals, service.Name())
-	c.Assert(exported.Tag(), gc.Equals, service.ServiceTag())
+	c.Assert(exported.Tag(), gc.Equals, service.ApplicationTag())
 	c.Assert(exported.Series(), gc.Equals, service.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 

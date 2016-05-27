@@ -94,7 +94,7 @@ func (c *StatusGetCommand) ServiceStatus(ctx *cmd.Context) error {
 		units[unit.Tag] = toDetails(unit, c.includeData)
 	}
 	details["units"] = units
-	statusDetails["service-status"] = details
+	statusDetails["application-status"] = details
 	c.out.Write(ctx, statusDetails)
 
 	return nil

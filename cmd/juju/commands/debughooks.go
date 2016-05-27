@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -80,7 +80,7 @@ func (c *debugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	service, err := names.UnitService(c.Target)
+	service, err := names.UnitApplication(c.Target)
 	if err != nil {
 		return err
 	}

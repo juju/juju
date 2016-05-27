@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	backupsAPI "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
@@ -73,7 +73,7 @@ func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
-	s.authorizer.Tag = names.NewServiceTag("eggs")
+	s.authorizer.Tag = names.NewApplicationTag("eggs")
 	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)

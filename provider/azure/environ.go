@@ -19,11 +19,11 @@ import (
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
@@ -677,7 +677,7 @@ func createAvailabilitySet(
 			if !names.IsValidUnit(unitName) {
 				continue
 			}
-			serviceName, err := names.UnitService(unitName)
+			serviceName, err := names.UnitApplication(unitName)
 			if err != nil {
 				return "", errors.Annotate(
 					err, "getting service name",

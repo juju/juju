@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/action"
 	"github.com/juju/juju/apiserver/common"
@@ -297,7 +297,7 @@ var testCases = []testCase{{
 	Groups: []receiverGroup{
 		{
 			ExpectedError: &params.Error{Message: "id not found", Code: "not found"},
-			Receiver:      names.NewServiceTag("wordpress"),
+			Receiver:      names.NewApplicationTag("wordpress"),
 			Actions:       []testCaseAction{},
 		}, {
 			Receiver: names.NewUnitTag("wordpress/0"),
@@ -663,7 +663,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
 				{
-					ServiceTag: names.NewServiceTag("dummy").String(),
+					ApplicationTag: names.NewApplicationTag("dummy").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
 							"snapshot": {
@@ -680,7 +680,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
 				{
-					ServiceTag: names.NewServiceTag("wordpress").String(),
+					ApplicationTag: names.NewApplicationTag("wordpress").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
 							"fakeaction": {
@@ -697,7 +697,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		expectedResults: params.ServicesCharmActionsResults{
 			Results: []params.ServiceCharmActionsResult{
 				{
-					ServiceTag: names.NewServiceTag("nonsense").String(),
+					ApplicationTag: names.NewApplicationTag("nonsense").String(),
 					Error: &params.Error{
 						Message: `service "nonsense" not found`,
 						Code:    "not found",
@@ -715,7 +715,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		}
 
 		for j, svc := range t.serviceNames {
-			svcTag := names.NewServiceTag(svc)
+			svcTag := names.NewApplicationTag(svc)
 			svcTags.Entities[j] = params.Entity{Tag: svcTag.String()}
 		}
 

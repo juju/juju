@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/metricsdebug"
@@ -52,8 +52,8 @@ func (c *SetMeterStatusCommand) Init(args []string) error {
 	}
 	if names.IsValidUnit(args[0]) {
 		c.Tag = names.NewUnitTag(args[0])
-	} else if names.IsValidService(args[0]) {
-		c.Tag = names.NewServiceTag(args[0])
+	} else if names.IsValidApplication(args[0]) {
+		c.Tag = names.NewApplicationTag(args[0])
 	} else {
 		return errors.Errorf("%q is not a valid unit or service", args[0])
 	}

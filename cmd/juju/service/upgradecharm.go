@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
 
@@ -132,7 +132,7 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *upgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
-		if !names.IsValidService(args[0]) {
+		if !names.IsValidApplication(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName = args[0]

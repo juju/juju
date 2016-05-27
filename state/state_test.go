@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
 
@@ -2773,7 +2773,7 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewMachineTag("0"),
 }, {
-	tag: names.NewServiceTag("ser-vice2"),
+	tag: names.NewApplicationTag("ser-vice2"),
 }, {
 	tag: names.NewRelationTag("wordpress:db ser-vice2:server"),
 }, {
@@ -2793,13 +2793,13 @@ var findEntityTests = []findEntityTest{{
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind:     (*state.User)(nil),
-	names.ModelTagKind:    (*state.Model)(nil),
-	names.ServiceTagKind:  (*state.Service)(nil),
-	names.UnitTagKind:     (*state.Unit)(nil),
-	names.MachineTagKind:  (*state.Machine)(nil),
-	names.RelationTagKind: (*state.Relation)(nil),
-	names.ActionTagKind:   (state.Action)(nil),
+	names.UserTagKind:        (*state.User)(nil),
+	names.ModelTagKind:       (*state.Model)(nil),
+	names.ApplicationTagKind: (*state.Service)(nil),
+	names.UnitTagKind:        (*state.Unit)(nil),
+	names.MachineTagKind:     (*state.Machine)(nil),
+	names.RelationTagKind:    (*state.Relation)(nil),
+	names.ActionTagKind:      (state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -2869,7 +2869,7 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	c.Assert(id, gc.Equals, state.DocID(s.State, m.Id()))
 }
 
-func (s *StateSuite) TestParseServiceTag(c *gc.C) {
+func (s *StateSuite) TestParseApplicationTag(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, svc.Tag())
 	c.Assert(err, jc.ErrorIsNil)

@@ -421,7 +421,7 @@ func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Li
 var commonFakeEntities = []params.Entity{
 	{Tag: "machine-42"},
 	{Tag: "unit-foo-0"},
-	{Tag: "service-bar"},
+	{Tag: "application-bar"},
 	{Tag: "user-foo"},
 	{Tag: "foo-bar"},
 	{Tag: ""},

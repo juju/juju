@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
@@ -355,7 +355,7 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 // SetServiceStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
 func (ctx *HookContext) SetServiceStatus(serviceStatus jujuc.StatusInfo) error {
-	logger.Tracef("[SERVICE-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
+	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")

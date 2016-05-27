@@ -6,8 +6,8 @@ package remotestate_test
 import (
 	"sync"
 
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -234,7 +234,7 @@ func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 }
 
 type mockService struct {
-	tag                   names.ServiceTag
+	tag                   names.ApplicationTag
 	life                  params.Life
 	curl                  *charm.URL
 	charmModifiedVersion  int
@@ -260,7 +260,7 @@ func (s *mockService) Refresh() error {
 	return nil
 }
 
-func (s *mockService) Tag() names.ServiceTag {
+func (s *mockService) Tag() names.ApplicationTag {
 	return s.tag
 }
 

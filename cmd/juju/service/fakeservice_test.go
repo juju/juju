@@ -21,13 +21,13 @@ type fakeServiceAPI struct {
 	err         error
 }
 
-func (f *fakeServiceAPI) Update(args params.ServiceUpdate) error {
+func (f *fakeServiceAPI) Update(args params.ApplicationUpdate) error {
 	if f.err != nil {
 		return f.err
 	}
 
-	if args.ServiceName != f.serviceName {
-		return errors.NotFoundf("service %q", args.ServiceName)
+	if args.ApplicationName != f.serviceName {
+		return errors.NotFoundf("service %q", args.ApplicationName)
 	}
 
 	f.config = args.SettingsYAML
@@ -38,7 +38,7 @@ func (f *fakeServiceAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAPI) Get(service string) (*params.ServiceGetResults, error) {
+func (f *fakeServiceAPI) Get(service string) (*params.ApplicationGetResults, error) {
 	if service != f.serviceName {
 		return nil, errors.NotFoundf("service %q", service)
 	}
@@ -52,10 +52,10 @@ func (f *fakeServiceAPI) Get(service string) (*params.ServiceGetResults, error) 
 		}
 	}
 
-	return &params.ServiceGetResults{
-		Service: f.serviceName,
-		Charm:   f.charmName,
-		Config:  configInfo,
+	return &params.ApplicationGetResults{
+		Application: f.serviceName,
+		Charm:       f.charmName,
+		Config:      configInfo,
 	}, nil
 }
 

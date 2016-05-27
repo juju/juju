@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/action"
@@ -38,7 +38,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectedSvc          names.ServiceTag
+		expectedSvc          names.ApplicationTag
 		expectedOutputSchema bool
 		expectedErr          string
 	}{{
@@ -56,12 +56,12 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "init properly with valid service name",
 		args:        []string{validServiceId},
-		expectedSvc: names.NewServiceTag(validServiceId),
+		expectedSvc: names.NewApplicationTag(validServiceId),
 	}, {
 		should:               "init properly with valid service name and --schema",
 		args:                 []string{"--schema", validServiceId},
 		expectedOutputSchema: true,
-		expectedSvc:          names.NewServiceTag(validServiceId),
+		expectedSvc:          names.NewApplicationTag(validServiceId),
 	}}
 
 	for i, t := range tests {
@@ -72,7 +72,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
+				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
 				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)

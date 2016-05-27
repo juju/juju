@@ -11,8 +11,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -71,7 +71,7 @@ func (c *collectMetricsCommand) Init(args []string) error {
 	c.entity = args[0]
 	if names.IsValidUnit(c.entity) {
 		c.unit = c.entity
-	} else if names.IsValidService(args[0]) {
+	} else if names.IsValidApplication(args[0]) {
 		c.service = c.entity
 	} else {
 		return errors.Errorf("%q is not a valid unit or service", args[0])
@@ -141,7 +141,7 @@ func isLocalCharmURL(conn api.Connection, entity string) (bool, error) {
 	serviceName := entity
 	var err error
 	if names.IsValidUnit(entity) {
-		serviceName, err = names.UnitService(entity)
+		serviceName, err = names.UnitApplication(entity)
 		if err != nil {
 			return false, errors.Trace(err)
 		}

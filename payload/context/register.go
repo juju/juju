@@ -80,7 +80,7 @@ func (c *RegisterCmd) Run(ctx *cmd.Context) error {
 		ID:     c.id,
 		Status: payload.StateRunning,
 		Labels: c.labels,
-		Unit:   "a-service/0", // TODO(ericsnow) eliminate this!
+		Unit:   "a-application/0", // TODO(ericsnow) eliminate this!
 	}
 	if err := c.hctx.Track(pl); err != nil {
 		return errors.Trace(err)

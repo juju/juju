@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"

@@ -40,11 +40,11 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	results, err := s.serviceApi.Get(params.ServiceGet{"wordpress"})
+	results, err := s.serviceApi.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ServiceGetResults{
-		Service: "wordpress",
-		Charm:   "wordpress",
+	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
 		Config: map[string]interface{}{
 			"blog-title": map[string]interface{}{
 				"type":        "string",
@@ -57,7 +57,7 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 }
 
 func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
-	_, err := s.serviceApi.Get(params.ServiceGet{"unknown"})
+	_, err := s.serviceApi.Get(params.ApplicationGet{"unknown"})
 	c.Assert(err, gc.ErrorMatches, `service "unknown" not found`)
 }
 
@@ -66,7 +66,7 @@ var getTests = []struct {
 	charm       string
 	constraints string
 	config      charm.Settings
-	expect      params.ServiceGetResults
+	expect      params.ApplicationGetResults
 }{{
 	about:       "deployed service",
 	charm:       "dummy",
@@ -80,7 +80,7 @@ var getTests = []struct {
 		"skill-level": nil,
 		// Outlook is left unset.
 	},
-	expect: params.ServiceGetResults{
+	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{
 			"title": map[string]interface{}{
 				"description": "A descriptive title used for the service.",
@@ -117,7 +117,7 @@ var getTests = []struct {
 		// String value.
 		"outlook": "phlegmatic",
 	},
-	expect: params.ServiceGetResults{
+	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{
 			"title": map[string]interface{}{
 				"description": "A descriptive title used for the service.",
@@ -150,7 +150,7 @@ var getTests = []struct {
 }, {
 	about: "subordinate service",
 	charm: "logging",
-	expect: params.ServiceGetResults{
+	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{},
 	},
 }}
@@ -173,7 +173,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		}
 		expect := t.expect
 		expect.Constraints = constraintsv
-		expect.Service = svc.Name()
+		expect.Application = svc.Name()
 		expect.Charm = ch.Meta().Name
 		client := apiservice.NewClient(s.APIState)
 		got, err := client.Get(svc.Name())

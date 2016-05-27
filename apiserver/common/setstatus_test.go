@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -301,7 +301,7 @@ func (unitAgentFinderSuite) TestFindEntity(c *gc.C) {
 
 func (unitAgentFinderSuite) TestFindEntityBadTag(c *gc.C) {
 	ua := &common.UnitAgentFinder{fakeEntityFinder{}}
-	_, err := ua.FindEntity(names.NewServiceTag("foo"))
+	_, err := ua.FindEntity(names.NewApplicationTag("foo"))
 	c.Assert(err, gc.ErrorMatches, "unsupported tag.*")
 }
 

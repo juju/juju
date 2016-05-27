@@ -81,7 +81,7 @@ func (s *LeadershipSuite) TestBlockValidatesServiceName(c *gc.C) {
 func (s *LeadershipSuite) TestClaimExpire(c *gc.C) {
 
 	// Claim on behalf of one unit.
-	err := s.claimer.ClaimLeadership("service", "service/0", time.Minute)
+	err := s.claimer.ClaimLeadership("service", "application/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Claim on behalf of another.
@@ -99,10 +99,10 @@ func (s *LeadershipSuite) TestClaimExpire(c *gc.C) {
 func (s *LeadershipSuite) TestCheck(c *gc.C) {
 
 	// Create a single token for use by the whole test.
-	token := s.checker.LeadershipCheck("service", "service/0")
+	token := s.checker.LeadershipCheck("service", "application/0")
 
 	// Claim leadership.
-	err := s.claimer.ClaimLeadership("service", "service/0", time.Minute)
+	err := s.claimer.ClaimLeadership("service", "application/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check token reports current leadership state.
@@ -117,7 +117,7 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 	// Check leadership still reported accurately.
 	var ops2 []txn.Op
 	err = token.Check(&ops2)
-	c.Check(err, gc.ErrorMatches, `"service/0" is not leader of "service"`)
+	c.Check(err, gc.ErrorMatches, `"application/0" is not leader of "service"`)
 	c.Check(ops2, gc.IsNil)
 }
 

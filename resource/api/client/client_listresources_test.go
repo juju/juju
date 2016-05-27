@@ -21,12 +21,12 @@ type ListResourcesSuite struct {
 }
 
 func (s *ListResourcesSuite) TestOkay(c *gc.C) {
-	expected, apiResult := newResourceResult(c, "a-service", "spam")
-	s.facade.apiResults["a-service"] = apiResult
+	expected, apiResult := newResourceResult(c, "a-application", "spam")
+	s.facade.apiResults["a-application"] = apiResult
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service"}
+	services := []string{"a-application"}
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -37,7 +37,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	s.stub.CheckCall(c, 0, "FacadeCall",
 		"ListResources",
 		&api.ListResourcesArgs{[]params.Entity{{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		}}},
 		&api.ResourcesResults{
 			Results: []api.ResourcesResult{
@@ -48,14 +48,14 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestBulk(c *gc.C) {
-	expected1, apiResult1 := newResourceResult(c, "a-service", "spam")
-	s.facade.apiResults["a-service"] = apiResult1
+	expected1, apiResult1 := newResourceResult(c, "a-application", "spam")
+	s.facade.apiResults["a-application"] = apiResult1
 	expected2, apiResult2 := newResourceResult(c, "other-service", "eggs", "ham")
 	s.facade.apiResults["other-service"] = apiResult2
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service", "other-service"}
+	services := []string{"a-application", "other-service"}
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -68,9 +68,9 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 		"ListResources",
 		&api.ListResourcesArgs{[]params.Entity{
 			{
-				Tag: "service-a-service",
+				Tag: "application-a-application",
 			}, {
-				Tag: "service-other-service",
+				Tag: "application-other-service",
 			},
 		}},
 		&api.ResourcesResults{
@@ -106,7 +106,7 @@ func (s *ListResourcesSuite) TestBadServices(c *gc.C) {
 func (s *ListResourcesSuite) TestServiceNotFound(c *gc.C) {
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service"}
+	services := []string{"a-application"}
 	_, err := cl.ListResources(services)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -114,11 +114,11 @@ func (s *ListResourcesSuite) TestServiceNotFound(c *gc.C) {
 }
 
 func (s *ListResourcesSuite) TestServiceEmpty(c *gc.C) {
-	s.facade.apiResults["a-service"] = api.ResourcesResult{}
+	s.facade.apiResults["a-application"] = api.ResourcesResult{}
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service"}
+	services := []string{"a-application"}
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -136,7 +136,7 @@ func (s *ListResourcesSuite) TestServerError(c *gc.C) {
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service"}
+	services := []string{"a-application"}
 	_, err := cl.ListResources(services)
 
 	c.Check(err, gc.ErrorMatches, `<failure>`)
@@ -157,7 +157,7 @@ func (s *ListResourcesSuite) TestTooFew(c *gc.C) {
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service", "other-service"}
+	services := []string{"a-application", "other-service"}
 	results, err := cl.ListResources(services)
 
 	c.Check(results, gc.HasLen, 0)
@@ -183,7 +183,7 @@ func (s *ListResourcesSuite) TestTooMany(c *gc.C) {
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service", "other-service"}
+	services := []string{"a-application", "other-service"}
 	results, err := cl.ListResources(services)
 
 	c.Check(results, gc.HasLen, 0)
@@ -209,7 +209,7 @@ func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-service"}
+	services := []string{"a-application"}
 	_, err := cl.ListResources(services)
 
 	c.Check(err, gc.ErrorMatches, `.*got bad data.*`)

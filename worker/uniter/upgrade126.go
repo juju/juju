@@ -4,8 +4,8 @@
 package uniter
 
 import (
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/operation"
 )

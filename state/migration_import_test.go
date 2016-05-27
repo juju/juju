@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
@@ -72,7 +72,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	s.setLatestTools(c, latestTools)
 	c.Assert(s.State.SetModelConstraints(cons), jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
-	fooSeq := s.setRandSequenceValue(c, "service-foo")
+	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 
 	original, err := s.State.Model()
@@ -122,7 +122,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	seq, err := state.Sequence(newSt, "machine")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(seq, gc.Equals, machineSeq)
-	seq, err = state.Sequence(newSt, "service-foo")
+	seq, err = state.Sequence(newSt, "application-foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(seq, gc.Equals, fooSeq)
 
@@ -305,7 +305,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	exported := allServices[0]
 	imported := importedServices[0]
 
-	c.Assert(imported.ServiceTag(), gc.Equals, exported.ServiceTag())
+	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())

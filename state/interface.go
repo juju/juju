@@ -6,8 +6,8 @@ package state
 import (
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"

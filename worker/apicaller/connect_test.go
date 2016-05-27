@@ -6,10 +6,10 @@ package apicaller_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -49,7 +49,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 
 	// to make the point that this code should be entity-agnostic,
 	// use an entity that doesn't correspond to an agent at all.
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -118,7 +118,7 @@ func checkModelTagUpdate(c *gc.C, errs ...error) *testing.Stub {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub: stub,
@@ -140,7 +140,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -169,7 +169,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -197,7 +197,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -289,7 +289,7 @@ func checkChangePassword(c *gc.C, errs ...error) (*testing.Stub, error) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -324,6 +324,6 @@ func checkSaneChange(c *gc.C, calls []testing.StubCall) {
 	})
 	c.Check(remoteSet, jc.DeepEquals, testing.StubCall{
 		FuncName: "SetPassword",
-		Args:     []interface{}{names.NewServiceTag("omg"), chosePassword},
+		Args:     []interface{}{names.NewApplicationTag("omg"), chosePassword},
 	})
 }

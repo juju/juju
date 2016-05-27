@@ -125,7 +125,7 @@ settings:
 
 func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "some-service-name", ch)
+	svc := s.AddTestingService(c, "some-application-name", ch)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +136,7 @@ func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, service.NewAddUnitCommand(), "some-service-name",
+	_, err = testing.RunCommand(c, service.NewAddUnitCommand(), "some-application-name",
 		"--to", container.Id())
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -37,10 +37,10 @@ func (s *serviceSuite) TestSetServiceMetricCredentials(c *gc.C) {
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "SetMetricCredentials")
-		args, ok := a.(params.ServiceMetricCredentials)
+		args, ok := a.(params.ApplicationMetricCredentials)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Creds, gc.HasLen, 1)
-		c.Assert(args.Creds[0].ServiceName, gc.Equals, "serviceA")
+		c.Assert(args.Creds[0].ApplicationName, gc.Equals, "serviceA")
 		c.Assert(args.Creds[0].MetricCredentials, gc.DeepEquals, []byte("creds 1"))
 
 		result := response.(*params.ErrorResults)
@@ -81,19 +81,19 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "Deploy")
-		args, ok := a.(params.ServicesDeploy)
+		args, ok := a.(params.ApplicationsDeploy)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Services, gc.HasLen, 1)
-		c.Assert(args.Services[0].CharmUrl, gc.Equals, "cs:trusty/a-charm-1")
-		c.Assert(args.Services[0].ServiceName, gc.Equals, "serviceA")
-		c.Assert(args.Services[0].Series, gc.Equals, "series")
-		c.Assert(args.Services[0].NumUnits, gc.Equals, 2)
-		c.Assert(args.Services[0].ConfigYAML, gc.Equals, "configYAML")
-		c.Assert(args.Services[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		c.Assert(args.Services[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
-		c.Assert(args.Services[0].EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-		c.Assert(args.Services[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
-		c.Assert(args.Services[0].Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
+		c.Assert(args.Applications, gc.HasLen, 1)
+		c.Assert(args.Applications[0].CharmUrl, gc.Equals, "cs:trusty/a-charm-1")
+		c.Assert(args.Applications[0].ApplicationName, gc.Equals, "serviceA")
+		c.Assert(args.Applications[0].Series, gc.Equals, "series")
+		c.Assert(args.Applications[0].NumUnits, gc.Equals, 2)
+		c.Assert(args.Applications[0].ConfigYAML, gc.Equals, "configYAML")
+		c.Assert(args.Applications[0].Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		c.Assert(args.Applications[0].Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
+		c.Assert(args.Applications[0].EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
+		c.Assert(args.Applications[0].Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+		c.Assert(args.Applications[0].Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
@@ -124,9 +124,9 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "GetCharmURL")
-		args, ok := a.(params.ServiceGet)
+		args, ok := a.(params.ApplicationGet)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.ServiceName, gc.Equals, "service")
+		c.Assert(args.ApplicationName, gc.Equals, "service")
 
 		result := response.(*params.StringResult)
 		result.Result = "curl"
@@ -143,10 +143,10 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "SetCharm")
-		args, ok := a.(params.ServiceSetCharm)
+		args, ok := a.(params.ApplicationSetCharm)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.ServiceName, gc.Equals, "service")
-		c.Assert(args.CharmUrl, gc.Equals, "cs:trusty/service-1")
+		c.Assert(args.ApplicationName, gc.Equals, "service")
+		c.Assert(args.CharmUrl, gc.Equals, "cs:trusty/application-1")
 		c.Assert(args.ForceSeries, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
 		return nil
@@ -154,7 +154,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	cfg := service.SetCharmConfig{
 		ServiceName: "service",
 		CharmID: charmstore.CharmID{
-			URL: charm.MustParseURL("trusty/service-1"),
+			URL: charm.MustParseURL("trusty/application-1"),
 		},
 		ForceSeries: true,
 		ForceUnits:  true,

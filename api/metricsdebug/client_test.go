@@ -246,7 +246,7 @@ func (s *metricsdebugSuite) TestFeatureGetMultipleMetricsWithService(c *gc.C) {
 		Unit: unit1,
 	})
 
-	metrics, err := s.manager.GetMetrics("service-metered")
+	metrics, err := s.manager.GetMetrics("application-metered")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 2)
 	assertSameMetric(c, metrics[0], metricUnit0)
@@ -322,7 +322,7 @@ func (s *metricsdebugSuite) TestSetMeterStatus(c *gc.C) {
 		err:   "invalid meter status \"NOT AVAILABLE\"",
 	}, {
 		about: "not such service",
-		tag:   "service-missing",
+		tag:   "application-missing",
 		code:  "AMBER",
 		info:  "test",
 		err:   "service \"missing\" not found",

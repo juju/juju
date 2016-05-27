@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/state"
@@ -20,8 +20,8 @@ type service struct {
 }
 
 // ID returns the service's tag.
-func (s *service) ID() names.ServiceTag {
-	return names.NewServiceTag(s.Name())
+func (s *service) ID() names.ApplicationTag {
+	return names.NewApplicationTag(s.Name())
 }
 
 // CharmURL implements resource/workers.Service.

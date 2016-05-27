@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	actionapi "github.com/juju/juju/api/action"
@@ -115,7 +115,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 	}
 	for _, service := range c.services {
-		if !names.IsValidService(service) {
+		if !names.IsValidApplication(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
 	}

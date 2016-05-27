@@ -5,7 +5,7 @@ package firewaller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -50,7 +50,7 @@ func NewFirewallerAPI(
 	// Set up the various authorization checkers.
 	accessEnviron := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
-	accessService := common.AuthFuncForTagKind(names.ServiceTagKind)
+	accessService := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
@@ -265,7 +265,7 @@ func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, er
 		return params.BoolResults{}, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseServiceTag(entity.Tag)
+		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -325,7 +325,7 @@ func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ServiceTag) (*state.Service, error) {
+func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Service, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err

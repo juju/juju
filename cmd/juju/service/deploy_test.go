@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -28,6 +27,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
@@ -75,7 +75,7 @@ var initErrorTests = []struct {
 		args: nil,
 		err:  `no charm or bundle specified`,
 	}, {
-		args: []string{"charm-name", "service-name", "hotdog"},
+		args: []string{"charm-name", "application-name", "hotdog"},
 		err:  `unrecognized args: \["hotdog"\]`,
 	}, {
 		args: []string{"craziness", "burble-1"},
@@ -112,7 +112,7 @@ func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockDeploy")
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-service-name", "--series", "quantal")
+	err := runDeploy(c, ch, "some-application-name", "--series", "quantal")
 	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
@@ -221,10 +221,10 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-service-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
-	s.AssertService(c, "some-service-name", curl, 1, 0)
+	s.AssertService(c, "some-application-name", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
@@ -623,7 +623,7 @@ Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUploaded(c, "cs:trusty/terms1-1")
-	s.assertServicesDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"terms1": {charm: "cs:trusty/terms1-1"},
 	})
 	_, err = s.State.Unit("terms1/0")
@@ -664,7 +664,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 	_, err = runDeployCommand(c, "--channel", "development", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
 	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
-	s.assertServicesDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"wordpress": {charm: "cs:~client-username/precise/wordpress-0"},
 	})
 }
@@ -819,8 +819,8 @@ func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string
 	}
 }
 
-// assertServicesDeployed checks that the given services have been deployed.
-func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
+// assertApplicationsDeployed checks that the given applications have been deployed.
+func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]serviceInfo) {
 	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]serviceInfo, len(services))
@@ -1039,7 +1039,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
 	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertServicesDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
@@ -1098,7 +1098,7 @@ func (s *ParseBindSuite) TestParseSuccessWithEndpointsOnly(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestParseSuccessWithServiceDefaultSpaceOnly(c *gc.C) {
-	s.checkParseOKForArgs(c, "service-default", map[string]string{"": "service-default"})
+	s.checkParseOKForArgs(c, "application-default", map[string]string{"": "application-default"})
 }
 
 func (s *ParseBindSuite) TestBindingsOrderForDefaultSpaceAndEndpointsDoesNotMatter(c *gc.C) {

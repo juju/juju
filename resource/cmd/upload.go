@@ -75,7 +75,7 @@ func (c *UploadCommand) Init(args []string) error {
 	}
 
 	service := args[0]
-	if service == "" { // TODO(ericsnow) names.IsValidService
+	if service == "" { // TODO(ericsnow) names.IsValidApplication
 		return errors.NewNotValid(nil, "missing service name")
 	}
 	c.service = service

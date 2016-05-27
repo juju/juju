@@ -177,7 +177,7 @@ func (s *DirectorySuite) TestNewDirectory(c *gc.C) {
 }
 
 func (s *DirectorySuite) TestWrite(c *gc.C) {
-	res := resourcetesting.NewResource(c, s.stub.Stub, "spam", "a-service", "some data")
+	res := resourcetesting.NewResource(c, s.stub.Stub, "spam", "a-application", "some data")
 	stub := &stubDirectory{
 		internalStub: s.stub,
 	}

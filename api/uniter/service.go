@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -23,12 +23,12 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  names.ServiceTag
+	tag  names.ApplicationTag
 	life params.Life
 }
 
 // Tag returns the service's tag.
-func (s *Service) Tag() names.ServiceTag {
+func (s *Service) Tag() names.ApplicationTag {
 	return s.tag
 }
 

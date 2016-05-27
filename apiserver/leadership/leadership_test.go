@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/leadership"
@@ -31,8 +31,8 @@ type leadershipSuite struct {
 var _ = gc.Suite(&leadershipSuite{})
 
 const (
-	StubServiceNm = "stub-service"
-	StubUnitNm    = "stub-service/0"
+	StubServiceNm = "stub-application"
+	StubUnitNm    = "stub-application/0"
 )
 
 type stubClaimer struct {
@@ -105,7 +105,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 299.9,
 			},
@@ -132,7 +132,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 5.001,
 			},
@@ -150,7 +150,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      "service-bad/0",
+				ApplicationTag:  "application-bad/0",
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 123.45,
 			},
@@ -167,7 +167,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
 				UnitTag:         "unit-bad",
 				DurationSeconds: 123.45,
 			},
@@ -184,7 +184,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 4.99,
 			},
@@ -201,7 +201,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 300.1,
 			},
@@ -221,7 +221,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
-	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
+	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewApplicationTag(StubServiceNm))
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result.Error, gc.IsNil)
@@ -236,7 +236,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 123.45,
 			},
@@ -254,7 +254,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ServiceTag:      names.NewServiceTag("lol-different").String(),
+				ApplicationTag:  names.NewApplicationTag("lol-different").String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 123.45,
 			},

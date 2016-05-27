@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
@@ -77,7 +77,7 @@ type leadershipSecretary struct{}
 
 // CheckLease is part of the lease.Secretary interface.
 func (leadershipSecretary) CheckLease(name string) error {
-	if !names.IsValidService(name) {
+	if !names.IsValidApplication(name) {
 		return errors.NewNotValid(nil, "not a service name")
 	}
 	return nil

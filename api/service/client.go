@@ -38,10 +38,10 @@ func NewClient(st api.Connection) *Client {
 
 // SetMetricCredentials sets the metric credentials for the service specified.
 func (c *Client) SetMetricCredentials(service string, credentials []byte) error {
-	creds := []params.ServiceMetricCredential{
+	creds := []params.ApplicationMetricCredential{
 		{service, credentials},
 	}
-	p := params.ServiceMetricCredentials{creds}
+	p := params.ApplicationMetricCredentials{creds}
 	results := new(params.ErrorResults)
 	err := c.facade.FacadeCall("SetMetricCredentials", p, results)
 	if err != nil {
@@ -92,9 +92,9 @@ type DeployArgs struct {
 // it. Placement directives, if provided, specify the machine on which the charm
 // is deployed.
 func (c *Client) Deploy(args DeployArgs) error {
-	deployArgs := params.ServicesDeploy{
-		Services: []params.ServiceDeploy{{
-			ServiceName:      args.ServiceName,
+	deployArgs := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName:  args.ServiceName,
 			Series:           args.Series,
 			CharmUrl:         args.CharmID.URL.String(),
 			Channel:          string(args.CharmID.Channel),
@@ -120,7 +120,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 // running at present.
 func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 	result := new(params.StringResult)
-	args := params.ServiceGet{ServiceName: serviceName}
+	args := params.ApplicationGet{ApplicationName: serviceName}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
 		return nil, err
@@ -150,46 +150,46 @@ type SetCharmConfig struct {
 
 // SetCharm sets the charm for a given service.
 func (c *Client) SetCharm(cfg SetCharmConfig) error {
-	args := params.ServiceSetCharm{
-		ServiceName: cfg.ServiceName,
-		CharmUrl:    cfg.CharmID.URL.String(),
-		Channel:     string(cfg.CharmID.Channel),
-		ForceSeries: cfg.ForceSeries,
-		ForceUnits:  cfg.ForceUnits,
-		ResourceIDs: cfg.ResourceIDs,
+	args := params.ApplicationSetCharm{
+		ApplicationName: cfg.ServiceName,
+		CharmUrl:        cfg.CharmID.URL.String(),
+		Channel:         string(cfg.CharmID.Channel),
+		ForceSeries:     cfg.ForceSeries,
+		ForceUnits:      cfg.ForceUnits,
+		ResourceIDs:     cfg.ResourceIDs,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }
 
 // Update updates the service attributes, including charm URL,
 // minimum number of units, settings and constraints.
-func (c *Client) Update(args params.ServiceUpdate) error {
+func (c *Client) Update(args params.ApplicationUpdate) error {
 	return c.facade.FacadeCall("Update", args, nil)
 }
 
 // AddUnits adds a given number of units to a service using the specified
 // placement directives to assign units to machines.
 func (c *Client) AddUnits(service string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
-		Placement:   placement,
+	args := params.AddApplicationUnits{
+		ApplicationName: service,
+		NumUnits:        numUnits,
+		Placement:       placement,
 	}
-	results := new(params.AddServiceUnitsResults)
+	results := new(params.AddApplicationUnitsResults)
 	err := c.facade.FacadeCall("AddUnits", args, results)
 	return results.Units, err
 }
 
 // DestroyUnits decreases the number of units dedicated to a service.
 func (c *Client) DestroyUnits(unitNames ...string) error {
-	params := params.DestroyServiceUnits{unitNames}
+	params := params.DestroyApplicationUnits{unitNames}
 	return c.facade.FacadeCall("DestroyUnits", params, nil)
 }
 
 // Destroy destroys a given service.
 func (c *Client) Destroy(service string) error {
-	params := params.ServiceDestroy{
-		ServiceName: service,
+	params := params.ApplicationDestroy{
+		ApplicationName: service,
 	}
 	return c.facade.FacadeCall("Destroy", params, nil)
 }
@@ -197,15 +197,15 @@ func (c *Client) Destroy(service string) error {
 // GetConstraints returns the constraints for the given service.
 func (c *Client) GetConstraints(service string) (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetConstraints", params.GetServiceConstraints{service}, results)
+	err := c.facade.FacadeCall("GetConstraints", params.GetApplicationConstraints{service}, results)
 	return results.Constraints, err
 }
 
 // SetConstraints specifies the constraints for the given service.
 func (c *Client) SetConstraints(service string, constraints constraints.Value) error {
 	params := params.SetConstraints{
-		ServiceName: service,
-		Constraints: constraints,
+		ApplicationName: service,
+		Constraints:     constraints,
 	}
 	return c.facade.FacadeCall("SetConstraints", params, nil)
 }
@@ -213,47 +213,47 @@ func (c *Client) SetConstraints(service string, constraints constraints.Value) e
 // Expose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) Expose(service string) error {
-	params := params.ServiceExpose{ServiceName: service}
+	params := params.ApplicationExpose{ApplicationName: service}
 	return c.facade.FacadeCall("Expose", params, nil)
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) Unexpose(service string) error {
-	params := params.ServiceUnexpose{ServiceName: service}
+	params := params.ApplicationUnexpose{ApplicationName: service}
 	return c.facade.FacadeCall("Unexpose", params, nil)
 }
 
 // Get returns the configuration for the named service.
-func (c *Client) Get(service string) (*params.ServiceGetResults, error) {
-	var results params.ServiceGetResults
-	params := params.ServiceGet{ServiceName: service}
+func (c *Client) Get(service string) (*params.ApplicationGetResults, error) {
+	var results params.ApplicationGetResults
+	params := params.ApplicationGet{ApplicationName: service}
 	err := c.facade.FacadeCall("Get", params, &results)
 	return &results, err
 }
 
 // Set sets configuration options on a service.
 func (c *Client) Set(service string, options map[string]string) error {
-	p := params.ServiceSet{
-		ServiceName: service,
-		Options:     options,
+	p := params.ApplicationSet{
+		ApplicationName: service,
+		Options:         options,
 	}
 	return c.facade.FacadeCall("Set", p, nil)
 }
 
 // Unset resets configuration options on a service.
 func (c *Client) Unset(service string, options []string) error {
-	p := params.ServiceUnset{
-		ServiceName: service,
-		Options:     options,
+	p := params.ApplicationUnset{
+		ApplicationName: service,
+		Options:         options,
 	}
 	return c.facade.FacadeCall("Unset", p, nil)
 }
 
 // CharmRelations returns the service's charms relation names.
 func (c *Client) CharmRelations(service string) ([]string, error) {
-	var results params.ServiceCharmRelationsResults
-	params := params.ServiceCharmRelations{ServiceName: service}
+	var results params.ApplicationCharmRelationsResults
+	params := params.ApplicationCharmRelations{ApplicationName: service}
 	err := c.facade.FacadeCall("CharmRelations", params, &results)
 	return results.CharmRelations, err
 }

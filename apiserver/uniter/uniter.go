@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
@@ -79,9 +79,9 @@ func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer com
 				return nil, errors.Trace(err)
 			}
 			serviceName := entity.ServiceName()
-			serviceTag := names.NewServiceTag(serviceName)
+			ApplicationTag := names.NewApplicationTag(serviceName)
 			return func(tag names.Tag) bool {
-				return tag == serviceTag
+				return tag == ApplicationTag
 			}, nil
 		default:
 			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
@@ -165,7 +165,7 @@ func (u *UniterAPIV3) ServiceOwner(args params.Entities) (params.StringResults, 
 		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseServiceTag(entity.Tag)
+		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -818,7 +818,7 @@ func (u *UniterAPIV3) WatchServiceRelations(args params.Entities) (params.String
 		return params.StringsWatchResults{}, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseServiceTag(entity.Tag)
+		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -1202,7 +1202,7 @@ func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
 
-func (u *UniterAPIV3) getService(tag names.ServiceTag) (*state.Service, error) {
+func (u *UniterAPIV3) getService(tag names.ApplicationTag) (*state.Service, error) {
 	return u.st.Service(tag.Id())
 }
 
@@ -1309,7 +1309,7 @@ func (u *UniterAPIV3) destroySubordinates(principal *state.Unit) error {
 	return nil
 }
 
-func (u *UniterAPIV3) watchOneServiceRelations(tag names.ServiceTag) (params.StringsWatchResult, error) {
+func (u *UniterAPIV3) watchOneServiceRelations(tag names.ApplicationTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	service, err := u.getService(tag)
 	if err != nil {
@@ -1395,7 +1395,7 @@ func (u *UniterAPIV3) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag
 		return "", common.ErrPerm
 	}
 	remoteUnitName := tag.Id()
-	remoteServiceName, err := names.UnitService(remoteUnitName)
+	remoteServiceName, err := names.UnitApplication(remoteUnitName)
 	if err != nil {
 		return "", common.ErrPerm
 	}

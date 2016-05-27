@@ -111,14 +111,14 @@ func (s *EndpointSerializationSuite) SetUpTest(c *gc.C) {
 
 func minimalEndpointMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"service-name":  "ubuntu",
-		"name":          "juju-meta",
-		"role":          "peer",
-		"interface":     "something",
-		"optional":      true,
-		"limit":         1,
-		"scope":         "container",
-		"unit-settings": map[interface{}]interface{}{},
+		"application-name": "ubuntu",
+		"name":             "juju-meta",
+		"role":             "peer",
+		"interface":        "something",
+		"optional":         true,
+		"limit":            1,
+		"scope":            "container",
+		"unit-settings":    map[interface{}]interface{}{},
 	}
 }
 

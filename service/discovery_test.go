@@ -154,7 +154,7 @@ var _ = gc.Suite(&discoverySuite{})
 func (s *discoverySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.name = "a-service"
+	s.name = "a-application"
 	s.conf = common.Conf{
 		Desc:      "some service",
 		ExecStart: "/path/to/some-command",

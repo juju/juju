@@ -57,7 +57,7 @@ func (s *SetMeterStatusSuite) TestService(c *gc.C) {
 	})
 	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "metered", "RED")
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "SetMeterStatus", "service-metered", "RED", "")
+	client.CheckCall(c, 0, "SetMeterStatus", "application-metered", "RED", "")
 }
 
 func (s *SetMeterStatusSuite) TestNotValidServiceOrUnit(c *gc.C) {

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/charmstore"
 )
@@ -35,7 +35,7 @@ func NewLatestCharmHandler(store DataStore) *LatestCharmHandler {
 
 // HandleLatest implements apiserver/charmrevisionupdater.LatestCharmHandler
 // by storing the charm's resources in state.
-func (handler LatestCharmHandler) HandleLatest(serviceID names.ServiceTag, info charmstore.CharmInfo) error {
+func (handler LatestCharmHandler) HandleLatest(serviceID names.ApplicationTag, info charmstore.CharmInfo) error {
 	if err := handler.store.SetCharmStoreResources(serviceID.Id(), info.LatestResources, info.Timestamp); err != nil {
 		return errors.Trace(err)
 	}

@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -301,12 +301,12 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
-		{Tag: "service-mysql"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
 		{Tag: "machine-0"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"},
-		{Tag: "service-foo"},
+		{Tag: "application-foo"},
 		// TODO(dfc) these aren't valid tags any more
 		// but I hope to restore this test when params.Entity takes
 		// tags, not strings, which is coming soon.
@@ -386,9 +386,9 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
-		{Tag: "service-mysql"},
-		{Tag: "service-wordpress"},
-		{Tag: "service-foo"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
+		{Tag: "application-foo"},
 		// TODO(dfc) these aren't valid tags any more
 		// but I hope to restore this test when params.Entity takes
 		// tags, not strings, which is coming soon.
@@ -728,9 +728,9 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
-		{Tag: "service-mysql"},
-		{Tag: "service-wordpress"},
-		{Tag: "service-foo"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
+		{Tag: "application-foo"},
 		// TODO(dfc) these aren't valid tags any more
 		// but I hope to restore this test when params.Entity takes
 		// tags, not strings, which is coming soon.
@@ -757,7 +757,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
-		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/service-42"},
+		{Tag: "unit-mysql-0", CharmURL: "cs:quantal/application-42"},
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
 		{Tag: "unit-foo-42", CharmURL: "cs:quantal/foo-321"},
 	}}
@@ -782,10 +782,10 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 
 func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "service-mysql"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
 		{Tag: "unit-wordpress-0"},
-		{Tag: "service-foo"},
+		{Tag: "application-foo"},
 	}}
 	result, err := s.uniter.CharmModifiedVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1045,9 +1045,9 @@ func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "service-mysql"},
-		{Tag: "service-wordpress"},
-		{Tag: "service-foo"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
+		{Tag: "application-foo"},
 	}}
 	result, err := s.uniter.WatchServiceRelations(args)
 	s.assertOneStringsWatcher(c, result, err)
@@ -1333,7 +1333,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-foo-0"},
 		{Relation: "relation-blah", Unit: "unit-wordpress-0"},
-		{Relation: "service-foo", Unit: "user-foo"},
+		{Relation: "application-foo", Unit: "user-foo"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: "unit-wordpress-0", Unit: rel.Tag().String()},
 	}}
@@ -1422,11 +1422,11 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 		{Relation: "relation-42", Unit: "unit-wordpress-0"},
 		{Relation: "relation-foo", Unit: "unit-wordpress-0"},
-		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "application-wordpress", Unit: "unit-foo-0"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
-		{Relation: rel.Tag().String(), Unit: "service-mysql"},
+		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
+		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.EnterScope(args)
@@ -1473,11 +1473,11 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 		{Relation: "relation-42", Unit: "unit-wordpress-0"},
 		{Relation: "relation-foo", Unit: "unit-wordpress-0"},
-		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "application-wordpress", Unit: "unit-foo-0"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
-		{Relation: rel.Tag().String(), Unit: "service-mysql"},
+		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
+		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.LeaveScope(args)
@@ -1517,7 +1517,7 @@ func (s *uniterSuite) TestJoinedRelations(c *gc.C) {
 			{s.wordpressUnit.Tag().String()},
 			{s.mysqlUnit.Tag().String()},
 			{"unit-unknown-1"},
-			{"service-wordpress"},
+			{"application-wordpress"},
 			{"machine-0"},
 			{rel.Tag().String()},
 		},
@@ -1560,11 +1560,11 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: "relation-42", Unit: "unit-wordpress-0"},
 		{Relation: "relation-foo", Unit: ""},
-		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "application-wordpress", Unit: "unit-foo-0"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
-		{Relation: rel.Tag().String(), Unit: "service-mysql"},
+		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
+		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.ReadSettings(args)
@@ -1632,11 +1632,11 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-mysql-0"},
 		{Relation: "relation-42", LocalUnit: "unit-wordpress-0", RemoteUnit: ""},
 		{Relation: "relation-foo", LocalUnit: "", RemoteUnit: ""},
-		{Relation: "service-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
+		{Relation: "application-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
 		{Relation: "foo", LocalUnit: "bar", RemoteUnit: "baz"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-mysql-0", RemoteUnit: "unit-wordpress-0"},
-		{Relation: rel.Tag().String(), LocalUnit: "service-wordpress", RemoteUnit: "service-mysql"},
-		{Relation: rel.Tag().String(), LocalUnit: "service-mysql", RemoteUnit: "foo"},
+		{Relation: rel.Tag().String(), LocalUnit: "application-wordpress", RemoteUnit: "application-mysql"},
+		{Relation: rel.Tag().String(), LocalUnit: "application-mysql", RemoteUnit: "foo"},
 		{Relation: rel.Tag().String(), LocalUnit: "user-foo", RemoteUnit: "unit-wordpress-0"},
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
@@ -1750,11 +1750,11 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0", Settings: newSettings},
 		{Relation: "relation-42", Unit: "unit-wordpress-0", Settings: nil},
 		{Relation: "relation-foo", Unit: "unit-wordpress-0", Settings: nil},
-		{Relation: "service-wordpress", Unit: "unit-foo-0", Settings: nil},
+		{Relation: "application-wordpress", Unit: "unit-foo-0", Settings: nil},
 		{Relation: "foo", Unit: "bar", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0", Settings: nil},
-		{Relation: rel.Tag().String(), Unit: "service-wordpress", Settings: nil},
-		{Relation: rel.Tag().String(), Unit: "service-mysql", Settings: nil},
+		{Relation: rel.Tag().String(), Unit: "application-wordpress", Settings: nil},
+		{Relation: rel.Tag().String(), Unit: "application-mysql", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "user-foo", Settings: nil},
 	}}
 	result, err := s.uniter.UpdateSettings(args)
@@ -1801,11 +1801,11 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: "relation-42", Unit: "unit-wordpress-0"},
 		{Relation: "relation-foo", Unit: ""},
-		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "application-wordpress", Unit: "unit-foo-0"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
-		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
-		{Relation: rel.Tag().String(), Unit: "service-mysql"},
+		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
+		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.WatchRelationUnits(args)
@@ -1882,7 +1882,7 @@ func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 		{Tag: "machine-0"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-wordpress"},
 	}}
 	result, err := s.uniter.WatchUnitAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2131,11 +2131,11 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 func (s *uniterSuite) TestServiceOwner(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-wordpress"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 		{Tag: "machine-0"},
-		{Tag: "service-foo"},
+		{Tag: "application-foo"},
 	}}
 	result, err := s.uniter.ServiceOwner(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2156,12 +2156,12 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
-		{Tag: "service-mysql"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-mysql"},
+		{Tag: "application-wordpress"},
 		{Tag: "machine-0"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"},
-		{Tag: "service-foo"},
+		{Tag: "application-foo"},
 		{Tag: "relation-svc1.rel1#svc2.rel2"},
 	}}
 	result, err := s.uniter.AssignedMachine(args)
@@ -2213,7 +2213,7 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 		{Tag: "machine-1"},
 		{Tag: "unit-foo-42"},
 		{Tag: "machine-42"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-wordpress"},
 	}}
 	expectPorts := []params.MachinePortRange{
 		{UnitTag: "unit-wordpress-0", PortRange: params.PortRange{100, 200, "tcp"}},

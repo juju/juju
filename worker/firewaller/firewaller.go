@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
@@ -36,7 +36,7 @@ type Firewaller struct {
 	machineds       map[names.MachineTag]*machineData
 	unitsChange     chan *unitsChange
 	unitds          map[names.UnitTag]*unitData
-	serviceds       map[names.ServiceTag]*serviceData
+	serviceds       map[names.ApplicationTag]*serviceData
 	exposedChange   chan *exposedChange
 	globalMode      bool
 	globalPortRef   map[network.PortRange]int
@@ -51,7 +51,7 @@ func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
 		machineds:     make(map[names.MachineTag]*machineData),
 		unitsChange:   make(chan *unitsChange),
 		unitds:        make(map[names.UnitTag]*unitData),
-		serviceds:     make(map[names.ServiceTag]*serviceData),
+		serviceds:     make(map[names.ApplicationTag]*serviceData),
 		exposedChange: make(chan *exposedChange),
 		machinePorts:  make(map[names.MachineTag]machineRanges),
 	}
@@ -260,7 +260,7 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	if err != nil {
 		return err
 	}
-	serviceTag := service.Tag()
+	ApplicationTag := service.Tag()
 	unitTag := unit.Tag()
 	if err != nil {
 		return err
@@ -274,14 +274,14 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 
 	unitd.machined = fw.machineds[machineTag]
 	unitd.machined.unitds[unitTag] = unitd
-	if fw.serviceds[serviceTag] == nil {
+	if fw.serviceds[ApplicationTag] == nil {
 		err := fw.startService(service)
 		if err != nil {
 			delete(fw.unitds, unitTag)
 			return err
 		}
 	}
-	unitd.serviced = fw.serviceds[serviceTag]
+	unitd.serviced = fw.serviceds[ApplicationTag]
 	unitd.serviced.unitds[unitTag] = unitd
 
 	m, err := unitd.machined.machine()
@@ -725,9 +725,9 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	delete(serviced.unitds, unitd.tag)
 	logger.Debugf("stopped watching %q", unitd.tag)
 	if stoppedService {
-		serviceTag := serviced.service.Tag()
-		delete(fw.serviceds, serviceTag)
-		logger.Debugf("stopped watching %q", serviceTag)
+		ApplicationTag := serviced.service.Tag()
+		delete(fw.serviceds, ApplicationTag)
+		logger.Debugf("stopped watching %q", ApplicationTag)
 	}
 }
 

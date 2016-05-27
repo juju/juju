@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/exec"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
@@ -78,7 +78,7 @@ func (c *RunCommand) Init(args []string) error {
 		unitName, args = args[0], args[1:]
 		// If the command line param is a unit id (like service/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
-		// on disk (unit-service-2).
+		// on disk (unit-application-2).
 		if names.IsValidUnit(unitName) {
 			c.unit = names.NewUnitTag(unitName)
 		} else {

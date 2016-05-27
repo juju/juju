@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/description"
@@ -442,7 +442,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	}
 
 	args := description.ServiceArgs{
-		Tag:                  service.ServiceTag(),
+		Tag:                  service.ApplicationTag(),
 		Series:               service.doc.Series,
 		Subordinate:          service.doc.Subordinate,
 		CharmURL:             service.doc.CharmURL.String(),

@@ -64,7 +64,7 @@ func (s *DebugMetricsMockSuite) TestService(c *gc.C) {
 	})
 	_, err := coretesting.RunCommand(c, metricsdebug.New(), "metered")
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "GetMetrics", "service-metered")
+	client.CheckCall(c, 0, "GetMetrics", "application-metered")
 }
 
 func (s *DebugMetricsMockSuite) TestNotValidServiceOrUnit(c *gc.C) {

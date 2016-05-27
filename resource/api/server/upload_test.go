@@ -56,14 +56,14 @@ func (s *UploadSuite) TestHandleRequestOkay(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req, body := newUploadRequest(c, "spam", "a-application", content)
 
 	result, err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetResource", "SetResource")
-	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
-	s.stub.CheckCall(c, 1, "SetResource", "a-service", "a-user", res.Resource, ioutil.NopCloser(body))
+	s.stub.CheckCall(c, 0, "GetResource", "a-application", "spam")
+	s.stub.CheckCall(c, 1, "SetResource", "a-application", "a-user", res.Resource, ioutil.NopCloser(body))
 	c.Check(result, jc.DeepEquals, &api.UploadResult{
 		Resource: api.Resource2API(res),
 	})
@@ -81,7 +81,7 @@ func (s *UploadSuite) TestExtensionMismatch(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, _ := newUploadRequest(c, "spam", "a-service", content)
+	req, _ := newUploadRequest(c, "spam", "a-application", content)
 	req.Header.Set("Content-Disposition", "form-data; filename=different.ext")
 
 	_, err := uh.HandleRequest(req)
@@ -100,15 +100,15 @@ func (s *UploadSuite) TestHandleRequestPending(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req, body := newUploadRequest(c, "spam", "a-application", content)
 	req.URL.RawQuery += "&pendingid=some-unique-id"
 
 	result, err := uh.HandleRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetPendingResource", "UpdatePendingResource")
-	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "spam", "some-unique-id")
-	s.stub.CheckCall(c, 1, "UpdatePendingResource", "a-service", "some-unique-id", "a-user", res.Resource, ioutil.NopCloser(body))
+	s.stub.CheckCall(c, 0, "GetPendingResource", "a-application", "spam", "some-unique-id")
+	s.stub.CheckCall(c, 1, "UpdatePendingResource", "a-application", "some-unique-id", "a-user", res.Resource, ioutil.NopCloser(body))
 	c.Check(result, jc.DeepEquals, &api.UploadResult{
 		Resource: api.Resource2API(res),
 	})
@@ -122,7 +122,7 @@ func (s *UploadSuite) TestHandleRequestSetResourceFailure(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, _ := newUploadRequest(c, "spam", "a-service", content)
+	req, _ := newUploadRequest(c, "spam", "a-application", content)
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, failure)
 
@@ -141,15 +141,15 @@ func (s *UploadSuite) TestReadResourceOkay(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req, body := newUploadRequest(c, "spam", "a-application", content)
 
 	uploaded, err := uh.ReadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetResource")
-	s.stub.CheckCall(c, 0, "GetResource", "a-service", "spam")
+	s.stub.CheckCall(c, 0, "GetResource", "a-application", "spam")
 	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
-		Service:  "a-service",
+		Service:  "a-application",
 		Resource: expected.Resource,
 		Data:     ioutil.NopCloser(body),
 	})
@@ -164,16 +164,16 @@ func (s *UploadSuite) TestReadResourcePending(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, body := newUploadRequest(c, "spam", "a-service", content)
+	req, body := newUploadRequest(c, "spam", "a-application", content)
 	req.URL.RawQuery += "&pendingid=some-unique-id"
 
 	uploaded, err := uh.ReadResource(req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "GetPendingResource")
-	s.stub.CheckCall(c, 0, "GetPendingResource", "a-service", "spam", "some-unique-id")
+	s.stub.CheckCall(c, 0, "GetPendingResource", "a-application", "spam", "some-unique-id")
 	c.Check(uploaded, jc.DeepEquals, &server.UploadedResource{
-		Service:   "a-service",
+		Service:   "a-application",
 		PendingID: "some-unique-id",
 		Resource:  expected.Resource,
 		Data:      ioutil.NopCloser(body),
@@ -185,7 +185,7 @@ func (s *UploadSuite) TestReadResourceBadContentType(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
+	req, _ := newUploadRequest(c, "spam", "a-application", "<some data>")
 	req.Header.Set("Content-Type", "text/plain")
 
 	_, err := uh.ReadResource(req)
@@ -199,7 +199,7 @@ func (s *UploadSuite) TestReadResourceGetResourceFailure(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
+	req, _ := newUploadRequest(c, "spam", "a-application", "<some data>")
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 
@@ -216,7 +216,7 @@ func (s *UploadSuite) TestReadResourceBadFingerprint(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
+	req, _ := newUploadRequest(c, "spam", "a-application", "<some data>")
 	req.Header.Set("Content-SHA384", "bogus")
 
 	_, err := uh.ReadResource(req)
@@ -232,7 +232,7 @@ func (s *UploadSuite) TestReadResourceBadSize(c *gc.C) {
 		Username: "a-user",
 		Store:    s.data,
 	}
-	req, _ := newUploadRequest(c, "spam", "a-service", "<some data>")
+	req, _ := newUploadRequest(c, "spam", "a-application", "<some data>")
 	req.Header.Set("Content-Length", "should-be-an-int")
 
 	_, err := uh.ReadResource(req)

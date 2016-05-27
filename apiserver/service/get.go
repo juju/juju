@@ -11,29 +11,29 @@ import (
 )
 
 // Get returns the configuration for a service.
-func (api *API) Get(args params.ServiceGet) (params.ServiceGetResults, error) {
-	service, err := api.state.Service(args.ServiceName)
+func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	service, err := api.state.Service(args.ApplicationName)
 	if err != nil {
-		return params.ServiceGetResults{}, err
+		return params.ApplicationGetResults{}, err
 	}
 	settings, err := service.ConfigSettings()
 	if err != nil {
-		return params.ServiceGetResults{}, err
+		return params.ApplicationGetResults{}, err
 	}
 	charm, _, err := service.Charm()
 	if err != nil {
-		return params.ServiceGetResults{}, err
+		return params.ApplicationGetResults{}, err
 	}
 	configInfo := describe(settings, charm.Config())
 	var constraints constraints.Value
 	if service.IsPrincipal() {
 		constraints, err = service.Constraints()
 		if err != nil {
-			return params.ServiceGetResults{}, err
+			return params.ApplicationGetResults{}, err
 		}
 	}
-	return params.ServiceGetResults{
-		Service:     args.ServiceName,
+	return params.ApplicationGetResults{
+		Application: args.ApplicationName,
 		Charm:       charm.Meta().Name,
 		Config:      configInfo,
 		Constraints: constraints,

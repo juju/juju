@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -349,8 +349,8 @@ var scenarioStatus = &params.FullStatus{
 //  nonce="fake_nonce"
 //  jobs=host-units
 //  status=started, info=""
-// service-wordpress
-// service-logging
+// application-wordpress
+// application-logging
 // unit-wordpress-0
 //  deployer-name=machine-1
 //  status=down with error and status data attached

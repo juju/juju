@@ -9,8 +9,8 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/schema"
+	"gopkg.in/juju/names.v2"
 )
 
 type services struct {
@@ -55,7 +55,7 @@ type service struct {
 
 // ServiceArgs is an argument struct used to add a service to the Model.
 type ServiceArgs struct {
-	Tag                  names.ServiceTag
+	Tag                  names.ApplicationTag
 	Series               string
 	Subordinate          bool
 	CharmURL             string
@@ -95,8 +95,8 @@ func newService(args ServiceArgs) *service {
 }
 
 // Tag implements Service.
-func (s *service) Tag() names.ServiceTag {
-	return names.NewServiceTag(s.Name_)
+func (s *service) Tag() names.ApplicationTag {
+	return names.NewApplicationTag(s.Name_)
 }
 
 // Name implements Service.

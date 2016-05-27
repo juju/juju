@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/testing"
@@ -142,8 +142,8 @@ func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	initial.SetSequence("machine", 4)
-	initial.SetSequence("service-foo", 3)
-	initial.SetSequence("service-bar", 1)
+	initial.SetSequence("application-foo", 3)
+	initial.SetSequence("application-bar", 1)
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -151,9 +151,9 @@ func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
-		"machine":     4,
-		"service-foo": 3,
-		"service-bar": 1,
+		"machine":         4,
+		"application-foo": 3,
+		"application-bar": 1,
 	})
 }
 
@@ -230,7 +230,7 @@ func (*ModelSerializationSuite) TestModelValidationChecksServices(c *gc.C) {
 
 func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, numUnits int) Service {
 	service := model.AddService(ServiceArgs{
-		Tag:                names.NewServiceTag(name),
+		Tag:                names.NewApplicationTag(name),
 		Settings:           map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
 	})

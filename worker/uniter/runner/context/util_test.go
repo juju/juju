@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"

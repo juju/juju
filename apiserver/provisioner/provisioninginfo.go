@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"

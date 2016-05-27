@@ -65,7 +65,7 @@ func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAddUnitAPI{service: "some-service-name", numUnits: 1, envType: "dummy"}
+	s.fake = &fakeServiceAddUnitAPI{service: "some-application-name", numUnits: 1, envType: "dummy"}
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -75,13 +75,13 @@ var initAddUnitErrorTests = []struct {
 	err  string
 }{
 	{
-		args: []string{"some-service-name", "-n", "0"},
+		args: []string{"some-application-name", "-n", "0"},
 		err:  `--num-units must be a positive integer`,
 	}, {
 		args: []string{},
 		err:  `no service specified`,
 	}, {
-		args: []string{"some-service-name", "--to", "1,#:foo"},
+		args: []string{"some-application-name", "--to", "1,#:foo"},
 		err:  `invalid --to parameter "#:foo"`,
 	},
 }
@@ -100,21 +100,21 @@ func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
 }
 
 func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name")
+	err := s.runAddUnit(c, "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 
-	err = s.runAddUnit(c, "--num-units", "2", "some-service-name")
+	err = s.runAddUnit(c, "--num-units", "2", "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 4)
 }
 
 func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name")
+	err := s.runAddUnit(c, "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 
-	err = s.runAddUnit(c, "--num-units", "2", "--to", "123,lxc:1,1/lxc/2,foo", "some-service-name")
+	err = s.runAddUnit(c, "--num-units", "2", "--to", "123,lxc:1,1/lxc/2,foo", "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 4)
 	c.Assert(s.fake.placement, jc.DeepEquals, []*instance.Placement{
@@ -128,7 +128,7 @@ func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
 func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	// Block operation
 	s.fake.err = common.OperationBlockedError("TestBlockAddUnit")
-	s.runAddUnit(c, "some-service-name")
+	s.runAddUnit(c, "some-application-name")
 
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
@@ -136,19 +136,19 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 }
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name", "--to", "3")
+	err := s.runAddUnit(c, "some-application-name", "--to", "3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 	c.Assert(s.fake.placement[0].Directive, gc.Equals, "3")
 
-	err = s.runAddUnit(c, "some-service-name", "--to", "23")
+	err = s.runAddUnit(c, "some-application-name", "--to", "23")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 3)
 	c.Assert(s.fake.placement[0].Directive, gc.Equals, "23")
 }
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
-	err := s.runAddUnit(c, "some-service-name", "--to", "lxc:1")
+	err := s.runAddUnit(c, "some-application-name", "--to", "lxc:1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 	c.Assert(s.fake.placement[0].Directive, gc.Equals, "1")

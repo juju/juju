@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -139,7 +139,7 @@ func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: s.machines[4].Tag().String(), Password: "xxx4-1234567890123457890"},
 			{Tag: "machine-42", Password: "foo"},
 			{Tag: "unit-foo-0", Password: "zzz"},
-			{Tag: "service-bar", Password: "abc"},
+			{Tag: "application-bar", Password: "abc"},
 		},
 	}
 	results, err := s.provisioner.SetPasswords(args)
@@ -225,7 +225,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		{Tag: containers[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := aProvisioner.Life(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,7 +258,7 @@ func (s *withoutControllerSuite) TestLifeAsEnvironManager(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.Life(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +305,7 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,7 +359,7 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 			{Tag: s.machines[2].Tag().String(), Status: status.StatusStarted.String(), Info: "again"},
 			{Tag: "machine-42", Status: status.StatusStarted.String(), Info: "blah"},
 			{Tag: "unit-foo-0", Status: status.StatusStopped.String(), Info: "foobar"},
-			{Tag: "service-bar", Status: status.StatusStopped.String(), Info: "foobar"},
+			{Tag: "application-bar", Status: status.StatusStopped.String(), Info: "foobar"},
 		}}
 	result, err := s.provisioner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -497,7 +497,7 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.EnsureDead(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -542,7 +542,7 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 		{MachineTag: s.machines[1].Tag().String(), ContainerType: string(instance.KVM)},
 		{MachineTag: "machine-42", ContainerType: ""},
 		{MachineTag: "unit-foo-0", ContainerType: ""},
-		{MachineTag: "service-bar", ContainerType: ""},
+		{MachineTag: "application-bar", ContainerType: ""},
 	}}
 	result, err := s.provisioner.WatchContainers(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -579,7 +579,7 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 		{MachineTag: s.machines[1].Tag().String()},
 		{MachineTag: "machine-42"},
 		{MachineTag: "unit-foo-0"},
-		{MachineTag: "service-bar"},
+		{MachineTag: "application-bar"},
 	}}
 	result, err := s.provisioner.WatchAllContainers(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -651,7 +651,7 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.Status(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -687,7 +687,7 @@ func (s *withoutControllerSuite) TestSeries(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.Series(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -780,7 +780,7 @@ func (s *withoutControllerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C
 		{Tag: "machine-42"},
 		{Tag: "machine-0-lxc-99"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.DistributionGroup(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -848,7 +848,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		{Tag: consMachine.Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.Constraints(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -921,7 +921,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.SetInstanceInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -990,7 +990,7 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 	result, err := s.provisioner.InstanceId(args)
 	c.Assert(err, jc.ErrorIsNil)

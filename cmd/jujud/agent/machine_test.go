@@ -17,7 +17,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -31,6 +30,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"

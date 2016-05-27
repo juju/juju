@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/core/leadership"
@@ -43,7 +43,7 @@ type Tracker struct {
 // a network connection).
 func NewTracker(tag names.UnitTag, claimer leadership.Claimer, duration time.Duration) *Tracker {
 	unitName := tag.Id()
-	serviceName, _ := names.UnitService(unitName)
+	serviceName, _ := names.UnitApplication(unitName)
 	t := &Tracker{
 		unitName:          unitName,
 		serviceName:       serviceName,

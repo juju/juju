@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/resource"
 )
@@ -64,14 +64,14 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		},
 		Username:  "Bill User",
 		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:        "a-service/website",
-		ServiceID: "a-service",
+		ID:        "a-application/website",
+		ServiceID: "a-application",
 	}
 
 	f := FormatSvcResource(r)
 	c.Assert(f, gc.Equals, FormattedSvcResource{
-		ID:               "a-service/website",
-		ServiceID:        "a-service",
+		ID:               "a-application/website",
+		ServiceID:        "a-application",
 		Name:             r.Name,
 		Type:             "file",
 		Path:             r.Path,
@@ -154,8 +154,8 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 		},
 		Username:  "Bill User",
 		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:        "a-service/website",
-		ServiceID: "a-service",
+		ID:        "a-application/website",
+		ServiceID: "a-application",
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("other"))
@@ -176,17 +176,17 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 		},
 		Username:  "Bill User",
 		Timestamp: time.Now(),
-		ID:        "a-service/website",
-		ServiceID: "a-service",
+		ID:        "a-application/website",
+		ServiceID: "a-application",
 	}
-	tag := names.NewUnitTag("a-service/55")
+	tag := names.NewUnitTag("a-application/55")
 
 	d, err := FormatDetailResource(tag, svc, unit, 8)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
 		FormattedDetailResource{
 			unitNumber:  55,
-			UnitID:      "a-service/55",
+			UnitID:      "a-application/55",
 			Expected:    FormatSvcResource(svc),
 			Progress:    8,
 			progress:    "80%",
@@ -215,19 +215,19 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 		},
 		Username:  "Bill User",
 		Timestamp: time.Now().Add(-1 * time.Hour * 24 * 365),
-		ID:        "a-service/website",
-		ServiceID: "a-service",
+		ID:        "a-application/website",
+		ServiceID: "a-application",
 	}
 
 	unit := resource.Resource{}
-	tag := names.NewUnitTag("a-service/55")
+	tag := names.NewUnitTag("a-application/55")
 
 	d, err := FormatDetailResource(tag, svc, unit, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.Equals,
 		FormattedDetailResource{
 			unitNumber:  55,
-			UnitID:      "a-service/55",
+			UnitID:      "a-application/55",
 			Expected:    FormatSvcResource(svc),
 			Progress:    0,
 			progress:    "0%",

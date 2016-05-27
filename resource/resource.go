@@ -52,7 +52,7 @@ type Resource struct {
 	// services will not have PendingID set.
 	PendingID string
 
-	// TODO(ericsnow) Use names.ServiceTag for ServiceID?
+	// TODO(ericsnow) Use names.ApplicationTag for ServiceID?
 
 	// ServiceID identifies the service for the resource.
 	ServiceID string

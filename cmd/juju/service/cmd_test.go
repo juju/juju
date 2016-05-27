@@ -30,8 +30,8 @@ var deployTests = []struct {
 		[]string{"charm-name"},
 		&DeployCommand{},
 	}, {
-		[]string{"charm-name", "service-name"},
-		&DeployCommand{ServiceName: "service-name"},
+		[]string{"charm-name", "application-name"},
+		&DeployCommand{ServiceName: "application-name"},
 	}, {
 		[]string{"--num-units", "33", "charm-name"},
 		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 33}},

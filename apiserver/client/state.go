@@ -4,9 +4,9 @@
 package client
 
 import (
-	"github.com/juju/names"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"

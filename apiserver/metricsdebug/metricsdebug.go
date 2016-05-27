@@ -7,7 +7,7 @@ package metricsdebug
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -87,7 +87,7 @@ func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResul
 				results.Results[i].Error = common.ServerError(err)
 				continue
 			}
-		case names.ServiceTagKind:
+		case names.ApplicationTagKind:
 			batches, err = api.state.MetricBatchesForService(tag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to get metrics")
@@ -160,7 +160,7 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 		if err != nil {
 			return errors.Trace(err)
 		}
-	case names.ServiceTag:
+	case names.ApplicationTag:
 		service, err := api.state.Service(entity.Id())
 		if err != nil {
 			return errors.Trace(err)

@@ -12,8 +12,8 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"golang.org/x/crypto/nacl/secretbox"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"

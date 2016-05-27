@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api/charms"
@@ -61,7 +61,7 @@ func (c *removeServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
 	}
-	if !names.IsValidService(args[0]) {
+	if !names.IsValidApplication(args[0]) {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 	c.ServiceName, args = args[0], args[1:]

@@ -6,7 +6,7 @@ package modelmanager
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"

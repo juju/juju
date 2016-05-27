@@ -424,7 +424,7 @@ func (s *UpgradeCharmCharmStoreSuite) TestUpgradeCharmWithChannel(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
-	s.assertServicesDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
 	})
 }

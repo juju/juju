@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -26,13 +26,13 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 	var args ListResourcesArgs
 	var errs []error
 	for _, service := range services {
-		if !names.IsValidService(service) {
+		if !names.IsValidApplication(service) {
 			err := errors.Errorf("invalid service %q", service)
 			errs = append(errs, err)
 			continue
 		}
 		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewServiceTag(service).String(),
+			Tag: names.NewApplicationTag(service).String(),
 		})
 	}
 	if err := resolveErrors(errs); err != nil {
@@ -56,10 +56,10 @@ type AddPendingResourcesArgs struct {
 func NewAddPendingResourcesArgs(serviceID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
 	var args AddPendingResourcesArgs
 
-	if !names.IsValidService(serviceID) {
+	if !names.IsValidApplication(serviceID) {
 		return args, errors.Errorf("invalid service %q", serviceID)
 	}
-	tag := names.NewServiceTag(serviceID).String()
+	tag := names.NewApplicationTag(serviceID).String()
 
 	var apiResources []CharmResource
 	for _, res := range resources {

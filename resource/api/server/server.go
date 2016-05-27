@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -94,7 +94,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 
 	for i, e := range args.Entities {
 		logger.Tracef("Listing resources for %q", e.Tag)
-		tag, apierr := parseServiceTag(e.Tag)
+		tag, apierr := parseApplicationTag(e.Tag)
 		if apierr != nil {
 			r.Results[i] = api.ResourcesResult{
 				ErrorResult: params.ErrorResult{
@@ -121,7 +121,7 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPendingResourcesResult, error) {
 	var result api.AddPendingResourcesResult
 
-	tag, apiErr := parseServiceTag(args.Tag)
+	tag, apiErr := parseApplicationTag(args.Tag)
 	if apiErr != nil {
 		result.Error = apiErr
 		return result, nil
@@ -315,15 +315,15 @@ func (f Facade) addPendingResource(serviceID string, chRes charmresource.Resourc
 	return pendingID, nil
 }
 
-func parseServiceTag(tagStr string) (names.ServiceTag, *params.Error) { // note the concrete error type
-	serviceTag, err := names.ParseServiceTag(tagStr)
+func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { // note the concrete error type
+	ApplicationTag, err := names.ParseApplicationTag(tagStr)
 	if err != nil {
-		return serviceTag, &params.Error{
+		return ApplicationTag, &params.Error{
 			Message: err.Error(),
 			Code:    params.CodeBadRequest,
 		}
 	}
-	return serviceTag, nil
+	return ApplicationTag, nil
 }
 
 func errorResult(err error) api.ResourcesResult {

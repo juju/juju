@@ -29,7 +29,7 @@ func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 	s.base = statetest.NewStubPersistence(s.stub)
 	s.base.ReturnServiceExistsOps = []txn.Op{{
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}}
 }
@@ -47,7 +47,7 @@ func (s *StagedResourceSuite) newStagedResource(c *gc.C, serviceID, name string)
 }
 
 func (s *StagedResourceSuite) TestStageOkay(c *gc.C) {
-	staged, doc := s.newStagedResource(c, "a-service", "spam")
+	staged, doc := s.newStagedResource(c, "a-application", "spam")
 	doc.DocID += "#staged"
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
@@ -58,18 +58,18 @@ func (s *StagedResourceSuite) TestStageOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *StagedResourceSuite) TestStageExists(c *gc.C) {
-	staged, doc := s.newStagedResource(c, "a-service", "spam")
+	staged, doc := s.newStagedResource(c, "a-application", "spam")
 	doc.DocID += "#staged"
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, txn.ErrAborted, nil, nil, ignoredErr)
@@ -80,27 +80,27 @@ func (s *StagedResourceSuite) TestStageExists(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "RunTransaction", "ServiceExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Assert: &doc,
 	}, {
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *StagedResourceSuite) TestUnstageOkay(c *gc.C) {
-	staged, _ := s.newStagedResource(c, "a-service", "spam")
+	staged, _ := s.newStagedResource(c, "a-application", "spam")
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 
@@ -110,13 +110,13 @@ func (s *StagedResourceSuite) TestUnstageOkay(c *gc.C) {
 	s.stub.CheckCallNames(c, "Run", "RunTransaction")
 	s.stub.CheckCall(c, 1, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Remove: true,
 	}})
 }
 
 func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
-	staged, doc := s.newStagedResource(c, "a-service", "spam")
+	staged, doc := s.newStagedResource(c, "a-application", "spam")
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, nil, ignoredErr)
 
@@ -124,25 +124,25 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
-	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-application")
 	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam",
+		Id:     "resource#a-application/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Remove: true,
 	}})
 }
 
 func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
-	staged, doc := s.newStagedResource(c, "a-service", "spam")
+	staged, doc := s.newStagedResource(c, "a-application", "spam")
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, nil, txn.ErrAborted, nil, nil, nil, nil, ignoredErr)
 
@@ -150,39 +150,39 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction", "ServiceExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
-	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-application")
 	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam",
+		Id:     "resource#a-application/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Remove: true,
 	}})
-	s.stub.CheckCall(c, 7, "IncCharmModifiedVersionOps", "a-service")
+	s.stub.CheckCall(c, 7, "IncCharmModifiedVersionOps", "a-application")
 	s.stub.CheckCall(c, 8, "RunTransaction", []txn.Op{{
 		C:      "resources",
-		Id:     "resource#a-service/spam",
+		Id:     "resource#a-application/spam",
 		Assert: txn.DocExists,
 		Remove: true,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service/spam",
+		Id:     "resource#a-application/spam",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
 		C:      "service",
-		Id:     "a-service",
+		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
 		C:      "resources",
-		Id:     "resource#a-service/spam#staged",
+		Id:     "resource#a-application/spam#staged",
 		Remove: true,
 	}})
 }

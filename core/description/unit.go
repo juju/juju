@@ -5,8 +5,8 @@ package description
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/schema"
+	"gopkg.in/juju/names.v2"
 )
 
 type units struct {

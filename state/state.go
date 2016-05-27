@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/os"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -59,7 +59,7 @@ const (
 
 	// serviceLeadershipNamespace is the name of the lease.Client namespace
 	// used by the leadership manager.
-	serviceLeadershipNamespace = "service-leadership"
+	serviceLeadershipNamespace = "application-leadership"
 
 	// singularControllerNamespace is the name of the lease.Client namespace
 	// used by the singular manager
@@ -804,7 +804,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.Unit(id)
 	case names.UserTag:
 		return st.User(tag)
-	case names.ServiceTag:
+	case names.ApplicationTag:
 		return st.Service(id)
 	case names.ModelTag:
 		env, err := st.Model()
@@ -864,7 +864,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.MachineTag:
 		coll = machinesC
 		id = st.docID(id)
-	case names.ServiceTag:
+	case names.ApplicationTag:
 		coll = servicesC
 		id = st.docID(id)
 	case names.UnitTag:
@@ -950,7 +950,7 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)
 	}
 	// Sanity checks.
-	if !names.IsValidService(args.Name) {
+	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")
 	}
 	if args.Charm == nil {
@@ -1391,7 +1391,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	services, closer := st.getCollection(servicesC)
 	defer closer()
 
-	if !names.IsValidService(name) {
+	if !names.IsValidApplication(name) {
 		return nil, errors.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -2049,7 +2049,7 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id)
 
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
-	's': names.ServiceTagKind + "-",
+	's': names.ApplicationTagKind + "-",
 	'u': names.UnitTagKind + "-",
 	'e': names.ModelTagKind + "-",
 	'r': names.RelationTagKind + "-",

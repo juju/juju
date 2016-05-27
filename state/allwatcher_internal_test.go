@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -132,7 +132,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
 		ModelUUID:   modelUUID,
-		Tag:         "service-wordpress",
+		Tag:         "application-wordpress",
 		Annotations: pairs,
 	})
 

@@ -6,7 +6,7 @@ package action
 import (
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -20,9 +20,9 @@ func NewListCommand() cmd.Command {
 // listCommand lists actions defined by the charm of a given service.
 type listCommand struct {
 	ActionCommandBase
-	serviceTag names.ServiceTag
-	fullSchema bool
-	out        cmd.Output
+	applicationTag names.ApplicationTag
+	fullSchema     bool
+	out            cmd.Output
 }
 
 const listDoc = `
@@ -55,10 +55,10 @@ func (c *listCommand) Init(args []string) error {
 		return errors.New("no service name specified")
 	case 1:
 		svcName := args[0]
-		if !names.IsValidService(svcName) {
+		if !names.IsValidApplication(svcName) {
 			return errors.Errorf("invalid service name %q", svcName)
 		}
-		c.serviceTag = names.NewServiceTag(svcName)
+		c.applicationTag = names.NewApplicationTag(svcName)
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -74,14 +74,14 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actions, err := api.ServiceCharmActions(params.Entity{c.serviceTag.String()})
+	actions, err := api.ServiceCharmActions(params.Entity{c.applicationTag.String()})
 	if err != nil {
 		return err
 	}
 
 	output := actions.ActionSpecs
 	if len(output) == 0 {
-		return c.out.Write(ctx, "No actions defined for "+c.serviceTag.Id())
+		return c.out.Write(ctx, "No actions defined for "+c.applicationTag.Id())
 	}
 
 	if c.fullSchema {
