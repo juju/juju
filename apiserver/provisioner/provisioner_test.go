@@ -122,7 +122,6 @@ func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonMana
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *withoutStateServerSuite) TestSetPasswords(c *gc.C) {
@@ -1380,7 +1379,6 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 
 	result, err := aProvisioner.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
@@ -1599,7 +1597,6 @@ func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 
 	result, err := aProvisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
 }
 

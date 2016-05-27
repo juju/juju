@@ -183,7 +183,6 @@ func (s *networkerSuite) TestNetworkerNonMachineAgent(c *gc.C) {
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	aNetworker, err := networker.NewNetworkerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	c.Assert(aNetworker, gc.IsNil)
 }
 

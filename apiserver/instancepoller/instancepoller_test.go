@@ -96,7 +96,6 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *
 	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *InstancePollerSuite) TestEnvironConfigFailure(c *gc.C) {

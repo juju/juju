@@ -80,7 +80,6 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	_, err := storageprovisioner.NewStorageProvisionerAPI(s.State, common.NewResources(), authorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *provisionerSuite) setupVolumes(c *gc.C) {

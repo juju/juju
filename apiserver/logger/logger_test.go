@@ -55,7 +55,6 @@ func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
 	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {

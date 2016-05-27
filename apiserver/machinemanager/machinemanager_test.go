@@ -100,7 +100,6 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	_, err := machinemanager.NewMachineManagerAPI(nil, nil, s.authorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *MachineManagerSuite) TestAddMachinesStateError(c *gc.C) {

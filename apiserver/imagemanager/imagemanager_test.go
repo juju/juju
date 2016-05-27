@@ -62,7 +62,6 @@ func (s *imageManagerSuite) TestNewImageManagerAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := imagemanager.NewImageManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *imageManagerSuite) addImage(c *gc.C, content string) {

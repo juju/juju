@@ -121,7 +121,6 @@ func (s *uniterBaseSuite) testUniterFailsWithNonUnitAgentUser(
 	err := factory(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *uniterBaseSuite) testSetStatus(
@@ -1119,7 +1118,6 @@ func (s *uniterBaseSuite) testWatchActionNotificationsPermissionDenied(c *gc.C, 
 	result := results.Results[0]
 	c.Assert(result.Error, gc.NotNil)
 	c.Assert(result.Error.Message, gc.Equals, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *uniterBaseSuite) testConfigSettings(
