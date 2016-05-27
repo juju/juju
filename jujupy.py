@@ -433,10 +433,10 @@ class EnvJujuClient:
 
     # What feature flags have existed that CI used.
     known_feature_flags = frozenset([
-        'actions', 'jes', 'address-allocation', 'cloudsigma'])
+        'actions', 'jes', 'address-allocation', 'cloudsigma', 'migration'])
 
     # What feature flags are used by this version of the juju client.
-    used_feature_flags = frozenset(['address-allocation'])
+    used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
 
