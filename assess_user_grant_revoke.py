@@ -39,14 +39,19 @@ class JujuAssertionError(AssertionError):
     """Exception for juju assertion failures."""
 
 
-def register_user(username, environ, register_cmd,
-                  register_process=pexpect.spawn):
+def register_user(user, client, fake_home):
+    """Register `user` for the `client` return the cloned client used."""
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
     # pexpect has a bug, and doesn't honor env=
-    with scoped_environ(environ):
+    username = user.name
+    token = client.add_user(username, permissions=user.permissions)
+    user_client, user_env = create_cloned_environment(
+        client, fake_home)
+
+    with scoped_environ(user_env):
         try:
-            child = register_process(register_cmd)
+            child = user_client.expect('register', (token), include_e=False)
             child.expect('(?i)name .*: ')
             child.sendline(username + '_controller')
             child.expect('(?i)password')
@@ -60,6 +65,7 @@ def register_user(username, environ, register_cmd,
         except pexpect.TIMEOUT:
             raise JujuAssertionError(
                 'Registering user failed: pexpect session timed out')
+    return user_client
 
 
 def create_cloned_environment(client, cloned_juju_home):
@@ -126,12 +132,9 @@ def assess_user_grant_revoke(admin_client):
 
     for user in users:
         log.debug("Testing %s" % user.name)
-        user_register_string = admin_client.add_user(
-            user.name, permissions=user.permissions)
         with temp_dir() as fake_home:
-            user_client, user_env = create_cloned_environment(
-                admin_client, fake_home)
-            register_user(user.name, user_env, user_register_string)
+            user_client = register_user(
+                user, admin_client, fake_home)
             assert_user_permissions(user, user_client, admin_client)
 
 

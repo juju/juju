@@ -533,19 +533,16 @@ class FakeBackend:
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         if command == 'list-models':
             return yaml.safe_dump(self.list_models())
-        if command == ('add-user'):
+        if command == 'add-user':
             permissions = 'read'
             if set(["--acl", "write"]).issubset(args):
                 permissions = 'write'
             username = args[0]
             model = args[2]
-            code = b64encode(sha512(username).digest())
             info_string = \
                 'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
                 .format(username, username, permissions, model)
-            register_string = \
-                'Please send this command to {}\n    juju register {}' \
-                .format(username, code)
+            register_string = get_user_register_command_info(username)
             return info_string + register_string
         if command == 'show-status':
             status_dict = model_state.get_status_dict()
@@ -557,6 +554,16 @@ class FakeBackend:
 
     def pause(self, seconds):
         pass
+
+
+def get_user_register_command_info(username):
+    code = get_user_register_token(username)
+    return 'Please send this command to {}\n    juju register {}'.format(
+        username, code)
+
+
+def get_user_register_token(username):
+    return b64encode(sha512(username).digest())
 
 
 class FakeBackendOptionalJES(FakeBackend):
@@ -2990,12 +2997,15 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(None, '2.0.0', None)
         self.assertFalse(client.is_juju1x())
 
-    def test__get_register_command(self):
-        output = ''.join(['User "x" added\nUser "x" granted read access ',
-                          'to model "y"\nPlease send this command to x:\n',
-                          '    juju register AaBbCc'])
-        output_cmd = 'juju register AaBbCc'
+    def test__get_register_command_returns_register_token(self):
+        output = dedent("""\
+        User "x" added
+        User "x" granted read access to model "y"
+        Please send this command to x:
+            juju register AaBbCc""")
+        output_cmd = 'AaBbCc'
         fake_client = fake_juju_client()
+
         register_cmd = fake_client._get_register_command(output)
         self.assertEqual(register_cmd, output_cmd)
 
@@ -3034,15 +3044,45 @@ class TestEnvJujuClient(ClientTest):
         username = 'fakeuser'
         model = 'foo'
         permissions = 'write'
+        output = get_user_register_command_info(username)
 
-        output = fake_client.add_user(username)
-        self.assertTrue(output.startswith('juju register'))
+        def _get_expected_args(model=None, permissions=None):
+            return [
+                username,
+                '--models', model or fake_client.env.environment,
+                '--acl', permissions or 'read',
+                '-c', fake_client.env.controller.name]
 
-        output = fake_client.add_user(username, model)
-        self.assertTrue(output.startswith('juju register'))
+        # Ensure add_user returns expected value.
+        self.assertEqual(
+            fake_client.add_user(username),
+            get_user_register_token(username))
 
-        output = fake_client.add_user(username, model, permissions)
-        self.assertTrue(output.startswith('juju register'))
+        with patch.object(fake_client, 'get_juju_output',
+                          return_value=output) as get_output:
+            # Check using default model and permissions
+            fake_client.add_user(username)
+            expected_args = _get_expected_args()
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
+
+            # Check explicit model & default permissions
+            fake_client.add_user(username, model)
+            expected_args = _get_expected_args(model)
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
+
+            # Check explicit model & permissions
+            fake_client.add_user(username, model, permissions)
+            expected_args = _get_expected_args(model, permissions)
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
+
+            # Check default model & explicit permissions
+            fake_client.add_user(username, permissions=permissions)
+            expected_args = _get_expected_args(permissions=permissions)
+            get_output.assert_called_with(
+                'add-user', *expected_args, include_e=False)
 
 
 class TestEnvJujuClient2B7(ClientTest):
