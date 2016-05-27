@@ -9,6 +9,7 @@ from datetime import (
 import errno
 from hashlib import sha512
 from itertools import count
+import json
 import logging
 import os
 import socket
@@ -546,7 +547,9 @@ class FakeBackend:
             return info_string + register_string
         if command == 'show-status':
             status_dict = model_state.get_status_dict()
-            return yaml.safe_dump(status_dict)
+            # Parsing JSON is much faster than parsing YAML, and JSON is a
+            # subset of YAML, so emit JSON.
+            return json.dumps(status_dict)
         if command == 'create-backup':
             self.controller_state.require_admin('backup', model)
             return 'juju-backup-0.tar.gz'

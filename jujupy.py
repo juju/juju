@@ -13,6 +13,7 @@ from cStringIO import StringIO
 from datetime import timedelta
 import errno
 from itertools import chain
+import json
 import logging
 import os
 import pexpect
@@ -214,7 +215,12 @@ class Status:
 
     @classmethod
     def from_text(cls, text):
-        status_yaml = yaml_loads(text)
+        try:
+            # Parsing as JSON is much faster than parsing as YAML, so try
+            # parsing as JSON first and fall back to YAML.
+            status_yaml = json.loads(text)
+        except ValueError:
+            status_yaml = yaml_loads(text)
         return cls(status_yaml, text)
 
     def get_applications(self):
