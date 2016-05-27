@@ -448,9 +448,6 @@ def main(args):
 
     for s in config_parser.stanzas():
         if s.is_logical_interface:
-            if not s.iface.is_active or s.iface.is_bridged:
-                # Don't re-bridge or bridge inactive interfaces
-                continue
             if not (args.interface_to_bridge and args.interface_to_bridge != s.iface.name):
                 s.iface.bridge_now(args.bridge_prefix, args.bridge_name)
 
