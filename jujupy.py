@@ -13,6 +13,7 @@ from cStringIO import StringIO
 from datetime import timedelta
 import errno
 from itertools import chain
+import json
 import logging
 import os
 import pexpect
@@ -214,7 +215,12 @@ class Status:
 
     @classmethod
     def from_text(cls, text):
-        status_yaml = yaml_loads(text)
+        try:
+            # Parsing as JSON is much faster than parsing as YAML, so try
+            # parsing as JSON first and fall back to YAML.
+            status_yaml = json.loads(text)
+        except ValueError:
+            status_yaml = yaml_loads(text)
         return cls(status_yaml, text)
 
     def get_applications(self):
@@ -1515,12 +1521,25 @@ class EnvJujuClient:
         return self.version.startswith('1.')
 
     def _get_register_command(self, output):
+        """Return register token from add-user output.
+
+        Return the register token supplied within the output from the add-user
+        command.
+
+        """
         for row in output.split('\n'):
             if 'juju register' in row:
-                return row.strip().lstrip()
+                command_string = row.strip().lstrip()
+                command_parts = command_string.split(' ')
+                return command_parts[-1]
         raise AssertionError('Juju register command not found in output')
 
     def add_user(self, username, models=None, permissions='read'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
         if models is None:
             models = self.env.environment
 
