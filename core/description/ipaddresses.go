@@ -138,7 +138,17 @@ var ipaddressDeserializationFuncs = map[int]ipaddressDeserializationFunc{
 }
 
 func importIPAddressV1(source map[string]interface{}) (*ipaddress, error) {
-	fields := schema.Fields{}
+	fields := schema.Fields{
+		"provider-id":      schema.String(),
+		"devicename":       schema.String(),
+		"machineid":        schema.String(),
+		"subnetcidr":       schema.String(),
+		"configmethod":     schema.String(),
+		"value":            schema.String(),
+		"dnsservers":       schema.List(schema.String()),
+		"dnssearchdomains": schema.List(schema.String()),
+		"gatewayaddress":   schema.String(),
+	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
 		"provider-id": "",
@@ -149,9 +159,18 @@ func importIPAddressV1(source map[string]interface{}) (*ipaddress, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "ipaddress v1 schema check failed")
 	}
-	// XXX valid :=
-	_ = coerced.(map[string]interface{})
+	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	return &ipaddress{}, nil
+	return &ipaddress{
+		ProviderID_:       valid["provider-id"].(string),
+		DeviceName_:       valid["devicename"].(string),
+		MachineID_:        valid["machinename"].(string),
+		SubnetCIDR_:       valid["subnetcidr"].(string),
+		ConfigMethod_:     valid["configmethod"].(string),
+		Value_:            valid["value"].(string),
+		DNSServers_:       valid["dnsservers"].([]string),
+		DNSSearchDomains_: valid["dnssearchdomains"].([]string),
+		GatewayAddress_:   valid["gatewayaddress"].(string),
+	}, nil
 }
