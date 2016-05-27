@@ -14,13 +14,15 @@ class Charm:
     DEFAULT_MAINTAINER = "juju-qa@lists.canonical.com"
     DEFAULT_SERIES = ("xenial", "trusty")
 
-    def __init__(self, name, summary, maintainer=None, series=None):
+    def __init__(self, name, summary, maintainer=None, series=None, storage=None):
         self.metadata = {
             "name": name,
             "summary": summary,
             "maintainer": maintainer or self.DEFAULT_MAINTAINER,
             "series": series or self.DEFAULT_SERIES,
         }
+        if storage is not None:
+            self.metadata["storage"] = storage
         self._hook_scripts = {}
 
     def to_dir(self, directory):
