@@ -41,36 +41,35 @@ func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, do
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *upgradesSuite) removePreferredAddressFields(c *gc.C, machine *Machine) {
-	machinesCol, closer := s.state.getRawCollection(machinesC)
-	defer closer()
-
-	err := machinesCol.Update(
-		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.D{{"preferredpublicaddress", ""}}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machinesCol.Update(
-		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$unset", bson.D{{"preferredprivateaddress", ""}}}},
-	)
+func (s *upgradesSuite) removeAllMachinesPreferredAddressFields(c *gc.C, machines []*Machine) {
+	ops := make([]txn.Op, len(machines))
+	for i, machine := range machines {
+		ops[i] = txn.Op{
+			C:  machinesC,
+			Id: machine.doc.DocID,
+			Update: bson.D{{"$unset", bson.D{
+				{"preferredpublicaddress", nil},
+				{"preferredprivateaddress", nil},
+			}}}}
+	}
+	err := s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *upgradesSuite) setPreferredAddressFields(c *gc.C, machine *Machine, addr string) {
-	machinesCol, closer := s.state.getRawCollection(machinesC)
-	defer closer()
-
+func (s *upgradesSuite) setAllMachinesPreferredAddressFields(c *gc.C, machines []*Machine, addr string) {
 	stateAddr := fromNetworkAddress(network.NewAddress(addr), OriginUnknown)
-	err := machinesCol.Update(
-		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$set", bson.D{{"preferredpublicaddress", stateAddr}}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machinesCol.Update(
-		bson.D{{"_id", s.state.docID(machine.Id())}},
-		bson.D{{"$set", bson.D{{"preferredprivateaddress", stateAddr}}}},
-	)
+
+	ops := make([]txn.Op, len(machines))
+	for i, machine := range machines {
+		ops[i] = txn.Op{
+			C:  machinesC,
+			Id: machine.doc.DocID,
+			Update: bson.D{{"$set", bson.D{
+				{"preferredpublicaddress", stateAddr},
+				{"preferredprivateaddress", stateAddr},
+			}}}}
+	}
+	err := s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -78,122 +77,143 @@ func assertMachineAddresses(c *gc.C, machine *Machine, publicAddress, privateAdd
 	err := machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	addr, err := machine.PublicAddress()
+	c.Assert(addr.Value, gc.Equals, publicAddress)
 	if publicAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
-	c.Assert(addr.Value, gc.Equals, publicAddress)
+
 	privAddr, err := machine.PrivateAddress()
+	c.Assert(privAddr.Value, gc.Equals, privateAddress)
 	if privateAddress != "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	}
-	c.Assert(privAddr.Value, gc.Equals, privateAddress)
 }
 
 func (s *upgradesSuite) createMachinesWithAddresses(c *gc.C) []*Machine {
-	_, err := s.state.AddMachine("quantal", JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.state.AddMachines([]MachineTemplate{
-		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
-		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
-		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
+	template := MachineTemplate{Series: "quantal", Jobs: []MachineJob{JobHostUnits}}
+	machines, err := s.state.AddMachines([]MachineTemplate{
+		template, template, template, template, template, template,
 	}...)
 	c.Assert(err, jc.ErrorIsNil)
-	machines, err := s.state.AllMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 4)
+	c.Assert(machines, gc.HasLen, 6)
 
-	m1 := machines[0]
-	m2 := machines[1]
-	m4 := machines[3]
-	err = m1.SetProviderAddresses(network.NewAddress("8.8.8.8"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetMachineAddresses(network.NewAddress("10.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetProviderAddresses(network.NewAddress("10.0.0.2"), network.NewAddress("8.8.4.4"))
+	m0 := machines[0] // has only provider addresses
+	m1 := machines[1] // has only machine addresses
+	m2 := machines[2] // has both machine and provider addresses (set in that order)
+	m3 := machines[3] // has both provider and machine addresses (in that order)
+	m4 := machines[4] // has neither
+	m5 := machines[5] // is set to dead
+
+	err = m0.SetProviderAddresses(network.NewAddress("8.8.0.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Attempting to set the addresses of a dead machine will fail, so we
-	// include a dead machine to make sure the upgrade step can cope.
-	err = m4.SetProviderAddresses(network.NewAddress("8.8.8.8"))
+	err = m1.SetMachineAddresses(network.NewAddress("8.8.1.8"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m4.EnsureDead()
+
+	err = m2.SetMachineAddresses(network.NewAddress("10.0.2.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.SetProviderAddresses(network.NewAddresses("10.0.2.2", "8.8.2.8")...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m3.SetProviderAddresses(network.NewAddresses("10.0.3.2", "8.8.3.8")...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m3.SetMachineAddresses(network.NewAddress("10.0.3.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineAddresses(c, m4, "", "")
+	assertMachineAddresses(c, m5, "", "")
+
+	err = m5.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Delete the preferred address fields.
-	for _, machine := range machines {
-		s.removePreferredAddressFields(c, machine)
-	}
+	s.removeAllMachinesPreferredAddressFields(c, machines)
 	return machines
 }
 
 func (s *upgradesSuite) TestAddPreferredAddressesToMachines(c *gc.C) {
 	machines := s.createMachinesWithAddresses(c)
-	m1 := machines[0]
-	m2 := machines[1]
-	m3 := machines[2]
+	s.addPreferredAddressesToMachinesAndAssertResults(c, machines)
+}
 
+func (s *upgradesSuite) addPreferredAddressesToMachinesAndAssertResults(c *gc.C, machines []*Machine) {
 	err := AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	assertMachineAddresses(c, machines[0], "8.8.0.8", "8.8.0.8")
+	assertMachineAddresses(c, machines[1], "8.8.1.8", "8.8.1.8")
+	assertMachineAddresses(c, machines[2], "8.8.2.8", "10.0.2.2")
+	assertMachineAddresses(c, machines[3], "8.8.3.8", "10.0.3.2")
+	assertMachineAddresses(c, machines[4], "", "")
+	assertMachineAddresses(c, machines[5], "", "")
 }
 
 func (s *upgradesSuite) TestAddPreferredAddressesToMachinesIdempotent(c *gc.C) {
 	machines := s.createMachinesWithAddresses(c)
-	m1 := machines[0]
-	m2 := machines[1]
-	m3 := machines[2]
-
-	err := AddPreferredAddressesToMachines(s.state)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
-
-	err = AddPreferredAddressesToMachines(s.state)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	s.addPreferredAddressesToMachinesAndAssertResults(c, machines)
+	s.addPreferredAddressesToMachinesAndAssertResults(c, machines)
+	s.addPreferredAddressesToMachinesAndAssertResults(c, machines)
 }
 
 func (s *upgradesSuite) TestAddPreferredAddressesToMachinesUpdatesExistingFields(c *gc.C) {
 	machines := s.createMachinesWithAddresses(c)
-	m1 := machines[0]
-	m2 := machines[1]
-	m3 := machines[2]
-	s.setPreferredAddressFields(c, m1, "1.1.2.2")
-	s.setPreferredAddressFields(c, m2, "1.1.2.2")
-	s.setPreferredAddressFields(c, m3, "1.1.2.2")
+	s.setAllMachinesPreferredAddressFields(c, machines, "1.1.2.2")
 
-	assertMachineInitial := func(m *Machine) {
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		addr, err := m.PublicAddress()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(addr.Value, gc.Equals, "1.1.2.2")
-		addr, err = m.PrivateAddress()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(addr.Value, gc.Equals, "1.1.2.2")
+	for _, m := range machines {
+		assertMachineAddresses(c, m, "1.1.2.2", "1.1.2.2")
 	}
-	assertMachineInitial(m1)
-	assertMachineInitial(m2)
-	assertMachineInitial(m3)
 
 	err := AddPreferredAddressesToMachines(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMachineAddresses(c, m1, "8.8.8.8", "8.8.8.8")
-	assertMachineAddresses(c, m2, "8.8.4.4", "10.0.0.2")
-	assertMachineAddresses(c, m3, "", "")
+	assertMachineAddresses(c, machines[0], "8.8.0.8", "8.8.0.8")
+	assertMachineAddresses(c, machines[1], "8.8.1.8", "8.8.1.8")
+	assertMachineAddresses(c, machines[2], "8.8.2.8", "10.0.2.2")
+	assertMachineAddresses(c, machines[3], "8.8.3.8", "10.0.3.2")
+	assertMachineAddresses(c, machines[4], "1.1.2.2", "1.1.2.2") // had none & none were set
+	assertMachineAddresses(c, machines[5], "1.1.2.2", "1.1.2.2") // was dead => none were set
+}
+
+func (s *upgradesSuite) TestIPv6AddressesAreNeverSetAsPreferred(c *gc.C) {
+	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMachineAddresses(c, machine, "", "") // nothing set by default
+
+	providerIPv6Addrs := network.NewAddresses("2001:db8::1", "::1")
+	err = machine.SetProviderAddresses(providerIPv6Addrs...)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineAddresses(c, machine, "", "")                              // IPv6 are ignored for preferred
+	c.Assert(machine.ProviderAddresses(), jc.DeepEquals, providerIPv6Addrs) // but are still saved
+	c.Assert(machine.Addresses(), jc.DeepEquals, providerIPv6Addrs)         // only have OriginProvider
+
+	machineIPv6Addrs := network.NewAddresses("fc00:123::1", "::1")
+	err = machine.SetMachineAddresses(machineIPv6Addrs...)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineAddresses(c, machine, "", "")                              // IPv6 still ignored
+	c.Assert(machine.ProviderAddresses(), jc.DeepEquals, providerIPv6Addrs) // unchanged
+	combinedAddrs := network.MergedAddresses(machineIPv6Addrs, providerIPv6Addrs)
+	c.Assert(machine.Addresses(), jc.DeepEquals, combinedAddrs)
+
+	providerMixedAddrs := network.NewAddresses("8.8.8.8", "fe80:1234::1")
+	err = machine.SetProviderAddresses(providerMixedAddrs...)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineAddresses(c, machine, "8.8.8.8", "8.8.8.8")                 // only IPv4 used for both
+	c.Assert(machine.ProviderAddresses(), jc.DeepEquals, providerMixedAddrs) // updated
+	combinedAddrs = network.MergedAddresses(machineIPv6Addrs, providerMixedAddrs)
+	c.Assert(machine.Addresses(), jc.DeepEquals, combinedAddrs)
+
+	machineMixedAddrs := network.NewAddresses("0.1.2.3", "127.0.0.1", "::1")
+	err = machine.SetMachineAddresses(machineMixedAddrs...)
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineAddresses(c, machine, "8.8.8.8", "8.8.8.8")                 // unchanged once set
+	c.Assert(machine.ProviderAddresses(), jc.DeepEquals, providerMixedAddrs) // unchanged
+	combinedAddrs = network.MergedAddresses(machineMixedAddrs, providerMixedAddrs)
+	c.Assert(machine.Addresses(), jc.DeepEquals, combinedAddrs)
 }
 
 func (s *upgradesSuite) readDocIDs(c *gc.C, coll, regex string) []string {
