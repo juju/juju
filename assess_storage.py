@@ -50,10 +50,9 @@ def make_storage_pool_list(name, provider, size):
 
 
 
-def create_storage_charm(name, summary, storage):
-    dir = temp_dir()
+def create_storage_charm(charm_dir, name, summary, storage):
     storage_charm = Charm(name, summary, storage=storage)
-    storage_charm.to_dir(dir)
+    storage_charm.to_dir(charm_dir)
 
 
 def assess_create_pool(client):
@@ -80,23 +79,19 @@ def deploy_storage(client, charm, series, pool, amount="1G"):
     #     raise JujuAssertionError()
 
 
-def assess_deploy_storage(client, charm_name, type, pool):
+def assess_deploy_storage(client, charm_name, storage_type, pool):
     storage = {
         "data": {
-            "type": type,
+            "type": storage_type,
             "location": "/srv/data"
         }
     }
-    charm_series = 'trsuty'
-    try:
-        charm = local_charm_path(charm=charm_name, juju_ver=client.version,
-                                 series=charm_series, platform=platform)
-        deploy_storage(client, charm, charm_series, pool)
-    except Exception:
-        create_storage_charm(charm_name, 'Test charm for storage', storage)
+    charm_series = 'trusty'
+    with temp_dir() as charm_dir:
+        create_storage_charm(charm_dir, charm_name, 'Test charm for storage', storage)
         platform = 'ubuntu'
         charm = local_charm_path(charm=charm_name, juju_ver=client.version,
-                                 series=charm_series, platform=platform)
+                                 series=charm_series, repository=charm_dir, platform=platform)
         deploy_storage(client, charm, charm_series, pool, "1G")
         assess_add_storage(client, charm_name + '/0', 1)
         client.wait_for_started()
