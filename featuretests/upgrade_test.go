@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -54,7 +54,7 @@ var ShortAttempt = &utils.AttemptStrategy{
 }
 
 type upgradeSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 	oldVersion version.Binary
 }
 

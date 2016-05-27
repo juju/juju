@@ -6,7 +6,7 @@ package servicescaler
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -33,8 +33,8 @@ func (config ManifoldConfig) start(apiCaller base.APICaller) (worker.Worker, err
 
 // Manifold returns a dependency.Manifold that runs a servicescaler worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.ApiManifold(
-		util.ApiManifoldConfig{config.APICallerName},
+	return engine.ApiManifold(
+		engine.ApiManifoldConfig{config.APICallerName},
 		config.start,
 	)
 }
