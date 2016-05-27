@@ -88,6 +88,8 @@ var minimalConfigAttrs = testing.Attrs{
 	"controller-uuid": testing.ModelTag.Id(),
 }
 
+var modelNameErr = "%q is not a valid name: model names may only contain lowercase letters, digits and hyphens"
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -437,14 +439,28 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo/bar",
 		}),
-		err: "model name contains unsafe characters",
+		err:  fmt.Sprintf(modelNameErr, "name"),
 	}, {
 		about:       "Bad name, no backslash",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo\\bar",
 		}),
-		err: "model name contains unsafe characters",
+		err:  fmt.Sprintf(modelNameErr, "name"),
+	}, {
+		about:       "Bad name, no space",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"name": "foo bar",
+		}),
+		err:  fmt.Sprintf(modelNameErr, "name"),
+	}, {
+		about:       "Bad name, no capital",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"name": "fooBar",
+		}),
+		err:  fmt.Sprintf(modelNameErr, "name"),
 	}, {
 		about:       "Empty name",
 		useDefaults: config.UseDefaults,

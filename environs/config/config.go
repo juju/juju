@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -539,6 +540,13 @@ func (e *InvalidConfigValueError) Error() string {
 	return msg
 }
 
+// Lowercase letters, digits and (non-leading) hyphens, as per LP:1568944 #5.
+var validModelName = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
+
+func IsValidModelName(name string) bool {
+	return validModelName.MatchString(name)
+}
+
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -567,8 +575,8 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if strings.ContainsAny(cfg.mustString(NameKey), "/\\") {
-		return fmt.Errorf("model name contains unsafe characters")
+	if !IsValidModelName(cfg.mustString(NameKey)) {
+		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", NameKey)
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave

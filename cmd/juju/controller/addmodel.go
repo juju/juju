@@ -4,7 +4,6 @@
 package controller
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -16,11 +15,9 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
-
-// Lowercase letters, digits and (non-leading) hyphens, as per LP:1568944 #5.
-var validModelName = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
 
 // NewAddModelCommand returns a command to add a model.
 func NewAddModelCommand() cmd.Command {
@@ -88,7 +85,7 @@ func (c *addModelCommand) Init(args []string) error {
 	}
 	c.Name, args = args[0], args[1:]
 
-	if !validModelName.MatchString(c.Name) {
+	if !config.IsValidModelName(c.Name) {
 		return errors.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", c.Name)
 	}
 
