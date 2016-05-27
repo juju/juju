@@ -1022,6 +1022,18 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(
+		c, s.newBootstrapCommand(), "ctrl", "dummy-cloud-with-config",
+		"--auto-upgrade",
+		// Configuration specified on the command line overrides
+		// anything specified in files, no matter what the order.
+		"--config", "controller=false",
+	)
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+}
+
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
@@ -1050,6 +1062,11 @@ clouds:
             region-2:
     dummy-cloud-without-regions:
         type: dummy
+    dummy-cloud-with-config:
+        type: dummy
+        config:
+            broken: Bootstrap
+            controller: not-a-bool
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }

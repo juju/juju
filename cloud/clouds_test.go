@@ -64,6 +64,26 @@ func (s *cloudSuite) TestParseCloudsAuthTypes(c *gc.C) {
 	c.Assert(rackspace.AuthTypes, jc.SameContents, []cloud.AuthType{"access-key", "userpass"})
 }
 
+func (s *cloudSuite) TestParseCloudsConfig(c *gc.C) {
+	clouds, err := cloud.ParseCloudMetadata([]byte(`clouds:
+  testing:
+    type: dummy
+    config:
+      k1: v1
+      k2: 2.0
+`))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	testingCloud := clouds["testing"]
+	c.Assert(testingCloud, jc.DeepEquals, cloud.Cloud{
+		Type: "dummy",
+		Config: map[string]interface{}{
+			"k1": "v1",
+			"k2": float64(2.0),
+		},
+	})
+}
+
 func (s *cloudSuite) TestPublicCloudsMetadataFallback(c *gc.C) {
 	clouds, fallbackUsed, err := cloud.PublicCloudMetadata("badfile.yaml")
 	c.Assert(err, jc.ErrorIsNil)
