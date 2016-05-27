@@ -314,7 +314,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	controller.APIEndpoints = []string{s.APIState.APIHostPorts()[0][0].String()}
 	err = s.ControllerStore.UpdateController(ControllerName, *controller)
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelcmd.WriteCurrentController(ControllerName)
+	err = s.ControllerStore.SetCurrentController(ControllerName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Environ = environ

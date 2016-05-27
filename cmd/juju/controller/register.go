@@ -185,7 +185,7 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err := c.refreshModels(c.store, registrationParams.controllerName, accountName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := modelcmd.WriteCurrentController(registrationParams.controllerName); err != nil {
+	if err := c.store.SetCurrentController(registrationParams.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 

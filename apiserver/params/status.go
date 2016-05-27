@@ -8,7 +8,6 @@ package params
 import (
 	"time"
 
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/instance"
@@ -135,7 +134,7 @@ type StatusHistoryRequest struct {
 	Kind   string              `json:"HistoryKind"`
 	Size   int                 `json:"Size"`
 	Filter StatusHistoryFilter `json:"Filter"`
-	Tag    names.Tag           `json:"Tag"`
+	Tag    string              `json:"Tag"`
 }
 
 // StatusHistoryRequests holds a slice of StatusHistoryArgs

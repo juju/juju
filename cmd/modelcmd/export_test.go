@@ -5,10 +5,6 @@ package modelcmd
 
 import "github.com/juju/juju/jujuclient"
 
-var (
-	GetCurrentControllerFilePath = getCurrentControllerFilePath
-)
-
 // NewModelCommandBase returns a new ModelCommandBase with the given client
 // store, controller name, and model name.
 func NewModelCommandBase(store jujuclient.ClientStore, controller, account, model string) *ModelCommandBase {

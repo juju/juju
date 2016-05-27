@@ -995,6 +995,7 @@ func (a *MachineAgent) startModelWorkers(uuid string) (worker.Worker, error) {
 		Clock:                       clock.WallClock,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
+		InstPollerAggregationDelay:  3 * time.Second,
 		// TODO(perrito666) the status history pruning numbers need
 		// to be adjusting, after collecting user data from large install
 		// bases, to numbers allowing a rich and useful back history.

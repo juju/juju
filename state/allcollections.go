@@ -303,17 +303,9 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		// TODO(mfoord): remove providerid indices here and switch to
-		// using providerIDsC to track unique provider ids.
-		ipAddressesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		endpointBindingsC: {},
-		openedPortsC:      {},
+		ipAddressesC:          {},
+		endpointBindingsC:     {},
+		openedPortsC:          {},
 
 		// -----
 

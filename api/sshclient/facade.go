@@ -12,11 +12,16 @@ import (
 )
 
 // NewFacade returns a new Facade based on an existing API connection.
-func NewFacade(caller base.APICaller) *Facade {
-	return &Facade{base.NewFacadeCaller(caller, "SSHClient")}
+func NewFacade(callCloser base.APICallCloser) *Facade {
+	clientFacade, caller := base.NewClientFacade(callCloser, "SSHClient")
+	return &Facade{
+		ClientFacade: clientFacade,
+		caller:       caller,
+	}
 }
 
 type Facade struct {
+	base.ClientFacade
 	caller base.FacadeCaller
 }
 

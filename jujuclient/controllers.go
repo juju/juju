@@ -22,11 +22,11 @@ func JujuControllersPath() string {
 
 // ReadControllersFile loads all controllers defined in a given file.
 // If the file is not found, it is not an error.
-func ReadControllersFile(file string) (map[string]ControllerDetails, error) {
+func ReadControllersFile(file string) (*Controllers, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return &Controllers{}, nil
 		}
 		return nil, err
 	}
@@ -39,8 +39,8 @@ func ReadControllersFile(file string) (map[string]ControllerDetails, error) {
 
 // WriteControllersFile marshals to YAML details of the given controllers
 // and writes it to the controllers file.
-func WriteControllersFile(controllers map[string]ControllerDetails) error {
-	data, err := yaml.Marshal(controllersCollection{controllers})
+func WriteControllersFile(controllers *Controllers) error {
+	data, err := yaml.Marshal(controllers)
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal yaml controllers")
 	}
@@ -48,15 +48,20 @@ func WriteControllersFile(controllers map[string]ControllerDetails) error {
 }
 
 // ParseControllers parses the given YAML bytes into controllers metadata.
-func ParseControllers(data []byte) (map[string]ControllerDetails, error) {
-	var result controllersCollection
+func ParseControllers(data []byte) (*Controllers, error) {
+	var result Controllers
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot unmarshal yaml controllers metadata")
 	}
-	return result.Controllers, nil
+	return &result, nil
 }
 
-type controllersCollection struct {
+// Controllers stores per-client controller information.
+type Controllers struct {
+	// Controllers is the collection of controllers known to the client.
 	Controllers map[string]ControllerDetails `yaml:"controllers"`
+
+	// CurrentController is the name of the active controller.
+	CurrentController string `yaml:"current-controller,omitempty"`
 }

@@ -45,23 +45,7 @@ type UnitPayloads interface {
 
 // TODO(ericsnow) Use a more generic component registration mechanism?
 
-// PayloadsEnvPersistence provides all the information needed to produce
-// a new EnvPayloads value.
-type PayloadsEnvPersistence interface {
-	Persistence
-
-	// TODO(ericsnow) Drop the machine-related API and provide UnitTags()?
-
-	// Machines builds the list of the names that identify
-	// all machines in State.
-	Machines() ([]string, error)
-
-	// Machines builds the list of names that identify all units
-	// for a given machine.
-	MachineUnits(machineName string) ([]string, error)
-}
-
-type newEnvPayloadsFunc func(PayloadsEnvPersistence) (EnvPayloads, error)
+type newEnvPayloadsFunc func(Persistence) (EnvPayloads, error)
 type newUnitPayloadsFunc func(persist Persistence, unit, machine string) (UnitPayloads, error)
 
 // TODO(ericsnow) Merge the 2 vars
@@ -83,11 +67,8 @@ func (st *State) EnvPayloads() (EnvPayloads, error) {
 		return nil, errors.Errorf("payloads not supported")
 	}
 
-	persist := &payloadsEnvPersistence{
-		Persistence: st.newPersistence(),
-		st:          st,
-	}
-	envPayloads, err := newEnvPayloads(persist)
+	db := st.newPersistence()
+	envPayloads, err := newEnvPayloads(db)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,35 +96,4 @@ func (st *State) UnitPayloads(unit *Unit) (UnitPayloads, error) {
 	}
 
 	return unitPayloads, nil
-}
-
-type payloadsEnvPersistence struct {
-	Persistence
-	st *State
-}
-
-// Machines implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) Machines() ([]string, error) {
-	ms, err := ep.st.AllMachines()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var names []string
-	for _, m := range ms {
-		names = append(names, m.Id())
-	}
-	return names, nil
-}
-
-// MachineUnits implements PayloadsEnvPersistence.
-func (ep *payloadsEnvPersistence) MachineUnits(machine string) ([]string, error) {
-	us, err := ep.st.UnitsFor(machine)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var names []string
-	for _, u := range us {
-		names = append(names, u.UnitTag().Id())
-	}
-	return names, nil
 }

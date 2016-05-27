@@ -23,26 +23,38 @@ var usageDebugLogSummary = `
 Displays log messages for a model.`[1:]
 
 var usageDebugLogDetails = `
-This command accesses all logged Juju activity on a per-model basis. By
-default, the model is the current model.
-A log line is written in this format:
-<entity> <timestamp> <log-level> <module>:<line-no> <message>
-The "entity" is the source of the message: a machine or unit. Both are
-obtained in the output to `[1:] + "`juju status`" + `.
+
+This command provides access to all logged Juju activity on a per-model
+basis. By default, the logs for the currently select model are shown.
+
+Each log line is emitted in this format:
+
+  <entity> <timestamp> <log-level> <module>:<line-no> <message>
+
+The "entity" is the source of the message: a machine or unit. The names for
+machines and units can be seen in the output of `[1:] + "`juju status`" + `.
+
 The '--include' and '--exclude' options filter by entity. A unit entity is
-identified by prefixing 'unit-' to its corresponding unit name and
-replacing the slash with a dash. A machine entity is identified by
-prefixing 'machine-' to its corresponding machine id.
+identified by prefixing 'unit-' to its corresponding unit name and replacing
+the slash with a dash. A machine entity is identified by prefixing 'machine-'
+to its corresponding machine id.
+
 The '--include-module' and '--exclude-module' options filter by (dotted)
-logging module name, which can be truncated.
-A combination of machine and unit filtering uses a logical OR whereas a
-combination of module and machine/unit filtering uses a logical AND.
-Log levels are cumulative; each lower level (more verbose) contains the
-preceding higher level (less verbose).
+logging module name. The module name can be truncated such that all loggers
+with the prefix will match.
+
+The filtering options combine as follows:
+* All --include options are logically ORed together.
+* All --exclude options are logically ORed together.
+* All --include-module options are logically ORed together.
+* All --exclude-module options are logically ORed together.
+* The combined --include, --exclude, --include-module and --exclude-module
+  selections are logically ANDed to form the complete filter.
 
 Examples:
-Exclude all machine 0 messages; show a maximum of 100 lines; and continue
-to append filtered messages:
+
+Exclude all machine 0 messages; show a maximum of 100 lines; and continue to
+append filtered messages:
 
     juju debug-log --exclude machine-0 --lines 100
 
@@ -55,18 +67,30 @@ Show all messages from unit apache2/3 or machine 1 and then exit:
 
     juju debug-log -T --replay --include unit-apache2-3 --include machine-1
 
-Include all juju.worker.uniter logging module messages that are also unit
-wordpress/0 messages and continue to append filtered messages:
+Show all juju.worker.uniter logging module messages that are also unit
+wordpress/0 messages, and then show any new log messages which match the
+filter:
 
-    juju debug-log --replay --include-module juju.worker.uniter --include \
-        unit-wordpress-0
+    juju debug-log --replay 
+        --include-module juju.worker.uniter \
+        --include unit-wordpress-0
 
-To see all WARNING and ERROR messages:
+Show all messages from the juju.worker.uniter module, except those sent from
+machine-3 or machine-4, and then stop:
+
+    juju debug-log --replay --no-tail
+        --include-module juju.worker.uniter \
+        --exclude machine-3 \
+        --exclude machine-4 
+
+To see all WARNING and ERROR messages and then continue showing any
+new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
 
 See also: 
-    status`
+    status
+    ssh`
 
 func (c *debugLogCommand) Info() *cmd.Info {
 	return &cmd.Info{

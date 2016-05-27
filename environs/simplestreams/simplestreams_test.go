@@ -447,6 +447,12 @@ func (s *simplestreamsSuite) TestStorageVirtFromCollection(c *gc.C) {
 	)
 }
 
+func (s *simplestreamsSuite) TestStorageVirtFromItem(c *gc.C) {
+	s.assertImageMetadata(c,
+		storageVirtTest{"com.ubuntu.cloud:server:14.04:amd64", "20140118", "nzww1pe", "ssd", "hvm"},
+	)
+}
+
 func (s *simplestreamsSuite) assertImageMetadata(c *gc.C, one storageVirtTest) {
 	metadata := s.AssertGetMetadata(c)
 	metadataCatalog := metadata.Products[one.product]

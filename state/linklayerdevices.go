@@ -221,7 +221,15 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 				return nil, err
 			}
 		}
-		return removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
+		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
+		if err != nil {
+			return nil, err
+		}
+		if dev.ProviderID() != "" {
+			op := dev.st.networkEntityGlobalKeyRemoveOp("linklayerdevice", dev.ProviderID())
+			ops = append(ops, op)
+		}
+		return ops, nil
 	}
 	return dev.st.run(buildTxn)
 }
@@ -456,7 +464,7 @@ func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
 	}
 
 	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
-	if err := dev.st.forEachIPAddressDoc(findQuery, nil, callbackFunc); err != nil {
+	if err := dev.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allAddresses, nil
