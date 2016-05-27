@@ -54,7 +54,6 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := usermanager.NewUserManagerAPI(s.State, nil, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
@@ -116,7 +115,6 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 
 	_, err = usermanager.AddUser(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 
 	_, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -267,7 +265,6 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	}
 	_, err = usermanager.DisableUser(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,7 +284,6 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	}
 	_, err = usermanager.EnableUser(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
