@@ -99,8 +99,8 @@ class LogicalInterface(object):
         routes = check_shell_cmd('ip route show dev {parent}'.format(**args))
 
         # Add the bridge
-        check_shell_cmd('ip link add name {bridge} type bridge'.format(**args))
-        check_shell_cmd('ip link set {bridge} up'.format(**args))
+        print_shell_cmd('ip link add name {bridge} type bridge'.format(**args))
+        print_shell_cmd('ip link set {bridge} up'.format(**args))
         retry_cmd('ip link set {parent} master {bridge}'.format(**args))
 
         if self.method == "dhcp":
