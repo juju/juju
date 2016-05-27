@@ -96,7 +96,7 @@ func (c *updateCloudsCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stdout, "Your list of public clouds is up to date, see juju clouds.")
+		fmt.Fprintln(ctxt.Stdout, "Your list of public clouds is up to date, see `juju clouds`.")
 		return nil
 	}
 	if err := jujucloud.WritePublicCloudMetadata(newPublicClouds); err != nil {

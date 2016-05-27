@@ -42,7 +42,7 @@ The autoload-credentials command looks for well known locations for supported cl
 allows the user to interactively save these into the Juju credentials store to make these
 available when bootstrapping new controllers and creating new models.
 
-The resulting credentials may be viewed with juju credentials.
+The resulting credentials may be viewed with ` + "`juju credentials`" + `.
 
 The clouds for which credentials may be autoloaded are:
 
