@@ -14,15 +14,88 @@ type ipaddresses struct {
 }
 
 type ipaddress struct {
+	ProviderID_       string
+	DeviceName_       string
+	MachineID_        string
+	SubnetCIDR_       string
+	ConfigMethod_     string
+	Value_            string
+	DNSServers_       []string
+	DNSSearchDomains_ []string
+	GatewayAddress_   string
+}
+
+// ProviderID implements IPAddress.
+func (i *ipaddress) ProviderID() string {
+	return i.ProviderID_
+}
+
+// DeviceName implements IPAddress.
+func (i *ipaddress) DeviceName() string {
+	return i.DeviceName_
+}
+
+// MachineID implements IPAddress.
+func (i *ipaddress) MachineID() string {
+	return i.MachineID_
+}
+
+// SubnetCIDR implements IPAddress.
+func (i *ipaddress) SubnetCIDR() string {
+	return i.SubnetCIDR_
+}
+
+// ConfigMethod implements IPAddress.
+func (i *ipaddress) ConfigMethod() string {
+	return i.ConfigMethod_
+}
+
+// Value implements IPAddress.
+func (i *ipaddress) Value() string {
+	return i.Value_
+}
+
+// DNSServers implements IPAddress.
+func (i *ipaddress) DNSServers() []string {
+	return i.DNSServers_
+}
+
+// DNSSearchDomains implements IPAddress.
+func (i *ipaddress) DNSSearchDomains() []string {
+	return i.DNSSearchDomains_
+}
+
+// GatewayAddress implements IPAddress.
+func (i *ipaddress) GatewayAddress() string {
+	return i.GatewayAddress_
 }
 
 // IPAddressArgs is an argument struct used to create a
 // new internal ipaddress type that supports the IPAddress interface.
 type IPAddressArgs struct {
+	ProviderID       string
+	DeviceName       string
+	MachineID        string
+	SubnetCIDR       string
+	ConfigMethod     string
+	Value            string
+	DNSServers       []string
+	DNSSearchDomains []string
+	GatewayAddress   string
 }
 
 func newIPAddress(args IPAddressArgs) *ipaddress {
-	return &ipaddress{}
+	return &ipaddress{
+		ProviderID_:       args.ProviderID,
+		DeviceName_:       args.DeviceName,
+		MachineID_:        args.MachineID,
+		SubnetCIDR_:       args.SubnetCIDR,
+		ConfigMethod_:     args.ConfigMethod,
+		Value_:            args.Value,
+		DNSServers_:       args.DNSServers,
+		DNSSearchDomains_: args.DNSSearchDomains,
+		GatewayAddress_:   args.GatewayAddress,
+	}
 }
 
 func importIPAddresses(source map[string]interface{}) ([]*ipaddress, error) {
