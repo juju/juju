@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -85,7 +84,7 @@ func (c *addModelCommand) Init(args []string) error {
 	}
 	c.Name, args = args[0], args[1:]
 
-	if !config.IsValidModelName(c.Name) {
+	if !names.IsValidModelName(c.Name) {
 		return errors.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", c.Name)
 	}
 

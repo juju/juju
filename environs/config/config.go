@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -540,13 +540,6 @@ func (e *InvalidConfigValueError) Error() string {
 	return msg
 }
 
-// Lowercase letters, digits and (non-leading) hyphens, as per LP:1568944 #5.
-var validModelName = regexp.MustCompile(`^[a-z0-9]+[a-z0-9-]*$`)
-
-func IsValidModelName(name string) bool {
-	return validModelName.MatchString(name)
-}
-
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -575,7 +568,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if !IsValidModelName(cfg.mustString(NameKey)) {
+	if !names.IsValidModelName(cfg.mustString(NameKey)) {
 		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", NameKey)
 	}
 
