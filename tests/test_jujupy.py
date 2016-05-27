@@ -93,7 +93,7 @@ from utility import (
 __metaclass__ = type
 
 
-def c_output(func):
+def check_juju_output(func):
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
         if 'service' in result:
@@ -437,7 +437,7 @@ class FakeBackend:
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
-            raise Exception('No service')
+            raise Exception('Command names must not contain "service".')
         if isinstance(args, basestring):
             args = (args,)
         if model is not None:
@@ -527,7 +527,7 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
-    @c_output
+    @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags,
                         juju_home, model=None, timeout=None):
         if 'service' in command:
