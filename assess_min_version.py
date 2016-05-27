@@ -40,8 +40,8 @@ def assert_pass(client, charm, ver, cur, name):
             'assert_pass failed min: {} cur: {}'.format(ver, cur))
 
 
-def get_current_version(client, juju_path):
-    current = client.get_version(juju_path=juju_path).split('-')[:-2]
+def get_current_version(client):
+    current = client.version.split('-')[:-2]
     return '-'.join(current)
 
 
@@ -49,7 +49,7 @@ def make_minver_charm(charm_dir, min_ver):
     charm = Charm('minver',
                   'Test charm for min-juju-version {}'.format(min_ver))
     charm.metadata['min-juju-version'] = min_ver
-    charm.to_dir(min_ver)
+    charm.to_dir(charm_dir)
 
 
 def assess_deploy(client, assertion, ver, current, name):
@@ -59,8 +59,8 @@ def assess_deploy(client, assertion, ver, current, name):
         assertion(client, charm_dir, ver, current, name)
 
 
-def assess_min_version(client, args):
-    current = get_current_version(client, args.juju_bin)
+def assess_min_version(client):
+    current = get_current_version(client)
     tests = [['1.25.0', 'name1250', assert_pass],
              ['99.9.9', 'name9999', assert_fail],
              ['99.9-alpha1', 'name999alpha1', assert_fail],
@@ -84,7 +84,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_min_version(bs_manager.client, args)
+        assess_min_version(bs_manager.client)
     return 0
 
 

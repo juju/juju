@@ -26,6 +26,7 @@ class TestCharm(TestCase):
             'summary': 'a summary',
             'series': ('xenial', 'trusty'),
             'maintainer': 'juju-qa@lists.canonical.com',
+            'description': 'description',
         }
         self.assertEqual(charm.metadata, expected)
 
@@ -75,6 +76,7 @@ class TestCharm(TestCase):
             'summary': 'a summary',
             'series': 'wily',
             'maintainer': Charm.DEFAULT_MAINTAINER,
+            'description': Charm.DEFAULT_DESCRIPTION,
         }
         self.assertEqual(metadata, expected)
 

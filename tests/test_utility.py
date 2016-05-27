@@ -25,7 +25,6 @@ from tests import (
 from utility import (
     add_basic_testing_arguments,
     as_literal_address,
-    ErrJujuPath,
     extract_deb,
     _find_candidates,
     find_candidates,
@@ -384,18 +383,6 @@ class TestAddBasicTestingArguments(TestCase):
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, 'c:\\juju.exe')
-
-    def test_positional_args_raises_ErrJujuPath(self):
-        cmd_line = ['local', '/foo', '/tmp/logs', 'testtest']
-        parser = add_basic_testing_arguments(ArgumentParser())
-        with self.assertRaises(ErrJujuPath):
-            parser.parse_args(cmd_line)
-
-    def test_positional_args_juju_bin_empty(self):
-        cmd_line = ['local', '', '/tmp/logs', 'testtest']
-        parser = add_basic_testing_arguments(ArgumentParser())
-        with self.assertRaises(ErrJujuPath):
-            parser.parse_args(cmd_line)
 
     def test_warns_on_dirty_logs(self):
         with warnings.catch_warnings(record=True) as warned:
