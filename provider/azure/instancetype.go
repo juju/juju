@@ -97,7 +97,7 @@ func newInstanceType(size compute.VirtualMachineSize) instances.InstanceType {
 		}
 	}
 	if cost == len(machineSizeCost) {
-		logger.Errorf("found unknown VM size %q", sizeName)
+		logger.Debugf("found unknown VM size %q", sizeName)
 	}
 
 	vtype := "Hyper-V"

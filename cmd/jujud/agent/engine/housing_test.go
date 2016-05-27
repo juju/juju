@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package util_test
+package engine_test
 
 import (
 	"time"
@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -27,7 +27,7 @@ type HousingSuite struct {
 var _ = gc.Suite(&HousingSuite{})
 
 func (*HousingSuite) TestEmptyHousingEmptyManifold(c *gc.C) {
-	manifold := util.Housing{}.Decorate(dependency.Manifold{})
+	manifold := engine.Housing{}.Decorate(dependency.Manifold{})
 
 	c.Check(manifold.Inputs, gc.HasLen, 0)
 	c.Check(manifold.Start, gc.IsNil)
@@ -36,7 +36,7 @@ func (*HousingSuite) TestEmptyHousingEmptyManifold(c *gc.C) {
 }
 
 func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *gc.C) {
-	manifold := util.Housing{}.Decorate(dependency.Manifold{
+	manifold := engine.Housing{}.Decorate(dependency.Manifold{
 		Inputs: []string{"x", "y", "z"},
 		Start:  panicStart,
 		Output: panicOutput,
@@ -58,7 +58,7 @@ func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *gc.C) {
 func (*HousingSuite) TestReplacesFilter(c *gc.C) {
 	expectIn := errors.New("tweedledum")
 	expectOut := errors.New("tweedledee")
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Filter: func(in error) error {
 			c.Check(in, gc.Equals, expectIn)
 			return expectOut
@@ -72,7 +72,7 @@ func (*HousingSuite) TestReplacesFilter(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagsNoInput(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"foo", "bar"},
 	}.Decorate(dependency.Manifold{})
 
@@ -81,7 +81,7 @@ func (*HousingSuite) TestFlagsNoInput(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagsNewInput(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"foo", "bar"},
 	}.Decorate(dependency.Manifold{
 		Inputs: []string{"ping", "pong"},
@@ -92,7 +92,7 @@ func (*HousingSuite) TestFlagsNewInput(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagsExistingInput(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"a", "c", "d"},
 	}.Decorate(dependency.Manifold{
 		Inputs: []string{"a", "b"},
@@ -103,7 +103,7 @@ func (*HousingSuite) TestFlagsExistingInput(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagMissing(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
 	context := dt.StubContext(nil, map[string]interface{}{
@@ -116,7 +116,7 @@ func (*HousingSuite) TestFlagMissing(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagBadType(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
 	context := dt.StubContext(nil, map[string]interface{}{
@@ -129,7 +129,7 @@ func (*HousingSuite) TestFlagBadType(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagBadValue(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
 	context := dt.StubContext(nil, map[string]interface{}{
@@ -143,7 +143,7 @@ func (*HousingSuite) TestFlagBadValue(c *gc.C) {
 
 func (*HousingSuite) TestFlagSuccess(c *gc.C) {
 	expectWorker := &struct{ worker.Worker }{}
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{
 		Start: func(dependency.Context) (worker.Worker, error) {
@@ -160,7 +160,7 @@ func (*HousingSuite) TestFlagSuccess(c *gc.C) {
 }
 
 func (*HousingSuite) TestOccupyNewInput(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{
 		Inputs: []string{"ping", "pong"},
@@ -171,7 +171,7 @@ func (*HousingSuite) TestOccupyNewInput(c *gc.C) {
 }
 
 func (*HousingSuite) TestOccupyExistingInput(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{
 		Inputs: []string{"citadel", "fortress", "bastion"},
@@ -182,7 +182,7 @@ func (*HousingSuite) TestOccupyExistingInput(c *gc.C) {
 }
 
 func (*HousingSuite) TestFlagBlocksOccupy(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Flags:  []string{"flag"},
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
@@ -197,7 +197,7 @@ func (*HousingSuite) TestFlagBlocksOccupy(c *gc.C) {
 }
 
 func (*HousingSuite) TestOccupyMissing(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
 	context := dt.StubContext(nil, map[string]interface{}{
@@ -210,7 +210,7 @@ func (*HousingSuite) TestOccupyMissing(c *gc.C) {
 }
 
 func (*HousingSuite) TestOccupyBadType(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
 	context := dt.StubContext(nil, map[string]interface{}{
@@ -223,7 +223,7 @@ func (*HousingSuite) TestOccupyBadType(c *gc.C) {
 }
 
 func (*HousingSuite) TestOccupyLocked(c *gc.C) {
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
 	abort := make(chan struct{})
@@ -259,7 +259,7 @@ func (*HousingSuite) TestOccupyLocked(c *gc.C) {
 func (*HousingSuite) TestOccupySuccess(c *gc.C) {
 	expectWorker := workertest.NewErrorWorker(errors.New("ignored"))
 	defer workertest.DirtyKill(c, expectWorker)
-	manifold := util.Housing{
+	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{
 		Start: func(dependency.Context) (worker.Worker, error) {
@@ -327,12 +327,12 @@ func (guest guest) Visit(visit fortress.Visit, abort fortress.Abort) error {
 	return fortress.ErrAborted
 }
 
-// flag implements util.Flag.
+// flag implements engine.Flag.
 type flag struct {
 	value bool
 }
 
-// Check is part of the util.Flag interface.
+// Check is part of the engine.Flag interface.
 func (flag flag) Check() bool {
 	return flag.value
 }

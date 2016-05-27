@@ -502,3 +502,7 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 	}
 	return client.Leases(), nil
 }
+
+func DeleteCharm(st *State, curl *charm.URL) error {
+	return st.deleteCharm(curl)
+}

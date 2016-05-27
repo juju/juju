@@ -1027,3 +1027,75 @@ func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevices(c *gc.C) {
 		c.Check(containerDevice.ParentName(), gc.Matches, `m#0#d#br-bond0(|\.12|\.34)`)
 	}
 }
+
+func (s *linkLayerDevicesStateSuite) TestSetContainerLinkLayerDevicesCorrectlyPaired(c *gc.C) {
+	// The device names chosen and the order are very explicit. We
+	// need to ensure that we have a list that does not sort well
+	// alphabetically. This is because SetParentLinkLayerDevices()
+	// uses a natural sort ordering and we want to verify the
+	// pairing between the container's NIC name and its parent in
+	// the host machine during this unit test.
+
+	devicesArgs := []state.LinkLayerDeviceArgs{
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth10",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth1",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth10.100",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth2",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth0",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth4",
+			Type: state.BridgeDevice,
+		},
+		state.LinkLayerDeviceArgs{
+			Name: "br-eth3",
+			Type: state.BridgeDevice,
+		},
+	}
+
+	expectedParents := []string{
+		"br-eth0",
+		"br-eth1",
+		"br-eth2",
+		"br-eth3",
+		"br-eth4",
+		"br-eth10",
+		"br-eth10.100",
+	}
+
+	err := s.machine.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs[:])
+	c.Assert(err, jc.ErrorIsNil)
+	s.addContainerMachine(c)
+	s.assertNoDevicesOnMachine(c, s.containerMachine)
+
+	err = s.machine.SetContainerLinkLayerDevices(s.containerMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containerDevices, gc.HasLen, len(devicesArgs))
+
+	for i, containerDevice := range containerDevices {
+		c.Check(containerDevice.Name(), gc.Matches, "eth"+strconv.Itoa(i))
+		c.Check(containerDevice.Type(), gc.Equals, state.EthernetDevice)
+		c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
+		c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
+		c.Check(containerDevice.IsUp(), jc.IsTrue)
+		c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
+		c.Check(containerDevice.ParentName(), gc.Equals, fmt.Sprintf("m#0#d#%s", expectedParents[i]))
+	}
+}

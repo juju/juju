@@ -110,8 +110,11 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	}
 	cl.m.Lock()
 	defer cl.m.Unlock()
-	config := cl.config
-	return tls.Server(conn, config), nil
+
+	// make a copy of cl.config so that update certificate does not mutate
+	// the config passed to the tls.Server for this conn.
+	config := *cl.config
+	return tls.Server(conn, &config), nil
 }
 
 // Close closes the listener.
