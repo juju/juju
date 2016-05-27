@@ -25,7 +25,6 @@ func (s *baseSuite) testAgentFailsWithNonAgentV0(c *gc.C, factory factoryV0) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
 
 func (s *baseSuite) testAgentSucceedsWithUnitAgentV0(c *gc.C, factory factoryV0) {
