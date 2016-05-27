@@ -271,6 +271,12 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeStatusOp(s.st, s.globalKey()),
 		removeModelServiceRefOp(s.st, s.Name()),
 	}
+	// For local charms, we also delete the charm itself since the
+	// charm is associated 1:1 with the service. Each different deploy
+	// of a local charm creates a new copy with a different revision.
+	if s.doc.CharmURL.Schema == "local" {
+		ops = append(ops, s.st.newCleanupOp(cleanupCharmForDyingService, s.doc.CharmURL.String()))
+	}
 	return ops
 }
 

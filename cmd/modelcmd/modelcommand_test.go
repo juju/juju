@@ -30,10 +30,8 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.PatchEnvironment("JUJU_CLI_VERSION", "")
 
-	err := modelcmd.WriteCurrentController("foo")
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "foo"
 	s.store.Accounts["foo"] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"bar@baz": {User: "b@r", Password: "hunter2"},
@@ -45,8 +43,7 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ModelCommandSuite{})
 
 func (s *ModelCommandSuite) TestGetCurrentModelNothingSet(c *gc.C) {
-	err := modelcmd.WriteCurrentController("")
-	c.Assert(err, jc.ErrorIsNil)
+	s.store.CurrentControllerName = ""
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)

@@ -1088,9 +1088,16 @@ func (env *azureEnviron) allInstances(
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
 	logger.Debugf("destroying model %q", env.envName)
-	logger.Debugf("- deleting resource group")
-	if err := env.deleteResourceGroup(); err != nil {
-		return errors.Trace(err)
+	if cfg := env.Config(); cfg.UUID() == cfg.ControllerUUID() {
+		logger.Debugf("- deleting resource groups")
+		if err := env.deleteControllerManagedResourceGroups(); err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		logger.Debugf("- deleting resource group %q", env.resourceGroup)
+		if err := env.deleteResourceGroup(env.resourceGroup); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	// Resource groups are self-contained and fully encompass
 	// all environ resources. Once you delete the group, there
@@ -1098,16 +1105,75 @@ func (env *azureEnviron) Destroy() error {
 	return nil
 }
 
-func (env *azureEnviron) deleteResourceGroup() error {
+func (env *azureEnviron) deleteControllerManagedResourceGroups() error {
+	cfg := env.Config()
+	filter := fmt.Sprintf(
+		"tagname eq '%s' and tagvalue eq '%s'",
+		tags.JujuController, cfg.ControllerUUID(),
+	)
+	client := resources.GroupsClient{env.resources}
+	var result resources.ResourceGroupListResult
+	if err := env.callAPI(func() (autorest.Response, error) {
+		var err error
+		result, err = client.List(filter, nil)
+		return result.Response, err
+	}); err != nil {
+		return errors.Annotate(err, "listing resource groups")
+	}
+	if result.Value == nil {
+		return nil
+	}
+
+	// Deleting groups can take a long time, so make sure they are
+	// deleted in parallel.
+	var wg sync.WaitGroup
+	errs := make([]error, len(*result.Value))
+	for i, group := range *result.Value {
+		groupName := to.String(group.Name)
+		logger.Debugf("  - deleting resource group %q", groupName)
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			if err := env.deleteResourceGroup(groupName); err != nil {
+				errs[i] = errors.Annotatef(
+					err, "deleting resource group %q", groupName,
+				)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// If there is just one error, return it. If there are multiple,
+	// then combine their messages.
+	var nonNilErrs []error
+	for _, err := range errs {
+		if err != nil {
+			nonNilErrs = append(nonNilErrs, err)
+		}
+	}
+	switch len(nonNilErrs) {
+	case 0:
+		return nil
+	case 1:
+		return nonNilErrs[0]
+	}
+	combined := make([]string, len(nonNilErrs))
+	for i, err := range nonNilErrs {
+		combined[i] = err.Error()
+	}
+	return errors.New(strings.Join(combined, "; "))
+}
+
+func (env *azureEnviron) deleteResourceGroup(resourceGroup string) error {
 	client := resources.GroupsClient{env.resources}
 	var result autorest.Response
 	if err := env.callAPI(func() (autorest.Response, error) {
 		var err error
-		result, err = client.Delete(env.resourceGroup)
+		result, err = client.Delete(resourceGroup)
 		return result, err
 	}); err != nil {
 		if result.Response == nil || result.StatusCode != http.StatusNotFound {
-			return errors.Annotatef(err, "deleting resource group %q", env.resourceGroup)
+			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 		}
 	}
 	return nil

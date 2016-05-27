@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/status"
@@ -101,9 +100,6 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 func (s *ModelsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	err := modelcmd.WriteCurrentController("fake")
-	c.Assert(err, jc.ErrorIsNil)
-
 	models := []base.UserModel{
 		{
 			Name:  "test-model1",
@@ -124,6 +120,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 		user:   "admin@local",
 	}
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "fake"
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
 	s.store.Models["fake"] = jujuclient.ControllerAccountModels{
 		AccountModels: map[string]*jujuclient.AccountModels{

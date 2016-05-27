@@ -166,9 +166,6 @@ api-endpoints and CA certificates.
 .I "~/.local/share/juju/credentials.yaml"
 Records all the cloud credentials known to Juju.
 .TP
-.I "~/.local/share/juju/current-controller"
- A text file containing the name of the current controller.
-.TP
 .I "~/.local/share/juju/models.yaml"
 Records the UUIDs of all models known to Juju.
 .TP
