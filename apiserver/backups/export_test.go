@@ -6,5 +6,4 @@ package backups
 var (
 	NewBackups     = &newBackups
 	WaitUntilReady = &waitUntilReady
-	GetMachine     = &getMachine
 )

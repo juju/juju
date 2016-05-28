@@ -24,11 +24,11 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	logger.Infof("Starting server side restore")
 
 	// Get hold of a backup file Reader
-	backup, closer := newBackups(a.st)
+	backup, closer := newBackups(a.backend)
 	defer closer.Close()
 
 	// Obtain the address of current machine, where we will be performing restore.
-	machine, err := a.st.Machine(a.machineID)
+	machine, err := a.backend.Machine(a.machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -45,7 +45,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	}
 
-	info := a.st.RestoreInfo()
+	info := a.backend.RestoreInfo()
 	// Signal to current state and api server that restore will begin
 	err = info.SetStatus(state.RestoreInProgress)
 	if err != nil {
@@ -70,7 +70,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		NewInstSeries:  machine.Series(),
 	}
 
-	session := a.st.MongoSession().Copy()
+	session := a.backend.MongoSession().Copy()
 	defer session.Close()
 
 	// Don't go if HA isn't ready.
@@ -79,7 +79,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		return errors.Annotatef(err, "HA not ready; try again later")
 	}
 
-	mgoInfo := a.st.MongoConnectionInfo()
+	mgoInfo := a.backend.MongoConnectionInfo()
 	logger.Infof("mongo info from state %+v", mgoInfo)
 	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
@@ -131,14 +131,14 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 // PrepareRestore implements the server side of Backups.PrepareRestore.
 func (a *API) PrepareRestore() error {
-	info := a.st.RestoreInfo()
+	info := a.backend.RestoreInfo()
 	logger.Infof("entering restore preparation mode")
 	return info.SetStatus(state.RestorePending)
 }
 
 // FinishRestore implements the server side of Backups.FinishRestore.
 func (a *API) FinishRestore() error {
-	info := a.st.RestoreInfo()
+	info := a.backend.RestoreInfo()
 	currentStatus, err := info.Status()
 	if err != nil {
 		return errors.Trace(err)
