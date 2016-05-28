@@ -84,6 +84,9 @@ func (info *RestoreInfo) Status() (RestoreStatus, error) {
 	return doc.Status, nil
 }
 
+// PurgeTxn purges missing transation from restoreInfoC collection.
+// These can be caused because this collection is heavy use while backing
+// up and mongo 3.2 does not like this.
 func (info *RestoreInfo) PurgeTxn() error {
 	restoreInfo, closer := info.st.getRawCollection(restoreInfoC)
 	defer closer()

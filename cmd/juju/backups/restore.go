@@ -236,13 +236,17 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 
+	// We remove models from the client store as the cached values will be used
+	// to dial after re-bootstraping (if present) and the process will fail.
 	store := c.ClientStore()
+	// TODO(perrito666) there is no authoritative source for this model's name
+	// see if one can be added.
 	err = store.RemoveModel(c.ControllerName(), c.AccountName(), "default")
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	err = store.RemoveModel(c.ControllerName(), c.AccountName(), "controller")
+	err = store.RemoveModel(c.ControllerName(), c.AccountName(), environs.ControllerModelName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

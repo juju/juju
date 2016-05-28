@@ -68,7 +68,8 @@ type Metadata struct {
 	Notes string
 
 	// Series holds the series of the backed up machine, when
-	// restoring the series should be maintained if possible.
+	// restoring the series should be the same or newer than
+	// the backup one.
 	Series string
 
 	// TODO(wallyworld) - remove these ASAP

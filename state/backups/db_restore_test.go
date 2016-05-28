@@ -89,6 +89,9 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 		return nil
 	}
 	s.PatchValue(backups.RunCommand, fakeRunCommand)
+	mgoDb := &mongoDb{}
+	mgoSession := &mongoSession{}
+
 	args := backups.RestorerArgs{
 		DialInfo: &mgo.DialInfo{
 			Username: "fakeUsername",
@@ -98,13 +101,11 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 		Version:         mongo.Mongo32wt,
 		TagUser:         "machine-0",
 		TagUserPassword: "fakePassword",
+		GetDB:           func(string, backups.MongoSession) backups.MongoDB { return mgoDb },
+		NewMongoSession: func(dialInfo *mgo.DialInfo) (backups.MongoSession, error) {
+			return mgoSession, nil
+		},
 	}
-	mgoDb := &mongoDb{}
-	mgoSession := &mongoSession{}
-	s.PatchValue(backups.GetDb, func(string, backups.MongoSession) backups.MongoDB { return mgoDb })
-	s.PatchValue(backups.NewMongoSession, func(dialInfo *mgo.DialInfo) (backups.MongoSession, error) {
-		return mgoSession, nil
-	})
 	restorer, err := backups.NewDBRestorer(args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = restorer.Restore("fakePath", nil)
