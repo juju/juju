@@ -72,7 +72,6 @@ const (
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "lxd",
-		"namespace":       "",
 		"remote-url":      "",
 		"client-cert":     "",
 		"client-key":      "",
@@ -231,9 +230,6 @@ func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.C
 	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	if raw := updates[cfgNamespace]; raw == nil || raw.(string) == "" {
-		updates[cfgNamespace] = cfg.Name()
-	}
 	cfg, err = cfg.Apply(updates)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
@@ -337,12 +333,6 @@ func NewBaseConfig(c *gc.C) *config.Config {
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err = cfg.Apply(map[string]interface{}{
-		// Default the namespace to the env name.
-		cfgNamespace: cfg.Name(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	return cfg
 }
 
@@ -360,7 +350,6 @@ func NewCustomBaseConfig(c *gc.C, updates map[string]interface{}) *config.Config
 }
 
 type ConfigValues struct {
-	Namespace  string
 	RemoteURL  string
 	ClientCert string
 	ClientKey  string
@@ -415,8 +404,6 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 	extras := make(map[string]interface{})
 	for k, v := range ecfg.attrs {
 		switch k {
-		case cfgNamespace:
-			values.Namespace = v.(string)
 		case cfgRemoteURL:
 			values.RemoteURL = v.(string)
 		case cfgClientCert:

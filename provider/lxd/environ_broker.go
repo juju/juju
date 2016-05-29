@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
@@ -90,8 +89,6 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 	// instanceConfig for all machines rather than just controller nodes.
 	// This limitation is why the constraints are assigned directly here.
 	args.InstanceConfig.Constraints = args.Constraints
-
-	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.ecfg.namespace()
 
 	return nil
 }
