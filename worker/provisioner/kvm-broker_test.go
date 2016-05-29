@@ -169,7 +169,7 @@ func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -182,7 +182,7 @@ func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -197,7 +197,7 @@ func (s *kvmBrokerSuite) TestMaintainInstance(c *gc.C) {
 		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -208,7 +208,7 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) 
 
 	s.maintainInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 

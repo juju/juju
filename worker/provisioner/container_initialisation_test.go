@@ -297,14 +297,9 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	pr := s.st.Provisioner()
-	expect := func(expect string) {
-		cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg[container.ConfigModelUUID], gc.Equals, expect)
-	}
-	expect("juju")
-	s.agentConfig.SetValue(agent.Namespace, "any-old-thing")
-	expect("any-old-thing")
+	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
 }
 
 type ContainerInstance struct {
