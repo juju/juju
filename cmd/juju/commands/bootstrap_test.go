@@ -507,11 +507,12 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
 	store := jujuclienttesting.NewStubStore()
-	store.SetErrors(nil, nil, nil, errors.New("oh noes"))
+	store.SetErrors(errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
-	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
-	store.CheckCallNames(c, "CurrentController", "CurrentAccount", "CurrentModel", "CredentialForCloud")
+	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
+	_, err := coretesting.RunCommand(c, wrapped, controllerName, "dummy", "--auto-upgrade")
+	store.CheckCallNames(c, "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
 }
 
