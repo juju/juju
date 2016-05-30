@@ -671,10 +671,10 @@ class BootstrapManager:
                 self.tear_down(self.jes_enabled)
 
     def _should_dump(self):
-        if sys.platform != 'win32':
-            from tests.test_jujupy import FakeBackend  # Circular imports
-            if isinstance(self.client._backend, FakeBackend):
-                return False
+        if sys.platform == 'win32':
+            return True
+        from tests.test_jujupy import FakeBackend  # Circular imports
+        return not isinstance(self.client._backend, FakeBackend)
 
     def dump_all_logs(self):
         """Dump logs for all models in the bootstrapped controller."""
