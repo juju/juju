@@ -807,7 +807,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 			continue
 		}
 
-		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, preparedInfo)
+		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, tag, preparedInfo)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

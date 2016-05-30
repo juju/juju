@@ -2143,18 +2143,18 @@ func (environ *maasEnviron) nodeIdFromInstance(inst instance.Instance) (string, 
 	return nodeId, err
 }
 
-func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	if len(preparedInfo) == 0 {
 		return nil, errors.Errorf("no prepared info to allocate")
 	}
 	logger.Debugf("using prepared container info: %+v", preparedInfo)
 	if !env.usingMAAS2() {
-		return env.allocateContainerAddresses1(hostInstanceID, preparedInfo)
+		return env.allocateContainerAddresses1(hostInstanceID, containerTag, preparedInfo)
 	}
-	return env.allocateContainerAddresses2(hostInstanceID, preparedInfo)
+	return env.allocateContainerAddresses2(hostInstanceID, containerTag, preparedInfo)
 }
 
-func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	subnetCIDRToVLANID := make(map[string]string)
 	subnetsAPI := env.getMAASClient().GetSubObject("subnets")
 	result, err := subnetsAPI.CallGet("", nil)
@@ -2185,8 +2185,12 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 	}
 	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
 
+	deviceName, err := env.namespace.Hostname(containerTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	primaryMACAddress := primaryNICInfo.MACAddress
-	containerDevice, err := env.createDevice(hostInstanceID, primaryMACAddress)
+	containerDevice, err := env.createDevice(hostInstanceID, deviceName, primaryMACAddress)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create device for container")
 	}
@@ -2244,7 +2248,7 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 	return finalInterfaces, nil
 }
 
-func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	subnetCIDRToSubnet := make(map[string]gomaasapi.Subnet)
 	spaces, err := env.maasController.Spaces()
 	if err != nil {
@@ -2287,7 +2291,12 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 		return nil, errors.Errorf("unexpected response fetching machine %v: %v", hostInstanceID, machines)
 	}
 	machine := machines[0]
+	deviceName, err := env.namespace.Hostname(containerTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
+		Hostname:      deviceName,
 		MACAddress:    primaryMACAddress,
 		Subnet:        subnet,
 		InterfaceName: primaryNICName,
