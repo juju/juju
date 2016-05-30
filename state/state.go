@@ -136,14 +136,33 @@ func (st *State) IsController() bool {
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
 func (st *State) RemoveAllModelDocs() error {
-	return st.removeAllModelDocs(bson.D{{"life", Dead}})
+	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
+	if err == txn.ErrAborted {
+		return errors.New("can't remove model: model not dead")
+	}
+	return errors.Trace(err)
 }
 
 // RemoveImportingModelDocs removes all documents from multi-model collections
 // for the current model. This method asserts that the model's migration mode
 // is "importing".
 func (st *State) RemoveImportingModelDocs() error {
-	return st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+	if err == txn.ErrAborted {
+		return errors.New("can't remove model: model not being imported for migration")
+	}
+	return errors.Trace(err)
+}
+
+// RemoveExportingModelDocs removes all documents from multi-model collections
+// for the current model. This method asserts that the model's migration mode
+// is "exporting".
+func (st *State) RemoveExportingModelDocs() error {
+	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
+	if err == txn.ErrAborted {
+		return errors.New("can't remove model: model not being exported for migration")
+	}
+	return errors.Trace(err)
 }
 
 func (st *State) removeAllModelDocs(modelAssertion bson.D) error {

@@ -48,6 +48,10 @@ type Facade interface {
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
 	Export() ([]byte, error)
+
+	// Reap removes all documents of the model associated with the API
+	// connection.
+	Reap() error
 }
 
 // Config defines the operation of a Worker.
@@ -261,7 +265,10 @@ func (w *Worker) doLOGTRANSFER() (migration.Phase, error) {
 }
 
 func (w *Worker) doREAP() (migration.Phase, error) {
-	// TODO(mjs) - To be implemented.
+	err := w.config.Facade.Reap()
+	if err != nil {
+		return migration.REAPFAILED, errors.Trace(err)
+	}
 	return migration.DONE, nil
 }
 
