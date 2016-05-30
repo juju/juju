@@ -6,6 +6,7 @@ package migrationmaster
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -130,8 +131,8 @@ func (api *API) Export() (params.SerializedModel, error) {
 	if err != nil {
 		return serialized, err
 	}
-
 	serialized.Bytes = bytes
+	serialized.Charms = getUsedCharms(model)
 	return serialized, nil
 }
 
@@ -139,4 +140,12 @@ func (api *API) Export() (params.SerializedModel, error) {
 // connection.
 func (api *API) Reap() error {
 	return api.backend.RemoveExportingModelDocs()
+}
+
+func getUsedCharms(model description.Model) []string {
+	result := set.NewStrings()
+	for _, service := range model.Services() {
+		result.Add(service.CharmURL())
+	}
+	return result.Values()
 }

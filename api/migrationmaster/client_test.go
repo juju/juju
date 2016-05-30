@@ -150,19 +150,23 @@ func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
 
 func (s *ClientSuite) TestExport(c *gc.C) {
 	var stub jujutesting.Stub
+	serialized := params.SerializedModel{
+		Bytes:  []byte("foo"),
+		Charms: []string{"cs:foo-1"},
+	}
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.SerializedModel)
-		*out = params.SerializedModel{Bytes: []byte("foo")}
+		*out = serialized
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller)
-	bytes, err := client.Export()
+	out, err := client.Export()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationMaster.Export", []interface{}{"", nil}},
 	})
-	c.Assert(string(bytes), gc.Equals, "foo")
+	c.Assert(out, gc.DeepEquals, serialized)
 }
 
 func (s *ClientSuite) TestExportError(c *gc.C) {

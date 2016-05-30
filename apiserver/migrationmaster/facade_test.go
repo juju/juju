@@ -134,6 +134,10 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
+	s.model.AddService(description.ServiceArgs{
+		Tag:      names.NewServiceTag("foo"),
+		CharmURL: "cs:foo-0",
+	})
 	api := s.mustMakeAPI(c)
 
 	serialized, err := api.Export()
@@ -143,6 +147,7 @@ func (s *Suite) TestExport(c *gc.C) {
 	// tested elsewhere). Just check that at least one thing we expect
 	// is in the serialised output.
 	c.Assert(string(serialized.Bytes), jc.Contains, version.Current.String())
+	c.Assert(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
 }
 
 func (s *Suite) TestReap(c *gc.C) {

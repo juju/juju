@@ -35,8 +35,8 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 var (
-	fakeSerializedModel = []byte("model")
-	modelTagString      = names.NewModelTag("model-uuid").String()
+	fakeModelBytes = []byte("model")
+	modelTagString = names.NewModelTag("model-uuid").String()
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenCall = jujutesting.StubCall{
@@ -54,7 +54,7 @@ var (
 	importCall = jujutesting.StubCall{
 		"APICall:MigrationTarget.Import",
 		[]interface{}{
-			params.SerializedModel{Bytes: fakeSerializedModel},
+			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = jujutesting.StubCall{
@@ -441,12 +441,14 @@ func (c *stubMasterFacade) GetMigrationStatus() (masterapi.MigrationStatus, erro
 	return c.status, nil
 }
 
-func (c *stubMasterFacade) Export() ([]byte, error) {
+func (c *stubMasterFacade) Export() (params.SerializedModel, error) {
 	c.stub.AddCall("masterFacade.Export")
 	if c.exportErr != nil {
-		return nil, c.exportErr
+		return params.SerializedModel{}, c.exportErr
 	}
-	return fakeSerializedModel, nil
+	return params.SerializedModel{
+		Bytes: fakeModelBytes,
+	}, nil
 }
 
 func (c *stubMasterFacade) SetPhase(phase migration.Phase) error {
