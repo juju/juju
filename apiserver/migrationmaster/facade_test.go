@@ -130,17 +130,13 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	exportModel := func(migration.StateExporter) ([]byte, error) {
-		return []byte("foo"), nil
-	}
-	migrationmaster.PatchExportModel(s, exportModel)
 	api := s.mustMakeAPI(c)
 
 	serialized, err := api.Export()
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serialized, gc.DeepEquals, params.SerializedModel{
-		Bytes: []byte("foo"),
+		Bytes: fakeModelBytes,
 	})
 }
 
@@ -163,11 +159,11 @@ func (s *Suite) TestReapError(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer, fakeExportModel)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
+	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer, fakeExportModel)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -233,6 +229,12 @@ func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 	}
 	m.phaseSet = phase
 	return nil
+}
+
+var fakeModelBytes = []byte("foo")
+
+func fakeExportModel(migration.StateExporter) ([]byte, error) {
+	return fakeModelBytes, nil
 }
 
 var modelUUID string

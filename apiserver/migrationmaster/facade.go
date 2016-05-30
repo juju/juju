@@ -21,9 +21,10 @@ func init() {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend    Backend
-	authorizer common.Authorizer
-	resources  *common.Resources
+	backend     Backend
+	authorizer  common.Authorizer
+	resources   *common.Resources
+	exportModel modelExportFunc
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -32,16 +33,20 @@ func NewAPI(
 	backend Backend,
 	resources *common.Resources,
 	authorizer common.Authorizer,
+	exportModel modelExportFunc,
 ) (*API, error) {
 	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    backend,
-		authorizer: authorizer,
-		resources:  resources,
+		backend:     backend,
+		authorizer:  authorizer,
+		resources:   resources,
+		exportModel: exportModel,
 	}, nil
 }
+
+type modelExportFunc func(migration.StateExporter) ([]byte, error)
 
 // Watch starts watching for an active migration for the model
 // associated with the API connection. The returned id should be used
@@ -117,13 +122,11 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 	return errors.Annotate(err, "failed to set phase")
 }
 
-var exportModel = migration.ExportModel
-
 // Export serializes the model associated with the API connection.
 func (api *API) Export() (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 
-	bytes, err := exportModel(api.backend)
+	bytes, err := api.exportModel(api.backend)
 	if err != nil {
 		return serialized, err
 	}
