@@ -24,7 +24,8 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 // Backend exposes state.State functionality needed by the backups Facade.
 type Backend interface {
 	IsController() bool
-	Machine(id string) (Machine, error)
+	Machine(id string) (*state.Machine, error)
+	MachineSeries(id string) (string, error)
 	MongoConnectionInfo() *mongo.MongoInfo
 	MongoSession() *mgo.Session
 	ModelTag() names.ModelTag

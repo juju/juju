@@ -145,7 +145,7 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 	}
 
 	// Reset current model to admin so first bootstrap succeeds.
-	err = store.SetCurrentModel(controllerName, environs.AdminUser, "controller")
+	err = store.SetCurrentModel(controllerName, environs.AdminUser, environs.ControllerModelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -253,7 +253,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.ControllerName(), env)
+	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), env)
 	if err != nil {
 		errors.Trace(err)
 	}

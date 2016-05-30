@@ -106,7 +106,7 @@ func (s *RestoreInfoSuite) TestUpdateRaceExhaustion(c *gc.C) {
 		perturb,
 	).Check()
 	err := s.info.SetStatus(state.RestoreInProgress)
-	c.Check(err, gc.ErrorMatches, ".*state changing too quickly; try again soon")
+	c.Check(err, gc.ErrorMatches, "setting status \"RESTORING\": state changing too quickly; try again soon")
 }
 
 //--------------------------------------

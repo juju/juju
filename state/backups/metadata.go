@@ -67,9 +67,7 @@ type Metadata struct {
 	// Notes is an optional user-supplied annotation.
 	Notes string
 
-	// Series holds the series of the backed up machine, when
-	// restoring the series should be the same or newer than
-	// the backup one.
+	// Series holds the series of the backed up machine.
 	Series string
 
 	// TODO(wallyworld) - remove these ASAP

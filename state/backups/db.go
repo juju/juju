@@ -299,12 +299,14 @@ func NewMongoSession(dialInfo *mgo.DialInfo) (MongoSession, error) {
 
 type RestorerArgs struct {
 	DialInfo        *mgo.DialInfo
+	NewMongoSession func(*mgo.DialInfo) (MongoSession, error)
 	Version         mongo.Version
 	TagUser         string
 	TagUserPassword string
 	GetDB           func(string, MongoSession) MongoDB
-	NewMongoSession func(*mgo.DialInfo) (MongoSession, error)
 }
+
+var mongoInstalledVersion = mongo.InstalledVersion
 
 // NewDBRestorer returns a new structure that can perform a restore
 // on the db pointed in dialInfo.
@@ -314,7 +316,7 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 		return nil, errors.Annotate(err, "mongorestrore not available")
 	}
 
-	installedMongo := mongo.InstalledVersion()
+	installedMongo := mongoInstalledVersion()
 	if args.Version.NewerThan(installedMongo) == 1 {
 		return nil, errors.NotSupportedf("restore mongo version %s into version %s", args.Version.String(), installedMongo.String())
 	}
@@ -326,16 +328,19 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 		tagUser:         args.TagUser,
 		tagUserPassword: args.TagUserPassword,
 	}
-	if args.Version.Major == 2 {
+	switch args.Version.Major {
+	case 2:
 		restorer = &mongoRestorer24{
 			mongoRestorer: mgoRestorer,
 		}
-	} else {
+	case 3:
 		restorer = &mongoRestorer32{
 			mongoRestorer:   mgoRestorer,
 			getDB:           args.GetDB,
 			newMongoSession: args.NewMongoSession,
 		}
+	default:
+		return nil, errors.Errorf("cannot restore from mongo version %q", args.Version.String())
 	}
 	return restorer, nil
 }
@@ -367,7 +372,7 @@ type MongoSession interface {
 }
 
 // ensureOplogPermissions adds a special role to the admin user, this role
-// is required by mongorestore when doing ooplogreplay.
+// is required by mongorestore when doing oplogreplay.
 func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error {
 	s, err := md.newMongoSession(dialInfo)
 	if err != nil {
@@ -376,14 +381,13 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 	defer s.Close()
 
 	roles := bson.D{
-		{"createRole", "ooploger"},
+		{"createRole", "oploger"},
 		{"privileges", []bson.D{
 			bson.D{
 				{"resource", bson.M{"anyResource": true}},
 				{"actions", []string{"anyAction"}},
 			},
-		},
-		},
+		}},
 		{"roles", []string{}},
 	}
 	var mgoErr bson.M
@@ -394,7 +398,7 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 	result, ok := mgoErr["ok"]
 	success, isInt := result.(int)
 	if !ok || !isInt || success != 1 {
-		logger.Errorf("could not create special role to replay ooplog, will try to continue, result was: %#v", mgoErr)
+		logger.Errorf("could not create special role to replay oplog, will try to continue, result was: %#v", mgoErr)
 	}
 
 	// This will replace old user with the new credentials
@@ -402,7 +406,7 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 
 	grant := bson.D{
 		{"grantRolesToUser", md.DialInfo.Username},
-		{"roles", []string{"ooploger"}},
+		{"roles", []string{"oploger"}},
 	}
 
 	err = s.Run(grant, &mgoErr)
@@ -417,7 +421,7 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 
 	grant = bson.D{
 		{"grantRolesToUser", "admin"},
-		{"roles", []string{"ooploger"}},
+		{"roles", []string{"oploger"}},
 	}
 
 	err = s.Run(grant, &mgoErr)

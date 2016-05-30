@@ -39,6 +39,8 @@ func (s *mongoRestoreSuite) TestRestoreDatabase24(c *gc.C) {
 		TagUser:         "machine-0",
 		TagUserPassword: "fakePassword",
 	}
+
+	s.PatchValue(backups.MongoInstalledVersion, func() mongo.Version { return mongo.Mongo24 })
 	restorer, err := backups.NewDBRestorer(args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = restorer.Restore("fakePath", nil)
@@ -106,6 +108,7 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 			return mgoSession, nil
 		},
 	}
+	s.PatchValue(backups.MongoInstalledVersion, func() mongo.Version { return mongo.Mongo32wt })
 	restorer, err := backups.NewDBRestorer(args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = restorer.Restore("fakePath", nil)
@@ -118,7 +121,7 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 	c.Assert(mgoSession.closed, jc.IsTrue)
 	mgoSessionCmd := []bson.D{
 		bson.D{
-			bson.DocElem{Name: "createRole", Value: "ooploger"},
+			bson.DocElem{Name: "createRole", Value: "oploger"},
 			bson.DocElem{Name: "privileges", Value: []bson.D{
 				bson.D{
 					bson.DocElem{Name: "resource", Value: bson.M{"anyResource": true}},
@@ -126,9 +129,26 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 			bson.DocElem{Name: "roles", Value: []string{}}},
 		bson.D{
 			bson.DocElem{Name: "grantRolesToUser", Value: "fakeUsername"},
-			bson.DocElem{Name: "roles", Value: []string{"ooploger"}}},
+			bson.DocElem{Name: "roles", Value: []string{"oploger"}}},
 		bson.D{
 			bson.DocElem{Name: "grantRolesToUser", Value: "admin"},
-			bson.DocElem{Name: "roles", Value: []string{"ooploger"}}}}
+			bson.DocElem{Name: "roles", Value: []string{"oploger"}}}}
 	c.Assert(mgoSession.cmd, gc.DeepEquals, mgoSessionCmd)
+}
+
+func (s *mongoRestoreSuite) TestRestoreFailsOnOlderMongo(c *gc.C) {
+	s.PatchValue(backups.GetMongorestorePath, func() (string, error) { return "/a/fake/mongorestore", nil })
+	args := backups.RestorerArgs{
+		DialInfo: &mgo.DialInfo{
+			Username: "fakeUsername",
+			Password: "fakePassword",
+			Addrs:    []string{"127.0.0.1"},
+		},
+		Version:         mongo.Mongo32wt,
+		TagUser:         "machine-0",
+		TagUserPassword: "fakePassword",
+	}
+	s.PatchValue(backups.MongoInstalledVersion, func() mongo.Version { return mongo.Mongo24 })
+	_, err := backups.NewDBRestorer(args)
+	c.Assert(err, gc.ErrorMatches, "restore mongo version 3.2/wiredTiger into version 2.4/mmapv1 not supported")
 }

@@ -20,17 +20,18 @@ var (
 	Create        = create
 	FileTimestamp = fileTimestamp
 
-	TestGetFilesToBackUp = &getFilesToBackUp
-	GetDBDumper          = &getDBDumper
-	RunCreate            = &runCreate
-	FinishMeta           = &finishMeta
-	StoreArchiveRef      = &storeArchive
-	GetMongodumpPath     = &getMongodumpPath
-	GetMongorestorePath  = &getMongorestorePath
-	RunCommand           = &runCommandFn
-	ReplaceableFolders   = &replaceableFolders
-	StartMongo           = &startMongo
-	StopMongo            = &stopMongo
+	TestGetFilesToBackUp  = &getFilesToBackUp
+	GetDBDumper           = &getDBDumper
+	RunCreate             = &runCreate
+	FinishMeta            = &finishMeta
+	StoreArchiveRef       = &storeArchive
+	GetMongodumpPath      = &getMongodumpPath
+	GetMongorestorePath   = &getMongorestorePath
+	RunCommand            = &runCommandFn
+	ReplaceableFolders    = &replaceableFolders
+	StartMongo            = &startMongo
+	StopMongo             = &stopMongo
+	MongoInstalledVersion = &mongoInstalledVersion
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)

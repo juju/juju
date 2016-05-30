@@ -33,12 +33,12 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	if err != nil {
 		return p, errors.Trace(err)
 	}
-	m, err := a.backend.Machine(a.machineID)
+	mSeries, err := a.backend.MachineSeries(a.machineID)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
 
-	meta, err := backups.NewMetadataState(a.backend, a.machineID, m.Series())
+	meta, err := backups.NewMetadataState(a.backend, a.machineID, mSeries)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
