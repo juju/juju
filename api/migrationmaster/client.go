@@ -14,26 +14,6 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// Client describes the client side API for the MigrationMaster facade
-// (used by the migration master worker).
-type Client interface {
-	// Watch returns a watcher which reports when a migration is
-	// active for the model associated with the API connection.
-	Watch() (watcher.NotifyWatcher, error)
-
-	// GetMigrationStatus returns the details and progress of the
-	// latest model migration.
-	GetMigrationStatus() (MigrationStatus, error)
-
-	// SetPhase updates the phase of the currently active model
-	// migration.
-	SetPhase(migration.Phase) error
-
-	// Export returns a serialized representation of the model
-	// associated with the API connection.
-	Export() ([]byte, error)
-}
-
 // MigrationStatus returns the details for a migration as needed by
 // the migration master worker.
 type MigrationStatus struct {
@@ -44,17 +24,19 @@ type MigrationStatus struct {
 }
 
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller) Client {
-	return &client{base.NewFacadeCaller(caller, "MigrationMaster")}
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "MigrationMaster")}
 }
 
-// client implements Client.
-type client struct {
+// Client describes the client side API for the MigrationMaster facade
+// (used by the migrationmaster worker).
+type Client struct {
 	caller base.FacadeCaller
 }
 
-// Watch implements Client.
-func (c *client) Watch() (watcher.NotifyWatcher, error) {
+// Watch returns a watcher which reports when a migration is active
+// for the model associated with the API connection.
+func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {
@@ -67,8 +49,9 @@ func (c *client) Watch() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
-// GetMigrationStatus implements Client.
-func (c *client) GetMigrationStatus() (MigrationStatus, error) {
+// GetMigrationStatus returns the details and progress of the latest
+// model migration.
+func (c *Client) GetMigrationStatus() (MigrationStatus, error) {
 	var empty MigrationStatus
 	var status params.FullMigrationStatus
 	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
@@ -111,20 +94,27 @@ func (c *client) GetMigrationStatus() (MigrationStatus, error) {
 	}, nil
 }
 
-// SetPhase implements Client.
-func (c *client) SetPhase(phase migration.Phase) error {
+// SetPhase updates the phase of the currently active model migration.
+func (c *Client) SetPhase(phase migration.Phase) error {
 	args := params.SetMigrationPhaseArgs{
 		Phase: phase.String(),
 	}
 	return c.caller.FacadeCall("SetPhase", args, nil)
 }
 
-// Export implements Client.
-func (c *client) Export() ([]byte, error) {
+// Export returns a serialized representation of the model associated
+// with the API connection.
+func (c *Client) Export() ([]byte, error) {
 	var serialized params.SerializedModel
 	err := c.caller.FacadeCall("Export", nil, &serialized)
 	if err != nil {
 		return nil, err
 	}
 	return serialized.Bytes, nil
+}
+
+// Reap removes the documents for the model associated with the API
+// connection.
+func (c *Client) Reap() error {
+	return c.caller.FacadeCall("Reap", nil, nil)
 }

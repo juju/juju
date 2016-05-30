@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -19,14 +20,14 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // Ensure that Backend remains compatible with *state.State
 var _ migrationmaster.Backend = (*state.State)(nil)
 
 type Suite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 
 	backend    *stubBackend
 	resources  *common.Resources
@@ -41,7 +42,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.backend = &stubBackend{
 		migration: new(stubMigration),
 	}
-	migrationmaster.PatchState(s, s.backend)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -72,7 +72,7 @@ func (s *Suite) TestWatch(c *gc.C) {
 	select {
 	case <-watcher.Changes():
 		c.Fatalf("initial event not consumed")
-	case <-time.After(testing.ShortWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
@@ -130,26 +130,40 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	exportModel := func(migration.StateExporter) ([]byte, error) {
-		return []byte("foo"), nil
-	}
-	migrationmaster.PatchExportModel(s, exportModel)
 	api := s.mustMakeAPI(c)
 
 	serialized, err := api.Export()
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serialized, gc.DeepEquals, params.SerializedModel{
-		Bytes: []byte("foo"),
+		Bytes: fakeModelBytes,
 	})
 }
 
+func (s *Suite) TestReap(c *gc.C) {
+	api := s.mustMakeAPI(c)
+
+	err := api.Reap()
+	c.Check(err, jc.ErrorIsNil)
+	s.backend.stub.CheckCalls(c, []testing.StubCall{
+		{"RemoveExportingModelDocs", []interface{}{}},
+	})
+}
+
+func (s *Suite) TestReapError(c *gc.C) {
+	s.backend.removeErr = errors.New("boom")
+	api := s.mustMakeAPI(c)
+
+	err := api.Reap()
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(nil, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer, fakeExportModel)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(nil, s.resources, s.authorizer)
+	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer, fakeExportModel)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -157,19 +171,28 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 type stubBackend struct {
 	migrationmaster.Backend
 
+	stub      testing.Stub
 	getErr    error
+	removeErr error
 	migration *stubMigration
 }
 
 func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
+	b.stub.AddCall("WatchForModelMigration")
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
 func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {
+	b.stub.AddCall("GetModelMigration")
 	if b.getErr != nil {
 		return nil, b.getErr
 	}
 	return b.migration, nil
+}
+
+func (b *stubBackend) RemoveExportingModelDocs() error {
+	b.stub.AddCall("RemoveExportingModelDocs")
+	return b.removeErr
 }
 
 type stubMigration struct {
@@ -206,6 +229,12 @@ func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 	}
 	m.phaseSet = phase
 	return nil
+}
+
+var fakeModelBytes = []byte("foo")
+
+func fakeExportModel(migration.StateExporter) ([]byte, error) {
+	return fakeModelBytes, nil
 }
 
 var modelUUID string

@@ -2548,7 +2548,7 @@ func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
@@ -2556,7 +2556,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
 	defer st.Close()
 
 	err := st.RemoveImportingModelDocs()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being imported for migration")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
@@ -2568,7 +2568,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
-	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being imported for migration")
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
@@ -2583,6 +2583,46 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can not find the user:envName unique index
+	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
+	s.AssertModelDeleted(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := st.RemoveExportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being exported for migration")
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsFailsImporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being exported for migration")
+}
+
+func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	userModelKey := s.insertFakeModelDocs(c, st)
+	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.RemoveExportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can not find the user:envName unique index
