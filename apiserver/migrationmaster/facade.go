@@ -11,12 +11,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
-	common.RegisterStandardFacade("MigrationMaster", 1, NewAPI)
+	common.RegisterStandardFacade("MigrationMaster", 1, newAPIForRegistration)
 }
 
 // API implements the API required for the model migration
@@ -30,7 +29,7 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	st *state.State,
+	backend Backend,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -38,7 +37,7 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    getBackend(st),
+		backend:    backend,
 		authorizer: authorizer,
 		resources:  resources,
 	}, nil

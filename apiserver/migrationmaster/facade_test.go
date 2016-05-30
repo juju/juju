@@ -42,7 +42,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.backend = &stubBackend{
 		migration: new(stubMigration),
 	}
-	migrationmaster.PatchState(s, s.backend)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -164,11 +163,11 @@ func (s *Suite) TestReapError(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(nil, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(nil, s.resources, s.authorizer)
+	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
