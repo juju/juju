@@ -1079,7 +1079,6 @@ class EnvJujuClient:
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
-        # This should be using controller name
         output = self.get_juju_output(
             'list-models', '-c', self.env.controller.name, '--format', 'yaml',
             include_e=False)
@@ -1672,6 +1671,14 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     destroy_model_command = 'destroy-environment'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
+
+    def _cmd_model(self, include_e, admin):
+        if admin:
+            return self.get_admin_model_name()
+        elif self.env is None or not include_e:
+            return None
+        else:
+            return self.model_name
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
