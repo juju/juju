@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -21,10 +21,9 @@ func init() {
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	backend     Backend
-	authorizer  common.Authorizer
-	resources   *common.Resources
-	exportModel modelExportFunc
+	backend    Backend
+	authorizer common.Authorizer
+	resources  *common.Resources
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -33,20 +32,16 @@ func NewAPI(
 	backend Backend,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-	exportModel modelExportFunc,
 ) (*API, error) {
 	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:     backend,
-		authorizer:  authorizer,
-		resources:   resources,
-		exportModel: exportModel,
+		backend:    backend,
+		authorizer: authorizer,
+		resources:  resources,
 	}, nil
 }
-
-type modelExportFunc func(migration.StateExporter) ([]byte, error)
 
 // Watch starts watching for an active migration for the model
 // associated with the API connection. The returned id should be used
@@ -126,7 +121,12 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 func (api *API) Export() (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 
-	bytes, err := api.exportModel(api.backend)
+	model, err := api.backend.Export()
+	if err != nil {
+		return serialized, err
+	}
+
+	bytes, err := description.Serialize(model)
 	if err != nil {
 		return serialized, err
 	}

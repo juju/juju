@@ -17,18 +17,17 @@ import (
 	"github.com/juju/juju/apiserver/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
-
-// Ensure that Backend remains compatible with *state.State
-var _ migrationmaster.Backend = (*state.State)(nil)
 
 type Suite struct {
 	coretesting.BaseSuite
 
+	model      description.Model
 	backend    *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -39,8 +38,13 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.model = description.NewModel(description.ModelArgs{
+		Owner:              names.NewUserTag("admin"),
+		LatestToolsVersion: version.Current,
+	})
 	s.backend = &stubBackend{
 		migration: new(stubMigration),
+		model:     s.model,
 	}
 
 	s.resources = common.NewResources()
@@ -135,9 +139,10 @@ func (s *Suite) TestExport(c *gc.C) {
 	serialized, err := api.Export()
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serialized, gc.DeepEquals, params.SerializedModel{
-		Bytes: fakeModelBytes,
-	})
+	// We don't want to tie this test the serialisation output (that's
+	// tested elsewhere). Just check that at least one thing we expect
+	// is in the serialised output.
+	c.Assert(string(serialized.Bytes), jc.Contains, version.Current.String())
 }
 
 func (s *Suite) TestReap(c *gc.C) {
@@ -159,11 +164,11 @@ func (s *Suite) TestReapError(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer, fakeExportModel)
+	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer, fakeExportModel)
+	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -175,6 +180,7 @@ type stubBackend struct {
 	getErr    error
 	removeErr error
 	migration *stubMigration
+	model     description.Model
 }
 
 func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
@@ -193,6 +199,11 @@ func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {
 func (b *stubBackend) RemoveExportingModelDocs() error {
 	b.stub.AddCall("RemoveExportingModelDocs")
 	return b.removeErr
+}
+
+func (b *stubBackend) Export() (description.Model, error) {
+	b.stub.AddCall("Export")
+	return b.model, nil
 }
 
 type stubMigration struct {
@@ -229,12 +240,6 @@ func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 	}
 	m.phaseSet = phase
 	return nil
-}
-
-var fakeModelBytes = []byte("foo")
-
-func fakeExportModel(migration.StateExporter) ([]byte, error) {
-	return fakeModelBytes, nil
 }
 
 var modelUUID string
