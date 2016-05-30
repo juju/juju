@@ -187,6 +187,7 @@ func (c *Context) Untrack(class, id string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(ericsnow) We should not ignore a 0-len result.
 	if len(res) > 0 && res[0].Error != nil {
 		return errors.Trace(res[0].Error)
 	}
@@ -195,6 +196,7 @@ func (c *Context) Untrack(class, id string) error {
 	return nil
 }
 
+// SetStatus sets the identified payload's status.
 func (c *Context) SetStatus(class, id, status string) error {
 	fullID := payload.BuildID(class, id)
 	logger.Tracef("Calling status-set on payload context %q", fullID)
@@ -203,7 +205,16 @@ func (c *Context) SetStatus(class, id, status string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// TODO(ericsnow) We should not ignore a 0-len result.
 	if len(res) > 0 && res[0].Error != nil {
+		// In a hook context, the case where the specified payload does
+		// not exist is a special one. A hook tool is how a charm author
+		// communicates the state of the charm. So returning an error
+		// here in the "missing" case makes less sense than in other
+		// places. We could simply ignore any error that surfaces for
+		// that case. However, returning the error communicates to the
+		// charm author that what they're trying to communicate doesn't
+		// make sense.
 		return errors.Trace(res[0].Error)
 	}
 

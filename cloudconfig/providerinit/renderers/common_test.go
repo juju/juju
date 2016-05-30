@@ -33,8 +33,20 @@ func (s *RenderersSuite) TestToBase64(c *gc.C) {
 
 func (s *RenderersSuite) TestWinEmbedInScript(c *gc.C) {
 	in := []byte("test")
-	expected := []byte(fmt.Sprintf(cloudconfig.UserdataScript, renderers.ToBase64(utils.Gzip(in))))
+	encUserdata := renderers.ToBase64(utils.Gzip(in))
+	var expected []byte
+	header := "#ps1_sysnative\r\n"
+	script := fmt.Sprintf(cloudconfig.UserDataScript, encUserdata)
+	expected = append(expected, header...)
+	expected = append(expected, script...)
 	out := renderers.WinEmbedInScript(in)
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *RenderersSuite) TestPrependWinPS1Header(c *gc.C) {
+	in := []byte("test")
+	expected := []byte("#ps1_sysnative\r\ntest")
+	out := renderers.PrependWinPS1Header(in)
 	c.Assert(out, jc.DeepEquals, expected)
 }
 

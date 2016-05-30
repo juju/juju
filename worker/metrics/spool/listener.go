@@ -21,7 +21,7 @@ const (
 
 // ConnectionHandler defines the method needed to handle socket connections.
 type ConnectionHandler interface {
-	Handle(net.Conn) error
+	Handle(net.Conn, <-chan struct{}) error
 }
 
 type socketListener struct {
@@ -63,7 +63,9 @@ func (l *socketListener) loop() error {
 			return errors.Trace(err)
 		}
 		go func() {
-			if err := l.handler.Handle(conn); err != nil {
+			err := l.handler.Handle(conn, l.t.Dying())
+			if err != nil {
+				// log the error and continue
 				logger.Errorf("request handling failed: %v", err)
 			}
 		}()

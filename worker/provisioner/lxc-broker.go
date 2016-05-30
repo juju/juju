@@ -143,7 +143,6 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.Proxy,
 		config.AptProxy,
 		config.AptMirror,
-		config.PreferIPv6,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
 	); err != nil {

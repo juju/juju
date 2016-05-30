@@ -112,22 +112,6 @@ func (s *NetworkSuite) TestConvertSpaceName(c *gc.C) {
 	}
 }
 
-func (*NetworkSuite) TestInitializeFromConfig(c *gc.C) {
-	c.Check(network.PreferIPv6(), jc.IsFalse)
-
-	envConfig := testing.CustomModelConfig(c, testing.Attrs{
-		"prefer-ipv6": true,
-	})
-	network.SetPreferIPv6(envConfig.PreferIPv6())
-	c.Check(network.PreferIPv6(), jc.IsTrue)
-
-	envConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"prefer-ipv6": false,
-	})
-	network.SetPreferIPv6(envConfig.PreferIPv6())
-	c.Check(network.PreferIPv6(), jc.IsFalse)
-}
-
 func (s *NetworkSuite) TestFilterLXCAddresses(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`

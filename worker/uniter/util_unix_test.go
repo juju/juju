@@ -13,10 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// Command suffix for the hooks
-var cmdSuffix = ""
-
 var (
+	jujudBuildArgs = []string{"go", "build", "github.com/juju/juju/cmd/jujud"}
+
+	// Command suffix for the hooks
+	cmdSuffix = ""
+
 	// Variables for changed hooks. These are used in uniter_test
 	appendConfigChanged            = "config-get --format yaml --output config.out"
 	uniterRelationsCustomizeScript = "relation-ids db > relations.out && chmod 644 relations.out"

@@ -188,7 +188,7 @@ func (s *vpcSuite) TestValidateModelVPCNotRecommendedStillOK(c *gc.C) {
 
 	s.stubAPI.CheckCallNames(c, "VPCs", "Subnets")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, `WARNING juju.provider.ec2 Juju will use, but does not recommend `+
+	c.Check(testLog, jc.Contains, `INFO juju.provider.ec2 Juju will use, but does not recommend `+
 		`using VPC "vpc-anything": VPC contains no public subnets`)
 	c.Check(testLog, jc.Contains, `INFO juju.provider.ec2 Using VPC "vpc-anything" for model "model"`)
 }

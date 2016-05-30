@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -51,9 +50,8 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 	s.modelFlags = []string{"-m", "--model"}
 
-	err := modelcmd.WriteCurrentController("ctrl")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}

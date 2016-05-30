@@ -5,250 +5,538 @@ package agent
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/juju/cmd"
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 
-	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/cmd/jujud/agent/unit"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	lxctesting "github.com/juju/juju/container/lxc/testing"
+	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo/mongotest"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/singular"
 )
 
-var (
-	// These vars hold the per-model workers we expect to run in
-	// various circumstances. Note the absence of lists for
-	// dead/dying models: those are not stable states and can't be
-	// waited for reliably.
-	alwaysModelWorkers = []string{
-		// Note that environ-tracker is not in here: it depends
-		// on model responsibility, so it's excluded here and
-		// included individually in the other *ModelWorkers
-		// lists (which themselves assume model responsibility).
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"clock",
-		"is-responsible-flag",
-		"not-alive-flag",
-		"not-dead-flag",
-		"spaces-imported-gate",
-	}
-	aliveModelWorkers = []string{
-		"charm-revision-updater",
-		"compute-provisioner",
-		"environ-tracker",
-		"firewaller",
-		"instance-poller",
-		"metric-worker",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-master",
-		"service-scaler",
-		"space-importer",
-		"state-cleaner",
-		"status-history-pruner",
-		"storage-provisioner",
-		"unit-assigner",
-	}
-	migratingModelWorkers = []string{
-		"environ-tracker",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-master",
-	}
-
-	// ReallyLongWait should be long enough for the model-tracker
-	// tests that depend on a hosted model; its backing state is not
-	// accessible for StartSyncs, so we generally have to wait for
-	// at least two 5s ticks to pass, and should expect rare
-	// circumstances to take even longer.
-	ReallyLongWait = coretesting.LongWait * 3
-
-	alwaysUnitWorkers = []string{
-		"...",
-	}
-	aliveUnitWorkers = []string{
-		"...",
-	}
-	migratingUnitWorkers = []string{
-		"...",
-	}
-
-	alwaysMachineWorkers = []string{
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"state-config-watcher",
-		"termination-signal-handler",
-		"upgrader",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
-		"upgrade-check-gate",
-		"upgrade-check-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-minion",
-	}
-	notMigratingMachineWorkers = []string{
-		"unconverted-api-workers",
-		"logging-config-updater",
-		"disk-manager",
-		"proxy-config-updater",
-		"api-address-updater",
-		"machiner",
-		"log-sender",
-		"unit-agent-deployer",
-		"ssh-authkeys-updater",
-		"storage-provisioner",
-		"machine-action-runner",
-		// "host-key-reporter", not stable, exits when done
-		// "reboot-executor", not stable, fails due to lp:XXX
-	}
+const (
+	initialMachinePassword = "machine-password-1234567890"
+	initialUnitPassword    = "unit-password-1234567890"
+	startWorkerWait        = 250 * time.Millisecond
 )
 
-type ModelManifoldsFunc func(config model.ManifoldsConfig) dependency.Manifolds
+var fastDialOpts = api.DialOpts{
+	Timeout:    coretesting.LongWait,
+	RetryDelay: coretesting.ShortWait,
+}
 
-func TrackModels(c *gc.C, tracker *engineTracker, inner ModelManifoldsFunc) ModelManifoldsFunc {
-	return func(config model.ManifoldsConfig) dependency.Manifolds {
-		raw := inner(config)
-		id := config.Agent.CurrentConfig().Model().Id()
-		if err := tracker.Install(raw, id); err != nil {
-			c.Errorf("cannot install tracker: %v", err)
-		}
-		return raw
+type commonMachineSuite struct {
+	singularRecord *singularRunnerRecord
+	lxctesting.TestSuite
+	fakeEnsureMongo *agenttest.FakeEnsureMongo
+	AgentSuite
+}
+
+func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
+	s.AgentSuite.SetUpSuite(c)
+	s.TestSuite.SetUpSuite(c)
+	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
+}
+
+func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
+	s.TestSuite.TearDownSuite(c)
+	s.AgentSuite.TearDownSuite(c)
+}
+
+func (s *commonMachineSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.SetUpTest(c)
+	s.TestSuite.SetUpTest(c)
+	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
+
+	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
+	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
+
+	testpath := c.MkDir()
+	s.AgentSuite.PatchEnvPathPrepend(testpath)
+	// mock out the start method so we can fake install services without sudo
+	fakeCmd(filepath.Join(testpath, "start"))
+	fakeCmd(filepath.Join(testpath, "stop"))
+
+	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
+
+	s.singularRecord = newSingularRunnerRecord()
+	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		return newDummyWorker(), nil
+	})
+
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+}
+
+func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
+	// Wait for channel to be active.
+	select {
+	case <-aChannel:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for %v", intent)
 	}
 }
 
-type MachineManifoldsFunc func(config machine.ManifoldsConfig) dependency.Manifolds
-
-func TrackMachines(c *gc.C, tracker *engineTracker, inner MachineManifoldsFunc) MachineManifoldsFunc {
-	return func(config machine.ManifoldsConfig) dependency.Manifolds {
-		raw := inner(config)
-		id := config.Agent.CurrentConfig().Tag().String()
-		if err := tracker.Install(raw, id); err != nil {
-			c.Errorf("cannot install tracker: %v", err)
-		}
-		return raw
+func (s *commonMachineSuite) assertChannelInactive(c *gc.C, aChannel chan struct{}, intent string) {
+	// Now make sure the channel is not active.
+	select {
+	case <-aChannel:
+		c.Fatalf("%v unexpectedly", intent)
+	case <-time.After(startWorkerWait):
 	}
 }
 
-type UnitManifoldsFunc func(config unit.ManifoldsConfig) dependency.Manifolds
-
-func TrackUnits(c *gc.C, tracker *engineTracker, inner UnitManifoldsFunc) UnitManifoldsFunc {
-	return func(config unit.ManifoldsConfig) dependency.Manifolds {
-		raw := inner(config)
-		id := config.Agent.CurrentConfig().Tag().String()
-		if err := tracker.Install(raw, id); err != nil {
-			c.Errorf("cannot install tracker: %v", err)
-		}
-		return raw
+func fakeCmd(path string) {
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
+	if err != nil {
+		panic(err)
 	}
 }
 
-// EngineMatchFunc returns a func that accepts an identifier for a
-// single engine manager by the tracker; that will return true if the
-// workers running in that engine match the supplied workers.
-func EngineMatchFunc(c *gc.C, tracker *engineTracker, workers []string) func(string) bool {
-	expect := set.NewStrings(workers...)
-	return func(id string) bool {
-		actual := tracker.Workers(id)
-		c.Logf("\n%s: has workers %v", id, actual.SortedValues())
-		extras := actual.Difference(expect)
-		missed := expect.Difference(actual)
-		if len(extras) == 0 && len(missed) == 0 {
-			return true
-		}
-		c.Logf("%s: waiting for %v", id, missed.SortedValues())
-		c.Logf("%s: unexpected %v", id, extras.SortedValues())
-		return false
+func (s *commonMachineSuite) TearDownTest(c *gc.C) {
+	s.TestSuite.TearDownTest(c)
+	s.AgentSuite.TearDownTest(c)
+}
+
+// primeAgent adds a new Machine to run the given jobs, and sets up the
+// machine agent's directory.  It returns the new machine, the
+// agent's configuration and the tools currently running.
+func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+	vers := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	return s.primeAgentVersion(c, vers, jobs...)
+}
+
+// primeAgentVersion is similar to primeAgent, but permits the
+// caller to specify the version.Binary to prime with.
+func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+	m, err := s.State.AddMachine("quantal", jobs...)
+	c.Assert(err, jc.ErrorIsNil)
+	return s.primeAgentWithMachine(c, m, vers)
+}
+
+func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
+	pinger, err := m.SetAgentPresence()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := pinger.Stop()
+		c.Check(err, jc.ErrorIsNil)
+	})
+	return s.configureMachine(c, m.Id(), vers)
+}
+
+func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
+	machine *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
+) {
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a machine and ensure it is provisioned.
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
+	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
+
+	// Add an address for the tests in case the initiateMongoServer
+	// codepath is exercised.
+	s.setFakeMachineAddresses(c, m)
+
+	// Set up the new machine.
+	err = m.SetAgentVersion(vers)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetPassword(initialMachinePassword)
+	c.Assert(err, jc.ErrorIsNil)
+	tag := m.Tag()
+	if m.IsManager() {
+		err = m.SetMongoPassword(initialMachinePassword)
+		c.Assert(err, jc.ErrorIsNil)
+		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
+		info, ok := agentConfig.StateServingInfo()
+		c.Assert(ok, jc.IsTrue)
+		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
+		err = s.State.SetStateServingInfo(ssi)
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
+	}
+	err = agentConfig.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	return m, agentConfig, tools
+}
+
+func NewTestMachineAgentFactory(
+	agentConfWriter AgentConfigWriter,
+	bufferedLogs logsender.LogRecordCh,
+	rootDir string,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
+		return NewMachineAgent(
+			machineId,
+			agentConfWriter,
+			bufferedLogs,
+			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
+			&mockLoopDeviceManager{},
+			rootDir,
+		)
 	}
 }
 
-// WaitMatch returns only when the match func succeeds, or it times out.
-func WaitMatch(c *gc.C, match func(string) bool, id string, sync func()) {
+// newAgent returns a new MachineAgent instance
+func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
+	agentConf := agentConf{dataDir: s.DataDir()}
+	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
+	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
+	return machineAgentFactory(m.Id())
+}
+
+func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
+	ctx := &fakeContext{
+		inited:   newSignal(),
+		deployed: make(set.Strings),
+	}
+	orig := newDeployContext
+	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
+		ctx.st = st
+		ctx.agentConfig = agentConfig
+		ctx.inited.trigger()
+		return ctx
+	}
+	return ctx, func() { newDeployContext = orig }
+}
+
+func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
+	addrs := network.NewAddresses("0.1.2.3")
+	err := machine.SetProviderAddresses(addrs...)
+	c.Assert(err, jc.ErrorIsNil)
+	// Set the addresses in the environ instance as well so that if the instance poller
+	// runs it won't overwrite them.
+	instId, err := machine.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	insts, err := s.Environ.Instances([]instance.Id{instId})
+	c.Assert(err, jc.ErrorIsNil)
+	dummy.SetInstanceAddresses(insts[0], addrs)
+}
+
+// opRecvTimeout waits for any of the given kinds of operation to
+// be received from ops, and times out if not.
+func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
+	st.StartSync()
 	timeout := time.After(coretesting.LongWait)
 	for {
-		if match(id) {
-			return
+		select {
+		case op := <-opc:
+			for _, k := range kinds {
+				if reflect.TypeOf(op) == reflect.TypeOf(k) {
+					return op
+				}
+			}
+			c.Logf("discarding unknown event %#v", op)
+		case <-time.After(coretesting.ShortWait):
+			st.StartSync()
+		case <-timeout:
+			c.Fatalf("time out wating for operation")
 		}
+	}
+}
+
+type mockAgentConfig struct {
+	agent.Config
+	providerType string
+	tag          names.Tag
+}
+
+func (m *mockAgentConfig) Tag() names.Tag {
+	return m.tag
+}
+
+func (m *mockAgentConfig) Value(key string) string {
+	if key == agent.ProviderType {
+		return m.providerType
+	}
+	return ""
+}
+
+type singularRunnerRecord struct {
+	runnerC chan *fakeSingularRunner
+}
+
+func newSingularRunnerRecord() *singularRunnerRecord {
+	return &singularRunnerRecord{
+		runnerC: make(chan *fakeSingularRunner, 64),
+	}
+}
+
+func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
+	sr, err := singular.New(runner, conn)
+	if err != nil {
+		return nil, err
+	}
+	fakeRunner := &fakeSingularRunner{
+		Runner: sr,
+		startC: make(chan string, 64),
+	}
+	r.runnerC <- fakeRunner
+	return fakeRunner, nil
+}
+
+// nextRunner blocks until a new singular runner is created.
+func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case r := <-r.runnerC:
+			return r
+		case <-timeout:
+			c.Fatal("timed out waiting for singular runner to be created")
+		}
+	}
+}
+
+type fakeSingularRunner struct {
+	worker.Runner
+	startC chan string
+}
+
+func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
+	logger.Infof("starting fake worker %q", name)
+	r.startC <- name
+	return r.Runner.StartWorker(name, start)
+}
+
+// waitForWorker waits for a given worker to be started, returning all
+// workers started while waiting.
+func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
+	var seen []string
+	timeout := time.After(coretesting.LongWait)
+	for {
 		select {
 		case <-time.After(coretesting.ShortWait):
-			sync()
+			c.Logf("still waiting for %q; workers seen so far: %+v", target, seen)
+		case workerName := <-r.startC:
+			seen = append(seen, workerName)
+			if workerName == target {
+				c.Logf("target worker %q started; workers seen so far: %+v", workerName, seen)
+				return seen
+			}
+			c.Logf("worker %q started; still waiting for %q; workers seen so far: %+v", workerName, target, seen)
 		case <-timeout:
-			c.Fatalf("timed out waiting for workers")
+			c.Fatal("timed out waiting for " + target)
 		}
 	}
 }
 
-// NewEngineTracker creates a type that can Install itself into a
-// Manifolds map, and expose recent snapshots of running Workers.
-func NewEngineTracker() *engineTracker {
-	return &engineTracker{
-		current: make(map[string]set.Strings),
-	}
-}
-
-type engineTracker struct {
-	mu      sync.Mutex
-	current map[string]set.Strings
-}
-
-func (tracker *engineTracker) Workers(id string) set.Strings {
-	tracker.mu.Lock()
-	defer tracker.mu.Unlock()
-	return tracker.current[id]
-}
-
-func (tracker *engineTracker) Install(raw dependency.Manifolds, id string) error {
-	const trackerName = "TEST-TRACKER"
-	names := make([]string, 0, len(raw))
-	for name := range raw {
-		if name == trackerName {
-			return errors.New("manifold tracker used repeatedly")
+// waitForWorkers waits for a given worker to be started, returning all
+// workers started while waiting.
+func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string {
+	var seen []string
+	seenTargets := make(map[string]bool)
+	numSeenTargets := 0
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case workerName := <-r.startC:
+			c.Logf("worker %q started; workers seen so far: %+v (len: %d, len(targets): %d)", workerName, seen, len(seen), len(targets))
+			if seenTargets[workerName] == true {
+				c.Fatal("worker started twice: " + workerName)
+			}
+			seenTargets[workerName] = true
+			numSeenTargets++
+			seen = append(seen, workerName)
+			if numSeenTargets == len(targets) {
+				c.Logf("all expected target workers started: %+v", seen)
+				return seen
+			}
+			c.Logf("still waiting for workers %+v to start; numSeenTargets=%d", targets, numSeenTargets)
+		case <-timeout:
+			c.Fatalf("timed out waiting for %v", targets)
 		}
-		names = append(names, name)
 	}
+}
 
-	tracker.mu.Lock()
-	defer tracker.mu.Unlock()
-	if _, exists := tracker.current[id]; exists {
-		return errors.Errorf("manifolds for %s created repeatedly", id)
+type mockMetricAPI struct {
+	stop          chan struct{}
+	cleanUpCalled chan struct{}
+	sendCalled    chan struct{}
+}
+
+func newMockMetricAPI() *mockMetricAPI {
+	return &mockMetricAPI{
+		stop:          make(chan struct{}),
+		cleanUpCalled: make(chan struct{}),
+		sendCalled:    make(chan struct{}),
 	}
-	raw[trackerName] = dependency.Manifold{
-		Inputs: names,
-		Start:  tracker.startFunc(id, names),
-	}
+}
+
+func (m *mockMetricAPI) CleanupOldMetrics() error {
+	go func() {
+		select {
+		case m.cleanUpCalled <- struct{}{}:
+		case <-m.stop:
+			break
+		}
+	}()
 	return nil
 }
 
-func (tracker *engineTracker) startFunc(id string, names []string) dependency.StartFunc {
-	return func(context dependency.Context) (worker.Worker, error) {
-		seen := set.NewStrings()
-		for _, name := range names {
-			err := context.Get(name, nil)
-			switch errors.Cause(err) {
-			case nil:
-			case dependency.ErrMissing:
-				continue
-			default:
-				name = fmt.Sprintf("%s [%v]", name, err)
-			}
-			seen.Add(name)
-		}
+func (m *mockMetricAPI) SendMetrics() error {
+	go func() {
 		select {
-		case <-context.Abort():
-			// don't bother to report if it's about to change
-		default:
-			tracker.mu.Lock()
-			defer tracker.mu.Unlock()
-			tracker.current[id] = seen
+		case m.sendCalled <- struct{}{}:
+		case <-m.stop:
+			break
 		}
-		return nil, dependency.ErrMissing
+	}()
+	return nil
+}
+
+func (m *mockMetricAPI) SendCalled() <-chan struct{} {
+	return m.sendCalled
+}
+
+func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
+	return m.cleanUpCalled
+}
+
+func (m *mockMetricAPI) Stop() {
+	close(m.stop)
+}
+
+type mockLoopDeviceManager struct {
+	detachLoopDevicesArgRootfs string
+	detachLoopDevicesArgPrefix string
+}
+
+func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
+	m.detachLoopDevicesArgRootfs = rootfs
+	m.detachLoopDevicesArgPrefix = prefix
+	return nil
+}
+
+func newSignal() *signal {
+	return &signal{ch: make(chan struct{})}
+}
+
+type signal struct {
+	mu sync.Mutex
+	ch chan struct{}
+}
+
+func (s *signal) triggered() <-chan struct{} {
+	return s.ch
+}
+
+func (s *signal) assertTriggered(c *gc.C, thing string) {
+	select {
+	case <-s.triggered():
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for " + thing)
 	}
 }
+
+func (s *signal) assertNotTriggered(c *gc.C, wait time.Duration, thing string) {
+	select {
+	case <-s.triggered():
+		c.Fatalf("%v unexpectedly", thing)
+	case <-time.After(wait):
+	}
+}
+
+func (s *signal) trigger() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	select {
+	case <-s.ch:
+		// Already closed.
+	default:
+		close(s.ch)
+	}
+}
+
+type runner interface {
+	Run(*cmd.Context) error
+	Stop() error
+}
+
+// runWithTimeout runs an agent and waits
+// for it to complete within a reasonable time.
+func runWithTimeout(r runner) error {
+	done := make(chan error)
+	go func() {
+		done <- r.Run(nil)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(coretesting.LongWait):
+	}
+	err := r.Stop()
+	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
+}
+
+func newDummyWorker() worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		<-stop
+		return nil
+	})
+}
+
+type FakeConfig struct {
+	agent.ConfigSetter
+}
+
+func (FakeConfig) LogDir() string {
+	return filepath.FromSlash("/var/log/juju/")
+}
+
+func (FakeConfig) Tag() names.Tag {
+	return names.NewMachineTag("42")
+}
+
+type FakeAgentConfig struct {
+	AgentConf
+}
+
+func (FakeAgentConfig) ReadConfig(string) error { return nil }
+
+func (FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{}
+}
+
+func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
+	return mutate(FakeConfig{})
+}
+
+func (FakeAgentConfig) CheckArgs([]string) error { return nil }

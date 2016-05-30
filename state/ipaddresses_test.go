@@ -240,6 +240,23 @@ func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesSuccess(c *gc.C) {
 	s.removeAllAddressesOnMachineAndAssertNoneRemain(c)
 }
 
+func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesRemovesProviderIDReferences(c *gc.C) {
+	s.addNamedDevice(c, "foo")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "foo",
+		ConfigMethod: state.StaticAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   "bar",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.removeAllAddressesOnMachineAndAssertNoneRemain(c)
+
+	// Re-adding the same address to a new device should now succeed.
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ipAddressesStateSuite) addTwoDevicesWithTwoAddressesEach(c *gc.C) []*state.Address {
 	_, device1Addresses := s.addNamedDeviceWithAddresses(c, "eth1", "10.20.0.1/16", "10.20.0.2/16")
 	_, device2Addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.100.2/16", "fc00::/64")
@@ -477,6 +494,62 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesUpdatesExistingDocs(c *gc
 	for i, address := range updatedAddresses {
 		s.checkAddressMatchesArgs(c, address, setArgs[i])
 	}
+}
+
+func (s *ipAddressesStateSuite) TestRemoveAddressRemovesProviderID(c *gc.C) {
+	device := s.addNamedDevice(c, "eth0")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   "id-0123",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	addresses, err := device.Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.HasLen, 1)
+	addr := addresses[0]
+	err = addr.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   "id-0123",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	addrArgs.ProviderID = "id-0124"
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, gc.ErrorMatches, `.*cannot change ProviderID of link address "0.1.2.3"`)
+}
+
+func (s *ipAddressesStateSuite) TestUpdateAddressPreventsDuplicateProviderID(c *gc.C) {
+	s.addNamedDevice(c, "eth0")
+	addrArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.ManualAddress,
+		CIDRAddress:  "0.1.2.3/24",
+	}
+	err := s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set the provider id through an update.
+	addrArgs.ProviderID = "id-0123"
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Adding a new address with the same provider id should now fail.
+	addrArgs.CIDRAddress = "0.1.2.4/24"
+	err = s.machine.SetDevicesAddresses(addrArgs)
+	c.Assert(err, gc.ErrorMatches, `.*invalid address "0.1.2.4/24": ProviderID\(s\) not unique: id-0123`)
 }
 
 func (s *ipAddressesStateSuite) checkAddressMatchesArgs(c *gc.C, address *state.Address, args state.LinkLayerDeviceAddress) {

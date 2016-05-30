@@ -79,7 +79,7 @@ func (c *syncToolsCommand) Init(args []string) error {
 	if c.destination != "" {
 		// Override localDir with destination as localDir now replaces destination
 		c.localDir = c.destination
-		logger.Warningf("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
+		logger.Infof("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
 	}
 	if c.versionStr != "" {
 		var err error
@@ -136,7 +136,7 @@ func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	} else {
 		if c.public {
-			logger.Warningf("--public is ignored unless --local-dir is specified")
+			logger.Infof("--public is ignored unless --local-dir is specified")
 		}
 		api, err := getSyncToolsAPI(c)
 		if err != nil {

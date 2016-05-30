@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/juju/paths"
@@ -54,7 +54,7 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {

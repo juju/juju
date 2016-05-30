@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -36,7 +36,7 @@ import (
 
 type UnitSuite struct {
 	coretesting.GitSuite
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -60,8 +60,6 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
-
-const initialUnitPassword = "unit-password-1234567890"
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the assigned machine, new unit and the agent's configuration.

@@ -126,12 +126,15 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 		)
 		kind := status.HistoryKind(request.Kind)
 		err = errors.NotValidf("%q requires a unit, got %t", kind, request.Tag)
-		if kind == status.KindUnit || kind == status.KindWorkload || kind == status.KindUnitAgent {
-			if u, ok := request.Tag.(names.UnitTag); ok {
+		switch kind {
+		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
+			var u names.UnitTag
+			if u, err = names.ParseUnitTag(request.Tag); err == nil {
 				hist, err = c.unitStatusHistory(u, filter, kind)
 			}
-		} else {
-			if m, ok := request.Tag.(names.MachineTag); ok {
+		default:
+			var m names.MachineTag
+			if m, err = names.ParseMachineTag(request.Tag); err == nil {
 				hist, err = c.machineStatusHistory(m, filter, kind)
 			}
 		}

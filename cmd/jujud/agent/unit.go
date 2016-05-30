@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/network"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -130,7 +129,6 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-	network.SetPreferIPv6(agentConfig.PreferIPv6())
 
 	// Sometimes there are upgrade steps that are needed for each unit.
 	// There are plans afoot to unify the unit and machine agents. When

@@ -91,6 +91,7 @@ type cloudDetails struct {
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
 	RegionsMap map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
+	Config     map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
 }
 
 func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
@@ -99,6 +100,7 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 		CloudType:       cloud.Type,
 		Endpoint:        cloud.Endpoint,
 		StorageEndpoint: cloud.StorageEndpoint,
+		Config:          cloud.Config,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {

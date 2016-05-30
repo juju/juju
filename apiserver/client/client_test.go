@@ -749,7 +749,6 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	s.setUpScenario(c)
-	network.SetPreferIPv6(false)
 
 	// Internally, network.SelectPublicAddress is used; the "most public"
 	// address is returned.
@@ -792,7 +791,6 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
-	network.SetPreferIPv6(false)
 
 	// Internally, network.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
@@ -1168,7 +1166,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:      "foo",
 			HardwareCharacteristics: hc,
-			Addrs: params.FromNetworkAddresses(addrs),
+			Addrs: params.FromNetworkAddresses(addrs...),
 		}
 	}
 	// This will cause the last add-machine to fail.

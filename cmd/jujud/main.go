@@ -192,7 +192,8 @@ func Main(args []string) int {
 	switch commandName {
 	case names.Jujud:
 		// start pprof server and defer cleanup
-		stop := pprof.Start()
+		pprofSocketPath := filepath.Join(os.TempDir(), pprof.Filename)
+		stop := pprof.Start(pprofSocketPath)
 		defer stop()
 
 		code, err = jujuDMain(args, ctx)

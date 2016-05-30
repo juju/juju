@@ -308,7 +308,6 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
-	result.PreferIPv6 = config.PreferIPv6()
 	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
 	return result, nil

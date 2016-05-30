@@ -73,7 +73,7 @@ func (e environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		}
 		// Basic validation check
 		if values.AwsAccessKeyId == "" || values.AwsSecretAccessKey == "" {
-			logger.Warningf("missing aws credential attributes in credentials file section %q", credName)
+			logger.Errorf("missing aws credential attributes in credentials file section %q", credName)
 			continue
 		}
 		accessKeyCredential := cloud.NewCredential(

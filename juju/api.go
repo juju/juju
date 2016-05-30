@@ -107,7 +107,7 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 		if errorImportance(err0) < errorImportance(err1) {
 			err0, err1 = err1, err0
 		}
-		logger.Infof("discarding API open error: %v", err1)
+		logger.Errorf("discarding API open error: %v", err1)
 		return err0
 	}
 	try := parallel.NewTry(0, chooseError)
@@ -159,20 +159,19 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 			// lose error encapsulation:
 			err = ierr.error
 		}
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	st := val0.(api.Connection)
 	addrConnectedTo, err := serverAddress(st.Addr())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
 	hostPorts := st.APIHostPorts()
-	if localerr := updateControllerAddresses(
-		args.Store, args.ControllerName, controllerDetails, hostPorts, addrConnectedTo,
-	); localerr != nil {
-		logger.Debugf("cannot cache API addresses: %v", localerr)
+	err = updateControllerAddresses(args.Store, args.ControllerName, controllerDetails, hostPorts, addrConnectedTo)
+	if err != nil {
+		logger.Errorf("cannot cache API addresses: %v", err)
 	}
 	return st, nil
 }
@@ -331,7 +330,7 @@ func PrepareEndpointsForCaching(
 		collapsedHPs := network.CollapseHostPorts(allHostPorts)
 		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
 		uniqueHPs := network.DropDuplicatedHostPorts(filteredHPs)
-		network.SortHostPorts(uniqueHPs, false)
+		network.SortHostPorts(uniqueHPs)
 
 		for _, addr := range addrConnectedTo {
 			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)

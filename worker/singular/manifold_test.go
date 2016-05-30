@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -39,7 +39,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
-	var out util.Flag
+	var out engine.Flag
 	err := manifold.Output(&fakeWorker{}, &out)
 	c.Check(err, gc.ErrorMatches, `expected in to implement Flag; got a .*`)
 	c.Check(out, gc.IsNil)
@@ -60,7 +60,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
 	fix := newFixture(c)
 	fix.Run(c, func(flag *singular.FlagWorker, _ *coretesting.Clock, _ func()) {
-		var out util.Flag
+		var out engine.Flag
 		err := manifold.Output(flag, &out)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(out, gc.Equals, flag)

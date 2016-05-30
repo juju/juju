@@ -241,7 +241,7 @@ func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
 	addresses := network.NewAddresses("2001:db8::1", "0.1.2.3")
 	results := params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{{
-			Addresses: params.FromNetworkAddresses(addresses),
+			Addresses: params.FromNetworkAddresses(addresses...),
 		}}}
 	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results, &called)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
@@ -257,7 +257,7 @@ func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	expectArgs := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
 			Tag:       "machine-42",
-			Addresses: params.FromNetworkAddresses(addresses),
+			Addresses: params.FromNetworkAddresses(addresses...),
 		}}}
 	results := params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},

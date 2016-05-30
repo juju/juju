@@ -110,8 +110,11 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	}
 	cl.m.Lock()
 	defer cl.m.Unlock()
-	config := cl.config
-	return tls.Server(conn, config), nil
+
+	// make a copy of cl.config so that update certificate does not mutate
+	// the config passed to the tls.Server for this conn.
+	config := *cl.config
+	return tls.Server(conn, &config), nil
 }
 
 // Close closes the listener.
@@ -481,7 +484,7 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 			return st, nil, err
 		}
 	default:
-		logger.Warningf(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
+		logger.Infof(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
 		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
 			st, err := ctxt.stateForRequestUnauthenticated(req)
 			return st, nil, err

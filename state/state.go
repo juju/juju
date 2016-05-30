@@ -32,13 +32,14 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	statelease "github.com/juju/juju/state/lease"
+	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -80,13 +81,10 @@ type State struct {
 	database      Database
 	policy        Policy
 
-	// leadershipClient exposes units' service leadership leases
-	// within this environment.
-	// TODO(fwereade) 2016-05-09 lp:1579633
-	// This field is only used unsafely as far as I'm aware -- it's
-	// not goroutine-safe, and the leadership lease manager is using
-	// it permanently.
-	leadershipClient corelease.Client
+	// leaseClientId is used by the lease infrastructure to
+	// differentiate between machines whose clocks may be
+	// relatively-skewed.
+	leaseClientId string
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -95,7 +93,7 @@ type State struct {
 	//
 	// note that the allManager stuff below probably ought to be
 	// folded in as well, but that feels like its own task.
-	workers Workers
+	workers workers.Workers
 
 	// mu guards allManager, allModelManager & allModelWatcherBacking
 	mu                     sync.Mutex
@@ -240,18 +238,19 @@ func (st *State) ForModel(env names.ModelTag) (*State, error) {
 	return newState, nil
 }
 
-// start starts the presence watcher, leadership manager and images metadata storage,
-// and fills in the controllerTag field with the supplied value.
+// start makes a *State functional post-creation, by:
+//   * setting controllerTag and leaseClientId
+//   * starting lease managers and watcher backends
+//   * creating cloud metadata storage
 func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
 
-	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
 		// the machine that's executing the code -- but there doesn't seem to be
 		// an accessible alternative.
-		clientId = identity.String()
+		st.leaseClientId = identity.String()
 	} else {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and
@@ -261,43 +260,21 @@ func (st *State) start(controllerTag names.ModelTag) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		clientId = fmt.Sprintf("anon-%s", uuid.String())
+		st.leaseClientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
-
-	logger.Infof("creating lease clients as %s", clientId)
-	clock := GetClock()
-	datastore := &environMongo{st}
-	leadershipClient, err := statelease.NewClient(statelease.ClientConfig{
-		Id:         clientId,
-		Namespace:  serviceLeadershipNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership lease client")
-	}
-	st.leadershipClient = leadershipClient
-
-	singularClient, err := statelease.NewClient(statelease.ClientConfig{
-		Id:         clientId,
-		Namespace:  singularControllerNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create singular lease client")
-	}
+	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	workers, err := newDumbWorkers(dumbWorkersConfig{
-		modelTag:           st.modelTag,
-		clock:              clock,
-		leadershipClient:   leadershipClient,
-		singularClient:     singularClient,
-		presenceCollection: st.getPresenceCollection(),
-		txnLogCollection:   st.getTxnLogCollection(),
+	clock := GetClock()
+	factory := workersFactory{
+		st:    st,
+		clock: clock,
+	}
+	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
+		Factory: factory,
+		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
+		Clock:   clock,
+		Delay:   time.Second,
 	})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create standard state workers")
@@ -305,10 +282,42 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	st.workers = workers
 
 	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.ModelUUID(), cloudimagemetadataC, datastore)
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
+		st.ModelUUID(),
+		cloudimagemetadataC,
+		&environMongo{st},
+	)
 
 	logger.Infof("started state for %s successfully", st.modelTag)
 	return nil
+}
+
+func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  serviceLeadershipNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      GetClock(),
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create leadership lease client")
+	}
+	return client, nil
+}
+
+func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      GetClock(),
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create singular lease client")
+	}
+	return client, nil
 }
 
 // ModelTag() returns the model tag for the model controlled by
@@ -882,299 +891,6 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}
 	return coll, id, nil
-}
-
-// AddCharm adds the ch charm with curl to the state.
-// On success the newly added charm state is returned.
-func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	if err := validateCharmVersion(info.Charm); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	query := charms.FindId(info.ID.String()).Select(bson.D{{"placeholder", 1}})
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var placeholderDoc struct {
-			Placeholder bool `bson:"placeholder"`
-		}
-		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
-
-			return insertCharmOps(st, info)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		} else if placeholderDoc.Placeholder {
-			return updateCharmOps(st, info, stillPlaceholder)
-		}
-		return nil, errors.AlreadyExistsf("charm %q", info.ID)
-	}
-	if err = st.run(buildTxn); err == nil {
-		return st.Charm(info.ID)
-	}
-	return nil, errors.Trace(err)
-}
-
-type hasMeta interface {
-	Meta() *charm.Meta
-}
-
-func validateCharmVersion(ch hasMeta) error {
-	minver := ch.Meta().MinJujuVersion
-	if minver != version.Zero {
-		if minver.Compare(jujuversion.Current) > 0 {
-			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
-		}
-	}
-	return nil
-}
-
-// AllCharms returns all charms in state.
-func (st *State) AllCharms() ([]*Charm, error) {
-	charmsCollection, closer := st.getCollection(charmsC)
-	defer closer()
-	var cdoc charmDoc
-	var charms []*Charm
-	iter := charmsCollection.Find(nil).Iter()
-	for iter.Next(&cdoc) {
-		ch := newCharm(st, &cdoc)
-		charms = append(charms, ch)
-	}
-	return charms, errors.Trace(iter.Close())
-}
-
-// Charm returns the charm with the given URL. Charms pending upload
-// to storage and placeholders are never returned.
-func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	cdoc := &charmDoc{}
-	what := bson.D{
-		{"_id", curl.String()},
-		{"placeholder", bson.D{{"$ne", true}}},
-		{"pendingupload", bson.D{{"$ne", true}}},
-	}
-	err := charms.Find(what).One(&cdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
-	}
-	if err := cdoc.Meta.Check(); err != nil {
-		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
-	}
-	return newCharm(st, cdoc), nil
-}
-
-// LatestPlaceholderCharm returns the latest charm described by the
-// given URL but which is not yet deployed.
-func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
-	var docs []charmDoc
-	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
-	}
-	// Find the highest revision.
-	var latest charmDoc
-	for _, doc := range docs {
-		if latest.URL == nil || doc.URL.Revision > latest.URL.Revision {
-			latest = doc
-		}
-	}
-	if latest.URL == nil {
-		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
-	}
-	return newCharm(st, &latest), nil
-}
-
-// PrepareLocalCharmUpload must be called before a local charm is
-// uploaded to the provider storage in order to create a charm
-// document in state. It returns the chosen unique charm URL reserved
-// in state for the charm.
-//
-// The url's schema must be "local" and it must include a revision.
-func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
-	// Perform a few sanity checks first.
-	if curl.Schema != "local" {
-		return nil, errors.Errorf("expected charm URL with local schema, got %q", curl)
-	}
-	if curl.Revision < 0 {
-		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-	// Get a regex with the charm URL and no revision.
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
-
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find the highest revision of that charm in state.
-		var docs []charmDoc
-		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
-		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Find the highest revision.
-		maxRevision := -1
-		for _, doc := range docs {
-			if doc.URL.Revision > maxRevision {
-				maxRevision = doc.URL.Revision
-			}
-		}
-
-		// Respect the local charm's revision first.
-		chosenRevision := curl.Revision
-		if maxRevision >= chosenRevision {
-			// More recent revision exists in state, pick the next.
-			chosenRevision = maxRevision + 1
-		}
-		chosenUrl = curl.WithRevision(chosenRevision)
-		return insertPendingCharmOps(st, chosenUrl)
-	}
-	if err = st.run(buildTxn); err == nil {
-		return chosenUrl, nil
-	}
-	return nil, errors.Trace(err)
-}
-
-// PrepareStoreCharmUpload must be called before a charm store charm
-// is uploaded to the provider storage in order to create a charm
-// document in state. If a charm with the same URL is already in
-// state, it will be returned as a *state.Charm (it can be still
-// pending or already uploaded). Otherwise, a new charm document is
-// added in state with just the given charm URL and
-// PendingUpload=true, which is then returned as a *state.Charm.
-//
-// The url's schema must be "cs" and it must include a revision.
-func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
-	// Perform a few sanity checks first.
-	if curl.Schema != "cs" {
-		return nil, errors.Errorf("expected charm URL with cs schema, got %q", curl)
-	}
-	if curl.Revision < 0 {
-		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	var (
-		uploadedCharm charmDoc
-		err           error
-	)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(curl.String()).One(&uploadedCharm)
-		switch {
-		case err == mgo.ErrNotFound:
-			uploadedCharm = charmDoc{
-				DocID:         st.docID(curl.String()),
-				ModelUUID:     st.ModelTag().Id(),
-				URL:           curl,
-				PendingUpload: true,
-			}
-			return insertAnyCharmOps(&uploadedCharm)
-		case err != nil:
-			return nil, errors.Trace(err)
-		case uploadedCharm.Placeholder:
-			// Update the fields of the document we're returning.
-			uploadedCharm.PendingUpload = true
-			uploadedCharm.Placeholder = false
-			return convertPlaceholderCharmOps(uploadedCharm.DocID)
-		default:
-			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case,
-			// there's nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		}
-	}
-	if err = st.run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm), nil
-	}
-	return nil, errors.Trace(err)
-}
-
-var (
-	stillPending     = bson.D{{"pendingupload", true}}
-	stillPlaceholder = bson.D{{"placeholder", true}}
-)
-
-// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
-// must reference a charm from the store. The charm document is marked as a placeholder which
-// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
-func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
-	// Perform sanity checks first.
-	if curl.Schema != "cs" {
-		return errors.Errorf("expected charm URL with cs schema, got %q", curl)
-	}
-	if curl.Revision < 0 {
-		return errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// See if the charm already exists in state and exit early if that's the case.
-		var doc charmDoc
-		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
-		if err != nil && err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		}
-		if err == nil {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		// Delete all previous placeholders so we don't fill up the database with unused data.
-		deleteOps, err := deleteOldPlaceholderCharmsOps(st, charms, curl)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		insertOps, err := insertPlaceholderCharmOps(st, curl)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops := append(deleteOps, insertOps...)
-		return ops, nil
-	}
-	return errors.Trace(st.run(buildTxn))
-}
-
-// UpdateUploadedCharm marks the given charm URL as uploaded and
-// updates the rest of its data, returning it as *state.Charm.
-func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	doc := &charmDoc{}
-	err := charms.FindId(info.ID.String()).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", info.ID)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !doc.PendingUpload {
-		return nil, errors.Trace(&ErrCharmAlreadyUploaded{info.ID})
-	}
-
-	ops, err := updateCharmOps(st, info, stillPending)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
-	}
-	return st.Charm(info.ID)
 }
 
 // addPeerRelationsOps returns the operations necessary to add the
@@ -2071,7 +1787,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.workers.TxnWatcher().StartSync()
+	st.workers.TxnLogWatcher().StartSync()
 	st.workers.PresenceWatcher().Sync()
 }
 
@@ -2315,6 +2031,15 @@ func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.I
 		Id:     key,
 		Assert: txn.DocMissing,
 		Insert: providerIdDoc{ID: key},
+	}
+}
+
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Remove: true,
 	}
 }
 

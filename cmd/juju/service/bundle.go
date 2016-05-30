@@ -278,7 +278,11 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 	}
 
 	// Not a local charm, so grab from the store.
-	url, channel, _, store, err := h.resolver.resolve(p.Charm)
+	ch, err := charm.ParseURL(p.Charm)
+	if err != nil {
+		return nil, "", nil, errors.Trace(err)
+	}
+	url, channel, _, store, err := h.resolver.resolve(ch)
 	if err != nil {
 		return nil, channel, nil, errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -352,7 +356,17 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 		return err
 	}
 	supportedSeries := charmInfo.Meta.Series
-	series, message, err := charmSeries(p.Series, chID.URL.Series, supportedSeries, false, conf, deployFromBundle)
+	if len(supportedSeries) == 0 && chID.URL.Series != "" {
+		supportedSeries = []string{chID.URL.Series}
+	}
+	selector := seriesSelector{
+		seriesFlag:      p.Series,
+		charmURLSeries:  chID.URL.Series,
+		supportedSeries: supportedSeries,
+		conf:            conf,
+		fromBundle:      true,
+	}
+	series, message, err := selector.charmSeries()
 	if err != nil {
 		return errors.Trace(err)
 	}

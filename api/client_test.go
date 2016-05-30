@@ -295,7 +295,9 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
-	c.Assert(client.ModelUUID(), gc.Equals, environ.Tag().Id())
+	uuid, err := client.ModelUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, environ.Tag().Id())
 }
 
 func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {

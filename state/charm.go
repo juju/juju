@@ -9,12 +9,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/storage"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // MacaroonCache is a type that wraps State and implements charmstore.MacaroonCache.
@@ -385,4 +390,324 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// deleteCharmArchive deletes a charm archive from blob storage
+// and removes the corresponding charm record from state.
+func (st *State) deleteCharmArchive(curl *charm.URL, storagePath string) error {
+	if err := st.deleteCharm(curl); err != nil {
+		return errors.Annotate(err, "cannot delete charm record from state")
+	}
+	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
+	if err := stor.Remove(storagePath); err != nil {
+		return errors.Annotate(err, "cannot delete charm from storage")
+	}
+	return nil
+}
+
+// AddCharm adds the ch charm with curl to the state.
+// On success the newly added charm state is returned.
+func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	if err := validateCharmVersion(info.Charm); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := charms.FindId(info.ID.String()).Select(bson.D{{"placeholder", 1}})
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var placeholderDoc struct {
+			Placeholder bool `bson:"placeholder"`
+		}
+		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
+
+			return insertCharmOps(st, info)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		} else if placeholderDoc.Placeholder {
+			return updateCharmOps(st, info, stillPlaceholder)
+		}
+		return nil, errors.AlreadyExistsf("charm %q", info.ID)
+	}
+	if err = st.run(buildTxn); err == nil {
+		return st.Charm(info.ID)
+	}
+	return nil, errors.Trace(err)
+}
+
+// deleteCharm removes the charm record with curl from state.
+func (st *State) deleteCharm(curl *charm.URL) error {
+	op := []txn.Op{{
+		C:      charmsC,
+		Id:     curl.String(),
+		Remove: true,
+	}}
+	err := st.runTransaction(op)
+	if err == mgo.ErrNotFound {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+type hasMeta interface {
+	Meta() *charm.Meta
+}
+
+func validateCharmVersion(ch hasMeta) error {
+	minver := ch.Meta().MinJujuVersion
+	if minver != version.Zero {
+		if minver.Compare(jujuversion.Current) > 0 {
+			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
+		}
+	}
+	return nil
+}
+
+// AllCharms returns all charms in state.
+func (st *State) AllCharms() ([]*Charm, error) {
+	charmsCollection, closer := st.getCollection(charmsC)
+	defer closer()
+	var cdoc charmDoc
+	var charms []*Charm
+	iter := charmsCollection.Find(nil).Iter()
+	for iter.Next(&cdoc) {
+		ch := newCharm(st, &cdoc)
+		charms = append(charms, ch)
+	}
+	return charms, errors.Trace(iter.Close())
+}
+
+// Charm returns the charm with the given URL. Charms pending upload
+// to storage and placeholders are never returned.
+func (st *State) Charm(curl *charm.URL) (*Charm, error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	cdoc := &charmDoc{}
+	what := bson.D{
+		{"_id", curl.String()},
+		{"placeholder", bson.D{{"$ne", true}}},
+		{"pendingupload", bson.D{{"$ne", true}}},
+	}
+	err := charms.Find(what).One(&cdoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", curl)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
+	}
+	if err := cdoc.Meta.Check(); err != nil {
+		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
+	}
+	return newCharm(st, cdoc), nil
+}
+
+// LatestPlaceholderCharm returns the latest charm described by the
+// given URL but which is not yet deployed.
+func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
+	var docs []charmDoc
+	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
+	}
+	// Find the highest revision.
+	var latest charmDoc
+	for _, doc := range docs {
+		if latest.URL == nil || doc.URL.Revision > latest.URL.Revision {
+			latest = doc
+		}
+	}
+	if latest.URL == nil {
+		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
+	}
+	return newCharm(st, &latest), nil
+}
+
+// PrepareLocalCharmUpload must be called before a local charm is
+// uploaded to the provider storage in order to create a charm
+// document in state. It returns the chosen unique charm URL reserved
+// in state for the charm.
+//
+// The url's schema must be "local" and it must include a revision.
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "local" {
+		return nil, errors.Errorf("expected charm URL with local schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
+	}
+	// Get a regex with the charm URL and no revision.
+	noRevURL := curl.WithRevision(-1)
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
+
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Find the highest revision of that charm in state.
+		var docs []charmDoc
+		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
+		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Find the highest revision.
+		maxRevision := -1
+		for _, doc := range docs {
+			if doc.URL.Revision > maxRevision {
+				maxRevision = doc.URL.Revision
+			}
+		}
+
+		// Respect the local charm's revision first.
+		chosenRevision := curl.Revision
+		if maxRevision >= chosenRevision {
+			// More recent revision exists in state, pick the next.
+			chosenRevision = maxRevision + 1
+		}
+		chosenUrl = curl.WithRevision(chosenRevision)
+		return insertPendingCharmOps(st, chosenUrl)
+	}
+	if err = st.run(buildTxn); err == nil {
+		return chosenUrl, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// PrepareStoreCharmUpload must be called before a charm store charm
+// is uploaded to the provider storage in order to create a charm
+// document in state. If a charm with the same URL is already in
+// state, it will be returned as a *state.Charm (it can be still
+// pending or already uploaded). Otherwise, a new charm document is
+// added in state with just the given charm URL and
+// PendingUpload=true, which is then returned as a *state.Charm.
+//
+// The url's schema must be "cs" and it must include a revision.
+func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
+	// Perform a few sanity checks first.
+	if curl.Schema != "cs" {
+		return nil, errors.Errorf("expected charm URL with cs schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
+	}
+
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	var (
+		uploadedCharm charmDoc
+		err           error
+	)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Find an uploaded or pending charm with the given exact curl.
+		err := charms.FindId(curl.String()).One(&uploadedCharm)
+		switch {
+		case err == mgo.ErrNotFound:
+			uploadedCharm = charmDoc{
+				DocID:         st.docID(curl.String()),
+				ModelUUID:     st.ModelTag().Id(),
+				URL:           curl,
+				PendingUpload: true,
+			}
+			return insertAnyCharmOps(&uploadedCharm)
+		case err != nil:
+			return nil, errors.Trace(err)
+		case uploadedCharm.Placeholder:
+			// Update the fields of the document we're returning.
+			uploadedCharm.PendingUpload = true
+			uploadedCharm.Placeholder = false
+			return convertPlaceholderCharmOps(uploadedCharm.DocID)
+		default:
+			// The charm exists and it's either uploaded or still
+			// pending, but it's not a placeholder. In any case,
+			// there's nothing to do.
+			return nil, jujutxn.ErrNoOperations
+		}
+	}
+	if err = st.run(buildTxn); err == nil {
+		return newCharm(st, &uploadedCharm), nil
+	}
+	return nil, errors.Trace(err)
+}
+
+var (
+	stillPending     = bson.D{{"pendingupload", true}}
+	stillPlaceholder = bson.D{{"placeholder", true}}
+)
+
+// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
+// must reference a charm from the store. The charm document is marked as a placeholder which
+// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
+func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
+	// Perform sanity checks first.
+	if curl.Schema != "cs" {
+		return errors.Errorf("expected charm URL with cs schema, got %q", curl)
+	}
+	if curl.Revision < 0 {
+		return errors.Errorf("expected charm URL with revision, got %q", curl)
+	}
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// See if the charm already exists in state and exit early if that's the case.
+		var doc charmDoc
+		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		if err != nil && err != mgo.ErrNotFound {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		// Delete all previous placeholders so we don't fill up the database with unused data.
+		deleteOps, err := deleteOldPlaceholderCharmsOps(st, charms, curl)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		insertOps, err := insertPlaceholderCharmOps(st, curl)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := append(deleteOps, insertOps...)
+		return ops, nil
+	}
+	return errors.Trace(st.run(buildTxn))
+}
+
+// UpdateUploadedCharm marks the given charm URL as uploaded and
+// updates the rest of its data, returning it as *state.Charm.
+func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	doc := &charmDoc{}
+	err := charms.FindId(info.ID.String()).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("charm %q", info.ID)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !doc.PendingUpload {
+		return nil, errors.Trace(&ErrCharmAlreadyUploaded{info.ID})
+	}
+
+	ops, err := updateCharmOps(st, info, stillPending)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := st.runTransaction(ops); err != nil {
+		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
+	}
+	return st.Charm(info.ID)
 }

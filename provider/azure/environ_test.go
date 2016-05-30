@@ -22,6 +22,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -76,10 +77,11 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.sender = nil
+	s.requests = nil
 	s.retryClock = mockClock{Clock: testing.NewClock(time.Time{})}
 
 	s.provider, _ = newProviders(c, azure.ProviderConfig{
-		Sender:           &s.sender,
+		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: requestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
 		RetryClock: &testing.AutoAdvancingClock{
@@ -870,4 +872,95 @@ func (s *environSuite) TestAgentMirror(c *gc.C) {
 		Region:   "westus",
 		Endpoint: "https://storage.azurestack.local/",
 	})
+}
+
+func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
+	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups/juju-testenv-model-"+testing.ModelTag.Id(), nil), // DELETE
+	}
+	err := env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.requests, gc.HasLen, 1)
+	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
+}
+
+func (s *environSuite) TestDestroyControllerModel(c *gc.C) {
+	groups := []resources.ResourceGroup{{
+		Name: to.StringPtr("group1"),
+	}, {
+		Name: to.StringPtr("group2"),
+	}}
+	result := resources.ResourceGroupListResult{Value: &groups}
+
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups", result),        // GET
+		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
+		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
+	}
+	err := env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Query().Get("$filter"), gc.Equals, fmt.Sprintf(
+		"tagname eq 'juju-controller-uuid' and tagvalue eq '%s'",
+		testing.ModelTag.Id(),
+	))
+	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+
+	// Groups are deleted concurrently, so there's no known order.
+	groupsDeleted := []string{
+		path.Base(s.requests[1].URL.Path),
+		path.Base(s.requests[2].URL.Path),
+	}
+	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+}
+
+func (s *environSuite) TestDestroyControllerModelErrors(c *gc.C) {
+	groups := []resources.ResourceGroup{
+		{Name: to.StringPtr("group1")},
+		{Name: to.StringPtr("group2")},
+	}
+	result := resources.ResourceGroupListResult{Value: &groups}
+
+	errorSender1 := s.makeSender(".*/resourcegroups/group[12]", nil)
+	errorSender1.EmitStatus("foo", http.StatusInternalServerError)
+	errorSender2 := s.makeSender(".*/resourcegroups/group[12]", nil)
+	errorSender2.EmitStatus("bar", http.StatusInternalServerError)
+
+	env := s.openEnviron(c)
+	s.requests = nil
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/resourcegroups", result), // GET
+		errorSender1,                              // DELETE
+		errorSender2,                              // DELETE
+	}
+	destroyErr := env.Destroy()
+	// checked below, once we know the order of deletions.
+
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[1].Method, gc.Equals, "DELETE")
+	c.Assert(s.requests[2].Method, gc.Equals, "DELETE")
+
+	// Groups are deleted concurrently, so there's no known order.
+	groupsDeleted := []string{
+		path.Base(s.requests[1].URL.Path),
+		path.Base(s.requests[2].URL.Path),
+	}
+	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
+
+	// The errors are guaranteed to be in the order that the names appeared
+	// in the list response.
+	firstErr := "foo"
+	secondErr := "bar"
+	if groupsDeleted[0] == "group2" {
+		firstErr, secondErr = secondErr, firstErr
+	}
+	c.Assert(destroyErr, gc.ErrorMatches,
+		`deleting resource group "group1":.* failed with `+firstErr+`; `+
+			`deleting resource group "group2":.* failed with `+secondErr)
 }

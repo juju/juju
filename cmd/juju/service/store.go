@@ -75,27 +75,41 @@ func newCharmURLResolver(conf *config.Config, csClient *csclient.Client) *charmU
 
 // TODO(ericsnow) Return charmstore.CharmID from resolve()?
 
-// resolve resolves the given given charm or bundle URL
-// string by looking it up in the charm store.
-// The given csParams will be used to access the charm store.
+// resolve resolves the given given charm or bundle URL string by looking it up
+// in the charm store. The given csParams will be used to access the charm
+// store.
 //
-// It returns the fully resolved URL, any series supported by the entity,
-// and the store that holds it.
-func (r *charmURLResolver) resolve(urlStr string) (*charm.URL, csparams.Channel, []string, *charmrepo.CharmStore, error) {
-	var noChannel csparams.Channel
-	url, err := charm.ParseURL(urlStr)
-	if err != nil {
-		return nil, noChannel, nil, nil, errors.Trace(err)
+// It returns the fully resolved URL, the channel, any series supported by the
+// entity, and the store that holds it.
+func (r *charmURLResolver) resolve(url *charm.URL) (*charm.URL, csparams.Channel, []string, *charmrepo.CharmStore, error) {
+	if url.Schema != "cs" {
+		return nil, csparams.NoChannel, nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
+	}
+	// If the user hasn't explicitly asked for a particular series,
+	// query for the charm that matches the model's default series.
+	// If this fails, we'll fall back to asking for whatever charm is available.
+	defaultedSeries := false
+	if url.Series == "" {
+		if s, ok := r.conf.DefaultSeries(); ok {
+			defaultedSeries = true
+			url.Series = s
+		}
 	}
 
-	if url.Schema != "cs" {
-		return nil, noChannel, nil, nil, errors.Errorf("unknown schema for charm URL %q", url)
-	}
 	charmStore := config.SpecializeCharmRepo(r.store, r.conf).(*charmrepo.CharmStore)
 
 	resultUrl, channel, supportedSeries, err := charmStore.ResolveWithChannel(url)
+	if defaultedSeries && errors.Cause(err) == csparams.ErrNotFound {
+		// we tried to use the model's default the series, but the store said it doesn't exist.
+		// retry without the defaulted series, to take what we can get.
+		url.Series = ""
+		resultUrl, channel, supportedSeries, err = charmStore.ResolveWithChannel(url)
+	}
 	if err != nil {
-		return nil, noChannel, nil, nil, errors.Trace(err)
+		return nil, csparams.NoChannel, nil, nil, errors.Trace(err)
+	}
+	if resultUrl.Series != "" && len(supportedSeries) == 0 {
+		supportedSeries = []string{resultUrl.Series}
 	}
 	return resultUrl, channel, supportedSeries, charmStore, nil
 }

@@ -231,8 +231,8 @@ func (f *fakeAddMachineAPI) Close() error {
 	return nil
 }
 
-func (f *fakeAddMachineAPI) ModelUUID() string {
-	return "fake-uuid"
+func (f *fakeAddMachineAPI) ModelUUID() (string, error) {
+	return "fake-uuid", nil
 }
 
 func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {

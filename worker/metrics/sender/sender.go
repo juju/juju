@@ -75,7 +75,7 @@ func (s *sender) sendMetrics(reader spool.MetricReader) error {
 
 // Handle sends metrics from the spool directory to the
 // controller.
-func (s *sender) Handle(c net.Conn) (err error) {
+func (s *sender) Handle(c net.Conn, _ <-chan struct{}) (err error) {
 	defer func() {
 		if err != nil {
 			fmt.Fprintf(c, "%v\n", err)

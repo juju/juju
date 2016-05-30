@@ -152,7 +152,7 @@ func removeAll(dir string) {
 	if err == nil || os.IsNotExist(err) {
 		return
 	}
-	logger.Warningf("cannot remove %q: %v", dir, err)
+	logger.Errorf("cannot remove %q: %v", dir, err)
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {
