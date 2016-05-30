@@ -30,10 +30,12 @@ def write_new_config(env, out):
 def main():
     parser = ArgumentParser(
         description=dedent('''\
-            Convert environment.yaml to 2.0 format.
+            Convert environments.yaml to 2.0 format.
 
             environments.yaml from JUJU_HOME will be used.
             Existing configs in the output directory will be overwritten.
+
+            Does not support configs of type 'local'.
             '''))
     parser.add_argument('config_dir', metavar='OUTPUT_DIR',
                         help='Directory to write updated configs to.')
