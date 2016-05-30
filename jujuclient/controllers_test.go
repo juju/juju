@@ -31,6 +31,8 @@ func (s *ControllersSuite) SetUpTest(c *gc.C) {
 		"test.uuid",
 		[]string{"test.api.endpoint"},
 		"test.ca.cert",
+		"aws",
+		"southeastasia",
 	}
 }
 

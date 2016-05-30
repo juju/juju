@@ -165,6 +165,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	foundController, err := controllerStore.ControllerByName(cfg.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, gc.DeepEquals, cfg.UUID())
+	c.Assert(foundController.Cloud, gc.Equals, "dummy")
 
 	// Check we cannot call Prepare again.
 	env, err = environs.Prepare(ctx, controllerStore, environs.PrepareParams{
