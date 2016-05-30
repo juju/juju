@@ -181,7 +181,7 @@ func (env *environ) Destroy() error {
 func (env *environ) destroyHostedModelResources() error {
 	// Destroy all instances where juju-controller-uuid,
 	// but not juju-model-uuid, matches env.uuid.
-	prefix := common.EnvFullName("")
+	prefix := env.namespace.Prefix()
 	instances, err := env.prefixedInstances(prefix)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")

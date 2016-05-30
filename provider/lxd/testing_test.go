@@ -95,7 +95,6 @@ type BaseSuiteUnpatched struct {
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
-	Prefix    string
 
 	Addresses     []network.Address
 	Instance      *environInstance
@@ -137,6 +136,10 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
+}
+
+func (s *BaseSuiteUnpatched) Prefix() string {
+	return s.Env.namespace.Prefix()
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
@@ -192,9 +195,14 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}
+	// NOTE: the instance ids used throughout this package are not at all
+	// representative of what they would normally be. They would normally be the
+	// namespace prefix followed by a machine id with slashes replaced with
+	// dashes.
 	s.Instance = s.NewInstance(c, "spam")
 	s.RawInstance = s.Instance.raw
-	s.InstName = s.Prefix + "machine-spam"
+	s.InstName, err = s.Env.namespace.Hostname("42")
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
 		InstanceConfig: instanceConfig,
@@ -219,7 +227,9 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
-	s.Prefix = "juju-" + uuid + "-"
+	namespace, err := instance.NewNamespace(uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Env.namespace = namespace
 }
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
