@@ -160,7 +160,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	instances, err := env.Instances([]instance.Id{args.InstanceId})
+	instances, err := env.Instances([]instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return err
 	}
@@ -216,12 +216,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
-	envCfg, err := env.Config().Apply(newConfigAttrs)
+	cfg, err := env.Config().Apply(newConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
 	}
+	args.Config = cfg
+
 	var st *state.State
 	var m *state.Machine
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
@@ -231,7 +232,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// Set a longer socket timeout than usual, as the machine
 		// will be starting up and disk I/O slower than usual. This
 		// has been known to cause timeouts in queries.
-		timeouts := envCfg.BootstrapSSHOpts()
+		timeouts := args.Config.BootstrapSSHOpts()
 		dialOpts.SocketTimeout = timeouts.Timeout
 		if dialOpts.SocketTimeout < minSocketTimeout {
 			dialOpts.SocketTimeout = minSocketTimeout
@@ -240,26 +241,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
 
-		var hardware instance.HardwareCharacteristics
-		if args.HardwareCharacteristics != nil {
-			hardware = *args.HardwareCharacteristics
-		}
-
 		adminTag := names.NewLocalUserTag(adminUserName)
 		st, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
-			envCfg,
-			args.HostedModelConfig,
-			agentbootstrap.BootstrapMachineConfig{
-				Addresses:            addrs,
-				BootstrapConstraints: args.BootstrapMachineConstraints,
-				ModelConstraints:     args.ModelConstraints,
-				Jobs:                 jobs,
-				InstanceId:           args.InstanceId,
-				Characteristics:      hardware,
-				SharedSecret:         sharedSecret,
-			},
+			agentbootstrap.InitializeStateParams{args, addrs, jobs, sharedSecret},
 			dialOpts,
 			environs.NewStatePolicy(),
 		)
@@ -341,10 +327,14 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return initiateMongoServer(peergrouper.InitiateMongoParams{
+	if err := initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	})
+	}); err != nil {
+		return err
+	}
+	logger.Infof("started mongo")
+	return nil
 }
 
 // populateDefaultStoragePools creates the default storage pools.

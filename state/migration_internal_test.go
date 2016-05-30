@@ -116,6 +116,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
+		// controller
+		cloudsC,
+		cloudCredentialsC,
+
 		// model
 		cloudimagemetadataC,
 
@@ -184,6 +188,9 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"MigrationMode",
 		"Owner",
 		"LatestAvailableTools",
+		"Cloud",
+		"CloudRegion",
+		"CloudCredential",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }

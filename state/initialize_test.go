@@ -65,7 +65,16 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: cfg,
+			Cloud:  "dummy",
+		},
+		PublicClouds:  statetesting.TestClouds(),
+		MongoInfo:     statetesting.NewMongoInfo(),
+		MongoDialOpts: mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
@@ -114,14 +123,22 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	mgoInfo := statetesting.NewMongoInfo()
-	dialOpts := mongotest.DialOpts()
-	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	args := state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: cfg,
+			Cloud:  "dummy",
+		},
+		PublicClouds:  statetesting.TestClouds(),
+		MongoInfo:     statetesting.NewMongoInfo(),
+		MongoDialOpts: mongotest.DialOpts(),
+	}
+	st, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	st, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	st, err = state.Initialize(args)
 	c.Check(err, gc.ErrorMatches, "already initialized")
 	if !c.Check(st, gc.IsNil) {
 		err = st.Close()
@@ -136,7 +153,16 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 	bad, err := good.Apply(badUpdateAttrs)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, mongotest.DialOpts(), state.Policy(nil))
+	_, err = state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: bad,
+			Cloud:  "dummy",
+		},
+		PublicClouds:  statetesting.TestClouds(),
+		MongoInfo:     statetesting.NewMongoInfo(),
+		MongoDialOpts: mongotest.DialOpts(),
+	})
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateModelConfig.
@@ -162,7 +188,16 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, mongotest.DialOpts(), state.Policy(nil))
+	_, err = state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: bad,
+			Cloud:  "dummy",
+		},
+		PublicClouds:  statetesting.TestClouds(),
+		MongoInfo:     statetesting.NewMongoInfo(),
+		MongoDialOpts: mongotest.DialOpts(),
+	})
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	st := statetesting.Initialize(c, owner, good, nil)
@@ -177,4 +212,43 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
+}
+
+func (s *InitializeSuite) TestCloudsCredentials(c *gc.C) {
+	cfg := testing.ModelConfig(c)
+	owner := names.NewLocalUserTag("initialize-admin")
+
+	publicClouds := statetesting.TestClouds()
+	cloudCredentials := statetesting.TestCredentials()
+
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:           owner,
+			Config:          cfg,
+			Cloud:           "dummy",
+			CloudRegion:     "region-1",
+			CloudCredential: "street",
+		},
+		PublicClouds:     publicClouds,
+		CloudCredentials: cloudCredentials,
+		MongoInfo:        statetesting.NewMongoInfo(),
+		MongoDialOpts:    mongotest.DialOpts(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	st.Close()
+
+	s.openState(c, st.ModelTag())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Cloud(), gc.Equals, "dummy")
+	c.Assert(model.CloudRegion(), gc.Equals, "region-1")
+	c.Assert(model.CloudCredential(), gc.Equals, "street")
+
+	foundPublicClouds, err := s.State.PublicClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundPublicClouds, jc.DeepEquals, publicClouds)
+
+	foundCloudCredentials, err := s.State.CloudCredentials(owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundCloudCredentials, jc.DeepEquals, cloudCredentials)
 }

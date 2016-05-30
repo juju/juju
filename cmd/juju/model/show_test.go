@@ -75,7 +75,8 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		UUID:           testing.ModelTag.Id(),
 		ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 		OwnerTag:       "user-admin@local",
-		ProviderType:   "openstack",
+		Cloud:          "canonistack",
+		CloudRegion:    "lcy01",
 		Life:           params.Alive,
 		Status: params.EntityStatus{
 			Status: status.StatusActive,
@@ -90,7 +91,8 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"owner":           "admin@local",
-			"type":            "openstack",
+			"cloud":           "canonistack",
+			"region":          "lcy01",
 			"life":            "alive",
 			"status": attrs{
 				"current": "active",

@@ -40,6 +40,9 @@ type Model interface {
 	Owner() names.UserTag
 	Config() map[string]interface{}
 	LatestToolsVersion() version.Number
+	Cloud() string
+	CloudRegion() string
+	CloudCredential() string
 
 	// UpdateConfig overwrites existing config values with those specified.
 	UpdateConfig(map[string]interface{})

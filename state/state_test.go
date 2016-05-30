@@ -4149,7 +4149,16 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, authInfo, cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: cfg,
+			Cloud:  "dummy",
+		},
+		PublicClouds:  statetesting.TestClouds(),
+		MongoInfo:     authInfo,
+		MongoDialOpts: mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

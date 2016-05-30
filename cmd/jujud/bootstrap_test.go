@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -612,12 +613,12 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, hostedModelConfig map[string]interface{}, machineCfg agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(hostedModelConfig, jc.DeepEquals, map[string]interface{}{
+		c.Assert(args.HostedModelConfig, jc.DeepEquals, map[string]interface{}{
 			"name": "hosted-model",
 			"uuid": s.hostedModelUUID,
 		})
@@ -633,7 +634,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, hostedModelConfig map[string]interface{}, machineCfg agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -843,6 +844,8 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 		"name": "hosted-model",
 		"uuid": s.hostedModelUUID,
 	}
+	args.Cloud = "dummy"
+	args.PublicClouds = statetesting.TestClouds()
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

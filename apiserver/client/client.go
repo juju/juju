@@ -345,17 +345,18 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
-	env, err := state.Model()
+	model, err := state.Model()
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
 
 	info := params.ModelInfo{
 		DefaultSeries:  config.PreferredSeries(conf),
-		ProviderType:   conf.Type(),
+		Cloud:          model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
 		Name:           conf.Name(),
-		UUID:           env.UUID(),
-		ControllerUUID: env.ControllerUUID(),
+		UUID:           model.UUID(),
+		ControllerUUID: model.ControllerUUID(),
 	}
 	return info, nil
 }

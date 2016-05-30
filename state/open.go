@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -103,19 +104,65 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 	return nil
 }
 
+// InitializeParams contains the parameters for Initialize.
+type InitializeParams struct {
+	// ControllerModelArgs contains the arguments for creating
+	// the controller model.
+	ControllerModelArgs ModelArgs
+
+	// PublicClouds contains the public clouds to store in the
+	// controller.
+	PublicClouds map[string]cloud.Cloud
+
+	// PersonalClouds contains the personal clouds for the owner
+	// of the controller model to store in the controller.
+	PersonalClouds map[string]cloud.Cloud
+
+	// Credentials contains the credentials for the owner of the
+	// controller model to store in the controller.
+	CloudCredentials map[string]cloud.CloudCredential
+
+	// Policy is the set of state policies to apply.
+	Policy Policy
+
+	// MongoInfo contains the information required to address and
+	// authenticate with Mongo.
+	MongoInfo *mongo.MongoInfo
+
+	// MongoDialOpts contains the dial options for connecting to
+	// Mongo.
+	MongoDialOpts mongo.DialOpts
+}
+
+func (p InitializeParams) Validate() error {
+	if err := p.ControllerModelArgs.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	uuid := p.ControllerModelArgs.Config.UUID()
+	controllerUUID := p.ControllerModelArgs.Config.ControllerUUID()
+	if uuid != controllerUUID {
+		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
+	}
+	if p.MongoInfo == nil {
+		return errors.NotValidf("nil MongoInfo")
+	}
+	if len(p.PublicClouds) == 0 {
+		return errors.NotValidf("empty public clouds")
+	}
+	return nil
+}
+
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
-	uuid := cfg.UUID()
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
-	controllerUUID := cfg.ControllerUUID()
-	if controllerUUID != uuid {
-		return nil, errors.Errorf("when initialising state, model and controller UUIDs must be equal, got %v and %v", uuid, controllerUUID)
+func Initialize(args InitializeParams) (_ *State, err error) {
+	if err := args.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	uuid := args.ControllerModelArgs.Config.UUID()
 	modelTag := names.NewModelTag(uuid)
-	st, err := open(modelTag, info, opts, policy)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.Policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,7 +184,14 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	}
 
 	logger.Infof("initializing controller model %s", uuid)
-	modelOps, err := st.modelSetupOps(cfg, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(
+		args.ControllerModelArgs.Config,
+		args.ControllerModelArgs.Cloud,
+		args.ControllerModelArgs.CloudRegion,
+		args.ControllerModelArgs.CloudCredential,
+		args.ControllerModelArgs.Owner,
+		MigrationModeActive,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -145,11 +199,15 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, err
 	}
+
 	// Extract just the controller config.
-	controllerCfg := controllerConfig(cfg.AllAttrs())
+	controllerCfg := controllerConfig(args.ControllerModelArgs.Config.AllAttrs())
 
 	ops := []txn.Op{
-		createInitialUserOp(st, owner, info.Password, salt),
+		createInitialUserOp(
+			st, args.ControllerModelArgs.Owner,
+			args.MongoInfo.Password, salt,
+		),
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
@@ -178,6 +236,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
 	}
+	ops = append(ops, initPublicCloudsOps(args.PublicClouds)...)
+	ops = append(ops, initPersonalCloudsOps(args.ControllerModelArgs.Owner, args.PersonalClouds)...)
+	ops = append(ops, initCloudCredentialsOps(args.ControllerModelArgs.Owner, args.CloudCredentials)...)
 	ops = append(ops, modelOps...)
 
 	if err := st.runTransaction(ops); err != nil {
@@ -190,7 +251,11 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 }
 
 // modelSetupOps returns the transaction operations necessary to set up a model.
-func (st *State) modelSetupOps(cfg *config.Config, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+func (st *State) modelSetupOps(
+	cfg *config.Config,
+	cloud, cloudRegion, cloudCredential string,
+	owner names.UserTag, mode MigrationMode,
+) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -231,7 +296,7 @@ func (st *State) modelSetupOps(cfg *config.Config, owner names.UserTag, mode Mig
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
-		createModelOp(st, owner, cfg.Name(), modelUUID, controllerUUID, mode),
+		createModelOp(st, owner, cfg.Name(), modelUUID, controllerUUID, cloud, cloudRegion, cloudCredential, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
 	)

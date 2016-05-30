@@ -24,6 +24,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -179,15 +180,6 @@ type BootstrapConfig struct {
 // This structure will be passed to the bootstrap agent. To do so, the
 // Marshal and Unmarshal methods must be used.
 type StateInitializationParams struct {
-	// InstanceId is the instance ID of the instance being initialised.
-	// This is required when bootstrapping, and ignored otherwise.
-	InstanceId instance.Id
-
-	// HardwareCharacteristics contains the harrdware characteristics of
-	// the instance being initialised. This optional, and is only used by
-	// the bootstrap agent during state initialisation.
-	HardwareCharacteristics *instance.HardwareCharacteristics
-
 	// Config holds the initial controller model configuration.
 	Config *config.Config
 
@@ -196,10 +188,6 @@ type StateInitializationParams struct {
 	// initial hosted model config.
 	HostedModelConfig map[string]interface{}
 
-	// BootstrapMachineConstraints holds the constraints for the bootstrap
-	// machine.
-	BootstrapMachineConstraints constraints.Value
-
 	// ModelConstraints holds the initial model constraints.
 	ModelConstraints constraints.Value
 
@@ -207,16 +195,61 @@ type StateInitializationParams struct {
 	// to store in environment storage at bootstrap time. This is ignored
 	// in non-bootstrap instances.
 	CustomImageMetadata []*imagemetadata.ImageMetadata
+
+	// PublicClouds contains the public clouds known to the client, which
+	// will be stored in the controller.
+	PublicClouds map[string]cloud.Cloud
+
+	// PersonalClouds contains the bootstrapping user's personal clouds,
+	// which will be stored in the controller.
+	PersonalClouds map[string]cloud.Cloud
+
+	// CloudCredentials contains the cloud credentials which will be stored
+	// in the controller for the admin user.
+	CloudCredentials map[string]cloud.CloudCredential
+
+	// BootstrapMachineConstraints holds the constraints for the bootstrap
+	// machine.
+	BootstrapMachineConstraints constraints.Value
+
+	// BootstrapMachineInstanceId is the instance ID of the bootstrap
+	// machine instance.
+	BootstrapMachineInstanceId instance.Id
+
+	// BootstrapMachineHardwareCharacteristics contains the harrdware
+	// characteristics of the bootstrap machine instance.
+	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics
+
+	// ControllerCloud is the name of the cloud that Juju will be
+	// bootstrapped in.
+	ControllerCloud string
+
+	// ControllerCloudRegion is the name of the cloud region that Juju will
+	// be bootstrapped in. This will be empty for clouds that do not support
+	// regions.
+	ControllerCloudRegion string
+
+	// ControllerCloudCredential is the name of the cloud credential used
+	// to bootstrap Juju.
+	ControllerCloudCredential string
 }
 
 type stateInitializationParamsInternal struct {
-	InstanceId                  instance.Id                       `yaml:"instance-id"`
-	HardwareCharacteristics     *instance.HardwareCharacteristics `yaml:"hardware,omitempty"`
-	Config                      map[string]interface{}            `yaml:"controller-model-config"`
-	HostedModelConfig           map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
-	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
-	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
-	CustomImageMetadataJSON     string                            `yaml:"custom-image-metadata,omitempty"`
+	Config                  map[string]interface{} `yaml:"controller-model-config"`
+	HostedModelConfig       map[string]interface{} `yaml:"hosted-model-config,omitempty"`
+	ModelConstraints        constraints.Value      `yaml:"model-constraints"`
+	CustomImageMetadataJSON string                 `yaml:"custom-image-metadata,omitempty"`
+	PublicCloudsYAML        string                 `yaml:"public-clouds"`
+	PersonalCloudsYAML      string                 `yaml:"personal-clouds"`
+	CloudCredentials        map[string]cloud.CloudCredential
+
+	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
+	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
+	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
+
+	ControllerCloud           string `yaml:"controller-cloud"`
+	ControllerCloudRegion     string `yaml:"controller-cloud-region,omitempty"`
+	ControllerCloudCredential string `yaml:"controller-cloud-credential,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -225,14 +258,28 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "marshalling custom image metadata")
 	}
+	publicCloudsYAML, err := cloud.MarshalCloudMetadata(p.PublicClouds)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling public cloud metadata")
+	}
+	personalCloudsYAML, err := cloud.MarshalCloudMetadata(p.PersonalClouds)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling personal cloud metadata")
+	}
 	internal := stateInitializationParamsInternal{
-		p.InstanceId,
-		p.HardwareCharacteristics,
 		p.Config.AllAttrs(),
 		p.HostedModelConfig,
-		p.BootstrapMachineConstraints,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
+		string(publicCloudsYAML),
+		string(personalCloudsYAML),
+		p.CloudCredentials,
+		p.BootstrapMachineConstraints,
+		p.BootstrapMachineInstanceId,
+		p.BootstrapMachineHardwareCharacteristics,
+		p.ControllerCloud,
+		p.ControllerCloudRegion,
+		p.ControllerCloudCredential,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -252,14 +299,28 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	publicClouds, err := cloud.ParseCloudMetadata([]byte(internal.PublicCloudsYAML))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	personalClouds, err := cloud.ParseCloudMetadata([]byte(internal.PersonalCloudsYAML))
+	if err != nil {
+		return errors.Trace(err)
+	}
 	*p = StateInitializationParams{
-		InstanceId:                  internal.InstanceId,
-		HardwareCharacteristics:     internal.HardwareCharacteristics,
-		Config:                      cfg,
-		HostedModelConfig:           internal.HostedModelConfig,
-		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
-		ModelConstraints:            internal.ModelConstraints,
-		CustomImageMetadata:         imageMetadata,
+		Config:                                  cfg,
+		HostedModelConfig:                       internal.HostedModelConfig,
+		ModelConstraints:                        internal.ModelConstraints,
+		CustomImageMetadata:                     imageMetadata,
+		PublicClouds:                            publicClouds,
+		PersonalClouds:                          personalClouds,
+		CloudCredentials:                        internal.CloudCredentials,
+		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
+		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
+		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
+		ControllerCloud:                         internal.ControllerCloud,
+		ControllerCloudRegion:                   internal.ControllerCloudRegion,
+		ControllerCloudCredential:               internal.ControllerCloudCredential,
 	}
 	return nil
 }
@@ -537,8 +598,8 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}
-	if cfg.InstanceId == "" {
-		return errors.New("missing instance-id")
+	if cfg.BootstrapMachineInstanceId == "" {
+		return errors.New("missing bootstrap machine instance-id")
 	}
 	if len(cfg.HostedModelConfig) == 0 {
 		return errors.New("missing hosted model config")

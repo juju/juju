@@ -59,6 +59,9 @@ func (st *State) Export() (description.Model, error) {
 		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
+		Cloud:              dbModel.Cloud(),
+		CloudRegion:        dbModel.CloudRegion(),
+		CloudCredential:    dbModel.CloudCredential(),
 	}
 	export.model = description.NewModel(args)
 	modelKey := dbModel.globalKey()

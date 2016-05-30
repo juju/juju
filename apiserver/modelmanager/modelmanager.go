@@ -208,6 +208,15 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
+	// TODO(axw) the user should specify a cloud, region and
+	// credential when creating the model. For now we just
+	// assume they're the same as in the controller model.
+	// This is a terribly invalid assumption, and needs to
+	// be fixed ASAP.
+	cloud := controllerModel.Cloud()
+	cloudRegion := controllerModel.CloudRegion()
+	cloudCredential := controllerModel.CloudCredential()
+
 	newConfig, err := mm.newModelConfig(args, controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
@@ -215,7 +224,13 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := mm.state.NewModel(state.ModelArgs{Config: newConfig, Owner: ownerTag})
+	model, st, err := mm.state.NewModel(state.ModelArgs{
+		Config:          newConfig,
+		Owner:           ownerTag,
+		Cloud:           cloud,
+		CloudRegion:     cloudRegion,
+		CloudCredential: cloudCredential,
+	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
@@ -321,8 +336,9 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 			OwnerTag:       owner.String(),
 			Life:           params.Life(model.Life().String()),
 			Status:         common.EntityStatusFromState(status),
-			ProviderType:   cfg.Type(),
 			DefaultSeries:  config.PreferredSeries(cfg),
+			Cloud:          model.Cloud(),
+			CloudRegion:    model.CloudRegion(),
 		}
 
 		authorizedOwner := m.authCheck(owner) == nil

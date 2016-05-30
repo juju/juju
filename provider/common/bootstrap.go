@@ -149,8 +149,8 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
-		icfg.Bootstrap.InstanceId = result.Instance.Id()
-		icfg.Bootstrap.HardwareCharacteristics = result.Hardware
+		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		envConfig := env.Config()
 		if result.Config != nil {
 			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
