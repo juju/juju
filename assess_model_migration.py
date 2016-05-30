@@ -6,6 +6,7 @@ from __future__ import print_function
 import argparse
 import logging
 import os
+from subprocess import CalledProcessError
 import sys
 
 from deploy_stack import BootstrapManager
@@ -26,6 +27,7 @@ log = logging.getLogger("assess_model_migration")
 
 def assess_model_migration(bs1, bs2, upload_tools):
     ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
+    ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools)
 
 
 def parse_args(argv):
@@ -46,6 +48,12 @@ def get_bootstrap_managers(args):
     """
     bs_1 = BootstrapManager.from_args(args)
     bs_2 = BootstrapManager.from_args(args)
+
+    # Need to be able to upgrade this controller.
+    try:
+        bs_1.client.env.config.pop('enable-os-upgrade')
+    except KeyError:
+        pass
 
     # Give the second a separate/unique name.
     bs_2.temp_env_name = '{}-b'.format(bs_1.temp_env_name)
@@ -69,6 +77,29 @@ def wait_for_model(client, model_name):
             return
         pause(1)
     raise JujuResourceTimeout()
+
+
+def _get_controllers_version(client):
+    status_details = client.get_status()
+    return status_details.status['machines']['0']['juju-status']['version']
+
+
+def _get_admin_client(client):
+    return client.clone(client.env.clone('admin'))
+
+
+def _update_client_controller(client):
+    log.info('Updating clients ({}) controller'.format(
+        client.env.environment))
+    admin_client = _get_admin_client(client)
+    original_version = _get_controllers_version(admin_client)
+    admin_client.juju('upgrade-juju', ('--upload-tools'))
+
+    # Wait for update to happen on controller
+    for _ in until_timeout(60):
+        if original_version == _get_controllers_version(admin_client):
+            return
+    raise RuntimeError('Failed to update controller.')
 
 
 def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
@@ -98,6 +129,35 @@ def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
             migration_target_client.juju('status', ())
 
             migration_target_client.wait_for_started()
+
+
+def ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools):
+    """
+    Migration must not proceed if the target controller version is less than
+    the source controller.
+
+    """
+    with bs1.booted_context(upload_tools):
+        bs1.client.enable_feature('migration')
+
+        _update_client_controller(bs1.client)
+
+        log.info('Booting second instance')
+        bs2.client.env.juju_home = bs1.client.env.juju_home
+        with bs2.existing_booted_context(upload_tools):
+            log.info('Initiating migration process')
+            try:
+                bs1.client.controller_juju(
+                    'migrate',
+                    (bs1.client.env.environment,
+                     'local.{}'.format(bs2.client.env.controller.name)))
+            except CalledProcessError as e:
+                if 'expected error message' in e:
+                    return True
+            # If the migration didn't fail there is an issue and we need to
+            # fail
+            raise RuntimeError(
+                'Migrating to upgraded controller did not error.')
 
 
 def main(argv=None):
