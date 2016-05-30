@@ -14,6 +14,7 @@ from jujupy import (
     )
 from tests.test_jujupy import fake_juju_client
 
+
 def write_new_config(env, out):
     client = fake_juju_client(env=env)
     out.write('# cloud/region: {}\n'.format(client.get_cloud_region(
@@ -31,6 +32,7 @@ def main():
         description=dedent('''\
             Convert environment.yaml to 2.0 format.
 
+            environments.yaml from JUJU_HOME will be used.
             Existing configs in the output directory will be overwritten.
             '''))
     parser.add_argument('config_dir', metavar='OUTPUT_DIR',
