@@ -137,6 +137,9 @@ type maasEnviron struct {
 	// maasController provides access to the MAAS 2.0 API.
 	maasController gomaasapi.Controller
 
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
+
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 
@@ -155,6 +158,10 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 
+	env.namespace, err = instance.NewNamespace(cfg.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return env, nil
 }
 

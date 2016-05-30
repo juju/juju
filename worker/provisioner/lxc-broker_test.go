@@ -115,7 +115,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.broker, err = provisioner.NewLxcBroker(s.api, s.agentConfig, managerConfig, nil, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	// Create the same namesapce that the broker uses to ensure dirs on disk exist.
-	s.namespace, err = instance.NewNamespace(coretesting.ModelTag)
+	s.namespace, err = instance.NewNamespace(coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1058,7 +1058,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.events = make(chan mock.Event, 25)
 	s.ContainerFactory.AddListener(s.events)
 	// Create the same namesapce that the broker uses to ensure dirs on disk exist.
-	namespace, err := instance.NewNamespace(coretesting.ModelTag)
+	namespace, err := instance.NewNamespace(coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.namespace = namespace
 }

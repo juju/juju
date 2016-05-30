@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
 )
 
@@ -38,7 +37,10 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	vmName := common.MachineFullName(s.Env.Config().UUID(), "1")
+	namespace, err := instance.NewNamespace(s.Env.Config().UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	vmName, err := namespace.Hostname("1")
+	c.Assert(err, jc.ErrorIsNil)
 	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName, Rp: "rp1"})
 	s.FakeAvailabilityZonesWithResourcePool(client, vsphere.ZoneRp{Zone: "z1", Rp: "rp1"}, vsphere.ZoneRp{Zone: "z2", Rp: "rp2"})
 

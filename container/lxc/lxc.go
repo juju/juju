@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
@@ -105,7 +104,7 @@ func newContainerManager(
 	if modelUUID == "" {
 		return nil, errors.Errorf("model UUID is required")
 	}
-	namespace, err := instance.NewNamespace(names.NewModelTag(modelUUID))
+	namespace, err := instance.NewNamespace(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -200,8 +199,7 @@ func (manager *containerManager) CreateContainer(
 		}
 	}(time.Now())
 
-	machineTag := names.NewMachineTag(instanceConfig.MachineId)
-	name, err := manager.namespace.Hostname(machineTag)
+	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

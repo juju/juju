@@ -80,7 +80,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
+	machineID, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {

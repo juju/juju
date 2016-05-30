@@ -149,7 +149,7 @@ func (m *fakeContainerManager) ListContainers() ([]instance.Instance, error) {
 }
 
 func (m *fakeContainerManager) Namespace() instance.Namespace {
-	ns, _ := instance.NewNamespace(coretesting.ModelTag)
+	ns, _ := instance.NewNamespace(coretesting.ModelTag.Id())
 	return ns
 }
 
