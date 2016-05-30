@@ -435,6 +435,12 @@ func (st *State) WatchAllModels() *Multiwatcher {
 	return NewMultiwatcher(st.allModelManager)
 }
 
+// ModelConfig returns the model config for the model with which this State was
+// opened.
+//
+// TODO(axw) later, have this return only the model-specific attributes, and
+// combine with cloud and controller attributes at a higher level in the stack.
+// That will mean returning map[string]interface{}, rather than a config.Config.
 func (st *State) ModelConfig() (*config.Config, error) {
 	settings, err := readSettings(st, modelGlobalKey)
 	if err != nil {

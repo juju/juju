@@ -36,6 +36,8 @@ type Model interface {
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
 	Users() ([]common.ModelUser, error)
+	Cloud() string
+	CloudRegion() string
 }
 
 type stateShim struct {

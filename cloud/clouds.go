@@ -235,7 +235,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 // WritePublicCloudMetadata marshals to YAML and writes the cloud metadata
 // to the public cloud file.
 func WritePublicCloudMetadata(cloudsMap map[string]Cloud) error {
-	data, err := marshalCloudMetadata(cloudsMap)
+	data, err := MarshalCloudMetadata(cloudsMap)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -246,19 +246,19 @@ func WritePublicCloudMetadata(cloudsMap map[string]Cloud) error {
 // same cloud metadata.
 func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
 	// The easiest approach is to simply marshall to YAML and compare.
-	yaml1, err := marshalCloudMetadata(meta1)
+	yaml1, err := MarshalCloudMetadata(meta1)
 	if err != nil {
 		return false, err
 	}
-	yaml2, err := marshalCloudMetadata(meta2)
+	yaml2, err := MarshalCloudMetadata(meta2)
 	if err != nil {
 		return false, err
 	}
 	return string(yaml1) == string(yaml2), nil
 }
 
-// marshalCloudMetadata marshals the given clouds to YAML.
-func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
+// MarshalCloudMetadata marshals the given clouds to YAML.
+func MarshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 	clouds := cloudSet{make(map[string]*cloud)}
 	for name, metadata := range cloudsMap {
 		var regions regions

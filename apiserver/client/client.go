@@ -352,7 +352,8 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 	info := params.ModelInfo{
 		DefaultSeries:  config.PreferredSeries(conf),
-		ProviderType:   conf.Type(),
+		Cloud:          env.Cloud(),
+		CloudRegion:    env.CloudRegion(),
 		Name:           conf.Name(),
 		UUID:           env.UUID(),
 		ControllerUUID: env.ControllerUUID(),

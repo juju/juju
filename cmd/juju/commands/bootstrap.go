@@ -509,6 +509,39 @@ to clean up the model.`[1:])
 		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
 	}
 
+	// Load public and personal clouds to store in the controller.
+	// We also pass the credential used for bootstrapping, but not
+	// any of the others.
+	//
+	// TODO(axw) load clouds first, and pass into anything that needs
+	// them above? That would cut down on filesystem reads, and
+	// eliminate potential inconsistencies.
+	publicClouds, _, err := jujucloud.PublicCloudMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	personalClouds, err := jujucloud.PersonalCloudMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if credentialName == "" {
+		// TODO(axw) consider storing an additional property in
+		// client-side bootstrap config indicating that the
+		// credential was auto-detected, rather than relying on
+		// the name being the empty string. Then we could move
+		// this code up to the point where we detect credentials.
+		credentialName = c.Cloud
+	}
+	cloudCredentials := map[string]jujucloud.CloudCredential{
+		c.Cloud: {
+			DefaultRegion:     region.Name,
+			DefaultCredential: credentialName,
+			AuthCredentials: map[string]jujucloud.Credential{
+				credentialName: *credential,
+			},
+		},
+	}
+
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
@@ -521,6 +554,12 @@ to clean up the model.`[1:])
 		MetadataDir:          metadataDir,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
+		PublicClouds:         publicClouds,
+		PersonalClouds:       personalClouds,
+		CloudCredentials:     cloudCredentials,
+		Cloud:                c.Cloud,
+		CloudRegion:          region.Name,
+		CloudCredential:      credentialName,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")

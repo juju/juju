@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/testing"
@@ -49,7 +50,21 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	dialopts := mongotest.DialOpts()
-	st, err := Initialize(s.owner, info, testing.ModelConfig(c), dialopts, nil)
+	st, err := Initialize(InitializeParams{
+		ControllerModelArgs: ModelArgs{
+			Owner:  s.owner,
+			Config: testing.ModelConfig(c),
+			Cloud:  "dummy",
+		},
+		PublicClouds: map[string]cloud.Cloud{
+			"dummy": {
+				Type:      "dummy",
+				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			},
+		},
+		MongoInfo:     info,
+		MongoDialOpts: dialopts,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	s.AddCleanup(func(*gc.C) { s.state.Close() })
