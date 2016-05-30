@@ -36,8 +36,9 @@ func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
 
 func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
 	cmd := cloud.NewRemoveCloudCommand()
-	_, err := testing.RunCommand(c, cmd, "fnord")
-	c.Assert(err, gc.ErrorMatches, `personal cloud "fnord" not found`)
+	ctx, err := testing.RunCommand(c, cmd, "fnord")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "No personal cloud called \"fnord\" exists\n")
 }
 
 func (s *removeSuite) createTestCloudData(c *gc.C) {
@@ -67,15 +68,17 @@ clouds:
 func (s *removeSuite) TestRemoveCloud(c *gc.C) {
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	_, err := testing.RunCommand(c, cloud.NewRemoveCloudCommand(), "homestack")
+	ctx, err := testing.RunCommand(c, cloud.NewRemoveCloudCommand(), "homestack")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
 	assertPersonalClouds(c, "homestack2")
 }
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
-	_, err := testing.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack")
-	c.Assert(err, gc.ErrorMatches, `personal cloud "prodstack" not found`)
+	ctx, err := testing.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stderr(ctx), gc.Equals, "No personal cloud called \"prodstack\" exists\n")
 }
 
 func assertPersonalClouds(c *gc.C, names ...string) {

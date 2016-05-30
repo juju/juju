@@ -26,11 +26,11 @@ See also:
 type removeCloudCommand struct {
 	cmd.CommandBase
 
-	// Cloud is the name fo the cloud to add.
+	// Cloud is the name fo the cloud to remove.
 	Cloud string
 }
 
-// NewRemoveCloudCommand returns a command to add cloud information.
+// NewRemoveCloudCommand returns a command to remove cloud information.
 func NewRemoveCloudCommand() cmd.Command {
 	return &removeCloudCommand{}
 }
@@ -58,8 +58,13 @@ func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	if _, ok := personalClouds[c.Cloud]; !ok {
-		return errors.Errorf("personal cloud %q not found", c.Cloud)
+		ctxt.Infof("No personal cloud called %q exists", c.Cloud)
+		return nil
 	}
 	delete(personalClouds, c.Cloud)
-	return cloud.WritePersonalCloudMetadata(personalClouds)
+	if err := cloud.WritePersonalCloudMetadata(personalClouds); err != nil {
+		return errors.Trace(err)
+	}
+	ctxt.Infof("Removed details of personal cloud %q", c.Cloud)
+	return nil
 }
