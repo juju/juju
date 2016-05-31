@@ -16,10 +16,14 @@ from jujuconfig import (
     get_euca_env,
     translate_to_env,
 )
+from jujupy import (
+    EnvJujuClient1X
+)
 from utility import (
     temp_dir,
     until_timeout,
 )
+import winazurearm
 
 
 __metaclass__ = type
@@ -265,6 +269,45 @@ class JoyentAccount:
             raise Exception('Instance did not stop: {}'.format(machine_id))
         log.info('Terminating instance {}'.format(machine_id))
         self.client.delete_machine(machine_id)
+
+
+def convert_to_azure_ids(client, instance_ids):
+    """Return a list of ARM ids from a list juju machine instance-ids.
+
+    The Juju 2 machine instance-id is not an ARM VM id, it is the non-unique
+    machine name. For any juju controller, there are 2 or more machines named
+    0. Using the client, the machine ids machine names can be found.
+
+    See: https://bugs.launchpad.net/juju-core/+bug/1586089
+
+    :param client: An EnvJujuClient instance.
+    :param instance_ids: a list of Juju machine instance-ids
+    :return: A list of ARM VM instance ids.
+    """
+    if isinstance(client, EnvJujuClient1X):
+        # Juju 1.x reports the true vm instance-id.
+        return instance_ids
+    elif not instance_ids[0].startswith('machine'):
+        log.info('Bug Lp 1586089 is fixed in {}.'.format(client.version))
+        log.info('substrate.convert_to_azure_ids can be deleted.')
+        return instance_ids
+    models = client.get_models()['models']
+    model = [m for m in models if m['name'] == client.model_name][0]
+    resource_group = 'juju-{}-model-{}'.format(
+        model['name'], model['model-uuid'])
+    config = client.env.config
+    arm_client = winazurearm.ARMClient(
+        config['subscription_id'], config['client_id'],
+        config['secret'], config['tenant'])
+    arm_client.init_services()
+    resources = winazurearm.list_resources(
+        arm_client, glob=resource_group, recursive=True)
+    vm_ids = []
+    for machine_name in instance_ids:
+        rgd, vm = winazurearm.find_vm_instance(
+            resources, machine_name, resource_group)
+        vm_ids.append(vm.vm_id)
+    return vm_ids
 
 
 class AzureAccount:
