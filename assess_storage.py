@@ -2,6 +2,7 @@
 """TODO: add rough description of what is assessed in this module."""
 
 from __future__ import print_function
+import os
 
 import argparse
 import logging
@@ -20,6 +21,7 @@ from utility import (
     configure_logging,
     local_charm_path,
     temp_dir,
+    until_timeout,
 )
 
 
@@ -51,8 +53,11 @@ def make_storage_pool_list(name, provider, size):
 
 
 def create_storage_charm(charm_dir, name, summary, storage):
+    path = os.path.join(charm_dir, name)
+    if not os.path.exists(path):
+        os.makedirs(path)
     storage_charm = Charm(name, summary, storage=storage)
-    storage_charm.to_dir(charm_dir)
+    storage_charm.to_dir(path)
 
 
 def assess_create_pool(client):
@@ -104,6 +109,9 @@ def assess_storage(client):
     assess_deploy_storage(client, 'dummy-storage-lp', 'loop', 'loop')
     assess_deploy_storage(client, 'dummy-storage-fs', 'filesystem', 'tmpfs')
     assess_deploy_storage(client, 'dummy-storage-fs', 'filesystem', 'ebs')
+    # charm = local_charm_path(charm='dummy-storage', juju_ver=client.version,
+    #                          series='trusty', platform='ubuntu')
+    # deploy_storage(client,charm,'trusty','rootfs')
 
 
 def parse_args(argv):
