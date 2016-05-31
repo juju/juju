@@ -97,7 +97,7 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	// Retrieve the GUI archive and its related info.
-	r, hash, size, vers, err := openArchive(c.versOrPath)
+	r, hash, size, vers, local, err := openArchive(c.versOrPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -118,7 +118,11 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 
 	// Upload the release file if required.
 	if hash != existingHash {
-		ctx.Infof("fetching Juju GUI archive")
+		if local {
+			ctx.Infof("using local Juju GUI archive")
+		} else {
+			ctx.Infof("fetching Juju GUI archive")
+		}
 		f, err := storeArchive(r)
 		if err != nil {
 			return errors.Trace(err)
@@ -145,44 +149,44 @@ func (c *upgradeGUICommand) Run(ctx *cmd.Context) error {
 
 // openArchive opens a Juju GUI archive from the given version or file path.
 // The returned readSeekCloser must be closed by callers.
-func openArchive(versOrPath string) (r io.ReadCloser, hash string, size int64, vers version.Number, err error) {
+func openArchive(versOrPath string) (r io.ReadCloser, hash string, size int64, vers version.Number, local bool, err error) {
 	if versOrPath == "" {
 		// Return the most recent Juju GUI from simplestreams.
 		allMeta, err := remoteArchiveMetadata()
 		if err != nil {
-			return nil, "", 0, vers, errors.Annotate(err, "cannot upgrade to most recent release")
+			return nil, "", 0, vers, false, errors.Annotate(err, "cannot upgrade to most recent release")
 		}
 		// The most recent Juju GUI release is the first on the list.
 		metadata := allMeta[0]
 		r, _, err := metadata.Source.Fetch(metadata.Path)
 		if err != nil {
-			return nil, "", 0, vers, errors.Annotatef(err, "cannot open Juju GUI archive at %q", metadata.FullPath)
+			return nil, "", 0, vers, false, errors.Annotatef(err, "cannot open Juju GUI archive at %q", metadata.FullPath)
 		}
-		return r, metadata.SHA256, metadata.Size, metadata.Version, nil
+		return r, metadata.SHA256, metadata.Size, metadata.Version, false, nil
 	}
 	f, err := os.Open(versOrPath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return nil, "", 0, vers, errors.Annotate(err, "cannot open GUI archive")
+			return nil, "", 0, vers, false, errors.Annotate(err, "cannot open GUI archive")
 		}
 		vers, err = version.Parse(versOrPath)
 		if err != nil {
-			return nil, "", 0, vers, errors.Errorf("invalid GUI release version or local path %q", versOrPath)
+			return nil, "", 0, vers, false, errors.Errorf("invalid GUI release version or local path %q", versOrPath)
 		}
 		// Return a specific release version from simplestreams.
 		allMeta, err := remoteArchiveMetadata()
 		if err != nil {
-			return nil, "", 0, vers, errors.Annotatef(err, "cannot upgrade to release %s", vers)
+			return nil, "", 0, vers, false, errors.Annotatef(err, "cannot upgrade to release %s", vers)
 		}
 		metadata, err := findMetadataVersion(allMeta, vers)
 		if err != nil {
-			return nil, "", 0, vers, errors.Trace(err)
+			return nil, "", 0, vers, false, errors.Trace(err)
 		}
 		r, _, err := metadata.Source.Fetch(metadata.Path)
 		if err != nil {
-			return nil, "", 0, vers, errors.Annotatef(err, "cannot open Juju GUI archive at %q", metadata.FullPath)
+			return nil, "", 0, vers, false, errors.Annotatef(err, "cannot open Juju GUI archive at %q", metadata.FullPath)
 		}
-		return r, metadata.SHA256, metadata.Size, metadata.Version, nil
+		return r, metadata.SHA256, metadata.Size, metadata.Version, false, nil
 	}
 	// This is a local Juju GUI release.
 	defer func() {
@@ -192,19 +196,19 @@ func openArchive(versOrPath string) (r io.ReadCloser, hash string, size int64, v
 	}()
 	vers, err = archiveVersion(f)
 	if err != nil {
-		return nil, "", 0, vers, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
+		return nil, "", 0, vers, false, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
 	}
 	if _, err := f.Seek(0, 0); err != nil {
-		return nil, "", 0, version.Number{}, errors.Annotate(err, "cannot seek archive")
+		return nil, "", 0, version.Number{}, false, errors.Annotate(err, "cannot seek archive")
 	}
 	hash, size, err = hashAndSize(f)
 	if err != nil {
-		return nil, "", 0, version.Number{}, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
+		return nil, "", 0, version.Number{}, false, errors.Annotatef(err, "cannot upgrade Juju GUI using %q", versOrPath)
 	}
 	if _, err := f.Seek(0, 0); err != nil {
-		return nil, "", 0, version.Number{}, errors.Annotate(err, "cannot seek archive")
+		return nil, "", 0, version.Number{}, false, errors.Annotate(err, "cannot seek archive")
 	}
-	return f, hash, size, vers, nil
+	return f, hash, size, vers, true, nil
 }
 
 // remoteArchiveMetadata returns Juju GUI archive metadata from simplestreams.
