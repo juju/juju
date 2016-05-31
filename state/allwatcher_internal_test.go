@@ -284,7 +284,7 @@ type allWatcherStateSuite struct {
 	allWatcherBaseSuite
 }
 
-func (s *allWatcherStateSuite) Reset(c *gc.C) {
+func (s *allWatcherStateSuite) reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
@@ -420,7 +420,7 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 		entities := all.All()
 		substNilSinceTimeForEntities(c, entities)
 		assertEntitiesEqual(c, entities, test.expectContents)
-		s.Reset(c)
+		s.reset(c)
 	}
 }
 
@@ -556,7 +556,6 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
-	defer s.Reset(c)
 	// Init the test model.
 	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
 	u, err := wordpress.AddUnit()
@@ -650,7 +649,6 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
-	defer s.Reset(c)
 	// Init the test model.
 	svc := AddTestingService(c, s.state, "dummy-service", AddTestingCharm(c, s.state, "dummy"), s.owner)
 	b := newAllWatcherStateBacking(s.state)
@@ -1077,7 +1075,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(otherState, w2, w1)
 		}()
-		s.Reset(c)
+		s.reset(c)
 	}
 }
 
