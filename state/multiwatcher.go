@@ -414,7 +414,7 @@ func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
 // add adds a new entity with the given id and associated
 // information to the list.
 func (a *multiwatcherStore) add(id interface{}, info multiwatcher.EntityInfo) {
-	if a.entities[id] != nil {
+	if _, ok := a.entities[id]; ok {
 		panic("adding new entry with duplicate id")
 	}
 	a.latestRevno++
@@ -439,8 +439,8 @@ func (a *multiwatcherStore) decRef(entry *entityEntry) {
 		return
 	}
 	id := entry.info.EntityId()
-	elem := a.entities[id]
-	if elem == nil {
+	elem, ok := a.entities[id]
+	if !ok {
 		panic("delete of non-existent entry")
 	}
 	delete(a.entities, id)
@@ -449,8 +449,8 @@ func (a *multiwatcherStore) decRef(entry *entityEntry) {
 
 // delete deletes the entry with the given info id.
 func (a *multiwatcherStore) delete(id multiwatcher.EntityId) {
-	elem := a.entities[id]
-	if elem == nil {
+	elem, ok := a.entities[id]
+	if !ok {
 		return
 	}
 	delete(a.entities, id)
@@ -480,8 +480,8 @@ func (a *multiwatcherStore) Remove(id multiwatcher.EntityId) {
 // Update updates the information for the given entity.
 func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	id := info.EntityId()
-	elem := a.entities[id]
-	if elem == nil {
+	elem, ok := a.entities[id]
+	if !ok {
 		a.add(id, info)
 		return
 	}
@@ -498,14 +498,14 @@ func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	a.list.MoveToFront(elem)
 }
 
-// Get returns the stored entity with the given
-// id, or nil if none was found. The contents of the returned entity
-// should not be changed.
+// Get returns the stored entity with the given id, or nil if none was found.
+// The contents of the returned entity MUST not be changed.
 func (a *multiwatcherStore) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
-	if e := a.entities[id]; e != nil {
-		return e.Value.(*entityEntry).info
+	e, ok := a.entities[id]
+	if !ok {
+		return nil
 	}
-	return nil
+	return e.Value.(*entityEntry).info
 }
 
 // ChangesSince returns any changes that have occurred since
