@@ -1,4 +1,3 @@
-import argparse
 from contextlib import contextmanager
 from datetime import (
     datetime,
@@ -94,25 +93,12 @@ class until_timeout:
         return remaining
 
 
-class ErrJujuPath(Exception):
-    """An exception for an invalid juju binary path."""
-
-
 class JujuAssertionError(AssertionError):
     """Exception for juju assertion failures."""
 
 
 class JujuResourceTimeout(Exception):
     """A timeout exception for a resource not being downloaded into a unit."""
-
-
-class enforce_juju_path(argparse.Action):
-    """Enforces that a path ending with juju is given."""
-    def __call__(self, parser, namespace, values, option_string=None):
-        if not values.endswith(('/juju', '\\juju.exe')):
-            raise ErrJujuPath(
-                "%s: The full path to the juju binary is required." % values)
-        setattr(namespace, self.dest, values)
 
 
 def _clean_dir(maybe_dir):
@@ -333,8 +319,7 @@ def add_basic_testing_arguments(parser, using_jes=False):
         'env',
         help='The juju environment to base the temp test environment on.')
     parser.add_argument(
-        'juju_bin', action=enforce_juju_path,
-        help='Full path to the Juju binary.')
+        'juju_bin', help='Full path to the Juju binary.')
     parser.add_argument(
         'logs', type=_clean_dir, help='A directory in which to store logs.')
     parser.add_argument(

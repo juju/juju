@@ -116,8 +116,8 @@ def clean_environment(client, services_only=False):
         log.info("Could not clean existing env: %s", e)
         return False
 
-    for service in status.status.get('services', {}):
-        client.juju('remove-service', service)
+    for service in status.get_applications():
+        client.remove_service(service)
 
     if not services_only:
         # First remove all containers; we can't remove a machine that is

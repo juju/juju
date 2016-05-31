@@ -9,7 +9,7 @@ REPOSITORY=${JUJU_REPOSITORY:-$(dirname $SCRIPTS)/repository}
 MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     wily-slave.vapour.ws xenial-slave.vapour.ws \
-    ppc64el-slave.vapour.ws i386-slave.vapour.ws arm64-slave.vapour.ws \
+    ppc64el-slave.vapour.ws arm64-slave.vapour.ws \
     kvm-slave.vapour.ws jujuqa-stack-slave.internal \
     munna-maas-slave.vapour.ws  silcoon-maas-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
@@ -81,18 +81,18 @@ while [[ "${1-}" != "" ]]; do
 done
 
 SKIPPED=""
-for host in $MASTER $SLAVES; do
-    update_jenkins $host || SKIPPED="$SKIPPED $host"
-    if [[ $host == "xenial-slave.vapour.ws" ]]; then
+for hostname in $MASTER $SLAVES; do
+    update_jenkins $hostname || SKIPPED="$SKIPPED $hostname"
+    if [[ $hostname == "xenial-slave.vapour.ws" ]]; then
         echo "Curtis removed juju-deployer package to test the branch."
-        ssh $host sudo apt-get remove -y juju-deployer python-jujuclient
+        ssh $hostname sudo apt-get remove -y juju-deployer python-jujuclient
     fi
 done
 # win-slaves have a different user and directory layout tan POSIX hosts.
-for host in $WIN_SLAVES; do
+for hostname in $WIN_SLAVES; do
     zip -q -r repository.zip $REPOSITORY -x *.bzr*
-    scp repository.zip Administrator@$host:/cygdrive/c/Users/Administrator/
-    ssh Administrator@$host << EOT
+    scp repository.zip Administrator@$hostname:/cygdrive/c/Users/Administrator/
+    ssh Administrator@$hostname << EOT
 bzr pull -d ./juju-release-tools
 bzr pull -d ./juju-ci-tools
 /cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip

@@ -13,13 +13,16 @@ class Charm:
 
     DEFAULT_MAINTAINER = "juju-qa@lists.canonical.com"
     DEFAULT_SERIES = ("xenial", "trusty")
+    DEFAULT_DESCRIPTION = "description"
 
-    def __init__(self, name, summary, maintainer=None, series=None):
+    def __init__(self, name, summary,
+                 maintainer=None, series=None, description=None):
         self.metadata = {
             "name": name,
             "summary": summary,
             "maintainer": maintainer or self.DEFAULT_MAINTAINER,
             "series": series or self.DEFAULT_SERIES,
+            "description": description or self.DEFAULT_DESCRIPTION
         }
         self._hook_scripts = {}
 
