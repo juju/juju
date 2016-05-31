@@ -19,7 +19,7 @@ python -c '
 trail="'${2}'"
 import json, sys; j=json.load(sys.stdin)
 all_units=[]
-for k,v in j["services"].items():
+for k,v in j["applications"].items():
     if v.get("units"):
         all_units.extend(v.get("units",{}).keys())
 print "\n".join([unit + trail for unit in all_units])
@@ -30,7 +30,7 @@ print "\n".join([unit + trail for unit in all_units])
 _juju_services_from_file() {
 python -c '
 import json, sys; j=json.load(sys.stdin)
-print "\n".join(j["services"].keys());' < ${1?}
+print "\n".join(j["applications"].keys());' < ${1?}
 }
 
 # Print (return) both services and units, currently used for juju status completion

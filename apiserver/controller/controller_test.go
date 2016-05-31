@@ -234,14 +234,14 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
-	s.Factory.MakeService(c, &factory.ServiceParams{
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
 	otherFactory := factory.NewFactory(otherSt)
 	otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeService(c, &factory.ServiceParams{
+	otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
 
@@ -256,13 +256,13 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
-		ServiceCount:       1,
+		ApplicationCount:   1,
 		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
 	}, {
 		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
-		ServiceCount:       1,
+		ApplicationCount:   1,
 		OwnerTag:           otherEnvOwner.UserTag().String(),
 		Life:               params.Alive,
 	}})

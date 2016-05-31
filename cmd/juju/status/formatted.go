@@ -11,10 +11,10 @@ import (
 )
 
 type formattedStatus struct {
-	Model       string                   `json:"model"`
-	ModelStatus *modelStatus             `json:"model-status,omitempty" yaml:"model-status,omitempty"`
-	Machines    map[string]machineStatus `json:"machines"`
-	Services    map[string]serviceStatus `json:"services"`
+	Model        string                       `json:"model"`
+	ModelStatus  *modelStatus                 `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	Machines     map[string]machineStatus     `json:"machines"`
+	Applications map[string]applicationStatus `json:"applications"`
 }
 
 type formattedMachineStatus struct {
@@ -61,7 +61,7 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 	return machineStatusNoMarshal(s), nil
 }
 
-type serviceStatus struct {
+type applicationStatus struct {
 	Err           error                 `json:"-" yaml:",omitempty"`
 	Charm         string                `json:"charm" yaml:"charm"`
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
@@ -73,20 +73,20 @@ type serviceStatus struct {
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
 
-type serviceStatusNoMarshal serviceStatus
+type applicationStatusNoMarshal applicationStatus
 
-func (s serviceStatus) MarshalJSON() ([]byte, error) {
+func (s applicationStatus) MarshalJSON() ([]byte, error) {
 	if s.Err != nil {
 		return json.Marshal(errorStatus{s.Err.Error()})
 	}
-	return json.Marshal(serviceStatusNoMarshal(s))
+	return json.Marshal(applicationStatusNoMarshal(s))
 }
 
-func (s serviceStatus) MarshalYAML() (interface{}, error) {
+func (s applicationStatus) MarshalYAML() (interface{}, error) {
 	if s.Err != nil {
 		return errorStatus{s.Err.Error()}, nil
 	}
-	return serviceStatusNoMarshal(s), nil
+	return applicationStatusNoMarshal(s), nil
 }
 
 type meterStatus struct {

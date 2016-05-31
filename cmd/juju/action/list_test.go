@@ -22,7 +22,7 @@ import (
 
 type ListSuite struct {
 	BaseActionSuite
-	svc            *state.Service
+	svc            *state.Application
 	wrappedCommand cmd.Command
 	command        *action.ListCommand
 }
@@ -42,23 +42,23 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectedOutputSchema bool
 		expectedErr          string
 	}{{
-		should:      "fail with missing service name",
+		should:      "fail with missing application name",
 		args:        []string{},
-		expectedErr: "no service name specified",
+		expectedErr: "no application name specified",
 	}, {
-		should:      "fail with invalid service name",
+		should:      "fail with invalid application name",
 		args:        []string{invalidServiceId},
-		expectedErr: "invalid service name \"" + invalidServiceId + "\"",
+		expectedErr: "invalid application name \"" + invalidServiceId + "\"",
 	}, {
 		should:      "fail with too many args",
 		args:        []string{"two", "things"},
 		expectedErr: "unrecognized args: \\[\"things\"\\]",
 	}, {
-		should:      "init properly with valid service name",
+		should:      "init properly with valid application name",
 		args:        []string{validServiceId},
 		expectedSvc: names.NewApplicationTag(validServiceId),
 	}, {
-		should:               "init properly with valid service name and --schema",
+		should:               "init properly with valid application name and --schema",
 		args:                 []string{"--schema", validServiceId},
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validServiceId),

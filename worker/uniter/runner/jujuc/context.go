@@ -115,12 +115,12 @@ type ContextStatus interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
-	// ServiceStatus returns the executing unit's service status
+	// ApplicationStatus returns the executing unit's service status
 	// (including all units).
-	ServiceStatus() (ServiceStatusInfo, error)
+	ApplicationStatus() (ApplicationStatusInfo, error)
 
-	// SetServiceStatus updates the status for the unit's service.
-	SetServiceStatus(StatusInfo) error
+	// SetApplicationStatus updates the status for the unit's service.
+	SetApplicationStatus(StatusInfo) error
 }
 
 // ContextInstance is the part of a hook context related to the unit's instance.

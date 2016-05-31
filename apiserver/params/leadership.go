@@ -15,7 +15,7 @@ type ClaimLeadershipBulkParams struct {
 // leadership claim.
 type ClaimLeadershipParams struct {
 
-	// ApplicationTag is the service for which you want to make a
+	// ApplicationTag is the application for which you want to make a
 	// leadership claim.
 	ApplicationTag string
 
@@ -40,7 +40,7 @@ type ReleaseLeadershipBulkParams struct {
 // leadership claim.
 type ReleaseLeadershipParams struct {
 
-	// ApplicationTag is the service for which you want to make a
+	// ApplicationTag is the application for which you want to make a
 	// leadership claim.
 	ApplicationTag string
 
@@ -77,7 +77,7 @@ type MergeLeadershipSettingsBulkParams struct {
 // MergeLeadershipSettingsParam are the parameters needed for merging
 // in leadership settings.
 type MergeLeadershipSettingsParam struct {
-	// ApplicationTag is the service for which you want to merge
+	// ApplicationTag is the application for which you want to merge
 	// leadership settings.
 	ApplicationTag string
 

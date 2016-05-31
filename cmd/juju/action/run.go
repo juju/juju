@@ -41,8 +41,8 @@ const runDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
 
-Params are validated according to the charm for the unit's service.  The 
-valid params can be seen using "juju action defined <service> --schema".
+Params are validated according to the charm for the unit's application.  The 
+valid params can be seen using "juju action defined <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
 may be specified by a key.key.key...=value format (see examples below.)
 

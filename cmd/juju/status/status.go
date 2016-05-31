@@ -40,14 +40,14 @@ type statusCommand struct {
 }
 
 var usageSummary = `
-Displays the current status of Juju, services, and units.`[1:]
+Displays the current status of Juju, applications, and units.`[1:]
 
 var usageDetails = `
-By default (without argument), the status of Juju and all services and all
+By default (without argument), the status of Juju and all applications and all
 units will be displayed. 
-Service or unit names may be used as output filters (the '*' can be used
+Appliction or unit names may be used as output filters (the '*' can be used
 as a wildcard character).  
-In addition to matched services and units, related machines, services, and
+In addition to matched applications and units, related machines, applications, and
 units will also be displayed. If a subordinate unit is matched, then its
 principal unit will be displayed. If a principal unit is matched, then all
 of its subordinates will be displayed. 
@@ -58,13 +58,13 @@ Explanation of the different formats:
            Also displays aggregate information about:
            - MACHINES: total #, and # in each state.
            - UNITS: total #, and # in each state.
-           - SERVICES: total #, and # exposed of each service.
+           - APPLICATIONS: total #, and # exposed of each application.
 - tabular (default): Displays information in a tabular format in these sections:
            - Machines: ID, STATE, DNS, INS-ID, SERIES, AZ
-           - Services: NAME, EXPOSED, CHARM
+           - Applications: NAME, EXPOSED, CHARM
            - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
              - Also displays subordinate units.
-- yaml: Displays information on machines, services, and units in yaml format.
+- yaml: Displays information on machines, applications, and units in yaml format.
 Note: AZ above is the cloud region's availability zone.
 
 Examples:

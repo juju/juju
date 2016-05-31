@@ -25,7 +25,7 @@ type Unit interface {
 	Life() params.Life
 	Refresh() error
 	Resolved() (params.ResolvedMode, error)
-	Service() (Service, error)
+	Application() (Application, error)
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
@@ -34,7 +34,7 @@ type Unit interface {
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 }
 
-type Service interface {
+type Application interface {
 	// CharmModifiedVersion returns a revision number for the charm that
 	// increments whenever the charm or a resource for the charm changes.
 	CharmModifiedVersion() (int, error)
@@ -74,7 +74,7 @@ type apiUnit struct {
 }
 
 type apiService struct {
-	*uniter.Service
+	*uniter.Application
 }
 
 type apiRelation struct {
@@ -91,7 +91,7 @@ func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
 	return apiUnit{u}, err
 }
 
-func (u apiUnit) Service() (Service, error) {
-	s, err := u.Unit.Service()
+func (u apiUnit) Application() (Application, error) {
+	s, err := u.Unit.Application()
 	return apiService{s}, err
 }

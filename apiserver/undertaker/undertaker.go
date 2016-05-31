@@ -102,7 +102,7 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 		nothing.Error = common.ServerError(err)
 		return nothing
 	}
-	services, err := u.st.AllServices()
+	services, err := u.st.AllApplications()
 	if err != nil {
 		nothing.Error = common.ServerError(err)
 		return nothing

@@ -94,7 +94,7 @@ func ProcessBlockedError(err error, block Block) error {
 }
 
 var removeMsg = `
-All operations that remove (or delete or terminate) machines, services, units or
+All operations that remove (or delete or terminate) machines, applications, units or
 relations have been blocked for the current model.
 To unblock removal, run
 

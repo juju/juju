@@ -65,7 +65,7 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 // ListResources returns the info for each non-pending resource of the
 // identified service.
 func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
-	logger.Tracef("listing all resources for service %q", serviceID)
+	logger.Tracef("listing all resources for application %q", serviceID)
 
 	docs, err := p.resources(serviceID)
 	if err != nil {
@@ -218,7 +218,7 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 		}
 		if stored.PendingID == "" {
 			// Only non-pending resources must have an existing service.
-			ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
+			ops = append(ops, p.base.ServiceExistsOps(res.ApplicationID)...)
 		}
 		return ops, nil
 	}
@@ -236,10 +236,10 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 	}
 
 	csRes := charmStoreResource{
-		Resource:   res,
-		id:         id,
-		serviceID:  serviceID,
-		lastPolled: lastPolled,
+		Resource:      res,
+		id:            id,
+		applicationID: serviceID,
+		lastPolled:    lastPolled,
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -265,7 +265,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 }
 
 // SetUnitResource stores the resource info for a particular unit. The
-// resource must already be set for the service.
+// resource must already be set for the application.
 func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resource) error {
 	if res.PendingID != "" {
 		return errors.Errorf("pending resources not allowed")
@@ -274,7 +274,7 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 }
 
 // SetUnitResource stores the resource info for a particular unit. The
-// resource must already be set for the service. The provided progress
+// resource must already be set for the application. The provided progress
 // is stored in the DB.
 func (p ResourcePersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
 	if res.PendingID == "" {
@@ -309,7 +309,7 @@ func (p ResourcePersistence) setUnitResource(unitID string, res resource.Resourc
 			return nil, errors.New("setting the resource failed")
 		}
 		// No pending resources so we always do this here.
-		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
+		ops = append(ops, p.base.ServiceExistsOps(res.ApplicationID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {

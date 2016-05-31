@@ -123,7 +123,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemSystemd:
 		dataDir, err := paths.DataDir(series)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
+			return nil, errors.Annotatef(err, "failed to find juju data dir for application %q", name)
 		}
 
 		svc, err := systemd.NewService(name, conf, dataDir)

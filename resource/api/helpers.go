@@ -22,7 +22,7 @@ func Resource2API(res resource.Resource) Resource {
 		CharmResource: CharmResource2API(res.Resource),
 		ID:            res.ID,
 		PendingID:     res.PendingID,
-		ServiceID:     res.ServiceID,
+		ApplicationID: res.ApplicationID,
 		Username:      res.Username,
 		Timestamp:     res.Timestamp,
 	}
@@ -129,12 +129,12 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 	}
 
 	res = resource.Resource{
-		Resource:  charmRes,
-		ID:        apiRes.ID,
-		PendingID: apiRes.PendingID,
-		ServiceID: apiRes.ServiceID,
-		Username:  apiRes.Username,
-		Timestamp: apiRes.Timestamp,
+		Resource:      charmRes,
+		ID:            apiRes.ID,
+		PendingID:     apiRes.PendingID,
+		ApplicationID: apiRes.ApplicationID,
+		Username:      apiRes.Username,
+		Timestamp:     apiRes.Timestamp,
 	}
 
 	if err := res.Validate(); err != nil {

@@ -1040,7 +1040,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	s3 := s.AddTestingService(c, "s3", logging)
 
 	units := make([][]*state.Unit, 4)
-	for i, svc := range []*state.Service{s0, s1, s2} {
+	for i, svc := range []*state.Application{s0, s1, s2} {
 		units[i] = make([]*state.Unit, 3)
 		for j := range units[i] {
 			units[i][j], err = svc.AddUnit()
@@ -1104,7 +1104,7 @@ func sortedUnitNames(units []*state.Unit) []string {
 	return names
 }
 
-func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Service, *state.Unit) {
+func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Application, *state.Unit) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsTrue)

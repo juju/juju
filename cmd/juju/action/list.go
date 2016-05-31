@@ -26,7 +26,7 @@ type listCommand struct {
 }
 
 const listDoc = `
-List the actions available to run on the target service, with a short
+List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 
 For more information, see also the 'run-ation' command, which executes actions.
@@ -41,8 +41,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-actions",
-		Args:    "<service name>",
-		Purpose: "list actions defined for a service",
+		Args:    "<application name>",
+		Purpose: "list actions defined for a application",
 		Doc:     listDoc,
 		Aliases: []string{"actions"},
 	}
@@ -52,11 +52,11 @@ func (c *listCommand) Info() *cmd.Info {
 func (c *listCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no service name specified")
+		return errors.New("no application name specified")
 	case 1:
 		svcName := args[0]
 		if !names.IsValidApplication(svcName) {
-			return errors.Errorf("invalid service name %q", svcName)
+			return errors.Errorf("invalid application name %q", svcName)
 		}
 		c.applicationTag = names.NewApplicationTag(svcName)
 		return nil
@@ -74,7 +74,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actions, err := api.ServiceCharmActions(params.Entity{c.applicationTag.String()})
+	actions, err := api.ApplicationCharmActions(params.Entity{c.applicationTag.String()})
 	if err != nil {
 		return err
 	}

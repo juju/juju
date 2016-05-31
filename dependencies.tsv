@@ -28,7 +28,7 @@ github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T
 github.com/juju/persistent-cookiejar	git	e710b897c13ca52828ca2fc9769465186fd6d15c	2016-03-31T17:12:27Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
-github.com/juju/romulus	git	904f3688a64b28229686853b9d575a36d57872e1	2016-05-27T23:16:38Z
+github.com/juju/romulus	git	3bbda1f8b0ee73a728657fe89c0a59891ba0dd27	2016-05-31T05:34:55Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/testing	git	b9cfe07211e464f16d78ca9304c503d636b8eefa	2016-05-19T00:49:35Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z

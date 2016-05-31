@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 /*
-Package leadership holds code pertaining to service leadership in juju. It's
+Package leadership holds code pertaining to application leadership in juju. It's
 expected to grow as we're able to extract (e.g.) the Ticket and Tracker
 interfaces from worker/leadership; and quite possible the implementations
 themselves; but that'll have to wait until it can all be expressed without
@@ -23,18 +23,18 @@ var ErrClaimDenied = errors.New("leadership claim denied")
 // Claimer exposes leadership acquisition capabilities.
 type Claimer interface {
 
-	// ClaimLeadership claims leadership of the named service on behalf of the
+	// ClaimLeadership claims leadership of the named application on behalf of the
 	// named unit. If no error is returned, leadership will be guaranteed for
 	// at least the supplied duration from the point when the call was made.
-	ClaimLeadership(serviceId, unitId string, duration time.Duration) error
+	ClaimLeadership(applicationId, unitId string, duration time.Duration) error
 
-	// BlockUntilLeadershipReleased blocks until the named service is known
+	// BlockUntilLeadershipReleased blocks until the named application is known
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.
-	BlockUntilLeadershipReleased(serviceId string) (err error)
+	BlockUntilLeadershipReleased(applicationId string) (err error)
 }
 
-// Token represents a unit's leadership of its service.
+// Token represents a unit's leadership of its application.
 type Token interface {
 
 	// Check returns an error if the condition it embodies no longer holds.
@@ -54,13 +54,13 @@ type Token interface {
 type Checker interface {
 
 	// LeadershipCheck returns a Token representing the supplied unit's
-	// service leadership. The existence of the token does not imply
+	// application leadership. The existence of the token does not imply
 	// its accuracy; you need to Check() it.
 	//
 	// This method returns a token that accepts a *[]txn.Op, into which
 	// it will (on success) copy mgo/txn operations that can be used to
 	// verify the unit's continued leadership as part of another txn.
-	LeadershipCheck(serviceName, unitName string) Token
+	LeadershipCheck(applicationName, unitName string) Token
 }
 
 // Ticket is used to communicate leadership status to Tracker clients.
@@ -81,9 +81,9 @@ type Ticket interface {
 // claim it for themselves.
 type Tracker interface {
 
-	// ServiceName returns the name of the service for which leadership claims
+	// ApplicationName returns the name of the application for which leadership claims
 	// are made.
-	ServiceName() string
+	ApplicationName() string
 
 	// ClaimDuration returns the duration for which a Ticket's true Wait result
 	// is guaranteed valid.

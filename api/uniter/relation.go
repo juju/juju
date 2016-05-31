@@ -62,7 +62,7 @@ func (r *Relation) Refresh() error {
 	return nil
 }
 
-// Endpoint returns the endpoint of the relation for the service the
+// Endpoint returns the endpoint of the relation for the application the
 // uniter's managed unit belongs to.
 func (r *Relation) Endpoint() (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when

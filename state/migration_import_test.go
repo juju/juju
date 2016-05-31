@@ -273,7 +273,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	// Add a service with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	service := s.Factory.MakeService(c, &factory.ServiceParams{
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -291,14 +291,14 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, service, status.StatusActive, 5)
 
-	allServices, err := s.State.AllServices()
+	allServices, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allServices, gc.HasLen, 1)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
-	importedServices, err := newSt.AllServices()
+	importedServices, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedServices, gc.HasLen, 1)
 
@@ -332,8 +332,8 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
-	s.makeServiceWithLeader(c, "mysql", 2, 1)
-	s.makeServiceWithLeader(c, "wordpress", 4, 2)
+	s.makeApplicationWithLeader(c, "mysql", 2, 1)
+	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
@@ -365,7 +365,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
-	importedServices, err := newSt.AllServices()
+	importedServices, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedServices, gc.HasLen, 1)
 
@@ -412,7 +412,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: wordpress})
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
 	ru, err := rel.Unit(wordpress_0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -425,7 +425,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
-	newWordpress, err := newSt.Service("wordpress")
+	newWordpress, err := newSt.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
 	rels, err := newWordpress.Relations()
@@ -480,7 +480,7 @@ func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestDestroyModelWithService(c *gc.C) {
-	s.Factory.MakeService(c, nil)
+	s.Factory.MakeApplication(c, nil)
 	newModel, newSt := s.importModel(c)
 	defer newSt.Close()
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)

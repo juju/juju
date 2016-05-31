@@ -27,7 +27,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 func init() {
-	common.RegisterStandardFacade("Uniter", 3, NewUniterAPIV3)
+	common.RegisterStandardFacade("Uniter", 4, NewUniterAPIV4)
 }
 
 // UniterAPIV3 implements the API version 3, used by the uniter worker.
@@ -52,8 +52,8 @@ type UniterAPIV3 struct {
 	StorageAPI
 }
 
-// NewUniterAPIV3 creates a new instance of the Uniter API, version 3.
-func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV3, error) {
+// NewUniterAPIV4 creates a new instance of the Uniter API, version 3.
+func NewUniterAPIV4(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV3, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
@@ -78,7 +78,7 @@ func NewUniterAPIV3(st *state.State, resources *common.Resources, authorizer com
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			serviceName := entity.ServiceName()
+			serviceName := entity.ApplicationName()
 			ApplicationTag := names.NewApplicationTag(serviceName)
 			return func(tag names.Tag) bool {
 				return tag == ApplicationTag
@@ -155,8 +155,8 @@ func (u *UniterAPIV3) AllMachinePorts(args params.Entities) (params.MachinePorts
 	return result, nil
 }
 
-// ServiceOwner returns the owner user for each given service tag.
-func (u *UniterAPIV3) ServiceOwner(args params.Entities) (params.StringResults, error) {
+// ApplicationOwner returns the owner user for each given service tag.
+func (u *UniterAPIV3) ApplicationOwner(args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -589,12 +589,12 @@ func (u *UniterAPIV3) charmModifiedVersion(tagStr string, canAccess func(names.T
 	if err != nil {
 		return -1, err
 	}
-	var service *state.Service
+	var service *state.Application
 	switch entity := unitOrService.(type) {
-	case *state.Service:
+	case *state.Application:
 		service = entity
 	case *state.Unit:
-		service, err = entity.Service()
+		service, err = entity.Application()
 		if err != nil {
 			return -1, err
 		}
@@ -806,10 +806,10 @@ func (u *UniterAPIV3) ConfigSettings(args params.Entities) (params.ConfigSetting
 	return result, nil
 }
 
-// WatchServiceRelations returns a StringsWatcher, for each given
+// WatchApplicationRelations returns a StringsWatcher, for each given
 // service, that notifies of changes to the lifecycles of relations
 // involving that service.
-func (u *UniterAPIV3) WatchServiceRelations(args params.Entities) (params.StringsWatchResults, error) {
+func (u *UniterAPIV3) WatchApplicationRelations(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -1202,8 +1202,8 @@ func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
 
-func (u *UniterAPIV3) getService(tag names.ApplicationTag) (*state.Service, error) {
-	return u.st.Service(tag.Id())
+func (u *UniterAPIV3) getService(tag names.ApplicationTag) (*state.Application, error) {
+	return u.st.Application(tag.Id())
 }
 
 func (u *UniterAPIV3) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
@@ -1265,7 +1265,7 @@ func (u *UniterAPIV3) getRelationAndUnit(canAccess common.AuthFunc, relTag strin
 
 func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
-	ep, err := rel.Endpoint(unit.ServiceName())
+	ep, err := rel.Endpoint(unit.ApplicationName())
 	if err != nil {
 		// An error here means the unit's service is not part of the
 		// relation.
@@ -1276,8 +1276,8 @@ func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Uni
 		Key:  rel.String(),
 		Life: params.Life(rel.Life().String()),
 		Endpoint: multiwatcher.Endpoint{
-			ServiceName: ep.ServiceName,
-			Relation:    ep.Relation,
+			ApplicationName: ep.ApplicationName,
+			Relation:        ep.Relation,
 		},
 	}, nil
 }
@@ -1438,7 +1438,7 @@ func leadershipSettingsAccessorFactory(
 	auth common.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
 	registerWatcher := func(serviceId string) (string, error) {
-		service, err := st.Service(serviceId)
+		service, err := st.Application(serviceId)
 		if err != nil {
 			return "", err
 		}
@@ -1449,14 +1449,14 @@ func leadershipSettingsAccessorFactory(
 		return "", watcher.EnsureErr(w)
 	}
 	getSettings := func(serviceId string) (map[string]string, error) {
-		service, err := st.Service(serviceId)
+		service, err := st.Application(serviceId)
 		if err != nil {
 			return nil, err
 		}
 		return service.LeaderSettings()
 	}
 	writeSettings := func(token leadership.Token, serviceId string, settings map[string]string) error {
-		service, err := st.Service(serviceId)
+		service, err := st.Application(serviceId)
 		if err != nil {
 			return err
 		}
@@ -1553,7 +1553,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 		return nil, errors.Trace(err)
 	}
 
-	service, err := unit.Service()
+	service, err := unit.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1607,7 +1607,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 		return nil, errors.Annotate(err, "cannot get devices addresses")
 	}
 	logger.Infof(
-		"geting network config for machine %q with addresses %+v, hosting unit %q of service %q, with bindings %+v",
+		"geting network config for machine %q with addresses %+v, hosting unit %q of application %q, with bindings %+v",
 		machineID, addresses, unit.Name(), service.Name(), bindings,
 	)
 

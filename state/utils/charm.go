@@ -23,7 +23,7 @@ func charmMetadata(st CharmState, serviceID string) (*charm.Meta, error) {
 
 	ch, err := service.Charm()
 	if err != nil {
-		return nil, errors.Annotatef(err, "while looking up charm info for service %q", serviceID)
+		return nil, errors.Annotatef(err, "while looking up charm info for application %q", serviceID)
 	}
 
 	meta := ch.Meta()
@@ -57,7 +57,7 @@ type charmState struct {
 
 // Service implements CharmState.
 func (st charmState) Service(id string) (CharmService, error) {
-	raw, err := st.raw.Service(id)
+	raw, err := st.raw.Application(id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +65,7 @@ func (st charmState) Service(id string) (CharmService, error) {
 }
 
 type charmService struct {
-	raw *state.Service
+	raw *state.Application
 }
 
 // Charm implements CharmService.

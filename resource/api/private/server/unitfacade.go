@@ -17,9 +17,9 @@ import (
 const FacadeVersion = 1
 
 // UnitDataStore exposes the data storage functionality needed here.
-// All functionality is tied to the unit's service.
+// All functionality is tied to the unit's application.
 type UnitDataStore interface {
-	// ListResources lists all the resources for the service.
+	// ListResources lists all the resources for the application.
 	ListResources() (resource.ServiceResources, error)
 }
 
@@ -37,7 +37,7 @@ type UnitFacade struct {
 }
 
 // GetResourceInfo returns the resource info for each of the given
-// resource names (for the implicit service). If any one is missing then
+// resource names (for the implicit application). If any one is missing then
 // the corresponding result is set with errors.NotFound.
 func (uf UnitFacade) GetResourceInfo(args private.ListResourcesArgs) (private.ResourcesResult, error) {
 	var r private.ResourcesResult

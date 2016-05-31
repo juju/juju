@@ -121,16 +121,16 @@ type ActionExecutionResult struct {
 	Message   string                 `json:"message,omitempty"`
 }
 
-// ServicesCharmActionsResults holds a slice of ServiceCharmActionsResult for
-// a bulk result of charm Actions for Services.
-type ServicesCharmActionsResults struct {
-	Results []ServiceCharmActionsResult `json:"results,omitempty"`
+// ApplicationsCharmActionsResults holds a slice of ApplicationCharmActionsResult for
+// a bulk result of charm Actions for Applications.
+type ApplicationsCharmActionsResults struct {
+	Results []ApplicationCharmActionsResult `json:"results,omitempty"`
 }
 
-// ServiceCharmActionsResult holds service name and charm.Actions for the service.
-// If an error such as a missing charm or malformed service name occurs, it
+// ApplicationCharmActionsResult holds application name and charm.Actions for the application.
+// If an error such as a missing charm or malformed application name occurs, it
 // is encapsulated in this type.
-type ServiceCharmActionsResult struct {
+type ApplicationCharmActionsResult struct {
 	ApplicationTag string         `json:"ApplicationTag,omitempty"`
 	Actions        *charm.Actions `json:"actions,omitempty"`
 	Error          *Error         `json:"error,omitempty"`

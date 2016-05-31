@@ -42,8 +42,8 @@ func New() cmd.Command {
 func (c *DebugMetricsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-metrics",
-		Args:    "[service or unit]",
-		Purpose: "retrieve metrics collected by the given unit/service",
+		Args:    "[application or unit]",
+		Purpose: "retrieve metrics collected by the given unit/application",
 		Doc:     debugMetricsDoc,
 	}
 }
@@ -51,14 +51,14 @@ func (c *DebugMetricsCommand) Info() *cmd.Info {
 // Init reads and verifies the cli arguments for the DebugMetricsCommand
 func (c *DebugMetricsCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("you need to specify a unit or service.")
+		return errors.New("you need to specify a unit or application.")
 	}
 	if names.IsValidUnit(args[0]) {
 		c.Tag = names.NewUnitTag(args[0])
 	} else if names.IsValidApplication(args[0]) {
 		c.Tag = names.NewApplicationTag(args[0])
 	} else {
-		return errors.Errorf("%q is not a valid unit or service", args[0])
+		return errors.Errorf("%q is not a valid unit or application", args[0])
 	}
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))

@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Action", 1, NewActionAPI)
+	common.RegisterStandardFacade("Action", 2, NewActionAPI)
 }
 
 // ActionAPI implements the client API for interacting with Actions
@@ -205,10 +205,10 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 	return response, nil
 }
 
-// ServicesCharmActions returns a slice of charm Actions for a slice of
+// ApplicationsCharmsActions returns a slice of charm Actions for a slice of
 // services.
-func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesCharmActionsResults, error) {
-	result := params.ServicesCharmActionsResults{Results: make([]params.ServiceCharmActionsResult, len(args.Entities))}
+func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.ApplicationsCharmActionsResults, error) {
+	result := params.ApplicationsCharmActionsResults{Results: make([]params.ApplicationCharmActionsResult, len(args.Entities))}
 	for i, entity := range args.Entities {
 		currentResult := &result.Results[i]
 		svcTag, err := names.ParseApplicationTag(entity.Tag)
@@ -217,7 +217,7 @@ func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesC
 			continue
 		}
 		currentResult.ApplicationTag = svcTag.String()
-		svc, err := a.state.Service(svcTag.Id())
+		svc, err := a.state.Application(svcTag.Id())
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

@@ -30,7 +30,7 @@ type Entity interface {
 // EntityWithService is implemented by Units it is intended
 // for anything that can return its Service.
 type EntityWithService interface {
-	Service() (*Service, error)
+	Service() (*Application, error)
 }
 
 // Lifer represents an entity with a life.

@@ -339,7 +339,7 @@ var _ = gc.Suite(&clientSuite{})
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
 func clearSinceTimes(status *params.FullStatus) {
-	for serviceId, service := range status.Services {
+	for applicationId, service := range status.Applications {
 		for unitId, unit := range service.Units {
 			unit.WorkloadStatus.Since = nil
 			unit.AgentStatus.Since = nil
@@ -351,7 +351,7 @@ func clearSinceTimes(status *params.FullStatus) {
 			service.Units[unitId] = unit
 		}
 		service.Status.Since = nil
-		status.Services[serviceId] = service
+		status.Applications[applicationId] = service
 	}
 	for id, machine := range status.Machines {
 		machine.AgentStatus.Since = nil

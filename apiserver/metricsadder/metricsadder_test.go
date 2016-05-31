@@ -33,10 +33,10 @@ type metricsAdderSuite struct {
 
 	machine0       *state.Machine
 	machine1       *state.Machine
-	mysqlService   *state.Service
-	mysql          *state.Service
+	mysqlService   *state.Application
+	mysql          *state.Application
 	mysqlUnit      *state.Unit
-	meteredService *state.Service
+	meteredService *state.Application
 	meteredCharm   *state.Charm
 	meteredUnit    *state.Unit
 
@@ -58,25 +58,25 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	mysqlCharm := s.factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = s.factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.mysql = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
 		Creator: s.AdminUserTag(c),
 	})
 	s.mysqlUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine0,
+		Application: s.mysql,
+		Machine:     s.machine0,
 	})
 
 	s.meteredCharm = s.factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.meteredService = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service:     s.meteredService,
+		Application: s.meteredService,
 		SetCharmURL: true,
 		Machine:     s.machine1,
 	})
