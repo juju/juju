@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
@@ -805,14 +806,54 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 
 func (i *importer) ipaddresses() error {
 	i.logger.Debugf("importing ip addresses")
-	for _ = range i.model.IPAddresses() {
-		_, err := i.st.AddIPAddress()
+	for _, addr := range i.model.IPAddresses() {
+		err := i.addIPAddress(addr)
 		if err != nil {
-			i.logger.Errorf("error importing ip address: %s", err)
+			i.logger.Errorf("error importing ip address %v: %s", addr, err)
 			return errors.Trace(err)
 		}
 	}
 	i.logger.Debugf("importing ip addresses succeeded")
+	return nil
+}
+
+func (i *importer) addIPAddress(addr description.IPAddress) error {
+	addressValue := addr.Value()
+	subnetCIDR := addr.SubnetCIDR()
+
+	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), addressValue)
+	ipAddressDocID := i.st.docID(globalKey)
+	providerID := addr.ProviderID()
+
+	modelUUID := i.st.ModelUUID()
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       addr.DeviceName(),
+		MachineID:        addr.MachineID(),
+		SubnetCIDR:       subnetCIDR,
+		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		Value:            addressValue,
+		DNSServers:       addr.DNSServers(),
+		DNSSearchDomains: addr.DNSSearchDomains(),
+		GatewayAddress:   addr.GatewayAddress(),
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	}}
+
+	if providerID != "" {
+		id := network.Id(addr.ProviderID())
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

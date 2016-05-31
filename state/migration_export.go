@@ -595,8 +595,18 @@ func (e *exporter) ipaddresses() error {
 		return errors.Trace(err)
 	}
 	e.logger.Debugf("read %d ip addresses", len(ipaddresses))
-	for _, address := range ipaddresses {
-		e.model.AddIPAddress(description.IPAddressArgs{})
+	for _, addr := range ipaddresses {
+		e.model.AddIPAddress(description.IPAddressArgs{
+			ProviderID:       string(addr.ProviderID()),
+			DeviceName:       addr.DeviceName(),
+			MachineID:        addr.MachineID(),
+			SubnetCIDR:       addr.SubnetCIDR(),
+			ConfigMethod:     string(addr.ConfigMethod()),
+			Value:            addr.Value(),
+			DNSServers:       addr.DNSServers(),
+			DNSSearchDomains: addr.DNSSearchDomains(),
+			GatewayAddress:   addr.GatewayAddress(),
+		})
 	}
 	return nil
 }
