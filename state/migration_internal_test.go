@@ -45,6 +45,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// relation
 		relationsC,
 		relationScopesC,
+
+		// networking
+		ipAddressesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -139,7 +142,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumeAttachmentsC,
 
 		// network
-		ipAddressesC,
 		providerIDsC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
@@ -512,6 +514,25 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 		"Updated",
 	)
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DeviceName",
+		"MachineID",
+		"DNSSearchDomains",
+		"GatewayAddress",
+		"ProviderID",
+		"DNSServers",
+		"SubnetCIDR",
+		"ConfigMethod",
+		"Value",
+	)
+	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
