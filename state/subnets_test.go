@@ -425,7 +425,7 @@ func (s *SubnetSuite) TestPickNewAddressRace(c *gc.C) {
 		theIndex := atomic.AddInt32(&index, 1)
 		return addresses[theIndex]
 	}
-	s.PatchValue(&state.PickAddress, mockPickAddress)
+	s.PatchValue(&state.PickAddress, &mockPickAddress)
 
 	// 192.168.1.0 and 192.168.1.1 are the only valid addresses
 	subnet := s.addSubnetWithAllocatableIPHigh(c, "192.168.1.1")
