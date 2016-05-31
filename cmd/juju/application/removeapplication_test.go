@@ -91,7 +91,7 @@ func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
 	// Destroy a application that does not exist.
 	err := runRemoveService(c, "gargleblaster")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "gargleblaster" not found`,
+		Message: `service "gargleblaster" not found`,
 		Code:    "not found",
 	})
 	s.stub.CheckNoCalls(c)

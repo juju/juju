@@ -55,7 +55,7 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 
 	err = runExpose(c, "nonexistent-application")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "nonexistent-application" not found`,
+		Message: `service "nonexistent-application" not found`,
 		Code:    "not found",
 	})
 }
