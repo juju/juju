@@ -291,14 +291,14 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, service, status.StatusActive, 5)
 
-	allServices, err := s.State.AllServices()
+	allServices, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allServices, gc.HasLen, 1)
 
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
-	importedServices, err := newSt.AllServices()
+	importedServices, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedServices, gc.HasLen, 1)
 
@@ -365,7 +365,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	_, newSt := s.importModel(c)
 	defer newSt.Close()
 
-	importedServices, err := newSt.AllServices()
+	importedServices, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedServices, gc.HasLen, 1)
 

@@ -1405,8 +1405,8 @@ func (st *State) Application(name string) (service *Application, err error) {
 	return newApplication(st, sdoc), nil
 }
 
-// AllServices returns all deployed services in the model.
-func (st *State) AllServices() (services []*Application, err error) {
+// AllApplications returns all deployed services in the model.
+func (st *State) AllApplications() (services []*Application, err error) {
 	servicesCollection, closer := st.getCollection(applicationsC)
 	defer closer()
 

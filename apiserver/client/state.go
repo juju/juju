@@ -36,7 +36,7 @@ type stateInterface interface {
 	Application(string) (*state.Application, error)
 	Machine(string) (*state.Machine, error)
 	AllMachines() ([]*state.Machine, error)
-	AllServices() ([]*state.Application, error)
+	AllApplications() ([]*state.Application, error)
 	AllRelations() ([]*state.Relation, error)
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)

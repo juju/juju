@@ -109,7 +109,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, err
 	}
 
-	services, err := st.AllServices()
+	services, err := st.AllApplications()
 	if err != nil {
 		return nil, err
 	}

@@ -161,7 +161,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	var noStatus params.FullStatus
 	var context statusContext
 	if context.services, context.units, context.latestCharms, err =
-		fetchAllServicesAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
 	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
@@ -340,9 +340,9 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 	return v, nil
 }
 
-// fetchAllServicesAndUnits returns a map from service name to service,
+// fetchAllApplicationsAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllServicesAndUnits(
+func fetchAllApplicationsAndUnits(
 	st stateInterface,
 	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
@@ -350,7 +350,7 @@ func fetchAllServicesAndUnits(
 	svcMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
-	services, err := st.AllServices()
+	services, err := st.AllApplications()
 	if err != nil {
 		return nil, nil, nil, err
 	}

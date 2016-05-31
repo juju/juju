@@ -267,7 +267,7 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) 
 		}
 	}
 	if eps == nil {
-		return nil, errors.Errorf("no endpoints of %q relate to service %q", r, applicationname)
+		return nil, errors.Errorf("no endpoints of %q relate to application %q", r, applicationname)
 	}
 	return eps, nil
 }

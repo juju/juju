@@ -82,7 +82,7 @@ func (m *mockState) AllMachines() ([]undertaker.Machine, error) {
 	return m.machines, nil
 }
 
-func (m *mockState) AllServices() ([]undertaker.Service, error) {
+func (m *mockState) AllApplications() ([]undertaker.Service, error) {
 	return m.services, nil
 }
 

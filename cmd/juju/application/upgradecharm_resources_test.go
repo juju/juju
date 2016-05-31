@@ -337,7 +337,7 @@ func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 
 // assertServicesDeployed checks that the given services have been deployed.
 func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {

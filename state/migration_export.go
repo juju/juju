@@ -78,7 +78,7 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.services(); err != nil {
+	if err := export.applications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.relations(); err != nil {
@@ -374,12 +374,12 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	return inst
 }
 
-func (e *exporter) services() error {
-	services, err := e.st.AllServices()
+func (e *exporter) applications() error {
+	services, err := e.st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	e.logger.Debugf("found %d services", len(services))
+	e.logger.Debugf("found %d applications", len(services))
 
 	refcounts, err := e.readAllSettingsRefCounts()
 	if err != nil {

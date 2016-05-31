@@ -42,7 +42,7 @@ func (s *APISuite) TestRescaleBadArgs(c *gc.C) {
 	api := applicationscaler.NewAPI(caller, nil)
 
 	err := api.Rescale([]string{"good-name", "bad/name"})
-	c.Check(err, gc.ErrorMatches, `service name "bad/name" not valid`)
+	c.Check(err, gc.ErrorMatches, `application name "bad/name" not valid`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 

@@ -36,23 +36,23 @@ type DeployApplicationParams struct {
 	Resources map[string]string
 }
 
-type ServiceDeployer interface {
+type ApplicationDeployer interface {
 	Model() (*state.Model, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 }
 
-// DeployService takes a charm and various parameters and deploys it.
-func DeployService(st ServiceDeployer, args DeployApplicationParams) (*state.Application, error) {
+// DeployApplication takes a charm and various parameters and deploys it.
+func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*state.Application, error) {
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
 	}
 	if args.Charm.Meta().Subordinate {
 		if args.NumUnits != 0 {
-			return nil, fmt.Errorf("subordinate service must be deployed without units")
+			return nil, fmt.Errorf("subordinate application must be deployed without units")
 		}
 		if !constraints.IsEmpty(&args.Constraints) {
-			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
+			return nil, fmt.Errorf("subordinate application must be deployed without constraints")
 		}
 	}
 	if args.ApplicationOwner == "" {
@@ -62,7 +62,7 @@ func DeployService(st ServiceDeployer, args DeployApplicationParams) (*state.App
 		}
 		args.ApplicationOwner = env.Owner().String()
 	}
-	// TODO(fwereade): transactional State.AddService including settings, constraints
+	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
 	effectiveBindings := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
@@ -98,20 +98,20 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 
 	// Get the application-level default binding for all unspecified endpoint, if
 	// set, otherwise use the empty default.
-	serviceDefaultSpace, _ := givenBindings[""]
+	applicationDefaultSpace, _ := givenBindings[""]
 
 	effectiveBindings := make(map[string]string, len(defaultBindings))
 	for endpoint, _ := range defaultBindings {
 		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
 			effectiveBindings[endpoint] = givenSpace
 		} else {
-			effectiveBindings[endpoint] = serviceDefaultSpace
+			effectiveBindings[endpoint] = applicationDefaultSpace
 		}
 	}
 	return effectiveBindings
 }
 
-// AddUnits starts n units of the given service using the specified placement
+// AddUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
 func AddUnits(st *state.State, svc *state.Application, n int, placement []*instance.Placement) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
@@ -121,7 +121,7 @@ func AddUnits(st *state.State, svc *state.Application, n int, placement []*insta
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot add unit %d/%d to service %q", i+1, n, svc.Name())
+			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, svc.Name())
 		}
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {

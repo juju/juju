@@ -350,7 +350,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllServices()
+		services, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
@@ -595,7 +595,7 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllServices()
+		services, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(services, gc.HasLen, expectedServices)
 	}

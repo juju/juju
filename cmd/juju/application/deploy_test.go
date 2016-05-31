@@ -809,7 +809,7 @@ type serviceInfo struct {
 // expected spaces. It is separate to assertServicesDeployed because it is only
 // relevant to a couple of tests.
 func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, application := range services {
@@ -821,7 +821,7 @@ func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string
 
 // assertApplicationsDeployed checks that the given applications have been deployed.
 func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {

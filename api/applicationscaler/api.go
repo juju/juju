@@ -56,7 +56,7 @@ func (api *API) Rescale(services []string) error {
 	}
 	for i, service := range services {
 		if !names.IsValidApplication(service) {
-			return errors.NotValidf("service name %q", service)
+			return errors.NotValidf("application name %q", service)
 		}
 		tag := names.NewApplicationTag(service)
 		args.Entities[i].Tag = tag.String()

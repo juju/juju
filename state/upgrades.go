@@ -215,7 +215,7 @@ func settingsDocNeedsMigration(doc bson.M) bool {
 }
 
 func addDefaultBindingsToServices(st *State) error {
-	services, err := st.AllServices()
+	services, err := st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}

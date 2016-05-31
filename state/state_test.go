@@ -1624,22 +1624,22 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
 }
 
-func (s *StateSuite) TestAllServices(c *gc.C) {
+func (s *StateSuite) TestAllApplications(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	services, err = s.State.AllServices()
+	services, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Owner: s.Owner.String(), Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	services, err = s.State.AllServices()
+	services, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(services, gc.HasLen, 2)
 
