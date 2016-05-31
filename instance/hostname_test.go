@@ -11,32 +11,41 @@ import (
 	"github.com/juju/names"
 )
 
-type HostnameSuite struct{}
+type NamespaceSuite struct{}
 
-var _ = gc.Suite(&HostnameSuite{})
+var _ = gc.Suite(&NamespaceSuite{})
 
 const modelUUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 
-func (s *HostnameSuite) TestInvalidModelTag(c *gc.C) {
-	hostname, err := instance.Hostname(names.NewModelTag("foo"), names.NewMachineTag("2"))
-	c.Assert(hostname, gc.Equals, "")
+func (s *NamespaceSuite) TestInvalidModelTag(c *gc.C) {
+	ns, err := instance.NewNamespace("foo")
+	c.Assert(ns, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `model ID "foo" is not a valid model`)
 }
 
-func (s *HostnameSuite) TestInvalidMachineTag(c *gc.C) {
-	hostname, err := instance.Hostname(names.NewModelTag(modelUUID), names.NewMachineTag("foo"))
+func (s *NamespaceSuite) newNamespace(c *gc.C) instance.Namespace {
+	ns, err := instance.NewNamespace(modelUUID)
+	c.Assert(err, jc.ErrIsNil)
+	return ns
+}
+
+func (s *NamespaceSuite) TestInvalidMachineTag(c *gc.C) {
+	ns := s.newNamespace()
+	hostname, err := ns.Hostname("foo")
 	c.Assert(hostname, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `machine ID "foo" is not a valid machine`)
 }
 
-func (s *HostnameSuite) TestHostname(c *gc.C) {
-	hostname, err := instance.Hostname(names.NewModelTag(modelUUID), names.NewMachineTag("2"))
+func (s *NamespaceSuite) TestHostname(c *gc.C) {
+	ns := s.newNamespace()
+	hostname, err := ns.Hostname("2")
 	c.Assert(hostname, gc.Equals, "juju-c3d479-2")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *HostnameSuite) TestContainerHostname(c *gc.C) {
-	hostname, err := instance.Hostname(names.NewModelTag(modelUUID), names.NewMachineTag("2/lxd/4"))
+func (s *NamespaceSuite) TestContainerHostname(c *gc.C) {
+	ns := s.newNamespace()
+	hostname, err := ns.Hostname("2/lxd/4")
 	c.Assert(hostname, gc.Equals, "juju-c3d479-2-lxd-4")
 	c.Assert(err, jc.ErrorIsNil)
 }
