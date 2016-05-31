@@ -75,6 +75,11 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	}
 	defer workspace.Close()
 
+	// This might actually work, but we don't have a guarantee so we don't allow it.
+	if meta.Origin.Series != args.NewInstSeries {
+		return nil, errors.Errorf("cannot restore a backup made in a machine with series %q into a machine with series %q, %#v", meta.Origin.Series, args.NewInstSeries, meta)
+	}
+
 	// TODO(perrito666) Create a compatibility table of sorts.
 	vers := meta.Origin.Version
 	if vers.Major != 2 {
@@ -178,6 +183,11 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		Version:         mgoVer,
 		TagUser:         tagUser,
 		TagUserPassword: tagUserPassword,
+		RunCommandFn:    runCommand,
+		StartMongo:      mongo.StartService,
+		StopMongo:       mongo.StopService,
+		NewMongoSession: NewMongoSession,
+		GetDB:           GetDB,
 	}
 
 	// Restore mongodb from backup

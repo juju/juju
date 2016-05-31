@@ -80,7 +80,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	mgoInfo := a.backend.MongoConnectionInfo()
-	logger.Infof("mongo info from state %+v", mgoInfo)
+	logger.Debugf("mongo info from state %+v", mgoInfo)
 	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
 		return errors.Trace(err)

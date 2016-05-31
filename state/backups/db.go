@@ -28,11 +28,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var (
-	runCommandFn = runCommand
-	startMongo   = mongo.StartService
-	stopMongo    = mongo.StopService
-)
+var runCommandFn = runCommand
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -247,6 +243,7 @@ type mongoRestorer struct {
 	binPath         string
 	tagUser         string
 	tagUserPassword string
+	runCommandFn    func(string, ...string) error
 }
 type mongoRestorer32 struct {
 	mongoRestorer
@@ -256,6 +253,8 @@ type mongoRestorer32 struct {
 
 type mongoRestorer24 struct {
 	mongoRestorer
+	stopMongo  func() error
+	startMongo func() error
 }
 
 func (md *mongoRestorer24) options(dumpDir string) []string {
@@ -272,15 +271,15 @@ func (md *mongoRestorer24) options(dumpDir string) []string {
 
 func (md *mongoRestorer24) Restore(dumpDir string, _ *mgo.DialInfo) error {
 	logger.Debugf("stopping mongo service for restore")
-	if err := stopMongo(); err != nil {
+	if err := md.stopMongo(); err != nil {
 		return errors.Annotate(err, "cannot stop mongo to replace files")
 	}
 	options := md.options(dumpDir)
 	logger.Infof("restoring database with params %v", options)
-	if err := runCommandFn(md.binPath, options...); err != nil {
+	if err := md.runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error restoring database")
 	}
-	if err := startMongo(); err != nil {
+	if err := md.startMongo(); err != nil {
 		return errors.Annotate(err, "cannot start mongo after restore")
 	}
 
@@ -304,6 +303,10 @@ type RestorerArgs struct {
 	TagUser         string
 	TagUserPassword string
 	GetDB           func(string, MongoSession) MongoDB
+
+	RunCommandFn func(string, ...string) error
+	StartMongo   func() error
+	StopMongo    func() error
 }
 
 var mongoInstalledVersion = mongo.InstalledVersion
@@ -317,7 +320,10 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 	}
 
 	installedMongo := mongoInstalledVersion()
-	if args.Version.NewerThan(installedMongo) == 1 {
+	// NewerThan will check Major and Minor so migration between micro versions
+	// will work, before changing this bewar, Mongo has been known to break
+	// compatibility between minors.
+	if args.Version.NewerThan(installedMongo) != 0 {
 		return nil, errors.NotSupportedf("restore mongo version %s into version %s", args.Version.String(), installedMongo.String())
 	}
 
@@ -327,11 +333,14 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 		binPath:         mongorestorePath,
 		tagUser:         args.TagUser,
 		tagUserPassword: args.TagUserPassword,
+		runCommandFn:    args.RunCommandFn,
 	}
 	switch args.Version.Major {
 	case 2:
 		restorer = &mongoRestorer24{
 			mongoRestorer: mgoRestorer,
+			startMongo:    args.StartMongo,
+			stopMongo:     args.StopMongo,
 		}
 	case 3:
 		restorer = &mongoRestorer32{
@@ -396,9 +405,9 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 		return errors.Trace(err)
 	}
 	result, ok := mgoErr["ok"]
-	success, isInt := result.(int)
-	if !ok || !isInt || success != 1 {
-		logger.Errorf("could not create special role to replay oplog, will try to continue, result was: %#v", mgoErr)
+	success, isFloat := result.(float64)
+	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+		return errors.Errorf("could not create special role to replay oplog, result was: %#v", mgoErr)
 	}
 
 	// This will replace old user with the new credentials
@@ -414,9 +423,9 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 		return errors.Trace(err)
 	}
 	result, ok = mgoErr["ok"]
-	success, isInt = result.(int)
-	if !ok || !isInt || success != 1 {
-		logger.Errorf("could not grant special role to %q, will try to continue, result was: %#v", md.DialInfo.Username, mgoErr)
+	success, isFloat = result.(float64)
+	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+		return errors.Errorf("could not grant special role to %q, result was: %#v", md.DialInfo.Username, mgoErr)
 	}
 
 	grant = bson.D{
@@ -429,16 +438,16 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 		return errors.Trace(err)
 	}
 	result, ok = mgoErr["ok"]
-	success, isInt = result.(int)
-	if !ok || !isInt || success != 1 {
-		logger.Errorf("could not grant special role to \"admin\", will try to continue, result was: %#v", mgoErr)
+	success, isFloat = result.(float64)
+	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+		return errors.Errorf("could not grant special role to \"admin\", result was: %#v", mgoErr)
 	}
 
 	if err := admin.UpsertUser(&mgo.User{
 		Username: md.DialInfo.Username,
 		Password: md.DialInfo.Password,
 	}); err != nil {
-		return fmt.Errorf("cannot set new admin credentials: %v", err)
+		return errors.Errorf("cannot set new admin credentials: %v", err)
 	}
 
 	return nil
@@ -469,7 +478,7 @@ func (md *mongoRestorer32) Restore(dumpDir string, dialInfo *mgo.DialInfo) error
 
 	options := md.options(dumpDir)
 	logger.Infof("restoring database with params %v", options)
-	if err := runCommandFn(md.binPath, options...); err != nil {
+	if err := md.runCommandFn(md.binPath, options...); err != nil {
 		return errors.Annotate(err, "error restoring database")
 	}
 	logger.Infof("updating user credentials")

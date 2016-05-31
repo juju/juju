@@ -67,9 +67,6 @@ type Metadata struct {
 	// Notes is an optional user-supplied annotation.
 	Notes string
 
-	// Series holds the series of the backed up machine.
-	Series string
-
 	// TODO(wallyworld) - remove these ASAP
 	// These are only used by the restore CLI when re-bootstrapping.
 	// We will use a better solution but the way restore currently

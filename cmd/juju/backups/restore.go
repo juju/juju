@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/version"
 )
 
 // NewRestoreCommand returns a command used to restore a backup.
@@ -141,12 +142,6 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 	store := c.ClientStore()
 	cfg, err := modelcmd.NewGetBootstrapConfigFunc(store)(controllerName)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot restore from a machine other than the one used to bootstrap")
-	}
-
-	// Reset current model to admin so first bootstrap succeeds.
-	err = store.SetCurrentModel(controllerName, environs.AdminUser, environs.ControllerModelName)
-	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -225,12 +220,14 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		config.UUIDKey: hostedModelUUID.String(),
 	}
 
+	bootVers := version.Current
 	args := bootstrap.BootstrapParams{
 		ModelConstraints:  c.constraints,
 		UploadTools:       c.uploadTools,
 		BuildToolsTarball: sync.BuildToolsTarball,
 		HostedModelConfig: hostedModelConfig,
 		BootstrapSeries:   meta.Series,
+		AgentVersion:      &bootVers,
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
@@ -239,24 +236,14 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	// We remove models from the client store as the cached values will be used
 	// to dial after re-bootstraping (if present) and the process will fail.
 	store := c.ClientStore()
-	// TODO(perrito666) there is no authoritative source for this model's name
-	// see if one can be added.
-	err = store.RemoveModel(c.ControllerName(), c.AccountName(), "default")
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-
-	err = store.RemoveModel(c.ControllerName(), c.AccountName(), environs.ControllerModelName)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
 	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), env)
 	if err != nil {
-		errors.Trace(err)
+		return errors.Trace(err)
 	}
+
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
@@ -319,7 +306,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		err = client.Restore(c.backupId, c.newClient)
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", target)
 	return nil

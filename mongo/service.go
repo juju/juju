@@ -210,10 +210,8 @@ func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaC
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := svc.Remove(); err != nil {
-		return errors.Trace(err)
-	}
 
+	logger.Debugf("installing mongo service")
 	if err := svc.Install(); err != nil {
 		return errors.Trace(err)
 	}

@@ -29,8 +29,6 @@ var (
 	GetMongorestorePath   = &getMongorestorePath
 	RunCommand            = &runCommandFn
 	ReplaceableFolders    = &replaceableFolders
-	StartMongo            = &startMongo
-	StopMongo             = &stopMongo
 	MongoInstalledVersion = &mongoInstalledVersion
 )
 

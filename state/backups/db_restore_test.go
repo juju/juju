@@ -31,13 +31,13 @@ func (s *mongoRestoreSuite) TestRestoreDatabase24(c *gc.C) {
 		ranWithArgs = args
 		return nil
 	}
-	s.PatchValue(backups.RunCommand, fakeRunCommand)
-	s.PatchValue(backups.StartMongo, func() error { return nil })
-	s.PatchValue(backups.StopMongo, func() error { return nil })
 	args := backups.RestorerArgs{
 		Version:         mongo.Mongo24,
 		TagUser:         "machine-0",
 		TagUserPassword: "fakePassword",
+		RunCommandFn:    fakeRunCommand,
+		StartMongo:      func() error { return nil },
+		StopMongo:       func() error { return nil },
 	}
 
 	s.PatchValue(backups.MongoInstalledVersion, func() mongo.Version { return mongo.Mongo24 })
@@ -90,7 +90,6 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 		ranWithArgs = args
 		return nil
 	}
-	s.PatchValue(backups.RunCommand, fakeRunCommand)
 	mgoDb := &mongoDb{}
 	mgoSession := &mongoSession{}
 
@@ -107,6 +106,7 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 		NewMongoSession: func(dialInfo *mgo.DialInfo) (backups.MongoSession, error) {
 			return mgoSession, nil
 		},
+		RunCommandFn: fakeRunCommand,
 	}
 	s.PatchValue(backups.MongoInstalledVersion, func() mongo.Version { return mongo.Mongo32wt })
 	restorer, err := backups.NewDBRestorer(args)
