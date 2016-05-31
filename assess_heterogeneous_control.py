@@ -44,6 +44,10 @@ def get_clients(initial, other, base_env, debug, agent_url):
     environment = SimpleEnvironment.from_config(base_env)
     if agent_url is None:
         environment.config.pop('tools-metadata-url', None)
+    if initial == 'FAKE':
+        from tests.test_jujupy import fake_juju_client
+        client = fake_juju_client(env=environment)
+        return client, client, client
     initial_client = EnvJujuClient.by_version(environment, initial,
                                               debug=debug)
     other_client = EnvJujuClient.by_version(initial_client.env, other,
