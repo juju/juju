@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
@@ -414,14 +414,14 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 1),
 	}
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 1024, 2)
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 2048, 2)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 	storageCons["multi1to10"] = makeStorageCons("ebs-fast", 1024, 10)
-	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs-fast" not found`)
+	assertErr(storageCons, `cannot add application "storage-block2": pool "ebs-fast" not found`)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 10)
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)

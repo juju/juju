@@ -26,7 +26,7 @@ var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
 type metricRegistrationPost struct {
 	ModelUUID   string `json:"env-uuid"`
 	CharmURL    string `json:"charm-url"`
-	ServiceName string `json:"service-name"`
+	ServiceName string `json:"application-name"`
 	PlanURL     string `json:"plan-url"`
 	Budget      string `json:"budget"`
 	Limit       string `json:"limit"`

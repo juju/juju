@@ -122,7 +122,7 @@ func (c *scpCommand) Run(ctx *cmd.Context) error {
 }
 
 // expandArgs takes a list of arguments and looks for ones in the form of
-// 0:some/path or service/0:some/path, and translates them into
+// 0:some/path or application/0:some/path, and translates them into
 // ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
 // the rest verbatim on to scp
 func expandArgs(args []string, resolveTarget func(string) (*resolvedTarget, error)) (

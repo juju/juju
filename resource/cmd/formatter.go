@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/resource"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 type charmResourcesFormatter struct {

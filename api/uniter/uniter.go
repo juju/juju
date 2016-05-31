@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -157,7 +157,7 @@ func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 }
 
 // Service returns a service state by tag.
-func (st *State) Service(tag names.ServiceTag) (*Service, error) {
+func (st *State) Service(tag names.ApplicationTag) (*Service, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err

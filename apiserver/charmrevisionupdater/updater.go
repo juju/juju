@@ -78,7 +78,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 		}
 
 		// Then run through the handlers.
-		serviceID := info.service.ServiceTag()
+		serviceID := info.service.ApplicationTag()
 		for _, handler := range handlers {
 			if err := handler.HandleLatest(serviceID, info.CharmInfo); err != nil {
 				return err

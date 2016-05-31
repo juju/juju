@@ -24,8 +24,8 @@ var _ = gc.Suite(&ResourceSuite{})
 func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ID:        "a-service/spam",
-		ServiceID: "a-service",
+		ID:        "a-application/spam",
+		ServiceID: "a-application",
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -38,8 +38,8 @@ func (ResourceSuite) TestValidateUploadUsed(c *gc.C) {
 func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ID:        "a-service/spam",
-		ServiceID: "a-service",
+		ID:        "a-application/spam",
+		ServiceID: "a-application",
 	}
 
 	err := res.Validate()
@@ -50,9 +50,9 @@ func (ResourceSuite) TestValidateUploadNotUsed(c *gc.C) {
 func (ResourceSuite) TestValidateUploadPending(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ID:        "a-service/spam",
+		ID:        "a-application/spam",
 		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
+		ServiceID: "a-application",
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -88,7 +88,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 func (ResourceSuite) TestValidateMissingID(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ServiceID: "a-service",
+		ServiceID: "a-application",
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -101,7 +101,7 @@ func (ResourceSuite) TestValidateMissingID(c *gc.C) {
 func (ResourceSuite) TestValidateMissingServiceID(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ID:        "a-service/spam",
+		ID:        "a-application/spam",
 		Username:  "a-user",
 		Timestamp: time.Now(),
 	}
@@ -115,8 +115,8 @@ func (ResourceSuite) TestValidateMissingServiceID(c *gc.C) {
 func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ID:        "a-service/spam",
-		ServiceID: "a-service",
+		ID:        "a-application/spam",
+		ServiceID: "a-application",
 		Username:  "",
 		Timestamp: time.Now(),
 	}
@@ -129,8 +129,8 @@ func (ResourceSuite) TestValidateMissingUsername(c *gc.C) {
 func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 	res := resource.Resource{
 		Resource:  newFullCharmResource(c, "spam"),
-		ID:        "a-service/spam",
-		ServiceID: "a-service",
+		ID:        "a-application/spam",
+		ServiceID: "a-application",
 		Username:  "a-user",
 		Timestamp: time.Time{},
 	}
@@ -207,8 +207,8 @@ func (ResourceSuite) TestRevisionStringNumber(c *gc.C) {
 }
 
 func (s *ResourceSuite) TestAsMap(c *gc.C) {
-	spam := newStoreResource(c, "spam", "a-service", 2)
-	eggs := newStoreResource(c, "eggs", "a-service", 3)
+	spam := newStoreResource(c, "spam", "a-application", 2)
+	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	resources := []resource.Resource{
 		spam,
 		eggs,

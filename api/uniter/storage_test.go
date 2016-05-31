@@ -5,9 +5,9 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
@@ -157,7 +157,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	storageAttachment := params.StorageAttachment{
 		StorageTag: "storage-whatever-0",
-		OwnerTag:   "service-mysql",
+		OwnerTag:   "application-mysql",
 		UnitTag:    "unit-mysql-0",
 		Kind:       params.StorageKindBlock,
 		Location:   "/dev/sda",

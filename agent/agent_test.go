@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

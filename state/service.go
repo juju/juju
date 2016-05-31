@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -71,13 +71,13 @@ func (s *Service) Name() string {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (s *Service) Tag() names.Tag {
-	return s.ServiceTag()
+	return s.ApplicationTag()
 }
 
-// ServiceTag returns the more specific ServiceTag rather than the generic
+// ApplicationTag returns the more specific ApplicationTag rather than the generic
 // Tag.
-func (s *Service) ServiceTag() names.ServiceTag {
-	return names.NewServiceTag(s.Name())
+func (s *Service) ApplicationTag() names.ApplicationTag {
+	return names.NewApplicationTag(s.Name())
 }
 
 // serviceGlobalKey returns the global database key for the service

@@ -115,8 +115,8 @@ func (c *Client) ServiceCharmActions(arg params.Entity) (*charm.Actions, error) 
 	if result.Error != nil {
 		return none, result.Error
 	}
-	if result.ServiceTag != arg.Tag {
-		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
+	if result.ApplicationTag != arg.Tag {
+		return none, errors.Errorf("action results received for wrong service %q", result.ApplicationTag)
 	}
 	return result.Actions, nil
 }

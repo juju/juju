@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // Backend exposes functionality required by Facade.
@@ -75,9 +75,9 @@ func (facade *Facade) rescaleOne(tagString string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceTag, ok := tag.(names.ServiceTag)
+	ApplicationTag, ok := tag.(names.ApplicationTag)
 	if !ok {
 		return common.ErrPerm
 	}
-	return facade.backend.RescaleService(serviceTag.Id())
+	return facade.backend.RescaleService(ApplicationTag.Id())
 }

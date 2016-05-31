@@ -52,9 +52,9 @@ func (s *APISuite) TestRescaleConvertArgs(c *gc.C) {
 		called = true
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
-				"service-foo",
+				"application-foo",
 			}, {
-				"service-bar-baz",
+				"application-bar-baz",
 			}},
 		})
 		return nil

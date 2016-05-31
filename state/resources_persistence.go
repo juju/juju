@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -379,7 +379,7 @@ func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op,
 
 	ops := newRemoveResourcesOps(docs)
 	// We do not remove the resource from the blob store here. That is
-	// a service-level matter.
+	// a application-level matter.
 	return ops, nil
 }
 

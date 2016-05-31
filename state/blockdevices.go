@@ -7,8 +7,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"

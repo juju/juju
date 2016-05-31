@@ -5,11 +5,11 @@ package private_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -101,7 +101,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 			Type:    "type",
 			ID:      "idfoo",
 			Status:  payload.StateRunning,
-			Unit:    "unit-a-service-0",
+			Unit:    "unit-a-application-0",
 			Machine: "machine-1",
 		},
 	})
@@ -119,7 +119,7 @@ func (internalHelpersSuite) TestAPI2ResultInfo(c *gc.C) {
 				},
 				ID:     "idfoo",
 				Status: payload.StateRunning,
-				Unit:   "a-service/0",
+				Unit:   "a-application/0",
 			},
 			Machine: "1",
 		},
@@ -204,7 +204,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 				},
 				ID:     "idfoo",
 				Status: payload.StateRunning,
-				Unit:   "a-service/0",
+				Unit:   "a-application/0",
 			},
 			Machine: "1",
 		},
@@ -221,7 +221,7 @@ func (internalHelpersSuite) TestResult2apiInfo(c *gc.C) {
 			Type:    "type",
 			ID:      "idfoo",
 			Status:  payload.StateRunning,
-			Unit:    "unit-a-service-0",
+			Unit:    "unit-a-application-0",
 			Machine: "machine-1",
 		},
 	})

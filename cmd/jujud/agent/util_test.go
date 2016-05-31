@@ -42,7 +42,7 @@ var (
 		"metric-worker",
 		"migration-fortress",
 		"migration-master",
-		"service-scaler",
+		"application-scaler",
 		"space-importer",
 		"state-cleaner",
 		"status-history-pruner",

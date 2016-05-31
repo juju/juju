@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/yaml.v1"
 
@@ -134,8 +134,8 @@ func deployBundle(
 		log:               log,
 		data:              data,
 		unitStatus:        unitStatus,
-		ignoredMachines:   make(map[string]bool, len(data.Services)),
-		ignoredUnits:      make(map[string]bool, len(data.Services)),
+		ignoredMachines:   make(map[string]bool, len(data.Applications)),
+		ignoredUnits:      make(map[string]bool, len(data.Applications)),
 		watcher:           watcher,
 	}
 
@@ -155,7 +155,7 @@ func deployBundle(
 			err = h.addMachine(change.Id(), change.Params)
 		case *bundlechanges.AddRelationChange:
 			err = h.addRelation(change.Id(), change.Params)
-		case *bundlechanges.AddServiceChange:
+		case *bundlechanges.AddApplicationChange:
 			var cURL *charm.URL
 			cURL, err = charm.ParseURL(resolve(change.Params.Charm, h.results))
 			if err == nil {
@@ -217,7 +217,7 @@ type bundleHandler struct {
 	// serviceDeployer is used to deploy services.
 	serviceDeployer *serviceDeployer
 
-	// bundleStorage contains a mapping of service-specific storage
+	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each service, the storage constraints in the
 	// map will replace or augment the storage constraints specified
 	// in the bundle itself.
@@ -301,15 +301,15 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 
 // addService deploys or update a service with no units. Service options are
 // also set or updated.
-func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, chID charmstore.CharmID, csMac *macaroon.Macaroon) error {
-	h.results[id] = p.Service
+func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationParams, chID charmstore.CharmID, csMac *macaroon.Macaroon) error {
+	h.results[id] = p.Application
 	ch := chID.URL.String()
 	// Handle service configuration.
 	configYAML := ""
 	if len(p.Options) > 0 {
-		config, err := yaml.Marshal(map[string]map[string]interface{}{p.Service: p.Options})
+		config, err := yaml.Marshal(map[string]map[string]interface{}{p.Application: p.Options})
 		if err != nil {
-			return errors.Annotatef(err, "cannot marshal options for service %q", p.Service)
+			return errors.Annotatef(err, "cannot marshal options for application %q", p.Application)
 		}
 		configYAML = string(config)
 	}
@@ -319,7 +319,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotate(err, "invalid constraints for service")
 	}
-	storageConstraints := h.bundleStorage[p.Service]
+	storageConstraints := h.bundleStorage[p.Application]
 	if len(p.Storage) > 0 {
 		if storageConstraints == nil {
 			storageConstraints = make(map[string]storage.Constraints)
@@ -345,7 +345,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 	if err != nil {
 		return err
 	}
-	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Service, chID, csMac, charmInfo.Meta.Resources)
+	resNames2IDs, err := handleResources(h.serviceDeployer.api, resources, p.Application, chID, csMac, charmInfo.Meta.Resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -374,7 +374,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 	// Deploy the service.
 	if err := h.serviceDeployer.serviceDeploy(serviceDeployParams{
 		charmID:       chID,
-		serviceName:   p.Service,
+		serviceName:   p.Application,
 		series:        series,
 		configYAML:    configYAML,
 		constraints:   cons,
@@ -382,40 +382,40 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddServiceParams, 
 		spaceBindings: p.EndpointBindings,
 		resources:     resNames2IDs,
 	}); err == nil {
-		h.log.Infof("service %s deployed (charm %s %v)", p.Service, ch, fmt.Sprintf(message, series))
+		h.log.Infof("application %s deployed (charm %s %v)", p.Application, ch, fmt.Sprintf(message, series))
 		for resName := range resNames2IDs {
 			h.log.Infof("added resource %s", resName)
 		}
 		return nil
 	} else if !isErrServiceExists(err) {
-		return errors.Annotatef(err, "cannot deploy service %q", p.Service)
+		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
 	// The service is already deployed in the environment: check that its
 	// charm is compatible with the one declared in the bundle. If it is,
 	// reuse the existing service or upgrade to a specified revision.
 	// Exit with an error otherwise.
-	if err := h.upgradeCharm(p.Service, chID, csMac, resources); err != nil {
-		return errors.Annotatef(err, "cannot upgrade service %q", p.Service)
+	if err := h.upgradeCharm(p.Application, chID, csMac, resources); err != nil {
+		return errors.Annotatef(err, "cannot upgrade application %q", p.Application)
 	}
 	// Update service configuration.
 	if configYAML != "" {
-		if err := h.serviceClient.Update(params.ServiceUpdate{
-			ServiceName:  p.Service,
-			SettingsYAML: configYAML,
+		if err := h.serviceClient.Update(params.ApplicationUpdate{
+			ApplicationName: p.Application,
+			SettingsYAML:    configYAML,
 		}); err != nil {
 			// This should never happen as possible errors are already returned
 			// by the service Deploy call above.
-			return errors.Annotatef(err, "cannot update options for service %q", p.Service)
+			return errors.Annotatef(err, "cannot update options for application %q", p.Application)
 		}
-		h.log.Infof("configuration updated for service %s", p.Service)
+		h.log.Infof("configuration updated for application %s", p.Application)
 	}
 	// Update service constraints.
 	if p.Constraints != "" {
-		if err := h.serviceClient.SetConstraints(p.Service, cons); err != nil {
+		if err := h.serviceClient.SetConstraints(p.Application, cons); err != nil {
 			// This should never happen, as the bundle is already verified.
-			return errors.Annotatef(err, "cannot update constraints for service %q", p.Service)
+			return errors.Annotatef(err, "cannot update constraints for application %q", p.Application)
 		}
-		h.log.Infof("constraints applied for service %s", p.Service)
+		h.log.Infof("constraints applied for application %s", p.Application)
 	}
 	return nil
 }
@@ -517,7 +517,7 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 
 // addUnit adds a single unit to a service already present in the environment.
 func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error {
-	service := resolve(p.Service, h.results)
+	service := resolve(p.Application, h.results)
 	// Check whether the desired number of units already exist in the
 	// environment, in which case avoid adding other units.
 	machine := h.chooseMachine(service)
@@ -532,7 +532,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 			} else {
 				msg = fmt.Sprintf("%d units already present", num)
 			}
-			h.log.Infof("avoid adding new units to service %s: %s", service, msg)
+			h.log.Infof("avoid adding new units to application %s: %s", service, msg)
 		}
 		return nil
 	}
@@ -552,7 +552,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 	}
 	r, err := h.serviceClient.AddUnits(service, 1, placementArg)
 	if err != nil {
-		return errors.Annotatef(err, "cannot add unit for service %q", service)
+		return errors.Annotatef(err, "cannot add unit for application %q", service)
 	}
 	unit := r[0]
 	if machineSpec == "" {
@@ -574,11 +574,11 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 
 // exposeService exposes a service.
 func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) error {
-	service := resolve(p.Service, h.results)
+	service := resolve(p.Application, h.results)
 	if err := h.serviceClient.Expose(service); err != nil {
-		return errors.Annotatef(err, "cannot expose service %s", service)
+		return errors.Annotatef(err, "cannot expose application %s", service)
 	}
-	h.log.Infof("service %s exposed", service)
+	h.log.Infof("application %s exposed", service)
 	return nil
 }
 
@@ -589,8 +589,8 @@ func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotations
 	switch p.EntityType {
 	case bundlechanges.MachineType:
 		tag = names.NewMachineTag(eid).String()
-	case bundlechanges.ServiceType:
-		tag = names.NewServiceTag(eid).String()
+	case bundlechanges.ApplicationType:
+		tag = names.NewApplicationTag(eid).String()
 	default:
 		return errors.Errorf("unexpected annotation entity type %q", p.EntityType)
 	}
@@ -610,7 +610,7 @@ func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotations
 // units, and units belong to services.
 // Receive the id of the "addMachine" change.
 func (h *bundleHandler) servicesForMachineChange(changeId string) []string {
-	services := make(map[string]bool, len(h.data.Services))
+	services := make(map[string]bool, len(h.data.Applications))
 mainloop:
 	for _, change := range h.changes {
 		for _, required := range change.Requires() {
@@ -629,7 +629,7 @@ mainloop:
 			case *bundlechanges.AddUnitChange:
 				// We have found the "addUnit" change, which refers to a
 				// service: now resolve the service holding the unit.
-				service := resolve(change.Params.Service, h.results)
+				service := resolve(change.Params.Application, h.results)
 				services[service] = true
 				continue mainloop
 			case *bundlechanges.SetAnnotationsChange:
@@ -659,14 +659,14 @@ mainloop:
 func (h *bundleHandler) chooseMachine(services ...string) string {
 	candidateMachines := make(map[string]bool, len(h.unitStatus))
 	numUnitsPerMachine := make(map[string]int, len(h.unitStatus))
-	numUnitsPerService := make(map[string]int, len(h.data.Services))
+	numUnitsPerService := make(map[string]int, len(h.data.Applications))
 	// Collect the number of units and the corresponding machines for all
 	// involved services.
 	for unit, machine := range h.unitStatus {
 		// Retrieve the top level machine.
 		machine = strings.Split(machine, "/")[0]
 		numUnitsPerMachine[machine]++
-		svc, err := names.UnitService(unit)
+		svc, err := names.UnitApplication(unit)
 		if err != nil {
 			// Should never happen because the bundle logic has already checked
 			// that unit names are well formed.
@@ -683,7 +683,7 @@ func (h *bundleHandler) chooseMachine(services ...string) string {
 	// If at least one service still requires units to be added, return an
 	// empty machine in order to force new machine creation.
 	for _, service := range services {
-		if numUnitsPerService[service] < h.data.Services[service].NumUnits {
+		if numUnitsPerService[service] < h.data.Applications[service].NumUnits {
 			return ""
 		}
 	}
@@ -737,7 +737,7 @@ func (h *bundleHandler) updateUnitStatus() error {
 // currently in the environment.
 func (h *bundleHandler) numUnitsForService(service string) (num int) {
 	for unit := range h.unitStatus {
-		svc, err := names.UnitService(unit)
+		svc, err := names.UnitApplication(unit)
 		if err != nil {
 			// Should never happen.
 			panic(err)
@@ -798,10 +798,10 @@ func (h *bundleHandler) upgradeCharm(service string, chID charmstore.CharmID, cs
 	id := chID.URL.String()
 	existing, err := h.serviceClient.GetCharmURL(service)
 	if err != nil {
-		return errors.Annotatef(err, "cannot retrieve info for service %q", service)
+		return errors.Annotatef(err, "cannot retrieve info for application %q", service)
 	}
 	if existing.String() == id {
-		h.log.Infof("reusing service %s (charm: %s)", service, id)
+		h.log.Infof("reusing application %s (charm: %s)", service, id)
 		return nil
 	}
 	url, err := charm.ParseURL(id)
@@ -831,7 +831,7 @@ func (h *bundleHandler) upgradeCharm(service string, chID charmstore.CharmID, cs
 	if err := h.serviceClient.SetCharm(cfg); err != nil {
 		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
 	}
-	h.log.Infof("upgraded charm for existing service %s (from %s to %s)", service, existing, id)
+	h.log.Infof("upgraded charm for existing application %s (from %s to %s)", service, existing, id)
 	for resName := range resNames2IDs {
 		h.log.Infof("added resource %s", resName)
 	}

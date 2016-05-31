@@ -38,7 +38,7 @@ type ModelStatus struct {
 	ModelTag           string `json:"model-tag"`
 	Life               Life   `json:"life"`
 	HostedMachineCount int    `json:"hosted-machine-count"`
-	ServiceCount       int    `json:"service-count"`
+	ServiceCount       int    `json:"application-count"`
 	OwnerTag           string `json:"owner-tag"`
 }
 

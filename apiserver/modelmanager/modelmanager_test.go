@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -538,7 +538,7 @@ func (s *modelManagerSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 		tag:      "unit-foo/0",
 		validTag: true,
 	}, {
-		tag:      "service-foo",
+		tag:      "application-foo",
 		validTag: true,
 	}, {
 		tag:      "relation-wordpress:db mysql:db",

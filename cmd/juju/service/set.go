@@ -109,8 +109,8 @@ func (c *setCommand) Init(args []string) error {
 // that the service set command calls.
 type serviceAPI interface {
 	Close() error
-	Update(args params.ServiceUpdate) error
-	Get(service string) (*params.ServiceGetResults, error)
+	Update(args params.ApplicationUpdate) error
+	Get(service string) (*params.ApplicationGetResults, error)
 	Set(service string, options map[string]string) error
 	Unset(service string, options []string) error
 }
@@ -139,9 +139,9 @@ func (c *setCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		return block.ProcessBlockedError(apiclient.Update(params.ServiceUpdate{
-			ServiceName:  c.ServiceName,
-			SettingsYAML: string(b),
+		return block.ProcessBlockedError(apiclient.Update(params.ApplicationUpdate{
+			ApplicationName: c.ServiceName,
+			SettingsYAML:    string(b),
 		}), block.BlockChange)
 	} else if c.SetDefault {
 		return block.ProcessBlockedError(apiclient.Unset(c.ServiceName, c.Options), block.BlockChange)

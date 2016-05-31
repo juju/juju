@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -13,6 +12,7 @@ import (
 	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"

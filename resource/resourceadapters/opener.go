@@ -5,7 +5,7 @@ package resourceadapters
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	csclient "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"

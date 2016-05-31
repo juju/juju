@@ -6,10 +6,10 @@ package action_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
@@ -38,15 +38,15 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		description: "result from wrong service",
 		patchResults: []params.ServiceCharmActionsResult{
 			{
-				ServiceTag: names.NewServiceTag("bar").String(),
+				ApplicationTag: names.NewApplicationTag("bar").String(),
 			},
 		},
-		expectedErr: `action results received for wrong service "service-bar"`,
+		expectedErr: `action results received for wrong service "application-bar"`,
 	}, {
 		description: "some other error",
 		patchResults: []params.ServiceCharmActionsResult{
 			{
-				ServiceTag: names.NewServiceTag("foo").String(),
+				ApplicationTag: names.NewApplicationTag("foo").String(),
 				Error: &params.Error{
 					Message: "something bad",
 				},
@@ -72,7 +72,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		description: "normal result",
 		patchResults: []params.ServiceCharmActionsResult{
 			{
-				ServiceTag: names.NewServiceTag("foo").String(),
+				ApplicationTag: names.NewApplicationTag("foo").String(),
 				Actions: &charm.Actions{
 					ActionSpecs: map[string]charm.ActionSpec{
 						"action": {
@@ -103,7 +103,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 			c.Logf("test %d: %s", i, t.description)
 			cleanup := patchServiceCharmActions(c, s.client, t.patchResults, t.patchErr)
 			defer cleanup()
-			result, err := s.client.ServiceCharmActions(params.Entity{Tag: names.NewServiceTag("foo").String()})
+			result, err := s.client.ServiceCharmActions(params.Entity{Tag: names.NewApplicationTag("foo").String()})
 			if t.expectedErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
 			} else {

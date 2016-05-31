@@ -44,14 +44,14 @@ func (s *ExposeSuite) assertExposed(c *gc.C, service string) {
 
 func (s *ExposeSuite) TestExpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-service-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
-	s.AssertService(c, "some-service-name", curl, 1, 0)
+	s.AssertService(c, "some-application-name", curl, 1, 0)
 
-	err = runExpose(c, "some-service-name")
+	err = runExpose(c, "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertExposed(c, "some-service-name")
+	s.assertExposed(c, "some-application-name")
 
 	err = runExpose(c, "nonexistent-service")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -62,14 +62,14 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 
 func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-service-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
-	s.AssertService(c, "some-service-name", curl, 1, 0)
+	s.AssertService(c, "some-application-name", curl, 1, 0)
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockExpose")
 
-	err = runExpose(c, "some-service-name")
+	err = runExpose(c, "some-application-name")
 	s.AssertBlocked(c, err, ".*TestBlockExpose.*")
 }

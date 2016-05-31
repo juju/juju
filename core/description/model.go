@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 )
 

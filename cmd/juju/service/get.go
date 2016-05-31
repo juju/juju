@@ -18,7 +18,7 @@ Displays configuration settings for a deployed service.`[1:]
 
 var usageGetConfigDetails = `
 Output includes the name of the charm used to deploy the service and a
-listing of the service-specific configuration settings.
+listing of the application-specific configuration settings.
 See `[1:] + "`juju status`" + ` for service names.
 
 Examples:
@@ -73,7 +73,7 @@ func (c *getCommand) Init(args []string) error {
 // that the service get command calls.
 type getServiceAPI interface {
 	Close() error
-	Get(service string) (*params.ServiceGetResults, error)
+	Get(service string) (*params.ApplicationGetResults, error)
 }
 
 func (c *getCommand) getAPI() (getServiceAPI, error) {
@@ -102,7 +102,7 @@ func (c *getCommand) Run(ctx *cmd.Context) error {
 	}
 
 	resultsMap := map[string]interface{}{
-		"service":  results.Service,
+		"service":  results.Application,
 		"charm":    results.Charm,
 		"settings": results.Config,
 	}

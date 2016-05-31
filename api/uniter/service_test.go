@@ -6,9 +6,9 @@ package uniter_test
 import (
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -29,14 +29,14 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
+	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ApplicationTag))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
 	c.Assert(s.apiService.Name(), gc.Equals, s.wordpressService.Name())
 	c.Assert(s.apiService.String(), gc.Equals, s.wordpressService.String())
-	c.Assert(s.apiService.Tag(), gc.Equals, s.wordpressService.Tag().(names.ServiceTag))
+	c.Assert(s.apiService.Tag(), gc.Equals, s.wordpressService.Tag().(names.ApplicationTag))
 }
 
 func (s *serviceSuite) TestWatch(c *gc.C) {

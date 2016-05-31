@@ -18,12 +18,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/keyvalues"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"

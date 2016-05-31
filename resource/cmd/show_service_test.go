@@ -8,11 +8,11 @@ import (
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/resource"
 )
@@ -63,7 +63,7 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "list-resources",
 		Aliases: []string{"resources"},
-		Args:    "service-or-unit",
+		Args:    "application-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing

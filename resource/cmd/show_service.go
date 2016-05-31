@@ -6,7 +6,7 @@ package cmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -50,7 +50,7 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-resources",
 		Aliases: []string{"resources"},
-		Args:    "service-or-unit",
+		Args:    "application-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing
@@ -95,10 +95,10 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 
 	var unit string
 	var service string
-	if names.IsValidService(c.target) {
+	if names.IsValidApplication(c.target) {
 		service = c.target
 	} else {
-		service, err = names.UnitService(c.target)
+		service, err = names.UnitApplication(c.target)
 		if err != nil {
 			return errors.Errorf("%q is neither a service nor a unit", c.target)
 		}

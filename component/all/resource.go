@@ -10,7 +10,7 @@ import (
 
 	jujucmd "github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	coreapi "github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

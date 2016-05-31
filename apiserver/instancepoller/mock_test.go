@@ -8,9 +8,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/instancepoller"
 	"github.com/juju/juju/environs/config"

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -67,7 +67,7 @@ func newResourceResult(c *gc.C, serviceID string, names ...string) ([]resource.R
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
-	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Revision = 1
 	res.Username = username

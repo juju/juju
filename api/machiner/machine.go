@@ -5,7 +5,7 @@ package machiner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"

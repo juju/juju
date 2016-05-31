@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -25,6 +24,7 @@ import (
 	"gopkg.in/amz.v3/ec2/ec2test"
 	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"

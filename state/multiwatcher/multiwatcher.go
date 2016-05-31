@@ -252,7 +252,7 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-// Endpoint holds a service-relation pair.
+// Endpoint holds a application-relation pair.
 type Endpoint struct {
 	ServiceName string
 	Relation    charm.Relation

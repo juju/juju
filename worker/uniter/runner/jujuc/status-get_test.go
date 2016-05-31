@@ -147,7 +147,7 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 
 func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	expected := map[string]interface{}{
-		"service-status": map[interface{}]interface{}{
+		"application-status": map[interface{}]interface{}{
 			"status-data": map[interface{}]interface{}{},
 			"units": map[interface{}]interface{}{
 				"": map[interface{}]interface{}{

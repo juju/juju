@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
@@ -18,7 +18,7 @@ import (
 type LatestCharmHandler interface {
 	// HandleLatest deals with the given charm info, treating it as the
 	// most up-to-date information for the charms most recent revision.
-	HandleLatest(names.ServiceTag, charmstore.CharmInfo) error
+	HandleLatest(names.ApplicationTag, charmstore.CharmInfo) error
 }
 
 type newHandlerFunc func(*state.State) (LatestCharmHandler, error)

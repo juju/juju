@@ -257,7 +257,7 @@ func newStagedResourceDoc(stored storedResource) *resourceDoc {
 func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) {
 	logger.Tracef("querying db for resources for %q", serviceID)
 	var docs []resourceDoc
-	query := bson.D{{"service-id", serviceID}}
+	query := bson.D{{"application-id", serviceID}}
 	if err := p.base.All(resourcesC, query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -303,7 +303,7 @@ type resourceDoc struct {
 	ID        string `bson:"resource-id"`
 	PendingID string `bson:"pending-id"`
 
-	ServiceID string `bson:"service-id"`
+	ServiceID string `bson:"application-id"`
 	UnitID    string `bson:"unit-id"`
 
 	Name        string `bson:"name"`

@@ -7,11 +7,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -304,12 +304,12 @@ func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error
 }
 
 func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	ann, err := annotations.NewClient(st).Get([]string{"service-wordpress"})
+	ann, err := annotations.NewClient(st).Get([]string{"application-wordpress"})
 	if err != nil {
 		return func() {}, err
 	}
 	c.Assert(ann, gc.DeepEquals, []params.AnnotationsGetResult{{
-		EntityTag:   "service-wordpress",
+		EntityTag:   "application-wordpress",
 		Annotations: map[string]string{},
 	}})
 	return func() {}, nil
@@ -318,7 +318,7 @@ func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
 	setParams := map[string]map[string]string{
-		"service-wordpress": pairs,
+		"application-wordpress": pairs,
 	}
 	_, err := annotations.NewClient(st).Set(setParams)
 	if err != nil {
@@ -327,15 +327,15 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 	return func() {
 		pairs := map[string]string{"key1": "", "key2": ""}
 		setParams := map[string]map[string]string{
-			"service-wordpress": pairs,
+			"application-wordpress": pairs,
 		}
 		annotations.NewClient(st).Set(setParams)
 	}, nil
 }
 
 func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	args := params.ServiceUpdate{
-		ServiceName:     "no-such-charm",
+	args := params.ApplicationUpdate{
+		ApplicationName: "no-such-charm",
 		CharmUrl:        "cs:quantal/wordpress-42",
 		ForceCharmUrl:   true,
 		SettingsStrings: map[string]string{"blog-title": "foo"},

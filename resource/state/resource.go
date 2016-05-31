@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
@@ -413,7 +413,7 @@ func storagePath(name, serviceID, pendingID string) string {
 		// TODO(ericsnow) How to resolve this later?
 		id += "-" + pendingID
 	}
-	return path.Join("service-"+serviceID, "resources", id)
+	return path.Join("application-"+serviceID, "resources", id)
 }
 
 // unitSetter records the resource as in use by a unit when the wrapped

@@ -5,8 +5,8 @@ package resource
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 )
 
 // ServiceResources contains the list of resources for the service and all its

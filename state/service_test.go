@@ -1111,7 +1111,7 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 }
 
 func (s *ServiceSuite) TestTag(c *gc.C) {
-	c.Assert(s.mysql.Tag().String(), gc.Equals, "service-mysql")
+	c.Assert(s.mysql.Tag().String(), gc.Equals, "application-mysql")
 }
 
 func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {

@@ -6,7 +6,7 @@ package servicescaler
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -55,10 +55,10 @@ func (api *API) Rescale(services []string) error {
 		Entities: make([]params.Entity, len(services)),
 	}
 	for i, service := range services {
-		if !names.IsValidService(service) {
+		if !names.IsValidApplication(service) {
 			return errors.NotValidf("service name %q", service)
 		}
-		tag := names.NewServiceTag(service)
+		tag := names.NewApplicationTag(service)
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.ErrorResults

@@ -13,7 +13,7 @@ import json, sys; j=json.load(sys.stdin)
 print "\n".join(j["machines"].keys());' < ${1?}
 }
 
-# Print (return) all units, each optionally postfixed by $2 (eg. 'myservice/0:')
+# Print (return) all units, each optionally postfixed by $2 (eg. 'myapplication/0:')
 _juju_units_from_file() {
 python -c '
 trail="'${2}'"

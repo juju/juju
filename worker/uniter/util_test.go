@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"

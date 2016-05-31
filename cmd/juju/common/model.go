@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // ModelInfo contains information about a model.

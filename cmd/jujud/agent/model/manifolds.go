@@ -312,7 +312,7 @@ const (
 	storageProvisionerName   = "storage-provisioner"
 	firewallerName           = "firewaller"
 	unitAssignerName         = "unit-assigner"
-	serviceScalerName        = "service-scaler"
+	serviceScalerName        = "application-scaler"
 	instancePollerName       = "instance-poller"
 	charmRevisionUpdaterName = "charm-revision-updater"
 	metricWorkerName         = "metric-worker"

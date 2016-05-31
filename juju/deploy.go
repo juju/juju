@@ -96,7 +96,7 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 		givenBindings = make(map[string]string, len(defaultBindings))
 	}
 
-	// Get the service-level default binding for all unspecified endpoint, if
+	// Get the application-level default binding for all unspecified endpoint, if
 	// set, otherwise use the empty default.
 	serviceDefaultSpace, _ := givenBindings[""]
 

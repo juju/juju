@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"

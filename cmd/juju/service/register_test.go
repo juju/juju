@@ -79,9 +79,9 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 			Limit:       "100",
 		}},
 	}, {
-		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
-			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
-				ServiceName:       "service name",
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ApplicationMetricCredentials{
+			Creds: []params.ApplicationMetricCredential{params.ApplicationMetricCredential{
+				ApplicationName:   "service name",
 				MetricCredentials: authorization,
 			}},
 		}},
@@ -192,9 +192,9 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 			Limit:       "100",
 		}},
 	}, {
-		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
-			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
-				ServiceName:       "service name",
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ApplicationMetricCredentials{
+			Creds: []params.ApplicationMetricCredential{params.ApplicationMetricCredential{
+				ApplicationName:   "service name",
 				MetricCredentials: authorization,
 			}},
 		}},
@@ -233,9 +233,9 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 			Limit:       "100",
 		}},
 	}, {
-		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
-			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
-				ServiceName:       "service name",
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ApplicationMetricCredentials{
+			Creds: []params.ApplicationMetricCredential{params.ApplicationMetricCredential{
+				ApplicationName:   "service name",
 				MetricCredentials: authorization,
 			}},
 		}},
@@ -276,9 +276,9 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 			Limit:       "100",
 		}},
 	}, {
-		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ServiceMetricCredentials{
-			Creds: []params.ServiceMetricCredential{params.ServiceMetricCredential{
-				ServiceName:       "service name",
+		"APICall", []interface{}{"Service", "SetMetricCredentials", params.ApplicationMetricCredentials{
+			Creds: []params.ApplicationMetricCredential{params.ApplicationMetricCredential{
+				ApplicationName:   "service name",
 				MetricCredentials: authorization,
 			}},
 		}},

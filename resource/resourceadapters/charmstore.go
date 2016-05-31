@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -77,7 +77,7 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 
 		// Now we have the unit, we can get the service that should have been
 		// specified in the first place...
-		serviceId, err := names.UnitService(unitId)
+		serviceId, err := names.UnitApplication(unitId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue

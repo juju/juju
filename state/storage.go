@@ -8,10 +8,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/storage/provider/registry"
 )
 
-// StorageInstance represents the state of a unit or service-wide storage
+// StorageInstance represents the state of a unit or application-wide storage
 // instance in the model.
 type StorageInstance interface {
 	Entity
@@ -348,7 +348,7 @@ func createStorageOps(
 
 	createdShared := false
 	switch entity := entity.(type) {
-	case names.ServiceTag:
+	case names.ApplicationTag:
 		createdShared = true
 	case names.UnitTag:
 	default:

@@ -17,12 +17,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"

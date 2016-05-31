@@ -271,7 +271,7 @@ var (
 		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
-		"service-status": M{
+		"application-status": M{
 			"current": "unknown",
 			"message": "Waiting for agent initialization to finish",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -280,7 +280,7 @@ var (
 		"exposed": false,
 	}
 	exposedService = M{
-		"service-status": M{
+		"application-status": M{
 			"current": "unknown",
 			"message": "Waiting for agent initialization to finish",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -526,8 +526,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"dummy"},
-		addService{name: "dummy-service", charm: "dummy"},
-		addService{name: "exposed-service", charm: "dummy"},
+		addService{name: "dummy-application", charm: "dummy"},
+		addService{name: "exposed-application", charm: "dummy"},
 		expect{
 			"no services exposed yet",
 			M{
@@ -536,14 +536,14 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"services": M{
-					"dummy-service":   unexposedService,
-					"exposed-service": unexposedService,
+					"dummy-application":   unexposedService,
+					"exposed-application": unexposedService,
 				},
 			},
 		},
 
 		// step 8
-		setServiceExposed{"exposed-service", true},
+		setServiceExposed{"exposed-application", true},
 		expect{
 			"one exposed service",
 			M{
@@ -552,8 +552,8 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"services": M{
-					"dummy-service":   unexposedService,
-					"exposed-service": exposedService,
+					"dummy-application":   unexposedService,
+					"exposed-application": exposedService,
 				},
 			},
 		},
@@ -577,27 +577,27 @@ var statusTests = []testCase{
 					"2": machine2,
 				},
 				"services": M{
-					"dummy-service":   unexposedService,
-					"exposed-service": exposedService,
+					"dummy-application":   unexposedService,
+					"exposed-application": exposedService,
 				},
 			},
 		},
 
 		// step 19
-		addAliveUnit{"dummy-service", "1"},
-		addAliveUnit{"exposed-service", "2"},
-		setAgentStatus{"exposed-service/0", status.StatusError, "You Require More Vespene Gas", nil},
+		addAliveUnit{"dummy-application", "1"},
+		addAliveUnit{"exposed-application", "2"},
+		setAgentStatus{"exposed-application/0", status.StatusError, "You Require More Vespene Gas", nil},
 		// Open multiple ports with different protocols,
 		// ensure they're sorted on protocol, then number.
-		openUnitPort{"exposed-service/0", "udp", 10},
-		openUnitPort{"exposed-service/0", "udp", 2},
-		openUnitPort{"exposed-service/0", "tcp", 3},
-		openUnitPort{"exposed-service/0", "tcp", 2},
+		openUnitPort{"exposed-application/0", "udp", 10},
+		openUnitPort{"exposed-application/0", "udp", 2},
+		openUnitPort{"exposed-application/0", "tcp", 3},
+		openUnitPort{"exposed-application/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
 		// Status used to be down, we no longer support said state.
 		// now is one of: pending, started, error.
-		setUnitStatus{"dummy-service/0", status.StatusTerminated, "", nil},
-		setAgentStatus{"dummy-service/0", status.StatusIdle, "", nil},
+		setUnitStatus{"dummy-application/0", status.StatusTerminated, "", nil},
+		setAgentStatus{"dummy-application/0", status.StatusIdle, "", nil},
 
 		expect{
 			"add two units, one alive (in error state), one started",
@@ -609,16 +609,16 @@ var statusTests = []testCase{
 					"2": machine2,
 				},
 				"services": M{
-					"exposed-service": M{
+					"exposed-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"exposed-service/0": M{
+							"exposed-application/0": M{
 								"machine": "2",
 								"workload-status": M{
 									"current": "error",
@@ -636,15 +636,15 @@ var statusTests = []testCase{
 							},
 						},
 					},
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
@@ -672,7 +672,7 @@ var statusTests = []testCase{
 		setAddresses{"4", network.NewAddresses("admin-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.StatusError, "Beware the red toys"},
-		ensureDyingUnit{"dummy-service/0"},
+		ensureDyingUnit{"dummy-application/0"},
 		addMachine{machineId: "5", job: state.JobHostUnits},
 		ensureDeadMachine{"5"},
 		expect{
@@ -728,16 +728,16 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{
-					"exposed-service": M{
+					"exposed-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"exposed-service/0": M{
+							"exposed-application/0": M{
 								"machine": "2",
 								"workload-status": M{
 									"current": "error",
@@ -755,15 +755,15 @@ var statusTests = []testCase{
 							},
 						},
 					},
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
@@ -783,23 +783,23 @@ var statusTests = []testCase{
 
 		// step 41
 		scopedExpect{
-			"scope status on dummy-service/0 unit",
-			[]string{"dummy-service/0"},
+			"scope status on dummy-application/0 unit",
+			[]string{"dummy-application/0"},
 			M{
 				"model": "admin",
 				"machines": M{
 					"1": machine1,
 				},
 				"services": M{
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
@@ -817,24 +817,24 @@ var statusTests = []testCase{
 			},
 		},
 		scopedExpect{
-			"scope status on exposed-service service",
-			[]string{"exposed-service"},
+			"scope status on exposed-application service",
+			[]string{"exposed-application"},
 			M{
 				"model": "admin",
 				"machines": M{
 					"2": machine2,
 				},
 				"services": M{
-					"exposed-service": M{
+					"exposed-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"exposed-service/0": M{
+							"exposed-application/0": M{
 								"machine": "2",
 								"workload-status": M{
 									"current": "error",
@@ -857,22 +857,22 @@ var statusTests = []testCase{
 		},
 		scopedExpect{
 			"scope status on service pattern",
-			[]string{"d*-service"},
+			[]string{"d*-application"},
 			M{
 				"model": "admin",
 				"machines": M{
 					"1": machine1,
 				},
 				"services": M{
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
@@ -891,23 +891,23 @@ var statusTests = []testCase{
 		},
 		scopedExpect{
 			"scope status on unit pattern",
-			[]string{"e*posed-service/*"},
+			[]string{"e*posed-application/*"},
 			M{
 				"model": "admin",
 				"machines": M{
 					"2": machine2,
 				},
 				"services": M{
-					"exposed-service": M{
+					"exposed-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"exposed-service/0": M{
+							"exposed-application/0": M{
 								"machine": "2",
 								"workload-status": M{
 									"current": "error",
@@ -930,7 +930,7 @@ var statusTests = []testCase{
 		},
 		scopedExpect{
 			"scope status on combination of service and unit patterns",
-			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
+			[]string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
 			M{
 				"model": "admin",
 				"machines": M{
@@ -938,15 +938,15 @@ var statusTests = []testCase{
 					"2": machine2,
 				},
 				"services": M{
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "1",
 								"workload-status": M{
 									"current": "terminated",
@@ -960,16 +960,16 @@ var statusTests = []testCase{
 							},
 						},
 					},
-					"exposed-service": M{
+					"exposed-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "You Require More Vespene Gas",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"exposed-service/0": M{
+							"exposed-application/0": M{
 								"machine": "2",
 								"workload-status": M{
 									"current": "error",
@@ -1032,7 +1032,7 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "hook failed: some-relation-changed",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1059,7 +1059,7 @@ var statusTests = []testCase{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
-						"service-status": M{
+						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1125,7 +1125,7 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
-						"service-status": M{
+						"application-status": M{
 							"current": "error",
 							"message": "hook failed: some-relation-changed",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1152,7 +1152,7 @@ var statusTests = []testCase{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
-						"service-status": M{
+						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1180,10 +1180,10 @@ var statusTests = []testCase{
 	test( // 7
 		"add a dying service",
 		addCharm{"dummy"},
-		addService{name: "dummy-service", charm: "dummy"},
+		addService{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
-		addAliveUnit{"dummy-service", "0"},
-		ensureDyingService{"dummy-service"},
+		addAliveUnit{"dummy-application", "0"},
+		ensureDyingService{"dummy-application"},
 		expect{
 			"service shows life==dying",
 			M{
@@ -1204,17 +1204,17 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
 						"life":    "dying",
-						"service-status": M{
+						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "0",
 								"workload-status": M{
 									"current": "unknown",
@@ -1235,13 +1235,13 @@ var statusTests = []testCase{
 	test( // 8
 		"a unit where the agent is down shows as lost",
 		addCharm{"dummy"},
-		addService{name: "dummy-service", charm: "dummy"},
+		addService{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
-		addUnit{"dummy-service", "0"},
-		setAgentStatus{"dummy-service/0", status.StatusIdle, "", nil},
-		setUnitStatus{"dummy-service/0", status.StatusActive, "", nil},
+		addUnit{"dummy-application", "0"},
+		setAgentStatus{"dummy-application/0", status.StatusIdle, "", nil},
+		setUnitStatus{"dummy-application/0", status.StatusActive, "", nil},
 		expect{
 			"unit shows that agent is lost",
 			M{
@@ -1263,19 +1263,19 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{
-					"dummy-service": M{
+					"dummy-application": M{
 						"charm":   "cs:quantal/dummy-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"dummy-service/0": M{
+							"dummy-application/0": M{
 								"machine": "0",
 								"workload-status": M{
 									"current": "unknown",
-									"message": "agent is lost, sorry! See 'juju status-history dummy-service/0'",
+									"message": "agent is lost, sorry! See 'juju status-history dummy-application/0'",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"juju-status": M{
@@ -1357,7 +1357,7 @@ var statusTests = []testCase{
 					"project": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1383,7 +1383,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1408,7 +1408,7 @@ var statusTests = []testCase{
 					"varnish": M{
 						"charm":   "cs:quantal/varnish-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1435,7 +1435,7 @@ var statusTests = []testCase{
 					"private": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1510,7 +1510,7 @@ var statusTests = []testCase{
 					"riak": M{
 						"charm":   "cs:quantal/riak-7",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1620,7 +1620,7 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1659,7 +1659,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1697,9 +1697,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":          "cs:quantal/logging-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":              "cs:quantal/logging-1",
+						"exposed":            true,
+						"application-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1724,7 +1724,7 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1763,7 +1763,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1801,9 +1801,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":          "cs:quantal/logging-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":              "cs:quantal/logging-1",
+						"exposed":            true,
+						"application-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1827,7 +1827,7 @@ var statusTests = []testCase{
 					"wordpress": M{
 						"charm":   "cs:quantal/wordpress-3",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -1864,9 +1864,9 @@ var statusTests = []testCase{
 						},
 					},
 					"logging": M{
-						"charm":          "cs:quantal/logging-1",
-						"exposed":        true,
-						"service-status": M{},
+						"charm":              "cs:quantal/logging-1",
+						"exposed":            true,
+						"application-status": M{},
 						"relations": M{
 							"logging-directory": L{"wordpress"},
 							"info":              L{"mysql"},
@@ -1925,7 +1925,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -2003,7 +2003,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -2055,7 +2055,7 @@ var statusTests = []testCase{
 						"charm":          "cs:quantal/mysql-1",
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
-						"service-status": M{
+						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2110,7 +2110,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -2166,7 +2166,7 @@ var statusTests = []testCase{
 						"charm":          "cs:quantal/mysql-2",
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -2221,7 +2221,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "local:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -2312,7 +2312,7 @@ var statusTests = []testCase{
 					"mysql": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": true,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -2335,7 +2335,7 @@ var statusTests = []testCase{
 					"servicewithmeterstatus": M{
 						"charm":   "cs:quantal/mysql-1",
 						"exposed": false,
-						"service-status": M{
+						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
@@ -3773,14 +3773,14 @@ var statusTimeTest = test(
 	startAliveMachine{"0"},
 	setMachineStatus{"0", status.StatusStarted, ""},
 	addCharm{"dummy"},
-	addService{name: "dummy-service", charm: "dummy"},
+	addService{name: "dummy-application", charm: "dummy"},
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},
 	setAddresses{"1", network.NewAddresses("admin-1.dns")},
 	setMachineStatus{"1", status.StatusStarted, ""},
 
-	addAliveUnit{"dummy-service", "1"},
+	addAliveUnit{"dummy-application", "1"},
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
@@ -3790,16 +3790,16 @@ var statusTimeTest = test(
 				"1": machine1,
 			},
 			"services": M{
-				"dummy-service": M{
+				"dummy-application": M{
 					"charm":   "cs:quantal/dummy-1",
 					"exposed": false,
-					"service-status": M{
+					"application-status": M{
 						"current": "unknown",
 						"message": "Waiting for agent initialization to finish",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"units": M{
-						"dummy-service/0": M{
+						"dummy-application/0": M{
 							"machine": "1",
 							"workload-status": M{
 								"current": "unknown",

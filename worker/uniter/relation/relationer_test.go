@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"

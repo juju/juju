@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 	"launchpad.net/gnuflag"
@@ -130,7 +130,7 @@ For example:
 <service name>, if omitted, will be derived from <charm name>.
 
 Constraints can be specified when using deploy by specifying the --constraints
-flag.  When used with deploy, service-specific constraints are set so that later
+flag.  When used with deploy, application-specific constraints are set so that later
 machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
 
@@ -255,7 +255,7 @@ func (c *DeployCommand) Init(args []string) error {
 	}
 	switch len(args) {
 	case 2:
-		if !names.IsValidService(args[1]) {
+		if !names.IsValidApplication(args[1]) {
 			return fmt.Errorf("invalid service name %q", args[1])
 		}
 		c.ServiceName = args[1]
@@ -604,7 +604,7 @@ const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<en
 // parseBind parses the --bind option. Valid forms are:
 // * relation-name=space-name
 // * extra-binding-name=space-name
-// * space-name (equivalent to binding all endpoints to the same space, i.e. service-default)
+// * space-name (equivalent to binding all endpoints to the same space, i.e. application-default)
 // * The above in a space separated list to specify multiple bindings,
 //   e.g. "rel1=space1 ext1=space2 space3"
 func (c *DeployCommand) parseBind() error {

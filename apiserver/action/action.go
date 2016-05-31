@@ -5,7 +5,7 @@ package action
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -211,12 +211,12 @@ func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesC
 	result := params.ServicesCharmActionsResults{Results: make([]params.ServiceCharmActionsResult, len(args.Entities))}
 	for i, entity := range args.Entities {
 		currentResult := &result.Results[i]
-		svcTag, err := names.ParseServiceTag(entity.Tag)
+		svcTag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		currentResult.ServiceTag = svcTag.String()
+		currentResult.ApplicationTag = svcTag.String()
 		svc, err := a.state.Service(svcTag.Id())
 		if err != nil {
 			currentResult.Error = common.ServerError(err)

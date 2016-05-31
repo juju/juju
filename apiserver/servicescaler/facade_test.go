@@ -68,7 +68,7 @@ func (s *FacadeSuite) TestRescaleUnauthorized(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleNotFound(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("service-missing"))
+	result := fix.Facade.Rescale(entities("application-missing"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.ErrorMatches, "service not found")
@@ -77,7 +77,7 @@ func (s *FacadeSuite) TestRescaleNotFound(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleError(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("service-error"))
+	result := fix.Facade.Rescale(entities("application-error"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.ErrorMatches, "blammo")
@@ -85,7 +85,7 @@ func (s *FacadeSuite) TestRescaleError(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleSuccess(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("service-expected"))
+	result := fix.Facade.Rescale(entities("application-expected"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.IsNil)
@@ -93,7 +93,7 @@ func (s *FacadeSuite) TestRescaleSuccess(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleMultiple(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("service-error", "service-expected"))
+	result := fix.Facade.Rescale(entities("application-error", "application-expected"))
 	c.Assert(result.Results, gc.HasLen, 2)
 	err0 := result.Results[0].Error
 	c.Check(err0, gc.ErrorMatches, "blammo")

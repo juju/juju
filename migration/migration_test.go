@@ -10,12 +10,12 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
@@ -126,7 +126,7 @@ func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
 		Version: version.MustParseBinary("2.0.5-trusty-amd64"),
 	})
 	service := model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("magic"),
+		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
 	unit := service.AddUnit(description.UnitArgs{
@@ -163,11 +163,11 @@ func (s *ImportSuite) TestStreamCharmsTools(c *gc.C) {
 		Owner: names.NewUserTag("me"),
 	})
 	model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("magic"),
+		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
 	model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("magic"),
+		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "cs:trusty/postgresql-42",
 	})
 

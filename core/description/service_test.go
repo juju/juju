@@ -4,9 +4,9 @@
 package description
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 )
 
@@ -83,7 +83,7 @@ func addMinimalService(model Model) {
 
 func minimalServiceArgs() ServiceArgs {
 	return ServiceArgs{
-		Tag:                  names.NewServiceTag("ubuntu"),
+		Tag:                  names.NewApplicationTag("ubuntu"),
 		Series:               "trusty",
 		CharmURL:             "cs:trusty/ubuntu",
 		Channel:              "stable",
@@ -102,7 +102,7 @@ func minimalServiceArgs() ServiceArgs {
 
 func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	args := ServiceArgs{
-		Tag:                  names.NewServiceTag("magic"),
+		Tag:                  names.NewApplicationTag("magic"),
 		Series:               "zesty",
 		Subordinate:          true,
 		CharmURL:             "cs:zesty/magic",
@@ -124,7 +124,7 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 	service := newService(args)
 
 	c.Assert(service.Name(), gc.Equals, "magic")
-	c.Assert(service.Tag(), gc.Equals, names.NewServiceTag("magic"))
+	c.Assert(service.Tag(), gc.Equals, names.NewApplicationTag("magic"))
 	c.Assert(service.Series(), gc.Equals, "zesty")
 	c.Assert(service.Subordinate(), jc.IsTrue)
 	c.Assert(service.CharmURL(), gc.Equals, "cs:zesty/magic")

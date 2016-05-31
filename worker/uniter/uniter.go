@@ -12,12 +12,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -517,7 +517,7 @@ func (u *Uniter) Wait() error {
 
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
-	service, err := u.st.Service(u.unit.ServiceTag())
+	service, err := u.st.Service(u.unit.ApplicationTag())
 	if err != nil {
 		return nil, err
 	}

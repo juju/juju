@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/service"
@@ -124,7 +124,7 @@ func (c *serviceGetConstraintsCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service name specified")
 	}
-	if !names.IsValidService(args[0]) {
+	if !names.IsValidApplication(args[0]) {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 
@@ -169,7 +169,7 @@ func (c *serviceSetConstraintsCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no service name specified")
 	}
-	if !names.IsValidService(args[0]) {
+	if !names.IsValidApplication(args[0]) {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 

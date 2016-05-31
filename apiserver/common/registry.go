@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/state"

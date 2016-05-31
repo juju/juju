@@ -45,7 +45,7 @@ func (s *BaseSuite) newCSClient() (server.CharmStore, error) {
 }
 
 func newResource(c *gc.C, name, username, data string) (resource.Resource, api.Resource) {
-	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Username = username
 	if username == "" {

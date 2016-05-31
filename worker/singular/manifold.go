@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 )
 
 // ManifoldConfig holds the information necessary to run a FlagWorker in
