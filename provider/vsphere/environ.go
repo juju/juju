@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -29,6 +30,9 @@ type environ struct {
 	archLock               sync.Mutex // archLock protects access to the following fields.
 	supportedArchitectures []string
 
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
+
 	lock sync.Mutex // lock protects access the following fields.
 	ecfg *environConfig
 }
@@ -44,10 +48,16 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 		return nil, errors.Annotatef(err, "failed to create new client")
 	}
 
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	env := &environ{
-		name:   ecfg.Name(),
-		ecfg:   ecfg,
-		client: client,
+		name:      ecfg.Name(),
+		ecfg:      ecfg,
+		client:    client,
+		namespace: namespace,
 	}
 	return env, nil
 }

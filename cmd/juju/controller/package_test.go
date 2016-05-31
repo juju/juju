@@ -58,14 +58,19 @@ controllers:
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
+    cloud: aws
+    region: us-east-1
   local.mallards:
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    region: mallards1
   local.mark-test-prodstack:
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
+    cloud: prodstack
 current-controller: local.mallards
 `
 

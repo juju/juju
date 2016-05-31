@@ -46,7 +46,7 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Instances",
 		Args: []interface{}{
-			s.Prefix + "machine-",
+			s.Prefix(),
 			lxdclient.AliveStatuses,
 		},
 	}})
@@ -103,7 +103,7 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.BaseSuite.Client.CheckCallNames(c, "Instances")
 	s.BaseSuite.Client.CheckCall(
 		c, 0, "Instances",
-		"juju-"+s.Env.Config().ControllerUUID()+"-machine-",
+		s.Prefix(),
 		[]string{"Starting", "Started", "Running", "Stopping", "Stopped"},
 	)
 }

@@ -23,12 +23,10 @@ func NewLxdBroker(
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,
-	namespace string,
 	enableNAT bool,
 ) (environs.InstanceBroker, error) {
 	return &lxdBroker{
 		manager:     manager,
-		namespace:   namespace,
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
@@ -37,7 +35,6 @@ func NewLxdBroker(
 
 type lxdBroker struct {
 	manager     container.Manager
-	namespace   string
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
@@ -128,7 +125,7 @@ func (broker *lxdBroker) StopInstances(ids ...instance.Id) error {
 			return err
 		}
 		providerType := broker.agentConfig.Value(agent.ProviderType)
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxdLogger, providerType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.manager.Namespace(), lxdLogger, providerType)
 	}
 	return nil
 }

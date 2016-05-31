@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -70,7 +69,7 @@ func findInst(id instance.Id, instances []*environInstance) instance.Instance {
 // to ensure that only machines for the environment are returned. This
 // is necessary to isolate multiple models within the same LXD.
 func (env *environ) allInstances() ([]*environInstance, error) {
-	prefix := common.MachineFullName(env.Config().UUID(), "")
+	prefix := env.namespace.Prefix()
 	return env.prefixedInstances(prefix)
 }
 
@@ -95,7 +94,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances() ([]instance.Id, error) {
-	prefix := common.MachineFullName(env.Config().ControllerUUID(), "")
+	prefix := env.namespace.Prefix()
 	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)

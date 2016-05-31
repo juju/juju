@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	ConfigName   = "name"
-	ConfigLogDir = "log-dir"
+	ConfigModelUUID = "model-uuid"
+	ConfigLogDir    = "log-dir"
 
 	// ConfigIPForwarding, if set to a non-empty value, instructs the
 	// container manager to enable IP forwarding as part of the
@@ -62,6 +62,10 @@ type Manager interface {
 	// IsInitialized check whether or not required packages have been installed
 	// to support this manager.
 	IsInitialized() bool
+
+	// Namespace returns the namespace of the manager. This namespace defines the
+	// prefix of all the hostnames.
+	Namespace() instance.Namespace
 }
 
 // Initialiser is responsible for performing the steps required to initialise

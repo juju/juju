@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -80,7 +79,8 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 ) instance.Instance {
 
 	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
-		name := "test-" + names.NewMachineTag(instanceConfig.MachineId).String()
+		name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
+		c.Assert(err, jc.ErrorIsNil)
 		EnsureLXCRootFSEtcNetwork(c, name)
 	}
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }

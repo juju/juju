@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
@@ -35,9 +34,6 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	if jujutesting.RaceEnabled {
-		t.Skip("skipping package under -race, see LP 1517632")
-	}
 	coretesting.MgoTestPackage(t)
 }
 
@@ -1050,7 +1046,7 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 func (s *withoutControllerSuite) TestContainerManagerConfig(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigName: "juju",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
 
 		// dummy provider supports both networking and address
 		// allocation by default, so IP forwarding should be enabled.
@@ -1063,7 +1059,7 @@ func (s *withoutControllerSuite) TestContainerManagerConfigNoFeatureFlagNoIPForw
 
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigName: "juju",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
 		// ConfigIPForwarding should be missing.
 	})
 }
@@ -1075,7 +1071,7 @@ func (s *withoutControllerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.
 
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigName: "juju",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
 	})
 }
 
@@ -1298,7 +1294,7 @@ func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
 func (s *lxcDefaultMTUSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
 	managerConfig := s.getManagerConfig(c, instance.LXC)
 	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
-		container.ConfigName:          "juju",
+		container.ConfigModelUUID:     coretesting.ModelTag.Id(),
 		container.ConfigLXCDefaultMTU: "9000",
 
 		"use-aufs":                   "false",
@@ -1308,7 +1304,7 @@ func (s *lxcDefaultMTUSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
 	// KVM instances are not affected.
 	managerConfig = s.getManagerConfig(c, instance.KVM)
 	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
-		container.ConfigName:         "juju",
+		container.ConfigModelUUID:    coretesting.ModelTag.Id(),
 		container.ConfigIPForwarding: "true",
 	})
 }

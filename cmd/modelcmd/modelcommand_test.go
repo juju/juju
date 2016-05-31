@@ -32,6 +32,7 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "foo"
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["foo"] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"bar@baz": {User: "b@r", Password: "hunter2"},
@@ -58,7 +59,7 @@ func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentAccount
 
 func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentModel(c *gc.C) {
 	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "")
+	c.Assert(env, gc.Equals, "foo:")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -70,7 +71,7 @@ func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerAccountModel(c *
 
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "mymodel")
+	c.Assert(env, gc.Equals, "foo:mymodel")
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
