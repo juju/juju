@@ -7,8 +7,6 @@ import (
 	"runtime"
 	stdtesting "testing"
 
-	gittesting "github.com/juju/testing"
-
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -18,9 +16,6 @@ import (
 func TestPackage(t *stdtesting.T) {
 	if runtime.GOARCH == "386" {
 		t.Skipf("skipping package for %v/%v, see http://pad.lv/1425569", runtime.GOOS, runtime.GOARCH)
-	}
-	if gittesting.RaceEnabled {
-		t.Skip("skipping test in -race mode, see LP 1518810")
 	}
 	testing.MgoTestPackage(t)
 }

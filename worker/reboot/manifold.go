@@ -9,23 +9,23 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig util.AgentApiManifoldConfig
+type ManifoldConfig engine.AgentApiManifoldConfig
 
 // Manifold returns a dependency manifold that runs a reboot worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := util.AgentApiManifoldConfig(config)
-	return util.AgentApiManifold(typedConfig, newWorker)
+	typedConfig := engine.AgentApiManifoldConfig(config)
+	return engine.AgentApiManifold(typedConfig, newWorker)
 }
 
-// newWorker trivially wraps NewReboot for use in a util.AgentApiManifold.
+// newWorker trivially wraps NewReboot for use in a engine.AgentApiManifold.
 //
 // TODO(mjs) - It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.

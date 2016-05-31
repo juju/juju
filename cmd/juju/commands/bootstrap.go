@@ -344,6 +344,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		config.UUIDKey:           controllerUUID.String(),
 		config.ControllerUUIDKey: controllerUUID.String(),
 	}
+	for k, v := range cloud.Config {
+		configAttrs[k] = v
+	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -353,10 +356,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	logger.Debugf("preparing controller with config: %v", configAttrs)
 
-	// Read existing current controller, account, model so we can clean up on error.
+	// Read existing current controller so we can clean up on error.
 	var oldCurrentController string
-	oldCurrentController, err = modelcmd.ReadCurrentController()
-	if err != nil {
+	oldCurrentController, err = store.CurrentController()
+	if errors.IsNotFound(err) {
+		oldCurrentController = ""
+	} else if err != nil {
 		return errors.Annotate(err, "error reading current controller")
 	}
 
@@ -365,7 +370,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return
 		}
 		if oldCurrentController != "" {
-			if err := modelcmd.WriteCurrentController(oldCurrentController); err != nil {
+			if err := store.SetCurrentController(oldCurrentController); err != nil {
 				logger.Errorf(
 					"cannot reset current controller to %q: %v",
 					oldCurrentController, err,
@@ -413,7 +418,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Set the current controller so "juju status" can be run while
 	// bootstrapping is underway.
-	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
+	if err := store.SetCurrentController(c.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 

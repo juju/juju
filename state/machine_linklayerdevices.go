@@ -899,23 +899,31 @@ func (m *Machine) SetContainerLinkLayerDevices(containerMachine *Machine) error 
 	if err != nil {
 		return errors.Annotate(err, "cannot get host machine devices")
 	}
-	logger.Debugf("using host machine %q devices: %+v", m.Id(), allDevices)
 
-	var containerDevicesArgs []LinkLayerDeviceArgs
+	bridgeDevicesByName := make(map[string]*LinkLayerDevice)
+	bridgeDeviceNames := make([]string, 0, len(allDevices))
+
 	for _, hostDevice := range allDevices {
 		if hostDevice.Type() == BridgeDevice {
-			containerDeviceName := fmt.Sprintf("eth%d", len(containerDevicesArgs))
-			generatedMAC := generateMACAddress()
-			args := LinkLayerDeviceArgs{
-				Name:        containerDeviceName,
-				Type:        EthernetDevice,
-				MACAddress:  generatedMAC,
-				MTU:         hostDevice.MTU(),
-				IsUp:        true,
-				IsAutoStart: true,
-				ParentName:  hostDevice.globalKey(),
-			}
-			containerDevicesArgs = append(containerDevicesArgs, args)
+			bridgeDevicesByName[hostDevice.Name()] = hostDevice
+			bridgeDeviceNames = append(bridgeDeviceNames, hostDevice.Name())
+		}
+	}
+
+	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
+	logger.Debugf("using host machine %q bridge devices: %v", m.Id(), sortedBridgeDeviceNames)
+	containerDevicesArgs := make([]LinkLayerDeviceArgs, len(bridgeDeviceNames))
+
+	for i, hostBridgeName := range sortedBridgeDeviceNames {
+		hostBridge := bridgeDevicesByName[hostBridgeName]
+		containerDevicesArgs[i] = LinkLayerDeviceArgs{
+			Name:        fmt.Sprintf("eth%d", i),
+			Type:        EthernetDevice,
+			MACAddress:  generateMACAddress(),
+			MTU:         hostBridge.MTU(),
+			IsUp:        true,
+			IsAutoStart: true,
+			ParentName:  hostBridge.globalKey(),
 		}
 	}
 	logger.Debugf("prepared container %q network config: %+v", containerMachine.Id(), containerDevicesArgs)

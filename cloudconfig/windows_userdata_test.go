@@ -16,6 +16,7 @@ package cloudconfig_test
 var WindowsUserdata = `#ps1_sysnative
 
 
+
 $ErrorActionPreference = "Stop"
 
 function ExecRetry($command, $retryInterval = 15)
@@ -253,6 +254,7 @@ Function Invoke-FastWebRequest {
 }
 
 
+
 function create-account ([string]$accountName, [string]$accountDescription, [string]$password) {
 	$hostname = hostname
 	$comp = [adsi]"WinNT://$hostname"
@@ -303,7 +305,6 @@ namespace PSCloudbase
 		public static extern uint GetLastError();
 	}
 }
-
 "@
 
 Add-Type -TypeDefinition $Source -Language CSharp
@@ -635,7 +636,6 @@ namespace PSCarbon
 		}
 	}
 }
-
 "@
 
 Add-Type -TypeDefinition $SourcePolicy -Language CSharp

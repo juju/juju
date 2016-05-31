@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	_ "github.com/juju/juju/provider/ec2"
@@ -44,11 +43,9 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
 	controllerName := "local.test-master"
-	err := modelcmd.WriteCurrentController(controllerName)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.store = jujuclienttesting.NewMemStore()
-	s.store.Controllers["local.test-master"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = controllerName
+	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = &jujuclient.ControllerAccounts{
 		Accounts: map[string]jujuclient.AccountDetails{
 			"bob@local": {User: "bob@local"},

@@ -13,10 +13,12 @@ import (
 type StubStore struct {
 	*testing.Stub
 
-	AllControllersFunc   func() (map[string]jujuclient.ControllerDetails, error)
-	ControllerByNameFunc func(name string) (*jujuclient.ControllerDetails, error)
-	UpdateControllerFunc func(name string, one jujuclient.ControllerDetails) error
-	RemoveControllerFunc func(name string) error
+	AllControllersFunc       func() (map[string]jujuclient.ControllerDetails, error)
+	ControllerByNameFunc     func(name string) (*jujuclient.ControllerDetails, error)
+	UpdateControllerFunc     func(name string, one jujuclient.ControllerDetails) error
+	RemoveControllerFunc     func(name string) error
+	SetCurrentControllerFunc func(name string) error
+	CurrentControllerFunc    func() (string, error)
 
 	UpdateModelFunc     func(controller, account, model string, details jujuclient.ModelDetails) error
 	SetCurrentModelFunc func(controller, account, model string) error
@@ -55,6 +57,12 @@ func NewStubStore() *StubStore {
 	}
 	result.RemoveControllerFunc = func(name string) error {
 		return result.Stub.NextErr()
+	}
+	result.SetCurrentControllerFunc = func(name string) error {
+		return result.Stub.NextErr()
+	}
+	result.CurrentControllerFunc = func() (string, error) {
+		return "", result.Stub.NextErr()
 	}
 
 	result.UpdateModelFunc = func(controller, account, model string, details jujuclient.ModelDetails) error {
@@ -123,6 +131,8 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub.ControllerByNameFunc = underlying.ControllerByName
 	stub.UpdateControllerFunc = underlying.UpdateController
 	stub.RemoveControllerFunc = underlying.RemoveController
+	stub.SetCurrentControllerFunc = underlying.SetCurrentController
+	stub.CurrentControllerFunc = underlying.CurrentController
 	stub.UpdateModelFunc = underlying.UpdateModel
 	stub.SetCurrentModelFunc = underlying.SetCurrentModel
 	stub.RemoveModelFunc = underlying.RemoveModel
@@ -162,6 +172,18 @@ func (c *StubStore) UpdateController(name string, one jujuclient.ControllerDetai
 func (c *StubStore) RemoveController(name string) error {
 	c.MethodCall(c, "RemoveController", name)
 	return c.RemoveControllerFunc(name)
+}
+
+// SetCurrentController implements ControllersUpdater.SetCurrentController.
+func (c *StubStore) SetCurrentController(name string) error {
+	c.MethodCall(c, "SetCurrentController", name)
+	return c.SetCurrentControllerFunc(name)
+}
+
+// CurrentController implements ControllersGetter.CurrentController.
+func (c *StubStore) CurrentController() (string, error) {
+	c.MethodCall(c, "CurrentController")
+	return c.CurrentControllerFunc()
 }
 
 // UpdateModel implements ModelUpdater.

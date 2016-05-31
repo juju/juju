@@ -67,7 +67,7 @@ func (s *argsSpec) check(c *gc.C, output string) {
 
 	if s.withProxy {
 		expect("-o ProxyCommand juju ssh --proxy=false --no-host-key-checks " +
-			"--pty=false localhost -q \"nc %h %p\"")
+			"--pty=false ubuntu@localhost -q \"nc %h %p\"")
 	}
 	expect("-o PasswordAuthentication no -o ServerAliveInterval 30")
 	if s.enablePty {
@@ -103,6 +103,28 @@ type SSHCommonSuite struct {
 	knownHostsDir string
 	binDir        string
 }
+
+// Commands to patch
+var patchedCommands = []string{"ssh", "scp"}
+
+// fakecommand outputs its arguments to stdout for verification
+var fakecommand = `#!/bin/bash
+
+{
+    echo "$@"
+
+    # If a custom known_hosts file was passed, emit the contents of
+    # that too.
+    while (( "$#" )); do
+        if [[ $1 = UserKnownHostsFile* ]]; then
+            IFS=" " read -ra parts <<< $1
+            cat "${parts[1]}"
+            break
+        fi
+        shift
+    done
+}| tee $0.args
+`
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/storageprovisioner"
-	workertesting "github.com/juju/juju/worker/testing"
 )
 
 type MachineManifoldSuite struct {
@@ -42,7 +42,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	)
-	config := workertesting.AgentApiManifoldTestConfig()
+	config := enginetest.AgentApiManifoldTestConfig()
 	s.config = storageprovisioner.MachineManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
@@ -51,7 +51,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
-	_, err := workertesting.RunAgentApiManifold(
+	_, err := enginetest.RunAgentApiManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
@@ -61,7 +61,7 @@ func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
 
 func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 	s.config.Clock = nil
-	_, err := workertesting.RunAgentApiManifold(
+	_, err := enginetest.RunAgentApiManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
@@ -70,7 +70,7 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
-	_, err := workertesting.RunAgentApiManifold(
+	_, err := enginetest.RunAgentApiManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		&fakeAPIConn{})
@@ -79,7 +79,7 @@ func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestNonAgent(c *gc.C) {
-	_, err := workertesting.RunAgentApiManifold(
+	_, err := enginetest.RunAgentApiManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})

@@ -242,15 +242,6 @@ func (w *sysCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	w.ControllerCommand.SetFlags(f)
 }
 
-func (w *sysCommandWrapper) getDefaultControllerName() (string, error) {
-	if currentController, err := ReadCurrentController(); err != nil {
-		return "", errors.Trace(err)
-	} else if currentController != "" {
-		return currentController, nil
-	}
-	return "", errors.Trace(ErrNoControllerSpecified)
-}
-
 // Init implements Command.Init, then calls the wrapped command's Init.
 func (w *sysCommandWrapper) Init(args []string) error {
 	store := w.ClientStore()
@@ -260,11 +251,14 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	}
 	if w.setFlags {
 		if w.controllerName == "" && w.useDefaultControllerName {
-			name, err := w.getDefaultControllerName()
+			currentController, err := store.CurrentController()
+			if errors.IsNotFound(err) {
+				return ErrNoControllerSpecified
+			}
 			if err != nil {
 				return errors.Trace(err)
 			}
-			w.controllerName = name
+			w.controllerName = currentController
 		}
 		if w.controllerName == "" && !w.useDefaultControllerName {
 			return ErrNoControllerSpecified

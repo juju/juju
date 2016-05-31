@@ -28,3 +28,4 @@ Function Invoke-FastWebRequest {
 		$outStream.Close()
 	}
 }
+

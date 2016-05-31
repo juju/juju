@@ -385,8 +385,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
-	currentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, bootstrappedControllerName("devcontroller"))
 	modelName, err := s.store.CurrentModel(currentController, "admin@local")
 	c.Assert(err, jc.ErrorIsNil)
@@ -511,7 +510,9 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	store.SetErrors(errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
-	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
+	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
+	_, err := coretesting.RunCommand(c, wrapped, controllerName, "dummy", "--auto-upgrade")
+	store.CheckCallNames(c, "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
 }
 
@@ -548,7 +549,7 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, mo
 		ControllerUUID: "y",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelcmd.WriteCurrentController(controller)
+	err = s.store.SetCurrentController(controller)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.UpdateAccount(controller, account, jujuclient.AccountDetails{
 		User:     account,
@@ -580,8 +581,7 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
-	oldCurrentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	oldCurrentController := s.store.CurrentControllerName
 	c.Assert(oldCurrentController, gc.Equals, bootstrappedControllerName("olddevcontroller"))
 	oldCurrentAccount, err := s.store.CurrentAccount(oldCurrentController)
 	c.Assert(err, jc.ErrorIsNil)
@@ -603,8 +603,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	err := <-errc
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, expectedBootstrappedName))
-	currentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "local.devcontroller")
 	currentAccount, err := s.store.CurrentAccount(currentController)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1024,6 +1023,18 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(
+		c, s.newBootstrapCommand(), "ctrl", "dummy-cloud-with-config",
+		"--auto-upgrade",
+		// Configuration specified on the command line overrides
+		// anything specified in files, no matter what the order.
+		"--config", "controller=false",
+	)
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+}
+
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
@@ -1052,6 +1063,11 @@ clouds:
             region-2:
     dummy-cloud-without-regions:
         type: dummy
+    dummy-cloud-with-config:
+        type: dummy
+        config:
+            broken: Bootstrap
+            controller: not-a-bool
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
