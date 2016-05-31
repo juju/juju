@@ -161,7 +161,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 	tags := []string{
 		env.globalFirewallName(),
-		env.Config().UUID(),
 		hostname,
 	}
 
