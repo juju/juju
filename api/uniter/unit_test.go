@@ -784,11 +784,11 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	service := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	service := s.Factory.MakeService(c, &jujufactory.ServiceParams{
 		Charm: s.charm,
 	})
 	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
-		Application: service,
+		Service:     service,
 		SetCharmURL: true,
 	})
 

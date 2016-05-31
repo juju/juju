@@ -51,11 +51,11 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,11 +72,11 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	})
 }
 
@@ -97,11 +97,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,11 +119,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,11 +139,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 
 	unitRes := api.Resource{
@@ -157,11 +157,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("boo!"))
@@ -254,11 +254,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,11 +276,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,11 +296,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 
 	unitRes := api.Resource{
@@ -314,11 +314,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 
 	_, err = api.APIResult2ServiceResources(api.ResourcesResult{
@@ -350,8 +350,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		ApplicationID: "a-application",
+		ID:        "a-application/spam",
+		ServiceID: "a-application",
 	}
 	failure := errors.New("<failure>")
 
@@ -381,14 +381,14 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		ApplicationID: "a-application",
+		ID:        "a-application/spam",
+		ServiceID: "a-application",
 	}
 
 	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
-				Message: `application "a-application" not found`,
+				Message: `service "a-application" not found`,
 				Code:    params.CodeNotFound,
 			},
 		},
@@ -413,11 +413,11 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -436,11 +436,11 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:            "a-application/spam",
-		PendingID:     "some-unique-ID",
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     now,
+		ID:        "a-application/spam",
+		PendingID: "some-unique-ID",
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)

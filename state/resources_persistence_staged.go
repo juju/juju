@@ -33,7 +33,7 @@ func (staged StagedResource) stage() error {
 		}
 		if staged.stored.PendingID == "" {
 			// Only non-pending resources must have an existing service.
-			ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ApplicationID)...)
+			ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
 		}
 
 		return ops, nil
@@ -78,7 +78,7 @@ func (staged StagedResource) Activate() error {
 		}
 		if staged.stored.PendingID == "" {
 			// Only non-pending resources must have an existing service.
-			ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ApplicationID)...)
+			ops = append(ops, staged.base.ServiceExistsOps(staged.stored.ServiceID)...)
 		}
 		// No matter what, we always remove any staging.
 		ops = append(ops, newRemoveStagedResourceOps(staged.id)...)
@@ -93,7 +93,7 @@ func (staged StagedResource) Activate() error {
 				return nil, errors.Trace(err)
 			}
 			if hasNewBytes {
-				incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ApplicationID)
+				incOps := staged.base.IncCharmModifiedVersionOps(staged.stored.ServiceID)
 				ops = append(ops, incOps...)
 			}
 		}

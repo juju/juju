@@ -36,7 +36,7 @@ func runExpose(c *gc.C, args ...string) error {
 }
 
 func (s *ExposeSuite) assertExposed(c *gc.C, application string) {
-	svc, err := s.State.Application(application)
+	svc, err := s.State.Service(application)
 	c.Assert(err, jc.ErrorIsNil)
 	exposed := svc.IsExposed()
 	c.Assert(exposed, jc.IsTrue)

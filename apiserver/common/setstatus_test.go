@@ -108,7 +108,7 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	// Calls to set the status of a service should be going through the
 	// ServiceStatusSetter that checks for leadership, so permission denied
 	// here.
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
 		Status: status.StatusMaintenance,
 	}})
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
@@ -205,7 +205,7 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	// TODO: the correct way to fix this is to have the authorizer on the
 	// simple status setter to check to see if the unit (authTag) is a leader
 	// and able to set the service status. However, that is for another day.
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
 		Status: status.StatusMaintenance,
 	}})
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
@@ -235,11 +235,11 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 }
 
 func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
 		Status: status.StatusMaintenance,
 	}})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: service,
+		Service: service,
 		Status: &status.StatusInfo{
 			Status: status.StatusMaintenance,
 		}})

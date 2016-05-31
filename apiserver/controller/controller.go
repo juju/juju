@@ -351,7 +351,7 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		}
 	}
 
-	services, err := st.AllApplications()
+	services, err := st.AllServices()
 	if err != nil {
 		return status, errors.Trace(err)
 	}

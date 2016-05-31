@@ -18,9 +18,9 @@ type UnitAssignmentSuite struct {
 
 var _ = gc.Suite(&UnitAssignmentSuite{})
 
-func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
+func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Service, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddApplication(state.AddApplicationArgs{
+	svc, err := s.State.AddService(state.AddServiceArgs{
 		Name: "dummy", Owner: s.Owner.String(),
 		Charm: charm, NumUnits: 2,
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},

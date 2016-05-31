@@ -25,7 +25,7 @@ type uniterSuite struct {
 	st                api.Connection
 	controllerMachine *state.Machine
 	wordpressMachine  *state.Machine
-	wordpressService  *state.Application
+	wordpressService  *state.Service
 	wordpressCharm    *state.Charm
 	wordpressUnit     *state.Unit
 
@@ -71,13 +71,13 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName string, bindings map[string]string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName string, bindings map[string]string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
 
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddApplication(state.AddApplicationArgs{
+	service, err := s.State.AddService(state.AddServiceArgs{
 		Name:             serviceName,
 		Owner:            owner,
 		Charm:            charm,
@@ -94,7 +94,7 @@ func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName st
 	return machine, service, charm, unit
 }
 
-func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
 	return s.addMachineBoundServiceCharmAndUnit(c, serviceName, nil)
 }
 
@@ -106,7 +106,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
 	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)

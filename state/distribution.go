@@ -35,7 +35,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if distributor == nil {
 		return nil, fmt.Errorf("policy returned nil instance distributor without an error")
 	}
-	distributionGroup, err := ServiceInstances(u.st, u.doc.Application)
+	distributionGroup, err := ServiceInstances(u.st, u.doc.Service)
 	if err != nil {
 		return nil, err
 	}

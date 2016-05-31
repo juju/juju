@@ -28,8 +28,8 @@ type metricsDebug interface {
 	// Unit returns the unit based on its name.
 	Unit(string) (*state.Unit, error)
 
-	// Application returns the application based on its name.
-	Application(string) (*state.Application, error)
+	// Service returns the service based on its name.
+	Service(string) (*state.Service, error)
 }
 
 // MetricsDebug defines the methods on the metricsdebug API end point.
@@ -161,7 +161,7 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 			return errors.Trace(err)
 		}
 	case names.ApplicationTag:
-		service, err := api.state.Application(entity.Id())
+		service, err := api.state.Service(entity.Id())
 		if err != nil {
 			return errors.Trace(err)
 		}

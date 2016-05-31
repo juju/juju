@@ -43,7 +43,7 @@ type unit struct {
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 }
 
-// UnitArgs is an argument struct used to add a Unit to a Application in the Model.
+// UnitArgs is an argument struct used to add a Unit to a Service in the Model.
 type UnitArgs struct {
 	Tag          names.UnitTag
 	Machine      names.MachineTag

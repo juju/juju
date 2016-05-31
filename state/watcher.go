@@ -321,7 +321,7 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the model.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
+	return newLifecycleWatcher(st, servicesC, nil, isLocalID(st), nil)
 }
 
 // WatchStorageAttachments returns a StringsWatcher that notifies of
@@ -346,8 +346,8 @@ func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
 // lifecycles of units of s.
-func (s *Application) WatchUnits() StringsWatcher {
-	members := bson.D{{"application", s.doc.Name}}
+func (s *Service) WatchUnits() StringsWatcher {
+	members := bson.D{{"service", s.doc.Name}}
 	prefix := s.doc.Name + "/"
 	filter := func(unitDocID interface{}) bool {
 		unitName, err := s.st.strictLocalID(unitDocID.(string))
@@ -361,7 +361,7 @@ func (s *Application) WatchUnits() StringsWatcher {
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
-func (s *Application) WatchRelations() StringsWatcher {
+func (s *Service) WatchRelations() StringsWatcher {
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
 	filter := func(id interface{}) bool {
@@ -373,7 +373,7 @@ func (s *Application) WatchRelations() StringsWatcher {
 		return out
 	}
 
-	members := bson.D{{"endpoints.applicationname", s.doc.Name}}
+	members := bson.D{{"endpoints.servicename", s.doc.Name}}
 	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
 }
 
@@ -585,7 +585,7 @@ func (w *lifecycleWatcher) loop() error {
 
 // minUnitsWatcher notifies about MinUnits changes of the services requiring
 // a minimum number of units to be alive. The first event returned by the
-// watcher is the set of application names requiring a minimum number of units.
+// watcher is the set of service names requiring a minimum number of units.
 // Subsequent events are generated when a service increases MinUnits, or when
 // one or more units belonging to a service are destroyed.
 type minUnitsWatcher struct {
@@ -616,24 +616,24 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (set.Strings, error) {
-	applicationnames := make(set.Strings)
+	serviceNames := make(set.Strings)
 	var doc minUnitsDoc
 	newMinUnits, closer := w.st.getCollection(minUnitsC)
 	defer closer()
 
 	iter := newMinUnits.Find(nil).Iter()
 	for iter.Next(&doc) {
-		w.known[doc.ApplicationName] = doc.Revno
-		applicationnames.Add(doc.ApplicationName)
+		w.known[doc.ServiceName] = doc.Revno
+		serviceNames.Add(doc.ServiceName)
 	}
-	return applicationnames, iter.Close()
+	return serviceNames, iter.Close()
 }
 
-func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Change) error {
-	applicationname := w.st.localID(change.Id.(string))
+func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change) error {
+	serviceName := w.st.localID(change.Id.(string))
 	if change.Revno == -1 {
-		delete(w.known, applicationname)
-		applicationnames.Remove(applicationname)
+		delete(w.known, serviceName)
+		serviceNames.Remove(serviceName)
 		return nil
 	}
 	doc := minUnitsDoc{}
@@ -642,10 +642,10 @@ func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Cha
 	if err := newMinUnits.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
-	revno, known := w.known[applicationname]
-	w.known[applicationname] = doc.Revno
+	revno, known := w.known[serviceName]
+	w.known[serviceName] = doc.Revno
 	if !known || doc.Revno > revno {
-		applicationnames.Add(applicationname)
+		serviceNames.Add(serviceName)
 	}
 	return nil
 }
@@ -654,7 +654,7 @@ func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.watcher.WatchCollectionWithFilter(minUnitsC, ch, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(minUnitsC, ch)
-	applicationnames, err := w.initial()
+	serviceNames, err := w.initial()
 	if err != nil {
 		return err
 	}
@@ -666,15 +666,15 @@ func (w *minUnitsWatcher) loop() (err error) {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case change := <-ch:
-			if err = w.merge(applicationnames, change); err != nil {
+			if err = w.merge(serviceNames, change); err != nil {
 				return err
 			}
-			if !applicationnames.IsEmpty() {
+			if !serviceNames.IsEmpty() {
 				out = w.out
 			}
-		case out <- applicationnames.Values():
+		case out <- serviceNames.Values():
 			out = nil
-			applicationnames = set.NewStrings()
+			serviceNames = set.NewStrings()
 		}
 	}
 }
@@ -1274,13 +1274,13 @@ func (m *Machine) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to a service.
-func (s *Application) Watch() NotifyWatcher {
-	return newEntityWatcher(s.st, applicationsC, s.doc.DocID)
+func (s *Service) Watch() NotifyWatcher {
+	return newEntityWatcher(s.st, servicesC, s.doc.DocID)
 }
 
 // WatchLeaderSettings returns a watcher for observing changed to a service's
 // leader settings.
-func (s *Application) WatchLeaderSettings() NotifyWatcher {
+func (s *Service) WatchLeaderSettings() NotifyWatcher {
 	docId := s.st.docID(leadershipSettingsKey(s.Name()))
 	return newEntityWatcher(s.st, settingsC, docId)
 }
@@ -1356,7 +1356,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settingsKey := serviceSettingsKey(u.doc.Application, u.doc.CharmURL)
+	settingsKey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 

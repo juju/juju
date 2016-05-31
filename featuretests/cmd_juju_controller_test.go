@@ -177,7 +177,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"controller": true},
 	})
 	defer st.Close()
-	factory.NewFactory(st).MakeApplication(c, nil)
+	factory.NewFactory(st).MakeService(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})

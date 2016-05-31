@@ -17,14 +17,14 @@ import (
 
 type ServiceLeaderSuite struct {
 	ConnSuite
-	service *state.Application
+	service *state.Service
 }
 
 var _ = gc.Suite(&ServiceLeaderSuite{})
 
 func (s *ServiceLeaderSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.service = s.Factory.MakeApplication(c, nil)
+	s.service = s.Factory.MakeService(c, nil)
 }
 
 func (s *ServiceLeaderSuite) TestReadEmpty(c *gc.C) {
@@ -124,7 +124,7 @@ func (s *ServiceLeaderSuite) TestReadRemoved(c *gc.C) {
 	s.destroyService(c)
 
 	actual, err := s.service.LeaderSettings()
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, "service not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(actual, gc.IsNil)
 }
@@ -135,7 +135,7 @@ func (s *ServiceLeaderSuite) TestWriteRemoved(c *gc.C) {
 	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"should": "fail",
 	})
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, "service not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -207,11 +207,11 @@ func (s *ServiceLeaderSuite) checkSettings(c *gc.C, expect map[string]string) {
 }
 
 func (s *ServiceLeaderSuite) preventRemove(c *gc.C) {
-	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.service})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.service})
 }
 
 func (s *ServiceLeaderSuite) destroyService(c *gc.C) {
-	killService, err := s.State.Application(s.service.Name())
+	killService, err := s.State.Service(s.service.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	err = killService.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

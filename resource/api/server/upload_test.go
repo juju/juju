@@ -246,8 +246,8 @@ func newUploadRequest(c *gc.C, name, service, content string) (*http.Request, io
 	c.Assert(err, jc.ErrorIsNil)
 
 	method := "PUT"
-	urlStr := "https://api:17017/applications/%s/resources/%s"
-	urlStr += "?:application=%s&:resource=%s" // ...added by the mux.
+	urlStr := "https://api:17017/services/%s/resources/%s"
+	urlStr += "?:service=%s&:resource=%s" // ...added by the mux.
 	urlStr = fmt.Sprintf(urlStr, service, name, service, name)
 	body := strings.NewReader(content)
 	req, err := http.NewRequest(method, urlStr, body)

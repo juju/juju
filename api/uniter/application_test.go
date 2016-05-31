@@ -29,7 +29,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiService, err = s.uniter.Application(s.wordpressService.Tag().(names.ApplicationTag))
+	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ApplicationTag))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -180,7 +180,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Check(result.Application.Status, gc.Equals, status.StatusActive.String())
 }
 
-func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Application) {
+func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {
 	claimer := s.State.LeadershipClaimer()
 	err := claimer.ClaimLeadership(service.Name(), unit.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)

@@ -40,7 +40,7 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", nil)
+	req, err := http.NewRequest("PUT", "/services/a-application/resources/spam", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
@@ -57,7 +57,7 @@ func (s *UploadSuite) TestBadService(c *gc.C) {
 
 	err := cl.Upload("???", "spam", "file.zip", nil)
 
-	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
+	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
 	s.stub.CheckNoCalls(c)
 }
 
@@ -98,7 +98,7 @@ func (s *UploadSuite) TestPendingResources(c *gc.C) {
 	cl := client.NewClient(s.facade, s, s.facade)
 
 	pendingIDs, err := cl.AddPendingResources(client.AddPendingResourcesArgs{
-		ApplicationID: "a-application",
+		ServiceID: "a-application",
 		CharmID: charmstore.CharmID{
 			URL: cURL,
 		},
@@ -136,7 +136,7 @@ func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", nil)
+	req, err := http.NewRequest("PUT", "/services/a-application/resources/spam", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
@@ -174,7 +174,7 @@ func (s *UploadSuite) TestPendingResourceBadService(c *gc.C) {
 
 	_, err := cl.AddPendingResource("???", res[0].Resource, "file.zip", nil)
 
-	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
+	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
 	s.stub.CheckNoCalls(c)
 }
 

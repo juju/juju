@@ -77,8 +77,8 @@ deployment of bundle "local:bundle/example-0" completed
 			Fingerprint: resourceHash("install-resource content"),
 			Size:        int64(len("install-resource content")),
 		},
-		ID:            "starsay/install-resource",
-		ApplicationID: "starsay",
+		ID:        "starsay/install-resource",
+		ServiceID: "starsay",
 	}, {
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -92,8 +92,8 @@ deployment of bundle "local:bundle/example-0" completed
 			Size:        int64(len("store-resource content")),
 			Revision:    0,
 		},
-		ID:            "starsay/store-resource",
-		ApplicationID: "starsay",
+		ID:        "starsay/store-resource",
+		ServiceID: "starsay",
 	}, {
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -107,13 +107,13 @@ deployment of bundle "local:bundle/example-0" completed
 			Size:        int64(len("upload-resource content")),
 			Revision:    0,
 		},
-		ID:            "starsay/upload-resource",
-		ApplicationID: "starsay",
+		ID:        "starsay/upload-resource",
+		ServiceID: "starsay",
 	}})
 }
 
 func (s *ResourcesBundleSuite) checkResources(c *gc.C, serviceName string, expected []resource.Resource) {
-	_, err := s.State.Application("starsay")
+	_, err := s.State.Service("starsay")
 	c.Check(err, jc.ErrorIsNil)
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)

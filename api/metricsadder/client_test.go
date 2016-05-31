@@ -115,11 +115,11 @@ func (s *metricsAdderIntegrationSuite) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	meteredService := f.MakeApplication(c, &factory.ApplicationParams{
+	meteredService := f.MakeService(c, &factory.ServiceParams{
 		Charm: meteredCharm,
 	})
 	meteredUnit := f.MakeUnit(c, &factory.UnitParams{
-		Application: meteredService,
+		Service:     meteredService,
 		SetCharmURL: true,
 		Machine:     machine0,
 	})

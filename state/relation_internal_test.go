@@ -24,14 +24,14 @@ func (s *RelationSuite) TestRelatedEndpoints(c *gc.C) {
 		Scope:     charm.ScopeGlobal,
 	}
 	eps := []Endpoint{{
-		ApplicationName: "jeff",
-		Relation:        rel,
+		ServiceName: "jeff",
+		Relation:    rel,
 	}, {
-		ApplicationName: "mike",
-		Relation:        rel,
+		ServiceName: "mike",
+		Relation:    rel,
 	}, {
-		ApplicationName: "mike",
-		Relation:        rel,
+		ServiceName: "mike",
+		Relation:    rel,
 	}}
 	r := &Relation{nil, relationDoc{Endpoints: eps}}
 	relatedEps, err := r.RelatedEndpoints("mike")

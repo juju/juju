@@ -36,7 +36,7 @@ func runUnexpose(c *gc.C, args ...string) error {
 }
 
 func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool) {
-	svc, err := s.State.Application(application)
+	svc, err := s.State.Service(application)
 	c.Assert(err, jc.ErrorIsNil)
 	actual := svc.IsExposed()
 	c.Assert(actual, gc.Equals, expected)
@@ -59,7 +59,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 	err = runUnexpose(c, "nonexistent-application")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "nonexistent-application" not found`,
+		Message: `service "nonexistent-application" not found`,
 		Code:    "not found",
 	})
 }

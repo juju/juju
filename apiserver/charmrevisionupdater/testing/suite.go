@@ -118,13 +118,13 @@ func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
 	owner := s.jcSuite.AdminUserTag(c)
-	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{Name: serviceName, Owner: owner.String(), Charm: ch})
+	_, err := s.jcSuite.State.AddService(state.AddServiceArgs{Name: serviceName, Owner: owner.String(), Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // AddUnit adds a new unit for application to the specified machine.
 func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
-	svc, err := s.jcSuite.State.Application(serviceName)
+	svc, err := s.jcSuite.State.Service(serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +138,7 @@ func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
 func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 	u, err := s.jcSuite.State.Unit(unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := u.Application()
+	svc, err := u.Service()
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", svc.Name(), rev))
 	err = u.SetCharmURL(curl)

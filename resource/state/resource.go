@@ -21,13 +21,13 @@ import (
 )
 
 type resourcePersistence interface {
-	// ListResources returns the resource data for the given application ID.
+	// ListResources returns the resource data for the given service ID.
 	// None of the resources will be pending.
-	ListResources(applicationID string) (resource.ServiceResources, error)
+	ListResources(serviceID string) (resource.ServiceResources, error)
 
 	// ListPendingResources returns the resource data for the given
-	// application ID.
-	ListPendingResources(applicationID string) ([]resource.Resource, error)
+	// service ID.
+	ListPendingResources(serviceID string) ([]resource.Resource, error)
 
 	// GetResource returns the extended, model-related info for the
 	// non-pending resource.
@@ -44,7 +44,7 @@ type resourcePersistence interface {
 
 	// SetCharmStoreResource stores the resource info that was retrieved
 	// from the charm store.
-	SetCharmStoreResource(id, applicationID string, res charmresource.Resource, lastPolled time.Time) error
+	SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error
 
 	// SetUnitResource stores the resource info for a unit.
 	SetUnitResource(unitID string, args resource.Resource) error
@@ -76,11 +76,11 @@ type StagedResource interface {
 }
 
 type rawState interface {
-	// VerifyService ensures that the application is in state.
+	// VerifyService ensures that the service is in state.
 	VerifyService(id string) error
 
-	// Units returns the tags for all units in the application.
-	Units(applicationID string) ([]names.UnitTag, error)
+	// Units returns the tags for all units in the service.
+	Units(serviceID string) ([]names.UnitTag, error)
 }
 
 type resourceStorage interface {
@@ -104,17 +104,17 @@ type resourceState struct {
 	currentTimestamp func() time.Time
 }
 
-// ListResources returns the resource data for the given application ID.
-func (st resourceState) ListResources(applicationID string) (resource.ServiceResources, error) {
-	resources, err := st.persist.ListResources(applicationID)
+// ListResources returns the resource data for the given service ID.
+func (st resourceState) ListResources(serviceID string) (resource.ServiceResources, error) {
+	resources, err := st.persist.ListResources(serviceID)
 	if err != nil {
-		if err := st.raw.VerifyService(applicationID); err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
 			return resource.ServiceResources{}, errors.Trace(err)
 		}
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
 
-	unitIDs, err := st.raw.Units(applicationID)
+	unitIDs, err := st.raw.Units(serviceID)
 	if err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
@@ -138,11 +138,11 @@ func (st resourceState) ListResources(applicationID string) (resource.ServiceRes
 }
 
 // GetResource returns the resource data for the identified resource.
-func (st resourceState) GetResource(applicationID, name string) (resource.Resource, error) {
-	id := newResourceID(applicationID, name)
+func (st resourceState) GetResource(serviceID, name string) (resource.Resource, error) {
+	id := newResourceID(serviceID, name)
 	res, _, err := st.persist.GetResource(id)
 	if err != nil {
-		if err := st.raw.VerifyService(applicationID); err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
 			return resource.Resource{}, errors.Trace(err)
 		}
 		return res, errors.Trace(err)
@@ -151,13 +151,13 @@ func (st resourceState) GetResource(applicationID, name string) (resource.Resour
 }
 
 // GetPendingResource returns the resource data for the identified resource.
-func (st resourceState) GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error) {
+func (st resourceState) GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error) {
 	var res resource.Resource
 
-	resources, err := st.persist.ListPendingResources(applicationID)
+	resources, err := st.persist.ListPendingResources(serviceID)
 	if err != nil {
 		// We do not call VerifyService() here because pending resources
-		// do not have to have an existing application.
+		// do not have to have an existing service.
 		return res, errors.Trace(err)
 	}
 
@@ -172,10 +172,10 @@ func (st resourceState) GetPendingResource(applicationID, name, pendingID string
 // TODO(ericsnow) Separate setting the metadata from storing the blob?
 
 // SetResource stores the resource in the Juju model.
-func (st resourceState) SetResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	logger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
+func (st resourceState) SetResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	logger.Tracef("adding resource %q for service %q", chRes.Name, serviceID)
 	pendingID := ""
-	res, err := st.setResource(pendingID, applicationID, userID, chRes, r)
+	res, err := st.setResource(pendingID, serviceID, userID, chRes, r)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -183,14 +183,14 @@ func (st resourceState) SetResource(applicationID, userID string, chRes charmres
 }
 
 // AddPendingResource stores the resource in the Juju model.
-func (st resourceState) AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
+func (st resourceState) AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (pendingID string, err error) {
 	pendingID, err = st.newPendingID()
 	if err != nil {
 		return "", errors.Annotate(err, "could not generate resource ID")
 	}
-	logger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
+	logger.Debugf("adding pending resource %q for service %q (ID: %s)", chRes.Name, serviceID, pendingID)
 
-	if _, err := st.setResource(pendingID, applicationID, userID, chRes, r); err != nil {
+	if _, err := st.setResource(pendingID, serviceID, userID, chRes, r); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -198,9 +198,9 @@ func (st resourceState) AddPendingResource(applicationID, userID string, chRes c
 }
 
 // UpdatePendingResource stores the resource in the Juju model.
-func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	logger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
-	res, err := st.setResource(pendingID, applicationID, userID, chRes, r)
+func (st resourceState) UpdatePendingResource(serviceID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	logger.Tracef("updating pending resource %q (%s) for service %q", chRes.Name, pendingID, serviceID)
+	res, err := st.setResource(pendingID, serviceID, userID, chRes, r)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -209,14 +209,14 @@ func (st resourceState) UpdatePendingResource(applicationID, pendingID, userID s
 
 // TODO(ericsnow) Add ResolvePendingResource().
 
-func (st resourceState) setResource(pendingID, applicationID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	id := newResourceID(applicationID, chRes.Name)
+func (st resourceState) setResource(pendingID, serviceID, userID string, chRes charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	id := newResourceID(serviceID, chRes.Name)
 
 	res := resource.Resource{
-		Resource:      chRes,
-		ID:            id,
-		PendingID:     pendingID,
-		ApplicationID: applicationID,
+		Resource:  chRes,
+		ID:        id,
+		PendingID: pendingID,
+		ServiceID: serviceID,
 	}
 	if r != nil {
 		// TODO(ericsnow) Validate the user ID (or use a tag).
@@ -247,7 +247,7 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	// is stored separately and adding to both should be an atomic
 	// operation.
 
-	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
+	storagePath := storagePath(res.Name, res.ServiceID, res.PendingID)
 	staged, err := st.persist.StageResource(res, storagePath)
 	if err != nil {
 		return errors.Trace(err)
@@ -256,17 +256,17 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	hash := res.Fingerprint.String()
 	if err := st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
 		if err := staged.Unstage(); err != nil {
-			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
 		}
 		return errors.Trace(err)
 	}
 
 	if err := staged.Activate(); err != nil {
 		if err := st.storage.Remove(storagePath); err != nil {
-			logger.Errorf("could not remove resource %q (application %q) from storage: %v", res.Name, res.ApplicationID, err)
+			logger.Errorf("could not remove resource %q (service %q) from storage: %v", res.Name, res.ServiceID, err)
 		}
 		if err := staged.Unstage(); err != nil {
-			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
+			logger.Errorf("could not unstage resource %q (service %q): %v", res.Name, res.ServiceID, err)
 		}
 		return errors.Trace(err)
 	}
@@ -276,11 +276,11 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 // OpenResource returns metadata about the resource, and a reader for
 // the resource.
-func (st resourceState) OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error) {
-	id := newResourceID(applicationID, name)
+func (st resourceState) OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error) {
+	id := newResourceID(serviceID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
-		if err := st.raw.VerifyService(applicationID); err != nil {
+		if err := st.raw.VerifyService(serviceID); err != nil {
 			return resource.Resource{}, nil, errors.Trace(err)
 		}
 		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")
@@ -306,14 +306,14 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 // a reader for the resource. The resource is associated with
 // the unit once the reader is completely exhausted.
 func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error) {
-	applicationID := unit.ApplicationName()
+	serviceID := unit.ServiceName()
 
 	pendingID, err := newPendingID()
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
 
-	resourceInfo, resourceReader, err := st.OpenResource(applicationID, name)
+	resourceInfo, resourceReader, err := st.OpenResource(serviceID, name)
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
@@ -338,11 +338,11 @@ func (st resourceState) OpenResourceForUniter(unit resource.Unit, name string) (
 }
 
 // SetCharmStoreResources sets the "polled" resources for the
-// application to the provided values.
-func (st resourceState) SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error {
+// service to the provided values.
+func (st resourceState) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
 	for _, chRes := range info {
-		id := newResourceID(applicationID, chRes.Name)
-		if err := st.persist.SetCharmStoreResource(id, applicationID, chRes, lastPolled); err != nil {
+		id := newResourceID(serviceID, chRes.Name)
+		if err := st.persist.SetCharmStoreResource(id, serviceID, chRes, lastPolled); err != nil {
 			return errors.Trace(err)
 		}
 		// TODO(ericsnow) Worry about extras? missing?
@@ -360,7 +360,7 @@ func (st resourceState) SetCharmStoreResources(applicationID string, info []char
 // Leaking mongo details (transaction ops) is a necessary evil since we
 // do not have any machinery to facilitate transactions between
 // different components.
-func (st resourceState) NewResolvePendingResourcesOps(applicationID string, pendingIDs map[string]string) ([]txn.Op, error) {
+func (st resourceState) NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error) {
 	if len(pendingIDs) == 0 {
 		return nil, nil
 	}
@@ -370,7 +370,7 @@ func (st resourceState) NewResolvePendingResourcesOps(applicationID string, pend
 
 	var allOps []txn.Op
 	for name, pendingID := range pendingIDs {
-		ops, err := st.newResolvePendingResourceOps(applicationID, name, pendingID)
+		ops, err := st.newResolvePendingResourceOps(serviceID, name, pendingID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -379,12 +379,12 @@ func (st resourceState) NewResolvePendingResourcesOps(applicationID string, pend
 	return allOps, nil
 }
 
-func (st resourceState) newResolvePendingResourceOps(applicationID, name, pendingID string) ([]txn.Op, error) {
-	resID := newResourceID(applicationID, name)
+func (st resourceState) newResolvePendingResourceOps(serviceID, name, pendingID string) ([]txn.Op, error) {
+	resID := newResourceID(serviceID, name)
 	return st.persist.NewResolvePendingResourceOps(resID, pendingID)
 }
 
-// TODO(ericsnow) Incorporate the application and resource name into the ID
+// TODO(ericsnow) Incorporate the service and resource name into the ID
 // instead of just using a UUID?
 
 // newPendingID generates a new unique identifier for a resource.
@@ -397,23 +397,23 @@ func newPendingID() (string, error) {
 }
 
 // newResourceID produces a new ID to use for the resource in the model.
-func newResourceID(applicationID, name string) string {
-	return fmt.Sprintf("%s/%s", applicationID, name)
+func newResourceID(serviceID, name string) string {
+	return fmt.Sprintf("%s/%s", serviceID, name)
 }
 
 // storagePath returns the path used as the location where the resource
 // is stored in state storage. This requires that the returned string
 // be unique and that it be organized in a structured way. In this case
-// we start with a top-level (the application), then under that application use
+// we start with a top-level (the service), then under that service use
 // the "resources" section. The provided ID is located under there.
-func storagePath(name, applicationID, pendingID string) string {
-	// TODO(ericsnow) Use applications/<application>/resources/<resource>?
+func storagePath(name, serviceID, pendingID string) string {
+	// TODO(ericsnow) Use services/<service>/resources/<resource>?
 	id := name
 	if pendingID != "" {
 		// TODO(ericsnow) How to resolve this later?
 		id += "-" + pendingID
 	}
-	return path.Join("application-"+applicationID, "resources", id)
+	return path.Join("application-"+serviceID, "resources", id)
 }
 
 // unitSetter records the resource as in use by a unit when the wrapped

@@ -443,7 +443,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		if !unit.IsPrincipal() {
 			continue
 		}
-		instanceIds, err := state.ServiceInstances(st, unit.ApplicationName())
+		instanceIds, err := state.ServiceInstances(st, unit.ServiceName())
 		if err != nil {
 			return nil, err
 		}

@@ -210,18 +210,18 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	if !ru.unit.IsPrincipal() || ru.endpoint.Scope != charm.ScopeContainer {
 		return nil, "", nil
 	}
-	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ApplicationName)
+	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
 	if err != nil {
 		return nil, "", err
 	}
 	if len(related) != 1 {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
-	applicationname, unitName := related[0].ApplicationName, ru.unit.doc.Name
-	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
+	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
+	selSubordinate := bson.D{{"service", serviceName}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
-		service, err := ru.st.Application(applicationname)
+		service, err := ru.st.Service(serviceName)
 		if err != nil {
 			return nil, "", err
 		}

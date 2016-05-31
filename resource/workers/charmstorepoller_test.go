@@ -36,7 +36,7 @@ func (s *LatestCharmHandlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
-	applicationID := names.NewApplicationTag("a-application")
+	serviceID := names.NewApplicationTag("a-application")
 	info := charmstore.CharmInfo{
 		OriginalURL:    &charm.URL{},
 		Timestamp:      time.Now().UTC(),
@@ -47,7 +47,7 @@ func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
 	}
 	handler := workers.NewLatestCharmHandler(s.store)
 
-	err := handler.HandleLatest(applicationID, info)
+	err := handler.HandleLatest(serviceID, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetCharmStoreResources")
@@ -58,8 +58,8 @@ type stubDataStore struct {
 	*testing.Stub
 }
 
-func (s *stubDataStore) SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error {
-	s.AddCall("SetCharmStoreResources", applicationID, info, lastPolled)
+func (s *stubDataStore) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
+	s.AddCall("SetCharmStoreResources", serviceID, info, lastPolled)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

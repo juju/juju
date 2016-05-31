@@ -22,7 +22,7 @@ import (
 
 type ListSuite struct {
 	BaseActionSuite
-	svc            *state.Application
+	svc            *state.Service
 	wrappedCommand cmd.Command
 	command        *action.ListCommand
 }

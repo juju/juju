@@ -93,10 +93,10 @@ type context struct {
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
-	svc                    *state.Application
+	svc                    *state.Service
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
-	relatedSvc             *state.Application
+	relatedSvc             *state.Service
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
@@ -993,12 +993,12 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 type pushResource struct{}
 
 func (s pushResource) step(c *gc.C, ctx *context) {
-	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ApplicationName(), "the bytes")
+	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ServiceName(), "the bytes")
 
 	res, err := ctx.st.Resources()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = res.SetResource(
-		ctx.unit.ApplicationName(),
+		ctx.unit.ServiceName(),
 		opened.Username,
 		opened.Resource.Resource,
 		opened.ReadCloser,
@@ -1189,7 +1189,7 @@ type addSubordinateRelation struct {
 }
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
-	if _, err := ctx.st.Application("logging"); errors.IsNotFound(err) {
+	if _, err := ctx.st.Service("logging"); errors.IsNotFound(err) {
 		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)

@@ -47,7 +47,7 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 
 	_, err := testing.RunCommand(c, application.NewDeployCommand(), chPath, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Application("riak")
+	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, forced, err := riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +99,7 @@ func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
 
 	c.Check(sr.Resources, gc.HasLen, 1)
 
-	c.Check(sr.Resources[0].ApplicationID, gc.Equals, "riak")
+	c.Check(sr.Resources[0].ServiceID, gc.Equals, "riak")
 
 	// Most of this is just a sanity check... this is all tested elsewhere.
 	c.Check(sr.Resources[0].PendingID, gc.Equals, "")
@@ -234,8 +234,8 @@ Deploying charm "cs:trusty/starsay-1" with the user specified series "trusty".
 			Fingerprint: resourceHash("install-resource content"),
 			Size:        int64(len("install-resource content")),
 		},
-		ID:            "starsay/install-resource",
-		ApplicationID: "starsay",
+		ID:        "starsay/install-resource",
+		ServiceID: "starsay",
 	}, {
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -249,8 +249,8 @@ Deploying charm "cs:trusty/starsay-1" with the user specified series "trusty".
 			Fingerprint: resourceHash("store-resource content"),
 			Size:        int64(len("store-resource content")),
 		},
-		ID:            "starsay/store-resource",
-		ApplicationID: "starsay",
+		ID:        "starsay/store-resource",
+		ServiceID: "starsay",
 	}, {
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -264,9 +264,9 @@ Deploying charm "cs:trusty/starsay-1" with the user specified series "trusty".
 			Fingerprint: resourceHash(resourceContent),
 			Size:        int64(len(resourceContent)),
 		},
-		ID:            "starsay/upload-resource",
-		ApplicationID: "starsay",
-		Username:      "admin@local",
+		ID:        "starsay/upload-resource",
+		ServiceID: "starsay",
+		Username:  "admin@local",
 		// Timestamp is checked above
 	}}
 
@@ -337,7 +337,7 @@ func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 
 // assertServicesDeployed checks that the given services have been deployed.
 func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllApplications()
+	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {

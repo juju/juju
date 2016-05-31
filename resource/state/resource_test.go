@@ -167,11 +167,11 @@ func (s *ResourceSuite) TestSetResourceOkay(c *gc.C) {
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
 	c.Check(res, jc.DeepEquals, resource.Resource{
-		Resource:      chRes,
-		ID:            "a-application/" + res.Name,
-		ApplicationID: "a-application",
-		Username:      "a-user",
-		Timestamp:     s.timestamp,
+		Resource:  chRes,
+		ID:        "a-application/" + res.Name,
+		ServiceID: "a-application",
+		Username:  "a-user",
+		Timestamp: s.timestamp,
 	})
 }
 
@@ -192,9 +192,9 @@ func (s *ResourceSuite) TestSetResourceInfoOnly(c *gc.C) {
 	)
 	s.stub.CheckCall(c, 0, "SetResource", expected)
 	c.Check(res, jc.DeepEquals, resource.Resource{
-		Resource:      chRes,
-		ID:            "a-application/" + res.Name,
-		ApplicationID: "a-application",
+		Resource:  chRes,
+		ID:        "a-application/" + res.Name,
+		ServiceID: "a-application",
 	})
 }
 
@@ -369,12 +369,12 @@ func (s *ResourceSuite) TestUpdatePendingResourceOkay(c *gc.C) {
 	s.stub.CheckCall(c, 1, "StageResource", expected, path)
 	s.stub.CheckCall(c, 2, "PutAndCheckHash", path, file, res.Size, hash)
 	c.Check(res, jc.DeepEquals, resource.Resource{
-		Resource:      chRes,
-		ID:            "a-application/" + res.Name,
-		ApplicationID: "a-application",
-		PendingID:     "some-unique-id",
-		Username:      "a-user",
-		Timestamp:     s.timestamp,
+		Resource:  chRes,
+		ID:        "a-application/" + res.Name,
+		ServiceID: "a-application",
+		PendingID: "some-unique-id",
+		Username:  "a-user",
+		Timestamp: s.timestamp,
 	})
 }
 
@@ -479,7 +479,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterOkay(c *gc.C) {
 	info, reader, err := st.OpenResourceForUniter(unit, "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "ApplicationName", "GetResource", "Get", "Name", "SetUnitResourceProgress")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get", "Name", "SetUnitResourceProgress")
 	s.stub.CheckCall(c, 2, "Get", "application-a-application/resources/spam")
 	c.Check(info, jc.DeepEquals, opened.Resource)
 
@@ -498,7 +498,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterNotFound(c *gc.C) {
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ApplicationName", "GetResource", "VerifyService")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "VerifyService")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -512,7 +512,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterPlaceholder(c *gc.C) {
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ApplicationName", "GetResource")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -529,7 +529,7 @@ func (s *ResourceSuite) TestOpenResourceForUniterSizeMismatch(c *gc.C) {
 
 	_, _, err := st.OpenResourceForUniter(unit, "spam")
 
-	s.stub.CheckCallNames(c, "ApplicationName", "GetResource", "Get")
+	s.stub.CheckCallNames(c, "ServiceName", "GetResource", "Get")
 	c.Check(err, gc.ErrorMatches, `storage returned a size \(10\) which doesn't match resource metadata \(9\)`)
 }
 
@@ -583,7 +583,7 @@ func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
 		expected[:2],
 		expected[2:],
 	}
-	applicationID := "a-application"
+	serviceID := "a-application"
 	st := NewState(s.raw)
 	s.stub.ResetCalls()
 	pendingIDs := map[string]string{
@@ -591,7 +591,7 @@ func (s *ResourceSuite) TestNewResourcePendingResourcesOps(c *gc.C) {
 		"eggs": "other-unique-id",
 	}
 
-	ops, err := st.NewResolvePendingResourcesOps(applicationID, pendingIDs)
+	ops, err := st.NewResolvePendingResourcesOps(serviceID, pendingIDs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -725,8 +725,8 @@ func newCharmResource(c *gc.C, name, data string, rev int) charmresource.Resourc
 
 func newUnit(stub *testing.Stub, name string) *resourcetesting.StubUnit {
 	return &resourcetesting.StubUnit{
-		Stub:                  stub,
-		ReturnName:            name,
-		ReturnApplicationName: strings.Split(name, "/")[0],
+		Stub:              stub,
+		ReturnName:        name,
+		ReturnServiceName: strings.Split(name, "/")[0],
 	}
 }

@@ -34,7 +34,7 @@ func (s *ResourcePersistenceSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.base = statetest.NewStubPersistence(s.stub)
 	s.base.ReturnServiceExistsOps = []txn.Op{{
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}}
@@ -204,7 +204,7 @@ func (s *ResourcePersistenceSuite) TestStageResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -239,8 +239,8 @@ func (s *ResourcePersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 }
 
 func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
-	applicationname := "a-application"
-	res, doc := newPersistenceResource(c, applicationname, "spam")
+	servicename := "a-application"
+	res, doc := newPersistenceResource(c, servicename, "spam")
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
@@ -261,15 +261,15 @@ func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
-	applicationname := "a-application"
-	res, doc := newPersistenceResource(c, applicationname, "spam")
+	servicename := "a-application"
+	res, doc := newPersistenceResource(c, servicename, "spam")
 	s.base.ReturnOne = doc
 	expected := doc // a copy
 	expected.StoragePath = ""
@@ -293,7 +293,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &expected,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -301,8 +301,8 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 
 func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	lastPolled := time.Now().UTC()
-	applicationname := "a-application"
-	res, doc := newPersistenceResource(c, applicationname, "spam")
+	servicename := "a-application"
+	res, doc := newPersistenceResource(c, servicename, "spam")
 	expected := doc // a copy
 	expected.DocID += "#charmstore"
 	expected.Username = ""
@@ -313,7 +313,7 @@ func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
-	err := p.SetCharmStoreResource(res.ID, res.ApplicationID, res.Resource.Resource, lastPolled)
+	err := p.SetCharmStoreResource(res.ID, res.ServiceID, res.Resource.Resource, lastPolled)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
@@ -327,16 +327,16 @@ func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &expected,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
-	applicationname := "a-application"
+	servicename := "a-application"
 	unitname := "a-application/0"
-	res, doc := newPersistenceUnitResource(c, applicationname, unitname, "eggs")
+	res, doc := newPersistenceUnitResource(c, servicename, unitname, "eggs")
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
@@ -352,16 +352,16 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *ResourcePersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
-	applicationname := "a-application"
+	servicename := "a-application"
 	unitname := "a-application/0"
-	res, _ := newPersistenceUnitResource(c, applicationname, unitname, "eggs")
+	res, _ := newPersistenceUnitResource(c, servicename, unitname, "eggs")
 	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	s.stub.SetErrors(notFound)
@@ -390,7 +390,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -405,7 +405,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -426,9 +426,9 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 }
 
 func (s *ResourcePersistenceSuite) TestSetUnitResourceProgress(c *gc.C) {
-	applicationname := "a-application"
+	servicename := "a-application"
 	unitname := "a-application/0"
-	res, doc := newPersistenceUnitResource(c, applicationname, unitname, "eggs")
+	res, doc := newPersistenceUnitResource(c, servicename, unitname, "eggs")
 	s.base.ReturnOne = doc
 	pendingID := "<a pending ID>"
 	res.PendingID = pendingID
@@ -450,7 +450,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceProgress(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &expected,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -613,9 +613,9 @@ func newPersistenceResource(c *gc.C, serviceID, name string) (storedResource, re
 	}
 
 	doc := resourceDoc{
-		DocID:         "resource#" + res.ID,
-		ID:            res.ID,
-		ApplicationID: res.ApplicationID,
+		DocID:     "resource#" + res.ID,
+		ID:        res.ID,
+		ServiceID: res.ServiceID,
 
 		Name:        res.Name,
 		Type:        res.Type.String(),

@@ -11,10 +11,10 @@ import (
 )
 
 // ListResourcesArgs holds the arguments for an API request to list
-// resources for a application. The application is implicit to the uniter-
+// resources for a service. The service is implicit to the uniter-
 // specific HTTP connection.
 type ListResourcesArgs struct {
-	// ResourceNames holds the names of the application's resources for
+	// ResourceNames holds the names of the service's resources for
 	// which information should be provided.
 	ResourceNames []string
 }

@@ -97,7 +97,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	service, err := unit.Application()
+	service, err := unit.Service()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,7 +197,7 @@ func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
 
 // MetricBatchesUnit returns metric batches for the given service.
 func (st *State) MetricBatchesForService(service string) ([]MetricBatch, error) {
-	svc, err := st.Application(service)
+	svc, err := st.Service(service)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -276,7 +276,7 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 		if !unit.IsPrincipal() {
 			continue
 		}
-		service, err := unit.Application()
+		service, err := unit.Service()
 		if err != nil {
 			return nil, err
 		}

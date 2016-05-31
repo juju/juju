@@ -26,7 +26,7 @@ import (
 type SenderSuite struct {
 	jujutesting.JujuConnSuite
 	unit           *state.Unit
-	meteredService *state.Application
+	meteredService *state.Service
 }
 
 var _ = gc.Suite(&SenderSuite{})
@@ -46,8 +46,8 @@ func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
 func (s *SenderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	s.meteredService = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	s.meteredService = s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
 }
 
 // startServer starts a test HTTP server, returning a function that should be
@@ -201,9 +201,9 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 // TestMeterStatusInvalid checks that the metric sender deals with invalid
 // meter status data properly.
 func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
-	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
 
 	statusFunc := func(unitName string) (string, string, string) {
 		switch unitName {

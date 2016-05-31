@@ -33,10 +33,10 @@ type Unit interface {
 type stateInterface interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Unit(string) (Unit, error)
-	Application(string) (*state.Application, error)
+	Service(string) (*state.Service, error)
 	Machine(string) (*state.Machine, error)
 	AllMachines() ([]*state.Machine, error)
-	AllApplications() ([]*state.Application, error)
+	AllServices() ([]*state.Service, error)
 	AllRelations() ([]*state.Relation, error)
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)

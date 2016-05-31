@@ -234,14 +234,14 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
 	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
 	otherFactory := factory.NewFactory(otherSt)
 	otherFactory.MakeMachine(c, nil)
 	otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeApplication(c, &factory.ApplicationParams{
+	otherFactory.MakeService(c, &factory.ServiceParams{
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
 

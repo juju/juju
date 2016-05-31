@@ -805,7 +805,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	case names.UserTag:
 		return st.User(tag)
 	case names.ApplicationTag:
-		return st.Application(id)
+		return st.Service(id)
 	case names.ModelTag:
 		env, err := st.Model()
 		if err != nil {
@@ -865,7 +865,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		coll = machinesC
 		id = st.docID(id)
 	case names.ApplicationTag:
-		coll = applicationsC
+		coll = servicesC
 		id = st.docID(id)
 	case names.UnitTag:
 		coll = unitsC
@@ -895,7 +895,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 
 // addPeerRelationsOps returns the operations necessary to add the
 // specified service peer relations to the state.
-func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
+func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.Relation) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, rel := range peers {
 		relId, err := st.sequence("relation")
@@ -903,8 +903,8 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 			return nil, errors.Trace(err)
 		}
 		eps := []Endpoint{{
-			ApplicationName: applicationname,
-			Relation:        rel,
+			ServiceName: serviceName,
+			Relation:    rel,
 		}}
 		relKey := relationKey(eps)
 		relDoc := &relationDoc{
@@ -925,7 +925,7 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 	return ops, nil
 }
 
-type AddApplicationArgs struct {
+type AddServiceArgs struct {
 	Name             string
 	Series           string
 	Owner            string
@@ -940,10 +940,10 @@ type AddApplicationArgs struct {
 	Resources        map[string]string
 }
 
-// AddApplication creates a new application, running the supplied charm, with the
+// AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(args AddApplicationArgs) (service *Application, err error) {
+func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 	ownerTag, err := names.ParseUserTag(args.Owner)
 	if err != nil {
@@ -961,10 +961,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (service *Application, 
 		return nil, errors.Trace(err)
 	}
 
-	if exists, err := isNotDead(st, applicationsC, args.Name); err != nil {
+	if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
-		return nil, errors.Errorf("application already exists")
+		return nil, errors.Errorf("service already exists")
 	}
 	if err := checkModelActive(st); err != nil {
 		return nil, errors.Trace(err)
@@ -1064,7 +1064,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (service *Application, 
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
-	svcDoc := &applicationDoc{
+	svcDoc := &serviceDoc{
 		DocID:         serviceID,
 		Name:          args.Name,
 		ModelUUID:     st.ModelUUID(),
@@ -1077,7 +1077,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (service *Application, 
 		OwnerTag:      args.Owner,
 	}
 
-	svc := newApplication(st, svcDoc)
+	svc := newService(st, svcDoc)
 
 	endpointBindingsOp, err := createEndpointBindingsOp(
 		st, svc.globalKey(),
@@ -1109,8 +1109,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (service *Application, 
 			assertModelActiveOp(st.ModelUUID()),
 			endpointBindingsOp,
 		},
-		addApplicationOps(st, addApplicationOpsArgs{
-			applicationDoc:   svcDoc,
+		addServiceOps(st, addServiceOpsArgs{
+			serviceDoc:       svcDoc,
 			statusDoc:        statusDoc,
 			constraints:      args.Constraints,
 			storage:          args.Storage,
@@ -1161,7 +1161,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (service *Application, 
 		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return nil, errors.Errorf("application already exists")
+		return nil, errors.Errorf("service already exists")
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1174,7 +1174,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (service *Application, 
 }
 
 // TODO(natefinch) DEMO code, revisit after demo!
-var AddServicePostFuncs = map[string]func(*State, AddApplicationArgs) error{}
+var AddServicePostFuncs = map[string]func(*State, AddServiceArgs) error{}
 
 // assignUnitOps returns the db ops to save unit assignment for use by the
 // UnitAssigner worker.
@@ -1387,36 +1387,36 @@ func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
 }
 
 // Service returns a service state by name.
-func (st *State) Application(name string) (service *Application, err error) {
-	services, closer := st.getCollection(applicationsC)
+func (st *State) Service(name string) (service *Service, err error) {
+	services, closer := st.getCollection(servicesC)
 	defer closer()
 
 	if !names.IsValidApplication(name) {
-		return nil, errors.Errorf("%q is not a valid application name", name)
+		return nil, errors.Errorf("%q is not a valid service name", name)
 	}
-	sdoc := &applicationDoc{}
+	sdoc := &serviceDoc{}
 	err = services.FindId(name).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("application %q", name)
+		return nil, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get application %q", name)
+		return nil, errors.Annotatef(err, "cannot get service %q", name)
 	}
-	return newApplication(st, sdoc), nil
+	return newService(st, sdoc), nil
 }
 
-// AllApplications returns all deployed services in the model.
-func (st *State) AllApplications() (services []*Application, err error) {
-	servicesCollection, closer := st.getCollection(applicationsC)
+// AllServices returns all deployed services in the model.
+func (st *State) AllServices() (services []*Service, err error) {
+	servicesCollection, closer := st.getCollection(servicesC)
 	defer closer()
 
-	sdocs := []applicationDoc{}
+	sdocs := []serviceDoc{}
 	err = servicesCollection.Find(bson.D{}).All(&sdocs)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all applications")
+		return nil, errors.Errorf("cannot get all services")
 	}
 	for _, v := range sdocs {
-		services = append(services, newApplication(st, &v))
+		services = append(services, newService(st, &v))
 	}
 	return services, nil
 }
@@ -1500,7 +1500,7 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 	}
 	var subordinateCount int
 	for _, ep := range []Endpoint{ep1, ep2} {
-		svc, err := st.Application(ep.ApplicationName)
+		svc, err := st.Service(ep.ServiceName)
 		if err != nil {
 			return false
 		}
@@ -1524,7 +1524,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 	} else {
 		return nil, errors.Errorf("invalid endpoint %q", name)
 	}
-	svc, err := st.Application(svcName)
+	svc, err := st.Service(svcName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1592,13 +1592,13 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
-			svc, err := st.Application(ep.ApplicationName)
+			svc, err := st.Service(ep.ServiceName)
 			if errors.IsNotFound(err) {
-				return nil, errors.Errorf("application %q does not exist", ep.ApplicationName)
+				return nil, errors.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			} else if svc.doc.Life != Alive {
-				return nil, errors.Errorf("application %q is not alive", ep.ApplicationName)
+				return nil, errors.Errorf("service %q is not alive", ep.ServiceName)
 			}
 			if svc.doc.Subordinate {
 				subordinateCount++
@@ -1609,20 +1609,20 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			}
 			if !ep.ImplementedBy(ch) {
-				return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
+				return nil, errors.Errorf("%q does not implement %q", ep.ServiceName, ep)
 			}
 			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     st.docID(ep.ApplicationName),
+				C:      servicesC,
+				Id:     st.docID(ep.ServiceName),
 				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
 				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 			})
 		}
 		if matchSeries && len(series) != 1 {
-			return nil, errors.Errorf("principal and subordinate applications' series must match")
+			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
 		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
-			return nil, errors.Errorf("container scoped relation requires at least one subordinate application")
+			return nil, errors.Errorf("container scoped relation requires at least one subordinate service")
 		}
 
 		// Create a new unique id if that has not already been done, and add

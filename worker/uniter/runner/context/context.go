@@ -311,7 +311,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	if !isLeader {
 		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	service, err := ctx.unit.Application()
+	service, err := ctx.unit.Service()
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
@@ -364,7 +364,7 @@ func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) err
 		return ErrIsNotLeader
 	}
 
-	service, err := ctx.unit.Application()
+	service, err := ctx.unit.Service()
 	if err != nil {
 		return errors.Trace(err)
 	}

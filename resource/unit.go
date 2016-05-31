@@ -14,8 +14,8 @@ type Unit interface {
 	// Name is the name of the Unit.
 	Name() string
 
-	// ApplicationName is the name of the application to which the unit belongs.
-	ApplicationName() string
+	// ServiceName is the name of the service to which the unit belongs.
+	ServiceName() string
 
 	// CharmURL returns the unit's charm URL.
 	CharmURL() (*charm.URL, bool)

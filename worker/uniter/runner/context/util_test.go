@@ -39,7 +39,7 @@ var expectedApiAddrs = strings.Join(apiAddrs, " ")
 // methods should not be added to this type, because they'll get run repeatedly.
 type HookContextSuite struct {
 	testing.JujuConnSuite
-	service  *state.Application
+	service  *state.Service
 	unit     *state.Unit
 	machine  *state.Machine
 	relch    *state.Charm
@@ -128,7 +128,7 @@ func (s *HookContextSuite) GetContext(
 	)
 }
 
-func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
+func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {
@@ -152,7 +152,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit 
 	return unit
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
+func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)

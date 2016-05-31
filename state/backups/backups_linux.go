@@ -117,7 +117,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 
 	if backupMachine.Id() != "0" {
 		logger.Infof("extra work needed backup belongs to %q machine", backupMachine.String())
-		applicationname := "jujud-" + agentConfig.Tag().String()
+		serviceName := "jujud-" + agentConfig.Tag().String()
 		aInfo := service.NewMachineAgentInfo(
 			agentConfig.Tag().Id(),
 			dataDir,
@@ -128,7 +128,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		// restore only works on linuxes.
 		renderer, _ := shell.NewRenderer("bash")
 		serviceAgentConf := service.AgentConf(aInfo, renderer)
-		svc, err := service.NewService(applicationname, serviceAgentConf, args.NewInstSeries)
+		svc, err := service.NewService(serviceName, serviceAgentConf, args.NewInstSeries)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot generate service for the restored agent.")
 		}

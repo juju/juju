@@ -138,7 +138,7 @@ func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL
 	return wordpressCharm
 }
 
-func (s *DeployLocalSuite) assertBindings(c *gc.C, service *state.Application, expected map[string]string) {
+func (s *DeployLocalSuite) assertBindings(c *gc.C, service *state.Service, expected map[string]string) {
 	bindings, err := service.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, expected)
@@ -258,7 +258,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 			},
 		})
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
-	_, err = s.State.Application("bob")
+	_, err = s.State.Service("bob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -395,25 +395,25 @@ func (s *DeployLocalSuite) assertAssignedUnit(c *gc.C, u *state.Unit, mId string
 	c.Assert(machineCons, gc.DeepEquals, cons)
 }
 
-func (s *DeployLocalSuite) assertCharm(c *gc.C, service *state.Application, expect *charm.URL) {
+func (s *DeployLocalSuite) assertCharm(c *gc.C, service *state.Service, expect *charm.URL) {
 	curl, force := service.CharmURL()
 	c.Assert(curl, gc.DeepEquals, expect)
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *DeployLocalSuite) assertSettings(c *gc.C, service *state.Application, expect charm.Settings) {
+func (s *DeployLocalSuite) assertSettings(c *gc.C, service *state.Service, expect charm.Settings) {
 	settings, err := service.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
 }
 
-func (s *DeployLocalSuite) assertConstraints(c *gc.C, service *state.Application, expect constraints.Value) {
+func (s *DeployLocalSuite) assertConstraints(c *gc.C, service *state.Service, expect constraints.Value) {
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, expect)
 }
 
-func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Application, expectCons constraints.Value, expectIds ...string) {
+func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expectCons constraints.Value, expectIds ...string) {
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, len(expectIds))
@@ -446,10 +446,10 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Application, e
 
 type fakeDeployer struct {
 	*state.State
-	args state.AddApplicationArgs
+	args state.AddServiceArgs
 }
 
-func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs) (*state.Application, error) {
+func (f *fakeDeployer) AddService(args state.AddServiceArgs) (*state.Service, error) {
 	f.args = args
 	return nil, nil
 }

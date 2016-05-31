@@ -12,7 +12,7 @@ import (
 
 // Get returns the configuration for a service.
 func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	service, err := api.state.Application(args.ApplicationName)
+	service, err := api.state.Service(args.ApplicationName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

@@ -29,7 +29,7 @@ import (
 type RelationerSuite struct {
 	jujutesting.JujuConnSuite
 	hooks   chan hook.Info
-	svc     *state.Application
+	svc     *state.Service
 	rel     *state.Relation
 	dir     *relation.StateDir
 	dirPath string

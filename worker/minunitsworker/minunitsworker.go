@@ -31,7 +31,7 @@ func (mu *MinUnitsWorker) SetUp() (state.StringsWatcher, error) {
 }
 
 func (mu *MinUnitsWorker) handleOneService(serviceName string) error {
-	service, err := mu.st.Application(serviceName)
+	service, err := mu.st.Service(serviceName)
 	if err != nil {
 		return err
 	}

@@ -9,15 +9,15 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// ServiceResources contains the list of resources for the application and all its
+// ServiceResources contains the list of resources for the service and all its
 // units.
 type ServiceResources struct {
-	// Resources are the current version of the resource for the application that
+	// Resources are the current version of the resource for the service that
 	// resource-get will retrieve.
 	Resources []Resource
 
 	// CharmStoreResources provides the resource info from the charm
-	// store for each of the application's resources. The information from
+	// store for each of the service's resources. The information from
 	// the charm store is current as of the last time the charm store
 	// was polled. Each entry here corresponds to the same indexed entry
 	// in the Resources field.
@@ -29,8 +29,8 @@ type ServiceResources struct {
 }
 
 // Updates returns the list of charm store resources corresponding to
-// the application's resources that are out of date. Note that there must be
-// a charm store resource for each of the application resources and
+// the service's resources that are out of date. Note that there must be
+// a charm store resource for each of the service resources and
 // vice-versa. If they are out of sync then an error is returned.
 func (sr ServiceResources) Updates() ([]resource.Resource, error) {
 	storeResources, err := sr.alignStoreResources()
@@ -55,10 +55,10 @@ func (sr ServiceResources) Updates() ([]resource.Resource, error) {
 
 func (sr ServiceResources) alignStoreResources() ([]resource.Resource, error) {
 	if len(sr.CharmStoreResources) > len(sr.Resources) {
-		return nil, errors.Errorf("have more charm store resources than application resources")
+		return nil, errors.Errorf("have more charm store resources than service resources")
 	}
 	if len(sr.CharmStoreResources) < len(sr.Resources) {
-		return nil, errors.Errorf("have fewer charm store resources than application resources")
+		return nil, errors.Errorf("have fewer charm store resources than service resources")
 	}
 
 	var store []resource.Resource

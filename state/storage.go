@@ -352,7 +352,7 @@ func createStorageOps(
 		createdShared = true
 	case names.UnitTag:
 	default:
-		return nil, -1, errors.Errorf("expected application or unit tag, got %T", entity)
+		return nil, -1, errors.Errorf("expected service or unit tag, got %T", entity)
 	}
 
 	// Create storage instances in order of name, to simplify testing.
@@ -1074,7 +1074,7 @@ func (st *State) AddStorageForUnit(
 		return errors.Trace(err)
 	}
 
-	s, err := u.Application()
+	s, err := u.Service()
 	if err != nil {
 		return errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
 	}

@@ -13,8 +13,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Application {
-	service, err := st.Application(serviceName)
+func AssertPrincipalServiceDeployed(c *gc.C, st *state.State, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
+	service, err := st.Service(serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)

@@ -81,7 +81,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *gc.C) {
 	err := runUpgradeCharm(c, "phony")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "phony" not found`,
+		Message: `service "phony" not found`,
 		Code:    "not found",
 	})
 }
@@ -138,10 +138,10 @@ type UpgradeCharmSuccessSuite struct {
 	jujutesting.RepoSuite
 	common.CmdBlockHelper
 	path string
-	riak *state.Application
+	riak *state.Service
 }
 
-func (s *BaseUpgradeCharmSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) *charm.URL {
+func (s *BaseUpgradeCharmSuite) assertUpgraded(c *gc.C, riak *state.Service, revision int, forced bool) *charm.URL {
 	err := riak.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := riak.Charm()
@@ -158,7 +158,7 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 	err := runDeploy(c, s.path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	s.riak, err = s.State.Application("riak")
+	s.riak, err = s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, forced, err := s.riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,7 +210,7 @@ func (s *UpgradeCharmSuccessSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "multi-series")
 	err := runDeploy(c, path, "multi-series", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("multi-series")
+	application, err := s.State.Service("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -381,7 +381,7 @@ func (s *UpgradeCharmCharmStoreSuite) TestSwitch(c *gc.C) {
 	err := runDeploy(c, "cs:~other/trusty/riak-0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	riak, err := s.State.Application("riak")
+	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, forced, err := riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)

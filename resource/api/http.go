@@ -25,11 +25,11 @@ const (
 	// the API server. This includes wildcards (starting with ":") that
 	// are converted into URL query values by the pattern mux. Also see
 	// apiserver/apiserver.go.
-	HTTPEndpointPattern = "/applications/:application/resources/:resource"
+	HTTPEndpointPattern = "/services/:service/resources/:resource"
 
 	// HTTPEndpointPath is the URL path, with substitutions, for
 	// a resource request.
-	HTTPEndpointPath = "/applications/%s/resources/%s"
+	HTTPEndpointPath = "/services/%s/resources/%s"
 )
 
 const (
@@ -76,7 +76,7 @@ func NewEndpointPath(service, name string) string {
 // ExtractEndpointDetails pulls the endpoint wildcard values from
 // the provided URL.
 func ExtractEndpointDetails(url *url.URL) (service, name string) {
-	service = url.Query().Get(":application")
+	service = url.Query().Get(":service")
 	name = url.Query().Get(":resource")
 	return service, name
 }

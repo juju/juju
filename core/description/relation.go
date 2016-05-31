@@ -143,38 +143,38 @@ type endpoints struct {
 }
 
 type endpoint struct {
-	ApplicationName_ string `yaml:"application-name"`
-	Name_            string `yaml:"name"`
-	Role_            string `yaml:"role"`
-	Interface_       string `yaml:"interface"`
-	Optional_        bool   `yaml:"optional"`
-	Limit_           int    `yaml:"limit"`
-	Scope_           string `yaml:"scope"`
+	ServiceName_ string `yaml:"application-name"`
+	Name_        string `yaml:"name"`
+	Role_        string `yaml:"role"`
+	Interface_   string `yaml:"interface"`
+	Optional_    bool   `yaml:"optional"`
+	Limit_       int    `yaml:"limit"`
+	Scope_       string `yaml:"scope"`
 
 	UnitSettings_ map[string]map[string]interface{} `yaml:"unit-settings"`
 }
 
 // EndpointArgs is an argument struct used to specify a relation.
 type EndpointArgs struct {
-	ApplicationName string
-	Name            string
-	Role            string
-	Interface       string
-	Optional        bool
-	Limit           int
-	Scope           string
+	ServiceName string
+	Name        string
+	Role        string
+	Interface   string
+	Optional    bool
+	Limit       int
+	Scope       string
 }
 
 func newEndpoint(args EndpointArgs) *endpoint {
 	return &endpoint{
-		ApplicationName_: args.ApplicationName,
-		Name_:            args.Name,
-		Role_:            args.Role,
-		Interface_:       args.Interface,
-		Optional_:        args.Optional,
-		Limit_:           args.Limit,
-		Scope_:           args.Scope,
-		UnitSettings_:    make(map[string]map[string]interface{}),
+		ServiceName_:  args.ServiceName,
+		Name_:         args.Name,
+		Role_:         args.Role,
+		Interface_:    args.Interface,
+		Optional_:     args.Optional,
+		Limit_:        args.Limit,
+		Scope_:        args.Scope,
+		UnitSettings_: make(map[string]map[string]interface{}),
 	}
 }
 
@@ -186,9 +186,9 @@ func (e *endpoint) unitNames() set.Strings {
 	return result
 }
 
-// ApplicationName implements Endpoint.
-func (e *endpoint) ApplicationName() string {
-	return e.ApplicationName_
+// ServiceName implements Endpoint.
+func (e *endpoint) ServiceName() string {
+	return e.ServiceName_
 }
 
 // Name implements Endpoint.
@@ -260,11 +260,11 @@ func importEndpointList(sourceList []interface{}, importFunc endpointDeserializa
 		if !ok {
 			return nil, errors.Errorf("unexpected value for endpoint %d, %T", i, value)
 		}
-		application, err := importFunc(source)
+		service, err := importFunc(source)
 		if err != nil {
 			return nil, errors.Annotatef(err, "endpoint %d", i)
 		}
-		result = append(result, application)
+		result = append(result, service)
 	}
 	return result, nil
 }
@@ -298,14 +298,14 @@ func importEndpointV1(source map[string]interface{}) (*endpoint, error) {
 	// contains fields of the right type.
 
 	result := &endpoint{
-		ApplicationName_: valid["application-name"].(string),
-		Name_:            valid["name"].(string),
-		Role_:            valid["role"].(string),
-		Interface_:       valid["interface"].(string),
-		Optional_:        valid["optional"].(bool),
-		Limit_:           int(valid["limit"].(int64)),
-		Scope_:           valid["scope"].(string),
-		UnitSettings_:    make(map[string]map[string]interface{}),
+		ServiceName_:  valid["application-name"].(string),
+		Name_:         valid["name"].(string),
+		Role_:         valid["role"].(string),
+		Interface_:    valid["interface"].(string),
+		Optional_:     valid["optional"].(bool),
+		Limit_:        int(valid["limit"].(int64)),
+		Scope_:        valid["scope"].(string),
+		UnitSettings_: make(map[string]map[string]interface{}),
 	}
 
 	for unitname, settings := range valid["unit-settings"].(map[string]interface{}) {

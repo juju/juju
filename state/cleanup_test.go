@@ -104,7 +104,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	factory.NewFactory(otherSt).MakeService(c, nil)
 	otherEnv, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -177,7 +177,7 @@ func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy the model and check the service and units are
-	// unaffected, but a cleanup for the application has been scheduled.
+	// unaffected, but a cleanup for the service has been scheduled.
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()

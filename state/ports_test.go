@@ -20,7 +20,7 @@ import (
 type PortsDocSuite struct {
 	ConnSuite
 	charm              *state.Charm
-	service            *state.Application
+	service            *state.Service
 	unit1              *state.Unit
 	unit2              *state.Unit
 	machine            *state.Machine
@@ -36,10 +36,10 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 
 	f := factory.NewFactory(s.State)
 	s.charm = f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	s.service = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: s.charm})
+	s.service = f.MakeService(c, &factory.ServiceParams{Name: "wordpress", Charm: s.charm})
 	s.machine = f.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
-	s.unit1 = f.MakeUnit(c, &factory.UnitParams{Application: s.service, Machine: s.machine})
-	s.unit2 = f.MakeUnit(c, &factory.UnitParams{Application: s.service, Machine: s.machine})
+	s.unit1 = f.MakeUnit(c, &factory.UnitParams{Service: s.service, Machine: s.machine})
+	s.unit2 = f.MakeUnit(c, &factory.UnitParams{Service: s.service, Machine: s.machine})
 
 	var err error
 	s.subnet, err = s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})

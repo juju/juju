@@ -92,8 +92,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(ModelInfo)
 	case "machine":
 		d.Entity = new(MachineInfo)
-	case "application":
-		d.Entity = new(ApplicationInfo)
+	case "service":
+		d.Entity = new(ServiceInfo)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
@@ -140,7 +140,7 @@ func (i *MachineInfo) EntityId() EntityId {
 }
 
 // StatusInfo holds the unit and machine status information. It is
-// used by ApplicationInfo and UnitInfo.
+// used by ServiceInfo and UnitInfo.
 type StatusInfo struct {
 	Err     error
 	Current status.Status
@@ -162,9 +162,9 @@ func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
 	}
 }
 
-// ApplicationInfo holds the information about an application that is tracked
+// ServiceInfo holds the information about a service that is tracked
 // by multiwatcherStore.
-type ApplicationInfo struct {
+type ServiceInfo struct {
 	ModelUUID   string
 	Name        string
 	Exposed     bool
@@ -178,11 +178,11 @@ type ApplicationInfo struct {
 	Status      StatusInfo
 }
 
-// EntityId returns a unique identifier for a application across
+// EntityId returns a unique identifier for a service across
 // models.
-func (i *ApplicationInfo) EntityId() EntityId {
+func (i *ServiceInfo) EntityId() EntityId {
 	return EntityId{
-		Kind:      "application",
+		Kind:      "service",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
 	}
@@ -193,7 +193,7 @@ func (i *ApplicationInfo) EntityId() EntityId {
 type UnitInfo struct {
 	ModelUUID      string
 	Name           string
-	Application    string
+	Service        string
 	Series         string
 	CharmURL       string
 	PublicAddress  string
@@ -254,8 +254,8 @@ type RelationInfo struct {
 
 // Endpoint holds a application-relation pair.
 type Endpoint struct {
-	ApplicationName string
-	Relation        charm.Relation
+	ServiceName string
+	Relation    charm.Relation
 }
 
 // EntityId returns a unique identifier for a relation across

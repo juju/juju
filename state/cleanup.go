@@ -23,7 +23,7 @@ const (
 	cleanupCharmForDyingService          cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingModel         cleanupKind = "applications"
+	cleanupServicesForDyingModel         cleanupKind = "services"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
@@ -227,9 +227,9 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 	// This won't miss services, because a Dying model cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
-	services, closer := st.getCollection(applicationsC)
+	services, closer := st.getCollection(servicesC)
 	defer closer()
-	service := Application{st: st}
+	service := Service{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := services.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading service document")
@@ -244,7 +244,7 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 // cleanupUnitsForDyingService sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(applicationname string) (err error) {
+func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
@@ -252,7 +252,7 @@ func (st *State) cleanupUnitsForDyingService(applicationname string) (err error)
 	defer closer()
 
 	unit := Unit{st: st}
-	sel := bson.D{{"application", applicationname}, {"life", Alive}}
+	sel := bson.D{{"service", serviceName}, {"life", Alive}}
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {

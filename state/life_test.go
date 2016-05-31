@@ -14,7 +14,7 @@ import (
 type LifeSuite struct {
 	ConnSuite
 	charm *state.Charm
-	svc   *state.Application
+	svc   *state.Service
 }
 
 func (s *LifeSuite) SetUpTest(c *gc.C) {

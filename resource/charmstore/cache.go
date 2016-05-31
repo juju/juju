@@ -13,7 +13,7 @@ import (
 )
 
 // EntityCache exposes the functionality needed to cache data from
-// the charm store. The operations apply to a single application (or unit).
+// the charm store. The operations apply to a single service (or unit).
 type EntityCache interface {
 	// GetResource returns the resource data for the identified resource.
 	GetResource(name string) (resource.Resource, error)

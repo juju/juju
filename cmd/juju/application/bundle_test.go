@@ -1448,7 +1448,7 @@ added django/0 unit to machine 0
 added memcached/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	svc, err := s.State.Application("django")
+	svc, err := s.State.Service("django")
 	c.Assert(err, jc.ErrorIsNil)
 	ann, err := s.State.Annotations(svc)
 	c.Assert(err, jc.ErrorIsNil)

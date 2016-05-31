@@ -22,7 +22,7 @@ type firewallerSuite struct {
 
 	st       api.Connection
 	machines []*state.Machine
-	service  *state.Application
+	service  *state.Service
 	charm    *state.Charm
 	units    []*state.Unit
 

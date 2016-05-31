@@ -32,7 +32,7 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 	for i, t := range canRelateTests {
 		c.Logf("test %d", i)
 		ep1 := state.Endpoint{
-			ApplicationName: "one-service",
+			ServiceName: "one-service",
 			Relation: charm.Relation{
 				Interface: "ifce",
 				Name:      "foo",
@@ -41,7 +41,7 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 			},
 		}
 		ep2 := state.Endpoint{
-			ApplicationName: "another-service",
+			ServiceName: "another-service",
 			Relation: charm.Relation{
 				Interface: "ifce",
 				Name:      "bar",
@@ -58,7 +58,7 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 		c.Assert(ep2.CanRelateTo(ep1), jc.IsFalse)
 	}
 	ep1 := state.Endpoint{
-		ApplicationName: "same-service",
+		ServiceName: "same-service",
 		Relation: charm.Relation{
 			Interface: "ifce",
 			Name:      "foo",
@@ -67,7 +67,7 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 		},
 	}
 	ep2 := state.Endpoint{
-		ApplicationName: "same-service",
+		ServiceName: "same-service",
 		Relation: charm.Relation{
 			Interface: "ifce",
 			Name:      "bar",

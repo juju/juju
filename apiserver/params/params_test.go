@@ -60,9 +60,9 @@ var marshalTestCases = []struct {
 	},
 	json: `["machine","change",{"ModelUUID":"uuid","Id":"Benji","InstanceId":"Shazam","JujuStatus":{"Err":null,"Current":"error","Message":"foo","Since":null,"Version":"","Data":null},"MachineStatus":{"Err":null,"Current":"pending","Message":"","Since":null,"Version":"","Data":null},"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"SupportedContainersKnown":false,"HardwareCharacteristics":{},"Jobs":["JobManageModel"],"Addresses":[],"HasVote":false,"WantsVote":false}]`,
 }, {
-	about: "ApplicationInfo Delta",
+	about: "ServiceInfo Delta",
 	value: multiwatcher.Delta{
-		Entity: &multiwatcher.ApplicationInfo{
+		Entity: &multiwatcher.ServiceInfo{
 			ModelUUID:   "uuid",
 			Name:        "Benji",
 			Exposed:     true,
@@ -81,16 +81,16 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["application","change",{"ModelUUID": "uuid", "CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"Subordinate":false,"Status":{"Current":"active", "Message":"all good", "Version": "", "Err": null, "Data": null, "Since": null}}]`,
+	json: `["service","change",{"ModelUUID": "uuid", "CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"Subordinate":false,"Status":{"Current":"active", "Message":"all good", "Version": "", "Err": null, "Data": null, "Since": null}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: multiwatcher.Delta{
 		Entity: &multiwatcher.UnitInfo{
-			ModelUUID:   "uuid",
-			Name:        "Benji",
-			Application: "Shazam",
-			Series:      "precise",
-			CharmURL:    "cs:~user/precise/wordpress-42",
+			ModelUUID: "uuid",
+			Name:      "Benji",
+			Service:   "Shazam",
+			Series:    "precise",
+			CharmURL:  "cs:~user/precise/wordpress-42",
 			Ports: []network.Port{{
 				Protocol: "http",
 				Number:   80,
@@ -112,7 +112,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["unit","change",{"ModelUUID":"uuid","Name":"Benji","Application":"Shazam","Series":"precise","CharmURL":"cs:~user/precise/wordpress-42","PublicAddress":"testing.invalid","PrivateAddress":"10.0.0.1","MachineId":"1","Ports":[{"Protocol":"http","Number":80}],"PortRanges":[{"FromPort":80,"ToPort":80,"Protocol":"http"}],"Subordinate":false,"WorkloadStatus":{"Err":null,"Current":"active","Message":"all good","Since":null,"Version":"","Data":null},"JujuStatus":{"Err":null,"Current":"idle","Message":"","Since":null,"Version":"","Data":null}}]`,
+	json: `["unit","change",{"ModelUUID":"uuid","Name":"Benji","Service":"Shazam","Series":"precise","CharmURL":"cs:~user/precise/wordpress-42","PublicAddress":"testing.invalid","PrivateAddress":"10.0.0.1","MachineId":"1","Ports":[{"Protocol":"http","Number":80}],"PortRanges":[{"FromPort":80,"ToPort":80,"Protocol":"http"}],"Subordinate":false,"WorkloadStatus":{"Err":null,"Current":"active","Message":"all good","Since":null,"Version":"","Data":null},"JujuStatus":{"Err":null,"Current":"idle","Message":"","Since":null,"Version":"","Data":null}}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{
@@ -121,11 +121,11 @@ var marshalTestCases = []struct {
 			Key:       "Benji",
 			Id:        4711,
 			Endpoints: []multiwatcher.Endpoint{
-				{ApplicationName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
-				{ApplicationName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
+				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
 	},
-	json: `["relation","change",{"ModelUUID": "uuid", "Key":"Benji", "Id": 4711, "Endpoints": [{"ApplicationName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ApplicationName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
+	json: `["relation","change",{"ModelUUID": "uuid", "Key":"Benji", "Id": 4711, "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
 }, {
 	about: "AnnotationInfo Delta",
 	value: multiwatcher.Delta{

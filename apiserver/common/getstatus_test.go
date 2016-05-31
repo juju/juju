@@ -91,7 +91,7 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 }
 
 func (s *statusGetterSuite) TestGetServiceStatus(c *gc.C) {
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
 		Status: status.StatusMaintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
@@ -179,7 +179,7 @@ func (s *serviceStatusGetterSuite) TestGetMachineStatus(c *gc.C) {
 }
 
 func (s *serviceStatusGetterSuite) TestGetServiceStatus(c *gc.C) {
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
+	service := s.Factory.MakeService(c, &factory.ServiceParams{Status: &status.StatusInfo{
 		Status: status.StatusMaintenance,
 	}})
 	result, err := s.getter.Status(params.Entities{[]params.Entity{{
@@ -210,7 +210,7 @@ func (s *serviceStatusGetterSuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.StatusMaintenance,
 	}})
-	service, err := unit.Application()
+	service, err := unit.Service()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State.LeadershipClaimer().ClaimLeadership(
 		service.Name(),

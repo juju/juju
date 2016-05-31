@@ -491,7 +491,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
+	svc, err := st.AddService(state.AddServiceArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(st, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)

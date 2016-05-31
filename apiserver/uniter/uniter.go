@@ -78,7 +78,7 @@ func NewUniterAPIV4(st *state.State, resources *common.Resources, authorizer com
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			serviceName := entity.ApplicationName()
+			serviceName := entity.ServiceName()
 			ApplicationTag := names.NewApplicationTag(serviceName)
 			return func(tag names.Tag) bool {
 				return tag == ApplicationTag
@@ -589,12 +589,12 @@ func (u *UniterAPIV3) charmModifiedVersion(tagStr string, canAccess func(names.T
 	if err != nil {
 		return -1, err
 	}
-	var service *state.Application
+	var service *state.Service
 	switch entity := unitOrService.(type) {
-	case *state.Application:
+	case *state.Service:
 		service = entity
 	case *state.Unit:
-		service, err = entity.Application()
+		service, err = entity.Service()
 		if err != nil {
 			return -1, err
 		}
@@ -1202,8 +1202,8 @@ func (u *UniterAPIV3) getUnit(tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
 
-func (u *UniterAPIV3) getService(tag names.ApplicationTag) (*state.Application, error) {
-	return u.st.Application(tag.Id())
+func (u *UniterAPIV3) getService(tag names.ApplicationTag) (*state.Service, error) {
+	return u.st.Service(tag.Id())
 }
 
 func (u *UniterAPIV3) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
@@ -1265,7 +1265,7 @@ func (u *UniterAPIV3) getRelationAndUnit(canAccess common.AuthFunc, relTag strin
 
 func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
-	ep, err := rel.Endpoint(unit.ApplicationName())
+	ep, err := rel.Endpoint(unit.ServiceName())
 	if err != nil {
 		// An error here means the unit's service is not part of the
 		// relation.
@@ -1276,8 +1276,8 @@ func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Uni
 		Key:  rel.String(),
 		Life: params.Life(rel.Life().String()),
 		Endpoint: multiwatcher.Endpoint{
-			ApplicationName: ep.ApplicationName,
-			Relation:        ep.Relation,
+			ServiceName: ep.ServiceName,
+			Relation:    ep.Relation,
 		},
 	}, nil
 }
@@ -1438,7 +1438,7 @@ func leadershipSettingsAccessorFactory(
 	auth common.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
 	registerWatcher := func(serviceId string) (string, error) {
-		service, err := st.Application(serviceId)
+		service, err := st.Service(serviceId)
 		if err != nil {
 			return "", err
 		}
@@ -1449,14 +1449,14 @@ func leadershipSettingsAccessorFactory(
 		return "", watcher.EnsureErr(w)
 	}
 	getSettings := func(serviceId string) (map[string]string, error) {
-		service, err := st.Application(serviceId)
+		service, err := st.Service(serviceId)
 		if err != nil {
 			return nil, err
 		}
 		return service.LeaderSettings()
 	}
 	writeSettings := func(token leadership.Token, serviceId string, settings map[string]string) error {
-		service, err := st.Application(serviceId)
+		service, err := st.Service(serviceId)
 		if err != nil {
 			return err
 		}
@@ -1553,7 +1553,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 		return nil, errors.Trace(err)
 	}
 
-	service, err := unit.Application()
+	service, err := unit.Service()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

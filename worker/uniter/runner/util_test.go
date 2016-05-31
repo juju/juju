@@ -42,7 +42,7 @@ type ContextSuite struct {
 	membership     map[int][]string
 
 	st      api.Connection
-	service *state.Application
+	service *state.Service
 	machine *state.Machine
 	unit    *state.Unit
 	uniter  *uniter.State
@@ -136,7 +136,7 @@ func (s *ContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
+func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {

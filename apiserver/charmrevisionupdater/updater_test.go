@@ -108,7 +108,7 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Update mysql version and run update again.
-	svc, err := s.State.Application("mysql")
+	svc, err := s.State.Service("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
 	cfg := state.SetCharmConfig{

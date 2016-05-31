@@ -102,9 +102,9 @@ func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	c.Check(updates, gc.HasLen, 0)
 }
 
-func newStoreResource(c *gc.C, name, applicationID string, revision int) resource.Resource {
+func newStoreResource(c *gc.C, name, serviceID string, revision int) resource.Resource {
 	content := name
-	opened := resourcetesting.NewResource(c, nil, name, applicationID, content)
+	opened := resourcetesting.NewResource(c, nil, name, serviceID, content)
 	res := opened.Resource
 	res.Origin = charmresource.OriginStore
 	res.Revision = revision

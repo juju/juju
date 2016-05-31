@@ -66,7 +66,7 @@ func (s *RelationSerializationSuite) TestRelationEndpoints(c *gc.C) {
 	c.Assert(endpoints, gc.HasLen, 1)
 
 	ep := endpoints[0]
-	c.Assert(ep.ApplicationName(), gc.Equals, "ubuntu")
+	c.Assert(ep.ServiceName(), gc.Equals, "ubuntu")
 	// Not going to check the exact contents, we expect that there
 	// should be two entries.
 	c.Assert(ep.Settings("ubuntu/0"), gc.HasLen, 2)
@@ -128,13 +128,13 @@ func minimalEndpoint() *endpoint {
 
 func minimalEndpointArgs() EndpointArgs {
 	return EndpointArgs{
-		ApplicationName: "ubuntu",
-		Name:            "juju-meta",
-		Role:            "peer",
-		Interface:       "something",
-		Optional:        true,
-		Limit:           1,
-		Scope:           "container",
+		ServiceName: "ubuntu",
+		Name:        "juju-meta",
+		Role:        "peer",
+		Interface:   "something",
+		Optional:    true,
+		Limit:       1,
+		Scope:       "container",
 	}
 }
 
@@ -156,7 +156,7 @@ func endpointWithSettings() *endpoint {
 func (s *EndpointSerializationSuite) TestNewEndpoint(c *gc.C) {
 	endpoint := endpointWithSettings()
 
-	c.Assert(endpoint.ApplicationName(), gc.Equals, "ubuntu")
+	c.Assert(endpoint.ServiceName(), gc.Equals, "ubuntu")
 	c.Assert(endpoint.Name(), gc.Equals, "juju-meta")
 	c.Assert(endpoint.Role(), gc.Equals, "peer")
 	c.Assert(endpoint.Interface(), gc.Equals, "something")

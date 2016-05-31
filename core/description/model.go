@@ -38,7 +38,7 @@ func NewModel(args ModelArgs) Model {
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
-	m.setApplications(nil)
+	m.setServices(nil)
 	m.setRelations(nil)
 	return m
 }
@@ -75,10 +75,10 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Users_        users        `yaml:"users"`
-	Machines_     machines     `yaml:"machines"`
-	Applications_ applications `yaml:"applications"`
-	Relations_    relations    `yaml:"relations"`
+	Users_     users     `yaml:"users"`
+	Machines_  machines  `yaml:"machines"`
+	Services_  services  `yaml:"services"`
+	Relations_ relations `yaml:"relations"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -182,35 +182,35 @@ func (m *model) setMachines(machineList []*machine) {
 	}
 }
 
-// Applications implements Model.
-func (m *model) Applications() []Application {
-	var result []Application
-	for _, application := range m.Applications_.Applications_ {
-		result = append(result, application)
+// Services implements Model.
+func (m *model) Services() []Service {
+	var result []Service
+	for _, service := range m.Services_.Services_ {
+		result = append(result, service)
 	}
 	return result
 }
 
-func (m *model) application(name string) *application {
-	for _, application := range m.Applications_.Applications_ {
-		if application.Name() == name {
-			return application
+func (m *model) service(name string) *service {
+	for _, service := range m.Services_.Services_ {
+		if service.Name() == name {
+			return service
 		}
 	}
 	return nil
 }
 
-// AddApplication implements Model.
-func (m *model) AddApplication(args ApplicationArgs) Application {
-	application := newApplication(args)
-	m.Applications_.Applications_ = append(m.Applications_.Applications_, application)
-	return application
+// AddService implements Model.
+func (m *model) AddService(args ServiceArgs) Service {
+	service := newService(args)
+	m.Services_.Services_ = append(m.Services_.Services_, service)
+	return service
 }
 
-func (m *model) setApplications(applicationList []*application) {
-	m.Applications_ = applications{
-		Version:       1,
-		Applications_: applicationList,
+func (m *model) setServices(serviceList []*service) {
+	m.Services_ = services{
+		Version:   1,
+		Services_: serviceList,
 	}
 }
 
@@ -279,14 +279,14 @@ func (m *model) Validate() error {
 		}
 	}
 	allUnits := set.NewStrings()
-	for _, application := range m.Applications_.Applications_ {
-		if err := application.Validate(); err != nil {
+	for _, service := range m.Services_.Services_ {
+		if err := service.Validate(); err != nil {
 			return errors.Trace(err)
 		}
-		allUnits = allUnits.Union(application.unitNames())
+		allUnits = allUnits.Union(service.unitNames())
 	}
 	// Make sure that all the unit names specified in machine opened ports
-	// exist as units of applications.
+	// exist as units of services.
 	unknownUnitsWithPorts := unitsWithOpenPorts.Difference(allUnits)
 	if len(unknownUnitsWithPorts) > 0 {
 		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
@@ -296,22 +296,22 @@ func (m *model) Validate() error {
 }
 
 // validateRelations makes sure that for each endpoint in each relation there
-// are settings for all units of that application for that endpoint.
+// are settings for all units of that service for that endpoint.
 func (m *model) validateRelations() error {
 	for _, relation := range m.Relations_.Relations_ {
 		for _, ep := range relation.Endpoints_.Endpoints_ {
-			// Check application exists.
-			application := m.application(ep.ApplicationName())
-			if application == nil {
-				return errors.Errorf("unknown application %q for relation id %d", ep.ApplicationName(), relation.Id())
+			// Check service exists.
+			service := m.service(ep.ServiceName())
+			if service == nil {
+				return errors.Errorf("unknown service %q for relation id %d", ep.ServiceName(), relation.Id())
 			}
 			// Check that all units have settings.
-			applicationUnits := application.unitNames()
+			serviceUnits := service.unitNames()
 			epUnits := ep.unitNames()
-			if missingSettings := applicationUnits.Difference(epUnits); len(missingSettings) > 0 {
+			if missingSettings := serviceUnits.Difference(epUnits); len(missingSettings) > 0 {
 				return errors.Errorf("missing relation settings for units %s in relation %d", missingSettings.SortedValues(), relation.Id())
 			}
-			if extraSettings := epUnits.Difference(applicationUnits); len(extraSettings) > 0 {
+			if extraSettings := epUnits.Difference(serviceUnits); len(extraSettings) > 0 {
 				return errors.Errorf("settings for unknown units %s in relation %d", extraSettings.SortedValues(), relation.Id())
 			}
 		}
@@ -351,7 +351,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"blocks":       schema.StringMap(schema.String()),
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
-		"applications": schema.StringMap(schema.Any()),
+		"services":     schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
 		"sequences":    schema.StringMap(schema.Int()),
 	}
@@ -415,12 +415,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setMachines(machines)
 
-	applicationMap := valid["applications"].(map[string]interface{})
-	applications, err := importApplications(applicationMap)
+	serviceMap := valid["services"].(map[string]interface{})
+	services, err := importServices(serviceMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "applications")
+		return nil, errors.Annotate(err, "services")
 	}
-	result.setApplications(applications)
+	result.setServices(services)
 
 	relationMap := valid["relations"].(map[string]interface{})
 	relations, err := importRelations(relationMap)

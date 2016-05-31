@@ -223,12 +223,12 @@ type resourcesUnitDataStore struct {
 
 // ListResources implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
-	return ds.resources.ListResources(ds.unit.ApplicationName())
+	return ds.resources.ListResources(ds.unit.ServiceName())
 }
 
 // GetResource implements resource/api/private/server.UnitDataStore.
 func (ds *resourcesUnitDataStore) GetResource(name string) (resource.Resource, error) {
-	return ds.resources.GetResource(ds.unit.ApplicationName(), name)
+	return ds.resources.GetResource(ds.unit.ServiceName(), name)
 }
 
 // OpenResource implements resource/api/private/server.UnitDataStore.

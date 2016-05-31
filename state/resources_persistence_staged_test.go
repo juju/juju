@@ -28,7 +28,7 @@ func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.base = statetest.NewStubPersistence(s.stub)
 	s.base.ReturnServiceExistsOps = []txn.Op{{
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}}
@@ -62,7 +62,7 @@ func (s *StagedResourceSuite) TestStageOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -84,7 +84,7 @@ func (s *StagedResourceSuite) TestStageExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -93,7 +93,7 @@ func (s *StagedResourceSuite) TestStageExists(c *gc.C) {
 		Id:     "resource#a-application/spam#staged",
 		Assert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -131,7 +131,7 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
@@ -157,7 +157,7 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
@@ -177,7 +177,7 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "application",
+		C:      "service",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {

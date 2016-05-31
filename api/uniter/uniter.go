@@ -156,8 +156,8 @@ func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	}, nil
 }
 
-// Application returns an application state by tag.
-func (st *State) Application(tag names.ApplicationTag) (*Application, error) {
+// Service returns an application state by tag.
+func (st *State) Service(tag names.ApplicationTag) (*Application, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err

@@ -19,16 +19,16 @@ import (
 // needed for handling upload requests.
 type UploadDataStore interface {
 	// GetResource returns the identified resource.
-	GetResource(applicationID, name string) (resource.Resource, error)
+	GetResource(serviceID, name string) (resource.Resource, error)
 
 	// GetPendingResource returns the identified resource.
-	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
+	GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
-	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 }
 
 // TODO(ericsnow) Replace UploadedResource with resource.Opened.
@@ -36,7 +36,7 @@ type UploadDataStore interface {
 // UploadedResource holds both the information about an uploaded
 // resource and the reader containing its data.
 type UploadedResource struct {
-	// Service is the name of the application associated with the resource.
+	// Service is the name of the service associated with the resource.
 	Service string
 
 	// PendingID is the resource-specific sub-ID for a pending resource.

@@ -30,7 +30,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 		"multi1to10": makeStorageCons("loop", 0, 3),
 	}
 	charm := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: charm, Storage: storageCons})
+	service, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: charm, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)

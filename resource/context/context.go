@@ -26,7 +26,7 @@ const HookContextFacade = resource.ComponentName + "-hook-context"
 // APIClient exposes the uniter API functionality needed for resources.
 type APIClient interface {
 	// GetResource returns the resource info and content for the given
-	// name (and unit-implied application).
+	// name (and unit-implied service).
 	GetResource(resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 

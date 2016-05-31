@@ -24,8 +24,8 @@ type ActionSuite struct {
 	ConnSuite
 	charm             *state.Charm
 	actionlessCharm   *state.Charm
-	service           *state.Application
-	actionlessService *state.Application
+	service           *state.Service
+	actionlessService *state.Service
 	unit              *state.Unit
 	unit2             *state.Unit
 	charmlessUnit     *state.Unit

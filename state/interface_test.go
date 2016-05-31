@@ -11,7 +11,7 @@ var (
 	_ Entity = (*Machine)(nil)
 	_ Entity = (*Unit)(nil)
 	_ Entity = (*UnitAgent)(nil)
-	_ Entity = (*Application)(nil)
+	_ Entity = (*Service)(nil)
 	_ Entity = (*Model)(nil)
 	_ Entity = (*User)(nil)
 	_ Entity = (*IPAddress)(nil)
@@ -20,7 +20,7 @@ var (
 
 	_ Lifer = (*Machine)(nil)
 	_ Lifer = (*Unit)(nil)
-	_ Lifer = (*Application)(nil)
+	_ Lifer = (*Service)(nil)
 	_ Lifer = (*Relation)(nil)
 
 	_ EnsureDeader = (*Machine)(nil)
@@ -35,7 +35,7 @@ var (
 
 	_ NotifyWatcherFactory = (*Machine)(nil)
 	_ NotifyWatcherFactory = (*Unit)(nil)
-	_ NotifyWatcherFactory = (*Application)(nil)
+	_ NotifyWatcherFactory = (*Service)(nil)
 	_ NotifyWatcherFactory = (*Model)(nil)
 
 	_ AgentEntity = (*Machine)(nil)
@@ -44,7 +44,7 @@ var (
 	_ ModelAccessor = (*State)(nil)
 
 	_ UnitsWatcher = (*Machine)(nil)
-	_ UnitsWatcher = (*Application)(nil)
+	_ UnitsWatcher = (*Service)(nil)
 
 	_ ModelMachinesWatcher = (*State)(nil)
 
@@ -55,12 +55,12 @@ var (
 	// _ ActionsWatcher = (*Service)(nil)
 
 	_ ActionReceiver = (*Unit)(nil)
-	// TODO(jcw4) - use when Actions can be queued for applications.
+	// TODO(jcw4) - use when Actions can be queued for Services.
 	//_ ActionReceiver = (*Service)(nil)
 
 	_ GlobalEntity = (*Machine)(nil)
 	_ GlobalEntity = (*Unit)(nil)
-	_ GlobalEntity = (*Application)(nil)
+	_ GlobalEntity = (*Service)(nil)
 	_ GlobalEntity = (*Charm)(nil)
 	_ GlobalEntity = (*Model)(nil)
 )

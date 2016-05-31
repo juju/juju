@@ -162,7 +162,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
 		return errors.Trace(err)
 	}
-	w.service, err = w.unit.Application()
+	w.service, err = w.unit.Service()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -117,7 +117,7 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	service := s.MakeApplication(c, nil)
+	service := s.MakeService(c, nil)
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)

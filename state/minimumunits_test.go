@@ -13,7 +13,7 @@ import (
 
 type MinUnitsSuite struct {
 	ConnSuite
-	service *state.Application
+	service *state.Service
 }
 
 var _ = gc.Suite(&MinUnitsSuite{})
@@ -106,7 +106,7 @@ func (s *MinUnitsSuite) TestSetMinUnits(c *gc.C) {
 
 func (s *MinUnitsSuite) TestInvalidMinUnits(c *gc.C) {
 	err := s.service.SetMinUnits(-1)
-	c.Assert(err, gc.ErrorMatches, `cannot set minimum units for application "dummy-service": cannot set a negative minimum number of units`)
+	c.Assert(err, gc.ErrorMatches, `cannot set minimum units for service "dummy-service": cannot set a negative minimum number of units`)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsInsertRetry(c *gc.C) {
@@ -153,9 +153,9 @@ func (s *MinUnitsSuite) TestMinUnitsRemoveBefore(c *gc.C) {
 func (s *MinUnitsSuite) testDestroyOrRemoveServiceBefore(c *gc.C, initial, input int, preventRemoval bool) {
 	err := s.service.SetMinUnits(initial)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `cannot set minimum units for application "dummy-service": application "dummy-service" not found`
+	expectedErr := `cannot set minimum units for service "dummy-service": service "dummy-service" not found`
 	if preventRemoval {
-		expectedErr = `cannot set minimum units for application "dummy-service": application is no longer alive`
+		expectedErr = `cannot set minimum units for service "dummy-service": service is no longer alive`
 		s.addUnits(c, 1)
 	}
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -243,7 +243,7 @@ func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
 
-func assertAllUnits(c *gc.C, service *state.Application, expected int) {
+func assertAllUnits(c *gc.C, service *state.Service, expected int) {
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, expected)
@@ -254,7 +254,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *gc.C) {
 	for i, t := range []struct {
 		about    string // Test description.
 		initial  int    // Initial number of units.
-		minimum  int    // Minimum number of units for the application.
+		minimum  int    // Minimum number of units for the service.
 		destroy  int    // Number of units to be destroyed before calling EnsureMinUnits.
 		expected int    // Expected number of units after calling EnsureMinUnits.
 	}{{
@@ -324,9 +324,9 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *gc.C) {
 	s.addUnits(c, 1)
 	err = s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `cannot ensure minimum units for application "dummy-service": application is not alive`
+	expectedErr := `cannot ensure minimum units for service "dummy-service": service is not alive`
 
-	// An error is returned if the application is not alive.
+	// An error is returned if the service is not alive.
 	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 
 	// An error is returned if the service was removed.
@@ -404,7 +404,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyServiceBefore(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches,
-		`cannot ensure minimum units for application "dummy-service": application is not alive`)
+		`cannot ensure minimum units for service "dummy-service": service is not alive`)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *gc.C) {

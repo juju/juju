@@ -22,8 +22,8 @@ type StatusHistorySuite struct {
 var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	service := s.Factory.MakeService(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: service})
 	primeUnitStatusHistory(c, unit, 20000, 0)
 
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
@@ -58,9 +58,9 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	const count = 3
 	units := make([]*state.Unit, count)
 	agents := make([]*state.UnitAgent, count)
-	service := s.Factory.MakeApplication(c, nil)
+	service := s.Factory.MakeService(c, nil)
 	for i := 0; i < count; i++ {
-		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Service: service})
 		agents[i] = units[i].Agent()
 	}
 
@@ -139,8 +139,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	// TODO(perrito666) setup should be extracted into a fixture and the
 	// 6 or 7 test cases each get their own method.
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	service := s.Factory.MakeService(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: service})
 
 	twoDaysBack := time.Hour * 48
 	threeDaysBack := time.Hour * 72

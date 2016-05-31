@@ -174,7 +174,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Service returns the service.
-func (u *Unit) Application() (*Application, error) {
+func (u *Unit) Service() (*Application, error) {
 	service := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),

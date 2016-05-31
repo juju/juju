@@ -31,9 +31,9 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 
 	// Check we can't add a relation with services that don't exist.
 	yoursqlEP := mysqlEP
-	yoursqlEP.ApplicationName = "yoursql"
+	yoursqlEP.ServiceName = "yoursql"
 	_, err = s.State.AddRelation(yoursqlEP, wordpressEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db yoursql:server": application "yoursql" does not exist`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db yoursql:server": service "yoursql" does not exist`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
@@ -73,7 +73,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": application "wordpress" is not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": service "wordpress" is not alive`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 }
@@ -102,7 +102,7 @@ func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 
 func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 	subway := state.Endpoint{
-		ApplicationName: "subway",
+		ServiceName: "subway",
 		Relation: charm.Relation{
 			Name:      "db",
 			Interface: "mongodb",
@@ -111,7 +111,7 @@ func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 		},
 	}
 	mongo := state.Endpoint{
-		ApplicationName: "mongo",
+		ServiceName: "mongo",
 		Relation: charm.Relation{
 			Name:      "server",
 			Interface: "mongodb",
@@ -196,7 +196,7 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate applications' series must match`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate services' series must match`)
 }
 
 func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
@@ -210,7 +210,7 @@ func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
 
 	_, err = s.State.AddRelation(mysqlEP, wordpressSubEP)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add relation "wordpress:db mysql:server": container scoped relation requires at least one subordinate application`)
+		`cannot add relation "wordpress:db mysql:server": container scoped relation requires at least one subordinate service`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 }
@@ -286,13 +286,13 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func assertNoRelations(c *gc.C, srv *state.Application) {
+func assertNoRelations(c *gc.C, srv *state.Service) {
 	rels, err := srv.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 0)
 }
 
-func assertOneRelation(c *gc.C, srv *state.Application, relId int, endpoints ...state.Endpoint) *state.Relation {
+func assertOneRelation(c *gc.C, srv *state.Service, relId int, endpoints ...state.Endpoint) *state.Relation {
 	rels, err := srv.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)

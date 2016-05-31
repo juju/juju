@@ -351,7 +351,7 @@ data     combRev1 combRev1
 func fakeFmtSvcRes(name, suffix string) FormattedSvcResource {
 	return FormattedSvcResource{
 		ID:               "ID" + suffix,
-		ApplicationID:    "svc",
+		ServiceID:        "svc",
 		Name:             name,
 		Type:             "Type" + suffix,
 		Path:             "Path + suffix",

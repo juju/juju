@@ -30,7 +30,7 @@ var (
 //
 //  * local (in opposition to global; and for want of a better term): these
 //    hold information relevant *within* specific models (machines,
-//    applications, relations, settings, bookkeeping, etc) and should generally be
+//    services, relations, settings, bookkeeping, etc) and should generally be
 //    read via an modelStateCollection, and written via a multiModelRunner. This is
 //    the most common form of collection, and the above access should usually
 //    be automatic via Database.Collection and Database.Runner.
@@ -199,7 +199,7 @@ func allCollections() collectionSchema {
 		sequenceC: {},
 
 		// This collection holds lease data. It's currently only used to
-		// implement application leadership, but is namespaced and available
+		// implement service leadership, but is namespaced and available
 		// for use by other clients in future.
 		leasesC: {
 			indexes: []mgo.Index{{
@@ -211,12 +211,12 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// These collections hold information associated with applications.
-		charmsC:       {},
-		applicationsC: {},
+		// These collections hold information associated with services.
+		charmsC:   {},
+		servicesC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "application"},
+				Key: []string{"model-uuid", "service"},
 			}, {
 				Key: []string{"model-uuid", "principal"},
 			}, {
@@ -237,7 +237,7 @@ func allCollections() collectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
 			}, {
-				Key: []string{"model-uuid", "endpoints.applicationname"},
+				Key: []string{"model-uuid", "endpoints.servicename"},
 			}},
 		},
 		relationScopesC: {},
@@ -342,7 +342,7 @@ func allCollections() collectionSchema {
 		annotationsC: {},
 
 		// This collection in particular holds an astounding number of
-		// different sorts of data: application config settings by charm version,
+		// different sorts of data: service config settings by charm version,
 		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
@@ -413,7 +413,7 @@ const (
 	relationsC               = "relations"
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
-	applicationsC            = "applications"
+	servicesC                = "services"
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"

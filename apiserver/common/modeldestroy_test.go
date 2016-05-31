@@ -133,7 +133,7 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 		c.Assert(inst, gc.NotNil)
 	}
 
-	services, err := s.State.AllApplications()
+	services, err := s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.DestroyModel(s.State, s.State.ModelTag())

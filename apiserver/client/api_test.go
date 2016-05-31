@@ -73,7 +73,7 @@ func chanReadConfig(c *gc.C, ch <-chan *config.Config, what string) (*config.Con
 	panic("unreachable")
 }
 
-func removeServiceAndUnits(c *gc.C, service *state.Application) {
+func removeServiceAndUnits(c *gc.C, service *state.Service) {
 	// Destroy all units for the application.
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)

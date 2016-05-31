@@ -205,7 +205,7 @@ func (u *mockUnit) Resolved() (params.ResolvedMode, error) {
 	return u.resolved, nil
 }
 
-func (u *mockUnit) Application() (remotestate.Application, error) {
+func (u *mockUnit) Service() (remotestate.Application, error) {
 	return &u.service, nil
 }
 

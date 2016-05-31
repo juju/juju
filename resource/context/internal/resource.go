@@ -17,7 +17,7 @@ import (
 // OpenedResourceClient exposes the API functionality needed by OpenResource.
 type OpenedResourceClient interface {
 	// GetResource returns the resource info and content for the given
-	// name (and unit-implied application).
+	// name (and unit-implied service).
 	GetResource(resourceName string) (resource.Resource, io.ReadCloser, error)
 }
 

@@ -57,7 +57,7 @@ var StoreChangeMethodTests = []struct {
 			Id:         "0",
 			InstanceId: "i-0",
 		})
-		all.Update(&multiwatcher.ApplicationInfo{
+		all.Update(&multiwatcher.ServiceInfo{
 			Name:    "wordpress",
 			Exposed: true,
 		})
@@ -73,7 +73,7 @@ var StoreChangeMethodTests = []struct {
 	}, {
 		creationRevno: 2,
 		revno:         2,
-		info: &multiwatcher.ApplicationInfo{
+		info: &multiwatcher.ServiceInfo{
 			Name:    "wordpress",
 			Exposed: true,
 		},
@@ -624,8 +624,8 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 func (*storeManagerSuite) TestRun(c *gc.C) {
 	b := newTestBacking([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid", Id: "0"},
-		&multiwatcher.ApplicationInfo{ModelUUID: "uuid", Name: "logging"},
-		&multiwatcher.ApplicationInfo{ModelUUID: "uuid", Name: "wordpress"},
+		&multiwatcher.ServiceInfo{ModelUUID: "uuid", Name: "logging"},
+		&multiwatcher.ServiceInfo{ModelUUID: "uuid", Name: "wordpress"},
 	})
 	sm := newStoreManager(b)
 	defer func() {
@@ -634,8 +634,8 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 	w := &Multiwatcher{all: sm}
 	checkNext(c, w, []multiwatcher.Delta{
 		{Entity: &multiwatcher.MachineInfo{ModelUUID: "uuid", Id: "0"}},
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid", Name: "logging"}},
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid", Name: "wordpress"}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid", Name: "wordpress"}},
 	}, "")
 	b.updateEntity(&multiwatcher.MachineInfo{ModelUUID: "uuid", Id: "0", InstanceId: "i-0"})
 	checkNext(c, w, []multiwatcher.Delta{
@@ -660,11 +660,11 @@ func (*storeManagerSuite) TestEmptyModel(c *gc.C) {
 func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
 	b := newTestBacking([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid0", Id: "0"},
-		&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"},
-		&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "wordpress"},
+		&multiwatcher.ServiceInfo{ModelUUID: "uuid0", Name: "logging"},
+		&multiwatcher.ServiceInfo{ModelUUID: "uuid0", Name: "wordpress"},
 		&multiwatcher.MachineInfo{ModelUUID: "uuid1", Id: "0"},
-		&multiwatcher.ApplicationInfo{ModelUUID: "uuid1", Name: "logging"},
-		&multiwatcher.ApplicationInfo{ModelUUID: "uuid1", Name: "wordpress"},
+		&multiwatcher.ServiceInfo{ModelUUID: "uuid1", Name: "logging"},
+		&multiwatcher.ServiceInfo{ModelUUID: "uuid1", Name: "wordpress"},
 		&multiwatcher.MachineInfo{ModelUUID: "uuid2", Id: "0"},
 	})
 	sm := newStoreManager(b)
@@ -674,11 +674,11 @@ func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
 	w := &Multiwatcher{all: sm}
 	checkNext(c, w, []multiwatcher.Delta{
 		{Entity: &multiwatcher.MachineInfo{ModelUUID: "uuid0", Id: "0"}},
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"}},
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "wordpress"}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid0", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid0", Name: "wordpress"}},
 		{Entity: &multiwatcher.MachineInfo{ModelUUID: "uuid1", Id: "0"}},
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid1", Name: "logging"}},
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid1", Name: "wordpress"}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid1", Name: "logging"}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid1", Name: "wordpress"}},
 		{Entity: &multiwatcher.MachineInfo{ModelUUID: "uuid2", Id: "0"}},
 	}, "")
 	b.updateEntity(&multiwatcher.MachineInfo{ModelUUID: "uuid1", Id: "0", InstanceId: "i-0"})
@@ -689,9 +689,9 @@ func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
 	checkNext(c, w, []multiwatcher.Delta{
 		{Removed: true, Entity: &multiwatcher.MachineInfo{ModelUUID: "uuid2", Id: "0"}},
 	}, "")
-	b.updateEntity(&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging", Exposed: true})
+	b.updateEntity(&multiwatcher.ServiceInfo{ModelUUID: "uuid0", Name: "logging", Exposed: true})
 	checkNext(c, w, []multiwatcher.Delta{
-		{Entity: &multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging", Exposed: true}},
+		{Entity: &multiwatcher.ServiceInfo{ModelUUID: "uuid0", Name: "logging", Exposed: true}},
 	}, "")
 }
 

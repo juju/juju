@@ -31,7 +31,7 @@ import (
 type ServiceSuite struct {
 	ConnSuite
 	charm *state.Charm
-	mysql *state.Application
+	mysql *state.Service
 }
 
 var _ = gc.Suite(&ServiceSuite{})
@@ -88,7 +88,7 @@ func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
 
 func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -100,7 +100,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 
 func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -109,7 +109,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) 
 	}
 	err := svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err = s.State.Application("application")
+	svc, err = s.State.Service("service")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,7 +118,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) 
 
 func (s *ServiceSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-windows")
 	cfg := state.SetCharmConfig{
@@ -148,7 +148,7 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
-	service, err := s.State.AddApplication(state.AddApplicationArgs{
+	service, err := s.State.AddService(state.AddServiceArgs{
 		Name:  "yoursql",
 		Owner: s.Owner.String(),
 		Charm: oldCharm,
@@ -322,7 +322,7 @@ var setCharmEndpointsTests = []struct {
 }, {
 	summary: "different peer",
 	meta:    metaDifferentPeer,
-	err:     `cannot upgrade application "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
+	err:     `cannot upgrade service "fakemysql" to charm "local:quantal/quantal-mysql-5": would break relation "fakemysql:cluster"`,
 }, {
 	summary: "same relations ok",
 	meta:    metaBase,
@@ -381,9 +381,9 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	cfg = state.SetCharmConfig{Charm: baseCharm}
 	err = providerSvc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 	err = requirerSvc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
 var stringConfig = `
@@ -543,7 +543,7 @@ func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
 		// Change the service life to Dead manually, as there's no
 		// direct way of doing that otherwise.
 		ops := []txn.Op{{
-			C:      state.ApplicationsC,
+			C:      state.ServicesC,
 			Id:     state.DocID(s.State, s.mysql.Name()),
 			Update: bson.D{{"$set", bson.D{{"life", state.Dead}}}},
 		}}
@@ -797,7 +797,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 
 func (s *ServiceSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	revno := 2 // revno 1 is used by SetUpSuite
-	mysqlKey := state.ApplicationGlobalKey(s.mysql.Name())
+	mysqlKey := state.ServiceGlobalKey(s.mysql.Name())
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, revno+1)
 
@@ -1054,7 +1054,7 @@ peers:
   loadbalancer: phony
 `
 
-func (s *ServiceSuite) assertServiceRelations(c *gc.C, svc *state.Application, expectedKeys ...string) []*state.Relation {
+func (s *ServiceSuite) assertServiceRelations(c *gc.C, svc *state.Service, expectedKeys ...string) []*state.Relation {
 	rels, err := svc.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	if len(rels) == 0 {
@@ -1098,9 +1098,9 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	}
 }
 
-func jujuInfoEp(applicationname string) state.Endpoint {
+func jujuInfoEp(serviceName string) state.Endpoint {
 	return state.Endpoint{
-		ApplicationName: applicationname,
+		ServiceName: serviceName,
 		Relation: charm.Relation{
 			Interface: "juju-info",
 			Name:      "juju-info",
@@ -1116,7 +1116,7 @@ func (s *ServiceSuite) TestTag(c *gc.C) {
 
 func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
 	_, err := s.mysql.Endpoint("mysql")
-	c.Assert(err, gc.ErrorMatches, `application "mysql" has no "mysql" relation`)
+	c.Assert(err, gc.ErrorMatches, `service "mysql" has no "mysql" relation`)
 
 	jiEP, err := s.mysql.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1125,7 +1125,7 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
 	serverEP, err := s.mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "mysql",
+		ServiceName: "mysql",
 		Relation: charm.Relation{
 			Interface: "mysql",
 			Name:      "server",
@@ -1143,7 +1143,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	riak := s.AddTestingService(c, "myriak", s.AddTestingCharm(c, "riak"))
 
 	_, err := riak.Endpoint("garble")
-	c.Assert(err, gc.ErrorMatches, `application "myriak" has no "garble" relation`)
+	c.Assert(err, gc.ErrorMatches, `service "myriak" has no "garble" relation`)
 
 	jiEP, err := riak.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1152,7 +1152,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	ringEP, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ringEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "myriak",
+		ServiceName: "myriak",
 		Relation: charm.Relation{
 			Interface: "riak",
 			Name:      "ring",
@@ -1165,7 +1165,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	adminEP, err := riak.Endpoint("admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(adminEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "myriak",
+		ServiceName: "myriak",
 		Relation: charm.Relation{
 			Interface: "http",
 			Name:      "admin",
@@ -1177,7 +1177,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	endpointEP, err := riak.Endpoint("endpoint")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endpointEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "myriak",
+		ServiceName: "myriak",
 		Relation: charm.Relation{
 			Interface: "http",
 			Name:      "endpoint",
@@ -1195,7 +1195,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	_, err := wordpress.Endpoint("nonsense")
-	c.Assert(err, gc.ErrorMatches, `application "wordpress" has no "nonsense" relation`)
+	c.Assert(err, gc.ErrorMatches, `service "wordpress" has no "nonsense" relation`)
 
 	jiEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1204,7 +1204,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	urlEP, err := wordpress.Endpoint("url")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
 			Interface: "http",
 			Name:      "url",
@@ -1216,7 +1216,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	ldEP, err := wordpress.Endpoint("logging-dir")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ldEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
 			Interface: "logging",
 			Name:      "logging-dir",
@@ -1228,7 +1228,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	mpEP, err := wordpress.Endpoint("monitoring-port")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mpEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
 			Interface: "monitoring",
 			Name:      "monitoring-port",
@@ -1240,7 +1240,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	dbEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dbEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
 			Interface: "mysql",
 			Name:      "db",
@@ -1253,7 +1253,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	cacheEP, err := wordpress.Endpoint("cache")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cacheEP, gc.DeepEquals, state.Endpoint{
-		ApplicationName: "wordpress",
+		ServiceName: "wordpress",
 		Relation: charm.Relation{
 			Interface: "varnish",
 			Name:      "cache",
@@ -1270,7 +1270,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestServiceRefresh(c *gc.C) {
-	s1, err := s.State.Application(s.mysql.Name())
+	s1, err := s.State.Service(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
@@ -1372,7 +1372,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	logging := s.AddTestingService(c, "logging", subCharm)
 	_, err = logging.AddUnit()
-	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "logging": application is a subordinate`)
+	c.Assert(err, gc.ErrorMatches, `cannot add unit to service "logging": service is a subordinate`)
 
 	// Indirectly create a subordinate unit by adding a relation and entering
 	// scope as a principal.
@@ -1404,13 +1404,13 @@ func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit()
-	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add unit to service "mysql": service is not alive`)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit()
-	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot add unit to service "mysql": service "mysql" not found`)
 }
 
 func (s *ServiceSuite) TestReadUnit(c *gc.C) {
@@ -1718,7 +1718,7 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 
 func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
 
 	err := svc.Destroy()
 	dirty, err := s.State.NeedsCleanup()
@@ -1797,7 +1797,7 @@ func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`setting constraints on application "mysql": unsupported constraints: cpu-power`},
+		`setting constraints on service "mysql": unsupported constraints: cpu-power`},
 	})
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2024,7 +2024,7 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 	wpxWatcherC.AssertNoChange()
 }
 
-func removeAllUnits(c *gc.C, s *state.Application) {
+func removeAllUnits(c *gc.C, s *state.Service) {
 	us, err := s.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range us {
@@ -2044,7 +2044,7 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
-	service, err := s.State.Application(s.mysql.Name())
+	service, err := s.State.Service(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2080,8 +2080,8 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 // when the service has no owner
 func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 	service := s.AddTestingService(c, "foobar", s.charm)
-	state.SetApplicationOwnerTag(service, "")
-	c.Assert(state.GetApplicationOwnerTag(service), gc.Equals, "")
+	state.SetServiceOwnerTag(service, "")
+	c.Assert(state.GetServiceOwnerTag(service), gc.Equals, "")
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
 }
 
@@ -2090,7 +2090,7 @@ func (s *ServiceSuite) TestMetricCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 
-	service, err := s.State.Application(s.mysql.Name())
+	service, err := s.State.Service(s.mysql.Name())
 	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 }
 
@@ -2103,7 +2103,7 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
-	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: application not found or not alive")
+	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: service not found or not alive")
 }
 
 func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
@@ -2258,7 +2258,7 @@ func (s *ServiceSuite) TestSetCharmStorageRemoved(c *gc.C) {
 		mysqlBaseMeta+twoOptionalStorageMeta,
 		mysqlBaseMeta+oneOptionalStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": storage "data1" removed`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": storage "data1" removed`)
 }
 
 func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
@@ -2266,7 +2266,7 @@ func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+twoRequiredStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": required storage "data1" added`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": required storage "data1" added`)
 }
 
 func (s *ServiceSuite) TestSetCharmOptionalStorageAdded(c *gc.C) {
@@ -2290,7 +2290,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMinIncreased(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 3),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(2, 3),
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" range contracted: min increased from 1 to 2`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" range contracted: min increased from 1 to 2`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
@@ -2298,7 +2298,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 2),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 1),
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" range contracted: max decreased from 2 to 1`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" range contracted: max decreased from 2 to 1`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
@@ -2306,7 +2306,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, -1),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 999),
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" range contracted: max decreased from \<unbounded\> to 999`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" range contracted: max decreased from \<unbounded\> to 999`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
@@ -2314,7 +2314,7 @@ func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" type changed from "block" to "filesystem"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" type changed from "block" to "filesystem"`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageSharedChanged(c *gc.C) {
@@ -2322,7 +2322,7 @@ func (s *ServiceSuite) TestSetCharmStorageSharedChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredSharedStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" shared changed from false to true`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" shared changed from false to true`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
@@ -2330,7 +2330,7 @@ func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredReadOnlyStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" read-only changed from false to true`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" read-only changed from false to true`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
@@ -2338,7 +2338,7 @@ func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
 		mysqlBaseMeta+oneRequiredLocationStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" location changed from "" to "/srv"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" location changed from "" to "/srv"`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c *gc.C) {
@@ -2346,10 +2346,10 @@ func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c
 		mysqlBaseMeta+oneRequiredLocationStorageMeta,
 		mysqlBaseMeta+oneMultipleLocationStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" with location changed from singleton to multiple`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade service "test" to charm "mysql": existing storage "data0" with location changed from singleton to multiple`)
 }
 
-func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *state.Application) {
+func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *state.Service) {
 	// Removing the service removes the bindings with it.
 	err := service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2366,7 +2366,7 @@ func (s *ServiceSuite) TestEndpointBindingsReturnsDefaultsWhenNotFound(c *gc.C) 
 	s.assertServiceHasOnlyDefaultEndpointBindings(c, service)
 }
 
-func (s *ServiceSuite) assertServiceHasOnlyDefaultEndpointBindings(c *gc.C, service *state.Application) {
+func (s *ServiceSuite) assertServiceHasOnlyDefaultEndpointBindings(c *gc.C, service *state.Service) {
 	charm, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 

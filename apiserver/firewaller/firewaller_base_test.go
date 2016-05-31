@@ -24,7 +24,7 @@ type firewallerBaseSuite struct {
 	testing.JujuConnSuite
 
 	machines []*state.Machine
-	service  *state.Application
+	service  *state.Service
 	charm    *state.Charm
 	units    []*state.Unit
 
@@ -110,7 +110,7 @@ func (s *firewallerBaseSuite) testLife(
 			{Life: "alive"},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-			{Error: apiservertesting.NotFoundError(`application "bar"`)},
+			{Error: apiservertesting.NotFoundError(`service "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -233,7 +233,7 @@ func (s *firewallerBaseSuite) testWatch(
 				{NotifyWatcherId: "2"},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-				{Error: apiservertesting.NotFoundError(`application "bar"`)},
+				{Error: apiservertesting.NotFoundError(`service "bar"`)},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
@@ -247,7 +247,7 @@ func (s *firewallerBaseSuite) testWatch(
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.NotFoundError(`application "bar"`)},
+				{Error: apiservertesting.NotFoundError(`service "bar"`)},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
@@ -342,7 +342,7 @@ func (s *firewallerBaseSuite) testGetExposed(
 			{Result: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`application "bar"`)},
+			{Error: apiservertesting.NotFoundError(`service "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

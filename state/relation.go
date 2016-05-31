@@ -179,7 +179,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 	}
 	ops := []txn.Op{relOp}
 	for _, ep := range r.doc.Endpoints {
-		if ep.ApplicationName == ignoreService {
+		if ep.ServiceName == ignoreService {
 			continue
 		}
 		var asserts bson.D
@@ -189,19 +189,19 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			// or one of its services, and can therefore be assured that both
 			// services are Alive.
 			asserts = append(hasRelation, isAliveDoc...)
-		} else if ep.ApplicationName == departingUnit.ApplicationName() {
+		} else if ep.ServiceName == departingUnit.ServiceName() {
 			// This service must have at least one unit -- the one that's
 			// departing the relation -- so it cannot be ready for removal.
 			cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
 			asserts = append(hasRelation, cannotDieYet...)
 		} else {
 			// This service may require immediate removal.
-			services, closer := r.st.getCollection(applicationsC)
+			services, closer := r.st.getCollection(servicesC)
 			defer closer()
 
-			svc := &Application{st: r.st}
+			svc := &Service{st: r.st}
 			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-			removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
+			removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
 			if err := services.Find(removable).One(&svc.doc); err == nil {
 				ops = append(ops, svc.removeOps(hasLastRef)...)
 				continue
@@ -217,8 +217,8 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			}}}
 		}
 		ops = append(ops, txn.Op{
-			C:      applicationsC,
-			Id:     r.st.docID(ep.ApplicationName),
+			C:      servicesC,
+			Id:     r.st.docID(ep.ServiceName),
 			Assert: asserts,
 			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 		})
@@ -237,13 +237,13 @@ func (r *Relation) Id() int {
 
 // Endpoint returns the endpoint of the relation for the named service.
 // If the service is not part of the relation, an error will be returned.
-func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
+func (r *Relation) Endpoint(serviceName string) (Endpoint, error) {
 	for _, ep := range r.doc.Endpoints {
-		if ep.ApplicationName == applicationname {
+		if ep.ServiceName == serviceName {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q is not a member of %q", applicationname, r)
+	return Endpoint{}, errors.Errorf("service %q is not a member of %q", serviceName, r)
 }
 
 // Endpoints returns the endpoints for the relation.
@@ -254,8 +254,8 @@ func (r *Relation) Endpoints() []Endpoint {
 // RelatedEndpoints returns the endpoints of the relation r with which
 // units of the named service will establish relations. If the service
 // is not part of the relation r, an error will be returned.
-func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) {
-	local, err := r.Endpoint(applicationname)
+func (r *Relation) RelatedEndpoints(serviceName string) ([]Endpoint, error) {
+	local, err := r.Endpoint(serviceName)
 	if err != nil {
 		return nil, err
 	}
@@ -267,14 +267,14 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) 
 		}
 	}
 	if eps == nil {
-		return nil, errors.Errorf("no endpoints of %q relate to application %q", r, applicationname)
+		return nil, errors.Errorf("no endpoints of %q relate to service %q", r, serviceName)
 	}
 	return eps, nil
 }
 
 // Unit returns a RelationUnit for the supplied unit.
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	ep, err := r.Endpoint(u.doc.Application)
+	ep, err := r.Endpoint(u.doc.Service)
 	if err != nil {
 		return nil, err
 	}

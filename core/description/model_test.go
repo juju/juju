@@ -91,7 +91,7 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 		DateCreated: time.Date(2015, 10, 9, 12, 34, 56, 0, time.UTC),
 	})
 	addMinimalMachine(initial, "0")
-	addMinimalApplication(initial)
+	addMinimalService(initial)
 	model := s.exportImport(c, initial)
 
 	c.Assert(model.Owner(), gc.Equals, args.Owner)
@@ -105,9 +105,9 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Id(), gc.Equals, "0")
-	applications := model.Applications()
-	c.Assert(applications, gc.HasLen, 1)
-	c.Assert(applications[0].Name(), gc.Equals, "ubuntu")
+	services := model.Services()
+	c.Assert(services, gc.HasLen, 1)
+	c.Assert(services[0].Name(), gc.Equals, "ubuntu")
 }
 
 func (s *ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
@@ -220,26 +220,26 @@ func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.
 	c.Assert(err.Error(), gc.Equals, "unknown unit names in open ports: [missing/0]")
 }
 
-func (*ModelSerializationSuite) TestModelValidationChecksApplications(c *gc.C) {
+func (*ModelSerializationSuite) TestModelValidationChecksServices(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	model.AddApplication(ApplicationArgs{})
+	model.AddService(ServiceArgs{})
 	err := model.Validate()
-	c.Assert(err, gc.ErrorMatches, "application missing name not valid")
+	c.Assert(err, gc.ErrorMatches, "service missing name not valid")
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *ModelSerializationSuite) addApplicationToModel(model Model, name string, numUnits int) Application {
-	application := model.AddApplication(ApplicationArgs{
+func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, numUnits int) Service {
+	service := model.AddService(ServiceArgs{
 		Tag:                names.NewApplicationTag(name),
 		Settings:           map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
 	})
-	application.SetStatus(minimalStatusArgs())
+	service.SetStatus(minimalStatusArgs())
 	for i := 0; i < numUnits; i++ {
 		// The index i is used as both the machine id and the unit id.
 		// A happy coincidence.
 		machine := s.addMachineToModel(model, fmt.Sprint(i))
-		unit := application.AddUnit(UnitArgs{
+		unit := service.AddUnit(UnitArgs{
 			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
 			Machine: machine.Tag(),
 		})
@@ -248,7 +248,7 @@ func (s *ModelSerializationSuite) addApplicationToModel(model Model, name string
 		unit.SetWorkloadStatus(minimalStatusArgs())
 	}
 
-	return application
+	return service
 }
 
 func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
@@ -257,8 +257,8 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		Config: map[string]interface{}{
 			"uuid": "some-uuid",
 		}})
-	s.addApplicationToModel(model, "wordpress", 2)
-	s.addApplicationToModel(model, "mysql", 1)
+	s.addServiceToModel(model, "wordpress", 2)
+	s.addServiceToModel(model, "mysql", 1)
 
 	// Add a relation between wordpress and mysql.
 	rel := model.AddRelation(RelationArgs{
@@ -266,13 +266,13 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		Key: "special key",
 	})
 	wordpressEndpoint := rel.AddEndpoint(EndpointArgs{
-		ApplicationName: "wordpress",
-		Name:            "db",
+		ServiceName: "wordpress",
+		Name:        "db",
 		// Ignoring other aspects of endpoints.
 	})
 	mysqlEndpoint := rel.AddEndpoint(EndpointArgs{
-		ApplicationName: "mysql",
-		Name:            "mysql",
+		ServiceName: "mysql",
+		Name:        "mysql",
 		// Ignoring other aspects of endpoints.
 	})
 	return model, wordpressEndpoint, mysqlEndpoint

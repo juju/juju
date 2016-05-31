@@ -21,7 +21,7 @@ import (
 // into relationSuite to avoid running the former's tests twice.
 type commonRelationSuiteMixin struct {
 	mysqlMachine *state.Machine
-	mysqlService *state.Application
+	mysqlService *state.Service
 	mysqlCharm   *state.Charm
 	mysqlUnit    *state.Unit
 

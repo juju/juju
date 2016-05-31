@@ -271,7 +271,7 @@ func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func()
 		return func() {}, err
 	}
 	return func() {
-		svc, err := mst.Application("wordpress")
+		svc, err := mst.Service("wordpress")
 		c.Assert(err, jc.ErrorIsNil)
 		svc.ClearExposed()
 	}, nil
