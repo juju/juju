@@ -4155,6 +4155,14 @@ type SetAdminMongoPasswordSuite struct {
 
 var _ = gc.Suite(&SetAdminMongoPasswordSuite{})
 
+func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.UserTag, password string) {
+	session, err := inst.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
+	err = mongo.SetAdminMongoPassword(session, owner.String(), password)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
 	err := inst.Start(testing.Certs)
@@ -4167,13 +4175,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// https://docs.mongodb.com/manual/core/security-users/#localhost-exception
 	owner := names.NewLocalUserTag("initialize-admin")
 	password := "huggies"
-	{
-		session, err := inst.Dial()
-		c.Assert(err, jc.ErrorIsNil)
-		defer session.Close()
-		err = mongo.SetAdminMongoPassword(session, owner.String(), password)
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	setAdminPassword(c, inst, owner, password)
 
 	noAuthInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -4209,10 +4211,12 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	passwordOnlyInfo := *noAuthInfo
 	passwordOnlyInfo.Password = "foo"
+
+	// Under mongo 3.2 it's not possible to create collections and
+	// indexes with no user - the localhost exception only permits
+	// creating users. There were some checks for unsetting the
+	// password and then creating the state in an older version of
+	// this test, but they couldn't be made to work with 3.2.
 	err = tryOpenState(st.ModelTag(), &passwordOnlyInfo)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Under mongo 3.2 it's not possible to create the collections and
-	// indexes with no user - the localhost exception only permits
-	// creating users.
 }
