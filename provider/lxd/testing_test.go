@@ -196,9 +196,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Scope: network.ScopeCloudLocal,
 	}}
 	// NOTE: the instance ids used throughout this package are not at all
-	// representative of what they would normally be. They would normally be the
-	// namespace prefix followed by a machine id with slashes replaced with
-	// dashes.
+	// representative of what they would normally be. They would normally
+	// determined by the instance namespace and the machine id.
 	s.Instance = s.NewInstance(c, "spam")
 	s.RawInstance = s.Instance.raw
 	s.InstName, err = s.Env.namespace.Hostname("42")
