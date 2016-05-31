@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -506,4 +507,18 @@ func LeadershipLeases(st *State) (map[string]lease.Info, error) {
 
 func DeleteCharm(st *State, curl *charm.URL) error {
 	return st.deleteCharm(curl)
+}
+
+// All returns all the entities stored in the Store,
+// oldest first. It is only exposed for testing purposes.
+func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
+	entities := make([]multiwatcher.EntityInfo, 0, a.list.Len())
+	for e := a.list.Front(); e != nil; e = e.Next() {
+		entry := e.Value.(*entityEntry)
+		if entry.removed {
+			continue
+		}
+		entities = append(entities, entry.info)
+	}
+	return entities
 }
