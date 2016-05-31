@@ -17,13 +17,13 @@ var _ = gc.Suite(&IPAddressSerializationSuite{})
 
 func (s *IPAddressSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "addresses"
-	s.sliceName = "addresses"
+	s.importName = "ipaddresses"
+	s.sliceName = "ipaddresses"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importIPAddresses(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["addresses"] = []interface{}{}
+		m["ipaddresses"] = []interface{}{}
 	}
 }
 
@@ -46,8 +46,8 @@ func (s *IPAddressSerializationSuite) TestNewIPAddress(c *gc.C) {
 	c.Assert(address.MachineID(), gc.Equals, args.MachineID)
 	c.Assert(address.ConfigMethod(), gc.Equals, args.ConfigMethod)
 	c.Assert(address.Value(), gc.Equals, args.Value)
-	c.Assert(address.DNSServers(), gc.Equals, args.DNSServers)
-	c.Assert(address.DNSSearchDomains(), gc.Equals, args.DNSSearchDomains)
+	c.Assert(address.DNSServers(), jc.DeepEquals, args.DNSServers)
+	c.Assert(address.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
 	c.Assert(address.GatewayAddress(), gc.Equals, args.GatewayAddress)
 }
 
