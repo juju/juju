@@ -55,8 +55,8 @@ func (s *LiveSuite) SetUpTest(c *gc.C) {
 func (s *LiveSuite) newManager(c *gc.C, name string) container.Manager {
 	manager, err := kvm.NewContainerManager(
 		container.ManagerConfig{
-			container.ConfigName:   name,
-			container.ConfigLogDir: c.MkDir(),
+			container.ConfigModelUUID: coretesting.ModelTag.Id(),
+			container.ConfigLogDir:    c.MkDir(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager

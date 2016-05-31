@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
@@ -64,6 +65,9 @@ type environ struct {
 	lock sync.Mutex // lock protects access to ecfg
 	ecfg *environConfig
 
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
+
 	archLock               sync.Mutex // protects supportedArchitectures
 	supportedArchitectures []string
 }
@@ -88,11 +92,17 @@ func newEnviron(cfg *config.Config) (*environ, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &environ{
-		name: ecfg.config.Name(),
-		uuid: ecfg.config.UUID(),
-		ecfg: ecfg,
-		gce:  conn,
+		name:      ecfg.config.Name(),
+		uuid:      ecfg.config.UUID(),
+		ecfg:      ecfg,
+		gce:       conn,
+		namespace: namespace,
 	}, nil
 }
 

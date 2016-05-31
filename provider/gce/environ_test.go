@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 )
 
@@ -107,7 +108,7 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
-	fwname := s.Prefix[:len(s.Prefix)-1]
+	fwname := common.EnvFullName(s.Env.Config().UUID())
 	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "Destroy",
