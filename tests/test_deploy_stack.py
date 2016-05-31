@@ -68,7 +68,7 @@ from tests import (
     temp_os_env,
     use_context,
 )
-from test_jujupy import (
+from tests.test_jujupy import (
     assert_juju_call,
     fake_juju_client,
     fake_juju_client_optional_jes,
@@ -436,6 +436,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 'sudo chmod -Rf go+r /var/log/cloud-init*.log'
                 ' /var/log/juju/*.log'
                 ' /var/lib/juju/containers/juju-*-lxc-*/'
+                ' /var/log/lxd/juju-*'
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
                 ),),
@@ -450,6 +451,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/cloud-init*.log',
                 '10.10.0.1:/var/log/juju/*.log',
                 '10.10.0.1:/var/lib/juju/containers/juju-*-lxc-*/',
+                '10.10.0.1:/var/log/lxd/juju-*',
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
                 '/foo'),),
@@ -483,6 +485,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
              "10.10.0.1 'sudo chmod -Rf go+r /var/log/cloud-init*.log "
              "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
+             "/var/log/lxd/juju-* "
              "/var/log/syslog /var/log/mongodb/mongodb.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
@@ -1232,14 +1235,15 @@ class TestBootstrapManager(FakeHomeTestCase):
                 None, [], None, None, None, None, log_dir, False,
                 permanent=True, jes_enabled=True)
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-                bs_manager.dump_all_logs()
+                with patch.object(bs_manager, '_should_dump',
+                                  return_value=True):
+                    bs_manager.dump_all_logs()
 
         clients = dict((c[1][0].env.environment, c[1][0])
                        for c in del_mock.mock_calls)
-
         self.assertItemsEqual(
             [call(client, os.path.join(log_dir, 'name'), None, {}),
-             call(clients['admin'], os.path.join(log_dir, 'admin'),
+             call(clients['controller'], os.path.join(log_dir, 'controller'),
                   'foo/models/cache.yaml', {})],
             del_mock.mock_calls)
 
@@ -1254,14 +1258,16 @@ class TestBootstrapManager(FakeHomeTestCase):
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
                 with patch.object(client, 'iter_model_clients',
                                   side_effect=Exception):
-                    bs_manager.dump_all_logs()
+                    with patch.object(bs_manager, '_should_dump',
+                                      return_value=True):
+                        bs_manager.dump_all_logs()
 
         clients = dict((c[1][0].env.environment, c[1][0])
                        for c in del_mock.mock_calls)
 
         self.assertItemsEqual(
             [call(client, os.path.join(log_dir, 'name'), None, {}),
-             call(clients['admin'], os.path.join(log_dir, 'admin'),
+             call(clients['controller'], os.path.join(log_dir, 'controller'),
                   'foo/models/cache.yaml', {})],
             del_mock.mock_calls)
 
@@ -1275,7 +1281,9 @@ class TestBootstrapManager(FakeHomeTestCase):
             bs_manager.known_hosts['2'] = 'example.org'
             client.bootstrap()
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-                bs_manager.dump_all_logs()
+                with patch.object(bs_manager, '_should_dump',
+                                  return_value=True):
+                    bs_manager.dump_all_logs()
         del_mock.assert_called_once_with(
             client, os.path.join(log_dir, 'name'),
             'foo/environments/name.jenv', {
@@ -1392,6 +1400,7 @@ class TestBootContext(FakeHomeTestCase):
                               return_value='foo', autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True,
                                  return_value=0))
+        juju_name = os.path.basename(client.full_path)
         if jes:
             output = jes
             po_count = 0
@@ -1403,7 +1412,7 @@ class TestBootContext(FakeHomeTestCase):
             yield
         for help_index in range(po_count):
             assert_juju_call(self, po_mock, client, (
-                'juju', '--show-log', 'help', 'commands'),
+                juju_name, '--show-log', 'help', 'commands'),
                 call_index=help_index)
         self.assertEqual(po_count, po_mock.call_count)
         dal_mock.assert_called_once_with()
@@ -1415,11 +1424,11 @@ class TestBootContext(FakeHomeTestCase):
             if jes:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
-                        'juju', '--show-log', jes, 'bar', '-y'), call_index)
+                        juju_name, '--show-log', jes, 'bar', '-y'), call_index)
             else:
                 assert_juju_call(
                     self, c_mock, client, get_timeout_prefix(600) + (
-                        'juju', '--show-log', 'destroy-environment', 'bar',
+                        juju_name, '--show-log', 'destroy-environment', 'bar',
                         '-y'), call_index)
         self.assertEqual(tear_down_count, c_mock.call_count)
 
@@ -1434,11 +1443,11 @@ class TestBootContext(FakeHomeTestCase):
                                   upload_tools=False):
                     pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '--constraints',
+            'path', '--show-log', 'bootstrap', '--constraints',
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar:bar',
+            'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 1)
 
     def test_bootstrap_context_non_jes(self):
@@ -1450,10 +1459,10 @@ class TestBootContext(FakeHomeTestCase):
                               'log_dir', keep_env=False, upload_tools=False):
                 pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
+            'path', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'bar',
+            'path', '--show-log', 'status', '-e', 'bar',
             '--format', 'yaml'), 1)
 
     def test_keep_env(self):
@@ -1466,11 +1475,11 @@ class TestBootContext(FakeHomeTestCase):
                                   None, keep_env=True, upload_tools=False):
                     pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '--constraints',
+            'path', '--show-log', 'bootstrap', '--constraints',
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar:bar',
+            'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 1)
 
     def test_keep_env_non_jes(self):
@@ -1482,10 +1491,10 @@ class TestBootContext(FakeHomeTestCase):
                               keep_env=True, upload_tools=False):
                 pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
+            'path', '--show-log', 'bootstrap', '-e', 'bar', '--constraints',
             'mem=2G'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'bar',
+            'path', '--show-log', 'status', '-e', 'bar',
             '--format', 'yaml'), 1)
 
     def test_upload_tools(self):
@@ -1498,7 +1507,7 @@ class TestBootContext(FakeHomeTestCase):
                                   None, keep_env=False, upload_tools=True):
                     pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '--upload-tools',
+            'path', '--show-log', 'bootstrap', '--upload-tools',
             '--constraints', 'mem=2G', 'bar', 'paas/qux', '--config',
             config_file.name, '--default-model', 'bar'), 0)
 
@@ -1511,7 +1520,7 @@ class TestBootContext(FakeHomeTestCase):
                               keep_env=False, upload_tools=True):
                 pass
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
+            'path', '--show-log', 'bootstrap', '-e', 'bar', '--upload-tools',
             '--constraints', 'mem=2G'), 0)
 
     def test_calls_update_env_2(self):
@@ -1530,7 +1539,7 @@ class TestBootContext(FakeHomeTestCase):
             client.env, 'bar', agent_url='url', agent_stream='devel',
             series='wacky', bootstrap_host=None, region=None)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
+            'path', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
             'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23',
             '--bootstrap-series', 'wacky'), 0)
@@ -1549,7 +1558,7 @@ class TestBootContext(FakeHomeTestCase):
             client.env, 'bar', series='wacky', bootstrap_host=None,
             agent_url='url', agent_stream='devel', region=None)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'bar',
+            'path', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
 
     def test_calls_update_env_non_jes(self):
@@ -1566,7 +1575,7 @@ class TestBootContext(FakeHomeTestCase):
             client.env, 'bar', series='wacky', bootstrap_host=None,
             agent_url='url', agent_stream='devel', region=None)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'bar',
+            'path', '--show-log', 'bootstrap', '-e', 'bar',
             '--constraints', 'mem=2G'), 0)
 
     def test_with_bootstrap_failure(self):
@@ -1604,11 +1613,11 @@ class TestBootContext(FakeHomeTestCase):
         timeout_path = get_timeout_path()
         assert_juju_call(self, call_mock, client, (
             sys.executable, timeout_path, '600.00', '--',
-            'juju', '--show-log', 'kill-controller', 'bar', '-y'
+            'path', '--show-log', 'kill-controller', 'bar', '-y'
             ), 0)
         assert_juju_call(self, call_mock, client, (
             sys.executable, timeout_path, '600.00', '--',
-            'juju', '--show-log', 'kill-controller', 'bar', '-y'
+            'path', '--show-log', 'kill-controller', 'bar', '-y'
             ), 1)
         self.assertEqual(2, call_mock.call_count)
         self.assertEqual(0, po_mock.call_count)
@@ -1647,17 +1656,17 @@ class TestBootContext(FakeHomeTestCase):
         timeout_path = get_timeout_path()
         assert_juju_call(self, call_mock, client, (
             sys.executable, timeout_path, '600.00', '--',
-            'juju', '--show-log', 'destroy-environment', 'bar', '-y'
+            'path', '--show-log', 'destroy-environment', 'bar', '-y'
             ), 0)
         assert_juju_call(self, call_mock, client, (
             sys.executable, timeout_path, '600.00', '--',
-            'juju', '--show-log', 'destroy-environment', 'bar', '-y'
+            'path', '--show-log', 'destroy-environment', 'bar', '-y'
             ), 1)
         self.assertEqual(2, call_mock.call_count)
         assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 0)
+            'path', '--show-log', 'help', 'commands'), 0)
         assert_juju_call(self, po_mock, client, (
-            'juju', '--show-log', 'help', 'commands'), 1)
+            'path', '--show-log', 'help', 'commands'), 1)
         self.assertEqual(2, po_mock.call_count)
 
     def test_jes(self):
@@ -1707,11 +1716,11 @@ class TestBootContext(FakeHomeTestCase):
                         pass
                 self.assertIs(ctx.exception, error)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'bootstrap', '--constraints',
+            'path', '--show-log', 'bootstrap', '--constraints',
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'show-status', '-m', 'bar:bar',
+            'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 1)
 
 

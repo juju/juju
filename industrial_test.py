@@ -494,7 +494,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
     def iter_steps(self, client):
         yield self.prepare.as_result()
         with temp_dir() as temp_repository:
-            charm = Charm('mycharm', 'Test charm', series='trusty')
+            charm = Charm('mycharm', 'Test charm', series=['trusty'])
             charm.metadata['description'] = 'Charm for industrial testing.'
             charm_root = charm.to_repo_dir(temp_repository)
             charm_path = local_charm_path(
@@ -736,10 +736,11 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'remove-machine-many-container'}
         yield results
-        services = [status.status['services'][key] for key in service_names]
+        applications = [status.get_applications()[key]
+                        for key in service_names]
         container_machines = set()
-        for service in services:
-            for unit in service['units'].values():
+        for application in applications:
+            for unit in application['units'].values():
                 container_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
         remove_timeout = {
