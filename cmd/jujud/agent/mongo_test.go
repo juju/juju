@@ -29,8 +29,7 @@ func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetCon
 
 func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureReplset bool) {
 	inst := gitjujutesting.MgoInstance{
-		EnableJournal: true,
-		Params:        []string{"--replSet", "juju"},
+		Params: []string{"--replSet", "juju"},
 	}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
