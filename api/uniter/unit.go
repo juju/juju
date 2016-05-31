@@ -174,8 +174,8 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Service returns the service.
-func (u *Unit) Service() (*Service, error) {
-	service := &Service{
+func (u *Unit) Service() (*Application, error) {
+	service := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),
 	}
@@ -211,8 +211,8 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	return charm.Settings(result.Settings), nil
 }
 
-// ServiceName returns the service name.
-func (u *Unit) ServiceName() string {
+// ApplicationName returns the service name.
+func (u *Unit) ApplicationName() string {
 	service, err := names.UnitApplication(u.Name())
 	if err != nil {
 		panic(err)
@@ -222,7 +222,7 @@ func (u *Unit) ServiceName() string {
 
 // ApplicationTag returns the service tag.
 func (u *Unit) ApplicationTag() names.ApplicationTag {
-	return names.NewApplicationTag(u.ServiceName())
+	return names.NewApplicationTag(u.ApplicationName())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as

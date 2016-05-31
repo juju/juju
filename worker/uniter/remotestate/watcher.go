@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 type RemoteStateWatcher struct {
 	st                        State
 	unit                      Unit
-	service                   Service
+	service                   Application
 	relations                 map[names.RelationTag]*relationUnitsWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher

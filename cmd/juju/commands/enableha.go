@@ -61,7 +61,7 @@ type enableHACommand struct {
 }
 
 const enableHADoc = `
-To ensure availability of deployed services, the Juju infrastructure
+To ensure availability of deployed applications, the Juju infrastructure
 must itself be highly available.  enable-ha must be called
 to ensure that the specified number of controllers are made available.
 

@@ -41,23 +41,23 @@ type runCommand struct {
 const runDoc = `
 Run the commands on the specified targets.
 
-Targets are specified using either machine ids, service names or unit
+Targets are specified using either machine ids, application names or unit
 names.  At least one target specifier is needed.
 
-Multiple values can be set for --machine, --service, and --unit by using
+Multiple values can be set for --machine, --application, and --unit by using
 comma separated values.
 
 If the target is a machine, the command is run as the "ubuntu" user on
 the remote machine.
 
-If the target is a service, the command is run on all units for that
-service. For example, if there was a service "mysql" and that service
+If the target is a application, the command is run on all units for that
+application. For example, if there was a application "mysql" and that application
 had two units, "mysql/0" and "mysql/1", then
-  --service mysql
+  --application mysql
 is equivalent to
   --unit mysql/0,mysql/1
 
-Commands run for services or units are executed in a 'hook context' for
+Commands run for applications or units are executed in a 'hook context' for
 the unit.
 
 --all is provided as a simple way to run the command on all the machines
@@ -82,7 +82,7 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.all, "all", false, "run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "how long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "one or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "service", "one or more service names")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "one or more application names")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "one or more unit ids")
 }
 
@@ -97,14 +97,14 @@ func (c *runCommand) Init(args []string) error {
 			return fmt.Errorf("You cannot specify --all and individual machines")
 		}
 		if len(c.services) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual services")
+			return fmt.Errorf("You cannot specify --all and individual applications")
 		}
 		if len(c.units) != 0 {
 			return fmt.Errorf("You cannot specify --all and individual units")
 		}
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
-			return fmt.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
+			return fmt.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
 		}
 	}
 
@@ -116,7 +116,7 @@ func (c *runCommand) Init(args []string) error {
 	}
 	for _, service := range c.services {
 		if !names.IsValidApplication(service) {
-			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
+			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid application name", service))
 		}
 	}
 	for _, unit := range c.units {
@@ -192,11 +192,11 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
 		params := params.RunParams{
-			Commands: c.commands,
-			Timeout:  c.timeout,
-			Machines: c.machines,
-			Services: c.services,
-			Units:    c.units,
+			Commands:     c.commands,
+			Timeout:      c.timeout,
+			Machines:     c.machines,
+			Applications: c.services,
+			Units:        c.units,
 		}
 		runResults, err = client.Run(params)
 	}

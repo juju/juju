@@ -349,7 +349,7 @@ func (s *firewallerBaseSuite) testGetExposed(
 		},
 	})
 
-	// Now reset the exposed flag for the service and check again.
+	// Now reset the exposed flag for the application and check again.
 	err = s.service.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 

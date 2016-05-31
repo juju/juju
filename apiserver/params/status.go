@@ -26,7 +26,7 @@ type FullStatus struct {
 	ModelName        string
 	AvailableVersion string
 	Machines         map[string]MachineStatus
-	Services         map[string]ServiceStatus
+	Applications     map[string]ApplicationStatus
 	Relations        []RelationStatus
 }
 
@@ -46,8 +46,8 @@ type MachineStatus struct {
 	WantsVote  bool
 }
 
-// ServiceStatus holds status info about a service.
-type ServiceStatus struct {
+// ApplicationStatus holds status info about a application.
+type ApplicationStatus struct {
 	Err           error
 	Charm         string
 	Exposed       bool
@@ -92,16 +92,16 @@ type RelationStatus struct {
 
 // EndpointStatus holds status info about a single endpoint
 type EndpointStatus struct {
-	ServiceName string
-	Name        string
-	Role        charm.RelationRole
-	Subordinate bool
+	ApplicationName string
+	Name            string
+	Role            charm.RelationRole
+	Subordinate     bool
 }
 
 // TODO(ericsnow) Eliminate the String method.
 
 func (epStatus *EndpointStatus) String() string {
-	return epStatus.ServiceName + ":" + epStatus.Name
+	return epStatus.ApplicationName + ":" + epStatus.Name
 }
 
 // DetailedStatus holds status info about a machine or unit agent.
@@ -177,16 +177,16 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
-// ServiceStatusResult holds results for a service Full Status
-type ServiceStatusResult struct {
-	Service StatusResult
-	Units   map[string]StatusResult
-	Error   *Error
+// ApplicationStatusResult holds results for a application Full Status
+type ApplicationStatusResult struct {
+	Application StatusResult
+	Units       map[string]StatusResult
+	Error       *Error
 }
 
-// ServiceStatusResults holds multiple StatusResult.
-type ServiceStatusResults struct {
-	Results []ServiceStatusResult
+// ApplicationStatusResults holds multiple StatusResult.
+type ApplicationStatusResults struct {
+	Results []ApplicationStatusResult
 }
 
 // Life describes the lifecycle state of an entity ("alive", "dying" or "dead").

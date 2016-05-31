@@ -74,7 +74,7 @@ func chanReadConfig(c *gc.C, ch <-chan *config.Config, what string) (*config.Con
 }
 
 func removeServiceAndUnits(c *gc.C, service *state.Service) {
-	// Destroy all units for the service.
+	// Destroy all units for the application.
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
@@ -214,7 +214,7 @@ var scenarioStatus = &params.FullStatus{
 			WantsVote:  false,
 		},
 	},
-	Services: map[string]params.ServiceStatus{
+	Applications: map[string]params.ApplicationStatus{
 		"logging": {
 			Charm: "local:quantal/logging-1",
 			Relations: map[string][]string{
@@ -308,16 +308,16 @@ var scenarioStatus = &params.FullStatus{
 			Key: "logging:logging-directory wordpress:logging-dir",
 			Endpoints: []params.EndpointStatus{
 				{
-					ServiceName: "logging",
-					Name:        "logging-directory",
-					Role:        "requirer",
-					Subordinate: true,
+					ApplicationName: "logging",
+					Name:            "logging-directory",
+					Role:            "requirer",
+					Subordinate:     true,
 				},
 				{
-					ServiceName: "wordpress",
-					Name:        "logging-dir",
-					Role:        "provider",
-					Subordinate: false,
+					ApplicationName: "wordpress",
+					Name:            "logging-dir",
+					Role:            "provider",
+					Subordinate:     false,
 				},
 			},
 			Interface: "logging",

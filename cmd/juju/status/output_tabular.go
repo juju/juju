@@ -21,16 +21,16 @@ import (
 )
 
 type statusRelation struct {
-	service1    string
-	service2    string
-	relation    string
-	subordinate bool
+	application1 string
+	application2 string
+	relation     string
+	subordinate  bool
 }
 
 func (s *statusRelation) relationType() string {
 	if s.subordinate {
 		return "subordinate"
-	} else if s.service1 == s.service2 {
+	} else if s.application1 == s.application2 {
 		return "peer"
 	}
 	return "regular"
@@ -59,10 +59,10 @@ func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
 	}
 	k := strings.Join(rel, "\t")
 	r.relations[k] = &statusRelation{
-		service1:    rel[0],
-		service2:    rel[1],
-		relation:    relation,
-		subordinate: is2SubOf1,
+		application1: rel[0],
+		application2: rel[1],
+		relation:     relation,
+		subordinate:  is2SubOf1,
 	}
 	r.relationIndex.Add(k)
 }
@@ -75,7 +75,7 @@ func (r *relationFormatter) get(k string) *statusRelation {
 	return r.relations[k]
 }
 
-// FormatTabular returns a tabular summary of machines, services, and
+// FormatTabular returns a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(value interface{}) ([]byte, error) {
@@ -106,10 +106,10 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
-	p("[Services]")
+	p("[Applications]")
 	p("NAME\tSTATUS\tEXPOSED\tCHARM")
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Services)) {
-		svc := fs.Services[svcName]
+	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+		svc := fs.Applications[svcName]
 		for un, u := range svc.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
@@ -129,11 +129,11 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	if relations.len() > 0 {
 		p()
 		p("[Relations]")
-		p("SERVICE1\tSERVICE2\tRELATION\tTYPE")
+		p("APPLICATION1\tAPPLICATION2\tRELATION\tTYPE")
 		for _, k := range relations.sorted() {
 			r := relations.get(k)
 			if r != nil {
-				p(r.service1, r.service2, r.relation, r.relationType())
+				p(r.application1, r.application2, r.relation, r.relationType())
 			}
 		}
 	}

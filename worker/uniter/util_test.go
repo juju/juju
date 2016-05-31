@@ -1521,7 +1521,7 @@ type mockLeaderTracker struct {
 	waiting  []chan struct{}
 }
 
-func (mock *mockLeaderTracker) ServiceName() string {
+func (mock *mockLeaderTracker) ApplicationName() string {
 	return mock.ctx.svc.Name()
 }
 

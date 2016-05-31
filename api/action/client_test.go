@@ -27,24 +27,24 @@ func (s *actionSuite) TestClient(c *gc.C) {
 	c.Check(facade.Name(), gc.Equals, "Action")
 }
 
-func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
+func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 	tests := []struct {
 		description    string
-		patchResults   []params.ServiceCharmActionsResult
+		patchResults   []params.ApplicationCharmActionsResult
 		patchErr       string
 		expectedErr    string
 		expectedResult *charm.Actions
 	}{{
 		description: "result from wrong service",
-		patchResults: []params.ServiceCharmActionsResult{
+		patchResults: []params.ApplicationCharmActionsResult{
 			{
 				ApplicationTag: names.NewApplicationTag("bar").String(),
 			},
 		},
-		expectedErr: `action results received for wrong service "application-bar"`,
+		expectedErr: `action results received for wrong application "application-bar"`,
 	}, {
 		description: "some other error",
-		patchResults: []params.ServiceCharmActionsResult{
+		patchResults: []params.ApplicationCharmActionsResult{
 			{
 				ApplicationTag: names.NewApplicationTag("foo").String(),
 				Error: &params.Error{
@@ -55,14 +55,14 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		expectedErr: `something bad`,
 	}, {
 		description: "more than one result",
-		patchResults: []params.ServiceCharmActionsResult{
+		patchResults: []params.ApplicationCharmActionsResult{
 			{},
 			{},
 		},
 		expectedErr: "2 results, expected 1",
 	}, {
 		description:  "no results",
-		patchResults: []params.ServiceCharmActionsResult{},
+		patchResults: []params.ApplicationCharmActionsResult{},
 		expectedErr:  "0 results, expected 1",
 	}, {
 		description: "error on facade call",
@@ -70,7 +70,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		expectedErr: "something went wrong",
 	}, {
 		description: "normal result",
-		patchResults: []params.ServiceCharmActionsResult{
+		patchResults: []params.ApplicationCharmActionsResult{
 			{
 				ApplicationTag: names.NewApplicationTag("foo").String(),
 				Actions: &charm.Actions{
@@ -101,9 +101,9 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		// anonymous func to properly trigger defer
 		func() {
 			c.Logf("test %d: %s", i, t.description)
-			cleanup := patchServiceCharmActions(c, s.client, t.patchResults, t.patchErr)
+			cleanup := patchApplicationCharmActions(c, s.client, t.patchResults, t.patchErr)
 			defer cleanup()
-			result, err := s.client.ServiceCharmActions(params.Entity{Tag: names.NewApplicationTag("foo").String()})
+			result, err := s.client.ApplicationCharmActions(params.Entity{Tag: names.NewApplicationTag("foo").String()})
 			if t.expectedErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
 			} else {
@@ -114,16 +114,16 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 	}
 }
 
-// replace "ServicesCharmActions" facade call with required results and error
+// replace sCharmActions" facade call with required results and error
 // if desired
-func patchServiceCharmActions(c *gc.C, apiCli *action.Client, patchResults []params.ServiceCharmActionsResult, err string) func() {
+func patchApplicationCharmActions(c *gc.C, apiCli *action.Client, patchResults []params.ApplicationCharmActionsResult, err string) func() {
 	return action.PatchClientFacadeCall(apiCli,
 		func(req string, paramsIn interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "ServicesCharmActions")
+			c.Assert(req, gc.Equals, "ApplicationsCharmsActions")
 			c.Assert(paramsIn, gc.FitsTypeOf, params.Entities{})
 			p := paramsIn.(params.Entities)
 			c.Check(p.Entities, gc.HasLen, 1)
-			result := resp.(*params.ServicesCharmActionsResults)
+			result := resp.(*params.ApplicationsCharmActionsResults)
 			result.Results = patchResults
 			if err != "" {
 				return errors.New(err)

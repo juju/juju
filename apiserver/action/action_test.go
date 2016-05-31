@@ -634,7 +634,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
 }
 
-func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
+func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
 		"snapshot": {
 			"type":        "object",
@@ -657,11 +657,11 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	}
 	tests := []struct {
 		serviceNames    []string
-		expectedResults params.ServicesCharmActionsResults
+		expectedResults params.ApplicationsCharmActionsResults
 	}{{
 		serviceNames: []string{"dummy"},
-		expectedResults: params.ServicesCharmActionsResults{
-			Results: []params.ServiceCharmActionsResult{
+		expectedResults: params.ApplicationsCharmActionsResults{
+			Results: []params.ApplicationCharmActionsResult{
 				{
 					ApplicationTag: names.NewApplicationTag("dummy").String(),
 					Actions: &charm.Actions{
@@ -677,8 +677,8 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		},
 	}, {
 		serviceNames: []string{"wordpress"},
-		expectedResults: params.ServicesCharmActionsResults{
-			Results: []params.ServiceCharmActionsResult{
+		expectedResults: params.ApplicationsCharmActionsResults{
+			Results: []params.ApplicationCharmActionsResult{
 				{
 					ApplicationTag: names.NewApplicationTag("wordpress").String(),
 					Actions: &charm.Actions{
@@ -694,8 +694,8 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		},
 	}, {
 		serviceNames: []string{"nonsense"},
-		expectedResults: params.ServicesCharmActionsResults{
-			Results: []params.ServiceCharmActionsResult{
+		expectedResults: params.ApplicationsCharmActionsResults{
+			Results: []params.ApplicationCharmActionsResult{
 				{
 					ApplicationTag: names.NewApplicationTag("nonsense").String(),
 					Error: &params.Error{
@@ -719,7 +719,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 			svcTags.Entities[j] = params.Entity{Tag: svcTag.String()}
 		}
 
-		results, err := s.action.ServicesCharmActions(svcTags)
+		results, err := s.action.ApplicationsCharmsActions(svcTags)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
 	}

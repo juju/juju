@@ -34,7 +34,7 @@ type State interface {
 	// AllMachines returns all machines in the model ordered by id.
 	AllMachines() ([]Machine, error)
 
-	// AllServices returns all deployed services in the model.
+	// AllApplications returns all deployed services in the model.
 	AllServices() ([]Service, error)
 
 	// ModelConfig retrieves the model configuration.

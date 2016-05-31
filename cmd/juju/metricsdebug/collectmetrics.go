@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"
-	"github.com/juju/juju/api/service"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -57,8 +57,8 @@ func NewCollectMetricsCommand() cmd.Command {
 func (c *collectMetricsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "collect-metrics",
-		Args:    "[service or unit]",
-		Purpose: "collect metrics on the given unit/service",
+		Args:    "[application or unit]",
+		Purpose: "collect metrics on the given unit/application",
 		Doc:     collectMetricsDoc,
 	}
 }
@@ -66,7 +66,7 @@ func (c *collectMetricsCommand) Info() *cmd.Info {
 // Init reads and verifies the cli arguments for the collectMetricsCommand
 func (c *collectMetricsCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("you need to specify a unit or service.")
+		return errors.New("you need to specify a unit or application.")
 	}
 	c.entity = args[0]
 	if names.IsValidUnit(c.entity) {
@@ -74,7 +74,7 @@ func (c *collectMetricsCommand) Init(args []string) error {
 	} else if names.IsValidApplication(args[0]) {
 		c.service = c.entity
 	} else {
-		return errors.Errorf("%q is not a valid unit or service", args[0])
+		return errors.Errorf("%q is not a valid unit or application", args[0])
 	}
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return errors.Errorf("unknown command line arguments: " + strings.Join(args, ","))
@@ -124,7 +124,7 @@ func parseActionResult(result params.ActionResult) (string, error) {
 		return "", errors.Trace(err)
 	}
 	if strings.Contains(stderr, "nc: unix connect failed: No such file or directory") {
-		return "", errors.New("no collect service listening: does service support metric collection?")
+		return "", errors.New("no collect application listening: does application support metric collection?")
 	}
 	return tag.Id(), nil
 }
@@ -134,7 +134,7 @@ type serviceClient interface {
 }
 
 var newServiceClient = func(root api.Connection) serviceClient {
-	return service.NewClient(root)
+	return application.NewClient(root)
 }
 
 func isLocalCharmURL(conn api.Connection, entity string) (bool, error) {
@@ -188,10 +188,10 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		services = []string{c.service}
 	}
 	runParams := params.RunParams{
-		Timeout:  commandTimeout,
-		Units:    units,
-		Services: services,
-		Commands: "nc -U ../metrics-collect.socket",
+		Timeout:      commandTimeout,
+		Units:        units,
+		Applications: services,
+		Commands:     "nc -U ../metrics-collect.socket",
 	}
 
 	// trigger metrics collection

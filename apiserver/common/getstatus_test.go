@@ -223,8 +223,8 @@ func (s *serviceStatusGetterSuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	r := result.Results[0]
 	c.Assert(r.Error, gc.IsNil)
-	c.Assert(r.Service.Error, gc.IsNil)
-	c.Assert(r.Service.Status, gc.Equals, status.StatusMaintenance.String())
+	c.Assert(r.Application.Error, gc.IsNil)
+	c.Assert(r.Application.Status, gc.Equals, status.StatusMaintenance.String())
 	units := r.Units
 	c.Assert(units, gc.HasLen, 1)
 	unitStatus, ok := units[unit.Name()]

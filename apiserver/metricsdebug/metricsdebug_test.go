@@ -53,7 +53,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 		err    string
 		assert func(*gc.C, params.ErrorResults)
 	}{{
-		about: "set service meter status",
+		about: "set application meter status",
 		params: params.MeterStatusParams{
 			Statuses: []params.MeterStatusParam{{
 				Tag:  testService.Tag().String(),
@@ -99,7 +99,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 			})
 		},
 	}, {
-		about: "not a local charm - service",
+		about: "not a local charm - application",
 		params: params.MeterStatusParams{
 			Statuses: []params.MeterStatusParam{{
 				Tag:  csService.Tag().String(),
@@ -141,7 +141,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 			c.Assert(err, gc.DeepEquals, &params.Error{Message: "invalid meter status \"NOT AVAILABLE\""})
 		},
 	}, {
-		about: "not such service",
+		about: "not such application",
 		params: params.MeterStatusParams{
 			Statuses: []params.MeterStatusParam{{
 				Tag:  "application-missing",

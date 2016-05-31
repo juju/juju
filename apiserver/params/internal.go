@@ -197,7 +197,7 @@ type SettingsResults struct {
 	Results []SettingsResult
 }
 
-// ConfigSettings holds unit, service or cham configuration settings
+// ConfigSettings holds unit, application or cham configuration settings
 // with string keys and arbitrary values.
 type ConfigSettings map[string]interface{}
 
@@ -529,13 +529,13 @@ type CharmsResponse struct {
 
 // RunParams is used to provide the parameters to the Run method.
 // Commands and Timeout are expected to have values, and one or more
-// values should be in the Machines, Services, or Units slices.
+// values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands string
-	Timeout  time.Duration
-	Machines []string
-	Services []string
-	Units    []string
+	Commands     string
+	Timeout      time.Duration
+	Machines     []string
+	Applications []string
+	Units        []string
 }
 
 // RunResult contains the result from an individual run call on a machine.

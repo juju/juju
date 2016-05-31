@@ -42,9 +42,9 @@ type APIClient interface {
 	// Cancel attempts to cancel a queued up Action from running.
 	Cancel(params.Actions) (params.ActionResults, error)
 
-	// ServiceCharmActions is a single query which uses ServicesCharmActions to
+	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single Service by tag.
-	ServiceCharmActions(params.Entity) (*charm.Actions, error)
+	ApplicationCharmActions(params.Entity) (*charm.Actions, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.

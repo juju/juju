@@ -13,7 +13,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")
 
-// MinUnitsWorker ensures the minimum number of units for services is respected.
+// MinUnitsWorker ensures the minimum number of units for applications is respected.
 type MinUnitsWorker struct {
 	st *state.State
 }

@@ -16,7 +16,7 @@ import (
 
 func init() {
 	// Version 0 is no longer supported.
-	common.RegisterStandardFacade("Firewaller", 2, NewFirewallerAPI)
+	common.RegisterStandardFacade("Firewaller", 3, NewFirewallerAPI)
 }
 
 // FirewallerAPI provides access to the Firewaller API facade.
@@ -67,7 +67,7 @@ func NewFirewallerAPI(
 		resources,
 		authorizer,
 	)
-	// Watch() is supported for services only.
+	// Watch() is supported for applications only.
 	entityWatcher := common.NewAgentEntityWatcher(
 		st,
 		resources,

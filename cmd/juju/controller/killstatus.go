@@ -150,7 +150,7 @@ func fmtCtrStatus(data ctrData) string {
 	}
 
 	if serviceNo := data.ServiceCount; serviceNo > 0 {
-		out += fmt.Sprintf(", %d service%s", serviceNo, s(serviceNo))
+		out += fmt.Sprintf(", %d application%s", serviceNo, s(serviceNo))
 	}
 
 	return out
@@ -164,7 +164,7 @@ func fmtModelStatus(data modelData) string {
 	}
 
 	if serviceNo := data.ServiceCount; serviceNo > 0 {
-		out += fmt.Sprintf(", %d service%s", serviceNo, s(serviceNo))
+		out += fmt.Sprintf(", %d application%s", serviceNo, s(serviceNo))
 	}
 
 	return out

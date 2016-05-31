@@ -99,7 +99,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("Programming error. We should only ever pass in machines, services, or units. Received %T.", i))
+			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, or units. Received %T.", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {

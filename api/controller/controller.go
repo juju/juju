@@ -126,7 +126,7 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 			Life:               r.Life,
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,
-			ServiceCount:       r.ServiceCount,
+			ServiceCount:       r.ApplicationCount,
 		}
 
 	}

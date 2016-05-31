@@ -45,7 +45,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}, {
 		message:  "no target",
 		args:     []string{"sudo reboot"},
-		errMatch: "You must specify a target, either through --all, --machine, --service or --unit",
+		errMatch: "You must specify a target, either through --all, --machine, --application or --unit",
 	}, {
 		message:  "too many args",
 		args:     []string{"--all", "sudo reboot", "oops"},
@@ -72,21 +72,21 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"foo\" is not a valid machine id\n" +
 			"  \"machine-2\" is not a valid machine id",
 	}, {
-		message:  "all and defined services",
-		args:     []string{"--all", "--service=wordpress,mysql", "sudo reboot"},
-		errMatch: `You cannot specify --all and individual services`,
+		message:  "all and defined applications",
+		args:     []string{"--all", "--application=wordpress,mysql", "sudo reboot"},
+		errMatch: `You cannot specify --all and individual applications`,
 	}, {
-		message:  "command to services wordpress and mysql",
-		args:     []string{"--service=wordpress,mysql", "sudo reboot"},
+		message:  "command to applications wordpress and mysql",
+		args:     []string{"--application=wordpress,mysql", "sudo reboot"},
 		commands: "sudo reboot",
 		services: []string{"wordpress", "mysql"},
 	}, {
-		message: "bad service names",
-		args:    []string{"--service", "foo,2,foo/0", "sudo reboot"},
+		message: "bad application names",
+		args:    []string{"--application", "foo,2,foo/0", "sudo reboot"},
 		errMatch: "" +
 			"The following run targets are not valid:\n" +
-			"  \"2\" is not a valid service name\n" +
-			"  \"foo/0\" is not a valid service name",
+			"  \"2\" is not a valid application name\n" +
+			"  \"foo/0\" is not a valid application name",
 	}, {
 		message:  "all and defined units",
 		args:     []string{"--all", "--unit=wordpress/0,mysql/1", "sudo reboot"},
@@ -105,7 +105,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"2\" is not a valid unit name",
 	}, {
 		message:  "command to mixed valid targets",
-		args:     []string{"--machine=0", "--unit=wordpress/0,wordpress/1", "--service=mysql", "sudo reboot"},
+		args:     []string{"--machine=0", "--unit=wordpress/0,wordpress/1", "--application=mysql", "sudo reboot"},
 		commands: "sudo reboot",
 		machines: []string{"0"},
 		services: []string{"mysql"},

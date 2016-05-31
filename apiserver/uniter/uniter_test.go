@@ -116,7 +116,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPIV3, err := uniter.NewUniterAPIV3(
+	uniterAPIV3, err := uniter.NewUniterAPIV4(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -128,7 +128,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	_, err := uniter.NewUniterAPIV3(s.State, s.resources, anAuthorizer)
+	_, err := uniter.NewUniterAPIV4(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -602,7 +602,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Now try as subordinate's agent.
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = subordinate.Tag()
-	subUniter, err := uniter.NewUniterAPIV3(s.State, s.resources, subAuthorizer)
+	subUniter, err := uniter.NewUniterAPIV4(s.State, s.resources, subAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = subUniter.GetPrincipal(args)
@@ -1041,7 +1041,7 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
+func (s *uniterSuite) TestWatchApplicationRelations(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1049,7 +1049,7 @@ func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
 	}}
-	result, err := s.uniter.WatchServiceRelations(args)
+	result, err := s.uniter.WatchApplicationRelations(args)
 	s.assertOneStringsWatcher(c, result, err)
 }
 
@@ -1161,7 +1161,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
 	}
-	mysqlUnitFacade, err := uniter.NewUniterAPIV3(s.State, s.resources, mysqlUnitAuthorizer)
+	mysqlUnitFacade, err := uniter.NewUniterAPIV4(s.State, s.resources, mysqlUnitAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
@@ -2128,7 +2128,7 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestServiceOwner(c *gc.C) {
+func (s *uniterSuite) TestApplicationOwner(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "application-wordpress"},
@@ -2137,7 +2137,7 @@ func (s *uniterSuite) TestServiceOwner(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "application-foo"},
 	}}
-	result, err := s.uniter.ServiceOwner(args)
+	result, err := s.uniter.ApplicationOwner(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -2250,7 +2250,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Tag: s.meteredUnit.Tag(),
 	}
 	var err error
-	s.uniter, err = uniter.NewUniterAPIV3(
+	s.uniter, err = uniter.NewUniterAPIV4(
 		s.State,
 		s.resources,
 		meteredAuthorizer,
@@ -2523,7 +2523,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.base.uniter, err = uniter.NewUniterAPIV3(
+	s.base.uniter, err = uniter.NewUniterAPIV4(
 		s.base.State,
 		s.base.resources,
 		s.base.authorizer,

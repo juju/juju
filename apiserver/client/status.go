@@ -161,7 +161,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	var noStatus params.FullStatus
 	var context statusContext
 	if context.services, context.units, context.latestCharms, err =
-		fetchAllServicesAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
 	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
@@ -169,7 +169,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
 
-	logger.Debugf("Services: %v", context.services)
+	logger.Debugf("Applications: %v", context.services)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -229,7 +229,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				// There are matched units for this service.
 				continue
 			} else if matches, err := predicate(svc); err != nil {
-				return noStatus, errors.Annotate(err, "could not filter services")
+				return noStatus, errors.Annotate(err, "could not filter applications")
 			} else if !matches {
 				delete(context.services, svcName)
 			}
@@ -268,7 +268,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		ModelName:        cfg.Name(),
 		AvailableVersion: newToolsVersion,
 		Machines:         processMachines(context.machines),
-		Services:         context.processServices(),
+		Applications:     context.processServices(),
 		Relations:        context.processRelations(),
 	}, nil
 }
@@ -340,9 +340,9 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 	return v, nil
 }
 
-// fetchAllServicesAndUnits returns a map from service name to service,
+// fetchAllApplicationsAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllServicesAndUnits(
+func fetchAllApplicationsAndUnits(
 	st stateInterface,
 	matchAny bool,
 ) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
@@ -366,7 +366,7 @@ func fetchAllServicesAndUnits(
 		if matchAny || len(svcUnitMap) > 0 {
 			unitMap[s.Name()] = svcUnitMap
 			svcMap[s.Name()] = s
-			// Record the base URL for the service's charm so that
+			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			charmURL, _ := s.CharmURL()
 			if charmURL.Schema == "cs" {
@@ -499,10 +499,10 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 		var relationInterface string
 		for _, ep := range relation.Endpoints() {
 			eps = append(eps, params.EndpointStatus{
-				ServiceName: ep.ServiceName,
-				Name:        ep.Name,
-				Role:        ep.Role,
-				Subordinate: context.isSubordinate(&ep),
+				ApplicationName: ep.ServiceName,
+				Name:            ep.Name,
+				Role:            ep.Role,
+				Subordinate:     context.isSubordinate(&ep),
 			})
 			// these should match on both sides so use the last
 			relationInterface = ep.Interface
@@ -557,17 +557,17 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processServices() map[string]params.ServiceStatus {
-	servicesMap := make(map[string]params.ServiceStatus)
+func (context *statusContext) processServices() map[string]params.ApplicationStatus {
+	servicesMap := make(map[string]params.ApplicationStatus)
 	for _, s := range context.services {
 		servicesMap[s.Name()] = context.processService(s)
 	}
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Service) params.ServiceStatus {
+func (context *statusContext) processService(service *state.Service) params.ApplicationStatus {
 	serviceCharmURL, _ := service.CharmURL()
-	var processedStatus = params.ServiceStatus{
+	var processedStatus = params.ApplicationStatus{
 		Charm:   serviceCharmURL.String(),
 		Exposed: service.IsExposed(),
 		Life:    processLife(service),
@@ -587,15 +587,15 @@ func (context *statusContext) processService(service *state.Service) params.Serv
 	}
 	if service.IsPrincipal() {
 		processedStatus.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
-		serviceStatus, err := service.Status()
+		applicationStatus, err := service.Status()
 		if err != nil {
 			processedStatus.Err = err
 			return processedStatus
 		}
-		processedStatus.Status.Status = serviceStatus.Status.String()
-		processedStatus.Status.Info = serviceStatus.Message
-		processedStatus.Status.Data = serviceStatus.Data
-		processedStatus.Status.Since = serviceStatus.Since
+		processedStatus.Status.Status = applicationStatus.Status.String()
+		processedStatus.Status.Info = applicationStatus.Message
+		processedStatus.Status.Data = applicationStatus.Data
+		processedStatus.Status.Since = applicationStatus.Since
 
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
 	}

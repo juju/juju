@@ -125,11 +125,11 @@ func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
 	container.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary("2.0.5-trusty-amd64"),
 	})
-	service := model.AddService(description.ServiceArgs{
+	application := model.AddService(description.ServiceArgs{
 		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
-	unit := service.AddUnit(description.UnitArgs{
+	unit := application.AddUnit(description.UnitArgs{
 		Tag: names.NewUnitTag("magic/0"),
 	})
 	unit.SetTools(description.AgentToolsArgs{
