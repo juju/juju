@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/names"
 )
 
 type NamespaceSuite struct{}
@@ -25,26 +24,26 @@ func (s *NamespaceSuite) TestInvalidModelTag(c *gc.C) {
 
 func (s *NamespaceSuite) newNamespace(c *gc.C) instance.Namespace {
 	ns, err := instance.NewNamespace(modelUUID)
-	c.Assert(err, jc.ErrIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return ns
 }
 
 func (s *NamespaceSuite) TestInvalidMachineTag(c *gc.C) {
-	ns := s.newNamespace()
+	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("foo")
 	c.Assert(hostname, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `machine ID "foo" is not a valid machine`)
 }
 
 func (s *NamespaceSuite) TestHostname(c *gc.C) {
-	ns := s.newNamespace()
+	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2")
 	c.Assert(hostname, gc.Equals, "juju-c3d479-2")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NamespaceSuite) TestContainerHostname(c *gc.C) {
-	ns := s.newNamespace()
+	ns := s.newNamespace(c)
 	hostname, err := ns.Hostname("2/lxd/4")
 	c.Assert(hostname, gc.Equals, "juju-c3d479-2-lxd-4")
 	c.Assert(err, jc.ErrorIsNil)
