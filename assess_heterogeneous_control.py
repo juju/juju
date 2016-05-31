@@ -44,6 +44,10 @@ def get_clients(initial, other, base_env, debug, agent_url):
     environment = SimpleEnvironment.from_config(base_env)
     if agent_url is None:
         environment.config.pop('tools-metadata-url', None)
+    if initial == 'FAKE':
+        from tests.test_jujupy import fake_juju_client
+        client = fake_juju_client(env=environment)
+        return client, client, client
     initial_client = EnvJujuClient.by_version(environment, initial,
                                               debug=debug)
     other_client = EnvJujuClient.by_version(initial_client.env, other,
@@ -119,7 +123,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         status = other.get_status()
         other.juju('unexpose', ('dummy-sink',))
         status = other.get_status()
-        if status.status['services']['dummy-sink']['exposed']:
+        if status.get_applications()['dummy-sink']['exposed']:
             raise AssertionError('dummy-sink is still exposed')
         status = other.get_status()
         charm_path = local_charm_path(
@@ -131,23 +135,23 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         status = other.get_status()
         other.juju('expose', ('sink2',))
         status = other.get_status()
-        if 'sink2' not in status.status['services']:
+        if 'sink2' not in status.get_applications():
             raise AssertionError('Sink2 missing')
         other.remove_service('sink2')
         for ignored in until_timeout(30):
             status = other.get_status()
-            if 'sink2' not in status.status['services']:
+            if 'sink2' not in status.get_applications():
                 break
         else:
             raise AssertionError('Sink2 not destroyed')
         other.juju('add-relation', ('dummy-source', 'dummy-sink'))
         status = other.get_status()
-        relations = status.status['services']['dummy-sink']['relations']
+        relations = status.get_applications()['dummy-sink']['relations']
         if not relations['source'] == ['dummy-source']:
             raise AssertionError('source is not dummy-source.')
         other.juju('expose', ('dummy-sink',))
         status = other.get_status()
-        if not status.status['services']['dummy-sink']['exposed']:
+        if not status.get_applications()['dummy-sink']['exposed']:
             raise AssertionError('dummy-sink is not exposed')
         other.juju('add-unit', ('dummy-sink',))
         if not has_agent(other, 'dummy-sink/1'):

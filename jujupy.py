@@ -13,6 +13,7 @@ from cStringIO import StringIO
 from datetime import timedelta
 import errno
 from itertools import chain
+import json
 import logging
 import os
 import pexpect
@@ -206,6 +207,124 @@ def temp_yaml_file(yaml_dict):
         os.unlink(temp_file.name)
 
 
+class Status:
+
+    def __init__(self, status, status_text):
+        self.status = status
+        self.status_text = status_text
+
+    @classmethod
+    def from_text(cls, text):
+        try:
+            # Parsing as JSON is much faster than parsing as YAML, so try
+            # parsing as JSON first and fall back to YAML.
+            status_yaml = json.loads(text)
+        except ValueError:
+            status_yaml = yaml_loads(text)
+        return cls(status_yaml, text)
+
+    def get_applications(self):
+        return self.status.get('services', {})
+
+    def iter_machines(self, containers=False, machines=True):
+        for machine_name, machine in sorted(self.status['machines'].items()):
+            if machines:
+                yield machine_name, machine
+            if containers:
+                for contained, unit in machine.get('containers', {}).items():
+                    yield contained, unit
+
+    def iter_new_machines(self, old_status):
+        for machine, data in self.iter_machines():
+            if machine in old_status.status['machines']:
+                continue
+            yield machine, data
+
+    def iter_units(self):
+        for service_name, service in sorted(self.get_applications().items()):
+            for unit_name, unit in sorted(service.get('units', {}).items()):
+                yield unit_name, unit
+                subordinates = unit.get('subordinates', ())
+                for sub_name in sorted(subordinates):
+                    yield sub_name, subordinates[sub_name]
+
+    def agent_items(self):
+        for machine_name, machine in self.iter_machines(containers=True):
+            yield machine_name, machine
+        for unit_name, unit in self.iter_units():
+            yield unit_name, unit
+
+    def agent_states(self):
+        """Map agent states to the units and machines in those states."""
+        states = defaultdict(list)
+        for item_name, item in self.agent_items():
+            states[coalesce_agent_status(item)].append(item_name)
+        return states
+
+    def check_agents_started(self, environment_name=None):
+        """Check whether all agents are in the 'started' state.
+
+        If not, return agent_states output.  If so, return None.
+        If an error is encountered for an agent, raise ErroredUnit
+        """
+        bad_state_info = re.compile(
+            '(.*error|^(cannot set up groups|cannot run instance)).*')
+        for item_name, item in self.agent_items():
+            state_info = item.get('agent-state-info', '')
+            if bad_state_info.match(state_info):
+                raise ErroredUnit(item_name, state_info)
+        states = self.agent_states()
+        if set(states.keys()).issubset(AGENTS_READY):
+            return None
+        for state, entries in states.items():
+            if 'error' in state:
+                raise ErroredUnit(entries[0], state)
+        return states
+
+    def get_service_count(self):
+        return len(self.get_applications())
+
+    def get_service_unit_count(self, service):
+        return len(
+            self.get_applications().get(service, {}).get('units', {}))
+
+    def get_agent_versions(self):
+        versions = defaultdict(set)
+        for item_name, item in self.agent_items():
+            if item.get('juju-status', None):
+                version = item['juju-status'].get('version', 'unknown')
+                versions[version].add(item_name)
+            else:
+                versions[item.get('agent-version', 'unknown')].add(item_name)
+        return versions
+
+    def get_instance_id(self, machine_id):
+        return self.status['machines'][machine_id]['instance-id']
+
+    def get_unit(self, unit_name):
+        """Return metadata about a unit."""
+        for service in sorted(self.get_applications().values()):
+            if unit_name in service.get('units', {}):
+                return service['units'][unit_name]
+        raise KeyError(unit_name)
+
+    def service_subordinate_units(self, service_name):
+        """Return subordinate metadata for a service_name."""
+        services = self.get_applications()
+        if service_name in services:
+            for unit in sorted(services[service_name].get(
+                    'units', {}).values()):
+                for sub_name, sub in unit.get('subordinates', {}).items():
+                    yield sub_name, sub
+
+    def get_open_ports(self, unit_name):
+        """List the open ports for the specified unit.
+
+        If no ports are listed for the unit, the empty list is returned.
+        """
+        return self.get_unit(unit_name).get('open-ports', [])
+
+
 class Juju2Backend:
     """A Juju backend referring to a specific juju 2 binary.
 
@@ -237,6 +356,10 @@ class Juju2Backend:
     @property
     def full_path(self):
         return self._full_path
+
+    @property
+    def juju_name(self):
+        return os.path.basename(self._full_path)
 
     def _get_attr_tuple(self):
         return (self._version, self._full_path, self.feature_flags,
@@ -281,7 +404,8 @@ class Juju2Backend:
         # model flag goes.  Everything in the command string is put before the
         # -m flag.
         command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
+                args)
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
@@ -419,7 +543,8 @@ class Juju1XBackend(Juju2A2Backend):
         # <env> flag goes.  Everything in the command string is put before the
         # -e flag.
         command = command.split()
-        return prefix + ('juju', logging,) + tuple(command) + e_arg + args
+        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
+                args)
 
 
 class EnvJujuClient:
@@ -444,6 +569,8 @@ class EnvJujuClient:
                                            LXD_MACHINE])
 
     default_backend = Juju2Backend
+
+    status_class = Status
 
     @classmethod
     def preferred_container(cls):
@@ -530,6 +657,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient2B2
         elif re.match('^2\.0-(beta[3-6])', version):
             client_class = EnvJujuClient2B3
+        elif re.match('^2\.0-(beta7)', version):
+            client_class = EnvJujuClient2B7
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
@@ -791,7 +920,7 @@ class EnvJujuClient:
             try:
                 if raw:
                     return self.get_juju_output(self._show_status, *args)
-                return Status.from_text(
+                return self.status_class.from_text(
                     self.get_juju_output(
                         self._show_status, '--format', 'yaml', admin=admin))
             except subprocess.CalledProcessError:
@@ -926,7 +1055,7 @@ class EnvJujuClient:
         raise JujuResourceTimeout(
             'Timeout waiting for a resource to be downloaded. '
             'ResourceId: {} Service or Unit: {} Timeout: {}'.format(
-                    resource_id, service_or_unit, timeout))
+                resource_id, service_or_unit, timeout))
 
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
@@ -1107,7 +1236,7 @@ class EnvJujuClient:
         Return the name of the environment when an 'admin' model does
         not exist.
         """
-        return 'admin'
+        return 'controller'
 
     def _acquire_model_client(self, name):
         """Get a client for a model with the supplied name.
@@ -1389,12 +1518,25 @@ class EnvJujuClient:
         return self.version.startswith('1.')
 
     def _get_register_command(self, output):
+        """Return register token from add-user output.
+
+        Return the register token supplied within the output from the add-user
+        command.
+
+        """
         for row in output.split('\n'):
             if 'juju register' in row:
-                return row.strip().lstrip()
+                command_string = row.strip().lstrip()
+                command_parts = command_string.split(' ')
+                return command_parts[-1]
         raise AssertionError('Juju register command not found in output')
 
     def add_user(self, username, models=None, permissions='read'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
         if models is None:
             models = self.env.environment
 
@@ -1404,7 +1546,7 @@ class EnvJujuClient:
         output = self.get_juju_output('add-user', *args, include_e=False)
         return self._get_register_command(output)
 
-    def revoke(self, username, models=None,  permissions='read'):
+    def revoke(self, username, models=None, permissions='read'):
         if models is None:
             models = self.env.environment
 
@@ -1413,7 +1555,18 @@ class EnvJujuClient:
         self.controller_juju('revoke', args)
 
 
-class EnvJujuClient2B3(EnvJujuClient):
+class EnvJujuClient2B7(EnvJujuClient):
+
+    def get_admin_model_name(self):
+        """Return the name of the 'admin' model.
+
+        Return the name of the environment when an 'admin' model does
+        not exist.
+        """
+        return 'admin'
+
+
+class EnvJujuClient2B3(EnvJujuClient2B7):
 
     def _add_model(self, model_name, config_file):
         self.controller_juju('create-model', (
@@ -2058,116 +2211,6 @@ class Controller:
 
     def __init__(self, name):
         self.name = name
-
-
-class Status:
-
-    def __init__(self, status, status_text):
-        self.status = status
-        self.status_text = status_text
-
-    @classmethod
-    def from_text(cls, text):
-        status_yaml = yaml_loads(text)
-        return cls(status_yaml, text)
-
-    def iter_machines(self, containers=False, machines=True):
-        for machine_name, machine in sorted(self.status['machines'].items()):
-            if machines:
-                yield machine_name, machine
-            if containers:
-                for contained, unit in machine.get('containers', {}).items():
-                    yield contained, unit
-
-    def iter_new_machines(self, old_status):
-        for machine, data in self.iter_machines():
-            if machine in old_status.status['machines']:
-                continue
-            yield machine, data
-
-    def iter_units(self):
-        for service_name, service in sorted(self.status['services'].items()):
-            for unit_name, unit in sorted(service.get('units', {}).items()):
-                yield unit_name, unit
-                subordinates = unit.get('subordinates', ())
-                for sub_name in sorted(subordinates):
-                    yield sub_name, subordinates[sub_name]
-
-    def agent_items(self):
-        for machine_name, machine in self.iter_machines(containers=True):
-            yield machine_name, machine
-        for unit_name, unit in self.iter_units():
-            yield unit_name, unit
-
-    def agent_states(self):
-        """Map agent states to the units and machines in those states."""
-        states = defaultdict(list)
-        for item_name, item in self.agent_items():
-            states[coalesce_agent_status(item)].append(item_name)
-        return states
-
-    def check_agents_started(self, environment_name=None):
-        """Check whether all agents are in the 'started' state.
-
-        If not, return agent_states output.  If so, return None.
-        If an error is encountered for an agent, raise ErroredUnit
-        """
-        bad_state_info = re.compile(
-            '(.*error|^(cannot set up groups|cannot run instance)).*')
-        for item_name, item in self.agent_items():
-            state_info = item.get('agent-state-info', '')
-            if bad_state_info.match(state_info):
-                raise ErroredUnit(item_name, state_info)
-        states = self.agent_states()
-        if set(states.keys()).issubset(AGENTS_READY):
-            return None
-        for state, entries in states.items():
-            if 'error' in state:
-                raise ErroredUnit(entries[0], state)
-        return states
-
-    def get_service_count(self):
-        return len(self.status.get('services', {}))
-
-    def get_service_unit_count(self, service):
-        return len(
-            self.status.get('services', {}).get(service, {}).get('units', {}))
-
-    def get_agent_versions(self):
-        versions = defaultdict(set)
-        for item_name, item in self.agent_items():
-            if item.get('juju-status', None):
-                version = item['juju-status'].get('version', 'unknown')
-                versions[version].add(item_name)
-            else:
-                versions[item.get('agent-version', 'unknown')].add(item_name)
-        return versions
-
-    def get_instance_id(self, machine_id):
-        return self.status['machines'][machine_id]['instance-id']
-
-    def get_unit(self, unit_name):
-        """Return metadata about a unit."""
-        for service in sorted(self.status['services'].values()):
-            if unit_name in service.get('units', {}):
-                return service['units'][unit_name]
-        raise KeyError(unit_name)
-
-    def service_subordinate_units(self, service_name):
-        """Return subordinate metadata for a service_name."""
-        services = self.status.get('services', {})
-        if service_name in services:
-            for unit in sorted(services[service_name].get(
-                    'units', {}).values()):
-                for sub_name, sub in unit.get('subordinates', {}).items():
-                    yield sub_name, sub
-
-    def get_open_ports(self, unit_name):
-        """List the open ports for the specified unit.
-
-        If no ports are listed for the unit, the empty list is returned.
-        """
-        return self.get_unit(unit_name).get('open-ports', [])
 
 
 class SimpleEnvironment:

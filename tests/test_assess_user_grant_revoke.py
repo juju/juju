@@ -1,7 +1,6 @@
 """Tests for assess_user_grant_revoke module."""
 
 from collections import namedtuple
-from functools import partial
 import logging
 from mock import (
     Mock,
@@ -49,13 +48,9 @@ class FakeBackendShellEnv(FakeBackend):
         return env
 
 
-class RegisterUserProcess:
+class PexpectInteraction:
 
-    @classmethod
-    def get_process(cls, username, expected_strings):
-        return partial(cls, username, expected_strings)
-
-    def __init__(self, sendline_str, expected_str, register_cmd):
+    def __init__(self, sendline_str, expected_str):
         self._expect_strings = iter(expected_str)
         self._sendline_strings = iter(sendline_str)
 
@@ -213,25 +208,29 @@ class TestAssess(TestCase):
         self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')
 
     def test_register_user(self):
-        username = 'fakeuser'
-        fake_client = make_fake_client()
-        environ = fake_client._shell_environ()
-        cmd = 'juju register AaBbCc'
+        FakeUser = namedtuple('user', ['name', 'permissions'])
+        user = FakeUser('fakeuser', 'read')
 
-        register_process = RegisterUserProcess.get_process(
-            [
-                username + '_controller',
-                username + '_password',
-                username + '_password',
-                pexpect.exceptions.EOF
-            ],
-            [
-                '(?i)name .*: ',
-                '(?i)password',
-                '(?i)password',
-                pexpect.exceptions.EOF,
-            ]
-        )
+        class FakeClient:
+            """Lightweight fake client for testing."""
+            def add_user(self, username, permissions):
+                return 'token'
 
-        register_user(username, environ, cmd,
-                      register_process=register_process)
+            def expect(self, *args, **kwargs):
+                return PexpectInteraction(
+                    [
+                        user.name + '_controller',
+                        user.name + '_password',
+                        user.name + '_password',
+                        pexpect.EOF],
+                    [
+                        '(?i)name .*: ',
+                        '(?i)password',
+                        '(?i)password',
+                        pexpect.EOF])
+
+        fake_client = FakeClient()
+        with patch(
+                'assess_user_grant_revoke.create_cloned_environment',
+                return_value=(fake_client, {})):
+            register_user(user, fake_client, '/tmp/dir/path')

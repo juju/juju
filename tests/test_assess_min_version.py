@@ -64,7 +64,7 @@ class TestMain(TestCase):
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, parse_args(argv))
+        mock_assess.assert_called_once_with(client)
 
 
 class TestAssess(TestCase):
@@ -92,13 +92,13 @@ class TestAssess(TestCase):
             assert_pass(mock_client, "dummpy", "2.0", "2.0", "name")
 
     def test_get_current_version(self):
-        mock_client = Mock(spec=["get_version"])
-        mock_client.get_version.return_value = '2.0-beta4-trusty-amd64'
-        ver = get_current_version(mock_client, '/tmp/bin')
+        mock_client = Mock(spec=["version"])
+        mock_client.version = '2.0-beta4-trusty-amd64'
+        ver = get_current_version(mock_client)
         self.assertEqual(ver, '2.0-beta4')
 
-        mock_client.get_version.return_value = '1.25.4-trusty-amd64'
-        ver = get_current_version(mock_client, '/tmp/bin')
+        mock_client.version = '1.25.4-trusty-amd64'
+        ver = get_current_version(mock_client)
         self.assertEqual(ver, '1.25.4')
 
     def test_assess_deploy(self):
@@ -115,15 +115,13 @@ class TestAssess(TestCase):
         mock_mc.assert_called_once_with(temp_dir, "2.1")
 
     def test_assess_min_version(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        args = parse_args(argv)
         mock_client = Mock(spec=["juju", "wait_for_started"])
         with patch("assess_min_version.get_current_version",
                    autospec=True, return_value="2.0.0") as mock_gcv:
             with patch("assess_min_version.assess_deploy",
                        autospec=True) as mock_ad:
-                assess_min_version(mock_client, args)
-        mock_gcv.assert_called_once_with(mock_client, '/bin/juju')
+                assess_min_version(mock_client)
+        mock_gcv.assert_called_once_with(mock_client)
         ad_calls = [
             call(mock_client, assert_pass, '1.25.0', '2.0.0', 'name1250'),
             call(mock_client, assert_fail, '99.9.9', '2.0.0', 'name9999'),
