@@ -14,15 +14,15 @@ type ipaddresses struct {
 }
 
 type ipaddress struct {
-	ProviderID_       string
-	DeviceName_       string
-	MachineID_        string
-	SubnetCIDR_       string
-	ConfigMethod_     string
-	Value_            string
-	DNSServers_       []string
-	DNSSearchDomains_ []string
-	GatewayAddress_   string
+	ProviderID_       string   `yaml:"provider-id,omitempty"`
+	DeviceName_       string   `yaml:"devicename"`
+	MachineID_        string   `yaml:"machineid"`
+	SubnetCIDR_       string   `yaml:"subnetcidr"`
+	ConfigMethod_     string   `yaml:"configmethod"`
+	Value_            string   `yaml:"value"`
+	DNSServers_       []string `yaml:"dnsservers"`
+	DNSSearchDomains_ []string `yaml:"dnssearchdomains"`
+	GatewayAddress_   string   `yaml:"gatewayaddress"`
 }
 
 // ProviderID implements IPAddress.
@@ -160,17 +160,25 @@ func importIPAddressV1(source map[string]interface{}) (*ipaddress, error) {
 		return nil, errors.Annotatef(err, "ipaddress v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	// From here we know that the map returned from the schema coercion
-	// contains fields of the right type.
+	dnsserversInterface := valid["dnsservers"].([]interface{})
+	dnsservers := make([]string, len(dnsserversInterface))
+	for i, d := range dnsserversInterface {
+		dnsservers[i] = d.(string)
+	}
+	dnssearchInterface := valid["dnssearchdomains"].([]interface{})
+	dnssearch := make([]string, len(dnssearchInterface))
+	for i, d := range dnssearchInterface {
+		dnssearch[i] = d.(string)
+	}
 	return &ipaddress{
 		ProviderID_:       valid["provider-id"].(string),
 		DeviceName_:       valid["devicename"].(string),
-		MachineID_:        valid["machinename"].(string),
+		MachineID_:        valid["machineid"].(string),
 		SubnetCIDR_:       valid["subnetcidr"].(string),
 		ConfigMethod_:     valid["configmethod"].(string),
 		Value_:            valid["value"].(string),
-		DNSServers_:       valid["dnsservers"].([]string),
-		DNSSearchDomains_: valid["dnssearchdomains"].([]string),
+		DNSServers_:       dnsservers,
+		DNSSearchDomains_: dnssearch,
 		GatewayAddress_:   valid["gatewayaddress"].(string),
 	}, nil
 }
