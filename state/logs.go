@@ -325,9 +325,12 @@ func (t *logTailer) processCollection() error {
 		}
 	}
 
-	// In tests, sorting by time can leave the results
-	// underconstrained - include document id for deterministic
-	// ordering in those cases.
+	// In tests, sorting by time can leave the result ordering
+	// underconstrained. Since object ids are (timestamp, machine id,
+	// process id, counter)
+	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
+	// and the tests only run one mongod process, including _id
+	// guarantees getting log messages in a predictable order.
 	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
