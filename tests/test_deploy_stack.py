@@ -68,7 +68,7 @@ from tests import (
     temp_os_env,
     use_context,
 )
-from test_jujupy import (
+from tests.test_jujupy import (
     assert_juju_call,
     fake_juju_client,
     fake_juju_client_optional_jes,
@@ -1231,11 +1231,12 @@ class TestBootstrapManager(FakeHomeTestCase):
                 None, [], None, None, None, None, log_dir, False,
                 permanent=True, jes_enabled=True)
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-                bs_manager.dump_all_logs()
+                with patch.object(bs_manager, '_should_dump',
+                                  return_value=True):
+                    bs_manager.dump_all_logs()
 
         clients = dict((c[1][0].env.environment, c[1][0])
                        for c in del_mock.mock_calls)
-
         self.assertItemsEqual(
             [call(client, os.path.join(log_dir, 'name'), None, {}),
              call(clients['controller'], os.path.join(log_dir, 'controller'),
@@ -1253,7 +1254,9 @@ class TestBootstrapManager(FakeHomeTestCase):
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
                 with patch.object(client, 'iter_model_clients',
                                   side_effect=Exception):
-                    bs_manager.dump_all_logs()
+                    with patch.object(bs_manager, '_should_dump',
+                                      return_value=True):
+                        bs_manager.dump_all_logs()
 
         clients = dict((c[1][0].env.environment, c[1][0])
                        for c in del_mock.mock_calls)
@@ -1274,7 +1277,9 @@ class TestBootstrapManager(FakeHomeTestCase):
             bs_manager.known_hosts['2'] = 'example.org'
             client.bootstrap()
             with patch('deploy_stack.dump_env_logs_known_hosts') as del_mock:
-                bs_manager.dump_all_logs()
+                with patch.object(bs_manager, '_should_dump',
+                                  return_value=True):
+                    bs_manager.dump_all_logs()
         del_mock.assert_called_once_with(
             client, os.path.join(log_dir, 'name'),
             'foo/environments/name.jenv', {

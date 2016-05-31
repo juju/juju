@@ -670,14 +670,18 @@ class BootstrapManager:
             if not self.keep_env:
                 self.tear_down(self.jes_enabled)
 
+    def _should_dump(self):
+        if sys.platform == 'win32':
+            return True
+        from tests.test_jujupy import FakeBackend  # Circular imports
+        return not isinstance(self.client._backend, FakeBackend)
+
     def dump_all_logs(self):
         """Dump logs for all models in the bootstrapped controller."""
-        if sys.platform != 'win32':
-            from tests.test_jujupy import FakeBackend  # Circular imports
-            if isinstance(self.client._backend, FakeBackend):
-                return
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.
+        if not self._should_dump():
+            return
         admin_client = self.client.get_admin_client()
         if not self.jes_enabled:
             clients = [self.client]
