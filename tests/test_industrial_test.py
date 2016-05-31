@@ -1946,15 +1946,14 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertEqual(metadata['name'], 'mycharm')
         self.assertIn('summary', metadata)
         self.assertIn('description', metadata)
+        self.assertEqual(['trusty'], metadata['series'])
         if client.version.startswith('1.'):
-            self.assertIn('series', metadata)
             charm_path = os.path.join('local:trusty', 'mycharm')
             assert_juju_call(self, cc_mock, client, (
                 'juju', '--show-log', 'deploy', '-e', 'steve', charm_path,
                 '--repository', temp_repository))
             option = '-e'
         else:
-            self.assertIn('series', metadata)
             charm_path = os.path.join(temp_repository, 'trusty', 'mycharm')
             assert_juju_call(self, cc_mock, client, (
                 'juju', '--show-log', 'deploy', '-m', 'steve', charm_path))
