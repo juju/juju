@@ -1358,13 +1358,13 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 func (s *StateSuite) TestAddService(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "haha/borken", Owner: s.Owner.String(), Charm: ch})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "umadbro", Owner: s.Owner.String()})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
 
@@ -1402,7 +1402,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
@@ -1413,7 +1413,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 	err = env.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is being migrated`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
 }
 
 func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
@@ -1428,7 +1428,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
 	_, err = s.State.AddService(state.AddServiceArgs{Name: "s1", Owner: s.Owner.String(), Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
 func (s *StateSuite) TestServiceNotFound(c *gc.C) {
@@ -1440,19 +1440,19 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "admin", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin: \"admin\" is not a valid tag")
+	c.Assert(err, gc.ErrorMatches, "cannot add application \"wordpress\": Invalid ownertag admin: \"admin\" is not a valid tag")
 }
 
 func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "machine-3", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3: \"machine-3\" is not a valid user tag")
+	c.Assert(err, gc.ErrorMatches, "cannot add application \"wordpress\": Invalid ownertag machine-3: \"machine-3\" is not a valid user tag")
 }
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService(state.AddServiceArgs{Name: "wordpress", Owner: "user-notAuser", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": model user "notAuser@local" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": model user "notAuser@local" not found`)
 }
 
 func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
@@ -1562,7 +1562,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 			Charm:            charm,
 			EndpointBindings: test.bindings,
 		})
-		c.Check(err, gc.ErrorMatches, `cannot add service "yoursql": `+test.expectedError)
+		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
 	}
 }
@@ -1578,7 +1578,7 @@ func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {
 			{instance.MachineScope, m.Id()},
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": cannot deploy to machine .*: series does not match")
+	c.Assert(err, gc.ErrorMatches, "cannot add application \"wordpress\": cannot deploy to machine .*: series does not match")
 }
 
 func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
@@ -1589,7 +1589,7 @@ func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
 }
 
 func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
@@ -1621,7 +1621,7 @@ func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
 		Name: "wordpress", Owner: s.Owner.String(), Charm: charm,
 		Series: "centos7",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS "CentOS"\) not supported by charm, supported series are "precise, trusty"`)
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {

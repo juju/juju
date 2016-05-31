@@ -551,9 +551,9 @@ Deploying charm "cs:~bob/trusty/wordpress4-10" with the user specified series "t
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 added charm cs:trusty/mysql-0
-service mysql deployed (charm cs:trusty/mysql-0 with the series "trusty" defined by the bundle)
+application mysql deployed (charm cs:trusty/mysql-0 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-1
-service wordpress deployed (charm cs:trusty/wordpress-1 with the series "trusty" defined by the bundle)
+application wordpress deployed (charm cs:trusty/wordpress-1 with the series "trusty" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -565,12 +565,12 @@ deployment of bundle "cs:~bob/bundle/wordpress-simple1-42" completed`,
 	readPermUser: clientUserName,
 	expectOutput: `
 added charm cs:trusty/mysql-0
-reusing service mysql (charm: cs:trusty/mysql-0)
+reusing application mysql (charm: cs:trusty/mysql-0)
 added charm cs:trusty/wordpress-1
-reusing service wordpress (charm: cs:trusty/wordpress-1)
+reusing application wordpress (charm: cs:trusty/wordpress-1)
 wordpress:db and mysql:server are already related
-avoid adding new units to service mysql: 1 unit already present
-avoid adding new units to service wordpress: 1 unit already present
+avoid adding new units to application mysql: 1 unit already present
+avoid adding new units to application wordpress: 1 unit already present
 deployment of bundle "cs:~bob/bundle/wordpress-simple2-0" completed`,
 }, {
 	about:        "non-public bundle, access denied",

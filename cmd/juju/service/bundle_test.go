@@ -375,7 +375,7 @@ charm path in application "mysql" does not exist: mysql`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
-	err:     `cannot unmarshal bundle data: YAML error: .*`,
+	err:     `cannot unmarshal bundle data: yaml: .*`,
 }, {
 	about: "invalid bundle data",
 	content: `

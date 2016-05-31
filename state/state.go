@@ -944,7 +944,7 @@ type AddServiceArgs struct {
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service %q", args.Name)
+	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 	ownerTag, err := names.ParseUserTag(args.Owner)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)

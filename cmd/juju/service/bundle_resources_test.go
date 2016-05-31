@@ -32,7 +32,7 @@ var _ = gc.Suite(&ResourcesBundleSuite{})
 func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
 	testcharms.UploadCharm(c, s.Client(), "trusty/starsay-42", "starsay")
 	bundleMeta := `
-        services:
+        applications:
             starsay:
                 charm: cs:starsay
                 num_units: 1
@@ -47,7 +47,7 @@ func (s *ResourcesBundleSuite) TestDeployBundleResources(c *gc.C) {
 	lines := strings.Split(output, "\n")
 	expectedLines := strings.Split(strings.TrimSpace(`
 added charm cs:trusty/starsay-42
-service starsay deployed (charm cs:trusty/starsay-42 with the series "trusty" defined by the bundle)
+application starsay deployed (charm cs:trusty/starsay-42 with the series "trusty" defined by the bundle)
 added resource install-resource
 added resource store-resource
 added resource upload-resource
