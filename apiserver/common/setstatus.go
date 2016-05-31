@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// ServiceStatusSetter implements a SetServiceStatus method to be
+// ServiceStatusSetter implements a SetApplicationStatus method to be
 // used by facades that can change a service status.
 // This is only slightly less evil than ServiceStatusGetter. We have
 // StatusSetter already; all this does is set the status for the wrong
@@ -82,7 +82,7 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		service, err := s.st.Service(serviceId)
+		service, err := s.st.Application(serviceId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
@@ -140,7 +140,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 		return err
 	}
 	switch entity := entity.(type) {
-	case *state.Service:
+	case *state.Application:
 		return ErrPerm
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{

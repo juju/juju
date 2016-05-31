@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("InstancePoller", 2, newInstancePollerAPI)
+	common.RegisterStandardFacade("InstancePoller", 3, newInstancePollerAPI)
 }
 
 // InstancePollerAPI provides access to the InstancePoller API facade.

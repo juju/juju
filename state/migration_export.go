@@ -105,7 +105,7 @@ type exporter struct {
 	settings      map[string]settingsDoc
 	status        map[string]bson.M
 	statusHistory map[string][]historicalStatusDoc
-	// Map of service name to units. Populated as part
+	// Map of application name to units. Populated as part
 	// of the services export.
 	units map[string][]*Unit
 }
@@ -424,24 +424,24 @@ func (e *exporter) readServiceLeaders() (map[string]string, error) {
 	return result, nil
 }
 
-func (e *exporter) addService(service *Service, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
+func (e *exporter) addService(service *Application, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
 	settingsKey := service.settingsKey()
 	leadershipKey := leadershipSettingsKey(service.Name())
 
 	serviceSettingsDoc, found := e.settings[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings for service %q", service.Name())
+		return errors.Errorf("missing settings for application %q", service.Name())
 	}
 	refCount, found := refcounts[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings refcount for service %q", service.Name())
+		return errors.Errorf("missing settings refcount for application %q", service.Name())
 	}
 	leadershipSettingsDoc, found := e.settings[leadershipKey]
 	if !found {
-		return errors.Errorf("missing leadership settings for service %q", service.Name())
+		return errors.Errorf("missing leadership settings for application %q", service.Name())
 	}
 
-	args := description.ServiceArgs{
+	args := description.ApplicationArgs{
 		Tag:                  service.ApplicationTag(),
 		Series:               service.doc.Series,
 		Subordinate:          service.doc.Subordinate,
@@ -457,12 +457,12 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   service.doc.MetricCredentials,
 	}
-	exService := e.model.AddService(args)
+	exService := e.model.AddApplication(args)
 	// Find the current service status.
 	globalKey := service.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
-		return errors.Annotatef(err, "status for service %s", service.Name())
+		return errors.Annotatef(err, "status for application %s", service.Name())
 	}
 	exService.SetStatus(statusArgs)
 	exService.SetStatusHistory(e.statusHistoryArgs(globalKey))
@@ -554,17 +554,17 @@ func (e *exporter) relations() error {
 		})
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
-				ServiceName: ep.ServiceName,
-				Name:        ep.Name,
-				Role:        string(ep.Role),
-				Interface:   ep.Interface,
-				Optional:    ep.Optional,
-				Limit:       ep.Limit,
-				Scope:       string(ep.Scope),
+				ApplicationName: ep.ApplicationName,
+				Name:            ep.Name,
+				Role:            string(ep.Role),
+				Interface:       ep.Interface,
+				Optional:        ep.Optional,
+				Limit:           ep.Limit,
+				Scope:           string(ep.Scope),
 			})
 			// We expect a relationScope and settings for each of the
 			// units of the specified service.
-			units := e.units[ep.ServiceName]
+			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
 				if err != nil {
@@ -615,8 +615,8 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	e.logger.Debugf("found %d unit docs", len(docs))
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
-		units := result[doc.Service]
-		result[doc.Service] = append(units, newUnit(e.st, &doc))
+		units := result[doc.Application]
+		result[doc.Application] = append(units, newUnit(e.st, &doc))
 	}
 	return result, nil
 }

@@ -96,7 +96,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 // SupportsUnitPlacement implement via common.SupportsUnitPlacementPolicy
 
 // SupportNetworks returns whether the environment has support to
-// specify networks for services and machines.
+// specify networks for applications and machines.
 func (env *environ) SupportNetworks() bool {
 	return false
 }

@@ -256,7 +256,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 // The provided machineTag must be the tag for the machine the unit was last
 // observed to be assigned to.
 func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineTag) error {
-	service, err := unit.Service()
+	service, err := unit.Application()
 	if err != nil {
 		return err
 	}
@@ -306,7 +306,7 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 
 // startService creates a new data value for tracking details of the
 // service and starts watching the service for exposure changes.
-func (fw *Firewaller) startService(service *firewaller.Service) error {
+func (fw *Firewaller) startService(service *firewaller.Application) error {
 	exposed, err := service.IsExposed()
 	if err != nil {
 		return err
@@ -813,7 +813,7 @@ type exposedChange struct {
 type serviceData struct {
 	catacomb catacomb.Catacomb
 	fw       *Firewaller
-	service  *firewaller.Service
+	service  *firewaller.Application
 	exposed  bool
 	unitds   map[names.UnitTag]*unitData
 }

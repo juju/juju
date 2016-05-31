@@ -77,17 +77,17 @@ func NewFacade(store DataStore, newClient func() (CharmStore, error)) (*Facade, 
 // resourceInfoStore is the portion of Juju's "state" needed
 // for the resources facade.
 type resourceInfoStore interface {
-	// ListResources returns the resources for the given service.
+	// ListResources returns the resources for the given application.
 	ListResources(service string) (resource.ServiceResources, error)
 
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
-	AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
 }
 
-// ListResources returns the list of resources for the given service.
+// ListResources returns the list of resources for the given application.
 func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults, error) {
 	var r api.ResourcesResults
 	r.Results = make([]api.ResourcesResult, len(args.Entities))
@@ -126,10 +126,10 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 		result.Error = apiErr
 		return result, nil
 	}
-	serviceID := tag.Id()
+	applicationID := tag.Id()
 
 	channel := csparams.Channel(args.Channel)
-	ids, err := f.addPendingResources(serviceID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
+	ids, err := f.addPendingResources(applicationID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -138,7 +138,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(applicationID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := api.API2CharmResource(apiRes)
@@ -176,7 +176,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Ch
 
 	var ids []string
 	for _, res := range resources {
-		pendingID, err := f.addPendingResource(serviceID, res)
+		pendingID, err := f.addPendingResource(applicationID, res)
 		if err != nil {
 			// We don't bother aggregating errors since a partial
 			// completion is disruptive and a retry of this endpoint
@@ -305,10 +305,10 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 	return res, nil
 }
 
-func (f Facade) addPendingResource(serviceID string, chRes charmresource.Resource) (pendingID string, err error) {
+func (f Facade) addPendingResource(applicationID string, chRes charmresource.Resource) (pendingID string, err error) {
 	userID := ""
 	var reader io.Reader
-	pendingID, err = f.store.AddPendingResource(serviceID, userID, chRes, reader)
+	pendingID, err = f.store.AddPendingResource(applicationID, userID, chRes, reader)
 	if err != nil {
 		return "", errors.Annotatef(err, "while adding pending resource info for %q", chRes.Name)
 	}

@@ -64,10 +64,10 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 		Name:    "list-resources",
 		Aliases: []string{"resources"},
 		Args:    "application-or-unit",
-		Purpose: "show the resources for a service or unit",
+		Purpose: "show the resources for an application or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing
-service or unit in your model.  When run for a service, it will also show any
+application or unit in your model.  When run for an application, it will also show any
 updates available for resources from the charmstore.
 `,
 	})

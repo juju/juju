@@ -22,7 +22,7 @@ type loggerSuite struct {
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
 	rawCharm   *state.Charm
-	rawService *state.Service
+	rawService *state.Application
 	rawUnit    *state.Unit
 
 	logger *logger.State

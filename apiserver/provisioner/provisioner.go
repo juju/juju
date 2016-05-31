@@ -31,14 +31,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.provisioner")
 
 func init() {
-	common.RegisterStandardFacade("Provisioner", 1, NewProvisionerAPI)
-
-	// Version 1 has the same set of methods as 0, with the same
-	// signatures, but its ProvisioningInfo returns additional
-	// information. Clients may require version 1 so that they
-	// receive this additional information; otherwise they are
-	// compatible.
-	common.RegisterStandardFacade("Provisioner", 2, NewProvisionerAPI)
+	common.RegisterStandardFacade("Provisioner", 3, NewProvisionerAPI)
 }
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -450,7 +443,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		if !unit.IsPrincipal() {
 			continue
 		}
-		instanceIds, err := state.ServiceInstances(st, unit.ServiceName())
+		instanceIds, err := state.ServiceInstances(st, unit.ApplicationName())
 		if err != nil {
 			return nil, err
 		}

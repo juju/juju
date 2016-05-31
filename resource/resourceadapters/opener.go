@@ -26,7 +26,7 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	if ro.unit == nil {
 		return resource.Opened{}, errors.Errorf("missing unit")
 	}
-	svc, err := ro.unit.Service()
+	svc, err := ro.unit.Application()
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
@@ -43,10 +43,10 @@ func (ro *resourceOpener) OpenResource(name string) (resource.Opened, error) {
 	}
 
 	cache := &charmstoreEntityCache{
-		st:        ro.res,
-		userID:    ro.userID,
-		unit:      ro.unit,
-		serviceID: ro.unit.ServiceName(),
+		st:            ro.res,
+		userID:        ro.userID,
+		unit:          ro.unit,
+		applicationID: ro.unit.ApplicationName(),
 	}
 
 	res, reader, err := charmstore.GetResource(charmstore.GetResourceArgs{

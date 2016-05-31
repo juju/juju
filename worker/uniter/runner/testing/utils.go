@@ -121,6 +121,6 @@ type FakeTracker struct {
 	leadership.Tracker
 }
 
-func (FakeTracker) ServiceName() string {
+func (FakeTracker) ApplicationName() string {
 	return "application-name"
 }

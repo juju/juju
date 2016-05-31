@@ -31,13 +31,13 @@ func (*RestrictedContext) UnitStatus() (*StatusInfo, error) { return nil, ErrRes
 // SetUnitStatus implements jujuc.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 
-// ServiceStatus implements jujuc.Context.
-func (*RestrictedContext) ServiceStatus() (ServiceStatusInfo, error) {
-	return ServiceStatusInfo{}, ErrRestrictedContext
+// ApplicationStatus implements jujuc.Context.
+func (*RestrictedContext) ApplicationStatus() (ApplicationStatusInfo, error) {
+	return ApplicationStatusInfo{}, ErrRestrictedContext
 }
 
-// SetServiceStatus implements jujuc.Context.
-func (*RestrictedContext) SetServiceStatus(StatusInfo) error { return ErrRestrictedContext }
+// SetApplicationStatus implements jujuc.Context.
+func (*RestrictedContext) SetApplicationStatus(StatusInfo) error { return ErrRestrictedContext }
 
 // AvailabilityZone implements jujuc.Context.
 func (*RestrictedContext) AvailabilityZone() (string, error) { return "", ErrRestrictedContext }

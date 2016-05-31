@@ -25,7 +25,7 @@ import (
 // - Sections:
 //   - Machines: Displays total #, and then the # in each state.
 //   - Units: Displays total #, and then # in each state.
-//   - Services: Displays total #, their names, and how many of each
+//   - Applications: Displays total #, their names, and how many of each
 //     are exposed.
 func FormatSummary(value interface{}) ([]byte, error) {
 	fs, valueConverted := value.(formattedStatus)
@@ -35,7 +35,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 
 	f := newSummaryFormatter()
 	stateToMachine := f.aggregateMachineStates(fs.Machines)
-	svcExposure := f.aggregateServiceAndUnitStates(fs.Services)
+	svcExposure := f.aggregateServiceAndUnitStates(fs.Applications)
 	p := f.delimitValuesWithTabs
 
 	// Print everything out
@@ -53,7 +53,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 	f.printStateToCount(f.stateToUnit)
 	p(" ")
 
-	p("# SERVICES:", fmt.Sprintf(" (%d)", len(fs.Services)))
+	p("# APPLICATIONS:", fmt.Sprintf(" (%d)", len(fs.Applications)))
 	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
@@ -169,7 +169,7 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 	return stateToMachine
 }
 
-func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]serviceStatus) map[string]map[bool]int {
+func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]applicationStatus) map[string]map[bool]int {
 	svcExposure := make(map[string]map[bool]int)
 	for _, name := range common.SortStringsNaturally(stringKeysFromMap(services)) {
 		s := services[name]

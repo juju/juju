@@ -168,7 +168,7 @@ juju destroy-service
 
 Destroying a service involves a single transaction defined as follows:
 
-  * If the service is not Alive, abort without error.
+  * If the application is not alive, abort without error.
   * If the service is in any relations, do the following for each one:
       * If the relation is already Dying, skip it.
       * If the relation is Alive, destroy the relation without modifying the

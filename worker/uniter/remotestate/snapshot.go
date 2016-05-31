@@ -54,7 +54,7 @@ type Snapshot struct {
 	Leader bool
 
 	// LeaderSettingsVersion is the last published
-	// version of the leader settings for the service.
+	// version of the leader settings for the application.
 	LeaderSettingsVersion int
 
 	// UpdateStatusVersion increments each time an

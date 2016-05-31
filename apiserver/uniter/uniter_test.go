@@ -41,13 +41,13 @@ type uniterSuite struct {
 
 	machine0      *state.Machine
 	machine1      *state.Machine
-	wordpress     *state.Service
+	wordpress     *state.Application
 	wpCharm       *state.Charm
-	mysql         *state.Service
+	mysql         *state.Application
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
 
-	meteredService *state.Service
+	meteredService *state.Application
 	meteredCharm   *state.Charm
 	meteredUnit    *state.Unit
 }
@@ -71,7 +71,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress",
 		URL:  "cs:quantal/wordpress-3",
 	})
-	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "wordpress",
 		Charm:   s.wpCharm,
 		Creator: s.AdminUserTag(c),
@@ -79,29 +79,29 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
 		Creator: s.AdminUserTag(c),
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.wordpress,
-		Machine: s.machine0,
+		Application: s.wordpress,
+		Machine:     s.machine0,
 	})
 	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine1,
+		Application: s.mysql,
+		Machine:     s.machine1,
 	})
 
 	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.Factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.meteredService = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service:     s.meteredService,
+		Application: s.meteredService,
 		SetCharmURL: true,
 	})
 
@@ -116,7 +116,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	uniterAPIV3, err := uniter.NewUniterAPIV3(
+	uniterAPIV3, err := uniter.NewUniterAPIV4(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -128,7 +128,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	_, err := uniter.NewUniterAPIV3(s.State, s.resources, anAuthorizer)
+	_, err := uniter.NewUniterAPIV4(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -602,7 +602,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Now try as subordinate's agent.
 	subAuthorizer := s.authorizer
 	subAuthorizer.Tag = subordinate.Tag()
-	subUniter, err := uniter.NewUniterAPIV3(s.State, s.resources, subAuthorizer)
+	subUniter, err := uniter.NewUniterAPIV4(s.State, s.resources, subAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = subUniter.GetPrincipal(args)
@@ -1041,7 +1041,7 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
+func (s *uniterSuite) TestWatchApplicationRelations(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1049,7 +1049,7 @@ func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 		{Tag: "application-wordpress"},
 		{Tag: "application-foo"},
 	}}
-	result, err := s.uniter.WatchServiceRelations(args)
+	result, err := s.uniter.WatchApplicationRelations(args)
 	s.assertOneStringsWatcher(c, result, err)
 }
 
@@ -1161,7 +1161,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
 	}
-	mysqlUnitFacade, err := uniter.NewUniterAPIV3(s.State, s.resources, mysqlUnitAuthorizer)
+	mysqlUnitFacade, err := uniter.NewUniterAPIV4(s.State, s.resources, mysqlUnitAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
@@ -1347,8 +1347,8 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
-					ServiceName: wpEp.ServiceName,
-					Relation:    wpEp.Relation,
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        wpEp.Relation,
 				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1384,8 +1384,8 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
-					ServiceName: wpEp.ServiceName,
-					Relation:    wpEp.Relation,
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        wpEp.Relation,
 				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1974,7 +1974,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
@@ -2128,7 +2128,7 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestServiceOwner(c *gc.C) {
+func (s *uniterSuite) TestApplicationOwner(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "application-wordpress"},
@@ -2137,7 +2137,7 @@ func (s *uniterSuite) TestServiceOwner(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "application-foo"},
 	}}
-	result, err := s.uniter.ServiceOwner(args)
+	result, err := s.uniter.ApplicationOwner(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -2250,7 +2250,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Tag: s.meteredUnit.Tag(),
 	}
 	var err error
-	s.uniter, err = uniter.NewUniterAPIV3(
+	s.uniter, err = uniter.NewUniterAPIV4(
 		s.State,
 		s.resources,
 		meteredAuthorizer,
@@ -2327,7 +2327,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 }
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
 
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
@@ -2414,7 +2414,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
 	var err error
-	s.base.wordpress, err = s.base.State.AddService(state.AddServiceArgs{
+	s.base.wordpress, err = s.base.State.AddApplication(state.AddApplicationArgs{
 		Name:  "wordpress",
 		Charm: s.base.wpCharm,
 		Owner: s.base.AdminUserTag(c).String(),
@@ -2425,8 +2425,8 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.base.wordpress,
-		Machine: s.base.machine0,
+		Application: s.base.wordpress,
+		Machine:     s.base.machine0,
 	})
 
 	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
@@ -2434,18 +2434,18 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.base.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.base.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
 		Creator: s.base.AdminUserTag(c),
 	})
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.base.wordpress,
-		Machine: s.base.machine0,
+		Application: s.base.wordpress,
+		Machine:     s.base.machine0,
 	})
 	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.base.mysql,
-		Machine: s.base.machine1,
+		Application: s.base.mysql,
+		Machine:     s.base.machine1,
 	})
 
 	// Create the resource registry separately to track invocations to
@@ -2523,7 +2523,7 @@ func (s *uniterNetworkConfigSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *sta
 	}
 
 	var err error
-	s.base.uniter, err = uniter.NewUniterAPIV3(
+	s.base.uniter, err = uniter.NewUniterAPIV4(
 		s.base.State,
 		s.base.resources,
 		s.base.authorizer,

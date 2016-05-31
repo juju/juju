@@ -18,7 +18,7 @@ import (
 
 // UploadRequest defines a single upload request.
 type UploadRequest struct {
-	// Service is the service ID.
+	// Service is the application ID.
 	Service string
 
 	// Name is the resource name.
@@ -40,7 +40,7 @@ type UploadRequest struct {
 // NewUploadRequest generates a new upload request for the given resource.
 func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRequest, error) {
 	if !names.IsValidApplication(service) {
-		return UploadRequest{}, errors.Errorf("invalid service %q", service)
+		return UploadRequest{}, errors.Errorf("invalid application %q", service)
 	}
 
 	content, err := resource.GenerateContent(r)

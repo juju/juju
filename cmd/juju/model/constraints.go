@@ -18,11 +18,11 @@ const getConstraintsDoc = "" +
 	"Shows machine constraints that have been set on the model with\n" +
 	"`juju set-model-constraints.`\n" +
 	"By default, the model is the current model.\n" +
-	"Model constraints are combined with constraints set on a service\n" +
+	"Model constraints are combined with constraints set on a application\n" +
 	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
-	"machines for services. Where model and service constraints overlap, the\n" +
-	"service constraints take precedence.\n" +
-	"Constraints for a specific service can be viewed with `juju get-constraints`.\n" + getConstraintsDocExamples
+	"machines for applications. Where model and application constraints overlap, the\n" +
+	"application constraints take precedence.\n" +
+	"Constraints for a specific application can be viewed with `juju get-constraints`.\n" + getConstraintsDocExamples
 
 const getConstraintsDocExamples = `
 Examples:
@@ -41,11 +41,11 @@ See also: list-models
 const setConstraintsDoc = "" +
 	"Sets machine constraints on the model that can be viewed with\n" +
 	"`juju get-model-constraints`.  By default, the model is the current model.\n" +
-	"Model constraints are combined with constraints set for a service with\n" +
+	"Model constraints are combined with constraints set for a application with\n" +
 	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
-	"machines for services. Where model and service constraints overlap, the\n" +
-	"service constraints take precedence.\n" +
-	"Constraints for a specific service can be viewed with `juju get-constraints`.\n" + setConstraintsDocExamples
+	"machines for applications. Where model and application constraints overlap, the\n" +
+	"application constraints take precedence.\n" +
+	"Constraints for a specific application can be viewed with `juju get-constraints`.\n" + setConstraintsDocExamples
 
 const setConstraintsDocExamples = `
 Examples:

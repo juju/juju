@@ -13,12 +13,12 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-type services struct {
-	Version   int        `yaml:"version"`
-	Services_ []*service `yaml:"services"`
+type applications struct {
+	Version       int            `yaml:"version"`
+	Applications_ []*application `yaml:"applications"`
 }
 
-type service struct {
+type application struct {
 	Name_                 string `yaml:"name"`
 	Series_               string `yaml:"series"`
 	Subordinate_          bool   `yaml:"subordinate,omitempty"`
@@ -53,8 +53,8 @@ type service struct {
 	// Storage Constraints
 }
 
-// ServiceArgs is an argument struct used to add a service to the Model.
-type ServiceArgs struct {
+// ApplicationArgs is an argument struct used to add a application to the Model.
+type ApplicationArgs struct {
 	Tag                  names.ApplicationTag
 	Series               string
 	Subordinate          bool
@@ -71,9 +71,9 @@ type ServiceArgs struct {
 	MetricsCredentials   []byte
 }
 
-func newService(args ServiceArgs) *service {
+func newApplication(args ApplicationArgs) *application {
 	creds := base64.StdEncoding.EncodeToString(args.MetricsCredentials)
-	svc := &service{
+	svc := &application{
 		Name_:                 args.Tag.Id(),
 		Series_:               args.Series,
 		Subordinate_:          args.Subordinate,
@@ -94,78 +94,78 @@ func newService(args ServiceArgs) *service {
 	return svc
 }
 
-// Tag implements Service.
-func (s *service) Tag() names.ApplicationTag {
+// Tag implements Application.
+func (s *application) Tag() names.ApplicationTag {
 	return names.NewApplicationTag(s.Name_)
 }
 
-// Name implements Service.
-func (s *service) Name() string {
+// Name implements Application.
+func (s *application) Name() string {
 	return s.Name_
 }
 
-// Series implements Service.
-func (s *service) Series() string {
+// Series implements Application.
+func (s *application) Series() string {
 	return s.Series_
 }
 
-// Subordinate implements Service.
-func (s *service) Subordinate() bool {
+// Subordinate implements Application.
+func (s *application) Subordinate() bool {
 	return s.Subordinate_
 }
 
-// CharmURL implements Service.
-func (s *service) CharmURL() string {
+// CharmURL implements Application.
+func (s *application) CharmURL() string {
 	return s.CharmURL_
 }
 
-// Channel implements Service.
-func (s *service) Channel() string {
+// Channel implements Application.
+func (s *application) Channel() string {
 	return s.Channel_
 }
 
-// CharmModifiedVersion implements Service.
-func (s *service) CharmModifiedVersion() int {
+// CharmModifiedVersion implements Application.
+func (s *application) CharmModifiedVersion() int {
 	return s.CharmModifiedVersion_
 }
 
-// ForceCharm implements Service.
-func (s *service) ForceCharm() bool {
+// ForceCharm implements Application.
+func (s *application) ForceCharm() bool {
 	return s.ForceCharm_
 }
 
-// Exposed implements Service.
-func (s *service) Exposed() bool {
+// Exposed implements Application.
+func (s *application) Exposed() bool {
 	return s.Exposed_
 }
 
-// MinUnits implements Service.
-func (s *service) MinUnits() int {
+// MinUnits implements Application.
+func (s *application) MinUnits() int {
 	return s.MinUnits_
 }
 
-// Settings implements Service.
-func (s *service) Settings() map[string]interface{} {
+// Settings implements Application.
+func (s *application) Settings() map[string]interface{} {
 	return s.Settings_
 }
 
-// SettingsRefCount implements Service.
-func (s *service) SettingsRefCount() int {
+// SettingsRefCount implements Application.
+func (s *application) SettingsRefCount() int {
 	return s.SettingsRefCount_
 }
 
-// Leader implements Service.
-func (s *service) Leader() string {
+// Leader implements Application.
+func (s *application) Leader() string {
 	return s.Leader_
 }
 
-// LeadershipSettings implements Service.
-func (s *service) LeadershipSettings() map[string]interface{} {
+// LeadershipSettings implements Application.
+func (s *application) LeadershipSettings() map[string]interface{} {
 	return s.LeadershipSettings_
 }
 
-// MetricsCredentials implements Service.
-func (s *service) MetricsCredentials() []byte {
+// MetricsCredentials implements Application.
+func (s *application) MetricsCredentials() []byte {
 	// Here we are explicitly throwing away any decode error. We check that
 	// the creds can be decoded when we parse the incoming data, or we encode
 	// an incoming byte array, so in both cases, we know that the stored creds
@@ -174,8 +174,8 @@ func (s *service) MetricsCredentials() []byte {
 	return creds
 }
 
-// Status implements Service.
-func (s *service) Status() Status {
+// Status implements Application.
+func (s *application) Status() Status {
 	// To avoid typed nils check nil here.
 	if s.Status_ == nil {
 		return nil
@@ -183,13 +183,13 @@ func (s *service) Status() Status {
 	return s.Status_
 }
 
-// SetStatus implements Service.
-func (s *service) SetStatus(args StatusArgs) {
+// SetStatus implements Application.
+func (s *application) SetStatus(args StatusArgs) {
 	s.Status_ = newStatus(args)
 }
 
-// Units implements Service.
-func (s *service) Units() []Unit {
+// Units implements Application.
+func (s *application) Units() []Unit {
 	result := make([]Unit, len(s.Units_.Units_))
 	for i, u := range s.Units_.Units_ {
 		result[i] = u
@@ -197,7 +197,7 @@ func (s *service) Units() []Unit {
 	return result
 }
 
-func (s *service) unitNames() set.Strings {
+func (s *application) unitNames() set.Strings {
 	result := set.NewStrings()
 	for _, u := range s.Units_.Units_ {
 		result.Add(u.Name())
@@ -205,14 +205,14 @@ func (s *service) unitNames() set.Strings {
 	return result
 }
 
-// AddUnit implements Service.
-func (s *service) AddUnit(args UnitArgs) Unit {
+// AddUnit implements Application.
+func (s *application) AddUnit(args UnitArgs) Unit {
 	u := newUnit(args)
 	s.Units_.Units_ = append(s.Units_.Units_, u)
 	return u
 }
 
-func (s *service) setUnits(unitList []*unit) {
+func (s *application) setUnits(unitList []*unit) {
 	s.Units_ = units{
 		Version: 1,
 		Units_:  unitList,
@@ -220,7 +220,7 @@ func (s *service) setUnits(unitList []*unit) {
 }
 
 // Constraints implements HasConstraints.
-func (s *service) Constraints() Constraints {
+func (s *application) Constraints() Constraints {
 	if s.Constraints_ == nil {
 		return nil
 	}
@@ -228,21 +228,21 @@ func (s *service) Constraints() Constraints {
 }
 
 // SetConstraints implements HasConstraints.
-func (s *service) SetConstraints(args ConstraintsArgs) {
+func (s *application) SetConstraints(args ConstraintsArgs) {
 	s.Constraints_ = newConstraints(args)
 }
 
-// Validate implements Service.
-func (s *service) Validate() error {
+// Validate implements Application.
+func (s *application) Validate() error {
 	if s.Name_ == "" {
-		return errors.NotValidf("service missing name")
+		return errors.NotValidf("application missing name")
 	}
 	if s.Status_ == nil {
-		return errors.NotValidf("service %q missing status", s.Name_)
+		return errors.NotValidf("application %q missing status", s.Name_)
 	}
 	// If leader is set, it must match one of the units.
 	var leaderFound bool
-	// All of the services units should also be valid.
+	// All of the applications units should also be valid.
 	for _, u := range s.Units() {
 		if err := u.Validate(); err != nil {
 			return errors.Trace(err)
@@ -258,46 +258,46 @@ func (s *service) Validate() error {
 	return nil
 }
 
-func importServices(source map[string]interface{}) ([]*service, error) {
-	checker := versionedChecker("services")
+func importApplications(source map[string]interface{}) ([]*application, error) {
+	checker := versionedChecker("applications")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "services version schema check failed")
+		return nil, errors.Annotatef(err, "applications version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
 	version := int(valid["version"].(int64))
-	importFunc, ok := serviceDeserializationFuncs[version]
+	importFunc, ok := applicationDeserializationFuncs[version]
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["services"].([]interface{})
-	return importServiceList(sourceList, importFunc)
+	sourceList := valid["applications"].([]interface{})
+	return importApplicationList(sourceList, importFunc)
 }
 
-func importServiceList(sourceList []interface{}, importFunc serviceDeserializationFunc) ([]*service, error) {
-	result := make([]*service, 0, len(sourceList))
+func importApplicationList(sourceList []interface{}, importFunc applicationDeserializationFunc) ([]*application, error) {
+	result := make([]*application, 0, len(sourceList))
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
-			return nil, errors.Errorf("unexpected value for service %d, %T", i, value)
+			return nil, errors.Errorf("unexpected value for application %d, %T", i, value)
 		}
-		service, err := importFunc(source)
+		application, err := importFunc(source)
 		if err != nil {
-			return nil, errors.Annotatef(err, "service %d", i)
+			return nil, errors.Annotatef(err, "application %d", i)
 		}
-		result = append(result, service)
+		result = append(result, application)
 	}
 	return result, nil
 }
 
-type serviceDeserializationFunc func(map[string]interface{}) (*service, error)
+type applicationDeserializationFunc func(map[string]interface{}) (*application, error)
 
-var serviceDeserializationFuncs = map[int]serviceDeserializationFunc{
-	1: importServiceV1,
+var applicationDeserializationFuncs = map[int]applicationDeserializationFunc{
+	1: importApplicationV1,
 }
 
-func importServiceV1(source map[string]interface{}) (*service, error) {
+func importApplicationV1(source map[string]interface{}) (*application, error) {
 	fields := schema.Fields{
 		"name":                schema.String(),
 		"series":              schema.String(),
@@ -332,12 +332,12 @@ func importServiceV1(source map[string]interface{}) (*service, error) {
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "service v1 schema check failed")
+		return nil, errors.Annotatef(err, "application v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	result := &service{
+	result := &application{
 		Name_:                 valid["name"].(string),
 		Series_:               valid["series"].(string),
 		Subordinate_:          valid["subordinate"].(bool),

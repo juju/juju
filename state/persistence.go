@@ -98,11 +98,11 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 // identified service exists.
 func (sp *statePersistence) ServiceExistsOps(serviceID string) []txn.Op {
 	return []txn.Op{{
-		C:      servicesC,
+		C:      applicationsC,
 		Id:     serviceID,
 		Assert: txn.DocExists,
 	}, {
-		C:      servicesC,
+		C:      applicationsC,
 		Id:     serviceID,
 		Assert: isAliveDoc,
 	}}

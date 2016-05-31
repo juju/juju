@@ -42,10 +42,10 @@ type SimpleContext struct {
 	// running the deployer.
 	agentConfig agent.Config
 
-	// discoverService is a surrogate for service.DiscoverService.
+	// discoverService is a surrogate for application.DiscoverService.
 	discoverService func(string, common.Conf) (deployerService, error)
 
-	// listServices is a surrogate for service.ListServices.
+	// listServices is a surrogate for application.ListServices.
 	listServices func() ([]string, error)
 }
 

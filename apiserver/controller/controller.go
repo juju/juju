@@ -22,7 +22,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
 func init() {
-	common.RegisterStandardFacade("Controller", 2, NewControllerAPI)
+	common.RegisterStandardFacade("Controller", 3, NewControllerAPI)
 }
 
 // Controller defines the methods on the controller API end point.
@@ -369,7 +369,7 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		OwnerTag:           env.Owner().String(),
 		Life:               params.Life(env.Life().String()),
 		HostedMachineCount: len(hostedMachines),
-		ServiceCount:       len(services),
+		ApplicationCount:   len(services),
 	}, nil
 }
 

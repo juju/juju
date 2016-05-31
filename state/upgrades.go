@@ -225,7 +225,7 @@ func addDefaultBindingsToServices(st *State) error {
 	for _, service := range services {
 		ch, _, err := service.Charm()
 		if err != nil {
-			return errors.Annotatef(err, "cannot get charm for service %q", service.Name())
+			return errors.Annotatef(err, "cannot get charm for application %q", service.Name())
 		}
 		if _, err := service.EndpointBindings(); err == nil {
 			upgradesLogger.Debugf("service %q already has bindings (skipping)", service.Name())
@@ -236,7 +236,7 @@ func addDefaultBindingsToServices(st *State) error {
 		// Passing nil for the bindings map will use the defaults.
 		createOp, err := createEndpointBindingsOp(st, service.globalKey(), nil, ch.Meta())
 		if err != nil {
-			return errors.Annotatef(err, "setting default endpoint bindings for service %q", service.Name())
+			return errors.Annotatef(err, "setting default endpoint bindings for application %q", service.Name())
 		}
 		ops = append(ops, createOp)
 	}

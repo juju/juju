@@ -16,17 +16,17 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// DeployServiceParams contains the arguments required to deploy the referenced
+// DeployApplicationParams contains the arguments required to deploy the referenced
 // charm.
-type DeployServiceParams struct {
-	ServiceName    string
-	Series         string
-	ServiceOwner   string
-	Charm          *state.Charm
-	Channel        csparams.Channel
-	ConfigSettings charm.Settings
-	Constraints    constraints.Value
-	NumUnits       int
+type DeployApplicationParams struct {
+	ApplicationName  string
+	Series           string
+	ApplicationOwner string
+	Charm            *state.Charm
+	Channel          csparams.Channel
+	ConfigSettings   charm.Settings
+	Constraints      constraints.Value
+	NumUnits         int
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement        []*instance.Placement
@@ -38,11 +38,11 @@ type DeployServiceParams struct {
 
 type ServiceDeployer interface {
 	Model() (*state.Model, error)
-	AddService(state.AddServiceArgs) (*state.Service, error)
+	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 }
 
 // DeployService takes a charm and various parameters and deploys it.
-func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service, error) {
+func DeployService(st ServiceDeployer, args DeployApplicationParams) (*state.Application, error) {
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
@@ -55,22 +55,22 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
 		}
 	}
-	if args.ServiceOwner == "" {
+	if args.ApplicationOwner == "" {
 		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		args.ServiceOwner = env.Owner().String()
+		args.ApplicationOwner = env.Owner().String()
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
 	effectiveBindings := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
 
-	asa := state.AddServiceArgs{
-		Name:             args.ServiceName,
+	asa := state.AddApplicationArgs{
+		Name:             args.ApplicationName,
 		Series:           args.Series,
-		Owner:            args.ServiceOwner,
+		Owner:            args.ApplicationOwner,
 		Charm:            args.Charm,
 		Channel:          args.Channel,
 		Storage:          stateStorageConstraints(args.Storage),
@@ -85,7 +85,7 @@ func DeployService(st ServiceDeployer, args DeployServiceParams) (*state.Service
 		asa.Constraints = args.Constraints
 	}
 
-	return st.AddService(asa)
+	return st.AddApplication(asa)
 }
 
 func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) map[string]string {
@@ -113,7 +113,7 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 
 // AddUnits starts n units of the given service using the specified placement
 // directives to allocate the machines.
-func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
+func AddUnits(st *state.State, svc *state.Application, n int, placement []*instance.Placement) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
