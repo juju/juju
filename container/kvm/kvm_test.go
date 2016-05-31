@@ -42,7 +42,7 @@ func (s *KVMSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
+func (*KVMSuite) TestManagerModelUUIDNeeded(c *gc.C) {
 	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigModelUUID: ""})
 	c.Assert(err, gc.ErrorMatches, "model UUID is required")
 	c.Assert(manager, gc.IsNil)
