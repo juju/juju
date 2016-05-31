@@ -459,7 +459,7 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addresses, gc.HasLen, 1)
 	addr := addresses[0]
 	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
-	c.Assert(addr.MachineID(), gc.Equals, string(machine.Id()))
+	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
 	c.Assert(addr.DeviceName(), gc.Equals, "foo")
 	c.Assert(addr.ConfigMethod(), gc.Equals, string(state.StaticAddress))
 	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
