@@ -4,6 +4,7 @@
 package mongo_test
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -108,14 +109,18 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	c.Assert(tailer.Err(), jc.ErrorIsNil)
 }
 
-type fakeIter struct {
+type fakeIterator struct {
 	docs    []*mongo.OplogDoc
 	pos     int
 	err     error
 	timeout bool
 }
 
-func (i *fakeIter) Next(result interface{}) bool {
+func mkIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
+	return &fakeIterator{docs: docs, err: err}
+}
+
+func (i *fakeIterator) Next(result interface{}) bool {
 	if i.pos >= len(i.docs) {
 		return false
 	}
@@ -125,69 +130,107 @@ func (i *fakeIter) Next(result interface{}) bool {
 	return true
 }
 
-func (i *fakeIter) Err() error {
+func (i *fakeIterator) Err() error {
 	if i.pos < len(i.docs) {
 		return nil
 	}
 	return i.err
 }
 
-func (i *fakeIter) Timeout() bool {
+func (i *fakeIterator) Timeout() bool {
 	if i.pos < len(i.docs) {
 		return false
 	}
 	return i.timeout
 }
 
+type iteratorMaker struct {
+	iterators  []*fakeIterator
+	pos        int
+	timestamps []bson.MongoTimestamp
+	excludeIds [][]int64
+}
+
+var timeoutIterator = fakeIterator{timeout: true}
+
+func (m *iteratorMaker) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIterator {
+	if m.pos >= len(m.iterators) {
+		// We've run out of results - at this point the calls to get
+		// more data would just keep timing out.
+		fmt.Println("whee")
+		return &timeoutIterator
+		// TODO(babbageclunk): the tailer goroutine will just keep
+		// calling this in a tight loop once it's gone through the
+		// canned iterators (until the tailer.Stop kills it). Is this
+		// a problem? The real call would block for a second waiting
+		// for new data.
+	}
+	m.timestamps = append(m.timestamps, ts)
+	m.excludeIds = append(m.excludeIds, ids)
+	result := m.iterators[m.pos]
+	m.pos++
+	return result
+}
+
+func cannedIterators(iterators ...*fakeIterator) *iteratorMaker {
+	return &iteratorMaker{iterators: iterators}
+}
+
 func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	var iter *fakeIter
-	makeIterator := func(*mgo.Query, time.Duration) mongo.OplogIterator {
-		return iter
-	}
-	tailer := mongo.NewOplogTailerWithFactory(oplog, nil, time.Time{}, makeIterator)
+	iterMaker := cannedIterators(
+		// First iterator terminates with an ErrCursor
+		mkIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
+		mkIterator(nil, &mongo.OplogDoc{Timestamp: 2, OperationId: 42}),
+	)
+	tailer := mongo.NewOplogTailerWithMaker(oplog, nil, time.Time{}, iterMaker)
 	defer tailer.Stop()
 
 	// First, ensure that the tailer is seeing oplog rows and handles
 	// the ErrCursor that occurs at the end.
-	iter = &fakeIter{
-		docs: []*mongo.OplogDoc{{Timestamp: 1, OperationId: 99}},
-		err:  mgo.ErrCursor,
-	}
 	doc := s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	c.Check(iterMaker.timestamps[0], gc.Equals, mongo.NewMongoTimestamp(time.Time{}))
+	c.Check(iterMaker.excludeIds[0], gc.IsNil)
 
 	// Ensure that the tailer continues after getting a new iterator.
-	iter = &fakeIter{
-		docs: []*mongo.OplogDoc{{Timestamp: 2, OperationId: 42}},
-	}
 	doc = s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
+	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
+	c.Check(iterMaker.timestamps[1], gc.Equals, bson.MongoTimestamp(1))
+	c.Check(iterMaker.excludeIds[1], gc.DeepEquals, []int64{99})
+	time.Sleep(time.Second)
 }
 
 func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	var iter *fakeIter
-	makeIterator := func(*mgo.Query, time.Duration) mongo.OplogIterator {
-		return iter
-	}
-	tailer := mongo.NewOplogTailerWithFactory(oplog, nil, time.Time{}, makeIterator)
-	defer tailer.Stop()
 
-	// Insert a bunch of oplog entries with the same timestamp (but
-	// with different ids) and see them reported.
-	iter = &fakeIter{docs: make([]*mongo.OplogDoc, 5)}
-	for i := 0; i < 5; i++ {
+	// A bunch of documents with the same timestamp but different ids.
+	// These will be split across 2 iterators.
+	docs := make([]*mongo.OplogDoc, 11)
+	for i := 0; i < 10; i++ {
 		id := int64(i + 10)
-		iter.docs[i] = &mongo.OplogDoc{
+		docs[i] = &mongo.OplogDoc{
 			Timestamp:   1,
 			OperationId: id,
 		}
 	}
+	// Add one more with a different timestamp.
+	docs[10] = &mongo.OplogDoc{
+		Timestamp:   2,
+		OperationId: 42,
+	}
+	iterMaker := cannedIterators(
+		// First block of documents, all time 1
+		mkIterator(nil, docs[:5]...),
+		// Second block, some time 1, one time 2
+		mkIterator(nil, docs[5:]...),
+	)
+	tailer := mongo.NewOplogTailerWithMaker(oplog, nil, time.Time{}, iterMaker)
+	defer tailer.Stop()
 
 	for id := int64(10); id < 15; id++ {
 		doc := s.getNextOplog(c, tailer)
@@ -195,24 +238,11 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 		c.Assert(doc.OperationId, gc.Equals, id)
 	}
 
+	// Check the query doesn't exclude any in the first request.
+	c.Check(iterMaker.timestamps[0], gc.Equals, mongo.NewMongoTimestamp(time.Time{}))
+	c.Check(iterMaker.excludeIds[0], gc.IsNil)
+
 	// The OplogTailer will fall off the end of the iterator and get a new one.
-
-	// Reinsert the oplog entries that were already there before and a
-	// few more.
-	iter = &fakeIter{docs: make([]*mongo.OplogDoc, 6)}
-	for i := 0; i < 5; i++ {
-		id := int64(i + 15)
-		iter.docs[i] = &mongo.OplogDoc{
-			Timestamp:   1,
-			OperationId: id,
-		}
-	}
-
-	// Insert an entry for a later timestamp.
-	iter.docs[5] = &mongo.OplogDoc{
-		Timestamp:   2,
-		OperationId: 42,
-	}
 
 	// Ensure that only previously unreported entries are now reported.
 	for id := int64(15); id < 20; id++ {
@@ -220,6 +250,10 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 		c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
 		c.Assert(doc.OperationId, gc.Equals, id)
 	}
+
+	// Check we got the next block correctly
+	c.Check(iterMaker.timestamps[1], gc.Equals, bson.MongoTimestamp(1))
+	c.Check(iterMaker.excludeIds[1], gc.DeepEquals, []int64{10, 11, 12, 13, 14})
 
 	doc := s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))

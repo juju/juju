@@ -81,6 +81,48 @@ func GetOplog(session *mgo.Session) *mgo.Collection {
 	return session.DB("local").C("oplog.rs")
 }
 
+// The parts of the mgo.Iter that we use - this interface will allow
+// us to switch out the querying for testing.
+type OplogIterator interface {
+	Next(interface{}) bool
+	Err() error
+	Timeout() bool
+}
+
+type IteratorMaker interface {
+	NewIter(bson.MongoTimestamp, []int64) OplogIterator
+}
+
+type iteratorMaker struct {
+	collection *mgo.Collection
+	query      bson.D
+}
+
+func (m *iteratorMaker) NewIter(fromTimestamp bson.MongoTimestamp, excludeIds []int64) OplogIterator {
+	// When recreating the iterator (required when the cursor
+	// is invalidated) avoid reporting oplog entries that have
+	// already been reported.
+	sel := append(m.query,
+		bson.DocElem{"ts", bson.D{{"$gte", fromTimestamp}}},
+		bson.DocElem{"h", bson.D{{"$nin", excludeIds}}},
+	)
+	// Time the tail call out every second so that requests to
+	// stop can be honoured.
+	//
+	// TODO(mjs): Ideally -1 (no timeout) could be used here,
+	// with session.Close() being used to unblock Next() if
+	// the tailer should stop (these semantics are hinted at
+	// by the mgo docs). Unfortunately this can trigger
+	// panics. See: https://github.com/go-mgo/mgo/issues/121
+	query := m.collection.Find(sel)
+	if isRealOplog(m.collection) {
+		// Apply an optmisation that is only supported with
+		// the real oplog.
+		query = query.LogReplay()
+	}
+	return query.Tail(oplogTailTimeout)
+}
+
 // NewOplogTailer returns a new OplogTailer.
 //
 // Arguments:
@@ -100,23 +142,24 @@ func NewOplogTailer(
 	query bson.D,
 	initialTs time.Time,
 ) *OplogTailer {
-	return newOplogTailerWithFactory(oplog, query, initialTs, makeIterator)
+	maker := &iteratorMaker{collection: oplog, query: query}
+	return newOplogTailerWithMaker(oplog, query, initialTs, maker)
 }
 
-func newOplogTailerWithFactory(
+func newOplogTailerWithMaker(
 	oplog *mgo.Collection,
 	query bson.D,
 	initialTs time.Time,
-	iterFactory iteratorFactory,
+	maker IteratorMaker,
 ) *OplogTailer {
 	// Use a fresh session for the tailer.
 	session := oplog.Database.Session.Copy()
 	t := &OplogTailer{
-		oplog:        oplog.With(session),
-		query:        query,
-		initialTs:    NewMongoTimestamp(initialTs),
-		outCh:        make(chan *OplogDoc),
-		makeIterator: iterFactory,
+		oplog:     oplog.With(session),
+		query:     query,
+		initialTs: NewMongoTimestamp(initialTs),
+		outCh:     make(chan *OplogDoc),
+		iterMaker: maker,
 	}
 	go func() {
 		defer func() {
@@ -129,28 +172,14 @@ func newOplogTailerWithFactory(
 	return t
 }
 
-// The parts of the mgo.Iter that we use - this interface will allow
-// us to switch out the querying for testing.
-type OplogIterator interface {
-	Next(interface{}) bool
-	Err() error
-	Timeout() bool
-}
-
-type iteratorFactory func(*mgo.Query, time.Duration) OplogIterator
-
-func makeIterator(query *mgo.Query, timeout time.Duration) OplogIterator {
-	return query.Tail(timeout)
-}
-
 // OplogTailer tails MongoDB's replication oplog.
 type OplogTailer struct {
-	tomb         tomb.Tomb
-	oplog        *mgo.Collection
-	query        bson.D
-	initialTs    bson.MongoTimestamp
-	outCh        chan *OplogDoc
-	makeIterator iteratorFactory
+	tomb      tomb.Tomb
+	oplog     *mgo.Collection
+	query     bson.D
+	initialTs bson.MongoTimestamp
+	outCh     chan *OplogDoc
+	iterMaker IteratorMaker
 }
 
 // Out returns a channel that reports the oplog entries matching the
@@ -203,28 +232,7 @@ func (t *OplogTailer) loop() error {
 		}
 
 		if iter == nil {
-			// When recreating the iterator (required when the cursor
-			// is invalidated) avoid reporting oplog entries that have
-			// already been reported.
-			sel := append(t.query,
-				bson.DocElem{"ts", bson.D{{"$gte", lastTimestamp}}},
-				bson.DocElem{"h", bson.D{{"$nin", idsForLastTimestamp}}},
-			)
-			// Time the tail call out every second so that requests to
-			// stop can be honoured.
-			//
-			// TODO(mjs): Ideally -1 (no timeout) could be used here,
-			// with session.Close() being used to unblock Next() if
-			// the tailer should stop (these semantics are hinted at
-			// by the mgo docs). Unfortunately this can trigger
-			// panics. See: https://github.com/go-mgo/mgo/issues/121
-			query := t.oplog.Find(sel)
-			if isRealOplog(t.oplog) {
-				// Apply an optmisation that is only supported with
-				// the real oplog.
-				query = query.LogReplay()
-			}
-			iter = t.makeIterator(query, oplogTailTimeout)
+			iter = t.iterMaker.NewIter(lastTimestamp, idsForLastTimestamp)
 		}
 
 		var doc OplogDoc
