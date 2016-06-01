@@ -50,6 +50,7 @@ from jujupy import (
     EnvJujuClient2B2,
     EnvJujuClient2B3,
     EnvJujuClient2B7,
+    EnvJujuClient2B8,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -1153,7 +1154,7 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B7)
             self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B8)
             self.assertEqual(client.version, '2.0-beta8')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
@@ -3126,6 +3127,16 @@ class TestEnvJujuClient(ClientTest):
                 'add-user', *expected_args, include_e=False)
 
 
+class TestEnvJujuClient2B8(ClientTest):
+
+    def test_remove_service(self):
+        env = EnvJujuClient2B7(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('remove-service', ('mondogb',))
+
+
 class TestEnvJujuClient2B7(ClientTest):
 
     def test_get_admin_model_name(self):
@@ -3167,13 +3178,6 @@ class TestEnvJujuClient2B7(ClientTest):
         admin_env = admin_client.env
         self.assertEqual('admin', admin_env.environment)
         self.assertEqual({'bar': 'baz', 'name': 'admin'}, admin_env.config)
-
-    def test_remove_service(self):
-        env = EnvJujuClient2B7(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
-            env.remove_service('mondogb')
-        mock_juju.assert_called_with('remove-service', ('mondogb',))
 
 
 class TestEnvJujuClient2B3(ClientTest):
@@ -3507,7 +3511,7 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B7)
             self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B8)
             self.assertEqual(client.version, '2.0-beta8')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
