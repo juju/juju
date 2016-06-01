@@ -1199,9 +1199,9 @@ class TestBootstrapAttempt(JujuPyTestCase):
                 '--default-model', 'steve', '--agent-version', '1.2'))
             statuses = [
                 {'machines': {'0': {'agent-state': 'pending'}},
-                 'services': {}},
+                 'applications': {}},
                 {'machines': {'0': {'agent-state': 'started'}},
-                 'services': {}},
+                 'applicaions': {}},
             ]
             popen_mock.return_value.wait.return_value = 0
             self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
@@ -1458,7 +1458,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 '1': {'controller-member-status': 'has-vote'},
                 '2': {'controller-member-status': 'has-vote'},
                 },
-            'services': {},
+            'applications': {},
         }
         with patch_status(admin_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
@@ -1480,7 +1480,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 '0': {'state-server-member-status': 'has-vote'},
                 '1': {'state-server-member-status': 'has-vote'},
                 },
-            'services': {},
+            'applications': {},
         }
         with patch_status(admin_client, status) as gs_mock:
             with self.assertRaisesRegexp(
@@ -1528,7 +1528,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
             'machines': {'0': dict(machine_started)},
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
@@ -1541,7 +1541,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         status = {
             'machines': dict((str(x), dict(machine_started))
                              for x in range(deploy_many.host_count + 1)),
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status):
                 self.assertEqual(
@@ -1567,17 +1567,17 @@ class TestDeployManyAttempt(JujuPyTestCase):
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
                 service_names.append('ubuntu{}x{}'.format(host, container))
-        services = {}
+        applications = {}
         for num, service_name in enumerate(service_names):
             foo = {'machine': str(num + 100)}
             foo.update(unit_started)
             units = {
                 'foo': foo,
                 }
-            services[service_name] = {'units': units}
+            applications[service_name] = {'units': units}
         status = {
             'machines': {'0': dict(machine_started)},
-            'services': services,
+            'applications': applications,
         }
         with patch_status(client, status):
             self.assertEqual(deploy_iter.next(),
@@ -1594,8 +1594,8 @@ class TestDeployManyAttempt(JujuPyTestCase):
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
         statuses = [
-            {'machines': {'100': dict(machine_started)}, 'services': {}},
-            {'machines': {}, 'services': {}},
+            {'machines': {'100': dict(machine_started)}, 'applications': {}},
+            {'machines': {}, 'applications': {}},
         ]
         with patch_status(client, *statuses) as status_mock:
             self.assertEqual(
@@ -1614,8 +1614,8 @@ class TestDeployManyAttempt(JujuPyTestCase):
                 str(num + 1)), num)
 
         statuses = [
-            {'machines': {'1': dict(machine_started)}, 'services': {}},
-            {'machines': {}, 'services': {}},
+            {'machines': {'1': dict(machine_started)}, 'applications': {}},
+            {'machines': {}, 'applications': {}},
         ]
         with patch_status(client, *statuses) as status_mock:
             self.assertEqual(
@@ -1631,7 +1631,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
             'machines': {'0': {'agent-state': 'started'}},
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status):
             with patch('subprocess.check_call') as mock_cc:
@@ -1644,7 +1644,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         status = {
             'machines': dict((str(x), {'agent-state': 'started'})
                              for x in range(deploy_many.host_count + 1)),
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status):
                 self.assertEqual(
@@ -1666,7 +1666,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
             'machines': {
                 '0': {'agent-state': 'pending'},
                 },
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status):
             with self.assertRaisesRegexp(
@@ -1682,7 +1682,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
             'machines': {'0': {'agent-state': 'started'}},
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status) as gs_mock:
             with patch('subprocess.check_call') as mock_cc:
@@ -1696,7 +1696,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         status = {
             'machines': dict((str(x), {'agent-state': 'pending'})
                              for x in range(deploy_many.host_count + 1)),
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status) as gs_mock:
             self.assertEqual(deploy_iter.next(),
@@ -1716,7 +1716,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         status = {
             'machines': dict((str(x), {'agent-state': 'started'})
                              for x in range(deploy_many.host_count + 1)),
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status) as gs_mock:
             self.assertEqual({'test_id': 'ensure-machines', 'result': True},
@@ -1811,7 +1811,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
             'machines': {
                 '0': {'agent-state': 'started'},
                 },
-            'services': {},
+            'applications': {},
         }
         with patch_status(admin_client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
@@ -1873,7 +1873,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
                              {'test_id': 'prepare-upgrade-juju'})
         b_status = {
             'machines': {'0': {'agent-state': 'started'}},
-            'services': {},
+            'applications': {},
         }
         with patch_status(None, b_status):
             self.assertEqual(
@@ -1904,7 +1904,7 @@ class TestUpgradeJujuAttempt(JujuPyTestCase):
         version_status = {
             'machines': {'0': {
                 'agent-version': future_client.get_matching_agent_version()}},
-            'services': {},
+            'applications': {},
         }
         with patch_status(None, version_status):
             self.assertEqual({'test_id': 'upgrade-juju', 'result': True},
@@ -1961,7 +1961,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
         self.assertNotIn('min-juju-version', metadata)
         status = {
             'machines': {'0': {'agent-state': 'started'}},
-            'services': {},
+            'applications': {},
         }
         with patch_status(client, status):
             self.assertEqual(uc_iterator.next(),
@@ -1997,7 +1997,7 @@ class TestUpgradeCharmAttempt(JujuPyTestCase):
                                                   'mycharm')))
         status = {
             'machines': {'0': {'agent-state': 'started'}},
-            'services': {'mycharm': {'units': {'mycharm/0': {
+            'applications': {'mycharm': {'units': {'mycharm/0': {
                 'open-ports': ['42/tcp', '34/tcp'],
                 }}}},
         }

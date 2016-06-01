@@ -30,10 +30,10 @@ class TestRemote(tests.FakeHomeTestCase):
     machines:
         "1":
             series: precise
-    services:
-        a-service:
+    applications:
+        a-application:
             units:
-                a-service/0:
+                a-application/0:
                     machine: "1"
                     public-address: 10.55.60.1
     """
@@ -42,10 +42,10 @@ class TestRemote(tests.FakeHomeTestCase):
     machines:
         "2":
             series: win2012hvr2
-    services:
-        a-service:
+    applications:
+        a-application:
             units:
-                a-service/0:
+                a-application/0:
                     machine: "2"
                     public-address: 10.55.60.2
     """
@@ -53,34 +53,35 @@ class TestRemote(tests.FakeHomeTestCase):
     def test_remote_from_unit(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.precise_status_output)
             remote = remote_from_unit(client, unit)
         self.assertEqual(
             repr(remote),
-            "<SSHRemote env='an-env' unit='a-service/0'>")
+            "<SSHRemote env='an-env' unit='a-application/0'>")
         self.assertIs(False, remote.is_windows())
 
     def test_remote_from_unit_with_series(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         remote = remote_from_unit(client, unit, series="trusty")
         self.assertEqual(
             repr(remote),
-            "<SSHRemote env='an-env' unit='a-service/0'>")
+            "<SSHRemote env='an-env' unit='a-application/0'>")
         self.assertIs(False, remote.is_windows())
 
     def test_remote_from_unit_with_status(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         status = Status.from_text(self.win2012hvr2_status_output)
         remote = remote_from_unit(client, unit, status=status)
         self.assertEqual(
             repr(remote),
-            "<WinRmRemote env='an-env' unit='a-service/0' addr='10.55.60.2'>")
+            "<WinRmRemote env='an-env' unit='a-application/0'"
+            " addr='10.55.60.2'>")
         self.assertIs(True, remote.is_windows())
 
     def test_remote_from_address(self):
@@ -101,7 +102,7 @@ class TestRemote(tests.FakeHomeTestCase):
     def test_run_with_unit(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         remote = remote_from_unit(client, unit, series="trusty")
         with patch.object(client, "get_juju_output") as mock_cmd:
             mock_cmd.return_value = "contents of /a/file"
@@ -113,7 +114,7 @@ class TestRemote(tests.FakeHomeTestCase):
     def test_run_with_unit_fallback(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         with patch.object(client, "get_status") as st:
             st.return_value = Status.from_text(self.precise_status_output)
             remote = remote_from_unit(client, unit)
@@ -137,7 +138,7 @@ class TestRemote(tests.FakeHomeTestCase):
         ])
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
-            "(?m)^WARNING juju ssh to 'a-service/0' failed, .*")
+            "(?m)^WARNING juju ssh to 'a-application/0' failed, .*")
 
     def test_run_with_address(self):
         remote = remote_from_address("10.55.60.1")
@@ -172,7 +173,7 @@ class TestRemote(tests.FakeHomeTestCase):
     def test_cat_on_windows(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.win2012hvr2_status_output)
             response = winrm.Response(("contents of /a/file", "",  0))
@@ -204,7 +205,7 @@ class TestRemote(tests.FakeHomeTestCase):
     def test_copy_on_windows(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         dest = "/local/path"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.win2012hvr2_status_output)
@@ -243,7 +244,7 @@ class TestRemote(tests.FakeHomeTestCase):
     def test_run_cmd(self):
         env = JujuData("an-env", {"type": "nonlocal"})
         client = EnvJujuClient(env, None, None)
-        unit = "a-service/0"
+        unit = "a-application/0"
         with patch.object(client, "get_status", autospec=True) as st:
             st.return_value = Status.from_text(self.win2012hvr2_status_output)
             response = winrm.Response(("some out", "some err",  0))

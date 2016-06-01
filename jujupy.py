@@ -224,7 +224,7 @@ class Status:
         return cls(status_yaml, text)
 
     def get_applications(self):
-        return self.status.get('services', {})
+        return self.status.get('applications', {})
 
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
@@ -323,6 +323,12 @@ class Status:
         If no ports are listed for the unit, the empty list is returned.
         """
         return self.get_unit(unit_name).get('open-ports', [])
+
+
+class ServiceStatus(Status):
+
+    def get_applications(self):
+        return self.status.get('services', {})
 
 
 class Juju2Backend:
@@ -659,8 +665,10 @@ class EnvJujuClient:
             client_class = EnvJujuClient2B3
         elif re.match('^2\.0-(beta7)', version):
             client_class = EnvJujuClient2B7
-        else:
+        elif re.match('^2\.0-delta1', version):
             client_class = EnvJujuClient
+        else:
+            client_class = EnvJujuClient2B8
         return client_class(env, version, full_path, debug=debug)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
@@ -1062,7 +1070,7 @@ class EnvJujuClient:
         self.juju('upgrade-charm', args)
 
     def remove_service(self, service):
-        self.juju('remove-service', (service,))
+        self.juju('remove-application', (service,))
 
     @classmethod
     def format_bundle(cls, bundle_template):
@@ -1552,7 +1560,15 @@ class EnvJujuClient:
         self.controller_juju('revoke', args)
 
 
-class EnvJujuClient2B7(EnvJujuClient):
+class EnvJujuClient2B8(EnvJujuClient):
+
+    status_class = ServiceStatus
+
+    def remove_service(self, service):
+        self.juju('remove-service', (service,))
+
+
+class EnvJujuClient2B7(EnvJujuClient2B8):
 
     def get_admin_model_name(self):
         """Return the name of the 'admin' model.
