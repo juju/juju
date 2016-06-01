@@ -103,17 +103,24 @@ func connectFallback(
 		conn, err = apiOpen(info, api.DialOpts{})
 	}
 
+	didFallback = info.Password == ""
 	// Try to connect, trying both the primary and fallback
 	// passwords if necessary; and update info, and remember
 	// which password we used.
-	tryConnect()
-	if params.IsCodeUnauthorized(err) {
+	if !didFallback {
+		tryConnect()
+		if params.IsCodeUnauthorized(err) {
+			didFallback = true
+
+		}
+	}
+	if didFallback {
 		// We've perhaps used the wrong password, so
 		// try again with the fallback password.
 		infoCopy := *info
 		info = &infoCopy
 		info.Password = fallbackPassword
-		didFallback = true
+		logger.Debugf("connecting with old password")
 		tryConnect()
 	}
 
