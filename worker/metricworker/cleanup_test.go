@@ -12,8 +12,7 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 )
 
-type CleanupSuite struct {
-}
+type CleanupSuite struct{}
 
 var _ = gc.Suite(&CleanupSuite{})
 
