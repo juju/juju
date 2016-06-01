@@ -4,7 +4,7 @@ Standards-Version: 3.9.2
 
 Package: juju-ci-tools.common
 Version: 0.1.0-0
-Depends: s3cmd, euca2ools, uvtool-libvirt, uvtool, simplestreams, distro-info-data python-tz
+Depends: s3cmd, euca2ools, uvtool-libvirt, uvtool, simplestreams, distro-info-data, python-tz
 Architecture: all
 Description: juju-ci-tools-common
  A metapackage providing the dependencies for juju-reports
