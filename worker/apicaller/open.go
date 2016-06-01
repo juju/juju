@@ -47,9 +47,23 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 	if !ok {
 		return nil, errors.New("API info not available")
 	}
+	if info.Password == "" {
+		logger.Debugf("new config with no password, using password sent over wire before generating new one")
+		// This will only happen for the brand new agent.
+		// In this instance, use old password to verify that
+		// we can connect with old password.
+		info.Password = agentConfig.OldPassword()
+	}
+
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, agentConfig.OldPassword())
 	if err != nil {
 		return nil, err
+	}
+	if info.Password == agentConfig.OldPassword() {
+		// If current password and old password are the same,
+		// we need to generate new password.
+		logger.Debugf("password sent over wire worked")
+		usedOldPassword = true
 	}
 	defer func() {
 		// NOTE(fwereade): we may close and overwrite st below,
@@ -63,10 +77,11 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 
 	tag := agentConfig.Tag()
 	entity, err := st.Agent().Entity(tag)
-	if params.IsCodeUnauthorized(err) {
-		logger.Errorf("agent terminating due to error returned during entity lookup: %v", err)
-		return nil, worker.ErrTerminateAgent
-	} else if err != nil {
+	if err != nil {
+		if params.IsCodeUnauthorized(err) {
+			logger.Errorf("agent terminating due to error returned during entity lookup: %v", err)
+			return nil, worker.ErrTerminateAgent
+		}
 		return nil, err
 	}
 
@@ -86,16 +101,13 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 		// password, so we need to create a new password
 		// for the future.
 		logger.Debugf("replacing insecure password")
-		newPassword, err := utils.RandomPassword()
-		if err != nil {
-			return nil, err
-		}
-		err = setAgentPassword(newPassword, info.Password, a, entity)
+		newPassword, err := changePassword(info.Password, a, entity)
 		if err != nil {
 			return nil, err
 		}
 
-		// Reconnect to the API with the new password.
+		// Before we reconnect to the API with the new password,
+		// let's close established connection.
 		if err := st.Close(); err != nil {
 			logger.Errorf("while closing API connection with old password: %v", err)
 		}
@@ -113,20 +125,29 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 	return st, nil
 }
 
-func setAgentPassword(newPw, oldPw string, a agent.Agent, entity *apiagent.Entity) error {
-	// Change the configuration *before* setting the entity
-	// password, so that we avoid the possibility that
-	// we might successfully change the entity's
-	// password but fail to write the configuration,
-	// thus locking us out completely.
+// changePassword generates a new password, changes agent's and entity's password
+// to the newly created value and returns this value to the caller.
+func changePassword(oldPw string, a agent.Agent, entity *apiagent.Entity) (string, error) {
+	newPassword, err := utils.RandomPassword()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
-		c.SetPassword(newPw)
+		c.SetPassword(newPassword)
 		c.SetOldPassword(oldPw)
 		return nil
 	}); err != nil {
-		return err
+		return "", errors.Trace(err)
 	}
-	return entity.SetPassword(newPw)
+
+	// This order is important since we only want to change entity password
+	// if we successfully changed agent password.
+	// Otherwise, if we successfully change the entity's password but
+	// fail to write the configuration, we will be locked out completely.
+	if err := entity.SetPassword(newPassword); err != nil {
+		return "", errors.Annotate(err, "can't reset agent password")
+	}
+	return newPassword, nil
 }
 
 // OpenAPIStateUsingInfo opens the API using the given API
