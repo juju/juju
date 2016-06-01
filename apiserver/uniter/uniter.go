@@ -1585,7 +1585,7 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 		)
 
 		privateAddress, err := machine.PrivateAddress()
-		if err != nil && !network.IsNoAddressError(err) {
+		if err != nil {
 			return nil, errors.Annotatef(err, "getting machine %q preferred private address", machineID)
 		}
 
@@ -1613,13 +1613,13 @@ func (u *UniterAPIV3) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 
 	for _, addr := range addresses {
 		subnet, err := addr.Subnet()
-		if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+			continue
+		} else if err != nil {
 			return nil, errors.Annotatef(err, "cannot get subnet for address %q", addr)
 		}
-		if subnet == nil {
-			logger.Debugf("skipping %s: not linked to a known subnet", addr)
-			continue
-		}
+
 		if space := subnet.SpaceName(); space != boundSpace {
 			logger.Debugf("skipping %s: want bound to space %q, got space %q", addr, boundSpace, space)
 			continue
