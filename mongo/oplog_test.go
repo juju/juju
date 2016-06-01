@@ -239,11 +239,11 @@ func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance
 }
 
 func (s *oplogSuite) startMongo(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
-	inst := &jujutesting.MgoInstance{}
+	var inst jujutesting.MgoInstance
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })
-	return inst, s.dialMongo(c, inst)
+	return &inst, s.dialMongo(c, &inst)
 }
 
 func (s *oplogSuite) emptyCapped(c *gc.C, coll *mgo.Collection) {
