@@ -5,6 +5,7 @@ package container
 
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -46,6 +47,7 @@ type Manager interface {
 	// machine.
 	CreateContainer(
 		instanceConfig *instancecfg.InstanceConfig,
+		cons constraints.Value,
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig,

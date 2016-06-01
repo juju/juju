@@ -20,10 +20,8 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -176,18 +174,9 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 // Test that CreateContainer creates proper startParams.
 func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 
-	envCfg, err := config.New(
-		config.NoDefaults,
-		dummy.SampleConfig().Merge(
-			coretesting.Attrs{"image-stream": "released"},
-		),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Config = envCfg
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.

@@ -262,10 +262,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
-	instanceConfig.CustomImageMetadata = customImageMetadata
-	instanceConfig.HostedModelConfig = args.HostedModelConfig
-
-	instanceConfig.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
+	instanceConfig.Bootstrap.CustomImageMetadata = customImageMetadata
+	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
 

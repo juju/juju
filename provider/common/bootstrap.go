@@ -149,8 +149,8 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
-		icfg.InstanceId = result.Instance.Id()
-		icfg.HardwareCharacteristics = result.Hardware
+		icfg.Bootstrap.InstanceId = result.Instance.Id()
+		icfg.Bootstrap.HardwareCharacteristics = result.Hardware
 		envConfig := env.Config()
 		if result.Config != nil {
 			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
@@ -188,7 +188,7 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
-		instanceConfig.Config.BootstrapSSHOpts(),
+		instanceConfig.Bootstrap.Config.BootstrapSSHOpts(),
 	)
 	if err != nil {
 		return err

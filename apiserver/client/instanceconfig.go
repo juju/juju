@@ -86,7 +86,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 
 	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
-	mongoInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	_, apiInfo, err = auth.SetupAuthentication(machine)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
@@ -97,8 +97,8 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "getting state serving info")
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(), "",
-		secureServerConnection, mongoInfo, apiInfo,
+	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(),
+		secureServerConnection, apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")

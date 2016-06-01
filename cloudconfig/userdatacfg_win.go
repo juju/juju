@@ -94,9 +94,8 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
 		return errors.Trace(err)
 	}
-	if w.icfg.Bootstrap == true {
-		// Bootstrap machine not supported on windows
-		return errors.Errorf("bootstrapping is not supported on windows")
+	if w.icfg.Controller != nil {
+		return errors.Errorf("controllers not supported on windows")
 	}
 
 	tools := w.icfg.ToolsList()[0]
@@ -113,7 +112,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	)
 
 	toolsDownloadCmds, err := addDownloadToolsCmds(
-		w.icfg.Series, w.icfg.MongoInfo.CACert, w.icfg.ToolsList(),
+		w.icfg.Series, w.icfg.APIInfo.CACert, w.icfg.ToolsList(),
 	)
 	if err != nil {
 		return errors.Trace(err)

@@ -1,10 +1,11 @@
-// Copyright 2012, 2013, 2015 Canonical Ltd.
+// Copyright 2012, 2013, 2015, 2016 Canonical Ltd.
 // Copyright 2015 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package instancecfg
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"path"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -43,23 +45,13 @@ type InstanceConfig struct {
 	// should be populated using the InstanceTags method in this package.
 	Tags map[string]string
 
-	// Bootstrap specifies whether the new instance is the bootstrap
-	// instance. When this is true, StateServingInfo should be set
-	// and filled out.
-	Bootstrap bool
+	// Bootstrap contains bootstrap-specific configuration. If this is set,
+	// Controller must also be set.
+	Bootstrap *BootstrapConfig
 
-	// StateServingInfo holds the information for serving the state.
-	// This must only be set if the Bootstrap field is true
-	// (controllers started subsequently will acquire their serving info
-	// from another server)
-	StateServingInfo *params.StateServingInfo
-
-	// MongoInfo holds the means for the new instance to communicate with the
-	// juju state database. Unless the new instance is running a controller
-	// (Controller is set), there must be at least one controller address supplied.
-	// The entity name must match that of the instance being started,
-	// or be empty when starting a controller.
-	MongoInfo *mongo.MongoInfo
+	// Controller contains controller-specific configuration. If this is
+	// set, then the instance will be configured as a controller machine.
+	Controller *ControllerConfig
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new instance is running a controller (Controller is
@@ -67,15 +59,6 @@ type InstanceConfig struct {
 	// The entity name must match that of the instance being started,
 	// or be empty when starting a controller.
 	APIInfo *api.Info
-
-	// InstanceId is the instance ID of the instance being initialised.
-	// This is required when bootstrapping, and ignored otherwise.
-	InstanceId instance.Id
-
-	// HardwareCharacteristics contains the harrdware characteristics of
-	// the instance being initialised. This optional, and is only used by
-	// the bootstrap agent during state initialisation.
-	HardwareCharacteristics *instance.HardwareCharacteristics
 
 	// MachineNonce is set at provisioning/bootstrap time and used to
 	// ensure the agent is running on the correct instance.
@@ -85,9 +68,6 @@ type InstanceConfig struct {
 	// on the new instance. Each of the entries in the list must have
 	// identical versions and hashes, but may have different URLs.
 	tools coretools.List
-
-	// GUI is the Juju GUI archive to be installed in the new instance.
-	GUI *coretools.GUIArchive
 
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
@@ -130,23 +110,6 @@ type InstanceConfig struct {
 	// the instance agent config.
 	AgentEnvironment map[string]string
 
-	// WARNING: this is only set if the instance being configured is
-	// a controller node.
-	//
-	// Config holds the initial environment configuration.
-	Config *config.Config
-
-	// HostedModelConfig is a set of config attributes to be overlaid
-	// on the controller model config (Config, above) to construct the
-	// initial hosted model config.
-	HostedModelConfig map[string]interface{}
-
-	// Constraints holds the machine constraints.
-	Constraints constraints.Value
-
-	// ModelConstraints holds the initial model constraints.
-	ModelConstraints constraints.Value
-
 	// DisableSSLHostnameVerification can be set to true to tell cloud-init
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
@@ -171,14 +134,6 @@ type InstanceConfig struct {
 	// The type of Simple Stream to download and deploy on this instance.
 	ImageStream string
 
-	// The public key used to sign Juju simplestreams image metadata.
-	PublicImageSigningKey string
-
-	// CustomImageMetadata is optional custom simplestreams image metadata
-	// to store in environment storage at bootstrap time. This is ignored
-	// in non-bootstrap instances.
-	CustomImageMetadata []*imagemetadata.ImageMetadata
-
 	// EnableOSRefreshUpdate specifies whether Juju will refresh its
 	// respective OS's updates list.
 	EnableOSRefreshUpdate bool
@@ -187,6 +142,126 @@ type InstanceConfig struct {
 	// instances. If enabled, the OS will perform any upgrades
 	// available as part of its provisioning.
 	EnableOSUpgrade bool
+}
+
+// ControllerConfig represents controller-specific initialization information
+// for a new juju instance. This is only relevant for controller machines.
+type ControllerConfig struct {
+	// MongoInfo holds the means for the new instance to communicate with the
+	// juju state database. Unless the new instance is running a controller
+	// (Controller is set), there must be at least one controller address supplied.
+	// The entity name must match that of the instance being started,
+	// or be empty when starting a controller.
+	MongoInfo *mongo.MongoInfo
+
+	// The public key used to sign Juju simplestreams image metadata.
+	PublicImageSigningKey string
+}
+
+// BootstrapConfig represents bootstrap-specific initialization information
+// for a new juju instance. This is only relevant for the bootstrap machine.
+type BootstrapConfig struct {
+	StateInitializationParams
+
+	// GUI is the Juju GUI archive to be installed in the new instance.
+	GUI *coretools.GUIArchive
+
+	// StateServingInfo holds the information for serving the state.
+	// This is only specified for bootstrap; controllers started
+	// subsequently will acquire their serving info from another
+	// server.
+	StateServingInfo params.StateServingInfo
+}
+
+// StateInitializationParams contains parameters for initializing the
+// state database.
+//
+// This structure will be passed to the bootstrap agent. To do so, the
+// Marshal and Unmarshal methods must be used.
+type StateInitializationParams struct {
+	// InstanceId is the instance ID of the instance being initialised.
+	// This is required when bootstrapping, and ignored otherwise.
+	InstanceId instance.Id
+
+	// HardwareCharacteristics contains the harrdware characteristics of
+	// the instance being initialised. This optional, and is only used by
+	// the bootstrap agent during state initialisation.
+	HardwareCharacteristics *instance.HardwareCharacteristics
+
+	// Config holds the initial controller model configuration.
+	Config *config.Config
+
+	// HostedModelConfig is a set of config attributes to be overlaid
+	// on the controller model config (Config, above) to construct the
+	// initial hosted model config.
+	HostedModelConfig map[string]interface{}
+
+	// BootstrapMachineConstraints holds the constraints for the bootstrap
+	// machine.
+	BootstrapMachineConstraints constraints.Value
+
+	// ModelConstraints holds the initial model constraints.
+	ModelConstraints constraints.Value
+
+	// CustomImageMetadata is optional custom simplestreams image metadata
+	// to store in environment storage at bootstrap time. This is ignored
+	// in non-bootstrap instances.
+	CustomImageMetadata []*imagemetadata.ImageMetadata
+}
+
+type stateInitializationParamsInternal struct {
+	InstanceId                  instance.Id                       `yaml:"instance-id"`
+	HardwareCharacteristics     *instance.HardwareCharacteristics `yaml:"hardware,omitempty"`
+	Config                      map[string]interface{}            `yaml:"controller-model-config"`
+	HostedModelConfig           map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
+	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
+	CustomImageMetadataJSON     string                            `yaml:"custom-image-metadata,omitempty"`
+}
+
+// Marshal marshals StateInitializationParams to an opaque byte array.
+func (p *StateInitializationParams) Marshal() ([]byte, error) {
+	customImageMetadataJSON, err := json.Marshal(p.CustomImageMetadata)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling custom image metadata")
+	}
+	internal := stateInitializationParamsInternal{
+		p.InstanceId,
+		p.HardwareCharacteristics,
+		p.Config.AllAttrs(),
+		p.HostedModelConfig,
+		p.BootstrapMachineConstraints,
+		p.ModelConstraints,
+		string(customImageMetadataJSON),
+	}
+	return yaml.Marshal(&internal)
+}
+
+// Unmarshal unmarshals StateInitializationParams from a byte array that
+// was generated with StateInitializationParams.Marshal.
+func (p *StateInitializationParams) Unmarshal(data []byte) error {
+	var internal stateInitializationParamsInternal
+	if err := yaml.Unmarshal(data, &internal); err != nil {
+		return errors.Annotate(err, "unmarshalling state initialization params")
+	}
+	var imageMetadata []*imagemetadata.ImageMetadata
+	if err := json.Unmarshal([]byte(internal.CustomImageMetadataJSON), &imageMetadata); err != nil {
+		return errors.Trace(err)
+	}
+	cfg, err := config.New(config.NoDefaults, internal.Config)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	*p = StateInitializationParams{
+		InstanceId:                  internal.InstanceId,
+		HardwareCharacteristics:     internal.HardwareCharacteristics,
+		Config:                      cfg,
+		HostedModelConfig:           internal.HostedModelConfig,
+		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
+		ModelConstraints:            internal.ModelConstraints,
+		CustomImageMetadata:         imageMetadata,
+	}
+	return nil
 }
 
 func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
@@ -220,11 +295,13 @@ func (cfg *InstanceConfig) AgentConfig(
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the instance is a controller then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
-	var password string
-	if cfg.MongoInfo == nil {
+	var password, cacert string
+	if cfg.Controller == nil {
 		password = cfg.APIInfo.Password
+		cacert = cfg.APIInfo.CACert
 	} else {
-		password = cfg.MongoInfo.Password
+		password = cfg.Controller.MongoInfo.Password
+		cacert = cfg.Controller.MongoInfo.CACert
 	}
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
@@ -239,14 +316,14 @@ func (cfg *InstanceConfig) AgentConfig(
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
 		APIAddresses:      cfg.ApiHostAddrs(),
-		CACert:            cfg.MongoInfo.CACert,
+		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
 		Model:             cfg.APIInfo.ModelTag,
 	}
-	if !cfg.Bootstrap {
+	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}
-	return agent.NewStateMachineConfig(configParams, *cfg.StateServingInfo)
+	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }
 
 // JujuTools returns the directory where Juju tools are stored.
@@ -261,19 +338,23 @@ func (cfg *InstanceConfig) GUITools() string {
 
 func (cfg *InstanceConfig) stateHostAddrs() []string {
 	var hosts []string
-	if cfg.Bootstrap {
-		hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.StatePort)))
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, net.JoinHostPort(
+			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.StatePort)),
+		)
 	}
-	if cfg.MongoInfo != nil {
-		hosts = append(hosts, cfg.MongoInfo.Addrs...)
+	if cfg.Controller != nil {
+		hosts = append(hosts, cfg.Controller.MongoInfo.Addrs...)
 	}
 	return hosts
 }
 
 func (cfg *InstanceConfig) ApiHostAddrs() []string {
 	var hosts []string
-	if cfg.Bootstrap {
-		hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.APIPort)))
+	if cfg.Bootstrap != nil {
+		hosts = append(hosts, net.JoinHostPort(
+			"localhost", strconv.Itoa(cfg.Bootstrap.StateServingInfo.APIPort)),
+		)
 	}
 	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
@@ -370,12 +451,6 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		return errors.New("missing tools")
 	}
 	// We don't need to check cfg.toolsURLs since SetTools() does.
-	if cfg.MongoInfo == nil {
-		return errors.New("missing state info")
-	}
-	if len(cfg.MongoInfo.CACert) == 0 {
-		return errors.New("missing CA certificate")
-	}
 	if cfg.APIInfo == nil {
 		return errors.New("missing API info")
 	}
@@ -388,62 +463,93 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if cfg.MachineAgentServiceName == "" {
 		return errors.New("missing machine agent service name")
 	}
-	if cfg.Bootstrap {
-		if cfg.Config == nil {
-			return errors.New("missing model configuration")
+	if cfg.MachineNonce == "" {
+		return errors.New("missing machine nonce")
+	}
+	if cfg.Controller != nil {
+		if err := cfg.verifyControllerConfig(); err != nil {
+			return errors.Trace(err)
 		}
-		if cfg.MongoInfo.Tag != nil {
-			return errors.New("entity tag must be nil when starting a controller")
-		}
-		if cfg.APIInfo.Tag != nil {
-			return errors.New("entity tag must be nil when starting a controller")
-		}
-		if cfg.StateServingInfo == nil {
-			return errors.New("missing state serving info")
-		}
-		if len(cfg.StateServingInfo.Cert) == 0 {
-			return errors.New("missing controller certificate")
-		}
-		if len(cfg.StateServingInfo.PrivateKey) == 0 {
-			return errors.New("missing controller private key")
-		}
-		if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
-			return errors.New("missing ca cert private key")
-		}
-		if cfg.StateServingInfo.StatePort == 0 {
-			return errors.New("missing state port")
-		}
-		if cfg.StateServingInfo.APIPort == 0 {
-			return errors.New("missing API port")
-		}
-		if cfg.InstanceId == "" {
-			return errors.New("missing instance-id")
-		}
-		if len(cfg.HostedModelConfig) == 0 {
-			return errors.New("missing hosted model config")
+	}
+	if cfg.Bootstrap != nil {
+		if err := cfg.verifyBootstrapConfig(); err != nil {
+			return errors.Trace(err)
 		}
 	} else {
-		if len(cfg.MongoInfo.Addrs) == 0 {
-			return errors.New("missing state hosts")
-		}
-		if cfg.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return errors.New("entity tag must match started machine")
+		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
+			return errors.New("API entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return errors.New("missing API hosts")
 		}
-		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
+	}
+	return nil
+}
+
+func (cfg *InstanceConfig) verifyBootstrapConfig() (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid bootstrap configuration")
+	if cfg.Controller == nil {
+		return errors.New("bootstrap config supplied without controller config")
+	}
+	if err := cfg.Bootstrap.VerifyConfig(); err != nil {
+		return errors.Trace(err)
+	}
+	if cfg.APIInfo.Tag != nil || cfg.Controller.MongoInfo.Tag != nil {
+		return errors.New("entity tag must be nil when bootstrapping")
+	}
+	return nil
+}
+
+func (cfg *InstanceConfig) verifyControllerConfig() (err error) {
+	defer errors.DeferredAnnotatef(&err, "invalid controller configuration")
+	if err := cfg.Controller.VerifyConfig(); err != nil {
+		return errors.Trace(err)
+	}
+	if cfg.Bootstrap == nil {
+		if len(cfg.Controller.MongoInfo.Addrs) == 0 {
+			return errors.New("missing state hosts")
+		}
+		if cfg.Controller.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return errors.New("entity tag must match started machine")
 		}
-		if cfg.StateServingInfo != nil {
-			return errors.New("state serving info unexpectedly present")
-		}
-		if len(cfg.HostedModelConfig) != 0 {
-			return errors.New("hosted model config unexpectedly present")
-		}
 	}
-	if cfg.MachineNonce == "" {
-		return errors.New("missing machine nonce")
+	return nil
+}
+
+func (cfg *BootstrapConfig) VerifyConfig() (err error) {
+	if cfg.Config == nil {
+		return errors.New("missing model configuration")
+	}
+	if len(cfg.StateServingInfo.Cert) == 0 {
+		return errors.New("missing controller certificate")
+	}
+	if len(cfg.StateServingInfo.PrivateKey) == 0 {
+		return errors.New("missing controller private key")
+	}
+	if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
+		return errors.New("missing ca cert private key")
+	}
+	if cfg.StateServingInfo.StatePort == 0 {
+		return errors.New("missing state port")
+	}
+	if cfg.StateServingInfo.APIPort == 0 {
+		return errors.New("missing API port")
+	}
+	if cfg.InstanceId == "" {
+		return errors.New("missing instance-id")
+	}
+	if len(cfg.HostedModelConfig) == 0 {
+		return errors.New("missing hosted model config")
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) VerifyConfig() error {
+	if cfg.MongoInfo == nil {
+		return errors.New("missing state info")
+	}
+	if len(cfg.MongoInfo.CACert) == 0 {
+		return errors.New("missing CA certificate")
 	}
 	return nil
 }
@@ -464,10 +570,8 @@ func NewInstanceConfig(
 	machineID,
 	machineNonce,
 	imageStream,
-	series,
-	publicImageSigningKey string,
+	series string,
 	secureServerConnections bool,
-	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
 	dataDir, err := paths.DataDir(series)
@@ -495,12 +599,10 @@ func NewInstanceConfig(
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
-		MachineId:             machineID,
-		MachineNonce:          machineNonce,
-		MongoInfo:             mongoInfo,
-		APIInfo:               apiInfo,
-		ImageStream:           imageStream,
-		PublicImageSigningKey: publicImageSigningKey,
+		MachineId:    machineID,
+		MachineNonce: machineNonce,
+		APIInfo:      apiInfo,
+		ImageStream:  imageStream,
 		AgentEnvironment: map[string]string{
 			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
 		},
@@ -517,17 +619,23 @@ func NewBootstrapInstanceConfig(
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, FinishInstanceConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, publicImageSigningKey, true, nil, nil)
+	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil)
 	if err != nil {
 		return nil, err
 	}
-	icfg.Bootstrap = true
+	icfg.Controller = &ControllerConfig{
+		PublicImageSigningKey: publicImageSigningKey,
+	}
+	icfg.Bootstrap = &BootstrapConfig{
+		StateInitializationParams: StateInitializationParams{
+			BootstrapMachineConstraints: cons,
+			ModelConstraints:            modelCons,
+		},
+	}
 	icfg.Jobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 	}
-	icfg.Constraints = cons
-	icfg.ModelConstraints = modelCons
 	return icfg, nil
 }
 
@@ -590,20 +698,19 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		return errors.Trace(err)
 	}
 
-	if isStateInstanceConfig(icfg) {
+	if icfg.Controller != nil {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sense for controller
 		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
 		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
 	}
-	// The following settings are only appropriate at bootstrap time. At the
-	// moment, the only controller is the bootstrap node, but this
-	// will probably change.
-	if !icfg.Bootstrap {
+
+	// The following settings are only appropriate at bootstrap time.
+	if icfg.Bootstrap == nil {
 		return nil
 	}
-	if icfg.APIInfo != nil || icfg.MongoInfo != nil {
+	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
 	caCert, hasCACert := cfg.CACert()
@@ -619,7 +726,9 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		CACert:   caCert,
 		ModelTag: names.NewModelTag(cfg.UUID()),
 	}
-	icfg.MongoInfo = &mongo.MongoInfo{Password: password, Info: mongo.Info{CACert: caCert}}
+	icfg.Controller.MongoInfo = &mongo.MongoInfo{
+		Password: password, Info: mongo.Info{CACert: caCert},
+	}
 
 	// These really are directly relevant to running a controller.
 	// Initially, generate a controller certificate with no host IP
@@ -633,15 +742,14 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if !hasCAPrivateKey {
 		return errors.New("model configuration has no ca-private-key")
 	}
-	srvInfo := params.StateServingInfo{
+	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
 		StatePort:    cfg.StatePort(),
 		APIPort:      cfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
 		CAPrivateKey: caPrivateKey,
 	}
-	icfg.StateServingInfo = &srvInfo
-	if icfg.Config, err = bootstrapConfig(cfg); err != nil {
+	if icfg.Bootstrap.Config, err = bootstrapConfig(cfg); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -680,16 +788,4 @@ func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 		return nil, fmt.Errorf("model configuration has no agent-version")
 	}
 	return cfg, nil
-}
-
-// isStateInstanceConfig determines if given machine configuration
-// is for controller by iterating over machine's jobs.
-// If JobManageModel is present, this is a controller.
-func isStateInstanceConfig(icfg *InstanceConfig) bool {
-	for _, aJob := range icfg.Jobs {
-		if aJob == multiwatcher.JobManageModel {
-			return true
-		}
-	}
-	return false
 }
