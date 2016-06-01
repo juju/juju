@@ -58,7 +58,7 @@ func (s *SSHHostKeysSuite) TestModelIsolation(c *gc.C) {
 func checkKeysNotFound(c *gc.C, st *state.State, tag names.MachineTag) {
 	_, err := st.GetSSHHostKeys(tag)
 	c.Check(errors.IsNotFound(err), jc.IsTrue)
-	c.Check(err, gc.ErrorMatches, "SSH host keys for .+ not found")
+	c.Check(err, gc.ErrorMatches, "keys not found")
 }
 
 func checkGet(c *gc.C, st *state.State, tag names.MachineTag, expected state.SSHHostKeys) {

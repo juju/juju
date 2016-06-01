@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1690,6 +1691,41 @@ func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {
 	assertLife(c, machine, state.Dying)
 }
 
+func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
+	// Check state is clean.
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+
+	err = s.mysql.Destroy()
+
+	// Check a cleanup doc was added.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
+
+	// Run the cleanup and check the charm.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Charm(s.charm.URL())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Check we're now clean.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+}
+
+func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "service", ch, s.Owner)
+
+	err := svc.Destroy()
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
+}
+
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
@@ -2073,15 +2109,26 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
 	u1, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u1.SetStatus(status1, "status 1", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status1,
+		Message: "status 1",
+		Since:   &now,
+	}
+	err = u1.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	u2, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
+	sInfo = status.StatusInfo{
+		Status:  status2,
+		Message: "status 2",
+		Since:   &now,
+	}
 	if status2 == status.StatusError {
-		err = u2.SetAgentStatus(status2, "status 2", nil)
+		err = u2.SetAgentStatus(sInfo)
 	} else {
-		err = u2.SetStatus(status2, "status 2", nil)
+		err = u2.SetStatus(sInfo)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 

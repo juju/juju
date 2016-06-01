@@ -367,7 +367,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
 	metadata := s.AssertGetMetadata(c)
-	c.Check(len(metadata.Products), gc.Equals, 3)
+	c.Check(len(metadata.Products), gc.Equals, 6)
 	c.Check(len(metadata.Aliases), gc.Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Items), gc.Equals, 2)
@@ -423,6 +423,43 @@ func (s *simplestreamsSuite) TestDealiasing(c *gc.C) {
 	ti := ic.Items["usww3he"].(*sstesting.TestItem)
 	c.Check(ti.RegionName, gc.Equals, "us-west-3")
 	c.Check(ti.Endpoint, gc.Equals, "https://ec2.us-west-3.amazonaws.com")
+}
+
+type storageVirtTest struct {
+	product, coll, item, storage, virt string
+}
+
+func (s *simplestreamsSuite) TestStorageVirtFromTopLevel(c *gc.C) {
+	s.assertImageMetadata(c,
+		storageVirtTest{"com.ubuntu.cloud:server:13.04:amd64", "20160318", "nzww1pe", "ebs", "pv"},
+	)
+}
+
+func (s *simplestreamsSuite) TestStorageVirtFromCatalog(c *gc.C) {
+	s.assertImageMetadata(c,
+		storageVirtTest{"com.ubuntu.cloud:server:14.10:amd64", "20160218", "nzww1pe", "ebs", "pv"},
+	)
+}
+
+func (s *simplestreamsSuite) TestStorageVirtFromCollection(c *gc.C) {
+	s.assertImageMetadata(c,
+		storageVirtTest{"com.ubuntu.cloud:server:12.10:amd64", "20160118", "nzww1pe", "ebs", "pv"},
+	)
+}
+
+func (s *simplestreamsSuite) TestStorageVirtFromItem(c *gc.C) {
+	s.assertImageMetadata(c,
+		storageVirtTest{"com.ubuntu.cloud:server:14.04:amd64", "20140118", "nzww1pe", "ssd", "hvm"},
+	)
+}
+
+func (s *simplestreamsSuite) assertImageMetadata(c *gc.C, one storageVirtTest) {
+	metadata := s.AssertGetMetadata(c)
+	metadataCatalog := metadata.Products[one.product]
+	ic := metadataCatalog.Items[one.coll]
+	ti := ic.Items[one.item].(*sstesting.TestItem)
+	c.Check(ti.Storage, gc.Equals, one.storage)
+	c.Check(ti.VirtType, gc.Equals, one.virt)
 }
 
 var getMirrorTests = []struct {

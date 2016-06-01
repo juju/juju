@@ -174,7 +174,7 @@ var notJujuUid = uint32(os.Getuid() + 1)
 
 func (s *wrenchSuite) AssertActivationLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.WARNING, `wrench for foo/bar is active`}})
+		{loggo.DEBUG, `wrench for foo/bar is active`}})
 }
 
 func (s *wrenchSuite) AssertNothingLogged(c *gc.C) {

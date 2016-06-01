@@ -917,16 +917,17 @@ func (m *Machine) Refresh() error {
 
 // AgentPresence returns whether the respective remote agent is alive.
 func (m *Machine) AgentPresence() (bool, error) {
-	b, err := m.st.pwatcher.Alive(m.globalKey())
-	return b, err
+	pwatcher := m.st.workers.PresenceWatcher()
+	return pwatcher.Alive(m.globalKey())
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
-	m.st.pwatcher.Watch(m.globalKey(), ch)
-	defer m.st.pwatcher.Unwatch(m.globalKey(), ch)
+	pwatcher := m.st.workers.PresenceWatcher()
+	pwatcher.Watch(m.globalKey(), ch)
+	defer pwatcher.Unwatch(m.globalKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -936,8 +937,8 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 		case <-time.After(timeout):
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
-		case <-m.st.pwatcher.Dead():
-			return m.st.pwatcher.Err()
+		case <-pwatcher.Dead():
+			return pwatcher.Err()
 		}
 	}
 	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
@@ -946,7 +947,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // SetAgentPresence signals that the agent for machine m is alive.
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := m.st.getPresence()
+	presenceCollection := m.st.getPresenceCollection()
 	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey())
 	err := p.Start()
 	if err != nil {
@@ -960,7 +961,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	//
 	// TODO: Does not work for multiple controllers. Trigger a sync across all controllers.
 	if m.IsManager() {
-		m.st.pwatcher.Sync()
+		m.st.workers.PresenceWatcher().Sync()
 	}
 	return p, nil
 }
@@ -990,23 +991,30 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
-func (m *Machine) SetInstanceStatus(instanceStatus status.Status, info string, data map[string]interface{}) (err error) {
+func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 	return setStatus(m.st, setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
-		status:    instanceStatus,
-		message:   info,
-		rawData:   data,
+		status:    sInfo.Status,
+		message:   sInfo.Message,
+		rawData:   sInfo.Data,
+		updated:   sInfo.Since,
 	})
 
 }
 
-// InstanceStatusHistory returns a slice of at most <size> StatusInfo items
+// InstanceStatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this machine instance.
 // Instance represents the provider underlying [v]hardware or container where
 // this juju machine is deployed.
-func (u *Machine) InstanceStatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalInstanceKey(), size)
+func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        m.st,
+		globalKey: m.globalInstanceKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -1156,12 +1164,12 @@ func containsAddress(addresses []address, address address) bool {
 }
 
 // PublicAddress returns a public address for the machine. If no address is
-// available it returns an error that satisfies network.IsNoAddress.
+// available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PublicAddress() (network.Address, error) {
 	publicAddress := m.doc.PreferredPublicAddress.networkAddress()
 	var err error
 	if publicAddress.Value == "" {
-		err = network.NoAddressf("public")
+		err = network.NoAddressError("public")
 	}
 	return publicAddress, err
 }
@@ -1208,12 +1216,12 @@ func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []addr
 }
 
 // PrivateAddress returns a private address for the machine. If no address is
-// available it returns an error that satisfies network.IsNoAddress.
+// available it returns an error that satisfies network.IsNoAddressError().
 func (m *Machine) PrivateAddress() (network.Address, error) {
 	privateAddress := m.doc.PreferredPrivateAddress.networkAddress()
 	var err error
 	if privateAddress.Value == "" {
-		err = network.NoAddressf("private")
+		err = network.NoAddressError("private")
 	}
 	return privateAddress, err
 }
@@ -1365,19 +1373,18 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	}
 
 	// Update addresses now.
-	envConfig, err := m.st.ModelConfig()
-	if err != nil {
-		return err
-	}
-	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
+	network.SortAddresses(addressesToSet)
 	origin := OriginProvider
 	if fieldName == "machineaddresses" {
 		origin = OriginMachine
 	}
 	stateAddresses := fromNetworkAddresses(addressesToSet, origin)
 
-	var newPrivate, newPublic address
-	var changedPrivate, changedPublic bool
+	var (
+		newPrivate, newPublic         address
+		changedPrivate, changedPublic bool
+		err                           error
+	)
 	machine := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
@@ -1413,10 +1420,9 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		return ops, nil
 	}
 	err = m.st.run(buildTxn)
-	if err != nil {
-		if err == txn.ErrAborted {
-			return ErrDead
-		}
+	if err == txn.ErrAborted {
+		return ErrDead
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1510,12 +1516,12 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error {
-	switch machineStatus {
+func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
+	switch statusInfo.Status {
 	case status.StatusStarted, status.StatusStopped:
 	case status.StatusError:
-		if info == "" {
-			return errors.Errorf("cannot set status %q without info", machineStatus)
+		if statusInfo.Message == "" {
+			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
 		}
 	case status.StatusPending:
 		// If a machine is not yet provisioned, we allow its status
@@ -1527,23 +1533,30 @@ func (m *Machine) SetStatus(machineStatus status.Status, info string, data map[s
 		}
 		fallthrough
 	case status.StatusDown:
-		return errors.Errorf("cannot set status %q", machineStatus)
+		return errors.Errorf("cannot set status %q", statusInfo.Status)
 	default:
-		return errors.Errorf("cannot set invalid status %q", machineStatus)
+		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
 	return setStatus(m.st, setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
-		status:    machineStatus,
-		message:   info,
-		rawData:   data,
+		status:    statusInfo.Status,
+		message:   statusInfo.Message,
+		rawData:   statusInfo.Data,
+		updated:   statusInfo.Since,
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this machine.
-func (m *Machine) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(m.st, m.globalKey(), size)
+func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        m.st,
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Clean returns true if the machine does not have any deployed units or containers.
@@ -1637,8 +1650,15 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			if statusInfo.Status == status.StatusPending {
 				containerType := ContainerTypeFromId(containerId)
-				container.SetStatus(
-					status.StatusError, "unsupported container", map[string]interface{}{"type": containerType})
+				// TODO(perrito666) 2016-05-02 lp:1558657
+				now := time.Now()
+				s := status.StatusInfo{
+					Status:  status.StatusError,
+					Message: "unsupported container",
+					Data:    map[string]interface{}{"type": containerType},
+					Since:   &now,
+				}
+				container.SetStatus(s)
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

@@ -25,6 +25,11 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+// LTS-dependent requires new entry upon new LTS release. There are numerous
+// places "xenial" exists in strings throughout this file. If we update the
+// target in testing/base.go:SetupSuite we'll need to also update the entries
+// herein.
+
 // runDeployCommand executes the deploy command in order to deploy the given
 // charm or bundle. The deployment output and error are returned.
 func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
@@ -39,37 +44,37 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNotFoundCharmStore(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple", "--config", "config.yaml")
 	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --config.")
 	_, err = runDeployCommand(c, "bundle/wordpress-simple", "-n", "2")
 	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: -n.")
-	_, err = runDeployCommand(c, "bundle/wordpress-simple", "--series", "trusty", "--force")
+	_, err = runDeployCommand(c, "bundle/wordpress-simple", "--series", "xenial", "--force")
 	c.Assert(err, gc.ErrorMatches, "Flags provided but not supported when deploying a bundle: --force, --series.")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	output, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-42
-service mysql deployed (charm cs:trusty/mysql-42 with the charm series "trusty")
-added charm cs:trusty/wordpress-47
-service wordpress deployed (charm cs:trusty/wordpress-47 with the charm series "trusty")
+added charm cs:xenial/mysql-42
+service mysql deployed (charm cs:xenial/mysql-42 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-47
+service wordpress deployed (charm cs:xenial/wordpress-47 with the series "xenial" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:trusty/mysql-42"},
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"mysql":     {charm: "cs:xenial/mysql-42"},
+		"wordpress": {charm: "cs:xenial/wordpress-47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -79,24 +84,24 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/terms1-17", "terms1")
-	testcharms.UploadCharm(c, s.client, "trusty/terms2-42", "terms2")
+	testcharms.UploadCharm(c, s.client, "xenial/terms1-17", "terms1")
+	testcharms.UploadCharm(c, s.client, "xenial/terms2-42", "terms2")
 	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
 	output, err := runDeployCommand(c, "bundle/terms-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/terms1-17
-service terms1 deployed (charm cs:trusty/terms1-17 with the charm series "trusty")
-added charm cs:trusty/terms2-42
-service terms2 deployed (charm cs:trusty/terms2-42 with the charm series "trusty")
+added charm cs:xenial/terms1-17
+service terms1 deployed (charm cs:xenial/terms1-17 with the series "xenial" defined by the bundle)
+added charm cs:xenial/terms2-42
+service terms2 deployed (charm cs:xenial/terms2-42 with the series "xenial" defined by the bundle)
 added terms1/0 unit to new machine
 added terms2/0 unit to new machine
 deployment of bundle "cs:bundle/terms-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/terms1-17", "cs:trusty/terms2-42")
+	s.assertCharmsUploaded(c, "cs:xenial/terms1-17", "cs:xenial/terms2-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"terms1": {charm: "cs:trusty/terms1-17"},
-		"terms2": {charm: "cs:trusty/terms2-42"},
+		"terms1": {charm: "cs:xenial/terms1-17"},
+		"terms2": {charm: "cs:xenial/terms2-42"},
 	})
 	s.assertUnitsCreated(c, map[string]string{
 		"terms1/0": "0",
@@ -106,8 +111,8 @@ deployment of bundle "cs:bundle/terms-simple-1" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql-storage")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql-storage")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
 	output, err := runDeployCommand(
 		c, "bundle/wordpress-with-mysql-storage",
@@ -115,25 +120,25 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-42
-service mysql deployed (charm cs:trusty/mysql-42 with the charm series "trusty")
-added charm cs:trusty/wordpress-47
-service wordpress deployed (charm cs:trusty/wordpress-47 with the charm series "trusty")
+added charm cs:xenial/mysql-42
+service mysql deployed (charm cs:xenial/mysql-42 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-47
+service wordpress deployed (charm cs:xenial/wordpress-47 with the series "xenial" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"mysql": {
-			charm: "cs:trusty/mysql-42",
+			charm: "cs:xenial/mysql-42",
 			storage: map[string]state.StorageConstraints{
 				"data": state.StorageConstraints{Pool: "rootfs", Size: 50 * 1024, Count: 1},
 				"logs": state.StorageConstraints{Pool: "tmpfs", Size: 10 * 1024, Count: 1},
 			},
 		},
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"wordpress": {charm: "cs:xenial/wordpress-47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -143,15 +148,15 @@ deployment of bundle "cs:bundle/wordpress-with-mysql-storage-1" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-extra-bindings-47", "wordpress-extra-bindings")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches,
 		"cannot deploy bundle: cannot deploy service \"mysql\": "+
 			"cannot add service \"mysql\": unknown space \"db\" not valid")
-	c.Assert(output, gc.Equals, "added charm cs:trusty/mysql-42")
-	s.assertCharmsUploaded(c, "cs:trusty/mysql-42")
+	c.Assert(output, gc.Equals, "added charm cs:xenial/mysql-42")
+	s.assertCharmsUploaded(c, "cs:xenial/mysql-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{})
 	s.assertUnitsCreated(c, map[string]string{})
 }
@@ -162,26 +167,26 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-extra-bindings-47", "wordpress-extra-bindings")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	output, err := runDeployCommand(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-42
-service mysql deployed (charm cs:trusty/mysql-42 with the charm series "trusty")
-added charm cs:trusty/wordpress-extra-bindings-47
-service wordpress-extra-bindings deployed (charm cs:trusty/wordpress-extra-bindings-47 with the charm series "trusty")
+added charm cs:xenial/mysql-42
+service mysql deployed (charm cs:xenial/mysql-42 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-extra-bindings-47
+service wordpress-extra-bindings deployed (charm cs:xenial/wordpress-extra-bindings-47 with the series "xenial" defined by the bundle)
 related wordpress-extra-bindings:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress-extra-bindings/0 unit to new machine
 deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-extra-bindings-47")
+	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-extra-bindings-47")
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":                    {charm: "cs:trusty/mysql-42"},
-		"wordpress-extra-bindings": {charm: "cs:trusty/wordpress-extra-bindings-47"},
+		"mysql":                    {charm: "cs:xenial/mysql-42"},
+		"wordpress-extra-bindings": {charm: "cs:xenial/wordpress-extra-bindings-47"},
 	})
 	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
 		"mysql": {
@@ -209,27 +214,27 @@ deployment of bundle "cs:bundle/wordpress-with-endpoint-bindings-1" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	output, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-42
-reusing service mysql (charm: cs:trusty/mysql-42)
-added charm cs:trusty/wordpress-47
-reusing service wordpress (charm: cs:trusty/wordpress-47)
+added charm cs:xenial/mysql-42
+reusing service mysql (charm: cs:xenial/mysql-42)
+added charm cs:xenial/wordpress-47
+reusing service wordpress (charm: cs:xenial/wordpress-47)
 wordpress:db and mysql:server are already related
 avoid adding new units to service mysql: 1 unit already present
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:trusty/mysql-42"},
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"mysql":     {charm: "cs:xenial/mysql-42"},
+		"wordpress": {charm: "cs:xenial/wordpress-47"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -239,16 +244,16 @@ deployment of bundle "cs:bundle/wordpress-simple-1" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	url, _ := testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, clientUserName)
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:trusty/mysql-42", "cs:trusty/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:trusty/mysql-42"},
-		"wordpress": {charm: "cs:trusty/wordpress-47"},
+		"mysql":     {charm: "cs:xenial/mysql-42"},
+		"wordpress": {charm: "cs:xenial/wordpress-47"},
 	})
 }
 
@@ -257,7 +262,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	testcharms.Repo.ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
 	data := `
-        series: trusty
+        series: xenial
         services:
             dummy:
                 charm: ./dummy
@@ -307,8 +312,8 @@ deployment of bundle %q completed`, path)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharmUnauthorized(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-42", "mysql")
-	url, _ := testcharms.UploadCharm(c, s.client, "trusty/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, "who")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	_, err := runDeployCommand(c, "bundle/wordpress-simple")
@@ -363,10 +368,10 @@ charm path in service "mysql" does not exist: mysql`,
 	content: `
         services:
             rails:
-                charm: trusty/rails-42
+                charm: xenial/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot resolve URL "trusty/rails-42": cannot resolve URL "cs:trusty/rails-42": charm not found`,
+	err: `cannot deploy bundle: cannot resolve URL "xenial/rails-42": cannot resolve URL "cs:xenial/rails-42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
@@ -424,11 +429,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	_, err := s.DeployBundleYAML(c, `
         services:
             wp:
-                charm: trusty/wordpress-42
+                charm: xenial/wordpress-42
                 num_units: 1
                 options:
                     blog-title: 42
@@ -437,11 +442,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidOptions(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	_, err := s.DeployBundleYAML(c, `
         services:
             wp:
-                charm: trusty/wordpress
+                charm: xenial/wordpress
                 num_units: 1
                 to: ["bad:1"]
         machines:
@@ -461,7 +466,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
                     - 1
         machines:
             1:
-                series: trusty
+                series: xenial
     `)
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot add unit for service "django": adding new machine to host unit "django/0": cannot assign unit "django/0" to machine 0: series does not match`)
 }
@@ -480,8 +485,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 		return watcher, nil
 	})
 
-	testcharms.UploadCharm(c, s.client, "trusty/django-0", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/django-0", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
 	s.PatchValue(&updateUnitStatusPeriod, 0*time.Second)
 	_, err := s.DeployBundleYAML(c, `
         services:
@@ -501,7 +506,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
 	wordpressPath := testcharms.Repo.ClonedDirPath(charmsPath, "wordpress")
 	output, err := s.DeployBundleYAML(c, fmt.Sprintf(`
-        series: trusty
+        series: xenial
         services:
             wordpress:
                 charm: %s
@@ -514,20 +519,20 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
     `, wordpressPath, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm local:trusty/mysql-1
-service mysql deployed (charm local:trusty/mysql-1 with the series "trusty" defined by the bundle)
-added charm local:trusty/wordpress-3
-service wordpress deployed (charm local:trusty/wordpress-3 with the series "trusty" defined by the bundle)
+added charm local:xenial/mysql-1
+service mysql deployed (charm local:xenial/mysql-1 with the series "xenial" defined by the bundle)
+added charm local:xenial/wordpress-3
+service wordpress deployed (charm local:xenial/wordpress-3 with the series "xenial" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added mysql/1 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "local:trusty/mysql-1", "local:trusty/wordpress-3")
+	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "local:xenial/wordpress-3")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "local:trusty/mysql-1"},
-		"wordpress": {charm: "local:trusty/wordpress-3"},
+		"mysql":     {charm: "local:xenial/mysql-1"},
+		"wordpress": {charm: "local:xenial/wordpress-3"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -539,14 +544,14 @@ deployment of bundle "local:bundle/example-0" completed`
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
 	output, err := s.DeployBundleYAML(c, fmt.Sprintf(`
-        series: trusty
+        series: xenial
         services:
             wordpress:
-                charm: trusty/wordpress-42
-                series: trusty
+                charm: xenial/wordpress-42
+                series: xenial
                 num_units: 1
             mysql:
                 charm: %s
@@ -556,19 +561,19 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
     `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm local:trusty/mysql-1
-service mysql deployed (charm local:trusty/mysql-1 with the series "trusty" defined by the bundle)
-added charm cs:trusty/wordpress-42
-service wordpress deployed (charm cs:trusty/wordpress-42 with the series "trusty" defined by the bundle)
+added charm local:xenial/mysql-1
+service mysql deployed (charm local:xenial/mysql-1 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-42
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "local:trusty/mysql-1", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "cs:xenial/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "local:trusty/mysql-1"},
-		"wordpress": {charm: "cs:trusty/wordpress-42"},
+		"mysql":     {charm: "local:xenial/mysql-1"},
+		"wordpress": {charm: "cs:xenial/wordpress-42"},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -578,7 +583,7 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
@@ -598,20 +603,20 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
 	expectedOutput := `
 added charm cs:precise/dummy-0
 service customized deployed (charm cs:precise/dummy-0 with the series "precise" defined by the bundle)
-added charm cs:trusty/wordpress-42
-service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
+added charm cs:xenial/wordpress-42
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 added customized/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"customized": {
 			charm:  "cs:precise/dummy-0",
 			config: charm.Settings{"username": "who", "skill-level": int64(47)},
 		},
 		"wordpress": {
-			charm:  "cs:trusty/wordpress-42",
+			charm:  "cs:xenial/wordpress-42",
 			config: charm.Settings{"blog-title": "these are the voyages"},
 		},
 	})
@@ -622,7 +627,7 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
@@ -638,19 +643,19 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C)
 	expectedOutput := `
 added charm cs:precise/dummy-0
 service customized deployed (charm cs:precise/dummy-0 with the series "precise" defined by the bundle)
-added charm cs:trusty/wordpress-42
-service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
+added charm cs:xenial/wordpress-42
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 added customized/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"customized": {
 			charm:       "cs:precise/dummy-0",
 			constraints: constraints.MustParse("arch=i386"),
 		},
 		"wordpress": {
-			charm:       "cs:trusty/wordpress-42",
+			charm:       "cs:xenial/wordpress-42",
 			constraints: constraints.MustParse("mem=4G cpu-cores=2"),
 		},
 	})
@@ -660,7 +665,7 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-1", "upgrade1")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-2", "upgrade2")
 
@@ -681,13 +686,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 	expectedOutput := `
 added charm cs:vivid/upgrade-1
 service up deployed (charm cs:vivid/upgrade-1 with the series "vivid" defined by the bundle)
-added charm cs:trusty/wordpress-42
-service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
+added charm cs:xenial/wordpress-42
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 added up/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:xenial/wordpress-42")
 
 	// Then deploy a new bundle with modified charm revision and options.
 	output, err = s.DeployBundleYAML(c, `
@@ -706,19 +711,19 @@ deployment of bundle "local:bundle/example-0" completed`
 	expectedOutput = `
 added charm cs:vivid/upgrade-2
 upgraded charm for existing service up (from cs:vivid/upgrade-1 to cs:vivid/upgrade-2)
-added charm cs:trusty/wordpress-42
-reusing service wordpress (charm: cs:trusty/wordpress-42)
+added charm cs:xenial/wordpress-42
+reusing service wordpress (charm: cs:xenial/wordpress-42)
 configuration updated for service wordpress
 constraints applied for service wordpress
 avoid adding new units to service up: 1 unit already present
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
-	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:trusty/wordpress-42")
+	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
 		"up": {charm: "cs:vivid/upgrade-2"},
 		"wordpress": {
-			charm:       "cs:trusty/wordpress-42",
+			charm:       "cs:xenial/wordpress-42",
 			config:      charm.Settings{"blog-title": "new title"},
 			constraints: constraints.MustParse("spaces=new cpu-cores=8"),
 		},
@@ -730,7 +735,7 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	content := `
         services:
             wordpress:
@@ -740,7 +745,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
     `
 	expectedServices := map[string]serviceInfo{
 		"wordpress": {
-			charm:   "cs:trusty/wordpress-42",
+			charm:   "cs:xenial/wordpress-42",
 			exposed: true,
 		},
 	}
@@ -749,8 +754,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	output, err := s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/wordpress-42
-service wordpress deployed (charm cs:trusty/wordpress-42 with the charm series "trusty")
+added charm cs:xenial/wordpress-42
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 service wordpress exposed
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
@@ -762,8 +767,8 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-added charm cs:trusty/wordpress-42
-reusing service wordpress (charm: cs:trusty/wordpress-42)
+added charm cs:xenial/wordpress-42
+reusing service wordpress (charm: cs:xenial/wordpress-42)
 service wordpress exposed
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "local:bundle/example-0" completed`
@@ -781,8 +786,8 @@ deployment of bundle "local:bundle/example-0" completed`
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-added charm cs:trusty/wordpress-42
-reusing service wordpress (charm: cs:trusty/wordpress-42)
+added charm cs:xenial/wordpress-42
+reusing service wordpress (charm: cs:xenial/wordpress-42)
 avoid adding new units to service wordpress: 1 unit already present
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
@@ -793,14 +798,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *g
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	// Try upgrading to a different charm name.
-	testcharms.UploadCharm(c, s.client, "trusty/incompatible-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/incompatible-42", "wordpress")
 	_, err := s.DeployBundleYAML(c, `
         services:
             wordpress:
-                charm: trusty/incompatible-42
+                charm: xenial/incompatible-42
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:trusty/incompatible-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:xenial/incompatible-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 
 	// Try upgrading to a different series.
 	// Note that this test comes before the next one because
@@ -817,21 +822,21 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgradeFailure(c *g
 	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:vivid/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 
 	// Try upgrading to a different user.
-	testcharms.UploadCharm(c, s.client, "~who/trusty/wordpress-42", "wordpress")
+	testcharms.UploadCharm(c, s.client, "~who/xenial/wordpress-42", "wordpress")
 	_, err = s.DeployBundleYAML(c, `
         services:
             wordpress:
-                charm: cs:~who/trusty/wordpress-42
+                charm: cs:~who/xenial/wordpress-42
                 num_units: 1
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:~who/trusty/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot upgrade service "wordpress": bundle charm "cs:~who/xenial/wordpress-42" is incompatible with existing charm "local:quantal/wordpress-3"`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-1", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/postgres-2", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/varnish-3", "varnish")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-1", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/postgres-2", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/varnish-3", "varnish")
 	output, err := s.DeployBundleYAML(c, `
         services:
             wp:
@@ -841,10 +846,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
                 charm: mysql
                 num_units: 1
             pgres:
-                charm: trusty/postgres-2
+                charm: xenial/postgres-2
                 num_units: 1
             varnish:
-                charm: trusty/varnish
+                charm: xenial/varnish
                 num_units: 1
         relations:
             - ["wp:db", "mysql:server"]
@@ -853,14 +858,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-1
-service mysql deployed (charm cs:trusty/mysql-1 with the charm series "trusty")
-added charm cs:trusty/postgres-2
-service pgres deployed (charm cs:trusty/postgres-2 with the series "trusty" defined by the bundle)
-added charm cs:trusty/varnish-3
-service varnish deployed (charm cs:trusty/varnish-3 with the series "trusty" defined by the bundle)
-added charm cs:trusty/wordpress-0
-service wp deployed (charm cs:trusty/wordpress-0 with the charm series "trusty")
+added charm cs:xenial/mysql-1
+service mysql deployed (charm cs:xenial/mysql-1 with the series "xenial" defined by the bundle)
+added charm cs:xenial/postgres-2
+service pgres deployed (charm cs:xenial/postgres-2 with the series "xenial" defined by the bundle)
+added charm cs:xenial/varnish-3
+service varnish deployed (charm cs:xenial/varnish-3 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-0
+service wp deployed (charm cs:xenial/wordpress-0 with the series "xenial" defined by the bundle)
 related wp:db and mysql:server
 related wp:db and pgres:server
 related varnish:webcache and wp:cache
@@ -880,10 +885,10 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-1", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/postgres-2", "mysql")
-	testcharms.UploadCharm(c, s.client, "trusty/varnish-3", "varnish")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-1", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/postgres-2", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/varnish-3", "varnish")
 	_, err := s.DeployBundleYAML(c, `
         services:
             wp:
@@ -893,7 +898,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
                 charm: mysql
                 num_units: 1
             varnish:
-                charm: trusty/varnish
+                charm: xenial/varnish
                 num_units: 1
         relations:
             - ["wp:db", "mysql:server"]
@@ -908,7 +913,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
                 charm: mysql
                 num_units: 1
             varnish:
-                charm: trusty/varnish
+                charm: xenial/varnish
                 num_units: 1
         relations:
             - ["wp:db", "mysql:server"]
@@ -916,12 +921,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-1
-reusing service mysql (charm: cs:trusty/mysql-1)
-added charm cs:trusty/varnish-3
-reusing service varnish (charm: cs:trusty/varnish-3)
-added charm cs:trusty/wordpress-0
-reusing service wp (charm: cs:trusty/wordpress-0)
+added charm cs:xenial/mysql-1
+reusing service mysql (charm: cs:xenial/mysql-1)
+added charm cs:xenial/varnish-3
+reusing service varnish (charm: cs:xenial/varnish-3)
+added charm cs:xenial/wordpress-0
+reusing service wp (charm: cs:xenial/wordpress-0)
 wp:db and mysql:server are already related
 related varnish:webcache and wp:cache
 avoid adding new units to service mysql: 1 unit already present
@@ -938,12 +943,12 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
-	testcharms.UploadCharm(c, s.client, "trusty/mysql-2", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-2", "mysql")
 	content := `
         services:
             wp:
-                charm: cs:trusty/wordpress-0
+                charm: cs:xenial/wordpress-0
                 num_units: 2
                 to:
                     - 1
@@ -951,23 +956,23 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *
                 options:
                     blog-title: these are the voyages
             sql:
-                charm: cs:trusty/mysql
+                charm: cs:xenial/mysql
                 num_units: 2
                 to:
                     - lxc:wp/0
                     - new
         machines:
             1:
-                series: trusty
+                series: xenial
             2:
     `
 	output, err := s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/mysql-2
-service sql deployed (charm cs:trusty/mysql-2 with the series "trusty" defined by the bundle)
-added charm cs:trusty/wordpress-0
-service wp deployed (charm cs:trusty/wordpress-0 with the series "trusty" defined by the bundle)
+added charm cs:xenial/mysql-2
+service sql deployed (charm cs:xenial/mysql-2 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-0
+service wp deployed (charm cs:xenial/wordpress-0 with the series "xenial" defined by the bundle)
 created new machine 0 for holding wp unit
 created new machine 1 for holding wp unit
 added wp/0 unit to machine 0
@@ -980,9 +985,9 @@ added wp/1 unit to machine 1/lxc/0
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"sql": {charm: "cs:trusty/mysql-2"},
+		"sql": {charm: "cs:xenial/mysql-2"},
 		"wp": {
-			charm:  "cs:trusty/wordpress-0",
+			charm:  "cs:xenial/wordpress-0",
 			config: charm.Settings{"blog-title": "these are the voyages"},
 		},
 	})
@@ -1015,10 +1020,10 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-added charm cs:trusty/mysql-2
-reusing service sql (charm: cs:trusty/mysql-2)
-added charm cs:trusty/wordpress-0
-reusing service wp (charm: cs:trusty/wordpress-0)
+added charm cs:xenial/mysql-2
+reusing service sql (charm: cs:xenial/mysql-2)
+added charm cs:xenial/wordpress-0
+reusing service wp (charm: cs:xenial/wordpress-0)
 configuration updated for service wp
 avoid creating other machines to host wp units
 avoid adding new units to service wp: 2 units already present
@@ -1035,26 +1040,26 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 2
                 to:
                     - 1
                     - new
         machines:
             1:
-                series: trusty
+                series: xenial
                 constraints: "cpu-cores=4 mem=4G"
                 annotations:
                     foo: bar
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
+added charm cs:xenial/django-42
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 created new machine 0 for holding django unit
 annotations set for machine 0
 added django/0 unit to machine 0
@@ -1063,7 +1068,7 @@ added django/1 unit to machine 1
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertServicesDeployed(c, map[string]serviceInfo{
-		"django": {charm: "cs:trusty/django-42"},
+		"django": {charm: "cs:xenial/django-42"},
 	})
 	s.assertRelationsEstablished(c)
 	s.assertUnitsCreated(c, map[string]string{
@@ -1072,7 +1077,7 @@ deployment of bundle "local:bundle/example-0" completed`
 	})
 	m, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Series(), gc.Equals, "trusty")
+	c.Assert(m.Series(), gc.Equals, "xenial")
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCons, err := constraints.Parse("cpu-cores=4 mem=4G")
@@ -1084,24 +1089,24 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
 	_, err := s.DeployBundleYAML(c, `
         services:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 2
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	output, err := s.DeployBundleYAML(c, `
         services:
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 5
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-reusing service django (charm: cs:trusty/django-42)
+added charm cs:xenial/django-42
+reusing service django (charm: cs:xenial/django-42)
 added django/2 unit to new machine
 added django/3 unit to new machine
 added django/4 unit to new machine
@@ -1118,24 +1123,24 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInService(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/wordpress-0", "wordpress")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
 	output, err := s.DeployBundleYAML(c, `
         services:
             wordpress:
                 charm: wordpress
                 num_units: 3
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 2
                 to: [wordpress]
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
-added charm cs:trusty/wordpress-0
-service wordpress deployed (charm cs:trusty/wordpress-0 with the charm series "trusty")
+added charm cs:xenial/django-42
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
+added charm cs:xenial/wordpress-0
+service wordpress deployed (charm cs:xenial/wordpress-0 with the series "xenial" defined by the bundle)
 added wordpress/0 unit to new machine
 added wordpress/1 unit to new machine
 added wordpress/2 unit to new machine
@@ -1153,17 +1158,17 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/rails-0", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/rails-0", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
             memcached:
-                charm: cs:trusty/mem-47
+                charm: cs:xenial/mem-47
                 num_units: 3
                 to: [1, new]
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 5
                 to:
                     - memcached/0
@@ -1178,16 +1183,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitColocationWithUnit(c *
                     - 1
         machines:
             1:
-                series: trusty
+                series: xenial
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
-added charm cs:trusty/mem-47
-service memcached deployed (charm cs:trusty/mem-47 with the series "trusty" defined by the bundle)
-added charm cs:trusty/rails-0
-service ror deployed (charm cs:trusty/rails-0 with the charm series "trusty")
+added charm cs:xenial/django-42
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
+added charm cs:xenial/mem-47
+service memcached deployed (charm cs:xenial/mem-47 with the series "xenial" defined by the bundle)
+added charm cs:xenial/rails-0
+service ror deployed (charm cs:xenial/rails-0 with the series "xenial" defined by the bundle)
 created new machine 0 for holding memcached and ror units
 added memcached/0 unit to machine 0
 added ror/0 unit to machine 0
@@ -1223,7 +1228,7 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
             django:
@@ -1242,8 +1247,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the charm series "trusty")
+added charm cs:xenial/django-42
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 created new machine 0 for holding django unit
 created new machine 1 for holding django unit
 added django/0 unit to machine 0
@@ -1273,17 +1278,17 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/rails-0", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/rails-0", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
             memcached:
-                charm: cs:trusty/mem-47
+                charm: cs:xenial/mem-47
                 num_units: 3
                 to: [1, 2, 3]
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 4
                 to:
                     - 1
@@ -1301,12 +1306,12 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
-added charm cs:trusty/mem-47
-service memcached deployed (charm cs:trusty/mem-47 with the series "trusty" defined by the bundle)
-added charm cs:trusty/rails-0
-service ror deployed (charm cs:trusty/rails-0 with the charm series "trusty")
+added charm cs:xenial/django-42
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
+added charm cs:xenial/mem-47
+service memcached deployed (charm cs:xenial/mem-47 with the series "xenial" defined by the bundle)
+added charm cs:xenial/rails-0
+service ror deployed (charm cs:xenial/rails-0 with the series "xenial" defined by the bundle)
 created new machine 0 for holding django, memcached and ror units
 created new machine 1 for holding memcached unit
 created new machine 2 for holding memcached and ror units
@@ -1345,17 +1350,17 @@ deployment of bundle "local:bundle/example-0" completed`
 	content := `
         services:
             memcached:
-                charm: cs:trusty/mem-47
+                charm: cs:xenial/mem-47
                 num_units: 3
                 to: [1, 2, 3]
             django:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 4
                 to:
                     - 1
                     - lxc:memcached
             node:
-                charm: cs:trusty/django-42
+                charm: cs:xenial/django-42
                 num_units: 1
                 to:
                     - lxc:memcached
@@ -1367,11 +1372,11 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-added charm cs:trusty/django-42
-reusing service django (charm: cs:trusty/django-42)
-added charm cs:trusty/mem-47
-reusing service memcached (charm: cs:trusty/mem-47)
-service node deployed (charm cs:trusty/django-42 with the series "trusty" defined by the bundle)
+added charm cs:xenial/django-42
+reusing service django (charm: cs:xenial/django-42)
+added charm cs:xenial/mem-47
+reusing service memcached (charm: cs:xenial/mem-47)
+service node deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 avoid creating other machines to host django and memcached units
 avoid adding new units to service django: 4 units already present
 avoid adding new units to service memcached: 3 units already present
@@ -1384,11 +1389,11 @@ deployment of bundle "local:bundle/example-0" completed`
 	output, err = s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-added charm cs:trusty/django-42
-reusing service django (charm: cs:trusty/django-42)
-added charm cs:trusty/mem-47
-reusing service memcached (charm: cs:trusty/mem-47)
-reusing service node (charm: cs:trusty/django-42)
+added charm cs:xenial/django-42
+reusing service django (charm: cs:xenial/django-42)
+added charm cs:xenial/mem-47
+reusing service memcached (charm: cs:xenial/mem-47)
+reusing service node (charm: cs:xenial/django-42)
 avoid creating other machines to host django and memcached units
 avoid adding new units to service django: 4 units already present
 avoid adding new units to service memcached: 3 units already present
@@ -1412,8 +1417,8 @@ deployment of bundle "local:bundle/example-0" completed`
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/django-42", "dummy")
-	testcharms.UploadCharm(c, s.client, "trusty/mem-47", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/mem-47", "dummy")
 	output, err := s.DeployBundleYAML(c, `
         services:
             django:
@@ -1424,7 +1429,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
                     key2: value2
                 to: [1]
             memcached:
-                charm: trusty/mem-47
+                charm: xenial/mem-47
                 num_units: 1
         machines:
             1:
@@ -1432,11 +1437,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
-added charm cs:trusty/django-42
-service django deployed (charm cs:trusty/django-42 with the charm series "trusty")
+added charm cs:xenial/django-42
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 annotations set for service django
-added charm cs:trusty/mem-47
-service memcached deployed (charm cs:trusty/mem-47 with the series "trusty" defined by the bundle)
+added charm cs:xenial/mem-47
+service memcached deployed (charm cs:xenial/mem-47 with the series "xenial" defined by the bundle)
 created new machine 0 for holding django unit
 annotations set for machine 0
 added django/0 unit to machine 0
@@ -1473,8 +1478,8 @@ deployment of bundle "local:bundle/example-0" completed`
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput = `
-added charm cs:trusty/django-42
-reusing service django (charm: cs:trusty/django-42)
+added charm cs:xenial/django-42
+reusing service django (charm: cs:xenial/django-42)
 annotations set for service django
 avoid creating other machines to host django units
 annotations set for machine 0

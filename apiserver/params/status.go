@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/status"
 )
 
 // StatusParams holds parameters for the Status call.
@@ -107,32 +106,58 @@ func (epStatus *EndpointStatus) String() string {
 
 // DetailedStatus holds status info about a machine or unit agent.
 type DetailedStatus struct {
-	Status  status.Status
-	Info    string
-	Data    map[string]interface{}
-	Since   *time.Time
-	Kind    HistoryKind
-	Version string
-	Life    string
-	Err     error
+	Status  string                 `json:"Status"`
+	Info    string                 `json:"Info"`
+	Data    map[string]interface{} `json:"Data"`
+	Since   *time.Time             `json:"Since"`
+	Kind    string                 `json:"Kind"`
+	Version string                 `json:"Version"`
+	Life    string                 `json:"Life"`
+	Err     error                  `json:"Err"`
 }
 
-// StatusHistoryArgs holds the parameters to filter a status history query.
-type StatusHistoryArgs struct {
-	Kind HistoryKind
-	Size int
-	Name string
+// History holds many DetailedStatus,
+type History struct {
+	Statuses []DetailedStatus `json:"Statuses"`
+	Error    *Error           `json:"Error,omitempty"`
 }
 
-// StatusHistoryResults holds a slice of statuses.
+// StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
+type StatusHistoryFilter struct {
+	Size  int            `json:"Size"`
+	Date  *time.Time     `json:"Date"`
+	Delta *time.Duration `json:"Delta"`
+}
+
+// StatusHistoryRequest holds the parameters to filter a status history query.
+type StatusHistoryRequest struct {
+	Kind   string              `json:"HistoryKind"`
+	Size   int                 `json:"Size"`
+	Filter StatusHistoryFilter `json:"Filter"`
+	Tag    string              `json:"Tag"`
+}
+
+// StatusHistoryRequests holds a slice of StatusHistoryArgs
+type StatusHistoryRequests struct {
+	Requests []StatusHistoryRequest `json:"Requests"`
+}
+
+// StatusHistoryResult holds a slice of statuses.
+type StatusHistoryResult struct {
+	History History `json:"History"`
+	Error   *Error  `json:"Error,omitempty"`
+}
+
+// StatusHistoryResults holds a slice of StatusHistoryResult.
 type StatusHistoryResults struct {
-	Statuses []DetailedStatus
+	Results []StatusHistoryResult `json:"Results"`
 }
 
 // StatusHistoryPruneArgs holds arguments for status history
 // prunning process.
 type StatusHistoryPruneArgs struct {
-	MaxLogsPerEntity int
+	MaxHistoryTime time.Duration `json:"MaxHistoryTime"`
+	MaxHistoryMB   int           `json:"MaxHistoryMB"`
 }
 
 // StatusResult holds an entity status, extra information, or an
@@ -141,7 +166,7 @@ type StatusResult struct {
 	Error  *Error
 	Id     string
 	Life   Life
-	Status status.Status
+	Status string
 	Info   string
 	Data   map[string]interface{}
 	Since  *time.Time
@@ -163,27 +188,6 @@ type ServiceStatusResult struct {
 type ServiceStatusResults struct {
 	Results []ServiceStatusResult
 }
-
-// HistoryKind represents the possible types of
-// status history entries.
-type HistoryKind string
-
-const (
-	// KindUnit represents agent and workload combined.
-	KindUnit HistoryKind = "unit"
-	// KindUnitAgent represent a unit agent status history entry.
-	KindUnitAgent HistoryKind = "juju-unit"
-	// KindWorkload represents a charm workload status history entry.
-	KindWorkload HistoryKind = "workload"
-	// KindMachineInstance represents an entry for a machine instance.
-	KindMachineInstance = "machine"
-	// KindMachine represents an entry for a machine agent.
-	KindMachine = "juju-machine"
-	// KindContainerInstance represents an entry for a container instance.
-	KindContainerInstance = "container"
-	// KindContainer represents an entry for a container agent.
-	KindContainer = "juju-container"
-)
 
 // Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
 type Life multiwatcher.Life

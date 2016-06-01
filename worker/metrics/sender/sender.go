@@ -24,7 +24,7 @@ const (
 )
 
 type stopper interface {
-	Stop()
+	Stop() error
 }
 
 type sender struct {
@@ -47,8 +47,7 @@ func (s *sender) Do(stop <-chan struct{}) error {
 func (s *sender) sendMetrics(reader spool.MetricReader) error {
 	batches, err := reader.Read()
 	if err != nil {
-		logger.Warningf("failed to open the metric reader: %v", err)
-		return errors.Trace(err)
+		return errors.Annotate(err, "failed to open the metric reader")
 	}
 	var sendBatches []params.MetricBatchParam
 	for _, batch := range batches {
@@ -56,20 +55,19 @@ func (s *sender) sendMetrics(reader spool.MetricReader) error {
 	}
 	results, err := s.client.AddMetricBatches(sendBatches)
 	if err != nil {
-		logger.Warningf("could not send metrics: %v", err)
-		return errors.Trace(err)
+		return errors.Annotate(err, "could not send metrics")
 	}
 	for batchUUID, resultErr := range results {
 		// if we fail to send any metric batch we log a warning with the assumption that
 		// the unsent metric batches remain in the spool directory and will be sent to the
 		// controller when the network partition is restored.
 		if _, ok := resultErr.(*params.Error); ok || params.IsCodeAlreadyExists(resultErr) {
-			err = reader.Remove(batchUUID)
+			err := reader.Remove(batchUUID)
 			if err != nil {
-				logger.Warningf("could not remove batch %q from spool: %v", batchUUID, err)
+				logger.Errorf("could not remove batch %q from spool: %v", batchUUID, err)
 			}
 		} else {
-			logger.Warningf("failed to send batch %q: %v", batchUUID, resultErr)
+			logger.Errorf("failed to send batch %q: %v", batchUUID, resultErr)
 		}
 	}
 	return nil
@@ -77,7 +75,7 @@ func (s *sender) sendMetrics(reader spool.MetricReader) error {
 
 // Handle sends metrics from the spool directory to the
 // controller.
-func (s *sender) Handle(c net.Conn) (err error) {
+func (s *sender) Handle(c net.Conn, _ <-chan struct{}) (err error) {
 	defer func() {
 		if err != nil {
 			fmt.Fprintf(c, "%v\n", err)
@@ -87,8 +85,7 @@ func (s *sender) Handle(c net.Conn) (err error) {
 		c.Close()
 	}()
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	err = c.SetDeadline(time.Now().Add(spool.DefaultTimeout))
-	if err != nil {
+	if err := c.SetDeadline(time.Now().Add(spool.DefaultTimeout)); err != nil {
 		return errors.Annotate(err, "failed to set the deadline")
 	}
 	reader, err := s.factory.Reader()

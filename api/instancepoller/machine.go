@@ -142,7 +142,7 @@ func (m *Machine) InstanceStatus() (params.StatusResult, error) {
 func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
-		{Tag: m.tag.String(), Status: status, Info: message, Data: data},
+		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
 	}}
 	err := m.facade.FacadeCall("SetInstanceStatus", args, &result)
 	if err != nil {
@@ -170,7 +170,7 @@ func (m *Machine) ProviderAddresses() ([]network.Address, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return params.NetworkAddresses(result.Addresses), nil
+	return params.NetworkAddresses(result.Addresses...), nil
 }
 
 // SetProviderAddresses sets the cached provider addresses for the
@@ -180,7 +180,7 @@ func (m *Machine) SetProviderAddresses(addrs ...network.Address) error {
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
 			Tag:       m.tag.String(),
-			Addresses: params.FromNetworkAddresses(addrs),
+			Addresses: params.FromNetworkAddresses(addrs...),
 		}}}
 	err := m.facade.FacadeCall("SetProviderAddresses", args, &result)
 	if err != nil {

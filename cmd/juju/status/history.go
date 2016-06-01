@@ -7,15 +7,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/status"
 )
 
 // NewStatusHistoryCommand returns a command that reports the history
@@ -26,11 +28,14 @@ func NewStatusHistoryCommand() cmd.Command {
 
 type statusHistoryCommand struct {
 	modelcmd.ModelCommandBase
-	out           cmd.Output
-	outputContent string
-	backlogSize   int
-	isoTime       bool
-	unitName      string
+	out             cmd.Output
+	outputContent   string
+	backlogSize     int
+	backlogSizeDays int
+	backlogDate     string
+	isoTime         bool
+	entityName      string
+	date            time.Time
 }
 
 var statusHistoryDoc = `
@@ -52,7 +57,7 @@ The statuses are available for the following types.
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status-history",
-		Args:    "[-n N] [--type T] [--utc] <entity name>",
+		Args:    "<entity name>",
 		Purpose: "output past statuses for the passed entity",
 		Doc:     statusHistoryDoc,
 	}
@@ -60,7 +65,9 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.outputContent, "type", "unit", "type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance].")
-	f.IntVar(&c.backlogSize, "n", 20, "size of logs backlog.")
+	f.IntVar(&c.backlogSize, "n", 0, "returns the last N logs (cannot be combined with --days or --date).")
+	f.IntVar(&c.backlogSizeDays, "days", 0, "returns the logs for the past <days> days (cannot be combined with -n or --date).")
+	f.StringVar(&c.backlogDate, "date", "", "returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days).")
 	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
 }
 
@@ -71,7 +78,7 @@ func (c *statusHistoryCommand) Init(args []string) error {
 	case len(args) == 0:
 		return errors.Errorf("entity name is missing.")
 	default:
-		c.unitName = args[0]
+		c.entityName = args[0]
 	}
 	// If use of ISO time not specified on command line,
 	// check env var.
@@ -84,11 +91,25 @@ func (c *statusHistoryCommand) Init(args []string) error {
 			}
 		}
 	}
-	kind := params.HistoryKind(c.outputContent)
-	switch kind {
-	case params.KindUnit, params.KindUnitAgent, params.KindWorkload,
-		params.KindMachineInstance, params.KindMachine, params.KindContainer,
-		params.KindContainerInstance:
+	emptyDate := c.backlogDate == ""
+	emptySize := c.backlogSize == 0
+	emptyDays := c.backlogSizeDays == 0
+	if emptyDate && emptySize && emptyDays {
+		c.backlogSize = 20
+	}
+	if (!emptyDays && !emptySize) || (!emptyDays && !emptyDate) || (!emptySize && !emptyDate) {
+		return errors.Errorf("backlog size, backlog date and backlog days back cannot be specified together")
+	}
+	if c.backlogDate != "" {
+		var err error
+		c.date, err = time.Parse("2006-01-02", c.backlogDate)
+		if err != nil {
+			return errors.Annotate(err, "parsing backlog date")
+		}
+	}
+
+	kind := status.HistoryKind(c.outputContent)
+	if kind.Valid() {
 		return nil
 	}
 	return errors.Errorf("unexpected status type %q", c.outputContent)
@@ -100,21 +121,54 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer apiclient.Close()
-	var statuses *params.StatusHistoryResults
-	kind := params.HistoryKind(c.outputContent)
-	statuses, err = apiclient.StatusHistory(kind, c.unitName, c.backlogSize)
+	kind := status.HistoryKind(c.outputContent)
+	var delta *time.Duration
+
+	if c.backlogSizeDays != 0 {
+		t := time.Duration(c.backlogSizeDays*24) * time.Hour
+		delta = &t
+	}
+	filterArgs := status.StatusHistoryFilter{
+		Size:  c.backlogSize,
+		Delta: delta,
+	}
+	if !c.date.IsZero() {
+		filterArgs.Date = &c.date
+	}
+	var tag names.Tag
+	switch kind {
+	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
+		if !names.IsValidUnit(c.entityName) {
+			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
+		}
+		tag = names.NewUnitTag(c.entityName)
+	default:
+		if names.IsValidMachine(c.entityName) {
+			return errors.Errorf("%q is not a valid name for a %s", c.entityName, kind)
+		}
+		tag = names.NewMachineTag(c.entityName)
+	}
+	statuses, err := apiclient.StatusHistory(kind, tag, filterArgs)
+	historyLen := len(statuses)
 	if err != nil {
-		if len(statuses.Statuses) == 0 {
+		if historyLen == 0 {
 			return errors.Trace(err)
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-	} else if len(statuses.Statuses) == 0 {
+	}
+
+	if historyLen == 0 {
 		return errors.Errorf("no status history available")
 	}
+
 	table := [][]string{{"TIME", "TYPE", "STATUS", "MESSAGE"}}
 	lengths := []int{1, 1, 1, 1}
-	for _, v := range statuses.Statuses {
+
+	statuses = statuses.SquashLogs(1)
+	statuses = statuses.SquashLogs(2)
+	statuses = statuses.SquashLogs(3)
+	for _, v := range statuses {
 		fields := []string{common.FormatTime(v.Since, c.isoTime), string(v.Kind), string(v.Status), v.Info}
 		for k, v := range fields {
 			if len(v) > lengths[k] {

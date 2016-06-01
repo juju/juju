@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -72,8 +71,14 @@ type BootstrapParams struct {
 	Placement string
 
 	// UploadTools reports whether we should upload the local tools and
-	// override the environment's specified agent-version.
+	// override the environment's specified agent-version. It is an error
+	// to specify UploadTools with a nil BuildToolsTarball.
 	UploadTools bool
+
+	// BuildToolsTarball, if non-nil, is a function that may be used to
+	// build tools to upload. If this is nil, tools uploading will never
+	// take place.
+	BuildToolsTarball sync.BuildToolsTarballFunc
 
 	// MetadataDir is an optional path to a local directory containing
 	// tools and/or image metadata.
@@ -94,7 +99,6 @@ type BootstrapParams struct {
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
-	network.SetPreferIPv6(cfg.PreferIPv6())
 	if secret := cfg.AdminSecret(); secret == "" {
 		return errors.Errorf("model configuration has no admin-secret")
 	}
@@ -155,7 +159,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 	availableTools, err := findAvailableTools(
 		environ, args.AgentVersion, bootstrapConstraints.Arch,
-		bootstrapSeries, args.UploadTools,
+		bootstrapSeries, args.UploadTools, args.BuildToolsTarball != nil,
 	)
 	if errors.IsNotFound(err) {
 		return errors.New(noToolsMessage)
@@ -225,7 +229,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			continue
 		}
 		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
-		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
+		builtTools, err := args.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
 		if err != nil {
 			return errors.Annotate(err, "cannot upload bootstrap tools")
 		}
@@ -241,7 +245,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// even though the user didn't ask for it. We only do
 		// this when the image-stream is not "released" and
 		// the agent version hasn't been specified.
-		logger.Warningf("no prepackaged tools available")
+		logger.Infof("no prepackaged tools available")
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
@@ -414,7 +418,7 @@ func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 	if !isCompatibleVersion(newVersion, jujuversion.Current) {
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
-			logger.Warningf(
+			logger.Infof(
 				"failed to find %s tools, will attempt to use %s",
 				jujuversion.Current, newVersion,
 			)
@@ -484,13 +488,10 @@ func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*ima
 func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	validator, err := env.ConstraintsValidator()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	unsupported, err := validator.Validate(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf("unsupported constraints: %v", unsupported)
-	}
-	return err
+	return errors.Annotatef(err, "unsupported constraints: %v", unsupported)
 }
 
 // guiArchive returns information on the GUI archive that will be uploaded

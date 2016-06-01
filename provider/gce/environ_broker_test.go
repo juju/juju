@@ -260,6 +260,6 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
-	c.Check(calls[0].Prefix, gc.Equals, "juju-2d02eeac-9dbb-11e4-89d3-123b93f75cba-machine-")
+	c.Check(calls[0].Prefix, gc.Equals, s.Prefix())
 	c.Check(calls[0].IDs, gc.DeepEquals, []string{"spam"})
 }

@@ -265,7 +265,7 @@ func (addr Address) NetworkAddress() network.Address {
 
 // FromNetworkAddresses is a convenience helper to create a parameter
 // out of the network type, here for a slice of Address.
-func FromNetworkAddresses(naddrs []network.Address) []Address {
+func FromNetworkAddresses(naddrs ...network.Address) []Address {
 	addrs := make([]Address, len(naddrs))
 	for i, naddr := range naddrs {
 		addrs[i] = FromNetworkAddress(naddr)
@@ -275,7 +275,7 @@ func FromNetworkAddresses(naddrs []network.Address) []Address {
 
 // NetworkAddresses is a convenience helper to return the parameter
 // as network type, here for a slice of Address.
-func NetworkAddresses(addrs []Address) []network.Address {
+func NetworkAddresses(addrs ...Address) []network.Address {
 	naddrs := make([]network.Address, len(addrs))
 	for i, addr := range addrs {
 		naddrs[i] = addr.NetworkAddress()

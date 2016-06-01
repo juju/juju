@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -53,12 +54,16 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// Most functionality is already tested in detail - we
 	// just need to test that things are wired together
 	// correctly.
+
+	// TODO(redir): per fwereade these should be in the worker config.
 	s.PatchValue(&ShortPoll, 10*time.Millisecond)
 	s.PatchValue(&LongPoll, 10*time.Millisecond)
-	s.PatchValue(&gatherTime, 10*time.Millisecond)
+
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w, err := NewWorker(Config{
+		Delay:   time.Millisecond * 10,
+		Clock:   clock.WallClock,
 		Facade:  s.api,
 		Environ: s.Environ,
 	})
@@ -96,7 +101,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			}
 			instanceStatus, err := m.InstanceStatus()
 			c.Logf("instance message is: %q", instanceStatus.Info)
-			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending.String())
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0
@@ -123,7 +128,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			}
 			// Machines in second half still have no addresses, nor status.
 			instanceStatus, err := m.InstanceStatus()
-			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending)
+			c.Assert(instanceStatus.Status, gc.Equals, status.StatusPending.String())
 			stm, err := s.State.Machine(m.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			return len(stm.Addresses()) == 0

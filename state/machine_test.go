@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -645,7 +647,7 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
-	st, err := state.Open(s.modelTag, info, testing.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		// Remove the admin password so that the test harness can reset the state.
@@ -676,7 +678,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(s.modelTag, info, testing.NewDialOpts(), state.Policy(nil))
+	st1, err := state.Open(s.modelTag, info, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -967,7 +969,13 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetInstanceStatus(status.StatusRunning, "alive", map[string]interface{}{})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusRunning,
+		Message: "alive",
+		Since:   &now,
+	}
+	err = s.machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reload machine and check result.
@@ -1214,7 +1222,13 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetAgentStatus(status.StatusIdle, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err = mysql0.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1243,7 +1257,12 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetAgentStatus(status.StatusIdle, "", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err = logging0.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1318,7 +1337,13 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetAgentStatus(status.StatusIdle, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err = mysql0.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1348,7 +1373,12 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetAgentStatus(status.StatusIdle, "", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err = logging0.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1679,35 +1709,6 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		"127.0.0.1",
 		"fe80::1",
 	))
-
-	// Now simulate prefer-ipv6: true
-	c.Assert(
-		s.State.UpdateModelConfig(
-			map[string]interface{}{"prefer-ipv6": true},
-			nil, nil,
-		),
-		gc.IsNil,
-	)
-
-	err = machine.SetProviderAddresses(providerAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetMachineAddresses(machineAddresses...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
-		"2001:db8::1",
-		"8.8.8.8",
-		"example.org",
-		"fc00::1",
-		"::1",
-		"127.0.0.2",
-		"localhost",
-		"fd00::1",
-		"192.168.0.1",
-		"127.0.0.1",
-		"fe80::1",
-	))
 }
 
 func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C) {
@@ -1828,7 +1829,7 @@ func (s *MachineSuite) TestPublicAddressEmptyAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	addr, err := machine.PublicAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	c.Assert(addr.Value, gc.Equals, "")
 }
 
@@ -1838,7 +1839,7 @@ func (s *MachineSuite) TestPrivateAddressEmptyAddresses(c *gc.C) {
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
 	addr, err := machine.PrivateAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 	c.Assert(addr.Value, gc.Equals, "")
 }
 

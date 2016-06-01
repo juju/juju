@@ -125,6 +125,7 @@ type userFriendlyDurationSuite struct {
 var _ = gc.Suite(&userFriendlyDurationSuite{})
 
 func (*userFriendlyDurationSuite) TestFormat(c *gc.C) {
+	// lp:1558657
 	now := time.Now()
 	for _, test := range []struct {
 		other    time.Time

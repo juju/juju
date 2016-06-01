@@ -31,6 +31,8 @@ func (s *ControllersSuite) SetUpTest(c *gc.C) {
 		"test.uuid",
 		[]string{"test.api.endpoint"},
 		"test.ca.cert",
+		"aws",
+		"southeastasia",
 	}
 }
 
@@ -130,7 +132,7 @@ func (s *ControllersSuite) assertWriteFails(c *gc.C, failureMessage string) {
 
 func (s *ControllersSuite) assertControllerNotExists(c *gc.C) {
 	all := writeTestControllersFile(c)
-	_, exists := all[s.controllerName]
+	_, exists := all.Controllers[s.controllerName]
 	c.Assert(exists, jc.IsFalse)
 }
 
@@ -146,7 +148,7 @@ func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.Control
 
 func firstTestControllerName(c *gc.C) string {
 	all := writeTestControllersFile(c)
-	for key, _ := range all {
+	for key, _ := range all.Controllers {
 		return key
 	}
 	return ""

@@ -36,7 +36,10 @@ var configTestRegion = aws.Region{
 	EC2Endpoint: "testregion.nowhere:1234",
 }
 
-var testAuth = aws.Auth{"gopher", "long teeth"}
+var testAuth = aws.Auth{
+	AccessKey: "gopher",
+	SecretKey: "long teeth",
+}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
@@ -47,6 +50,8 @@ type configTest struct {
 	change             map[string]interface{}
 	expect             map[string]interface{}
 	region             string
+	vpcID              string
+	forceVPCID         bool
 	accessKey          string
 	secretKey          string
 	firewallMode       string
@@ -90,6 +95,10 @@ func (t configTest) check(c *gc.C) {
 	if t.region != "" {
 		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
+
+	c.Assert(ecfg.vpcID(), gc.Equals, t.vpcID)
+	c.Assert(ecfg.forceVPCID(), gc.Equals, t.forceVPCID)
+
 	if t.accessKey != "" {
 		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
 		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
@@ -150,6 +159,133 @@ var configTests = []configTest{
 			"region": 666,
 		},
 		err: `.*expected string, got int\(666\)`,
+	}, {
+		config:     attrs{},
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id": "invalid",
+		},
+		err:        `.*vpc-id: "invalid" is not a valid AWS VPC ID`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id": vpcIDNone,
+		},
+		vpcID:      "none",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id": 42,
+		},
+		err:        `.*expected string, got int\(42\)`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id-force": "nonsense",
+		},
+		err:        `.*expected bool, got string\("nonsense"\)`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-anything",
+			"vpc-id-force": 999,
+		},
+		err:        `.*expected bool, got int\(999\)`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "",
+			"vpc-id-force": true,
+		},
+		err:        `.*cannot use vpc-id-force without specifying vpc-id as well`,
+		vpcID:      "",
+		forceVPCID: true,
+	}, {
+		config: attrs{
+			"vpc-id": "vpc-a1b2c3d4",
+		},
+		vpcID:      "vpc-a1b2c3d4",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-some-id",
+			"vpc-id-force": true,
+		},
+		vpcID:      "vpc-some-id",
+		forceVPCID: true,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-abcd",
+			"vpc-id-force": false,
+		},
+		vpcID:      "vpc-abcd",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-unchanged",
+			"vpc-id-force": true,
+		},
+		change: attrs{
+			"vpc-id":       "vpc-unchanged",
+			"vpc-id-force": false,
+		},
+		err:        `.*cannot change vpc-id-force from true to false`,
+		vpcID:      "vpc-unchanged",
+		forceVPCID: true,
+	}, {
+		config: attrs{
+			"vpc-id": "",
+		},
+		change: attrs{
+			"vpc-id": "none",
+		},
+		err:        `.*cannot change vpc-id from "" to "none"`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id": "",
+		},
+		change: attrs{
+			"vpc-id": "vpc-changed",
+		},
+		err:        `.*cannot change vpc-id from "" to "vpc-changed"`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id": "vpc-initial",
+		},
+		change: attrs{
+			"vpc-id": "",
+		},
+		err:        `.*cannot change vpc-id from "vpc-initial" to ""`,
+		vpcID:      "vpc-initial",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id": "vpc-old",
+		},
+		change: attrs{
+			"vpc-id": "vpc-new",
+		},
+		err:        `.*cannot change vpc-id from "vpc-old" to "vpc-new"`,
+		vpcID:      "vpc-old",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-foo",
+			"vpc-id-force": true,
+		},
+		change:     attrs{},
+		vpcID:      "vpc-foo",
+		forceVPCID: true,
 	}, {
 		config: attrs{
 			"access-key": 666,

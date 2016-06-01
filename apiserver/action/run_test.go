@@ -92,6 +92,14 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	}{{
 		message: "no units, expected nil slice",
 	}, {
+		message:  "asking for an empty string service",
+		services: []string{""},
+		error:    `"" is not a valid service name`,
+	}, {
+		message: "asking for an empty string unit",
+		units:   []string{""},
+		error:   `invalid unit name ""`,
+	}, {
 		message:  "asking for a service that isn't there",
 		services: []string{"foo"},
 		error:    `service "foo" not found`,

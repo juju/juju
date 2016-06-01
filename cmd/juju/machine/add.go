@@ -68,10 +68,8 @@ Examples:
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
-See Also:
-   juju help constraints
-   juju help placement
-   juju help remove-machine
+See also:
+    remove-machine
 `
 
 func init() {
@@ -153,7 +151,7 @@ type AddMachineAPI interface {
 	Close() error
 	ForceDestroyMachines(machines ...string) error
 	ModelGet() (map[string]interface{}, error)
-	ModelUUID() string
+	ModelUUID() (string, error)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -238,12 +236,16 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	logger.Infof("model provisioning")
 	if c.Placement != nil && c.Placement.Scope == "model-uuid" {
-		c.Placement.Scope = client.ModelUUID()
+		uuid, err := client.ModelUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.Placement.Scope = uuid
 	}
 
 	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
 		// It does not make sense to add-machine <id>.
-		return fmt.Errorf("machine-id cannot be specified when adding machines")
+		return errors.Errorf("machine-id cannot be specified when adding machines")
 	}
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}

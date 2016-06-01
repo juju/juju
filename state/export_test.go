@@ -496,6 +496,14 @@ func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func LeadershipLeases(st *State) map[string]lease.Info {
-	return st.leadershipClient.Leases()
+func LeadershipLeases(st *State) (map[string]lease.Info, error) {
+	client, err := st.getLeadershipLeaseClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return client.Leases(), nil
+}
+
+func DeleteCharm(st *State, curl *charm.URL) error {
+	return st.deleteCharm(curl)
 }

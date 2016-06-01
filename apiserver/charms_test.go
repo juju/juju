@@ -139,7 +139,7 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 		url:      s.charmsURI(c, ""),
 		nonce:    "fake_nonce",
 	})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "invalid entity name or password")
+	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "tag kind machine not valid")
 
 	// Now try a user login.
 	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})

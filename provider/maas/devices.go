@@ -57,9 +57,10 @@ func getJSONBytes(object json.Marshaler) ([]byte, error) {
 	return rawBytes, nil
 }
 
-func (env *maasEnviron) createDevice(hostInstanceID instance.Id, primaryMACAddress string) (*maasDevice, error) {
+func (env *maasEnviron) createDevice(hostInstanceID instance.Id, hostname string, primaryMACAddress string) (*maasDevice, error) {
 	devicesAPI := env.getMAASClient().GetSubObject("devices")
 	params := make(url.Values)
+	params.Add("hostname", hostname)
 	params.Add("parent", extractSystemId(hostInstanceID))
 	params.Add("mac_addresses", primaryMACAddress)
 

@@ -10,6 +10,7 @@ package provisioner_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -30,12 +31,13 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher/watchertest"
@@ -175,7 +177,14 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(status.StatusError, "blah", map[string]interface{}{"transient": true})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "blah",
+		Data:    map[string]interface{}{"transient": true},
+		Since:   &now,
+	}
+	err = machine.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, jc.ErrorIsNil)
@@ -568,14 +577,14 @@ func (s *provisionerSuite) TestContainerManagerConfigKNoIPForwarding(c *gc.C) {
 
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigName: "juju",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
 	})
 }
 
 func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigName: "juju",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
 
 		// dummy provider supports both networking and address
 		// allocation by default, so IP forwarding should be enabled.
@@ -585,7 +594,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.State.ModelTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.State.ModelTag(), s.MongoInfo(c), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -615,7 +624,7 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 
 	result, err := s.provisioner.ContainerManagerConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig[container.ConfigName], gc.Equals, "juju")
+	c.Assert(result.ManagerConfig[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
 	c.Assert(result.ManagerConfig["use-clone"], gc.Equals, "")
 
 	// Change lxc-clone, and ensure it gets picked up.
@@ -628,7 +637,7 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		result, err := s.provisioner.ContainerManagerConfig(args)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.ManagerConfig[container.ConfigName], gc.Equals, "juju")
+		c.Assert(result.ManagerConfig[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
 		c.Assert(result.ManagerConfig["use-clone"], gc.Equals, t.expectedUseClone)
 		c.Assert(result.ManagerConfig["use-aufs"], gc.Equals, t.expectedUseCloneAufs)
 	}
@@ -639,7 +648,7 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	// will just return the basic type-independent configuration.
 	cfg := s.getManagerConfig(c, "invalid")
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigName: "juju",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
 
 		// dummy provider supports both networking and address
 		// allocation by default, so IP forwarding should be enabled.
@@ -677,7 +686,6 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
-	c.Assert(result.PreferIPv6, jc.IsFalse)
 }
 
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {

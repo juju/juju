@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"time"
@@ -23,8 +22,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/macaroon.v1"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
 
@@ -33,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -41,7 +39,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
-	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
@@ -56,7 +53,13 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetAgentStatus(status.StatusIdle, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusIdle,
+		Message: "",
+		Since:   &now,
+	}
+	err := u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -133,14 +136,14 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+		st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
 func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
-	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(names.ModelTag{}, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(st.ModelTag(), gc.Equals, s.modelTag)
@@ -150,7 +153,7 @@ func (s *StateSuite) TestOpenAcceptsMissingModelTag(c *gc.C) {
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(tag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(tag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -159,7 +162,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -494,7 +497,13 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = m.SetStatus("error", "some status", nil)
+				now := time.Now()
+				sInfo := status.StatusInfo{
+					Status:  status.StatusError,
+					Message: "some status",
+					Since:   &now,
+				}
+				err = m.SetStatus(sInfo)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -717,421 +726,6 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 	err2 := errors.NotFoundf("foo")
 	c.Assert(err1, gc.Not(jc.Satisfies), errors.IsNotFound)
 	c.Assert(err2, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
-	info := state.CharmInfo{
-		Charm:       testcharms.Repo.CharmDir("dummy"),
-		StoragePath: "dummy-1",
-		SHA256:      "dummy-1-sha256",
-	}
-	if curlOverride != "" {
-		info.ID = charm.MustParseURL(curlOverride)
-	} else {
-		info.ID = charm.MustParseURL(
-			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
-		)
-	}
-	return info
-}
-
-func (s *StateSuite) TestAddCharm(c *gc.C) {
-	// Check that adding charms from scratch works correctly.
-	info := s.dummyCharm(c, "")
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dummy.URL().String(), gc.Equals, info.ID.String())
-
-	doc := state.CharmDoc{}
-	err = s.charms.FindId(state.DocID(s.State, info.ID.String())).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%#v", doc)
-	c.Assert(doc.URL, gc.DeepEquals, info.ID)
-}
-
-func (s *StateSuite) TestAddCharmWithAuth(c *gc.C) {
-	// Check that adding charms from scratch works correctly.
-	info := s.dummyCharm(c, "")
-	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
-	c.Assert(err, jc.ErrorIsNil)
-	info.Macaroon = macaroon.Slice{m}
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	ms, err := dummy.Macaroon()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.DeepEquals, info.Macaroon)
-}
-
-func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
-	// Check that adding charms updates any existing placeholder charm
-	// with the same URL.
-	ch := testcharms.Repo.CharmDir("dummy")
-
-	// Add a placeholder charm.
-	curl := charm.MustParseURL("cs:quantal/dummy-1")
-	err := s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a deployed charm.
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-1",
-		SHA256:      "dummy-1-sha256",
-	}
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
-
-	// Charm doc has been updated.
-	var docs []state.CharmDoc
-	err = s.charms.FindId(state.DocID(s.State, curl.String())).All(&docs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0].URL, gc.DeepEquals, curl)
-	c.Assert(docs[0].StoragePath, gc.DeepEquals, info.StoragePath)
-
-	// No more placeholder charm.
-	_, err = s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
-	// Find charm directly and verify only the charm URL and
-	// PendingUpload are set.
-	doc := state.CharmDoc{}
-	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("%#v", doc)
-	c.Assert(doc.URL, gc.DeepEquals, curl)
-	c.Assert(doc.PendingUpload, jc.IsTrue)
-	c.Assert(doc.Placeholder, jc.IsFalse)
-	c.Assert(doc.Meta, gc.IsNil)
-	c.Assert(doc.Config, gc.IsNil)
-	c.Assert(doc.StoragePath, gc.Equals, "")
-	c.Assert(doc.BundleSha256, gc.Equals, "")
-
-	// Make sure we can't find it with st.Charm().
-	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
-	// First test the sanity checks.
-	curl, err := s.State.PrepareLocalCharmUpload(charm.MustParseURL("local:quantal/dummy"))
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
-	c.Assert(curl, gc.IsNil)
-	curl, err = s.State.PrepareLocalCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with local schema, got .*")
-	c.Assert(curl, gc.IsNil)
-
-	// No charm in state, so the call should respect given revision.
-	testCurl := charm.MustParseURL("local:quantal/missing-123")
-	curl, err = s.State.PrepareLocalCharmUpload(testCurl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, testCurl)
-	s.assertPendingCharmExists(c, curl)
-
-	// Try adding it again with the same revision and ensure it gets bumped.
-	curl, err = s.State.PrepareLocalCharmUpload(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl.Revision, gc.Equals, 124)
-
-	// Also ensure the revision cannot decrease.
-	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(42))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl.Revision, gc.Equals, 125)
-
-	// Check the given revision is respected.
-	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(1234))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl.Revision, gc.Equals, 1234)
-}
-
-func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
-	// First test the sanity checks.
-	sch, err := s.State.PrepareStoreCharmUpload(charm.MustParseURL("cs:quantal/dummy"))
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
-	c.Assert(sch, gc.IsNil)
-	sch, err = s.State.PrepareStoreCharmUpload(charm.MustParseURL("local:quantal/dummy"))
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
-	c.Assert(sch, gc.IsNil)
-
-	// No charm in state, so the call should respect given revision.
-	testCurl := charm.MustParseURL("cs:quantal/missing-123")
-	sch, err = s.State.PrepareStoreCharmUpload(testCurl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, testCurl)
-	c.Assert(sch.IsUploaded(), jc.IsFalse)
-
-	s.assertPendingCharmExists(c, sch.URL())
-
-	// Try adding it again with the same revision and ensure we get the same document.
-	schCopy, err := s.State.PrepareStoreCharmUpload(testCurl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch, jc.DeepEquals, schCopy)
-
-	// Now add a charm and try again - we should get the same result
-	// as with AddCharm.
-	info := s.dummyCharm(c, "cs:precise/dummy-2")
-	sch, err = s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	schCopy, err = s.State.PrepareStoreCharmUpload(info.ID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch, jc.DeepEquals, schCopy)
-
-	// Finally, try poking around the state with a placeholder and
-	// bundlesha256 to make sure we do the right thing.
-	curl := info.ID.WithRevision(999)
-	first := txn.TestHook{
-		Before: func() {
-			err := s.State.AddStoreCharmPlaceholder(curl)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		After: func() {
-			err := s.charms.RemoveId(state.DocID(s.State, curl.String()))
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	}
-	second := txn.TestHook{
-		Before: func() {
-			err := s.State.AddStoreCharmPlaceholder(curl)
-			c.Assert(err, jc.ErrorIsNil)
-		},
-		After: func() {
-			err := s.charms.UpdateId(state.DocID(s.State, curl.String()), bson.D{{"$set", bson.D{
-				{"bundlesha256", "fake"}},
-			}})
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	}
-	defer state.SetTestHooks(c, s.State, first, second, first).Check()
-
-	_, err = s.State.PrepareStoreCharmUpload(curl)
-	cause := errors.Cause(err)
-	c.Assert(cause, gc.Equals, txn.ErrExcessiveContention)
-}
-
-func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
-	info := s.dummyCharm(c, "")
-	_, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Test with already uploaded and a missing charms.
-	sch, err := s.State.UpdateUploadedCharm(info)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", info.ID))
-	c.Assert(sch, gc.IsNil)
-	info.ID = charm.MustParseURL("local:quantal/missing-1")
-	info.SHA256 = "missing"
-	sch, err = s.State.UpdateUploadedCharm(info)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(sch, gc.IsNil)
-
-	// Test with with an uploaded local charm.
-	_, err = s.State.PrepareLocalCharmUpload(info.ID)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
-	c.Assert(err, jc.ErrorIsNil)
-	info.Macaroon = macaroon.Slice{m}
-	c.Assert(err, jc.ErrorIsNil)
-	sch, err = s.State.UpdateUploadedCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, info.ID)
-	c.Assert(sch.Revision(), gc.Equals, info.ID.Revision)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
-	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
-	c.Assert(sch.Meta(), gc.DeepEquals, info.Charm.Meta())
-	c.Assert(sch.Config(), gc.DeepEquals, info.Charm.Config())
-	c.Assert(sch.StoragePath(), gc.DeepEquals, info.StoragePath)
-	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
-	ms, err := sch.Macaroon()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.DeepEquals, info.Macaroon)
-}
-
-func (s *StateSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
-	// Make sure when we have mongodb special characters like "$" and
-	// "." in the name of any charm config option, we do proper
-	// escaping before storing them and unescaping after loading. See
-	// also http://pad.lv/1308146.
-
-	// Clone the dummy charm and change the config.
-	configWithProblematicKeys := []byte(`
-options:
-  $bad.key: {default: bad, description: bad, type: string}
-  not.ok.key: {description: not ok, type: int}
-  valid-key: {description: all good, type: boolean}
-  still$bad.: {description: not good, type: float}
-  $.$: {description: awful, type: string}
-  ...: {description: oh boy, type: int}
-  just$: {description: no no, type: float}
-`[1:])
-	chDir := testcharms.Repo.ClonedDirPath(c.MkDir(), "dummy")
-	err := utils.AtomicWriteFile(
-		filepath.Join(chDir, "config.yaml"),
-		configWithProblematicKeys,
-		0666,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	ch, err := charm.ReadCharmDir(chDir)
-	c.Assert(err, jc.ErrorIsNil)
-	missingCurl := charm.MustParseURL("local:quantal/missing-1")
-	storagePath := "dummy-1"
-
-	preparedCurl, err := s.State.PrepareLocalCharmUpload(missingCurl)
-	c.Assert(err, jc.ErrorIsNil)
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          preparedCurl,
-		StoragePath: "dummy-1",
-		SHA256:      "missing",
-	}
-	sch, err := s.State.UpdateUploadedCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
-	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
-	c.Assert(sch.IsUploaded(), jc.IsTrue)
-	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
-	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
-	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
-	c.Assert(sch.StoragePath(), gc.DeepEquals, storagePath)
-	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
-}
-
-func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
-	// Find charm directly and verify only the charm URL and
-	// Placeholder are set.
-	doc := state.CharmDoc{}
-	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(doc.URL, gc.DeepEquals, curl)
-	c.Assert(doc.PendingUpload, jc.IsFalse)
-	c.Assert(doc.Placeholder, jc.IsTrue)
-	c.Assert(doc.Meta, gc.IsNil)
-	c.Assert(doc.Config, gc.IsNil)
-	c.Assert(doc.StoragePath, gc.Equals, "")
-	c.Assert(doc.BundleSha256, gc.Equals, "")
-
-	// Make sure we can't find it with st.Charm().
-	_, err = s.State.Charm(curl)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
-	// Add a deployed charm
-	info := s.dummyCharm(c, "cs:quantal/dummy-1")
-	_, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Deployed charm not found.
-	_, err = s.State.LatestPlaceholderCharm(info.ID)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Add a charm reference
-	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
-	err = s.State.AddStoreCharmPlaceholder(curl2)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertPlaceholderCharmExists(c, curl2)
-
-	// Use a URL with an arbitrary rev to search.
-	curl := charm.MustParseURL("cs:quantal/dummy-23")
-	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pending.URL(), gc.DeepEquals, curl2)
-	c.Assert(pending.IsPlaceholder(), jc.IsTrue)
-	c.Assert(pending.Meta(), gc.IsNil)
-	c.Assert(pending.Config(), gc.IsNil)
-	c.Assert(pending.StoragePath(), gc.Equals, "")
-	c.Assert(pending.BundleSha256(), gc.Equals, "")
-}
-
-func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := testcharms.Repo.CharmDir("dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
-	err := s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with cs schema, got .*")
-
-	curl = charm.MustParseURL("cs:quantal/dummy")
-	err = s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.ErrorMatches, "expected charm URL with revision, got .*")
-}
-
-func (s *StateSuite) TestAddStoreCharmPlaceholder(c *gc.C) {
-	curl := charm.MustParseURL("cs:quantal/dummy-1")
-	err := s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertPlaceholderCharmExists(c, curl)
-
-	// Add the same one again, should be a no-op
-	err = s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertPlaceholderCharmExists(c, curl)
-}
-
-func (s *StateSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
-	// Add a deployed charm
-	info := s.dummyCharm(c, "cs:quantal/dummy-1")
-	dummy, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a charm placeholder
-	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
-	err = s.State.AddStoreCharmPlaceholder(curl2)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertPlaceholderCharmExists(c, curl2)
-
-	// Deployed charm is still there.
-	existing, err := s.State.Charm(info.ID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(existing, jc.DeepEquals, dummy)
-
-	return info.ID, curl2, dummy
-}
-
-func (s *StateSuite) TestAddStoreCharmPlaceholderLeavesDeployedCharmsAlone(c *gc.C) {
-	s.assertAddStoreCharmPlaceholder(c)
-}
-
-func (s *StateSuite) TestAddStoreCharmPlaceholderDeletesOlder(c *gc.C) {
-	curl, curlOldRef, dummy := s.assertAddStoreCharmPlaceholder(c)
-
-	// Add a new charm placeholder
-	curl3 := charm.MustParseURL("cs:quantal/dummy-3")
-	err := s.State.AddStoreCharmPlaceholder(curl3)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertPlaceholderCharmExists(c, curl3)
-
-	// Deployed charm is still there.
-	existing, err := s.State.Charm(curl)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(existing, jc.DeepEquals, dummy)
-
-	// Older charm placeholder is gone.
-	doc := state.CharmDoc{}
-	err = s.charms.FindId(curlOldRef).One(&doc)
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
-}
-
-func (s *StateSuite) TestAllCharms(c *gc.C) {
-	// Add a deployed charm
-	info := s.dummyCharm(c, "cs:quantal/dummy-1")
-	sch, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a charm reference
-	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
-	err = s.State.AddStoreCharmPlaceholder(curl2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	charms, err := s.State.AllCharms()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(charms, gc.HasLen, 2)
-
-	c.Assert(charms[0], gc.DeepEquals, sch)
-	c.Assert(charms[1].URL(), gc.DeepEquals, curl2)
 }
 
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
@@ -2999,51 +2593,6 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 
 type attrs map[string]interface{}
 
-func (s *StateSuite) TestWatchModelConfig(c *gc.C) {
-	w := s.State.WatchModelConfig()
-	defer statetesting.AssertStop(c, w)
-
-	// TODO(fwereade) just use a NotifyWatcher and NotifyWatcherC to test it.
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case got := <-w.Changes():
-			c.Fatalf("got unexpected change: %#v", got)
-		case <-time.After(testing.ShortWait):
-		}
-	}
-	assertChange := func(change attrs) {
-		cfg, err := s.State.ModelConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		cfg, err = cfg.Apply(change)
-		c.Assert(err, jc.ErrorIsNil)
-		if change != nil {
-			err = s.State.UpdateModelConfig(change, nil, nil)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		s.State.StartSync()
-		select {
-		case got, ok := <-w.Changes():
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(got.AllAttrs(), gc.DeepEquals, cfg.AllAttrs())
-		case <-time.After(testing.LongWait):
-			c.Fatalf("did not get change: %#v", change)
-		}
-		assertNoChange()
-	}
-	assertChange(nil)
-	assertChange(attrs{"default-series": "another-series"})
-	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
-}
-
-func (s *StateSuite) TestWatchModelConfigDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
-		w := st.WatchModelConfig()
-		<-w.Changes()
-		return w
-	})
-}
-
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
@@ -3071,59 +2620,6 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-}
-
-func (s *StateSuite) TestWatchModelConfigCorruptConfig(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Corrupt the model configuration.
-	settings := s.Session.DB("juju").C("settings")
-	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"settings.name", 1}}}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-
-	// Start watching the configuration.
-	watcher := s.State.WatchModelConfig()
-	defer watcher.Stop()
-	done := make(chan *config.Config)
-	go func() {
-		select {
-		case cfg, ok := <-watcher.Changes():
-			if !ok {
-				c.Errorf("watcher channel closed")
-			} else {
-				done <- cfg
-			}
-		case <-time.After(5 * time.Second):
-			c.Fatalf("no model configuration observed")
-		}
-	}()
-
-	s.State.StartSync()
-
-	// The invalid configuration must not have been generated.
-	select {
-	case <-done:
-		c.Fatalf("configuration returned too soon")
-	case <-time.After(testing.ShortWait):
-	}
-
-	// Fix the configuration.
-	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$set", bson.D{{"settings.name", "foo"}}}})
-	c.Assert(err, jc.ErrorIsNil)
-	fixed := cfg.AllAttrs()
-	err = s.State.UpdateModelConfig(fixed, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
-	select {
-	case got := <-done:
-		c.Assert(got.AllAttrs(), gc.DeepEquals, fixed)
-	case <-time.After(5 * time.Second):
-		c.Fatalf("no model configuration observed")
-	}
 }
 
 func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
@@ -3170,7 +2666,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, info, statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, info, mongotest.DialOpts(), state.Policy(nil))
 	if err == nil {
 		err = st.Close()
 	}
@@ -3884,7 +3380,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3932,7 +3428,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.modelTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4673,7 +4169,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		},
 	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, mongoInfo, cfg, statetesting.NewDialOpts(), nil)
+	st, err := state.Initialize(owner, mongoInfo, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -73,7 +74,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
-		PreferIPv6:                     false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	}
@@ -129,7 +129,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
-		PreferIPv6:                     false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	})
@@ -172,6 +171,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
@@ -381,17 +381,21 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 
 	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = udata.Configure()
 	c.Assert(err, jc.ErrorIsNil)
+
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
-	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
-	got := []byte(fmt.Sprintf(cloudconfig.UserdataScript, base64Data))
 
 	cicompose, err := cloudinit.New("win8")
 	c.Assert(err, jc.ErrorIsNil)
+
+	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))
+	// first part
+	got := []byte(fmt.Sprintf(cloudconfig.UserDataScript, base64Data))
+	got = renderers.PrependWinPS1Header(got)
 	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(string(expected), gc.Equals, string(got))
 }

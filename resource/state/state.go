@@ -52,6 +52,7 @@ func NewState(raw RawState) *State {
 			storage:      storage,
 			newPendingID: newPendingID,
 			currentTimestamp: func() time.Time {
+				// TODO(perrito666) 2016-05-02 lp:1558657
 				return time.Now().UTC()
 			},
 		},

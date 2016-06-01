@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -62,7 +63,7 @@ var sampleConfig = testing.Attrs{
 	"development":               false,
 	"state-port":                1234,
 	"api-port":                  4321,
-	"default-series":            config.LatestLtsSeries(),
+	"default-series":            series.LatestLts(),
 }
 
 type configTest struct {
@@ -258,7 +259,7 @@ var configTests = []configTest{
 			"ca-cert":        caCert,
 			"ca-private-key": caKey2,
 		}),
-		err: "bad CA certificate/key in configuration: crypto/tls: private key does not match public key",
+		err: "bad CA certificate/key in configuration: .*tls: private key does not match public key",
 	}, {
 		about:       "Invalid CA cert",
 		useDefaults: config.UseDefaults,
@@ -273,7 +274,7 @@ var configTests = []configTest{
 			"ca-cert":        caCert,
 			"ca-private-key": invalidCAKey,
 		}),
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+		err: "bad CA certificate/key in configuration: .*tls:.*",
 	}, {
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -404,26 +405,6 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"block-all-changest": false,
-		}),
-	}, {
-		about:       "Invalid prefer-ipv6 flag",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"prefer-ipv6":     "invalid",
-		}),
-		err: `prefer-ipv6: expected bool, got string\("invalid"\)`,
-	}, {
-		about:       "prefer-ipv6 off",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"prefer-ipv6": false,
-		}),
-	}, {
-		about:       "prefer-ipv6 on",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"prefer-ipv6": true,
 		}),
 	}, {
 		about:       "Invalid agent version",
@@ -888,7 +869,7 @@ var noCertFilesTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+		err: "bad CA certificate/key in configuration: .*tls:.*",
 	},
 }
 
@@ -1273,7 +1254,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"bootstrap-timeout":         3600,
 		"bootstrap-retry-delay":     30,
 		"bootstrap-addresses-delay": 10,
-		"default-series":            testing.FakeDefaultSeries,
+		"default-series":            series.LatestLts(),
 		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -1289,7 +1270,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
-	attrs["prefer-ipv6"] = false
 	attrs["set-numa-control-policy"] = false
 	attrs["allow-lxc-loop-mounts"] = false
 
@@ -1401,11 +1381,6 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"lxc-default-mtu": 9000},
 	new:   testing.Attrs{"lxc-default-mtu": 42},
 	err:   `cannot change lxc-default-mtu from 9000 to 42`,
-}, {
-	about: "Cannot change prefer-ipv6",
-	old:   testing.Attrs{"prefer-ipv6": false},
-	new:   testing.Attrs{"prefer-ipv6": true},
-	err:   `cannot change prefer-ipv6 from false to true`,
 }, {
 	about: "Cannot change uuid",
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
@@ -1850,22 +1825,6 @@ type specializedCharmRepo struct {
 func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	s.testMode = true
 	return s
-}
-
-func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
-	config.ResetCachedLtsSeries()
-	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
-		return "", fmt.Errorf("error")
-	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, "trusty")
-}
-
-func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
-	config.ResetCachedLtsSeries()
-	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
-		return "series", nil
-	})
-	c.Assert(config.LatestLtsSeries(), gc.Equals, "series")
 }
 
 var caCert = `

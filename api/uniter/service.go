@@ -174,7 +174,7 @@ func (s *Service) SetStatus(unitName string, serviceStatus status.Status, info s
 		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    tag.String(),
-				Status: serviceStatus,
+				Status: serviceStatus.String(),
 				Info:   info,
 				Data:   data,
 			},

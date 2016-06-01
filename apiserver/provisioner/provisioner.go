@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -233,7 +234,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		return result, err
 	}
 	cfg := make(map[string]string)
-	cfg[container.ConfigName] = container.DefaultNamespace
+	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
 
 	switch args.Type {
 	case instance.LXC:
@@ -307,7 +308,6 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
-	result.PreferIPv6 = config.PreferIPv6()
 	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
 	return result, nil
@@ -340,10 +340,10 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		if err != nil {
 			continue
 		}
-		result.Status = status.Status(statusInfo.Status)
+		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
-		if result.Status != status.StatusError {
+		if statusInfo.Status != status.StatusError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.
@@ -707,7 +707,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 	}
 
 	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
+		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -715,12 +715,12 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, tag)
+		container, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if !container.IsContainer() {
-			err = errors.Errorf("cannot prepare network config for %q: not a container", tag)
+			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if ciid, cerr := container.InstanceId(); maintain == true && cerr == nil {
@@ -807,7 +807,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 			continue
 		}
 
-		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, preparedInfo)
+		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, machineTag, preparedInfo)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -1296,7 +1296,7 @@ func (p *ProvisionerAPI) InstanceStatus(args params.Entities) (params.StatusResu
 		if err == nil {
 			var statusInfo status.StatusInfo
 			statusInfo, err = machine.InstanceStatus()
-			result.Results[i].Status = statusInfo.Status
+			result.Results[i].Status = statusInfo.Status.String()
 			result.Results[i].Info = statusInfo.Message
 			result.Results[i].Data = statusInfo.Data
 			result.Results[i].Since = statusInfo.Since
@@ -1325,7 +1325,15 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 		}
 		machine, err := p.getMachine(canAccess, mTag)
 		if err == nil {
-			err = machine.SetInstanceStatus(arg.Status, arg.Info, arg.Data)
+			// TODO(perrito666) 2016-05-02 lp:1558657
+			now := time.Now()
+			s := status.StatusInfo{
+				Status:  status.Status(arg.Status),
+				Message: arg.Info,
+				Data:    arg.Data,
+				Since:   &now,
+			}
+			err = machine.SetInstanceStatus(s)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

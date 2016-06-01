@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
 )
 
@@ -22,6 +23,7 @@ import (
 // a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
+	watcher          workers.TxnLogWatcher
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -29,6 +31,7 @@ type allWatcherStateBacking struct {
 // for all models from the State.
 type allModelWatcherStateBacking struct {
 	st               *State
+	watcher          workers.TxnLogWatcher
 	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }
@@ -347,11 +350,11 @@ func getUnitAddresses(st *State, unitName string) (string, string, error) {
 	}
 	publicAddress, err := u.PublicAddress()
 	if err != nil {
-		logger.Warningf("getting a public address for unit %q failed: %q", u.Name(), err)
+		logger.Errorf("getting a public address for unit %q failed: %q", u.Name(), err)
 	}
 	privateAddress, err := u.PrivateAddress()
 	if err != nil {
-		logger.Warningf("getting a private address for unit %q failed: %q", u.Name(), err)
+		logger.Errorf("getting a private address for unit %q failed: %q", u.Name(), err)
 	}
 	return publicAddress.Value, privateAddress.Value, nil
 }
@@ -409,9 +412,6 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 		serviceStatus, err := service.Status()
 		if err != nil {
-			logger.Warningf("reading service status for key %s: %v", key, err)
-		}
-		if err != nil && !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "reading service status for key %s", key)
 		}
 		if err == nil {
@@ -875,13 +875,13 @@ func (p *backingOpenedPorts) removed(store *multiwatcherStore, modelUUID, id str
 			// always acting a little behind reality. It is reasonable
 			// that entities have been deleted from State but we're
 			// still seeing events related to them from the watcher.
-			logger.Warningf("cannot retrieve units for %q: %v", info.Id, err)
+			logger.Errorf("cannot retrieve units for %q: %v", info.Id, err)
 			return nil
 		}
 		// Update the ports on all units assigned to the machine.
 		for _, u := range units {
 			if err := updateUnitPorts(st, store, u); err != nil {
-				logger.Warningf("cannot update unit ports for %q: %v", u.Name(), err)
+				logger.Errorf("cannot update unit ports for %q: %v", u.Name(), err)
 			}
 		}
 	}
@@ -996,6 +996,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 	)
 	return &allWatcherStateBacking{
 		st:               st,
+		watcher:          st.workers.TxnLogWatcher(),
 		collectionByName: collections,
 	}
 }
@@ -1008,14 +1009,14 @@ func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollectionWithFilter(c.name, in, b.filterEnv)
+		b.watcher.WatchCollectionWithFilter(c.name, in, b.filterEnv)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.UnwatchCollection(c.name, in)
+		b.watcher.UnwatchCollection(c.name, in)
 	}
 }
 
@@ -1074,6 +1075,7 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 	)
 	return &allModelWatcherStateBacking{
 		st:               st,
+		watcher:          st.workers.TxnLogWatcher(),
 		stPool:           NewStatePool(st),
 		collectionByName: collections,
 	}
@@ -1082,34 +1084,41 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 // Watch watches all the collections.
 func (b *allModelWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.name, in)
+		b.watcher.WatchCollection(c.name, in)
 	}
 }
 
 // Unwatch unwatches all the collections.
 func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.UnwatchCollection(c.name, in)
+		b.watcher.UnwatchCollection(c.name, in)
 	}
 }
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	envs, err := b.st.AllModels()
+	models, err := b.st.AllModels()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
-	for _, env := range envs {
-		st, err := b.st.ForModel(env.ModelTag())
-		if err != nil {
+	for _, m := range models {
+		if err := b.loadAllWatcherEntitiesForModel(m, all); err != nil {
 			return errors.Trace(err)
 		}
-		defer st.Close()
+	}
+	return nil
+}
 
-		err = loadAllWatcherEntities(st, b.collectionByName, all)
-		if err != nil {
-			return errors.Annotatef(err, "error loading entities for model %v", env.UUID())
-		}
+func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(m *Model, all *multiwatcherStore) error {
+	st, err := b.st.ForModel(m.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Close()
+
+	err = loadAllWatcherEntities(st, b.collectionByName, all)
+	if err != nil {
+		return errors.Annotatef(err, "error loading entities for model %v", m.UUID())
 	}
 	return nil
 }

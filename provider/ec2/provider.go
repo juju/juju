@@ -27,11 +27,24 @@ var providerInstance environProvider
 
 // RestrictedConfigAttributes is specified in the EnvironProvider interface.
 func (p environProvider) RestrictedConfigAttributes() []string {
-	return []string{"region"}
+	// TODO(dimitern): Both of these shouldn't be restricted for hosted models.
+	// See bug http://pad.lv/1580417 for more information.
+	return []string{"region", "vpc-id-force"}
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
 func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	env := e.(*environ)
+
+	apiClient, modelName, vpcID := env.ec2(), env.Name(), env.ecfg().vpcID()
+	if err := validateModelVPC(apiClient, modelName, vpcID); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return cfg, nil
 }
 
@@ -75,7 +88,8 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+
+	return cfg, nil
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
@@ -87,11 +101,20 @@ func (p environProvider) PrepareForBootstrap(
 	if err != nil {
 		return nil, err
 	}
+
+	env := e.(*environ)
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e.(*environ)); err != nil {
+		if err := verifyCredentials(env); err != nil {
 			return nil, err
 		}
 	}
+
+	apiClient, ecfg := env.ec2(), env.ecfg()
+	region, vpcID, forceVPCID := ecfg.region(), ecfg.vpcID(), ecfg.forceVPCID()
+	if err := validateBootstrapVPC(apiClient, region, vpcID, forceVPCID, ctx); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return e, nil
 }
 

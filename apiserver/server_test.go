@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -193,7 +193,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	proxy := testing.NewTCPProxy(c, mongoInfo.Addrs[0])
 	mongoInfo.Addrs = []string{proxy.Addr()}
 
-	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongo.DefaultDialOpts(), nil)
+	st, err := state.Open(s.State.ModelTag(), mongoInfo, mongotest.DialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

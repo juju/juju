@@ -124,17 +124,13 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			// We don't know about the machine - start
 			// a goroutine to deal with it.
 			m, err := p.context.getMachine(tag)
-			if params.IsCodeNotFound(err) {
-				logger.Warningf("watcher gave notification of non-existent machine %q", tag.Id())
-				continue
-			}
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			// We don't poll manual machines.
 			isManual, err := m.IsManual()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			if isManual {
 				continue
@@ -190,7 +186,8 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 				if statusInfo, err := m.Status(); err != nil {
 					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
 				} else {
-					machineStatus = statusInfo.Status
+					// TODO(perrito666) add status validation.
+					machineStatus = status.Status(statusInfo.Status)
 				}
 			}
 			// the extra condition below (checking allocating/pending) is here to improve user experience
@@ -252,8 +249,9 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
 		instInfo.status = instance.InstanceStatus{status.StatusUnknown, ""}
 	} else {
+		// TODO(perrito666) add status validation.
 		currentInstStatus := instance.InstanceStatus{
-			Status:  instStat.Status,
+			Status:  status.Status(instStat.Status),
 			Message: instStat.Info,
 		}
 		if instInfo.status != currentInstStatus {
@@ -286,10 +284,10 @@ func addressesEqual(a0, a1 []network.Address) bool {
 
 	ca0 := make([]network.Address, len(a0))
 	copy(ca0, a0)
-	network.SortAddresses(ca0, true)
+	network.SortAddresses(ca0)
 	ca1 := make([]network.Address, len(a1))
 	copy(ca1, a1)
-	network.SortAddresses(ca1, true)
+	network.SortAddresses(ca1)
 
 	for i := range ca0 {
 		if ca0[i] != ca1[i] {

@@ -122,12 +122,11 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 	// available.
 	stateInfo, ok := c.getter.StateServingInfo()
 	if !ok {
-		logger.Warningf("no state serving info, cannot regenerate server certificate")
-		return nil
+		return errors.New("no state serving info, cannot regenerate server certificate")
 	}
 	caPrivateKey := stateInfo.CAPrivateKey
 	if caPrivateKey == "" {
-		logger.Warningf("no CA cert private key, cannot regenerate server certificate")
+		logger.Errorf("no CA cert private key, cannot regenerate server certificate")
 		return nil
 	}
 	// Grab the env config and update a copy with ca cert private key.

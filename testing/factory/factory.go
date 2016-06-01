@@ -411,7 +411,14 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
-		err = service.SetStatus(params.Status.Status, params.Status.Message, params.Status.Data)
+		now := time.Now()
+		s := status.StatusInfo{
+			Status:  params.Status.Status,
+			Message: params.Status.Message,
+			Data:    params.Status.Data,
+			Since:   &now,
+		}
+		err = service.SetStatus(s)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -467,7 +474,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
-		err = unit.SetStatus(params.Status.Status, params.Status.Message, params.Status.Data)
+		now := time.Now()
+		s := status.StatusInfo{
+			Status:  params.Status.Status,
+			Message: params.Status.Message,
+			Data:    params.Status.Data,
+			Since:   &now,
+		}
+		err = unit.SetStatus(s)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

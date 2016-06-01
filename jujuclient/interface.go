@@ -24,6 +24,13 @@ type ControllerDetails struct {
 
 	// CACert is a security certificate for this controller.
 	CACert string `yaml:"ca-cert"`
+
+	// Cloud is the name of the cloud that this controller runs in.
+	Cloud string `yaml:"cloud"`
+
+	// CloudRegion is the name of the cloud region that this controller
+	// runs in. This will be empty for clouds without regions.
+	CloudRegion string `yaml:"region,omitempty"`
 }
 
 // ModelDetails holds details of a model.
@@ -87,6 +94,11 @@ type ControllerUpdater interface {
 	// If the controller does not already exist, it will be added.
 	// Otherwise, it will be overwritten with the new details.
 	UpdateController(controllerName string, details ControllerDetails) error
+
+	// SetCurrentController sets the name of the current controller.
+	// If there exists no controller with the specified name, an error
+	// satisfying errors.IsNotFound will be returned.
+	SetCurrentController(controllerName string) error
 }
 
 // ControllerRemover removes controllers.
@@ -109,6 +121,11 @@ type ControllerGetter interface {
 	// If there exists no controller with the specified name, an error
 	// satisfying errors.IsNotFound will be returned.
 	ControllerByName(controllerName string) (*ControllerDetails, error)
+
+	// CurrentController returns the name of the current controller.
+	// If there is no current controller, an error satisfying
+	// errors.IsNotFound will be returned.
+	CurrentController() (string, error)
 }
 
 // ModelUpdater stores model details.
@@ -121,7 +138,7 @@ type ModelUpdater interface {
 
 	// SetCurrentModel sets the name of the current model for
 	// the specified controller and account. If there exists no
-	// model with the specified names, an error satisfing
+	// model with the specified names, an error satisfying
 	// errors.IsNotFound will be returned.
 	SetCurrentModel(controllerName, accountName, modelName string) error
 }
@@ -172,7 +189,7 @@ type AccountUpdater interface {
 
 	// SetCurrentAccount sets the name of the current account for
 	// the specified controller. If there exists no account with
-	// the specified names, an error satisfing errors.IsNotFound
+	// the specified names, an error satisfying errors.IsNotFound
 	// will be returned.
 	SetCurrentAccount(controllerName, accountName string) error
 }

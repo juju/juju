@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-// toolsLtsSeries records the known Ubuntu LTS series.
-var toolsLtsSeries = []string{"precise", "trusty"}
+// toolsltsseries records the known ubuntu lts series.
+var toolsLtsSeries = series.SupportedLts()
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
@@ -287,7 +287,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 
 // UploadFakeTools puts fake tools into the supplied storage with a binary
 // version matching jujuversion.Current; if jujuversion.Current's series is different
-// to coretesting.FakeDefaultSeries, matching fake tools will be uploaded for that
+// to series.LatestLts(), matching fake tools will be uploaded for that
 // series.  This is useful for tests that are kinda casual about specifying
 // their environment.
 func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
@@ -312,7 +312,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := coretesting.FakeDefaultSeries
+	defaultSeries := series.LatestLts()
 	if series.HostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)

@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,30 +39,55 @@ func (s *MachineStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	err := s.machine.SetStatus(status.StatusError, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.machine.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *MachineStatusSuite) TestSetDownStatus(c *gc.C) {
-	err := s.machine.SetStatus(status.StatusDown, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusDown,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.machine.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "down"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *MachineStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.machine.SetStatus(status.Status("vliegkat"), "orville", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Status("vliegkat"),
+		Message: "orville",
+		Since:   &now,
+	}
+	err := s.machine.SetStatus(sInfo)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *MachineStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.machine.SetStatus(status.StatusStarted, "blah", map[string]interface{}{
-		"pew.pew": "zap",
-	})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusStarted,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"pew.pew": "zap",
+		},
+		Since: &now,
+	}
+	err := s.machine.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -71,11 +98,18 @@ func (s *MachineStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.machine.SetStatus(status.StatusStarted, "blah", map[string]interface{}{
-		"$foo.bar.baz": map[string]interface{}{
-			"pew.pew": "zap",
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusStarted,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"$foo.bar.baz": map[string]interface{}{
+				"pew.pew": "zap",
+			},
 		},
-	})
+		Since: &now,
+	}
+	err := s.machine.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	machine, err := s.State.Machine(s.machine.Id())
@@ -116,7 +150,13 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.SetStatus(status.StatusStarted, "not really", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusStarted,
+		Message: "not really",
+		Since:   &now,
+	}
+	err = s.machine.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: machine not found`)
 
 	statusInfo, err := s.machine.Status()
@@ -125,13 +165,25 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
-	err := s.machine.SetStatus(status.StatusPending, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusPending,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.machine.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
 }
 
 func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetStatus(status.StatusPending, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusPending,
+		Message: "",
+		Since:   &now,
+	}
+	err = machine.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 }

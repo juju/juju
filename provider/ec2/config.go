@@ -33,6 +33,19 @@ var configSchema = environschema.Fields{
 		Description: "The EC2 region to use",
 		Type:        environschema.Tstring,
 	},
+	"vpc-id": {
+		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region.",
+		Example:     "vpc-a1b2c3d4",
+		Type:        environschema.Tstring,
+		Group:       environschema.AccountGroup,
+		Immutable:   true,
+	},
+	"vpc-id-force": {
+		Description: "Force Juju to use the AWS VPC ID specified with vpc-id, when it fails the minimum validation criteria. Not accepted without vpc-id",
+		Type:        environschema.Tbool,
+		Group:       environschema.AccountGroup,
+		Immutable:   true,
+	},
 }
 
 var configFields = func() schema.Fields {
@@ -44,9 +57,11 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"access-key": "",
-	"secret-key": "",
-	"region":     "us-east-1",
+	"access-key":   "",
+	"secret-key":   "",
+	"region":       "us-east-1",
+	"vpc-id":       "",
+	"vpc-id-force": false,
 }
 
 type environConfig struct {
@@ -64,6 +79,14 @@ func (c *environConfig) accessKey() string {
 
 func (c *environConfig) secretKey() string {
 	return c.attrs["secret-key"].(string)
+}
+
+func (c *environConfig) vpcID() string {
+	return c.attrs["vpc-id"].(string)
+}
+
+func (c *environConfig) forceVPCID() bool {
+	return c.attrs["vpc-id-force"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -102,14 +125,29 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		ecfg.attrs["access-key"] = auth.AccessKey
 		ecfg.attrs["secret-key"] = auth.SecretKey
 	}
+
 	if _, ok := aws.Regions[ecfg.region()]; !ok {
 		return nil, fmt.Errorf("invalid region name %q", ecfg.region())
+	}
+
+	if vpcID := ecfg.vpcID(); isVPCIDSetButInvalid(vpcID) {
+		return nil, fmt.Errorf("vpc-id: %q is not a valid AWS VPC ID", vpcID)
+	} else if !isVPCIDSet(vpcID) && ecfg.forceVPCID() {
+		return nil, fmt.Errorf("cannot use vpc-id-force without specifying vpc-id as well")
 	}
 
 	if old != nil {
 		attrs := old.UnknownAttrs()
 		if region, _ := attrs["region"].(string); ecfg.region() != region {
 			return nil, fmt.Errorf("cannot change region from %q to %q", region, ecfg.region())
+		}
+
+		if vpcID, _ := attrs["vpc-id"].(string); vpcID != ecfg.vpcID() {
+			return nil, fmt.Errorf("cannot change vpc-id from %q to %q", vpcID, ecfg.vpcID())
+		}
+
+		if forceVPCID, _ := attrs["vpc-id-force"].(bool); forceVPCID != ecfg.forceVPCID() {
+			return nil, fmt.Errorf("cannot change vpc-id-force from %v to %v", forceVPCID, ecfg.forceVPCID())
 		}
 	}
 

@@ -43,7 +43,6 @@ func (s *configSuite) TestDefaults(c *gc.C) {
 	c.Assert(extras, gc.HasLen, 0)
 
 	c.Check(values, jc.DeepEquals, lxd.ConfigValues{
-		Namespace:  cfg.Name(),
 		RemoteURL:  "",
 		ClientCert: "",
 		ClientKey:  "",
@@ -61,7 +60,6 @@ func (s *configSuite) TestClientConfigLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
-		Namespace: cfg.Name(),
 		Remote: lxdclient.Remote{
 			Name:          "juju-remote",
 			Host:          "",
@@ -86,7 +84,6 @@ func (s *configSuite) TestClientConfigNonLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(clientCfg, jc.DeepEquals, lxdclient.Config{
-		Namespace: cfg.Name(),
 		Remote: lxdclient.Remote{
 			Name:     "juju-remote",
 			Host:     "10.0.0.1",
@@ -114,7 +111,6 @@ func (s *configSuite) TestUpdateForClientConfigLocal(c *gc.C) {
 	c.Assert(extras, gc.HasLen, 0)
 
 	c.Check(values, jc.DeepEquals, lxd.ConfigValues{
-		Namespace:  cfg.Name(),
 		RemoteURL:  "",
 		ClientCert: "",
 		ClientKey:  "",
@@ -144,14 +140,12 @@ func (s *configSuite) TestUpdateForClientConfigNonLocal(c *gc.C) {
 	c.Assert(extras, gc.HasLen, 0)
 
 	c.Check(before, jc.DeepEquals, lxd.ConfigValues{
-		Namespace:  cfg.Name(),
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "<a valid x.509 cert>",
 		ClientKey:  "<a valid x.509 key>",
 		ServerCert: "<a valid x.509 server cert>",
 	})
 	c.Check(after, jc.DeepEquals, lxd.ConfigValues{
-		Namespace:  cfg.Name(),
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "<a valid x.509 cert>",
 		ClientKey:  "<a valid x.509 key>",
@@ -181,7 +175,6 @@ func (s *configSuite) TestUpdateForClientConfigGeneratedCert(c *gc.C) {
 	c.Assert(extras, gc.HasLen, 0)
 
 	c.Check(before, jc.DeepEquals, lxd.ConfigValues{
-		Namespace:  cfg.Name(),
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "",
 		ClientKey:  "",
@@ -192,7 +185,6 @@ func (s *configSuite) TestUpdateForClientConfigGeneratedCert(c *gc.C) {
 	after.ClientKey = ""
 	after.ServerCert = ""
 	c.Check(after, jc.DeepEquals, lxd.ConfigValues{
-		Namespace:  cfg.Name(),
 		RemoteURL:  "10.0.0.1",
 		ClientCert: "",
 		ClientKey:  "",
@@ -283,14 +275,6 @@ func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
 }
 
 var newConfigTests = []configTestSpec{{
-	info:   "namespace is optional",
-	remove: []string{"namespace"},
-	expect: testing.Attrs{"namespace": "testenv"},
-}, {
-	info:   "namespace can be empty",
-	insert: testing.Attrs{"namespace": ""},
-	expect: testing.Attrs{"namespace": "testenv"},
-}, {
 	info:   "remote-url is optional",
 	remove: []string{"remote-url"},
 	expect: testing.Attrs{"remote-url": ""},
@@ -329,6 +313,9 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")
 	}
+
+	// TODO(redir): Remove after wily or in yakkety.
+	skipIfWily(c)
 
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
@@ -400,15 +387,6 @@ var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
 	expect: lxd.ConfigAttrs,
 }, {
-	info:   "cannot change namespace",
-	insert: testing.Attrs{"namespace": "spam"},
-	err:    "namespace: cannot change from testenv to spam",
-	//}, {
-	// TODO(ericsnow) This triggers cert generation...
-	//	info:   "cannot change remote-url",
-	//	insert: testing.Attrs{"remote-url": "eggs"},
-	//	err:    "remote-url: cannot change from  to eggs",
-}, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
 	expect: testing.Attrs{"unknown": "ignoti"},
@@ -436,6 +414,9 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")
 	}
+
+	// TODO(redir): Remove after wily or in yakkety.
+	skipIfWily(c)
 
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)

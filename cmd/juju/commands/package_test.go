@@ -5,10 +5,9 @@ package commands
 
 import (
 	"flag"
+	"os"
 	"runtime"
 	stdtesting "testing"
-
-	gittesting "github.com/juju/testing"
 
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	_ "github.com/juju/juju/provider/dummy"
@@ -19,9 +18,6 @@ func TestPackage(t *stdtesting.T) {
 	if runtime.GOARCH == "386" {
 		t.Skipf("skipping package for %v/%v, see http://pad.lv/1425569", runtime.GOOS, runtime.GOARCH)
 	}
-	if gittesting.RaceEnabled {
-		t.Skip("skipping test in -race mode, see LP 1518810")
-	}
 	testing.MgoTestPackage(t)
 }
 
@@ -29,6 +25,6 @@ func TestPackage(t *stdtesting.T) {
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *cmdtesting.FlagRunMain {
-		Main(flag.Args())
+		os.Exit(Main(flag.Args()))
 	}
 }

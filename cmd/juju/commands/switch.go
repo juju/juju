@@ -18,8 +18,6 @@ import (
 func newSwitchCommand() cmd.Command {
 	cmd := &switchCommand{
 		Store: jujuclient.NewFileClientStore(),
-		ReadCurrentController:  modelcmd.ReadCurrentController,
-		WriteCurrentController: modelcmd.WriteCurrentController,
 	}
 	cmd.RefreshModels = cmd.JujuCommandBase.RefreshModels
 	return modelcmd.WrapBase(cmd)
@@ -27,9 +25,7 @@ func newSwitchCommand() cmd.Command {
 
 type switchCommand struct {
 	modelcmd.JujuCommandBase
-	RefreshModels          func(jujuclient.ClientStore, string, string) error
-	ReadCurrentController  func() (string, error)
-	WriteCurrentController func(string) error
+	RefreshModels func(jujuclient.ClientStore, string, string) error
 
 	Store  jujuclient.ClientStore
 	Target string
@@ -78,8 +74,10 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Get the current name for logging the transition or printing
 	// the current controller/model.
-	currentControllerName, err := c.ReadCurrentController()
-	if err != nil {
+	currentControllerName, err := c.Store.CurrentController()
+	if errors.IsNotFound(err) {
+		currentControllerName = ""
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	if c.Target == "" {
@@ -125,7 +123,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			return errors.Trace(c.WriteCurrentController(newControllerName))
+			return errors.Trace(c.Store.SetCurrentController(newControllerName))
 		}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -171,7 +169,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 	if currentControllerName != newControllerName {
-		if err := c.WriteCurrentController(newControllerName); err != nil {
+		if err := c.Store.SetCurrentController(newControllerName); err != nil {
 			return errors.Trace(err)
 		}
 	}

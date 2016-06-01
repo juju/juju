@@ -286,7 +286,7 @@ func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (dep
 func removeOnErr(err *error, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
-			logger.Warningf("installer: cannot remove %q: %v", path, err)
+			logger.Errorf("installer: cannot remove %q: %v", path, err)
 		}
 	}
 }

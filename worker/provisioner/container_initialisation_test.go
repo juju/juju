@@ -140,7 +140,7 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
@@ -186,7 +186,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	for _, ctype := range containerTypes {
 		// create a machine to host the container.
 		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-			Series:      coretesting.FakeDefaultSeries,
+			Series:      series.LatestLts(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		})
@@ -242,7 +242,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -265,7 +265,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -297,14 +297,9 @@ func (s *ContainerSetupSuite) TestLxcContainerUsesImageURL(c *gc.C) {
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	pr := s.st.Provisioner()
-	expect := func(expect string) {
-		cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg[container.ConfigName], gc.Equals, expect)
-	}
-	expect("juju")
-	s.agentConfig.SetValue(agent.Namespace, "any-old-thing")
-	expect("any-old-thing")
+	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
 }
 
 type ContainerInstance struct {
@@ -393,7 +388,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 
 func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -613,7 +608,7 @@ func (s *LXCDefaultMTUSuite) SetUpTest(c *gc.C) {
 func (s *LXCDefaultMTUSuite) TestDefaultMTUPropagatedToNewLXCBroker(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})

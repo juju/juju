@@ -286,7 +286,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("available tools:\n%s", formatTools(context.tools))
 	ctx.Infof("best version:\n    %s", context.chosen)
 	if warnCompat {
-		logger.Warningf("version %s incompatible with this client (%s)", context.chosen, jujuversion.Current)
+		logger.Infof("version %s incompatible with this client (%s)", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)

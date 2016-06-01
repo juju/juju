@@ -340,7 +340,7 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 
 // This is stubbed out for testing.
 var MachineStatus = func(m *testMachine) (params.StatusResult, error) {
-	return params.StatusResult{Status: m.status}, nil
+	return params.StatusResult{Status: m.status.String()}, nil
 }
 
 func (m *testMachine) Status() (params.StatusResult, error) {
@@ -354,7 +354,7 @@ func (m *testMachine) IsManual() (bool, error) {
 func (m *testMachine) InstanceStatus() (params.StatusResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return params.StatusResult{Status: status.Status(m.instStatus)}, nil
+	return params.StatusResult{Status: m.instStatus.String()}, nil
 }
 
 func (m *testMachine) SetInstanceStatus(machineStatus status.Status, info string, data map[string]interface{}) error {

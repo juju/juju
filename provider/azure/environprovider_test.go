@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
 	jc "github.com/juju/testing/checkers"
@@ -94,6 +96,9 @@ func newProviders(c *gc.C, config azure.ProviderConfig) (environs.EnvironProvide
 			return fakeStorageAccount
 		}
 	}
+	if config.RetryClock == nil {
+		config.RetryClock = testing.NewClock(time.Time{})
+	}
 	environProvider, storageProvider, err := azure.NewProviders(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return environProvider, storageProvider
@@ -103,6 +108,7 @@ func requestRecorder(requests *[]*http.Request) autorest.PrepareDecorator {
 	if requests == nil {
 		return nil
 	}
+	var mu sync.Mutex
 	return func(p autorest.Preparer) autorest.Preparer {
 		return autorest.PreparerFunc(func(req *http.Request) (*http.Request, error) {
 			// Save the request body, since it will be consumed.
@@ -118,7 +124,9 @@ func requestRecorder(requests *[]*http.Request) autorest.PrepareDecorator {
 				reqCopy.Body = ioutil.NopCloser(&buf)
 				req.Body = ioutil.NopCloser(bytes.NewReader(buf.Bytes()))
 			}
+			mu.Lock()
 			*requests = append(*requests, &reqCopy)
+			mu.Unlock()
 			return req, nil
 		})
 	}

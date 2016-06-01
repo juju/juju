@@ -82,7 +82,6 @@ type BaseSuiteUnpatched struct {
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
-	Prefix    string
 
 	Addresses       []network.Address
 	BaseInstance    *google.Instance
@@ -107,6 +106,10 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
+}
+
+func (s *BaseSuiteUnpatched) Prefix() string {
+	return s.Env.namespace.Prefix()
 }
 
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
@@ -155,7 +158,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
-	s.InstName = s.Prefix + "machine-spam"
+	s.InstName, err = s.Env.namespace.Hostname("42")
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
 		InstanceConfig: instanceConfig,
@@ -189,13 +193,15 @@ func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
-	ecfg, err := newValidConfig(cfg, configDefaults)
+	ecfg, err := newConfig(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
-	s.Prefix = "juju-" + uuid + "-"
+	namespace, err := instance.NewNamespace(uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Env.namespace = namespace
 }
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {

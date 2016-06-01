@@ -145,6 +145,10 @@ func (s *Subnet) Remove() (err error) {
 		Remove: true,
 		Assert: isDeadDoc,
 	})
+	if s.doc.ProviderId != "" {
+		op := s.st.networkEntityGlobalKeyRemoveOp("subnet", s.ProviderId())
+		ops = append(ops, op)
+	}
 
 	txnErr := s.st.runTransaction(ops)
 	if txnErr == nil {
@@ -155,7 +159,7 @@ func (s *Subnet) Remove() (err error) {
 
 // ProviderId returns the provider-specific id of the subnet.
 func (s *Subnet) ProviderId() network.Id {
-	return network.Id(s.st.localID(s.doc.ProviderId))
+	return network.Id(s.doc.ProviderId)
 }
 
 // CIDR returns the subnet CIDR (e.g. 192.168.50.0/24).
@@ -355,4 +359,96 @@ var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
 			return value
 		}
 	}
+}
+
+// AddSubnet creates and returns a new subnet
+func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
+	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
+
+	subnetID := st.docID(args.CIDR)
+	subDoc := subnetDoc{
+		DocID:             subnetID,
+		ModelUUID:         st.ModelUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        string(args.ProviderId),
+		AllocatableIPHigh: args.AllocatableIPHigh,
+		AllocatableIPLow:  args.AllocatableIPLow,
+		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
+	}
+	subnet = &Subnet{doc: subDoc, st: st}
+	err = subnet.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops := []txn.Op{
+			assertModelActiveOp(st.ModelUUID()),
+			{
+				C:      subnetsC,
+				Id:     subnetID,
+				Assert: txn.DocMissing,
+				Insert: subDoc,
+			},
+		}
+		if args.ProviderId != "" {
+			ops = append(ops, st.networkEntityGlobalKeyOp("subnet", args.ProviderId))
+		}
+
+		if attempt != 0 {
+			if err := checkModelActive(st); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if _, err = st.Subnet(args.CIDR); err == nil {
+				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+			}
+			if err := subnet.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		return ops, nil
+	}
+	err = st.run(buildTxn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return subnet, nil
+}
+
+// Subnet returns the subnet specified by the cidr.
+func (st *State) Subnet(cidr string) (*Subnet, error) {
+	subnets, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	doc := &subnetDoc{}
+	err := subnets.FindId(cidr).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("subnet %q", cidr)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
+	}
+	return &Subnet{st, *doc}, nil
+}
+
+// AllSubnets returns all known subnets in the model.
+func (st *State) AllSubnets() (subnets []*Subnet, err error) {
+	subnetsCollection, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	docs := []subnetDoc{}
+	err = subnetsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all subnets")
+	}
+	for _, doc := range docs {
+		subnets = append(subnets, &Subnet{st, doc})
+	}
+	return subnets, nil
 }

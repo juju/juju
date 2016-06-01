@@ -271,6 +271,12 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeStatusOp(s.st, s.globalKey()),
 		removeModelServiceRefOp(s.st, s.Name()),
 	}
+	// For local charms, we also delete the charm itself since the
+	// charm is associated 1:1 with the service. Each different deploy
+	// of a local charm creates a new copy with a different revision.
+	if s.doc.CharmURL.Schema == "local" {
+		ops = append(ops, s.st.newCleanupOp(cleanupCharmForDyingService, s.doc.CharmURL.String()))
+	}
 	return ops
 }
 
@@ -1553,23 +1559,30 @@ func (s *Service) Status() (status.StatusInfo, error) {
 }
 
 // SetStatus sets the status for the service.
-func (s *Service) SetStatus(serviceStatus status.Status, info string, data map[string]interface{}) error {
-	if !status.ValidWorkloadStatus(serviceStatus) {
-		return errors.Errorf("cannot set invalid status %q", serviceStatus)
+func (s *Service) SetStatus(statusInfo status.StatusInfo) error {
+	if !status.ValidWorkloadStatus(statusInfo.Status) {
+		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
 	return setStatus(s.st, setStatusParams{
 		badge:     "service",
 		globalKey: s.globalKey(),
-		status:    serviceStatus,
-		message:   info,
-		rawData:   data,
+		status:    statusInfo.Status,
+		message:   statusInfo.Message,
+		rawData:   statusInfo.Data,
+		updated:   statusInfo.Since,
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this service.
-func (s *Service) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(s.st, s.globalKey(), size)
+func (s *Service) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        s.st,
+		globalKey: s.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // ServiceAndUnitsStatus returns the status for this service and all its units.

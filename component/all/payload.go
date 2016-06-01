@@ -201,17 +201,16 @@ func (payloads) registerState() {
 		return
 	}
 
-	// TODO(ericsnow) Use a more general registration mechanism.
-	//state.RegisterMultiEnvCollections(persistence.Collections...)
-
-	newUnitPayloads := func(persist state.Persistence, unit, machine string) (state.UnitPayloads, error) {
-		return payloadstate.NewUnitPayloads(persist, unit, machine), nil
+	newUnitPayloads := func(db state.Persistence, unit, machine string) (state.UnitPayloads, error) {
+		persist := persistence.NewPersistence(db)
+		unitPersist := persistence.NewUnitPersistence(persist, unit)
+		return payloadstate.NewUnitPayloads(unitPersist, unit, machine), nil
 	}
 
-	newEnvPayloads := func(persist state.PayloadsEnvPersistence) (state.EnvPayloads, error) {
-		envPersist := persistence.NewEnvPersistence(persist)
+	newEnvPayloads := func(db state.Persistence) (state.EnvPayloads, error) {
+		persist := persistence.NewPersistence(db)
 		envPayloads := payloadstate.EnvPayloads{
-			Persist: envPersist,
+			Persist: persist,
 		}
 		return envPayloads, nil
 	}

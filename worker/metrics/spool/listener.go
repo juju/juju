@@ -21,7 +21,7 @@ const (
 
 // ConnectionHandler defines the method needed to handle socket connections.
 type ConnectionHandler interface {
-	Handle(net.Conn) error
+	Handle(net.Conn, <-chan struct{}) error
 }
 
 type socketListener struct {
@@ -47,41 +47,29 @@ func NewSocketListener(socketPath string, handler ConnectionHandler) (*socketLis
 
 // Stop closes the listener and releases all resources
 // used by the socketListener.
-func (l *socketListener) Stop() {
+func (l *socketListener) Stop() error {
 	l.t.Kill(nil)
 	err := l.listener.Close()
 	if err != nil {
 		logger.Errorf("failed to close the collect-metrics listener: %v", err)
 	}
-	err = l.t.Wait()
-	if err != nil {
-		logger.Errorf("failed waiting for all goroutines to finish: %v", err)
-	}
+	return l.t.Wait()
 }
 
-func (l *socketListener) loop() (_err error) {
-	defer func() {
-		select {
-		case <-l.t.Dying():
-			_err = nil
-		default:
-		}
-	}()
+func (l *socketListener) loop() error {
 	for {
 		conn, err := l.listener.Accept()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		go func() error {
-			err := l.handler.Handle(conn)
+		go func() {
+			err := l.handler.Handle(conn, l.t.Dying())
 			if err != nil {
 				// log the error and continue
 				logger.Errorf("request handling failed: %v", err)
 			}
-			return nil
 		}()
 	}
-	return
 }
 
 // NewPeriodicWorker returns a periodic worker, that will call a stop function

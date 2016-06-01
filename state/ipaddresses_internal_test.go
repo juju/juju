@@ -51,17 +51,9 @@ func (s *ipAddressesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *gc.C) {
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(""))
 }
 
-func (s *ipAddressesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c *gc.C) {
-	const localProviderID = "foo"
-	globalProviderID := coretesting.ModelTag.Id() + ":" + localProviderID
-
-	result := s.newIPAddressWithDummyState(ipAddressDoc{ProviderID: localProviderID})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
-	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
-
-	result = s.newIPAddressWithDummyState(ipAddressDoc{ProviderID: globalProviderID})
-	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
-	c.Assert(result.localProviderID(), gc.Equals, localProviderID)
+func (s *ipAddressesInternalSuite) TestProviderID(c *gc.C) {
+	result := s.newIPAddressWithDummyState(ipAddressDoc{ProviderID: "foo"})
+	c.Assert(result.ProviderID(), gc.Equals, network.Id("foo"))
 }
 
 func (s *ipAddressesInternalSuite) TestIPAddressGlobalKeyHelper(c *gc.C) {

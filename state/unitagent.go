@@ -55,31 +55,38 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
-func (u *UnitAgent) SetStatus(unitAgentStatus status.Status, info string, data map[string]interface{}) (err error) {
-	switch unitAgentStatus {
+func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
+	switch unitAgentStatus.Status {
 	case status.StatusIdle, status.StatusExecuting, status.StatusRebooting, status.StatusFailed:
 	case status.StatusError:
-		if info == "" {
-			return errors.Errorf("cannot set status %q without info", unitAgentStatus)
+		if unitAgentStatus.Message == "" {
+			return errors.Errorf("cannot set status %q without info", unitAgentStatus.Status)
 		}
 	case status.StatusAllocating, status.StatusLost:
-		return errors.Errorf("cannot set status %q", unitAgentStatus)
+		return errors.Errorf("cannot set status %q", unitAgentStatus.Status)
 	default:
-		return errors.Errorf("cannot set invalid status %q", unitAgentStatus)
+		return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "agent",
 		globalKey: u.globalKey(),
-		status:    unitAgentStatus,
-		message:   info,
-		rawData:   data,
+		status:    unitAgentStatus.Status,
+		message:   unitAgentStatus.Message,
+		rawData:   unitAgentStatus.Data,
+		updated:   unitAgentStatus.Since,
 	})
 }
 
-// StatusHistory returns a slice of at most <size> StatusInfo items
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this agent.
-func (u *UnitAgent) StatusHistory(size int) ([]status.StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        u.st,
+		globalKey: u.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // unitAgentGlobalKey returns the global database key for the named unit.

@@ -217,7 +217,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.PublicAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -314,7 +314,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.PrivateAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -682,7 +682,13 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetAgentStatus(status.StatusIdle, "", nil)
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  status.StatusIdle,
+			Message: "",
+			Since:   &now,
+		}
+		err := s.unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -800,7 +806,13 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(test.status, test.info, nil)
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  test.status,
+			Message: test.info,
+			Since:   &now,
+		}
+		err = unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -906,7 +918,13 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetAgentStatus(status.StatusError, "gaaah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "gaaah",
+		Since:   &now,
+	}
+	err = s.unit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)

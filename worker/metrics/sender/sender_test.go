@@ -86,7 +86,8 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	conn := &mockConnection{data: []byte(fmt.Sprintf("%v\n", tmpDir))}
-	err = metricSender.Handle(conn)
+	ch := make(chan struct{})
+	err = metricSender.Handle(conn, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
@@ -153,7 +154,7 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	stopCh := make(chan struct{})
 	err = metricSender.Do(stopCh)
-	c.Assert(err, gc.ErrorMatches, "something went wrong")
+	c.Assert(err, gc.ErrorMatches, "could not send metrics: something went wrong")
 
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 

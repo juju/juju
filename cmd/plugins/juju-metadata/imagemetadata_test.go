@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -167,7 +168,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
-		series: config.LatestLtsSeries(),
+		series: series.LatestLts(),
 		arch:   "arch",
 	}
 	s.assertCommandOutput(c, expected, out, defaultIndexFileName, defaultImageFileName)

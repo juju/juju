@@ -10,8 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"github.com/lxc/lxd"
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -26,25 +24,25 @@ var (
 	logger = loggo.GetLogger("juju.container.lxd")
 )
 
+const lxdDefaultProfileName = "default"
+
 // XXX: should we allow managing containers on other hosts? this is
 // functionality LXD gives us and from discussion juju would use eventually for
 // the local provider, so the APIs probably need to be changed to pass extra
 // args around. I'm punting for now.
 type containerManager struct {
-	name string
+	modelUUID string
+	namespace instance.Namespace
 	// A cached client.
 	client *lxdclient.Client
-	// Custom network profile
-	networkProfile string
 }
 
 // containerManager implements container.Manager.
 var _ container.Manager = (*containerManager)(nil)
 
-func ConnectLocal(namespace string) (*lxdclient.Client, error) {
+func ConnectLocal() (*lxdclient.Client, error) {
 	cfg := lxdclient.Config{
-		Namespace: namespace,
-		Remote:    lxdclient.Local,
+		Remote: lxdclient.Local,
 	}
 
 	cfg, err := cfg.WithDefaults()
@@ -65,13 +63,25 @@ func ConnectLocal(namespace string) (*lxdclient.Client, error) {
 // TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
 // functionality.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	name := conf.PopValue(container.ConfigName)
-	if name == "" {
-		return nil, errors.Errorf("name is required")
+	modelUUID := conf.PopValue(container.ConfigModelUUID)
+	if modelUUID == "" {
+		return nil, errors.Errorf("model UUID is required")
+	}
+	namespace, err := instance.NewNamespace(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	conf.WarnAboutUnused()
-	return &containerManager{name: name}, nil
+	return &containerManager{
+		modelUUID: modelUUID,
+		namespace: namespace,
+	}, nil
+}
+
+// Namespace implements container.Manager.
+func (manager *containerManager) Namespace() instance.Namespace {
+	return manager.namespace
 }
 
 func (manager *containerManager) CreateContainer(
@@ -84,13 +94,12 @@ func (manager *containerManager) CreateContainer(
 
 	defer func() {
 		if err != nil {
-			manager.deleteNetworkProfile()
 			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		}
 	}()
 
 	if manager.client == nil {
-		manager.client, err = ConnectLocal(manager.name)
+		manager.client, err = ConnectLocal()
 		if err != nil {
 			err = errors.Annotatef(err, "failed to connect to local LXD")
 			return
@@ -107,9 +116,9 @@ func (manager *containerManager) CreateContainer(
 		return
 	}
 
-	name := names.NewMachineTag(instanceConfig.MachineId).String()
-	if manager.name != "" {
-		name = fmt.Sprintf("%s-%s", manager.name, name)
+	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
@@ -121,46 +130,38 @@ func (manager *containerManager) CreateContainer(
 		lxdclient.UserdataKey: string(userData),
 		// An extra piece of info to let people figure out where this
 		// thing came from.
-		"user.juju-environment": manager.name,
+		"user.juju-model": manager.modelUUID,
 
 		// Make sure these come back up on host reboot.
 		"boot.autostart": "true",
 	}
 
-	networkProfile := fmt.Sprintf("%s-network", name)
+	nics, err := networkDevices(networkConfig)
+	if err != nil {
+		return
+	}
 
-	if len(networkConfig.Interfaces) > 0 || networkConfig.Device != "" {
-		if err = createNetworkProfile(manager.client, networkProfile); err != nil {
-			return
-		}
+	profiles := []string{}
 
-		manager.networkProfile = networkProfile
-		if len(networkConfig.Interfaces) > 0 {
-			err = networkProfileAddMultipleInterfaces(manager.client, networkProfile, networkConfig.Interfaces)
-		} else {
-			err = networkProfileAddSingleInterface(manager.client, networkProfile, networkConfig.Device, networkConfig.MTU)
-		}
-		if err != nil {
-			return
-		}
+	if len(nics) == 0 {
+		logger.Infof("instance %q configured with %q profile", name, lxdDefaultProfileName)
+		profiles = append(profiles, lxdDefaultProfileName)
 	} else {
-		networkProfile = "default"
+		logger.Infof("instance %q configured with %v network devices", name, nics)
 	}
 
 	spec := lxdclient.InstanceSpec{
 		Name:     name,
 		Image:    manager.client.ImageNameForSeries(series),
 		Metadata: metadata,
-		Profiles: []string{
-			networkProfile,
-		},
+		Devices:  nics,
+		Profiles: profiles,
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)
 	callback(status.StatusProvisioning, "Starting container", nil)
 	_, err = manager.client.AddInstance(spec)
 	if err != nil {
-		manager.client.ProfileDelete(networkProfile)
 		return
 	}
 
@@ -172,25 +173,24 @@ func (manager *containerManager) CreateContainer(
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	if manager.client == nil {
 		var err error
-		manager.client, err = ConnectLocal(manager.name)
+		manager.client, err = ConnectLocal()
 		if err != nil {
 			return err
 		}
 	}
-	manager.deleteNetworkProfile()
-	return errors.Trace(manager.client.RemoveInstances(manager.name, string(id)))
+	return errors.Trace(manager.client.RemoveInstances(manager.namespace.Prefix(), string(id)))
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
 	result = []instance.Instance{}
 	if manager.client == nil {
-		manager.client, err = ConnectLocal(manager.name)
+		manager.client, err = ConnectLocal()
 		if err != nil {
 			return
 		}
 	}
 
-	lxdInstances, err := manager.client.Instances(manager.name)
+	lxdInstances, err := manager.client.Instances(manager.namespace.Prefix())
 	if err != nil {
 		return
 	}
@@ -210,7 +210,7 @@ func (manager *containerManager) IsInitialized() bool {
 	// NewClient does a roundtrip to the server to make sure it understands
 	// the versions, so all we need to do is connect above and we're done.
 	var err error
-	manager.client, err = ConnectLocal(manager.name)
+	manager.client, err = ConnectLocal()
 	return err == nil
 }
 
@@ -220,95 +220,64 @@ func HasLXDSupport() bool {
 	return true
 }
 
-func nicProperties(parentDevice, deviceName, hwAddr string, mtu int) ([]string, error) {
-	var props = []string{"nictype=bridged"}
+func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (lxdclient.Device, error) {
+	device := make(lxdclient.Device)
 
-	if parentDevice == "" {
-		return nil, errors.Errorf("invalid parent device")
-	} else {
-		props = append(props, fmt.Sprintf("parent=%v", parentDevice))
-	}
+	device["type"] = "nic"
+	device["nictype"] = "bridged"
 
 	if deviceName == "" {
 		return nil, errors.Errorf("invalid device name")
-	} else {
-		props = append(props, fmt.Sprintf("name=%v", deviceName))
 	}
+	device["name"] = deviceName
+
+	if parentDevice == "" {
+		return nil, errors.Errorf("invalid parent device name")
+	}
+	device["parent"] = parentDevice
 
 	if hwAddr != "" {
-		props = append(props, fmt.Sprintf("hwaddr=%v", hwAddr))
+		device["hwaddr"] = hwAddr
 	}
 
 	if mtu > 0 {
-		props = append(props, fmt.Sprintf("mtu=%v", mtu))
+		device["mtu"] = fmt.Sprintf("%v", mtu)
 	}
 
-	return props, nil
+	return device, nil
 }
 
-func addNetworkDeviceToProfile(client *lxdclient.Client, profile, parentDevice, deviceName, hwAddr string, mtu int) (*lxd.Response, error) {
-	props, err := nicProperties(parentDevice, deviceName, hwAddr, mtu)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	logger.Infof("adding nic device %q with properties %+v to profile %q", deviceName, props, profile)
-	return client.ProfileDeviceAdd(profile, deviceName, "nic", props)
-}
+func networkDevices(networkConfig *container.NetworkConfig) (lxdclient.Devices, error) {
+	nics := make(lxdclient.Devices)
 
-func networkProfileAddSingleInterface(client *lxdclient.Client, profile, deviceName string, mtu int) error {
-	_, err := addNetworkDeviceToProfile(client, profile, deviceName, "eth0", "", mtu)
-	return errors.Trace(err)
-}
-
-func networkProfileAddMultipleInterfaces(client *lxdclient.Client, profile string, interfaces []network.InterfaceInfo) error {
-	for _, v := range interfaces {
-		if v.InterfaceType == network.LoopbackInterface {
-			continue
+	if len(networkConfig.Interfaces) > 0 {
+		for _, v := range networkConfig.Interfaces {
+			if v.InterfaceType == network.LoopbackInterface {
+				continue
+			}
+			if v.InterfaceType != network.EthernetInterface {
+				return nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
+			}
+			parentDevice := v.ParentInterfaceName
+			if parentDevice == "" {
+				// This happens on AWS when the
+				// address-allocation feature flag is
+				// enabled.
+				parentDevice = networkConfig.Device
+			}
+			device, err := nicDevice(v.InterfaceName, parentDevice, v.MACAddress, v.MTU)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			nics[v.InterfaceName] = device
 		}
-
-		if v.InterfaceType != network.EthernetInterface {
-			return errors.Errorf("interface type %q not supported", v.InterfaceType)
-		}
-
-		_, err := addNetworkDeviceToProfile(client, profile, v.ParentInterfaceName, v.InterfaceName, v.MACAddress, v.MTU)
-
+	} else if networkConfig.Device != "" {
+		device, err := nicDevice("eth0", networkConfig.Device, "", networkConfig.MTU)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
+		nics["eth0"] = device
 	}
 
-	return nil
-}
-
-func createNetworkProfile(client *lxdclient.Client, profile string) error {
-	found, err := client.HasProfile(profile)
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if found {
-		logger.Infof("deleting existing container profile %q", profile)
-		if err := client.ProfileDelete(profile); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	err = client.CreateProfile(profile, nil)
-
-	if err == nil {
-		logger.Infof("created new network container profile %q", profile)
-	}
-
-	return errors.Trace(err)
-}
-
-func (manager *containerManager) deleteNetworkProfile() {
-	if manager.client != nil && manager.networkProfile != "" {
-		logger.Infof("deleting container network profile %q", manager.networkProfile)
-		if err := manager.client.ProfileDelete(manager.networkProfile); err != nil {
-			logger.Warningf("discarding profile delete error: %v", err)
-		}
-		manager.networkProfile = ""
-	}
+	return nics, nil
 }

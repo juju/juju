@@ -67,11 +67,11 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
-	expectedOutput := fmt.Sprintf(`
-CONTROLLER  MODEL  USER         SERVER
-kontroll*   admin  admin@local  %s
+	expectedOutput := `
+CONTROLLER  MODEL  USER         CLOUD/REGION
+kontroll*   admin  admin@local  dummy
 
-`[1:], s.APIState.Addr())
+`[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
 }
 
@@ -79,7 +79,7 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"MODEL      OWNER        STATUS     LAST CONNECTION\n"+
 		"admin*     admin@local  available  just now\n"+
 		"new-model  admin@local  available  never connected\n"+
 		"\n")
@@ -89,7 +89,7 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS     LAST CONNECTION\n"+
+		"MODEL      OWNER        STATUS     LAST CONNECTION\n"+
 		"admin*     admin@local  available  just now\n"+
 		"new-model  test@local   available  never connected\n"+
 		"\n")
@@ -126,14 +126,20 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetStatus(status.StatusDestroying, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusDestroying,
+		Message: "",
+		Since:   &now,
+	}
+	err = m.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead models still show up in the list. It's a lie to pretend they
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME       OWNER        STATUS      LAST CONNECTION\n"+
+		"MODEL      OWNER        STATUS      LAST CONNECTION\n"+
 		"admin*     admin@local  available   just now\n"+
 		"new-model  admin@local  destroying  never connected\n"+
 		"\n")

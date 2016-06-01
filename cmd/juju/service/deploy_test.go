@@ -21,6 +21,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
@@ -38,10 +39,8 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -54,14 +53,14 @@ type DeploySuite struct {
 	common.CmdBlockHelper
 }
 
+var _ = gc.Suite(&DeploySuite{})
+
 func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
-
-var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
 	_, err := coretesting.RunCommand(c, NewDeployCommand(), args...)
@@ -339,7 +338,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
@@ -403,9 +402,9 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", coretesting.FakeDefaultSeries)
+	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -413,12 +412,12 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", coretesting.FakeDefaultSeries)
+	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -428,9 +427,9 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", "lxc:"+machine.Id(), ch, "portlandia", "--series", coretesting.FakeDefaultSeries)
+	err = runDeploy(c, "--to", "lxc:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 
@@ -456,7 +455,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")
@@ -468,84 +467,6 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	err := runDeploy(c, "--to", "0", "local:dummy", "portlandia")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the controller for a local model and cannot host units")
-}
-
-func (s *DeploySuite) TestCharmSeries(c *gc.C) {
-	deploySeriesTests := []struct {
-		requestedSeries string
-		force           bool
-		seriesFromCharm string
-		supportedSeries []string
-		modelSeries     string
-		ltsSeries       string
-		expectedSeries  string
-		message         string
-		err             string
-	}{{
-		ltsSeries:       "precise",
-		modelSeries:     "wily",
-		supportedSeries: []string{"trusty", "precise"},
-		expectedSeries:  "trusty",
-		message:         "with the default charm metadata series %q",
-	}, {
-		requestedSeries: "trusty",
-		seriesFromCharm: "trusty",
-		expectedSeries:  "trusty",
-		message:         "with the user specified series %q",
-	}, {
-		requestedSeries: "wily",
-		seriesFromCharm: "trusty",
-		err:             `series "wily" not supported by charm, supported series are: trusty`,
-	}, {
-		requestedSeries: "wily",
-		supportedSeries: []string{"trusty", "precise"},
-		err:             `series "wily" not supported by charm, supported series are: trusty,precise`,
-	}, {
-		ltsSeries: config.LatestLtsSeries(),
-		err:       `series .* not supported by charm, supported series are: .*`,
-	}, {
-		modelSeries: "xenial",
-		err:         `series "xenial" not supported by charm, supported series are: .*`,
-	}, {
-		requestedSeries: "wily",
-		seriesFromCharm: "trusty",
-		expectedSeries:  "wily",
-		message:         "with the user specified series %q",
-		force:           true,
-	}, {
-		requestedSeries: "wily",
-		supportedSeries: []string{"trusty", "precise"},
-		expectedSeries:  "wily",
-		message:         "with the user specified series %q",
-		force:           true,
-	}, {
-		ltsSeries:      config.LatestLtsSeries(),
-		force:          true,
-		expectedSeries: config.LatestLtsSeries(),
-		message:        "with the latest LTS series %q",
-	}, {
-		ltsSeries:      "precise",
-		modelSeries:    "xenial",
-		force:          true,
-		expectedSeries: "xenial",
-		message:        "with the configured model default series %q",
-	}}
-
-	for i, test := range deploySeriesTests {
-		c.Logf("test %d", i)
-		cfg, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
-			"default-series": test.modelSeries,
-		}))
-		c.Assert(err, jc.ErrorIsNil)
-		series, msg, err := charmSeries(test.requestedSeries, test.seriesFromCharm, test.supportedSeries, test.force, cfg, false)
-		if test.err != "" {
-			c.Check(err, gc.ErrorMatches, test.err)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(series, gc.Equals, test.expectedSeries)
-		c.Check(msg, gc.Matches, test.message)
-	}
 }
 
 type DeployLocalSuite struct {
@@ -588,14 +509,14 @@ var deployAuthorizationTests = []struct {
 	deployURL: "cs:~bob/trusty/wordpress1",
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress1-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress1-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress1-10" with the user specified series "trusty".`,
 }, {
 	about:     "public charm, fully resolved, success",
 	uploadURL: "cs:~bob/trusty/wordpress2-10",
 	deployURL: "cs:~bob/trusty/wordpress2-10",
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress2-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress2-10" with the user specified series "trusty".`,
 }, {
 	about:        "non-public charm, success",
 	uploadURL:    "cs:~bob/trusty/wordpress3-10",
@@ -603,7 +524,7 @@ Deploying charm "cs:~bob/trusty/wordpress2-10" with the charm series "trusty".`,
 	readPermUser: clientUserName,
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress3-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress3-10" with the user specified series "trusty".`,
 }, {
 	about:        "non-public charm, fully resolved, success",
 	uploadURL:    "cs:~bob/trusty/wordpress4-10",
@@ -611,7 +532,7 @@ Deploying charm "cs:~bob/trusty/wordpress3-10" with the charm series "trusty".`,
 	readPermUser: clientUserName,
 	expectOutput: `
 Added charm "cs:~bob/trusty/wordpress4-10" to the model.
-Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
+Deploying charm "cs:~bob/trusty/wordpress4-10" with the user specified series "trusty".`,
 }, {
 	about:        "non-public charm, access denied",
 	uploadURL:    "cs:~bob/trusty/wordpress5-10",
@@ -630,9 +551,9 @@ Deploying charm "cs:~bob/trusty/wordpress4-10" with the charm series "trusty".`,
 	deployURL: "cs:~bob/bundle/wordpress-simple1",
 	expectOutput: `
 added charm cs:trusty/mysql-0
-service mysql deployed (charm cs:trusty/mysql-0 with the charm series "trusty")
+service mysql deployed (charm cs:trusty/mysql-0 with the series "trusty" defined by the bundle)
 added charm cs:trusty/wordpress-1
-service wordpress deployed (charm cs:trusty/wordpress-1 with the charm series "trusty")
+service wordpress deployed (charm cs:trusty/wordpress-1 with the series "trusty" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -697,7 +618,7 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 Added charm "cs:trusty/terms1-1" to the model.
-Deploying charm "cs:trusty/terms1-1" with the charm series "trusty".
+Deploying charm "cs:trusty/terms1-1" with the user specified series "trusty".
 Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))

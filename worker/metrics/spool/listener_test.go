@@ -20,7 +20,7 @@ import (
 var _ = gc.Suite(&listenerSuite{})
 
 type stopper interface {
-	Stop()
+	Stop() error
 }
 
 type listenerSuite struct {
@@ -65,7 +65,7 @@ type mockHandler struct {
 }
 
 // Handle implements the spool.ConnectionHandler interface.
-func (h *mockHandler) Handle(c net.Conn) error {
+func (h *mockHandler) Handle(c net.Conn, _ <-chan struct{}) error {
 	defer c.Close()
 	h.AddCall("Handle")
 	fmt.Fprintf(c, "Hello socket.")

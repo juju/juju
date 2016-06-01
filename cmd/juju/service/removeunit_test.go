@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -38,9 +39,9 @@ func runRemoveUnit(c *gc.C, args ...string) error {
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Service {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, "-n", "2", ch, "dummy", "--series", testing.FakeDefaultSeries)
+	err := runDeploy(c, "-n", "2", ch, "dummy", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", testing.FakeDefaultSeries))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)
 	return svc
 }

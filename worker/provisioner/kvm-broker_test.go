@@ -16,6 +16,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -95,7 +96,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -168,7 +169,7 @@ func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -181,7 +182,7 @@ func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -196,7 +197,7 @@ func (s *kvmBrokerSuite) TestMaintainInstance(c *gc.C) {
 		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -207,7 +208,7 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) 
 
 	s.maintainInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -367,7 +368,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
@@ -386,7 +387,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	_, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
@@ -403,7 +404,7 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)

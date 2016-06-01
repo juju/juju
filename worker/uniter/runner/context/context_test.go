@@ -143,7 +143,13 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
-	err = s.unit.SetStatus(status.StatusActive, "it works", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: "it works",
+		Since:   &now,
+	}
+	err = s.unit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.

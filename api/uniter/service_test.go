@@ -156,7 +156,14 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	c.Assert(stat.Status, gc.Not(gc.Equals), status.StatusActive)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.wordpressService.SetStatus(status.StatusActive, message, map[string]interface{}{})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: message,
+		Data:    map[string]interface{}{},
+		Since:   &now,
+	}
+	err = s.wordpressService.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
@@ -170,7 +177,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err = s.apiService.Status(s.wordpressUnit.Name())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Service.Status, gc.Equals, status.StatusActive)
+	c.Check(result.Service.Status, gc.Equals, status.StatusActive.String())
 }
 
 func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Service) {

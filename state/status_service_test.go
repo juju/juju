@@ -36,16 +36,29 @@ func (s *ServiceStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.service.SetStatus(status.Status("vliegkat"), "orville", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Status("vliegkat"),
+		Message: "orville",
+		Since:   &now,
+	}
+	err := s.service.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *ServiceStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.service.SetStatus(status.StatusActive, "healthy", map[string]interface{}{
-		"pew.pew": "zap",
-	})
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: "healthy",
+		Data: map[string]interface{}{
+			"pew.pew": "zap",
+		},
+		Since: &now,
+	}
+	err := s.service.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -56,11 +69,18 @@ func (s *ServiceStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.service.SetStatus(status.StatusActive, "healthy", map[string]interface{}{
-		"$ping": map[string]interface{}{
-			"foo.bar": 123,
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: "healthy",
+		Data: map[string]interface{}{
+			"$ping": map[string]interface{}{
+				"foo.bar": 123,
+			},
 		},
-	})
+		Since: &now,
+	}
+	err := s.service.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	service, err := s.State.Service(s.service.Name())
@@ -91,7 +111,13 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.service.SetStatus(status.StatusActive, "not really", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusActive,
+		Message: "not really",
+		Since:   &now,
+	}
+	err = s.service.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: service not found`)
 
 	statusInfo, err := s.service.Status()
@@ -101,8 +127,12 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 
 func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
 	now := time.Now()
-
-	err := s.service.SetStatus(status.StatusMaintenance, "", nil)
+	sInfo := status.StatusInfo{
+		Status:  status.StatusMaintenance,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.service.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := s.service.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +141,13 @@ func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(now, *firstTime), jc.IsTrue)
 
 	// Setting the same status a second time also updates the timestamp.
-	err = s.service.SetStatus(status.StatusMaintenance, "", nil)
+	now = now.Add(1 * time.Second)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusMaintenance,
+		Message: "",
+		Since:   &now,
+	}
+	err = s.service.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = s.service.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,10 +160,16 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	// place.
 
 	// Create a unit with each possible status.
-	addUnit := func(status status.Status) *state.Unit {
+	addUnit := func(unitStatus status.Status) *state.Unit {
 		unit, err := s.service.AddUnit()
 		c.Assert(err, gc.IsNil)
-		err = unit.SetStatus(status, "blam", nil)
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  unitStatus,
+			Message: "blam",
+			Since:   &now,
+		}
+		err = unit.SetStatus(sInfo)
 		c.Assert(err, gc.IsNil)
 		return unit
 	}
@@ -141,7 +183,13 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	// ...and create one with error status by setting it on the agent :-/.
 	errorUnit, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = errorUnit.Agent().SetStatus(status.StatusError, "blam", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusError,
+		Message: "blam",
+		Since:   &now,
+	}
+	err = errorUnit.Agent().SetStatus(sInfo)
 	c.Assert(err, gc.IsNil)
 
 	// For each status, in order of severity, check the service status is
@@ -171,9 +219,20 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 func (s *ServiceStatusSuite) TestServiceStatusOverridesDerivedStatus(c *gc.C) {
 	unit, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetStatus(status.StatusBlocked, "pow", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusBlocked,
+		Message: "pow",
+		Since:   &now,
+	}
+	err = unit.SetStatus(sInfo)
 	c.Assert(err, gc.IsNil)
-	err = s.service.SetStatus(status.StatusMaintenance, "zot", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusMaintenance,
+		Message: "zot",
+		Since:   &now,
+	}
+	err = s.service.SetStatus(sInfo)
 	c.Assert(err, gc.IsNil)
 
 	info, err := s.service.Status()

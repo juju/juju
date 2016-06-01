@@ -13,6 +13,8 @@ import (
 	"github.com/juju/loggo"
 	rcmd "github.com/juju/romulus/cmd/commands"
 	"github.com/juju/utils/featureflag"
+	utilsos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -104,20 +106,34 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
-func Main(args []string) {
+// This function returns the exit code, for main to pass to os.Exit.
+func Main(args []string) int {
+	return main{
+		execCommand: exec.Command,
+	}.Run(args)
+}
+
+// main is a type that captures dependencies for running the main function.
+type main struct {
+	// execCommand abstracts away exec.Command.
+	execCommand func(command string, args ...string) *exec.Cmd
+}
+
+// Run is the main entry point for the juju client.
+func (m main) Run(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
-	if shouldWarnJuju1x() {
-		warnJuju1x()
-	}
+	// note that this has to come before we init the juju home directory,
+	// since it relies on detecting the lack of said directory.
+	m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	for i := range x {
@@ -125,16 +141,34 @@ func Main(args []string) {
 	}
 	if len(args) == 2 && args[1] == string(x[0:2]) {
 		os.Stdout.Write(x[2:])
-		os.Exit(0)
+		return 0
 	}
 
 	jcmd := NewJujuCommand(ctx)
-	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+	return cmd.Main(jcmd, ctx, args[1:])
 }
 
-func warnJuju1x() {
-	ver := "1.x"
-	out, err := execCommand(juju1xCmdName, "version").Output()
+func (m main) maybeWarnJuju1x() {
+	if !shouldWarnJuju1x() {
+		return
+	}
+	ver, exists := m.juju1xVersion()
+	if !exists {
+		return
+	}
+	fmt.Fprintf(os.Stderr, `
+    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
+    with the command %s e.g. '%s switch'.
+    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+`[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+}
+
+func (m main) juju1xVersion() (ver string, exists bool) {
+	out, err := m.execCommand(juju1xCmdName, "version").Output()
+	if err == exec.ErrNotFound {
+		return "", false
+	}
+	ver = "1.x"
 	if err == nil {
 		v := strings.TrimSpace(string(out))
 		// parse so we can drop the series and arch
@@ -143,22 +177,16 @@ func warnJuju1x() {
 			ver = bin.Number.String()
 		}
 	}
-	fmt.Fprintf(os.Stderr, `
-    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
-    with the command %s e.g. '%s switch'.
-    See https://jujucharms.com/docs/stable/introducing-2 for more details.
-    `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+	return ver, true
 }
 
-var execCommand = exec.Command
-var execLookPath = exec.LookPath
-
 func shouldWarnJuju1x() bool {
-	if _, err := execLookPath(juju1xCmdName); err != nil {
+	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
+	ostype, err := series.GetOSFromSeries(series.HostSeries())
+	if err != nil || ostype != utilsos.Ubuntu {
 		return false
 	}
-	return osenv.Juju1xEnvConfigExists() &&
-		!juju2xConfigDataExists()
+	return osenv.Juju1xEnvConfigExists() && !juju2xConfigDataExists()
 }
 
 func juju2xConfigDataExists() bool {
@@ -344,6 +372,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
+	r.Register(cloud.NewRemoveCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
 	r.Register(cloud.NewSetDefaultRegionCommand())

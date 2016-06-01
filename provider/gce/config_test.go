@@ -198,31 +198,13 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		oldcfg := test.newConfig(c)
-		newcfg := test.fixCfg(c, s.config)
-		expected := updateAttrs(gce.ConfigAttrs, test.insert)
-
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := gce.Provider.Validate(newcfg, oldcfg)
-
-		// Check the result.
+		_, err := gce.Provider.Validate(s.config, test.newConfig(c))
 		if test.err != "" {
-			test.checkFailure(c, err, "invalid base config")
-		} else {
-			if test.insert == nil && test.remove != nil {
-				// No defaults are set on the old config.
-				c.Check(err, gc.ErrorMatches, "invalid base config: .*")
-				continue
-			}
-
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			// We verify that Validate filled in the defaults
-			// appropriately.
-			c.Check(validatedConfig, gc.NotNil)
-			test.checkAttrs(c, expected, validatedConfig)
+			// In this test, we case only about the validating
+			// the old configuration, not about the success cases.
+			test.checkFailure(c, err, "invalid config: invalid base config")
 		}
 	}
 }
@@ -266,11 +248,36 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 
 		// Check the result.
 		if test.err != "" {
-			test.checkFailure(c, err, "invalid config change")
+			test.checkFailure(c, err, "invalid config")
 		} else {
 			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
+}
+
+func (s *ConfigSuite) TestValidateChangeFromOldConfigWithMissingAttributeWithDefault(c *gc.C) {
+	// If the provider implementation is changed to add a new configuration attribute
+	// that has a default value, and the controller is upgraded to the new implementaton,
+	// the validated configuration in the state will have no value for that attribute,
+	// even though newly validated configurations will.
+	//
+	// This test ensures that we can deal with that scenario by removing
+	// an attribute which currently has a default, and checking that we can
+	// still validate OK.
+
+	oldCfg := configTestSpec{
+		remove: []string{"region"},
+	}.newConfig(c)
+
+	newCfg, err := testing.ModelConfig(c).Apply(gce.ConfigAttrs.Merge(testing.Attrs{
+		"region": "us-central1",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	validatedConfig, err := gce.Provider.Validate(newCfg, oldCfg)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(validatedConfig.AllAttrs()["region"], gc.Equals, "us-central1")
 }
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {
@@ -290,5 +297,16 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		} else {
 			test.checkSuccess(c, environ.Config(), err)
 		}
+	}
+}
+
+func (*ConfigSuite) TestSchema(c *gc.C) {
+	fields := gce.Provider.(environs.ProviderSchema).Schema()
+	// Check that all the fields defined in environs/config
+	// are in the returned schema.
+	globalFields, err := config.Schema(nil)
+	c.Assert(err, gc.IsNil)
+	for name, field := range globalFields {
+		c.Check(fields[name], jc.DeepEquals, field)
 	}
 }

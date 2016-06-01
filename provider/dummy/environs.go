@@ -38,6 +38,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -86,11 +88,10 @@ func SampleConfig() testing.Attrs {
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
-		"default-series":            config.LatestLtsSeries(),
+		"default-series":            series.LatestLts(),
 
-		"secret":      "pork",
-		"controller":  true,
-		"prefer-ipv6": false,
+		"secret":     "pork",
+		"controller": true,
 	}
 }
 
@@ -105,22 +106,13 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
-// shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
-// will be added as primary.
-func stateInfo(preferIPv6 bool) *mongo.MongoInfo {
+// shared dummy state, if it exists.
+func stateInfo() *mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
-	var addrs []string
-	if preferIPv6 {
-		addrs = []string{
-			net.JoinHostPort("::1", mongoPort),
-			net.JoinHostPort("localhost", mongoPort),
-		}
-	} else {
-		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
-	}
+	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  addrs,
@@ -251,7 +243,6 @@ type environState struct {
 	apiState        *state.State
 	apiStatePool    *state.StatePool
 	bootstrapConfig *config.Config
-	preferIPv6      bool
 }
 
 // environ represents a client's connection to a given environment's
@@ -685,7 +676,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return nil, err
 	}
-	network.SetPreferIPv6(e.Config().PreferIPv6())
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")
@@ -709,7 +699,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if estate.bootstrapped {
 		return nil, fmt.Errorf("model is already bootstrapped")
 	}
-	estate.preferIPv6 = e.Config().PreferIPv6()
 
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
@@ -729,14 +718,14 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
 		// so that we can call it here.
 
-		info := stateInfo(estate.preferIPv6)
+		info := stateInfo()
 		// Since the admin user isn't setup until after here,
 		// the password in the info structure is empty, so the admin
 		// user is constructed with an empty password here.
 		// It is set just below.
 		st, err := state.Initialize(
 			names.NewUserTag("admin@local"), info, cfg,
-			mongo.DefaultDialOpts(), estate.statePolicy)
+			mongotest.DialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}
@@ -842,7 +831,15 @@ func (e *environ) Destroy() (res error) {
 		}
 		return err
 	}
-	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	defer func() {
+		// The estate is a pointer to a structure that is stored in the dummy global.
+		// The Listen method can change the ops channel of any state, and will do so
+		// under the covers. What we need to do is use the state mutex to add a memory
+		// barrier such that the ops channel we see here is the latest.
+		estate.mu.Lock()
+		defer estate.mu.Unlock()
+		estate.ops <- OpDestroy{Env: estate.name, Error: res}
+	}()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
@@ -912,9 +909,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
-	if estate.preferIPv6 {
-		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1)))
-	}
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -1682,7 +1676,7 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

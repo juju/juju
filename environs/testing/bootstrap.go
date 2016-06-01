@@ -24,7 +24,7 @@ var logger = loggo.GetLogger("juju.environs.testing")
 // that restores finishBootstrap.
 func DisableFinishBootstrap() func() {
 	f := func(environs.BootstrapContext, ssh.Client, environs.Environ, instance.Instance, *instancecfg.InstanceConfig) error {
-		logger.Warningf("provider/common.FinishBootstrap is disabled")
+		logger.Infof("provider/common.FinishBootstrap is disabled")
 		return nil
 	}
 	return testing.PatchValue(&common.FinishBootstrap, f)

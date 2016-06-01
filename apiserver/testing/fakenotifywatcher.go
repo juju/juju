@@ -4,44 +4,41 @@
 package testing
 
 import (
-	"launchpad.net/tomb"
-
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/workertest"
 )
 
 // FakeNotifyWatcher is an implementation of state.NotifyWatcher which
 // is useful in tests.
 type FakeNotifyWatcher struct {
-	tomb tomb.Tomb
-	C    chan struct{}
+	worker.Worker
+	C chan struct{}
 }
 
 var _ state.NotifyWatcher = (*FakeNotifyWatcher)(nil)
 
 func NewFakeNotifyWatcher() *FakeNotifyWatcher {
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
 	return &FakeNotifyWatcher{
-		C: make(chan struct{}, 1),
+		Worker: workertest.NewErrorWorker(nil),
+		C:      ch,
 	}
 }
 
+// Stop is part of the state.NotifyWatcher interface.
 func (w *FakeNotifyWatcher) Stop() error {
-	w.Kill()
-	return w.Wait()
+	return worker.Stop(w)
 }
 
-func (w *FakeNotifyWatcher) Kill() {
-	w.tomb.Kill(nil)
-	w.tomb.Done()
-}
-
-func (w *FakeNotifyWatcher) Wait() error {
-	return w.tomb.Wait()
-}
-
+// Err is part of the state.NotifyWatcher interface.
 func (w *FakeNotifyWatcher) Err() error {
-	return w.tomb.Err()
+	// this is silly, but it's what it always returned anyway
+	return nil
 }
 
+// Changes is part of the state.NotifyWatcher interface.
 func (w *FakeNotifyWatcher) Changes() <-chan struct{} {
 	return w.C
 }

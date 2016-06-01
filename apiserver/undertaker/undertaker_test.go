@@ -161,7 +161,7 @@ func (s *undertakerSuite) TestSetStatus(c *gc.C) {
 
 	results, err := hostedAPI.SetStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
-			mock.env.Tag().String(), status.StatusDestroying,
+			mock.env.Tag().String(), status.StatusDestroying.String(),
 			"woop", map[string]interface{}{"da": "ta"},
 		}},
 	})
@@ -177,7 +177,7 @@ func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, true, "hostedenv")
 	results, err := hostedAPI.SetStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
-			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.StatusDestroying,
+			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.StatusDestroying.String(),
 			"woop", map[string]interface{}{"da": "ta"},
 		}},
 	})
@@ -190,7 +190,7 @@ func (s *undertakerSuite) TestSetStatusNonControllerPermissions(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedenv")
 	results, err := hostedAPI.SetStatus(params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
-			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.StatusDestroying,
+			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.StatusDestroying.String(),
 			"woop", map[string]interface{}{"da": "ta"},
 		}},
 	})

@@ -112,22 +112,6 @@ func (s *NetworkSuite) TestConvertSpaceName(c *gc.C) {
 	}
 }
 
-func (*NetworkSuite) TestInitializeFromConfig(c *gc.C) {
-	c.Check(network.PreferIPv6(), jc.IsFalse)
-
-	envConfig := testing.CustomModelConfig(c, testing.Attrs{
-		"prefer-ipv6": true,
-	})
-	network.SetPreferIPv6(envConfig.PreferIPv6())
-	c.Check(network.PreferIPv6(), jc.IsTrue)
-
-	envConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"prefer-ipv6": false,
-	})
-	network.SetPreferIPv6(envConfig.PreferIPv6())
-	c.Check(network.PreferIPv6(), jc.IsFalse)
-}
-
 func (s *NetworkSuite) TestFilterLXCAddresses(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
@@ -170,8 +154,8 @@ LXC_BRIDGE="ignored"`[1:])
 }
 
 func (s *NetworkSuite) TestNoAddressError(c *gc.C) {
-	err := network.NoAddressf("boom")
-	c.Assert(err, gc.ErrorMatches, "boom no address")
-	c.Assert(network.IsNoAddress(err), jc.IsTrue)
-	c.Assert(network.IsNoAddress(errors.New("address found")), jc.IsFalse)
+	err := network.NoAddressError("fake")
+	c.Assert(err, gc.ErrorMatches, "no fake address")
+	c.Assert(network.IsNoAddressError(err), jc.IsTrue)
+	c.Assert(network.IsNoAddressError(errors.New("address found")), jc.IsFalse)
 }

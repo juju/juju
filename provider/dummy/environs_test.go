@@ -114,8 +114,7 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.NetworkingEnviron {
-	s.TestConfig["prefer-ipv6"] = preferIPv6
+func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	env, err := environs.Prepare(
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
@@ -136,7 +135,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Networki
 }
 
 func (s *suite) TestAvailabilityZone(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, true)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -148,7 +147,7 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 }
 
 func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -181,7 +180,7 @@ func (s *suite) TestSupportsAddressAllocation(c *gc.C) {
 }
 
 func (s *suite) TestSupportsSpaces(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -208,7 +207,7 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 }
 
 func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -245,7 +244,7 @@ func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...str
 }
 
 func (s *suite) TestAllocateAddress(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -284,7 +283,7 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 }
 
 func (s *suite) TestReleaseAddress(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -325,7 +324,7 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 }
 
 func (s *suite) TestNetworkInterfaces(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -439,7 +438,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 }
 
 func (s *suite) TestSubnets(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
+	e := s.bootstrapTestEnviron(c)
 	defer func() {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -550,34 +549,6 @@ func (s *suite) TestSubnets(c *gc.C) {
 	netInfo, err = e.Subnets("i-any", nil)
 	c.Assert(err, gc.ErrorMatches, `dummy\.Subnets is broken`)
 	c.Assert(netInfo, gc.HasLen, 0)
-}
-
-func (s *suite) TestPreferIPv6On(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, true)
-	defer func() {
-		err := e.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
-	c.Assert(inst, gc.NotNil)
-	addrs, err := inst.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1", "fc00::1"))
-}
-
-func (s *suite) TestPreferIPv6Off(c *gc.C) {
-	e := s.bootstrapTestEnviron(c, false)
-	defer func() {
-		err := e.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
-	c.Assert(inst, gc.NotNil)
-	addrs, err := inst.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1"))
 }
 
 func assertAllocateAddress(

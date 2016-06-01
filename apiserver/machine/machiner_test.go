@@ -4,6 +4,8 @@
 package machine_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -55,16 +57,27 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	err := s.machine0.SetStatus(status.StatusStarted, "blah", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.StatusStarted,
+		Message: "blah",
+		Since:   &now,
+	}
+	err := s.machine0.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.SetStatus(status.StatusStopped, "foo", nil)
+	sInfo = status.StatusInfo{
+		Status:  status.StatusStopped,
+		Message: "foo",
+		Since:   &now,
+	}
+	err = s.machine1.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: status.StatusError, Info: "not really"},
-			{Tag: "machine-0", Status: status.StatusStopped, Info: "foobar"},
-			{Tag: "machine-42", Status: status.StatusStarted, Info: "blah"},
+			{Tag: "machine-1", Status: status.StatusError.String(), Info: "not really"},
+			{Tag: "machine-0", Status: status.StatusStopped.String(), Info: "foobar"},
+			{Tag: "machine-42", Status: status.StatusStarted.String(), Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,9 +173,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
-		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses)},
-		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses...)},
+		{Tag: "machine-0", Addresses: params.FromNetworkAddresses(addresses...)},
+		{Tag: "machine-42", Addresses: params.FromNetworkAddresses(addresses...)},
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)
@@ -189,7 +202,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	// Set some addresses so we can ensure they are removed.
 	addresses := network.NewAddresses("127.0.0.1", "8.8.8.8")
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
-		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses)},
+		{Tag: "machine-1", Addresses: params.FromNetworkAddresses(addresses...)},
 	}}
 	result, err := s.machiner.SetMachineAddresses(args)
 	c.Assert(err, jc.ErrorIsNil)

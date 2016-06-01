@@ -76,6 +76,9 @@ type InstanceSpec struct {
 	// Metadata is the instance metadata.
 	Metadata map[string]string
 
+	// Devices to be added at container initialisation time
+	Devices
+
 	// TODO(ericsnow) Other possible fields:
 	// Disks
 	// Networks

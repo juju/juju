@@ -145,13 +145,7 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 			forward: forwarder.Forward,
 		}
 		err = source.CopyImage(target, i.raw, []string{name}, adapter.copyProgress)
-		if err != nil {
-			// TODO(jam) Should this be fatal? Or just set lastErr
-			// and then continue on?
-			logger.Warningf("error copying image: %s", err)
-			return errors.Annotatef(err, "unable to get LXD image for %s", name)
-		}
-		return nil
+		return errors.Annotatef(err, "unable to get LXD image for %s", name)
 	}
 	return lastErr
 }

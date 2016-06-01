@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -29,15 +28,17 @@ type noAddress struct {
 	errors.Err
 }
 
-// NoAddressf returns an error which satisfies IsNoAddress().
-func NoAddressf(format string, args ...interface{}) error {
-	newErr := errors.NewErr(format+" no address", args...)
+// NoAddressError returns an error which satisfies IsNoAddressError(). The given
+// addressKind specifies what kind of address is missing, usually "private" or
+// "public".
+func NoAddressError(addressKind string) error {
+	newErr := errors.NewErr("no %s address", addressKind)
 	newErr.SetLocation(1)
 	return &noAddress{newErr}
 }
 
-// IsNoAddress reports whether err was created with NoAddressf().
-func IsNoAddress(err error) bool {
+// IsNoAddressError reports whether err was created with NoAddressError().
+func IsNoAddressError(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*noAddress)
 	return ok
@@ -306,27 +307,6 @@ func (i *InterfaceInfo) CIDRAddress() string {
 	return ipNet.String()
 }
 
-var preferIPv6 uint32
-
-// PreferIPV6 returns true if this process prefers IPv6.
-func PreferIPv6() bool { return atomic.LoadUint32(&preferIPv6) > 0 }
-
-// SetPreferIPv6 determines whether IPv6 addresses will be preferred when
-// selecting a public or internal addresses, using the Select*() methods.
-// SetPreferIPV6 needs to be called to set this flag globally at the
-// earliest time possible (e.g. at bootstrap, agent startup, before any
-// CLI command).
-func SetPreferIPv6(prefer bool) {
-	var b uint32
-	if prefer {
-		b = 1
-	}
-	atomic.StoreUint32(&preferIPv6, b)
-	// TODO(dimitern): Drop prefer-ipv6 entirely.
-	prefer = false
-	logger.Infof("setting prefer-ipv6 to %v", prefer)
-}
-
 // LXCNetDefaultConfig is the location of the default network config
 // of the lxc package. It's exported to allow cross-package testing.
 var LXCNetDefaultConfig = "/etc/default/lxc-net"
@@ -354,7 +334,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		return addresses
 	} else if err != nil {
 		// Just log it, as it's not fatal.
-		logger.Warningf("cannot open %q: %v", LXCNetDefaultConfig, err)
+		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
 		return addresses
 	}
 	defer file.Close()
@@ -410,7 +390,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 			// Discover all addresses of bridgeName interface.
 			addrs, err := InterfaceByNameAddrs(bridgeName)
 			if err != nil {
-				logger.Warningf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+				logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
 				continue
 			}
 			logger.Debugf("%q has addresses %v", bridgeName, addrs)
@@ -418,7 +398,7 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		logger.Warningf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
+		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
 	return addresses
 }

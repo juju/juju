@@ -74,6 +74,19 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.S
 	return st, entity, nil
 }
 
+// checkPermissions verifies that given tag passes authentication check.
+// For example, if only user tags are accepted, all other tags will be denied access.
+func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error) {
+	accept, err := acceptFunc()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if accept(tag) {
+		return true, nil
+	}
+	return false, errors.NotValidf("tag kind %v", tag.Kind())
+}
+
 // stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is a user.
 func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, state.Entity, error) {
@@ -81,28 +94,27 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	switch entity.Tag().(type) {
-	case names.UserTag:
-		return st, entity, nil
-	default:
-		return nil, nil, errors.Trace(common.ErrBadCreds)
+	if ok, err := checkPermissions(entity.Tag(), common.AuthFuncForTagKind(names.UserTagKind)); !ok {
+		return nil, nil, err
 	}
+	return st, entity, nil
 }
 
 // stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is a user.
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.Entity, error) {
+	authFunc := common.AuthEither(
+		common.AuthFuncForTagKind(names.MachineTagKind),
+		common.AuthFuncForTagKind(names.UnitTagKind),
+	)
 	st, entity, err := ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	switch entity.Tag().(type) {
-	case names.MachineTag, names.UnitTag:
-		return st, entity, nil
-	default:
-		logger.Errorf("attempt to log in as an agent by %v", entity.Tag())
-		return nil, nil, errors.Trace(common.ErrBadCreds)
+	if ok, err := checkPermissions(entity.Tag(), authFunc); !ok {
+		return nil, nil, err
 	}
+	return st, entity, nil
 }
 
 // loginRequest forms a LoginRequest from the information
@@ -119,22 +131,22 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return params.LoginRequest{}, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return params.LoginRequest{}, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
 	if len(tagPass) != 2 {
-		return params.LoginRequest{}, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 	// Ensure that a sensible tag was passed.
 	_, err = names.ParseTag(tagPass[0])
 	if err != nil {
-		return params.LoginRequest{}, errors.Trace(common.ErrBadCreds)
+		return params.LoginRequest{}, errors.Trace(err)
 	}
 	return params.LoginRequest{
 		AuthTag:     tagPass[0],

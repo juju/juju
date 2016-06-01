@@ -499,6 +499,31 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 	)
 }
 
+func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
+	signalAll(s.st, s.leadership)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	relationTag := names.NewRelationTag("mysql:peer")
+	s.st.relations[relationTag] = &mockRelation{
+		id: 123, life: params.Alive,
+	}
+	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
+
+	s.st.unit.service.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}},
+	}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snapshot := s.watcher.Snapshot()
+	snapshot.Relations[123].Members["pwned"] = 2600
+	c.Assert(
+		s.watcher.Snapshot().Relations[123].Members,
+		jc.DeepEquals,
+		map[string]int64{"mysql/1": 1},
+	)
+}
+
 func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 	signalAll(s.st, s.leadership)
 	initial := s.watcher.Snapshot()

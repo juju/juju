@@ -18,6 +18,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -58,6 +59,7 @@ type lxcSuite struct {
 type lxcBrokerSuite struct {
 	lxcSuite
 	broker      environs.InstanceBroker
+	namespace   instance.Namespace
 	agentConfig agent.ConfigSetterWriter
 	api         *fakeAPI
 }
@@ -105,12 +107,15 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	managerConfig := container.ManagerConfig{
-		container.ConfigName: "juju",
-		"log-dir":            c.MkDir(),
-		"use-clone":          "false",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
+		"log-dir":                 c.MkDir(),
+		"use-clone":               "false",
 	}
 	s.api = NewFakeAPI()
 	s.broker, err = provisioner.NewLxcBroker(s.api, s.agentConfig, managerConfig, nil, false, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	// Create the same namespace that the broker uses to ensure dirs on disk exist.
+	s.namespace, err = instance.NewNamespace(coretesting.ModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -122,8 +127,10 @@ func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
+	hostname, err := s.namespace.Hostname(machineId)
+	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the <rootfs>/etc/network path exists.
-	containertesting.EnsureLXCRootFSEtcNetwork(c, "juju-"+names.NewMachineTag(machineId).String())
+	containertesting.EnsureLXCRootFSEtcNetwork(c, hostname)
 	return instanceConfig
 }
 
@@ -196,7 +203,7 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
 	}})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	s.assertDefaultNetworkConfig(c, lxc)
@@ -212,7 +219,7 @@ func (s *lxcBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
 	}})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	s.assertDefaultNetworkConfig(c, lxc)
@@ -230,7 +237,7 @@ func (s *lxcBrokerSuite) TestMaintainInstance(c *gc.C) {
 		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
 	}})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	s.assertDefaultNetworkConfig(c, lxc)
@@ -244,7 +251,7 @@ func (s *lxcBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) 
 
 	s.maintainInstance(c, machineId, nil)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	s.assertDefaultNetworkConfig(c, lxc)
@@ -263,7 +270,7 @@ func (s *lxcBrokerSuite) TestStartInstanceWithStorage(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
 	}})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Check storage config.
@@ -282,7 +289,7 @@ func (s *lxcBrokerSuite) TestStartInstanceLoopMountsDisallowed(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
 	}})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	s.assertDefaultStorageConfig(c, lxc)
@@ -346,7 +353,7 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-lxc-0")},
 	}})
-	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-06f00d-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
 	// Uses default network config
@@ -1025,7 +1032,8 @@ func (s *lxcBrokerSuite) TestConfigureContainerNetwork(c *gc.C) {
 type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
-	events chan mock.Event
+	events    chan mock.Event
+	namespace instance.Namespace
 }
 
 var _ = gc.Suite(&lxcProvisionerSuite{})
@@ -1049,6 +1057,10 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.events = make(chan mock.Event, 25)
 	s.ContainerFactory.AddListener(s.events)
+	// Create the same namespace that the broker uses to ensure dirs on disk exist.
+	namespace, err := instance.NewNamespace(coretesting.ModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	s.namespace = namespace
 }
 
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
@@ -1121,9 +1133,9 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	managerConfig := container.ManagerConfig{
-		container.ConfigName: "juju",
-		"log-dir":            c.MkDir(),
-		"use-clone":          "false",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
+		"log-dir":                 c.MkDir(),
+		"use-clone":               "false",
 	}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{}, false, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1143,7 +1155,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
+	_, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
@@ -1160,7 +1172,7 @@ func (s *lxcProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.LXC)
@@ -1183,7 +1195,7 @@ func (s *lxcProvisionerSuite) maybeUploadTools(c *gc.C) {
 	defaultTools := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 	}
 
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", defaultTools)
@@ -1198,8 +1210,9 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	defer stop(c, p)
 
 	container := s.addContainer(c)
-	name := "juju-" + container.Tag().String()
-	containertesting.EnsureLXCRootFSEtcNetwork(c, name)
+	hostname, err := s.namespace.Hostname(container.MachineTag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	containertesting.EnsureLXCRootFSEtcNetwork(c, hostname)
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.

@@ -44,9 +44,8 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
-	err := modelcmd.WriteCurrentController("ctrl")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = &jujuclient.ControllerAccounts{
 		CurrentAccount: "admin@local",
 	}
@@ -203,7 +202,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	defer loggo.RemoveWriter("deprecated-tester")
 	// Add deprecated message to be checked.
 	messages := []jc.SimpleMessage{
-		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
+		{loggo.INFO, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
 	// Run sync-tools command with --destination flag.
 	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")

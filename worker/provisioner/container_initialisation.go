@@ -316,7 +316,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		}
 
 		initialiser = lxd.NewContainerInitialiser(series)
-		namespace := maybeGetManagerConfigNamespaces(managerConfig)
 		manager, err := lxd.NewContainerManager(managerConfig)
 		if err != nil {
 			return nil, nil, nil, err
@@ -325,7 +324,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.provisioner,
 			manager,
 			cs.config,
-			namespace,
 			cs.enableNAT,
 		)
 		if err != nil {
@@ -349,14 +347,9 @@ func containerManagerConfig(
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
 	if err != nil {
-		return nil, err
-	}
-	// If a namespace is specified, that should instead be used as the config name.
-	if namespace := agentConfig.Value(agent.Namespace); namespace != "" {
-		managerConfigResult.ManagerConfig[container.ConfigName] = namespace
+		return nil, errors.Trace(err)
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
-
 	return managerConfig, nil
 }
 

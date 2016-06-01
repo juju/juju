@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
@@ -343,6 +344,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		config.UUIDKey:           controllerUUID.String(),
 		config.ControllerUUIDKey: controllerUUID.String(),
 	}
+	for k, v := range cloud.Config {
+		configAttrs[k] = v
+	}
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -352,10 +356,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 	logger.Debugf("preparing controller with config: %v", configAttrs)
 
-	// Read existing current controller, account, model so we can clean up on error.
+	// Read existing current controller so we can clean up on error.
 	var oldCurrentController string
-	oldCurrentController, err = modelcmd.ReadCurrentController()
-	if err != nil {
+	oldCurrentController, err = store.CurrentController()
+	if errors.IsNotFound(err) {
+		oldCurrentController = ""
+	} else if err != nil {
 		return errors.Annotate(err, "error reading current controller")
 	}
 
@@ -364,15 +370,15 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return
 		}
 		if oldCurrentController != "" {
-			if err := modelcmd.WriteCurrentController(oldCurrentController); err != nil {
-				logger.Warningf(
+			if err := store.SetCurrentController(oldCurrentController); err != nil {
+				logger.Errorf(
 					"cannot reset current controller to %q: %v",
 					oldCurrentController, err,
 				)
 			}
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Warningf(
+			logger.Errorf(
 				"cannot destroy newly created controller %q details: %v",
 				c.controllerName, err,
 			)
@@ -412,7 +418,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Set the current controller so "juju status" can be run while
 	// bootstrapping is underway.
-	if err := modelcmd.WriteCurrentController(c.controllerName); err != nil {
+	if err := store.SetCurrentController(c.controllerName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -429,7 +435,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Warningf(`
+				logger.Infof(`
 bootstrap failed but --keep-broken was specified so model is not being destroyed.
 When you are finished diagnosing the problem, remember to run juju destroy-model --force
 to clean up the model.`[1:])
@@ -510,6 +516,7 @@ to clean up the model.`[1:])
 		BootstrapImage:       c.BootstrapImage,
 		Placement:            c.Placement,
 		UploadTools:          c.UploadTools,
+		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
 		HostedModelConfig:    hostedModelConfig,

@@ -103,6 +103,7 @@ type MetadataFile struct {
 func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpec,
 	metadataStore storage.Storage) error {
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	index, products, err := MarshalImageMetadataJSON(metadata, cloudSpec, time.Now())
 	if err != nil {
 		return err

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 )
 
@@ -52,14 +53,6 @@ func (s *environSuite) TestSetConfigFake(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
-}
-
-func (s *environSuite) TestSetConfigMissing(c *gc.C) {
-	gce.UnsetEnvConfig(s.Env)
-
-	err := s.Env.SetConfig(s.Config)
-
-	c.Check(err, gc.ErrorMatches, "cannot set config on uninitialized env")
 }
 
 func (s *environSuite) TestConfig(c *gc.C) {
@@ -115,7 +108,7 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
-	fwname := s.Prefix[:len(s.Prefix)-1]
+	fwname := common.EnvFullName(s.Env.Config().UUID())
 	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "Destroy",

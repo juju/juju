@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
@@ -61,6 +61,10 @@ type ManifoldsConfig struct {
 	// Only a few workers have been converted to use them fo far.
 	Clock clock.Clock
 
+	// InstPollerAggregationDelay is the delay before sending a batch of
+	// requests in the instancpoller.Worker's aggregate loop.
+	InstPollerAggregationDelay time.Duration
+
 	// RunFlagDuration defines for how long this controller will ask
 	// for model administration rights; most of the workers controlled
 	// by this agent will only be started when the run flag is known
@@ -71,10 +75,11 @@ type ManifoldsConfig struct {
 	// revision worker will check for new revisions of known charms.
 	CharmRevisionUpdateInterval time.Duration
 
-	// EntityStatusHistory* values control status-history pruning
-	// behaviour per entity.
-	EntityStatusHistoryCount    uint
-	EntityStatusHistoryInterval time.Duration
+	// StatusHistoryPruner* values control status-history pruning
+	// behaviour.
+	StatusHistoryPrunerMaxHistoryTime time.Duration
+	StatusHistoryPrunerMaxHistoryMB   uint
+	StatusHistoryPrunerInterval       time.Duration
 
 	// SpacesImportedGate will be unlocked when spaces are known to
 	// have been imported.
@@ -215,6 +220,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     servicescaler.New,
 		})),
 		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
+			ClockName:     clockName,
+			Delay:         config.InstPollerAggregationDelay,
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 		})),
@@ -236,9 +243,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
-			APICallerName:    apiCallerName,
-			MaxLogsPerEntity: config.EntityStatusHistoryCount,
-			PruneInterval:    config.EntityStatusHistoryInterval,
+			APICallerName:  apiCallerName,
+			MaxHistoryTime: config.StatusHistoryPrunerMaxHistoryTime,
+			MaxHistoryMB:   config.StatusHistoryPrunerMaxHistoryMB,
+			PruneInterval:  config.StatusHistoryPrunerInterval,
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),
@@ -249,16 +257,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ dependency.Context) (worker.Worker, error) {
-			return util.NewValueWorker(clock)
+			return engine.NewValueWorker(clock)
 		},
-		Output: util.ValueWorkerOutput,
+		Output: engine.ValueWorkerOutput,
 	}
 }
 
 var (
 	// ifResponsible wraps a manifold such that it only runs if the
 	// responsibility flag is set.
-	ifResponsible = util.Housing{
+	ifResponsible = engine.Housing{
 		Flags: []string{
 			isResponsibleFlagName,
 		},
@@ -266,7 +274,7 @@ var (
 
 	// ifNotAlive wraps a manifold such that it only runs if the
 	// responsibility flag is set and the model is Dying or Dead.
-	ifNotAlive = util.Housing{
+	ifNotAlive = engine.Housing{
 		Flags: []string{
 			isResponsibleFlagName,
 			notAliveFlagName,
@@ -275,7 +283,7 @@ var (
 
 	// ifNotDead wraps a manifold such that it only runs if the
 	// responsibility flag is set and the model is Alive or Dying.
-	ifNotDead = util.Housing{
+	ifNotDead = engine.Housing{
 		Flags: []string{
 			isResponsibleFlagName,
 			notDeadFlagName,
