@@ -10,6 +10,7 @@ from subprocess import CalledProcessError
 import sys
 
 from deploy_stack import BootstrapManager
+import pexpect
 from jujupy import pause
 from utility import (
     JujuResourceTimeout,
@@ -26,8 +27,9 @@ log = logging.getLogger("assess_model_migration")
 
 
 def assess_model_migration(bs1, bs2, upload_tools):
-    ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
-    ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools)
+    # ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
+    # ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools)
+    ensure_migrating_with_user_permissions(bs1, bs2, upload_tools)
 
 
 def parse_args(argv):
@@ -158,6 +160,128 @@ def ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools):
             # fail
             raise RuntimeError(
                 'Migrating to upgraded controller did not error.')
+
+
+def _set_user_password(client, user, password):
+    try:
+        command = client.expect(
+            'change-user-password', (user), include_e=False)
+        command.expect('password:')
+        command.sendline(password)
+        command.expect('type password again:')
+        command.sendline(password)
+        command.expect('Your password has been updated.')
+        command.expect(pexpect.EOF)
+        if command.isalive():
+            raise AssertionError(
+                'Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+            raise AssertionError(
+                'Registering user failed: pexpect session timed out')
+
+
+def _log_user_in(client, user, password):
+    # Create a contextmanger that handles all the shit re: using an expect.
+    try:
+        command = client.expect(
+            'login', (user, '-c', client.env.controller.name), include_e=False)
+        command.expect('password:')
+        command.sendline(password)
+        command.expect(pexpect.EOF)
+        if command.isalive():
+            raise AssertionError(
+                'Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+            raise AssertionError(
+                'Registering user failed: pexpect session timed out')
+
+
+def _register_user(client, register_token, controller, password):
+    try:
+        command = client.expect('register', (register_token), include_e=False)
+        command.expect('(?i)name .*: ')
+        command.sendline(controller)
+        command.expect('(?i)password')
+        command.sendline(password)
+        command.expect('(?i)password')
+        command.sendline(password)
+        command.expect(pexpect.EOF)
+        if command.isalive():
+            raise AssertionError(
+                'Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+            raise AssertionError(
+                'Registering user failed: pexpect session timed out')
+
+
+def ensure_migrating_with_user_permissions(bs1, bs2, upload_tools):
+    """To migrate a user must have controller admin privileges.
+
+    A Regular user (just read access to a model) cannot migrate a model
+    An Admin user (write access to a controller admin model) can migrate a
+    model
+
+    """
+    with bs1.booted_context(upload_tools):
+        bs1.client.enable_feature('migration')
+
+        # Create a normal user.
+        register_token = bs1.client.add_user(
+            'model-creator', permissions='write')
+        # Set password and logout.
+        _set_user_password(bs1.client, 'admin', 'juju')
+        bs1.client.juju('logout', (), include_e=False)
+
+        # Have this normie register and login
+        _register_user(
+            bs1.client, register_token, 'normal_controller', 'juju')
+        # And create a model && deploy
+
+        # Workout the id pub rsa to pass in :
+        # --config authorized-keys="ssh-rsa
+        def _get_rsa_pub(home_dir):
+            # Actually find the right file. Hard code for now.
+            full_path = os.path.join(home_dir, 'ssh', 'juju_id_rsa.pub')
+            with open(full_path, 'r') as f:
+                return f.read().replace('\n', '')
+
+        # Need to log user into the controller.
+        normal_user_client = bs1.client.clone(bs1.client.env.clone())
+        _log_user_in(normal_user_client, 'model-creator', 'juju')
+        rsa_pub = _get_rsa_pub(normal_user_client.env.juju_home)
+        normal_user_client.env.config['authorized-keys'] = rsa_pub
+        normal_user_client.add_model(normal_user_client.env.clone('new-model'))
+
+        # Comment for now for time.
+        # normal_user_client.juju('deploy', ('ubuntu'))
+        # normal_user_client.wait_for_started()
+
+        # Normie logs out, thanks normie.
+        normal_user_client.controller_juju('logout', ())
+
+        # Log back in admin/sys user.
+        _log_user_in(bs1.client, 'admin', 'juju')
+
+        # Bootstrap new env
+        log.info('Booting second instance')
+        bs2.client.env.juju_home = bs1.client.env.juju_home
+        with bs2.existing_booted_context(upload_tools):
+            log.info('Initiating migration process')
+            # Admin starts migration
+            # This should be the new-model client
+            bs1.client.controller_juju(
+                'migrate',
+                (normal_user_client.env.environment,
+                 'local.{}'.format(bs2.client.env.controller.name)))
+
+            migration_target_client = bs2.client.clone(
+                bs2.client.env.clone(normal_user_client.env.environment))
+
+            wait_for_model(
+                migration_target_client, normal_user_client.env.environment)
+
+            migration_target_client.juju('status', ())
+            migration_target_client.wait_for_started()
 
 
 def main(argv=None):
