@@ -324,6 +324,7 @@ class FakeBackend:
         self.full_path = full_path
         self.debug = debug
         self.juju_timings = {}
+        self.log = logging.getLogger('jujupy')
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -434,12 +435,20 @@ class FakeBackend:
                        self.controller_state.models.values()]
         return {'models': [{'name': n} for n in model_names]}
 
+    def _log_command(self, command, args, model, level=logging.INFO):
+        full_args = ['juju', command]
+        if model is not None:
+            full_args.extend(['-m', model])
+        full_args.extend(args)
+        self.log.log(level, ' '.join(full_args))
+
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
         if 'service' in command:
             raise Exception('Command names must not contain "service".')
         if isinstance(args, basestring):
             args = (args,)
+        self._log_command(command, args, model)
         if model is not None:
             model_state = self.controller_state.models[model]
             if command == 'enable-ha':
@@ -532,6 +541,7 @@ class FakeBackend:
                         juju_home, model=None, timeout=None):
         if 'service' in command:
             raise Exception('No service')
+        self._log_command(command, args, model, logging.DEBUG)
         if model is not None:
             model_state = self.controller_state.models[model]
         if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):

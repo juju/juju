@@ -494,7 +494,7 @@ class UpgradeCharmAttempt(SteppedStageAttempt):
     def iter_steps(self, client):
         yield self.prepare.as_result()
         with temp_dir() as temp_repository:
-            charm = Charm('mycharm', 'Test charm', series='trusty')
+            charm = Charm('mycharm', 'Test charm', series=['trusty'])
             charm.metadata['description'] = 'Charm for industrial testing.'
             charm_root = charm.to_repo_dir(temp_repository)
             charm_path = local_charm_path(
