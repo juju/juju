@@ -436,6 +436,7 @@ var commandNames = []string{
 	"remove-all-blocks",
 	"remove-backup",
 	"remove-cached-images",
+	"remove-cloud",
 	"remove-credential",
 	"remove-machine",
 	"remove-machines",

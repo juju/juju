@@ -326,3 +326,19 @@ func (s *ModelSerializationSuite) TestModelSerializationWithRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, initial)
 }
+
+func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	space := initial.AddSpace(SpaceArgs{Name: "special"})
+	c.Assert(space.Name(), gc.Equals, "special")
+	spaces := initial.Spaces()
+	c.Assert(spaces, gc.HasLen, 1)
+	c.Assert(spaces[0], gc.Equals, space)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Spaces(), jc.DeepEquals, spaces)
+}

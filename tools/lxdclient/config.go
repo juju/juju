@@ -11,12 +11,6 @@ import (
 
 // Config contains the config values used for a connection to the LXD API.
 type Config struct {
-	// Namespace identifies the namespace to associate with containers
-	// and other resources with which the client interacts. It may be
-	// blank.
-	// TODO(jam) This doesn't appear to do much at the moment.
-	Namespace string
-
 	// Remote identifies the remote server to which the client should
 	// connect. For the default "remote" use Local.
 	Remote Remote
@@ -38,7 +32,6 @@ func (cfg Config) WithDefaults() (Config, error) {
 
 // Validate checks the client's fields for invalid values.
 func (cfg Config) Validate() error {
-	// TODO(ericsnow) Check cfg.Namespace (if provided)?
 	if err := cfg.Remote.Validate(); err != nil {
 		return errors.Trace(err)
 	}

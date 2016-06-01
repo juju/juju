@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -110,7 +111,7 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 	err := s.Env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	fwname := s.Prefix[:len(s.Prefix)-1]
+	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Ports",
 		Args: []interface{}{
@@ -146,11 +147,12 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	err := s.Env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	fwname := s.Prefix[:len(s.Prefix)-1]
+	prefix := s.Prefix()
+	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Ports", []interface{}{fwname}},
-		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
-		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
+		{"Instances", []interface{}{prefix, lxdclient.AliveStatuses}},
+		{"RemoveInstances", []interface{}{prefix, []string{machine1.Name}}},
 		{"Destroy", nil},
 	})
 }

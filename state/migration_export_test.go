@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
@@ -426,6 +427,31 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+}
+
+func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces := model.Spaces()
+	c.Assert(spaces, gc.HasLen, 1)
+	space := spaces[0]
+	c.Assert(space.Name(), gc.Equals, "one")
+	c.Assert(space.ProviderID(), gc.Equals, "provider")
+	c.Assert(space.Public(), jc.IsTrue)
+}
+
+func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "one"})
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "two"})
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "three"})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Spaces(), gc.HasLen, 3)
 }
 
 type goodToken struct{}

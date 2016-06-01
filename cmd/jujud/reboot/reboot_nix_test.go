@@ -26,12 +26,12 @@ sleep 15
 shutdown -h now`
 
 var lxcLsScript = `#!/bin/bash
-echo juju-machine-1-lxc-0
+echo juju-06f00d-1-lxc-0
 `
 
 var lxcInfoScriptMissbehave = `#!/bin/bash
 echo '
-Name:           juju-machine-1-lxc-0
+Name:           juju-06f00d-1-lxc-0
 State:          RUNNING
 PID:            13955
 IP:             192.168.200.85
@@ -54,7 +54,7 @@ then
     echo ""
 else
     echo '
-Name:           juju-machine-1-lxc-0
+Name:           juju-06f00d-1-lxc-0
 State:          RUNNING
 PID:            13955
 IP:             192.168.200.85

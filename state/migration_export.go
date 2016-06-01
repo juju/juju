@@ -84,6 +84,9 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.spaces(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -581,6 +584,23 @@ func (e *exporter) relations() error {
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
+	}
+	return nil
+}
+
+func (e *exporter) spaces() error {
+	spaces, err := e.st.AllSpaces()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d spaces", len(spaces))
+
+	for _, space := range spaces {
+		e.model.AddSpace(description.SpaceArgs{
+			Name:       space.Name(),
+			Public:     space.IsPublic(),
+			ProviderID: string(space.ProviderId()),
+		})
 	}
 	return nil
 }

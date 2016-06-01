@@ -41,7 +41,7 @@ func formatControllersTabular(set ControllerSet) ([]byte, error) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 
-	print("CONTROLLER", "MODEL", "USER", "SERVER")
+	print("CONTROLLER", "MODEL", "USER", "CLOUD/REGION")
 
 	names := []string{}
 	for name, _ := range set.Controllers {
@@ -62,7 +62,11 @@ func formatControllersTabular(set ControllerSet) ([]byte, error) {
 		if name == set.CurrentController {
 			name += "*"
 		}
-		print(name, modelName, userName, c.Server)
+		cloudRegion := c.Cloud
+		if c.CloudRegion != "" {
+			cloudRegion += "/" + c.CloudRegion
+		}
+		print(name, modelName, userName, cloudRegion)
 	}
 	tw.Flush()
 

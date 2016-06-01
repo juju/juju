@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
@@ -93,6 +94,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
+	}
+	if err := restore.spaces(); err != nil {
+		return nil, nil, errors.Annotate(err, "spaces")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -798,6 +802,21 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) spaces() error {
+	i.logger.Debugf("importing spaces")
+	for _, s := range i.model.Spaces() {
+		// The subnets are added after the spaces.
+		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
+		if err != nil {
+			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
+			return errors.Annotate(err, s.Name())
+		}
+	}
+
+	i.logger.Debugf("importing spaces succeeded")
+	return nil
 }
 
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {

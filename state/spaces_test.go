@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -118,7 +117,6 @@ func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args a
 	c.Assert(state.SpaceDoc(space).IsPublic, gc.Equals, args.IsPublic)
 
 	c.Assert(space.Life(), gc.Equals, state.Alive)
-	c.Assert(strings.HasSuffix(space.ID(), args.Name), jc.IsTrue)
 	c.Assert(space.String(), gc.Equals, args.Name)
 }
 

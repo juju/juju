@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/feature"
@@ -64,7 +65,7 @@ type Networking interface {
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
-	AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
+	AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
