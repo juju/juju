@@ -520,11 +520,6 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	ignored := set.NewStrings(
-		// DocID is the env + name
-		"DocID",
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
 		// Always alive, not explicitly exported.
 		"Life",
 	)
