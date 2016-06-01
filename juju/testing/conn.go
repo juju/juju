@@ -598,24 +598,24 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return sch
 }
 
-func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch})
+func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch})
 }
 
-func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddServiceArgs) *state.Service {
+func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddApplicationArgs) *state.Application {
 	c.Assert(s.State, gc.NotNil)
 	args.Owner = s.AdminUserTag(c).String()
-	service, err := s.State.AddService(args)
+	service, err := s.State.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch, Storage: storage})
+func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Service {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {

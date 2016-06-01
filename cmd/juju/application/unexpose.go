@@ -18,7 +18,7 @@ Removes public availability over the network for an application.`[1:]
 var usageUnexposeDetails = `
 Adjusts the firewall rules and any relevant security mechanisms of the
 cloud to deny public access to the application.
-A application is unexposed by default when it gets created.
+An application is unexposed by default when it gets created.
 
 Examples:
     juju unexpose wordpress

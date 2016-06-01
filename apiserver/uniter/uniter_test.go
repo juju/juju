@@ -41,13 +41,13 @@ type uniterSuite struct {
 
 	machine0      *state.Machine
 	machine1      *state.Machine
-	wordpress     *state.Service
+	wordpress     *state.Application
 	wpCharm       *state.Charm
-	mysql         *state.Service
+	mysql         *state.Application
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
 
-	meteredService *state.Service
+	meteredService *state.Application
 	meteredCharm   *state.Charm
 	meteredUnit    *state.Unit
 }
@@ -71,7 +71,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress",
 		URL:  "cs:quantal/wordpress-3",
 	})
-	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "wordpress",
 		Charm:   s.wpCharm,
 		Creator: s.AdminUserTag(c),
@@ -79,29 +79,29 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
 		Creator: s.AdminUserTag(c),
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.wordpress,
-		Machine: s.machine0,
+		Application: s.wordpress,
+		Machine:     s.machine0,
 	})
 	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine1,
+		Application: s.mysql,
+		Machine:     s.machine1,
 	})
 
 	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.Factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.meteredService = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service:     s.meteredService,
+		Application: s.meteredService,
 		SetCharmURL: true,
 	})
 
@@ -1347,8 +1347,8 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
-					ServiceName: wpEp.ServiceName,
-					Relation:    wpEp.Relation,
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        wpEp.Relation,
 				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1384,8 +1384,8 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
-					ServiceName: wpEp.ServiceName,
-					Relation:    wpEp.Relation,
+					ApplicationName: wpEp.ApplicationName,
+					Relation:        wpEp.Relation,
 				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1974,7 +1974,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
@@ -2327,7 +2327,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 }
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
 
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
@@ -2414,7 +2414,7 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		URL:  "cs:quantal/wordpress-extra-bindings-4",
 	})
 	var err error
-	s.base.wordpress, err = s.base.State.AddService(state.AddServiceArgs{
+	s.base.wordpress, err = s.base.State.AddApplication(state.AddApplicationArgs{
 		Name:  "wordpress",
 		Charm: s.base.wpCharm,
 		Owner: s.base.AdminUserTag(c).String(),
@@ -2425,8 +2425,8 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.base.wordpress,
-		Machine: s.base.machine0,
+		Application: s.base.wordpress,
+		Machine:     s.base.machine0,
 	})
 
 	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
@@ -2434,18 +2434,18 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.base.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.base.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
 		Creator: s.base.AdminUserTag(c),
 	})
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.base.wordpress,
-		Machine: s.base.machine0,
+		Application: s.base.wordpress,
+		Machine:     s.base.machine0,
 	})
 	s.base.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.base.mysql,
-		Machine: s.base.machine1,
+		Application: s.base.mysql,
+		Machine:     s.base.machine1,
 	})
 
 	// Create the resource registry separately to track invocations to

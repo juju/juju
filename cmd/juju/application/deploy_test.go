@@ -240,7 +240,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, ch, "dummy-application", "--config", path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Service("dummy-application")
+	application, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := application.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,7 +263,7 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, ch, "other-application", "--config", path, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-application"`)
-	_, err = s.State.Service("other-application")
+	_, err = s.State.Application("other-application")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -344,7 +344,7 @@ func (s *DeploySuite) TestPlacement(c *gc.C) {
 	err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc, err := s.State.Service("dummy")
+	svc, err := s.State.Application("dummy")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
@@ -378,12 +378,12 @@ func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
 	err := runDeploy(c, "--num-units", "3", ch, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
-	_, err = s.State.Service("dummy")
-	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
+	_, err = s.State.Application("dummy")
+	c.Assert(err, gc.ErrorMatches, `application "dummy" not found`)
 }
 
 func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
-	svc, err := s.State.Service("portlandia")
+	svc, err := s.State.Application("portlandia")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// manually run staged assignments
@@ -450,8 +450,8 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	err := runDeploy(c, "--to", "42", ch, "portlandia", "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy "portlandia" to machine 42: machine 42 not found`)
-	_, err = s.State.Service("portlandia")
-	c.Assert(err, gc.ErrorMatches, `service "portlandia" not found`)
+	_, err = s.State.Application("portlandia")
+	c.Assert(err, gc.ErrorMatches, `application "portlandia" not found`)
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
@@ -460,8 +460,8 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
-	_, err = s.State.Service("dummy")
-	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
+	_, err = s.State.Application("dummy")
+	c.Assert(err, gc.ErrorMatches, `application "dummy" not found`)
 }
 
 func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
@@ -809,7 +809,7 @@ type serviceInfo struct {
 // expected spaces. It is separate to assertServicesDeployed because it is only
 // relevant to a couple of tests.
 func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, application := range services {
@@ -821,7 +821,7 @@ func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string
 
 // assertApplicationsDeployed checks that the given applications have been deployed.
 func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {
@@ -919,7 +919,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("cs:quantal/metered-1")
-	svc, err := s.State.Service("metered")
+	svc, err := s.State.Application("metered")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -964,7 +964,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	_, err := coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("cs:quantal/metered-1")
-	svc, err := s.State.Service("metered")
+	svc, err := s.State.Application("metered")
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)

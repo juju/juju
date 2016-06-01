@@ -37,7 +37,7 @@ func runRemoveUnit(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Service {
+func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	err := runDeploy(c, "-n", "2", ch, "dummy", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)

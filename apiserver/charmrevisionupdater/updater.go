@@ -97,7 +97,7 @@ var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
 
 type latestCharmInfo struct {
 	charmstore.CharmInfo
-	service *state.Service
+	service *state.Application
 }
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
@@ -109,7 +109,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		return nil, err
 	}
 
-	services, err := st.AllServices()
+	services, err := st.AllApplications()
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	}
 
 	var charms []charmstore.CharmID
-	var resultsIndexedServices []*state.Service
+	var resultsIndexedServices []*state.Application
 	for _, service := range services {
 		curl, _ := service.CharmURL()
 		if curl.Schema == "local" {

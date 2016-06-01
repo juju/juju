@@ -36,7 +36,7 @@ func runExpose(c *gc.C, args ...string) error {
 }
 
 func (s *ExposeSuite) assertExposed(c *gc.C, application string) {
-	svc, err := s.State.Service(application)
+	svc, err := s.State.Application(application)
 	c.Assert(err, jc.ErrorIsNil)
 	exposed := svc.IsExposed()
 	c.Assert(exposed, jc.IsTrue)
@@ -55,7 +55,7 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 
 	err = runExpose(c, "nonexistent-application")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `service "nonexistent-application" not found`,
+		Message: `application "nonexistent-application" not found`,
 		Code:    "not found",
 	})
 }

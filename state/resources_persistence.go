@@ -36,13 +36,13 @@ type ResourcePersistenceBase interface {
 	// function. It may be retried several times.
 	Run(transactions jujutxn.TransactionSource) error
 
-	// ServiceExistsOps returns the operations that verify that the
-	// identified service exists.
-	ServiceExistsOps(serviceID string) []txn.Op
+	// ApplicationExistsOps returns the operations that verify that the
+	// identified application exists.
+	ApplicationExistsOps(applicationID string) []txn.Op
 
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
-	// the CharmModifiedVersion field for the given service.
-	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+	// the CharmModifiedVersion field for the given application.
+	IncCharmModifiedVersionOps(applicationID string) []txn.Op
 
 	// NewCleanupOp creates a mgo transaction operation that queues up
 	// some cleanup action in state.
@@ -64,10 +64,10 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 
 // ListResources returns the info for each non-pending resource of the
 // identified service.
-func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
-	logger.Tracef("listing all resources for service %q", serviceID)
+func (p ResourcePersistence) ListResources(applicationID string) (resource.ServiceResources, error) {
+	logger.Tracef("listing all resources for application %q", applicationID)
 
-	docs, err := p.resources(serviceID)
+	docs, err := p.resources(applicationID)
 	if err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
@@ -121,8 +121,8 @@ func (p ResourcePersistence) ListResources(serviceID string) (resource.ServiceRe
 
 // ListPendingResources returns the extended, model-related info for
 // each pending resource of the identifies service.
-func (p ResourcePersistence) ListPendingResources(serviceID string) ([]resource.Resource, error) {
-	docs, err := p.resources(serviceID)
+func (p ResourcePersistence) ListPendingResources(applicationID string) ([]resource.Resource, error) {
+	docs, err := p.resources(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -218,7 +218,7 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 		}
 		if stored.PendingID == "" {
 			// Only non-pending resources must have an existing service.
-			ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
+			ops = append(ops, p.base.ApplicationExistsOps(res.ApplicationID)...)
 		}
 		return ops, nil
 	}
@@ -230,16 +230,16 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 
 // SetCharmStoreResource stores the resource info that was retrieved
 // from the charm store.
-func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res charmresource.Resource, lastPolled time.Time) error {
+func (p ResourcePersistence) SetCharmStoreResource(id, applicationID string, res charmresource.Resource, lastPolled time.Time) error {
 	if err := res.Validate(); err != nil {
 		return errors.Annotate(err, "bad resource")
 	}
 
 	csRes := charmStoreResource{
-		Resource:   res,
-		id:         id,
-		serviceID:  serviceID,
-		lastPolled: lastPolled,
+		Resource:      res,
+		id:            id,
+		applicationID: applicationID,
+		lastPolled:    lastPolled,
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -255,7 +255,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 			return nil, errors.New("setting the resource failed")
 		}
 		// No pending resources so we always do this here.
-		ops = append(ops, p.base.ServiceExistsOps(serviceID)...)
+		ops = append(ops, p.base.ApplicationExistsOps(applicationID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -265,7 +265,7 @@ func (p ResourcePersistence) SetCharmStoreResource(id, serviceID string, res cha
 }
 
 // SetUnitResource stores the resource info for a particular unit. The
-// resource must already be set for the service.
+// resource must already be set for the application.
 func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resource) error {
 	if res.PendingID != "" {
 		return errors.Errorf("pending resources not allowed")
@@ -274,7 +274,7 @@ func (p ResourcePersistence) SetUnitResource(unitID string, res resource.Resourc
 }
 
 // SetUnitResource stores the resource info for a particular unit. The
-// resource must already be set for the service. The provided progress
+// resource must already be set for the application. The provided progress
 // is stored in the DB.
 func (p ResourcePersistence) SetUnitResourceProgress(unitID string, res resource.Resource, progress int64) error {
 	if res.PendingID == "" {
@@ -309,7 +309,7 @@ func (p ResourcePersistence) setUnitResource(unitID string, res resource.Resourc
 			return nil, errors.New("setting the resource failed")
 		}
 		// No pending resources so we always do this here.
-		ops = append(ops, p.base.ServiceExistsOps(res.ServiceID)...)
+		ops = append(ops, p.base.ApplicationExistsOps(res.ApplicationID)...)
 		return ops, nil
 	}
 	if err := p.base.Run(buildTxn); err != nil {
@@ -385,8 +385,8 @@ func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op,
 
 // NewRemoveResourcesOps returns mgo transaction operations that
 // remove all the service's resources from state.
-func (p ResourcePersistence) NewRemoveResourcesOps(serviceID string) ([]txn.Op, error) {
-	docs, err := p.resources(serviceID)
+func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.Op, error) {
+	docs, err := p.resources(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

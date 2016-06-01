@@ -58,7 +58,7 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 
 func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
 	_, err := s.serviceApi.Get(params.ApplicationGet{"unknown"})
-	c.Assert(err, gc.ErrorMatches, `service "unknown" not found`)
+	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 
 var getTests = []struct {

@@ -38,11 +38,11 @@ type DeployApplicationParams struct {
 
 type ApplicationDeployer interface {
 	Model() (*state.Model, error)
-	AddService(state.AddServiceArgs) (*state.Service, error)
+	AddApplication(state.AddApplicationArgs) (*state.Application, error)
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
-func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*state.Service, error) {
+func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*state.Application, error) {
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*s
 
 	effectiveBindings := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
 
-	asa := state.AddServiceArgs{
+	asa := state.AddApplicationArgs{
 		Name:             args.ApplicationName,
 		Series:           args.Series,
 		Owner:            args.ApplicationOwner,
@@ -85,7 +85,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*s
 		asa.Constraints = args.Constraints
 	}
 
-	return st.AddService(asa)
+	return st.AddApplication(asa)
 }
 
 func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) map[string]string {
@@ -113,7 +113,7 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 
 // AddUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
-func AddUnits(st *state.State, svc *state.Service, n int, placement []*instance.Placement) ([]*state.Unit, error) {
+func AddUnits(st *state.State, svc *state.Application, n int, placement []*instance.Placement) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty

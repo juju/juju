@@ -201,7 +201,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					machineId = ""
 				} else if matchedMachines.Contains(machineId) {
 					// Unit is on a matching machine.
-					matchedSvcs.Add(unit.ServiceName())
+					matchedSvcs.Add(unit.ApplicationName())
 					continue
 				}
 
@@ -216,7 +216,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					delete(unitMap, name)
 					continue
 				}
-				matchedSvcs.Add(unit.ServiceName())
+				matchedSvcs.Add(unit.ApplicationName())
 				if machineId != "" {
 					matchedMachines.Add(machineId)
 				}
@@ -302,7 +302,7 @@ type statusContext struct {
 	// this machine.
 	machines map[string][]*state.Machine
 	// services: service name -> service
-	services     map[string]*state.Service
+	services     map[string]*state.Application
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
 	latestCharms map[charm.URL]*state.Charm
@@ -345,12 +345,12 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 func fetchAllApplicationsAndUnits(
 	st stateInterface,
 	matchAny bool,
-) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
+) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
-	svcMap := make(map[string]*state.Service)
+	svcMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
-	services, err := st.AllServices()
+	services, err := st.AllApplications()
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -402,7 +402,7 @@ func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 	out := make(map[string][]*state.Relation)
 	for _, relation := range relations {
 		for _, ep := range relation.Endpoints() {
-			out[ep.ServiceName] = append(out[ep.ServiceName], relation)
+			out[ep.ApplicationName] = append(out[ep.ApplicationName], relation)
 		}
 	}
 	return out, nil
@@ -499,7 +499,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 		var relationInterface string
 		for _, ep := range relation.Endpoints() {
 			eps = append(eps, params.EndpointStatus{
-				ApplicationName: ep.ServiceName,
+				ApplicationName: ep.ApplicationName,
 				Name:            ep.Name,
 				Role:            ep.Role,
 				Subordinate:     context.isSubordinate(&ep),
@@ -537,14 +537,14 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 }
 
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
-	service := context.services[ep.ServiceName]
+	service := context.services[ep.ApplicationName]
 	if service == nil {
 		return false
 	}
 	return isSubordinate(ep, service)
 }
 
-func isSubordinate(ep *state.Endpoint, service *state.Service) bool {
+func isSubordinate(ep *state.Endpoint, service *state.Application) bool {
 	return ep.Scope == charm.ScopeContainer && !service.IsPrincipal()
 }
 
@@ -565,7 +565,7 @@ func (context *statusContext) processServices() map[string]params.ApplicationSta
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Service) params.ApplicationStatus {
+func (context *statusContext) processService(service *state.Application) params.ApplicationStatus {
 	serviceCharmURL, _ := service.CharmURL()
 	var processedStatus = params.ApplicationStatus{
 		Charm:   serviceCharmURL.String(),
@@ -672,7 +672,7 @@ func (context *statusContext) unitByName(name string) *state.Unit {
 	return context.units[serviceName][name]
 }
 
-func (context *statusContext) processServiceRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
+func (context *statusContext) processServiceRelations(service *state.Application) (related map[string][]string, subord []string, err error) {
 	subordSet := make(set.Strings)
 	related = make(map[string][]string)
 	relations := context.relations[service.Name()]
@@ -688,9 +688,9 @@ func (context *statusContext) processServiceRelations(service *state.Service) (r
 		}
 		for _, ep := range eps {
 			if isSubordinate(&ep, service) {
-				subordSet.Add(ep.ServiceName)
+				subordSet.Add(ep.ApplicationName)
 			}
-			related[relationName] = append(related[relationName], ep.ServiceName)
+			related[relationName] = append(related[relationName], ep.ApplicationName)
 		}
 	}
 	for relationName, serviceNames := range related {

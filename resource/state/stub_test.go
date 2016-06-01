@@ -39,8 +39,8 @@ func (s *stubRawState) Storage() Storage {
 	return s.ReturnStorage
 }
 
-func (s *stubRawState) VerifyService(serviceID string) error {
-	s.stub.AddCall("VerifyService", serviceID)
+func (s *stubRawState) VerifyService(applicationID string) error {
+	s.stub.AddCall("VerifyService", applicationID)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -48,8 +48,8 @@ func (s *stubRawState) VerifyService(serviceID string) error {
 	return nil
 }
 
-func (s *stubRawState) Units(serviceID string) ([]names.UnitTag, error) {
-	s.stub.AddCall("Units", serviceID)
+func (s *stubRawState) Units(applicationID string) ([]names.UnitTag, error) {
+	s.stub.AddCall("Units", applicationID)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,8 +70,8 @@ type stubPersistence struct {
 	CallsForNewResolvePendingResourceOps map[string]string
 }
 
-func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResources, error) {
-	s.stub.AddCall("ListResources", serviceID)
+func (s *stubPersistence) ListResources(applicationID string) (resource.ServiceResources, error) {
+	s.stub.AddCall("ListResources", applicationID)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.ServiceResources{}, errors.Trace(err)
 	}
@@ -79,8 +79,8 @@ func (s *stubPersistence) ListResources(serviceID string) (resource.ServiceResou
 	return s.ReturnListResources, nil
 }
 
-func (s *stubPersistence) ListPendingResources(serviceID string) ([]resource.Resource, error) {
-	s.stub.AddCall("ListPendingResources", serviceID)
+func (s *stubPersistence) ListPendingResources(applicationID string) ([]resource.Resource, error) {
+	s.stub.AddCall("ListPendingResources", applicationID)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,8 +88,8 @@ func (s *stubPersistence) ListPendingResources(serviceID string) ([]resource.Res
 	return s.ReturnListPendingResources, nil
 }
 
-func (s *stubPersistence) GetResource(serviceID string) (resource.Resource, string, error) {
-	s.stub.AddCall("GetResource", serviceID)
+func (s *stubPersistence) GetResource(applicationID string) (resource.Resource, string, error) {
+	s.stub.AddCall("GetResource", applicationID)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.Resource{}, "", errors.Trace(err)
 	}
@@ -115,8 +115,8 @@ func (s *stubPersistence) SetResource(res resource.Resource) error {
 	return nil
 }
 
-func (s *stubPersistence) SetCharmStoreResource(id, serviceID string, chRes charmresource.Resource, lastPolled time.Time) error {
-	s.stub.AddCall("SetCharmStoreResource", id, serviceID, chRes, lastPolled)
+func (s *stubPersistence) SetCharmStoreResource(id, applicationID string, chRes charmresource.Resource, lastPolled time.Time) error {
+	s.stub.AddCall("SetCharmStoreResource", id, applicationID, chRes, lastPolled)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

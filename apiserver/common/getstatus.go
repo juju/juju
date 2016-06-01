@@ -147,7 +147,7 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ApplicationSt
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		service, err := s.st.Service(serviceId)
+		service, err := s.st.Application(serviceId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue

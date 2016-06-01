@@ -174,7 +174,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Service returns the service.
-func (u *Unit) Service() (*Application, error) {
+func (u *Unit) Application() (*Application, error) {
 	service := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),
@@ -213,11 +213,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ApplicationName returns the service name.
 func (u *Unit) ApplicationName() string {
-	service, err := names.UnitApplication(u.Name())
+	application, err := names.UnitApplication(u.Name())
 	if err != nil {
 		panic(err)
 	}
-	return service
+	return application
 }
 
 // ApplicationTag returns the service tag.

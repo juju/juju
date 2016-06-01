@@ -62,10 +62,10 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		ID:        res.ID,
-		ServiceID: res.ServiceID,
-		Username:  username,
-		Timestamp: res.Timestamp,
+		ID:            res.ID,
+		ApplicationID: res.ApplicationID,
+		Username:      username,
+		Timestamp:     res.Timestamp,
 	}
 
 	return res, apiRes
@@ -118,8 +118,8 @@ func (s *stubDataStore) GetPendingResource(service, name, pendingID string) (res
 	return s.ReturnGetPendingResource, nil
 }
 
-func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	s.stub.AddCall("SetResource", serviceID, userID, res, r)
+func (s *stubDataStore) SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	s.stub.AddCall("SetResource", applicationID, userID, res, r)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.Resource{}, errors.Trace(err)
 	}
@@ -127,8 +127,8 @@ func (s *stubDataStore) SetResource(serviceID, userID string, res charmresource.
 	return s.ReturnSetResource, nil
 }
 
-func (s *stubDataStore) UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
-	s.stub.AddCall("UpdatePendingResource", serviceID, pendingID, userID, res, r)
+func (s *stubDataStore) UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error) {
+	s.stub.AddCall("UpdatePendingResource", applicationID, pendingID, userID, res, r)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.Resource{}, errors.Trace(err)
 	}

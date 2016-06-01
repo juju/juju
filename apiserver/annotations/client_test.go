@@ -65,7 +65,7 @@ func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
 
 func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeService(c, &factory.ServiceParams{
+	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
 	})
 	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
@@ -109,12 +109,12 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeService(c, &factory.ServiceParams{
+	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
 	})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Service: wordpress,
-		Machine: machine,
+		Application: wordpress,
+		Machine:     machine,
 	})
 	s.testSetGetEntitiesAnnotations(c, unit.Tag())
 
@@ -126,8 +126,8 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 	s.assertAnnotationsRemoval(c, wordpress.Tag())
 }
 
-func (s *annotationSuite) makeRelation(c *gc.C) (*state.Service, *state.Relation) {
-	s1 := s.Factory.MakeService(c, &factory.ServiceParams{
+func (s *annotationSuite) makeRelation(c *gc.C) (*state.Application, *state.Relation) {
+	s1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "service1",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
@@ -136,7 +136,7 @@ func (s *annotationSuite) makeRelation(c *gc.C) (*state.Service, *state.Relation
 	e1, err := s1.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s2 := s.Factory.MakeService(c, &factory.ServiceParams{
+	s2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "service2",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",

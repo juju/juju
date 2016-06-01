@@ -690,9 +690,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
 				}
-				svc, err := u.Service()
+				svc, err := u.Application()
 				if err != nil {
-					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
+					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Application)
 				}
 				if u.Life() == Alive && svc.Life() == Alive {
 					canDie = false

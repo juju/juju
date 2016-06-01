@@ -50,12 +50,12 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 	expected1, apiResult1 := newResourceResult(c, "a-application", "spam")
 	s.facade.apiResults["a-application"] = apiResult1
-	expected2, apiResult2 := newResourceResult(c, "other-service", "eggs", "ham")
-	s.facade.apiResults["other-service"] = apiResult2
+	expected2, apiResult2 := newResourceResult(c, "other-application", "eggs", "ham")
+	s.facade.apiResults["other-application"] = apiResult2
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-application", "other-service"}
+	services := []string{"a-application", "other-application"}
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -70,7 +70,7 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 			{
 				Tag: "application-a-application",
 			}, {
-				Tag: "application-other-service",
+				Tag: "application-other-application",
 			},
 		}},
 		&api.ResourcesResults{
@@ -99,7 +99,7 @@ func (s *ListResourcesSuite) TestBadServices(c *gc.C) {
 	services := []string{"???"}
 	_, err := cl.ListResources(services)
 
-	c.Check(err, gc.ErrorMatches, `.*invalid service.*`)
+	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
 	s.stub.CheckNoCalls(c)
 }
 
@@ -157,7 +157,7 @@ func (s *ListResourcesSuite) TestTooFew(c *gc.C) {
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-application", "other-service"}
+	services := []string{"a-application", "other-application"}
 	results, err := cl.ListResources(services)
 
 	c.Check(results, gc.HasLen, 0)
@@ -183,7 +183,7 @@ func (s *ListResourcesSuite) TestTooMany(c *gc.C) {
 
 	cl := client.NewClient(s.facade, s, s.facade)
 
-	services := []string{"a-application", "other-service"}
+	services := []string{"a-application", "other-application"}
 	results, err := cl.ListResources(services)
 
 	c.Check(results, gc.HasLen, 0)

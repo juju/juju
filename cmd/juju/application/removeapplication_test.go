@@ -55,7 +55,7 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 	s.setupTestService(c)
 	err := runRemoveService(c, "riak")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Service("riak")
+	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
 	s.stub.CheckNoCalls(c)
@@ -68,7 +68,7 @@ func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = runRemoveService(c, "metered")
 	c.Assert(err, jc.ErrorIsNil)
-	riak, err := s.State.Service("metered")
+	riak, err := s.State.Application("metered")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
 	s.stub.CheckNoCalls(c)
@@ -81,7 +81,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	s.BlockRemoveObject(c, "TestBlockRemoveService")
 	err := runRemoveService(c, "riak")
 	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
-	riak, err := s.State.Service("riak")
+	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)
 	s.stub.CheckNoCalls(c)
@@ -91,7 +91,7 @@ func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
 	// Destroy an application that does not exist.
 	err := runRemoveService(c, "gargleblaster")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `service "gargleblaster" not found`,
+		Message: `application "gargleblaster" not found`,
 		Code:    "not found",
 	})
 	s.stub.CheckNoCalls(c)

@@ -16,17 +16,17 @@ import (
 )
 
 type service struct {
-	*corestate.Service
+	*corestate.Application
 }
 
-// ID returns the service's tag.
+// ID returns the application's tag.
 func (s *service) ID() names.ApplicationTag {
 	return names.NewApplicationTag(s.Name())
 }
 
 // CharmURL implements resource/workers.Service.
 func (s *service) CharmURL() *charm.URL {
-	cURL, _ := s.Service.CharmURL()
+	cURL, _ := s.Application.CharmURL()
 	return cURL
 }
 
@@ -57,9 +57,9 @@ func (st rawState) Storage() state.Storage {
 	return st.persist.NewStorage()
 }
 
-// Units returns the tags for all units in the service.
-func (st rawState) Units(serviceID string) (tags []names.UnitTag, err error) {
-	svc, err := st.base.Service(serviceID)
+// Units returns the tags for all units in the application.
+func (st rawState) Units(applicationID string) (tags []names.UnitTag, err error) {
+	svc, err := st.base.Application(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,12 +75,12 @@ func (st rawState) Units(serviceID string) (tags []names.UnitTag, err error) {
 
 // VerifyService implements resource/state.RawState.
 func (st rawState) VerifyService(id string) error {
-	svc, err := st.base.Service(id)
+	svc, err := st.base.Application(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if svc.Life() != corestate.Alive {
-		return errors.NewNotFound(nil, fmt.Sprintf("service %q dying or dead", id))
+		return errors.NewNotFound(nil, fmt.Sprintf("application %q dying or dead", id))
 	}
 	return nil
 }

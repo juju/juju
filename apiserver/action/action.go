@@ -217,7 +217,7 @@ func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.Appl
 			continue
 		}
 		currentResult.ApplicationTag = svcTag.String()
-		svc, err := a.state.Service(svcTag.Id())
+		svc, err := a.state.Application(svcTag.Id())
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

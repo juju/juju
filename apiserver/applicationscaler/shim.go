@@ -42,7 +42,7 @@ func (shim backendShim) WatchScaledServices() state.StringsWatcher {
 
 // RescaleService is part of the Backend interface.
 func (shim backendShim) RescaleService(name string) error {
-	service, err := shim.st.Service(name)
+	service, err := shim.st.Application(name)
 	if err != nil {
 		return errors.Trace(err)
 	}

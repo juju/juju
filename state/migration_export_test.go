@@ -62,22 +62,22 @@ func (s *MigrationSuite) primeStatusHistory(c *gc.C, entity statusSetter, status
 	}, 0)
 }
 
-func (s *MigrationSuite) makeServiceWithLeader(c *gc.C, serviceName string, count int, leader int) {
+func (s *MigrationSuite) makeApplicationWithLeader(c *gc.C, applicationname string, count int, leader int) {
 	c.Assert(leader < count, jc.IsTrue)
 	units := make([]*state.Unit, count)
-	service := s.Factory.MakeService(c, &factory.ServiceParams{
-		Name: serviceName,
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: applicationname,
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: serviceName,
+			Name: applicationname,
 		}),
 	})
 	for i := 0; i < count; i++ {
 		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{
-			Service: service,
+			Application: application,
 		})
 	}
 	err := s.State.LeadershipClaimer().ClaimLeadership(
-		service.Name(),
+		application.Name(),
 		units[leader].Name(),
 		time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,32 +224,32 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestServices(c *gc.C) {
-	service := s.Factory.MakeService(c, &factory.ServiceParams{
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
+	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = service.SetMetricCredentials([]byte("sekrit"))
+	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetAnnotations(service, testAnnotations)
+	err = s.State.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, service, status.StatusActive, addedHistoryCount)
+	s.primeStatusHistory(c, application, status.StatusActive, addedHistoryCount)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	services := model.Services()
-	c.Assert(services, gc.HasLen, 1)
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
 
-	exported := services[0]
-	c.Assert(exported.Name(), gc.Equals, service.Name())
-	c.Assert(exported.Tag(), gc.Equals, service.ApplicationTag())
-	c.Assert(exported.Series(), gc.Equals, service.Series())
+	exported := applications[0]
+	c.Assert(exported.Name(), gc.Equals, application.Name())
+	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
+	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
@@ -272,15 +272,15 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
-	s.Factory.MakeService(c, &factory.ServiceParams{Name: "first"})
-	s.Factory.MakeService(c, &factory.ServiceParams{Name: "second"})
-	s.Factory.MakeService(c, &factory.ServiceParams{Name: "third"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"})
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	services := model.Services()
-	c.Assert(services, gc.HasLen, 3)
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 3)
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
@@ -297,11 +297,11 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	services := model.Services()
-	c.Assert(services, gc.HasLen, 1)
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
 
-	service := services[0]
-	units := service.Units()
+	application := applications[0]
+	units := application.Units()
 	c.Assert(units, gc.HasLen, 1)
 
 	exported := units[0]
@@ -327,15 +327,15 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {
-	s.makeServiceWithLeader(c, "mysql", 2, 1)
-	s.makeServiceWithLeader(c, "wordpress", 4, 2)
+	s.makeApplicationWithLeader(c, "mysql", 2, 1)
+	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	leaders := make(map[string]string)
-	for _, service := range model.Services() {
-		leaders[service.Name()] = service.Leader()
+	for _, application := range model.Applications() {
+		leaders[application.Name()] = application.Leader()
 	}
 	c.Assert(leaders, jc.DeepEquals, map[string]string{
 		"mysql":     "mysql/1",
@@ -365,7 +365,7 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	// Need to remove owner from service.
+	// Need to remove owner from application.
 	ignored := s.Owner
 	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), ignored)
 	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"), ignored)
@@ -375,8 +375,8 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	msEp, wpEp := eps[0], eps[1]
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: wordpress})
-	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: mysql})
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
 	ru, err := rel.Unit(wordpress_0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -414,7 +414,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 		settings map[string]interface{},
 	) {
 		c.Logf("%#v", exEndpoint)
-		c.Check(exEndpoint.ServiceName(), gc.Equals, ep.ServiceName)
+		c.Check(exEndpoint.ApplicationName(), gc.Equals, ep.ApplicationName)
 		c.Check(exEndpoint.Name(), gc.Equals, ep.Name)
 		c.Check(exEndpoint.UnitCount(), gc.Equals, 1)
 		c.Check(exEndpoint.Settings(unitName), jc.DeepEquals, settings)

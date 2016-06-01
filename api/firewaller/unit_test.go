@@ -73,7 +73,7 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 func (s *unitSuite) TestService(c *gc.C) {
 	service, err := s.apiUnit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(service.Name(), gc.Equals, s.service.Name())
+	c.Assert(service.Name(), gc.Equals, s.application.Name())
 }
 
 func (s *unitSuite) TestName(c *gc.C) {

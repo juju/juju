@@ -59,7 +59,7 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	used := !res.IsPlaceholder()
 	return FormattedSvcResource{
 		ID:               res.ID,
-		ServiceID:        res.ServiceID,
+		ApplicationID:    res.ApplicationID,
 		Name:             res.Name,
 		Type:             res.Type.String(),
 		Path:             res.Path,

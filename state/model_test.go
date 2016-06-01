@@ -282,7 +282,7 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2).MakeService(c, nil)
+	factory.NewFactory(st2).MakeApplication(c, nil)
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,7 +307,7 @@ func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2).MakeService(c, nil)
+	factory.NewFactory(st2).MakeApplication(c, nil)
 
 	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -350,7 +350,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllServices()
+		services, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
@@ -360,16 +360,16 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: otherEnv.Owner()})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Creator: otherEnv.Owner()})
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := state.AddServiceArgs{
+	args := state.AddApplicationArgs{
 		Name:  service.Name(),
 		Owner: service.GetOwnerTag(),
 		Charm: ch,
 	}
-	service, err = otherSt.AddService(args)
+	service, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerEnv, err := s.State.Model()
@@ -430,7 +430,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		// the controller from being destroyed.
 		st3 := s.Factory.MakeModel(c, nil)
 		defer st3.Close()
-		factory.NewFactory(st3).MakeService(c, nil)
+		factory.NewFactory(st3).MakeApplication(c, nil)
 	}).Check()
 
 	env, err := s.State.Model()
@@ -444,7 +444,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		st := s.Factory.MakeModel(c, nil)
 		defer st.Close()
-		factory.NewFactory(st).MakeService(c, nil)
+		factory.NewFactory(st).MakeApplication(c, nil)
 	}).Check()
 
 	env, err := s.State.Model()
@@ -478,7 +478,7 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a service to prevent the model from transitioning directly to Dead.
-	s.Factory.MakeService(c, nil)
+	s.Factory.MakeApplication(c, nil)
 
 	c.Assert(m.Destroy(), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
@@ -492,7 +492,7 @@ func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st).MakeService(c, nil)
+		factory.NewFactory(st).MakeApplication(c, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(), jc.ErrorIsNil)
@@ -540,7 +540,7 @@ func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.
 	// Add a service to prevent the model from transitioning directly to Dead.
 	// Add the service before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	svc := factory.NewFactory(st).MakeService(c, nil)
+	svc := factory.NewFactory(st).MakeApplication(c, nil)
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -576,15 +576,15 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: env.Owner()})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Creator: env.Owner()})
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	args := state.AddServiceArgs{
+	args := state.AddApplicationArgs{
 		Name:  service.Name(),
 		Owner: service.GetOwnerTag(),
 		Charm: ch,
 	}
-	service, err = st.AddService(args)
+	service, err = st.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertEnv := func(life state.Life, expectedMachines, expectedServices int) {
@@ -595,7 +595,7 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllServices()
+		services, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
@@ -617,7 +617,7 @@ func (s *ModelSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C
 	// Add a non-empty model to the controller.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	factory.NewFactory(st).MakeService(c, nil)
+	factory.NewFactory(st).MakeApplication(c, nil)
 
 	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
