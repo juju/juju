@@ -99,8 +99,6 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 			return nil, err
 		}
 
-		// Before we reconnect to the API with the new password,
-		// let's close established connection.
 		if err := st.Close(); err != nil {
 			logger.Errorf("while closing API connection with old password: %v", err)
 		}
