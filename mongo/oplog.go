@@ -5,21 +5,12 @@ package mongo
 
 import (
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
-)
-
-const (
-	// Used to identify a "collection truncated" error from Mongo -
-	// sometimes raised when we have an open cursor on a capped
-	// collection and the "emptycapped" command is run.
-	getMoreCode      = 17406
-	truncatedMessage = "collection truncated"
 )
 
 // OplogDoc represents a document in the oplog.rs collection.
@@ -109,13 +100,23 @@ func NewOplogTailer(
 	query bson.D,
 	initialTs time.Time,
 ) *OplogTailer {
+	return newOplogTailerWithFactory(oplog, query, initialTs, makeIterator)
+}
+
+func newOplogTailerWithFactory(
+	oplog *mgo.Collection,
+	query bson.D,
+	initialTs time.Time,
+	iterFactory iteratorFactory,
+) *OplogTailer {
 	// Use a fresh session for the tailer.
 	session := oplog.Database.Session.Copy()
 	t := &OplogTailer{
-		oplog:     oplog.With(session),
-		query:     query,
-		initialTs: NewMongoTimestamp(initialTs),
-		outCh:     make(chan *OplogDoc),
+		oplog:        oplog.With(session),
+		query:        query,
+		initialTs:    NewMongoTimestamp(initialTs),
+		outCh:        make(chan *OplogDoc),
+		makeIterator: iterFactory,
 	}
 	go func() {
 		defer func() {
@@ -128,13 +129,28 @@ func NewOplogTailer(
 	return t
 }
 
+// The parts of the mgo.Iter that we use - this interface will allow
+// us to switch out the querying for testing.
+type OplogIterator interface {
+	Next(interface{}) bool
+	Err() error
+	Timeout() bool
+}
+
+type iteratorFactory func(*mgo.Query, time.Duration) OplogIterator
+
+func makeIterator(query *mgo.Query, timeout time.Duration) OplogIterator {
+	return query.Tail(timeout)
+}
+
 // OplogTailer tails MongoDB's replication oplog.
 type OplogTailer struct {
-	tomb      tomb.Tomb
-	oplog     *mgo.Collection
-	query     bson.D
-	initialTs bson.MongoTimestamp
-	outCh     chan *OplogDoc
+	tomb         tomb.Tomb
+	oplog        *mgo.Collection
+	query        bson.D
+	initialTs    bson.MongoTimestamp
+	outCh        chan *OplogDoc
+	makeIterator iteratorFactory
 }
 
 // Out returns a channel that reports the oplog entries matching the
@@ -165,7 +181,7 @@ func (t *OplogTailer) Err() error {
 const oplogTailTimeout = time.Second
 
 func (t *OplogTailer) loop() error {
-	var iter *mgo.Iter
+	var iter OplogIterator
 
 	// lastTimestamp tracks the most recent oplog timestamp reported.
 	lastTimestamp := t.initialTs
@@ -208,7 +224,7 @@ func (t *OplogTailer) loop() error {
 				// the real oplog.
 				query = query.LogReplay()
 			}
-			iter = query.Tail(oplogTailTimeout)
+			iter = t.makeIterator(query, oplogTailTimeout)
 		}
 
 		var doc OplogDoc
@@ -225,7 +241,7 @@ func (t *OplogTailer) loop() error {
 			}
 			idsForLastTimestamp = append(idsForLastTimestamp, doc.OperationId)
 		} else {
-			if err := iter.Err(); err != nil && !isExpiredCursor(err) {
+			if err := iter.Err(); err != nil && err != mgo.ErrCursor {
 				return err
 			}
 			if iter.Timeout() {
@@ -237,20 +253,6 @@ func (t *OplogTailer) loop() error {
 			iter = nil
 		}
 	}
-}
-
-func isExpiredCursor(err error) bool {
-	if err == mgo.ErrCursor {
-		return true
-	}
-	// Mongo 3.2 will return these errors when a capped collection is truncated.
-	// TODO(babbageclunk) - PR for mgo to raise a nicer one?
-	queryError, ok := err.(*mgo.QueryError)
-	if !ok {
-		return false
-	}
-	return queryError.Code == getMoreCode &&
-		strings.HasSuffix(queryError.Message, truncatedMessage)
 }
 
 func isRealOplog(c *mgo.Collection) bool {

@@ -27,6 +27,8 @@ var (
 	FsAvailSpace      = fsAvailSpace
 	PreallocFileSizes = preallocFileSizes
 	PreallocFiles     = preallocFiles
+
+	NewOplogTailerWithFactory = newOplogTailerWithFactory
 )
 
 func PatchService(patchValue func(interface{}, interface{}), data *svctesting.FakeServiceData) {

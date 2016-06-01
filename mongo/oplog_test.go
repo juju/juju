@@ -4,6 +4,7 @@
 package mongo_test
 
 import (
+	"reflect"
 	"time"
 
 	jujutesting "github.com/juju/testing"
@@ -107,28 +108,61 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	c.Assert(tailer.Err(), jc.ErrorIsNil)
 }
 
+type fakeIter struct {
+	docs    []*mongo.OplogDoc
+	pos     int
+	err     error
+	timeout bool
+}
+
+func (i *fakeIter) Next(result interface{}) bool {
+	if i.pos >= len(i.docs) {
+		return false
+	}
+	target := reflect.ValueOf(result).Elem()
+	target.Set(reflect.ValueOf(*i.docs[i.pos]))
+	i.pos++
+	return true
+}
+
+func (i *fakeIter) Err() error {
+	if i.pos < len(i.docs) {
+		return nil
+	}
+	return i.err
+}
+
+func (i *fakeIter) Timeout() bool {
+	if i.pos < len(i.docs) {
+		return false
+	}
+	return i.timeout
+}
+
 func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+	var iter *fakeIter
+	makeIterator := func(*mgo.Query, time.Duration) mongo.OplogIterator {
+		return iter
+	}
+	tailer := mongo.NewOplogTailerWithFactory(oplog, nil, time.Time{}, makeIterator)
 	defer tailer.Stop()
 
-	// First, ensure that the tailer is seeing oplog inserts.
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{
-		Timestamp:   1,
-		OperationId: 99,
-	})
+	// First, ensure that the tailer is seeing oplog rows and handles
+	// the ErrCursor that occurs at the end.
+	iter = &fakeIter{
+		docs: []*mongo.OplogDoc{{Timestamp: 1, OperationId: 99}},
+		err:  mgo.ErrCursor,
+	}
 	doc := s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
 
-	s.emptyCapped(c, oplog)
-
-	// Ensure that the tailer still works.
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{
-		Timestamp:   2,
-		OperationId: 42,
-	})
+	// Ensure that the tailer continues after getting a new iterator.
+	iter = &fakeIter{
+		docs: []*mongo.OplogDoc{{Timestamp: 2, OperationId: 42}},
+	}
 	doc = s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
 }
@@ -137,39 +171,48 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+	var iter *fakeIter
+	makeIterator := func(*mgo.Query, time.Duration) mongo.OplogIterator {
+		return iter
+	}
+	tailer := mongo.NewOplogTailerWithFactory(oplog, nil, time.Time{}, makeIterator)
 	defer tailer.Stop()
 
 	// Insert a bunch of oplog entries with the same timestamp (but
 	// with different ids) and see them reported.
-	for id := int64(10); id < 15; id++ {
-		s.insertDoc(c, session, oplog, &mongo.OplogDoc{
+	iter = &fakeIter{docs: make([]*mongo.OplogDoc, 5)}
+	for i := 0; i < 5; i++ {
+		id := int64(i + 10)
+		iter.docs[i] = &mongo.OplogDoc{
 			Timestamp:   1,
 			OperationId: id,
-		})
+		}
+	}
 
+	for id := int64(10); id < 15; id++ {
 		doc := s.getNextOplog(c, tailer)
 		c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
 		c.Assert(doc.OperationId, gc.Equals, id)
 	}
 
-	// Force the OplogTailer's iterator to be recreated.
-	s.emptyCapped(c, oplog)
+	// The OplogTailer will fall off the end of the iterator and get a new one.
 
 	// Reinsert the oplog entries that were already there before and a
 	// few more.
-	for id := int64(10); id < 20; id++ {
-		s.insertDoc(c, session, oplog, &mongo.OplogDoc{
+	iter = &fakeIter{docs: make([]*mongo.OplogDoc, 6)}
+	for i := 0; i < 5; i++ {
+		id := int64(i + 15)
+		iter.docs[i] = &mongo.OplogDoc{
 			Timestamp:   1,
 			OperationId: id,
-		})
+		}
 	}
 
 	// Insert an entry for a later timestamp.
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{
+	iter.docs[5] = &mongo.OplogDoc{
 		Timestamp:   2,
 		OperationId: 42,
-	})
+	}
 
 	// Ensure that only previously unreported entries are now reported.
 	for id := int64(15); id < 20; id++ {
