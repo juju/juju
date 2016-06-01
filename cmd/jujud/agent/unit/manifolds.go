@@ -176,6 +176,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coincidence. Probably we ought to be making components that might
 		// need proxy config into explicit dependencies of the proxy updater...
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
 

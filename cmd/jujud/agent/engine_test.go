@@ -55,6 +55,59 @@ var (
 	// least two 5s ticks to pass, and should expect rare circumstances
 	// to take even longer.
 	ReallyLongWait = coretesting.LongWait * 3
+
+	alwaysUnitWorkers = []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"log-sender",
+		"machine-lock",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-minion",
+		"upgrader",
+	}
+	notMigratingUnitWorkers = []string{
+		"api-address-updater",
+		"charm-dir",
+		"hook-retry-strategy",
+		"leadership-tracker",
+		"logging-config-updater",
+		"meter-status",
+		"proxy-config-updater",
+		"uniter",
+	}
+
+	alwaysMachineWorkers = []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-minion",
+		"state-config-watcher",
+		"termination-signal-handler",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		"upgrader",
+	}
+	notMigratingMachineWorkers = []string{
+		"api-address-updater",
+		"disk-manager",
+		// "host-key-reporter", not stable, exits when done
+		"log-sender",
+		"logging-config-updater",
+		"machine-action-runner",
+		"machiner",
+		"proxy-config-updater",
+		// "reboot-executor", not stable, fails due to lp:XXX
+		"ssh-authkeys-updater",
+		"storage-provisioner",
+		"unconverted-api-workers",
+		"unit-agent-deployer",
+	}
 )
 
 // modelMatchFunc returns a func that will return whether the current

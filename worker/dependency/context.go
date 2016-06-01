@@ -95,11 +95,14 @@ type resourceAccess struct {
 
 // report returns a convenient representation of ra.
 func (ra resourceAccess) report() map[string]interface{} {
-	return map[string]interface{}{
-		KeyName:  ra.name,
-		KeyType:  ra.as,
-		KeyError: ra.err,
+	report := map[string]interface{}{
+		KeyName: ra.name,
+		KeyType: ra.as,
 	}
+	if ra.err != nil {
+		report[KeyError] = ra.err.Error()
+	}
+	return report
 }
 
 // resourceLogReport returns a convenient representation of accessLog.
