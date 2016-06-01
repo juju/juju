@@ -52,12 +52,6 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if info.Password == agentConfig.OldPassword() {
-		// If current password and old password are the same,
-		// we need to generate new password.
-		logger.Debugf("password sent over wire worked")
-		usedOldPassword = true
-	}
 	defer func() {
 		// NOTE(fwereade): we may close and overwrite st below,
 		// so we need to double-check what we need to do here.
@@ -171,6 +165,7 @@ func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, 
 		infoCopy := *info
 		info = &infoCopy
 		info.Password = oldPassword
+		logger.Debugf("connecting with old password")
 		st, err = apiOpen(info, api.DialOpts{})
 	}
 	// The provisioner may take some time to record the agent's
