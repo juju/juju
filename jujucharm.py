@@ -15,13 +15,14 @@ class Charm:
     DEFAULT_SERIES = ("xenial", "trusty")
     DEFAULT_DESCRIPTION = "description"
 
-
-    def __init__(self, name, summary, maintainer=None, series=None, storage=None):
+    def __init__(self, name, summary,
+                 maintainer=None, series=None, description=None, storage=None):
         self.metadata = {
             "name": name,
             "summary": summary,
             "maintainer": maintainer or self.DEFAULT_MAINTAINER,
-            "series": series or self.DEFAULT_SERIES
+            "series": series or self.DEFAULT_SERIES,
+            "description": description or self.DEFAULT_DESCRIPTION
         }
         if storage is not None:
             self.metadata["storage"] = storage

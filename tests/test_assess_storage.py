@@ -8,6 +8,7 @@ import yaml
 
 from assess_storage import (
     assess_storage,
+    make_storage_pool_list,
     parse_args,
     main,
 )
@@ -33,7 +34,6 @@ class TestParseArgs(TestCase):
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
-        self.assertNotIn("TODO", fake_stdout.getvalue())
 
 
 class TestMain(TestCase):
@@ -63,10 +63,41 @@ class TestMain(TestCase):
 class TestAssess(TestCase):
 
     def test_storage(self):
-        mock_client = Mock(spec=["juju", "wait_for_started", "deploy", "get_juju_output"])
-        assess_storage(mock_client)
-        self.assertEqual([call('create-storage-pool', ('loopy', 'loop', 'size=1G')),
-                          call('create-storage-pool', ('rooty', 'rootfs', 'size=1G')),
-                          call('create-storage-pool', ('tempy', 'tmpfs', 'size=1G')),
-                          call('create-storage-pool', ('ebsy', 'ebs', 'size=1G'))],
+        mock_client = Mock(spec=["juju", "wait_for_started",
+                                 "deploy", "get_juju_output"])
+        mock_client.version = '1.25'
+        name_list = ["loopy", "rooty", "tempy", "ebsy"]
+        provider_list = ["loop", "rootfs", "tmpfs", "ebs"]
+        size_list = ["1G", "1G", "1G", "1G"]
+        pool_list_expected = make_storage_pool_list(
+            name_list, provider_list, size_list)
+        mock_client.get_juju_output.side_effect = [
+            yaml.dump(pool_list_expected)
+        ]
+        with patch('assess_storage.wait_for_removed_services',
+                   autospec=True):
+            assess_storage(mock_client)
+        self.assertEqual([call('create-storage-pool',
+                               ('loopy', 'loop', 'size=1G')),
+                          call('create-storage-pool',
+                               ('rooty', 'rootfs', 'size=1G')),
+                          call('create-storage-pool',
+                               ('tempy', 'tmpfs', 'size=1G')),
+                          call('create-storage-pool',
+                               ('ebsy', 'ebs', 'size=1G')),
+                          call('add-storage',
+                               ('dummy-storage-fs/0', 'data=1')),
+                          call('add-storage',
+                               ('dummy-storage-lp/0', 'data=1')),
+                          call('add-storage',
+                               ('dummy-storage-tp/0', 'data=1'))],
                          mock_client.juju.mock_calls)
+        self.assertEqual(
+            [
+                call('local:trusty/dummy-storage-fs',
+                     series='trusty', storage='data=rootfs,1G'),
+                call('local:trusty/dummy-storage-lp',
+                     series='trusty', storage='data=loop,1G'),
+                call('local:trusty/dummy-storage-tp',
+                     series='trusty', storage='data=tmpfs,1G')],
+            mock_client.deploy.mock_calls)
