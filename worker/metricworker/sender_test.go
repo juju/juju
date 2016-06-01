@@ -9,29 +9,20 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/metricworker"
 )
 
-type SenderSuite struct {
-	testing.JujuConnSuite
-}
+type SenderSuite struct{}
 
 var _ = gc.Suite(&SenderSuite{})
-
-func (s *SenderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-}
 
 // TestSend create 2 metrics, one sent and one not sent.
 // It confirms that one metric is sent.
 func (s *SenderSuite) TestSender(c *gc.C) {
-	notify := make(chan string)
-	cleanup := metricworker.PatchNotificationChannel(notify)
-	defer cleanup()
-	client := &mockClient{}
-	worker := metricworker.NewSender(client)
+	notify := make(chan string, 1)
+	var client mockClient
+	worker := metricworker.NewSender(&client, notify)
 	select {
 	case <-notify:
 	case <-time.After(coretesting.LongWait):
