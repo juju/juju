@@ -119,7 +119,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		if kind != names.MachineTagKind {
 			return fail, errors.Trace(err)
 		}
-		entity, err = a.checkCredsOfControllerMachine(req)
+		entity, err = a.checkControllerMachineCreds(req)
 		if err != nil {
 			return fail, errors.Trace(err)
 		}
@@ -209,27 +209,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	return loginResult, nil
 }
 
-// checkCredsOfControllerMachine checks the special case of a controller
-// machine creating an API connection for a different model so it can
-// run API workers for that model to do things like provisioning
-// machines.
-func (a *admin) checkCredsOfControllerMachine(req params.LoginRequest) (state.Entity, error) {
-	entity, _, err := doCheckCreds(a.srv.state, req, false, a.srv.authCtxt)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machine, ok := entity.(*state.Machine)
-	if !ok {
-		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
-	}
-	for _, job := range machine.Jobs() {
-		if job == state.JobManageModel {
-			return entity, nil
-		}
-	}
-	// The machine does exist in the controller model, but it
-	// doesn't manage models, so reject it.
-	return nil, errors.Trace(common.ErrPerm)
+func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
+	return checkControllerMachineCreds(a.srv.state, req, a.srv.authCtxt)
 }
 
 func (a *admin) maintenanceInProgress() bool {
@@ -295,6 +276,29 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool,
 		lastLogin = &userLastLogin
 	}
 	return entity, lastLogin, nil
+}
+
+// checkControllerMachineCreds checks the special case of a controller
+// machine creating an API connection for a different model so it can
+// run API workers for that model to do things like provisioning
+// machines.
+func checkControllerMachineCreds(
+	controllerSt *state.State,
+	req params.LoginRequest,
+	authenticator authentication.EntityAuthenticator,
+) (state.Entity, error) {
+	entity, _, err := doCheckCreds(controllerSt, req, false, authenticator)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if machine, ok := entity.(*state.Machine); !ok {
+		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
+	} else if !machine.IsManager() {
+		// The machine exists in the controller model, but it doesn't
+		// manage models, so reject it.
+		return nil, errors.Trace(common.ErrPerm)
+	}
+	return entity, nil
 }
 
 // loginEntity defines the interface needed to log in as a user.
