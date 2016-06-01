@@ -57,6 +57,10 @@ func (s *MigrationImportSuite) importModel(c *gc.C) (*state.Model, *state.State)
 
 	newModel, newSt, err := s.State.Import(in)
 	c.Assert(err, jc.ErrorIsNil)
+	// add the cleanup here to close the model.
+	s.AddCleanup(func(c *gc.C) {
+		c.Check(newSt.Close(), jc.ErrorIsNil)
+	})
 	return newModel, newSt
 }
 
@@ -184,7 +188,6 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	delta := s.newModelUser(c, "delta@external", true, time.Time{})
 
 	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	// Check the import values of the users.
 	for _, user := range []*state.ModelUser{bravo, charlie, delta} {
@@ -240,7 +243,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(allMachines, gc.HasLen, 2)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	importedMachines, err := newSt.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,7 +298,6 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(allServices, gc.HasLen, 1)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	importedServices, err := newSt.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -336,7 +337,6 @@ func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
 	s.makeServiceWithLeader(c, "wordpress", 4, 2)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	leaders := make(map[string]string)
 	leases, err := state.LeadershipLeases(newSt)
@@ -363,7 +363,6 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.primeStatusHistory(c, exported.Agent(), status.StatusIdle, 5)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	importedServices, err := newSt.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -423,7 +422,6 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	newWordpress, err := newSt.Service("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -449,7 +447,6 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
-	defer newSt.Close()
 
 	// Even though the opened ports document is stored with the
 	// machine, the only way to easily access it is through the units.
@@ -466,23 +463,34 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	})
 }
 
+func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
+	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+
+	_, newSt := s.importModel(c)
+
+	imported, err := newSt.Space(space.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(imported.Name(), gc.Equals, space.Name())
+	c.Assert(imported.ProviderId(), gc.Equals, space.ProviderId())
+	c.Assert(imported.IsPublic(), gc.Equals, space.IsPublic())
+}
+
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
-	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
+	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dead)
 }
 
 func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
-	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
+	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }
 
 func (s *MigrationImportSuite) TestDestroyModelWithService(c *gc.C) {
 	s.Factory.MakeService(c, nil)
-	newModel, newSt := s.importModel(c)
-	defer newSt.Close()
+	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }
 

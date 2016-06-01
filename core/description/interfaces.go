@@ -60,6 +60,9 @@ type Model interface {
 	Relations() []Relation
 	AddRelation(RelationArgs) Relation
 
+	Spaces() []Space
+	AddSpace(SpaceArgs) Space
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -303,4 +306,11 @@ type Endpoint interface {
 
 	Settings(unitName string) map[string]interface{}
 	SetUnitSettings(unitName string, settings map[string]interface{})
+}
+
+// Space represents a network space, which is a named collection of subnets.
+type Space interface {
+	Name() string
+	Public() bool
+	ProviderID() string
 }

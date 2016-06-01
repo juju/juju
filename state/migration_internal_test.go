@@ -45,6 +45,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// relation
 		relationsC,
 		relationScopesC,
+
+		// networking
+		spacesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -112,6 +115,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// The SSH host keys for each machine will be reported as each
 		// machine agent starts up.
 		sshHostKeysC,
+
+		// This is marked as deprecated, and should probably be removed.
+		actionresultsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -144,12 +150,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
 		subnetsC,
-		spacesC,
 
 		// actions
 		actionsC,
 		actionNotificationsC,
-		actionresultsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -512,6 +516,19 @@ func (s *MigrationSuite) TestHistoricalStatusDocFields(c *gc.C) {
 		"Updated",
 	)
 	s.AssertExportedFields(c, historicalStatusDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// Always alive, not explicitly exported.
+		"Life",
+	)
+	migrated := set.NewStrings(
+		"Name",
+		"IsPublic",
+		"ProviderId",
+	)
+	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
