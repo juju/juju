@@ -51,7 +51,7 @@ In this way the following sequence of operations becomes predictable:
 
 ```
     $ juju deploy --constraints mem=2G wordpress
-    $ juju set-constraints --service wordpress mem=3G
+    $ juju set-constraints --application wordpress mem=3G
     $ juju add-unit wordpress -n 2
 ```
 

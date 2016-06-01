@@ -163,10 +163,10 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockRunMachineAndService")
 	_, err := s.client.Run(
 		params.RunParams{
-			Commands: "hostname",
-			Timeout:  testing.LongWait,
-			Machines: []string{"0"},
-			Services: []string{"magic"},
+			Commands:     "hostname",
+			Timeout:      testing.LongWait,
+			Machines:     []string{"0"},
+			Applications: []string{"magic"},
 		})
 	s.AssertBlocked(c, err, "TestBlockRunMachineAndService")
 }
@@ -203,9 +203,9 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 
 	s.client.Run(
 		params.RunParams{
-			Commands: "hostname",
-			Machines: []string{"0"},
-			Services: []string{"magic"},
+			Commands:     "hostname",
+			Machines:     []string{"0"},
+			Applications: []string{"magic"},
 		})
 	c.Assert(called, jc.IsTrue)
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// ServiceStatusSetter implements a SetServiceStatus method to be
+// ServiceStatusSetter implements a SetApplicationStatus method to be
 // used by facades that can change a service status.
 // This is only slightly less evil than ServiceStatusGetter. We have
 // StatusSetter already; all this does is set the status for the wrong

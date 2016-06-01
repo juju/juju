@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsDebug", 1, NewMetricsDebugAPI)
+	common.RegisterStandardFacade("MetricsDebug", 2, NewMetricsDebugAPI)
 }
 
 type metricsDebug interface {
@@ -180,7 +180,7 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 			}
 		}
 	default:
-		return errors.Errorf("expected service or unit tag, got %T", entity)
+		return errors.Errorf("expected application or unit tag, got %T", entity)
 	}
 	return nil
 }

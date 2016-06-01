@@ -256,13 +256,13 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
-		ServiceCount:       1,
+		ApplicationCount:   1,
 		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
 	}, {
 		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
-		ServiceCount:       1,
+		ApplicationCount:   1,
 		OwnerTag:           otherEnvOwner.UserTag().String(),
 		Life:               params.Alive,
 	}})

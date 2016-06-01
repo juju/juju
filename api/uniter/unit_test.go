@@ -569,7 +569,7 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
-	c.Assert(s.apiUnit.ServiceName(), gc.Equals, s.wordpressService.Name())
+	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressService.Name())
 	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressService.Tag())
 }
 

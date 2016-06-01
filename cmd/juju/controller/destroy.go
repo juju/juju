@@ -66,7 +66,7 @@ Destroys a controller.`[1:]
 
 var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
-This includes all machines, services, data and other resources.
+This includes all machines, applications, data and other resources.
 
 Continue [y/N]? `[1:]
 

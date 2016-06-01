@@ -48,7 +48,7 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.ActionResults, err
 		return results, errors.Trace(err)
 	}
 
-	units, err := getAllUnitNames(a.state, run.Units, run.Services)
+	units, err := getAllUnitNames(a.state, run.Units, run.Applications)
 	if err != nil {
 		return results, errors.Trace(err)
 	}

@@ -66,7 +66,7 @@ func (s *SetMeterStatusSuite) TestNotValidServiceOrUnit(c *gc.C) {
 		return &client, nil
 	})
 	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "!!!!!!", "RED")
-	c.Assert(err, gc.ErrorMatches, `"!!!!!!" is not a valid unit or service`)
+	c.Assert(err, gc.ErrorMatches, `"!!!!!!" is not a valid unit or application`)
 }
 
 type DebugMetricsCommandSuite struct {
@@ -77,7 +77,7 @@ var _ = gc.Suite(&DebugMetricsCommandSuite{})
 
 func (s *DebugMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
 	_, err := coretesting.RunCommand(c, setmeterstatus.New())
-	c.Assert(err, gc.ErrorMatches, `you need to specify an entity \(service or unit\) and a status`)
+	c.Assert(err, gc.ErrorMatches, `you need to specify an entity \(application or unit\) and a status`)
 }
 
 func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {

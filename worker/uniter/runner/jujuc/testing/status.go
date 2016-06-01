@@ -11,15 +11,15 @@ import (
 
 // Status  holds the values for the hook context.
 type Status struct {
-	UnitStatus    jujuc.StatusInfo
-	ServiceStatus jujuc.ServiceStatusInfo
+	UnitStatus        jujuc.StatusInfo
+	ApplicationStatus jujuc.ApplicationStatusInfo
 }
 
-// SetServiceStatus builds a service status and sets it on the Status.
-func (s *Status) SetServiceStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
-	s.ServiceStatus = jujuc.ServiceStatusInfo{
-		Service: service,
-		Units:   units,
+// SetApplicationStatus builds a service status and sets it on the Status.
+func (s *Status) SetApplicationStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
+	s.ApplicationStatus = jujuc.ApplicationStatusInfo{
+		Application: service,
+		Units:       units,
 	}
 }
 
@@ -50,23 +50,23 @@ func (c *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
 	return nil
 }
 
-// ServiceStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
-	c.stub.AddCall("ServiceStatus")
+// ApplicationStatus implements jujuc.ContextStatus.
+func (c *ContextStatus) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
+	c.stub.AddCall("ApplicationStatus")
 	if err := c.stub.NextErr(); err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 
-	return c.info.ServiceStatus, nil
+	return c.info.ApplicationStatus, nil
 }
 
-// SetServiceStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) SetServiceStatus(status jujuc.StatusInfo) error {
-	c.stub.AddCall("SetServiceStatus", status)
+// SetApplicationStatus implements jujuc.ContextStatus.
+func (c *ContextStatus) SetApplicationStatus(status jujuc.StatusInfo) error {
+	c.stub.AddCall("SetApplicationStatus", status)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
 
-	c.info.SetServiceStatus(status, nil)
+	c.info.SetApplicationStatus(status, nil)
 	return nil
 }

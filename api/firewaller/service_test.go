@@ -16,7 +16,7 @@ import (
 type serviceSuite struct {
 	firewallerSuite
 
-	apiService *firewaller.Service
+	apiService *firewaller.Application
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -26,7 +26,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	apiUnit, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
-	s.apiService, err = apiUnit.Service()
+	s.apiService, err = apiUnit.Application()
 	c.Assert(err, jc.ErrorIsNil)
 }
 

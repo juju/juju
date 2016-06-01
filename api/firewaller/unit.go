@@ -42,16 +42,16 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// Service returns the service.
-func (u *Unit) Service() (*Service, error) {
+// Application returns the application.
+func (u *Unit) Application() (*Application, error) {
 	serviceName, err := names.UnitApplication(u.Name())
 	if err != nil {
 		return nil, err
 	}
-	ApplicationTag := names.NewApplicationTag(serviceName)
-	service := &Service{
+	applicationTag := names.NewApplicationTag(serviceName)
+	service := &Application{
 		st:  u.st,
-		tag: ApplicationTag,
+		tag: applicationTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.

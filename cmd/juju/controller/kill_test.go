@@ -244,7 +244,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 		8,
 	}
 	out := controller.FmtCtrStatus(data)
-	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 services")
+	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 applications")
 }
 
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
@@ -258,5 +258,5 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 	}
 
 	out := controller.FmtModelStatus(data)
-	c.Assert(out, gc.Equals, "\towner@local/envname (dying), 8 machines, 1 service")
+	c.Assert(out, gc.Equals, "\towner@local/envname (dying), 8 machines, 1 application")
 }

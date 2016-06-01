@@ -291,8 +291,8 @@ func getUsedToolsVersions(model description.Model) map[version.Binary]bool {
 		addToolsVersionForMachine(machine, usedVersions)
 	}
 
-	for _, service := range model.Services() {
-		for _, unit := range service.Units() {
+	for _, application := range model.Services() {
+		for _, unit := range application.Units() {
 			tools := unit.Tools()
 			usedVersions[tools.Version()] = true
 		}
@@ -347,8 +347,8 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 func getUsedCharms(model description.Model) set.Strings {
 	result := set.NewStrings()
-	for _, service := range model.Services() {
-		result.Add(service.CharmURL())
+	for _, application := range model.Services() {
+		result.Add(application.CharmURL())
 	}
 	return result
 }
