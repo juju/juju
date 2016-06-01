@@ -79,9 +79,9 @@ func NewUniterAPIV4(st *state.State, resources *common.Resources, authorizer com
 				return nil, errors.Trace(err)
 			}
 			serviceName := entity.ServiceName()
-			ApplicationTag := names.NewApplicationTag(serviceName)
+			applicationTag := names.NewApplicationTag(serviceName)
 			return func(tag names.Tag) bool {
-				return tag == ApplicationTag
+				return tag == applicationTag
 			}, nil
 		default:
 			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)

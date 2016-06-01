@@ -48,10 +48,10 @@ func (u *Unit) Application() (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	ApplicationTag := names.NewApplicationTag(serviceName)
+	applicationTag := names.NewApplicationTag(serviceName)
 	service := &Application{
 		st:  u.st,
-		tag: ApplicationTag,
+		tag: applicationTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
