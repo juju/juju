@@ -8,7 +8,7 @@ import "path"
 
 const bridgeScriptName = "add-juju-bridge.py"
 
-var bridgeScriptPath = path.Join("/tmp", bridgeScriptName)
+var bridgeScriptPath = path.Join("/var/tmp", bridgeScriptName)
 
 const bridgeScriptPython = `#!/usr/bin/env python
 
