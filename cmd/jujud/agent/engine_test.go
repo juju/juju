@@ -67,44 +67,56 @@ var (
 	ReallyLongWait = coretesting.LongWait * 3
 
 	alwaysUnitWorkers = []string{
-		"...",
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"log-sender",
+		"machine-lock",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-minion",
+		"upgrader",
 	}
-	aliveUnitWorkers = []string{
-		"...",
-	}
-	migratingUnitWorkers = []string{
-		"...",
+	notMigratingUnitWorkers = []string{
+		"api-address-updater",
+		"charm-dir",
+		"hook-retry-strategy",
+		"leadership-tracker",
+		"logging-config-updater",
+		"meter-status",
+		"proxy-config-updater",
+		"uniter",
 	}
 
 	alwaysMachineWorkers = []string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"state-config-watcher",
-		"termination-signal-handler",
-		"upgrader",
-		"upgrade-steps-gate",
-		"upgrade-steps-flag",
-		"upgrade-check-gate",
-		"upgrade-check-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
+		"state-config-watcher",
+		"termination-signal-handler",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		"upgrader",
 	}
 	notMigratingMachineWorkers = []string{
-		"unconverted-api-workers",
-		"logging-config-updater",
-		"disk-manager",
-		"proxy-config-updater",
 		"api-address-updater",
-		"machiner",
+		"disk-manager",
+		// "host-key-reporter", not stable, exits when done
 		"log-sender",
-		"unit-agent-deployer",
+		"logging-config-updater",
+		"machine-action-runner",
+		"machiner",
+		"proxy-config-updater",
+		// "reboot-executor", not stable, fails due to lp:XXX
 		"ssh-authkeys-updater",
 		"storage-provisioner",
-		"machine-action-runner",
-		// "host-key-reporter", not stable, exits when done
-		// "reboot-executor", not stable, fails due to lp:XXX
+		"unconverted-api-workers",
+		"unit-agent-deployer",
 	}
 )
 
@@ -206,7 +218,7 @@ func (tracker *engineTracker) Install(raw dependency.Manifolds, id string) error
 	names := make([]string, 0, len(raw))
 	for name := range raw {
 		if name == trackerName {
-			return errors.New("manifold tracker used repeatedly")
+			return errors.New("engine tracker installed repeatedly")
 		}
 		names = append(names, name)
 	}
@@ -237,6 +249,7 @@ func (tracker *engineTracker) startFunc(id string, names []string) dependency.St
 			}
 			seen.Add(name)
 		}
+
 		select {
 		case <-context.Abort():
 			// don't bother to report if it's about to change
