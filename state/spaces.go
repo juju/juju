@@ -20,8 +20,6 @@ type Space struct {
 }
 
 type spaceDoc struct {
-	DocID      string `bson:"_id"`
-	ModelUUID  string `bson:"model-uuid"`
 	Life       Life   `bson:"life"`
 	Name       string `bson:"name"`
 	IsPublic   bool   `bson:"is-public"`
@@ -31,11 +29,6 @@ type spaceDoc struct {
 // Life returns whether the space is Alive, Dying or Dead.
 func (s *Space) Life() Life {
 	return s.doc.Life
-}
-
-// ID returns the unique id for the space, for other entities to reference it
-func (s *Space) ID() string {
-	return s.doc.DocID
 }
 
 // String implements fmt.Stringer.
@@ -112,7 +105,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		// subnet in use is not permitted.
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
-			Id:     st.docID(subnetId),
+			Id:     subnetId,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
 		})
@@ -187,7 +180,7 @@ func (s *Space) EnsureDead() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.DocID,
+		Id:     s.doc.Name,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
@@ -211,7 +204,7 @@ func (s *Space) Remove() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.DocID,
+		Id:     s.doc.Name,
 		Remove: true,
 		Assert: isDeadDoc,
 	}}
