@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -57,6 +58,8 @@ type LxcSuite struct {
 }
 
 var _ = gc.Suite(&LxcSuite{})
+
+var modelUUID = coretesting.ModelTag.Id()
 
 var lxcCgroupContents = `11:hugetlb:/lxc/juju-machine-1-lxc-0
 10:perf_event:/lxc/juju-machine-1-lxc-0
@@ -155,8 +158,8 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		s.PatchValue(lxc.ReleaseVersion, func() string { return test.releaseVersion })
 
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
-			container.ConfigName: "juju",
-			"use-clone":          test.useClone,
+			container.ConfigModelUUID: modelUUID,
+			"use-clone":               test.useClone,
 		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
@@ -277,7 +280,7 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 		AllowMount: true,
 	}
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
@@ -486,7 +489,7 @@ lxc.hook.mount = /usr/share/lxc/config/hook.sh
 lxc.foo = bar # stays here
 # Network configuration
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
 lxc.network.flags = up # all the rest..
 lxc.network.link = br0 # ..is kept...
 lxc.network.type = veth # ..as it is.
@@ -498,7 +501,7 @@ lxc.hook.mount = /usr/share/lxc/config/hook.sh
 		output: `
 lxc.foo = bar # stays here
 # Network configuration
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
 lxc.network.flags = up # all the rest..
 lxc.network.link = br0 # ..is kept...
@@ -515,7 +518,7 @@ lxc.foo = bar # stays here
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
 lxc.network.flags = up # first up
 lxc.network.link = br0
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
 lxc.network.type = vlan
 lxc.network.flags = up # all the rest..
 lxc.network.link = br1 # ...is kept...
@@ -526,7 +529,7 @@ lxc.hook.mount = /usr/share/lxc/config/hook.sh
 		output: `
 lxc.foo = bar # stays here
 # Network configuration
-lxc.network.type = veth    # comment2  
+lxc.network.type = veth    # comment2
   lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
 lxc.network.flags = up # first up
 lxc.network.link = br0
@@ -584,9 +587,9 @@ lxc.bar.foo=42 # comment
 	}
 }
 
-func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
+func (s *LxcSuite) makeManager(c *gc.C, modelUUID string) container.Manager {
 	params := container.ManagerConfig{
-		container.ConfigName: name,
+		container.ConfigModelUUID: modelUUID,
 	}
 	// Need to ensure use-clone is explicitly set to avoid it
 	// being set based on the OS version.
@@ -605,15 +608,15 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 
 func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
-		container.ConfigName: "BillyBatson",
-		"shazam":             "Captain Marvel",
+		container.ConfigModelUUID: modelUUID,
+		"shazam":                  "Captain Marvel",
 	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `INFO juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *LxcSuite) TestCreateContainer(c *gc.C) {
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -668,7 +671,7 @@ func (s *LxcSuite) TestCreateContainerFailsWithInjectedStartError(c *gc.C) {
 	// resulting in a RetryableCreationError
 	errorChannel <- errors.New("start error")
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	_, err := containertesting.CreateContainerTest(c, manager, "1/lxc/0")
 	c.Assert(err, gc.NotNil)
 
@@ -684,7 +687,7 @@ func (s *LxcSuite) TestCreateContainerFailsWithInjectedCreateError(c *gc.C) {
 
 	errorChannel <- errors.New("lxc-create error")
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	_, err := containertesting.CreateContainerTest(c, manager, "1/lxc/0")
 	c.Assert(err, gc.NotNil)
 
@@ -703,7 +706,7 @@ func (s *LxcSuite) TestCreateContainerFailsWithInjectedCloneError(c *gc.C) {
 
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	_, err := containertesting.CreateContainerTest(c, manager, "1")
 
 	// this should be a retryable error
@@ -723,7 +726,7 @@ func (s *LxcSuite) TestCreateContainerWithInjectedErrorDestroyFails(c *gc.C) {
 	errorChannel <- errors.New("create error")
 	errorChannel <- errors.New("destroy error")
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	_, err := containertesting.CreateContainerTest(c, manager, "1/lxc/0")
 	c.Assert(err, gc.NotNil)
 
@@ -757,7 +760,7 @@ func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, 
 }
 
 func (s *LxcSuite) TestCreateContainerEvents(c *gc.C) {
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1")
 	id := string(instance.Id())
 	s.AssertEvent(c, <-s.events, mock.Created, id)
@@ -771,7 +774,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 	template := "juju-quantal-lxc-template"
 	ch := s.ensureTemplateStopped(template)
 	defer func() { <-ch }()
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1")
 	id := string(instance.Id())
 	s.AssertEvent(c, <-s.events, mock.Created, template)
@@ -837,7 +840,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\next4\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
@@ -851,7 +854,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
 	s.PatchValue(&s.useAUFS, true)
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
@@ -864,7 +867,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateBtrfs(c *gc
 	s.HookCommandOutput(&lxc.FsCommandOutput, []byte("Type\nbtrfs\n"), nil)
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
@@ -876,7 +879,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateBtrfs(c *gc
 func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 
@@ -890,7 +893,7 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 
 func (s *LxcSuite) TestContainerState(c *gc.C) {
 	// TODO(perrito666) refactor state reporting to return a proper state.
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	c.Logf("%#v", manager)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
@@ -905,7 +908,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 }
 
 func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	err := manager.DestroyContainer(instance.Id())
@@ -923,7 +926,7 @@ func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
 }
 
 func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -941,14 +944,15 @@ func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *gc.C) {
-	manager := s.makeManager(c, "eric")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
-	c.Assert(string(instance.Id()), gc.Equals, "eric-machine-1-lxc-0")
+	c.Assert(string(instance.Id()), gc.Equals, "juju-06f00d-1-lxc-0")
 }
 
 func (s *LxcSuite) TestListContainers(c *gc.C) {
-	foo := s.makeManager(c, "foo")
-	bar := s.makeManager(c, "bar")
+	otherModelUUID := utils.MustNewUUID().String()
+	foo := s.makeManager(c, modelUUID)
+	bar := s.makeManager(c, otherModelUUID)
 
 	foo1 := containertesting.CreateContainer(c, foo, "1/lxc/0")
 	foo2 := containertesting.CreateContainer(c, foo, "1/lxc/1")
@@ -967,7 +971,7 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 }
 
 func (s *LxcSuite) TestCreateContainerAutostarts(c *gc.C) {
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.IsSymlink)
@@ -977,7 +981,7 @@ func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	name := string(instance.Id())
 	autostartLink := lxc.RestartSymlink(name)
@@ -1001,7 +1005,7 @@ func (s *LxcSuite) TestCreateContainerWithBlockStorage(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
 	storageConfig := &container.StorageConfig{AllowMount: true}
@@ -1031,7 +1035,7 @@ lxc.cgroup.devices.allow = c 10:237 rwm
 }
 
 func (s *LxcSuite) TestDestroyContainerRemovesAutostartLink(c *gc.C) {
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err := manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1043,7 +1047,7 @@ func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	manager := s.makeManager(c, "test")
+	manager := s.makeManager(c, modelUUID)
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err = manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)

@@ -20,7 +20,6 @@ import (
 
 // The LXD-specific config keys.
 const (
-	cfgNamespace     = "namespace"
 	cfgRemoteURL     = "remote-url"
 	cfgClientCert    = "client-cert"
 	cfgClientKey     = "client-key"
@@ -30,11 +29,6 @@ const (
 // configSchema defines the schema for the configuration attributes
 // defined by the LXD provider.
 var configSchema = environschema.Fields{
-	cfgNamespace: {
-		Description: `Identifies the namespace to associate with containers created by the provider.  It is prepended to the container names.  By default the model's name is used as the namespace.`,
-		Type:        environschema.Tstring,
-		Immutable:   true,
-	},
 	cfgRemoteURL: {
 		Description: `Identifies the LXD API server to use for managing containers, if any.`,
 		Type:        environschema.Tstring,
@@ -62,7 +56,6 @@ var (
 	// (or if) environschema.Attr supports defaults.
 
 	configBaseDefaults = schema.Defaults{
-		cfgNamespace:     "",
 		cfgRemoteURL:     "",
 		cfgClientCert:    "",
 		cfgClientKey:     "",
@@ -100,17 +93,6 @@ func adjustDefaults(cfg *config.Config, defaults map[string]interface{}) (map[st
 	updated := make(map[string]interface{})
 	for k, v := range defaults {
 		updated[k] = v
-	}
-
-	// Set the proper default namespace.
-	raw := updated[cfgNamespace]
-	if raw == nil || raw.(string) == "" {
-		raw = cfg.Name()
-		updated[cfgNamespace] = raw
-	}
-
-	if val, ok := cfg.UnknownAttrs()[cfgNamespace]; ok && val == "" {
-		unset = append(unset, cfgNamespace)
 	}
 
 	return updated, unset
@@ -190,11 +172,6 @@ func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*envir
 	return ecfg, nil
 }
 
-func (c *environConfig) namespace() string {
-	raw := c.attrs[cfgNamespace]
-	return raw.(string)
-}
-
 func (c *environConfig) dirname() string {
 	// TODO(ericsnow) Put it under one of the juju/paths.*() directories.
 	return ""
@@ -236,8 +213,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	}
 
 	cfg := lxdclient.Config{
-		Namespace: c.namespace(),
-		Remote:    remote,
+		Remote: remote,
 	}
 	cfg, err := cfg.WithDefaults()
 	if err != nil {
@@ -256,10 +232,7 @@ func (c *environConfig) updateForClientConfig(clientCfg lxdclient.Config) (*envi
 	}
 	clientCfg = nonlocal
 
-	c.attrs[cfgNamespace] = clientCfg.Namespace
-
 	c.attrs[cfgRemoteURL] = clientCfg.Remote.Host
-
 	c.attrs[cfgServerPEMCert] = clientCfg.Remote.ServerPEMCert
 
 	var cert lxdclient.Cert
