@@ -7,13 +7,16 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/testing"
 )
 
-type DeviceNamesSuite struct{}
+type DeviceNamesSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&DeviceNamesSuite{})
 
-func (s *DeviceNamesSuite) TestNaturallySortDeviceNames(c *gc.C) {
+func (*DeviceNamesSuite) TestNaturallySortDeviceNames(c *gc.C) {
 	for i, test := range []struct {
 		message  string
 		input    []string
