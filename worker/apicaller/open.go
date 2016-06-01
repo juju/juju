@@ -47,13 +47,6 @@ func OpenAPIState(a agent.Agent) (_ api.Connection, err error) {
 	if !ok {
 		return nil, errors.New("API info not available")
 	}
-	if info.Password == "" {
-		logger.Debugf("new config with no password, using password sent over wire before generating new one")
-		// This will only happen for the brand new agent.
-		// In this instance, use old password to verify that
-		// we can connect with old password.
-		info.Password = agentConfig.OldPassword()
-	}
 
 	st, usedOldPassword, err := openAPIStateUsingInfo(info, agentConfig.OldPassword())
 	if err != nil {
@@ -159,20 +152,27 @@ func OpenAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, 
 }
 
 func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, bool, error) {
-	// We let the API dial fail immediately because the
-	// runner's loop outside the caller of openAPIState will
-	// keep on retrying. If we block for ages here,
-	// then the worker that's calling this cannot
-	// be interrupted.
-	st, err := apiOpen(info, api.DialOpts{})
-	usedOldPassword := false
-	if params.IsCodeUnauthorized(err) {
-		// We've perhaps used the wrong password, so
-		// try again with the fallback password.
+	useOldPassword := info.Password == ""
+	var err error
+	var st api.Connection
+	if !useOldPassword {
+		// We let the API dial fail immediately because the
+		// runner's loop outside the caller of openAPIState will
+		// keep on retrying. If we block for ages here,
+		// then the worker that's calling this cannot
+		// be interrupted.
+		st, err = apiOpen(info, api.DialOpts{})
+		if params.IsCodeUnauthorized(err) {
+			// We've perhaps used the wrong password, so
+			// try again with the fallback password.
+			useOldPassword = true
+		}
+	}
+
+	if useOldPassword {
 		infoCopy := *info
 		info = &infoCopy
 		info.Password = oldPassword
-		usedOldPassword = true
 		st, err = apiOpen(info, api.DialOpts{})
 	}
 	// The provisioner may take some time to record the agent's
@@ -193,5 +193,5 @@ func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, 
 		return nil, false, err
 	}
 
-	return st, usedOldPassword, nil
+	return st, useOldPassword, nil
 }
