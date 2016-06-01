@@ -102,13 +102,27 @@ def _update_client_controller(client):
     raise RuntimeError('Failed to update controller.')
 
 
+def test_deployed_mongo_is_up(client):
+    """Ensure the mongo service is running as expected."""
+    try:
+        output = client.get_juju_output(
+            'ssh', 'mongodb/0', 'mongo --eval "db.getMongo()"')
+        if 'connecting to: test' in output:
+            return
+    except CalledProcessError as e:
+        # Pass through to assertion error
+        log.error('Mongodb check command failed: {}'.format(e))
+    raise AssertionError('Mongo db is not in an expected state.')
+
+
 def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
     with bs1.booted_context(upload_tools):
         bs1.client.enable_feature('migration')
 
         log.info('Deploying charm')
-        bs1.client.juju("deploy", ('ubuntu'))
+        bs1.client.juju("deploy", ('mongodb'))
         bs1.client.wait_for_started()
+        test_deployed_mongo_is_up(bs1.client)
 
         log.info('Booting second instance')
         bs2.client.env.juju_home = bs1.client.env.juju_home
@@ -129,6 +143,7 @@ def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
             migration_target_client.juju('status', ())
 
             migration_target_client.wait_for_started()
+            test_deployed_mongo_is_up(migration_target_client)
 
 
 def ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools):
