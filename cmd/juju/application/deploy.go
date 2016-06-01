@@ -163,7 +163,7 @@ support high availability for applications. Spaces help isolate applications and
 units, both for security purposes and to manage both traffic segregation and
 congestion.
 
-When deploying a application or adding machines, the "spaces" constraint can be
+When deploying an application or adding machines, the "spaces" constraint can be
 used to define a comma-delimited list of required and forbidden spaces
 (the latter prefixed with "^", similar to the "tags" constraint).
 

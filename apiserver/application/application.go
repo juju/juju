@@ -459,7 +459,7 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 	return svc.ClearExposed()
 }
 
-// addApplicationUnits adds a given number of units to a application.
+// addApplicationUnits adds a given number of units to an application.
 func addApplicationUnits(st *state.State, args params.AddApplicationUnits) ([]*state.Unit, error) {
 	application, err := st.Service(args.ApplicationName)
 	if err != nil {
@@ -471,7 +471,7 @@ func addApplicationUnits(st *state.State, args params.AddApplicationUnits) ([]*s
 	return jjj.AddUnits(st, application, args.NumUnits, args.Placement)
 }
 
-// AddUnits adds a given number of units to a application.
+// AddUnits adds a given number of units to an application.
 func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)

@@ -50,8 +50,8 @@ comma separated values.
 If the target is a machine, the command is run as the "ubuntu" user on
 the remote machine.
 
-If the target is a application, the command is run on all units for that
-application. For example, if there was a application "mysql" and that application
+If the target is an application, the command is run on all units for that
+application. For example, if there was an application "mysql" and that application
 had two units, "mysql/0" and "mysql/1", then
   --application mysql
 is equivalent to

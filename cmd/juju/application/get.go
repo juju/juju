@@ -35,7 +35,7 @@ func NewGetCommand() cmd.Command {
 	return modelcmd.Wrap(&getCommand{})
 }
 
-// getCommand retrieves the configuration of a application.
+// getCommand retrieves the configuration of an application.
 type getCommand struct {
 	modelcmd.ModelCommandBase
 	ApplicationName string

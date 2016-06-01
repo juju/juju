@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewRemoveServiceCommand returns a command which removes a application.
+// NewRemoveServiceCommand returns a command which removes an application.
 func NewRemoveServiceCommand() cmd.Command {
 	return modelcmd.Wrap(&removeServiceCommand{})
 }
@@ -32,10 +32,10 @@ type removeServiceCommand struct {
 }
 
 var helpSummaryRmSvc = `
-Remove a application from the model.`[1:]
+Remove an application from the model.`[1:]
 
 var helpDetailsRmSvc = `
-Removing a application will terminate any relations that application has, remove
+Removing an application will terminate any relations that application has, remove
 all units of the application, and in the case that this leaves machines with
 no running applications, Juju will also remove the machine. For this reason,
 you should retrieve any logs or data required from applications and units 

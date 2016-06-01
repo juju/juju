@@ -29,7 +29,7 @@ type debugHooksCommand struct {
 }
 
 const debugHooksDoc = `
-Interactively debug a hook remotely on a application unit.
+Interactively debug a hook remotely on an application unit.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.

@@ -88,7 +88,7 @@ Common commands:
     bootstrap           Initializes a cloud environment.
     add-model           Adds a hosted model.
     deploy              Deploys a new application.
-    expose              Makes a application publicly available over the network.
+    expose              Makes an application publicly available over the network.
     list-controllers    Lists all controllers.
     list-models         Lists models a user can access on a controller.
     status              Displays the current status of Juju, applications, and units.

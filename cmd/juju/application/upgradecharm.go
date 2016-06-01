@@ -32,7 +32,7 @@ func NewUpgradeCharmCommand() cmd.Command {
 	return modelcmd.Wrap(&upgradeCharmCommand{})
 }
 
-// UpgradeCharm is responsible for upgrading a application's charm.
+// UpgradeCharm is responsible for upgrading an application's charm.
 type upgradeCharmCommand struct {
 	modelcmd.ModelCommandBase
 	ApplicationName string
@@ -114,7 +114,7 @@ func (c *upgradeCharmCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-charm",
 		Args:    "<application>",
-		Purpose: "upgrade a application's charm",
+		Purpose: "upgrade an application's charm",
 		Doc:     upgradeCharmDoc,
 	}
 }

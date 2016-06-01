@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/worker/workertest"
 )
 
-// fixture is used to test the operation of a applicationscaler worker.
+// fixture is used to test the operation of an applicationscaler worker.
 type fixture struct {
 	testing.Stub
 }
@@ -28,7 +28,7 @@ func newFixture(c *gc.C, callErrors ...error) *fixture {
 	return fix
 }
 
-// Run will create a applicationscaler worker; start recording the calls
+// Run will create an applicationscaler worker; start recording the calls
 // it makes; and pass it to the supplied test func, which will be invoked
 // on a new goroutine. If Run returns, it is safe to inspect the recorded
 // calls via the embedded testing.Stub.

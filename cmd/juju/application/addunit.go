@@ -104,12 +104,12 @@ func parsePlacement(spec string) (*instance.Placement, error) {
 	return placement, nil
 }
 
-// NewAddUnitCommand returns a command that adds a unit[s] to a application.
+// NewAddUnitCommand returns a command that adds a unit[s] to an application.
 func NewAddUnitCommand() cmd.Command {
 	return modelcmd.Wrap(&addUnitCommand{})
 }
 
-// addUnitCommand is responsible adding additional units to a application.
+// addUnitCommand is responsible adding additional units to an application.
 type addUnitCommand struct {
 	modelcmd.ModelCommandBase
 	UnitCommandBase

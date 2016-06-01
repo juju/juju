@@ -13,7 +13,7 @@ import (
 )
 
 var usageUnexposeSummary = `
-Removes public availability over the network for a application.`[1:]
+Removes public availability over the network for an application.`[1:]
 
 var usageUnexposeDetails = `
 Adjusts the firewall rules and any relevant security mechanisms of the

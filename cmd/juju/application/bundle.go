@@ -195,7 +195,7 @@ type bundleHandler struct {
 	// resolving a dynamic placeholder included in a change. Specifically, the
 	// following values are stored:
 	// - when adding a charm, the fully resolved charm is stored;
-	// - when deploying a application, the application name is stored;
+	// - when deploying an application, the application name is stored;
 	// - when adding a machine, the resulting machine id is stored;
 	// - when adding a unit, either the id of the machine holding the unit or
 	//   the unit name can be stored. The latter happens when a machine is
@@ -299,7 +299,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 	return url, channel, csMac, nil
 }
 
-// addService deploys or update a application with no units. Service options are
+// addService deploys or update an application with no units. Service options are
 // also set or updated.
 func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationParams, chID charmstore.CharmID, csMac *macaroon.Macaroon) error {
 	h.results[id] = p.Application
@@ -515,7 +515,7 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 	return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
 }
 
-// addUnit adds a single unit to a application already present in the environment.
+// addUnit adds a single unit to an application already present in the environment.
 func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error {
 	application := resolve(p.Application, h.results)
 	// Check whether the desired number of units already exist in the
@@ -572,7 +572,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 	return nil
 }
 
-// exposeService exposes a application.
+// exposeService exposes an application.
 func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) error {
 	application := resolve(p.Application, h.results)
 	if err := h.serviceClient.Expose(application); err != nil {
@@ -582,7 +582,7 @@ func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) e
 	return nil
 }
 
-// setAnnotations sets annotations for a application or a machine.
+// setAnnotations sets annotations for an application or a machine.
 func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotationsParams) error {
 	eid := resolve(p.Id, h.results)
 	var tag string
@@ -839,7 +839,7 @@ func (h *bundleHandler) upgradeCharm(applicationName string, chID charmstore.Cha
 }
 
 // isErrServiceExists reports whether the given error has been generated
-// from trying to deploy a application that already exists.
+// from trying to deploy an application that already exists.
 func isErrServiceExists(err error) bool {
 	// TODO frankban (bug 1495952): do this check using the cause rather than
 	// the string when a specific cause is available.

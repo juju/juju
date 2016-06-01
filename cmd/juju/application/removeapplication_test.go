@@ -45,7 +45,7 @@ func runRemoveService(c *gc.C, args ...string) error {
 }
 
 func (s *RemoveServiceSuite) setupTestService(c *gc.C) {
-	// Destroy a application that exists.
+	// Destroy an application that exists.
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
 	err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +88,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 }
 
 func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
-	// Destroy a application that does not exist.
+	// Destroy an application that does not exist.
 	err := runRemoveService(c, "gargleblaster")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `service "gargleblaster" not found`,

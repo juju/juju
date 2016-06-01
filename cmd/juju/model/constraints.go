@@ -18,7 +18,7 @@ const getConstraintsDoc = "" +
 	"Shows machine constraints that have been set on the model with\n" +
 	"`juju set-model-constraints.`\n" +
 	"By default, the model is the current model.\n" +
-	"Model constraints are combined with constraints set on a application\n" +
+	"Model constraints are combined with constraints set on an application\n" +
 	"with `juju set-constraints` for commands (such as 'deploy') that provision\n" +
 	"machines for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +
@@ -41,7 +41,7 @@ See also: list-models
 const setConstraintsDoc = "" +
 	"Sets machine constraints on the model that can be viewed with\n" +
 	"`juju get-model-constraints`.  By default, the model is the current model.\n" +
-	"Model constraints are combined with constraints set for a application with\n" +
+	"Model constraints are combined with constraints set for an application with\n" +
 	"`juju set-constraints` for commands (such as 'deploy') that provision\n" +
 	"machines for applications. Where model and application constraints overlap, the\n" +
 	"application constraints take precedence.\n" +

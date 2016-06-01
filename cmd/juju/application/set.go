@@ -26,7 +26,7 @@ func NewSetCommand() cmd.Command {
 	return modelcmd.Wrap(&setCommand{})
 }
 
-// setCommand updates the configuration of a application.
+// setCommand updates the configuration of an application.
 type setCommand struct {
 	modelcmd.ModelCommandBase
 	ApplicationName string
@@ -38,11 +38,11 @@ type setCommand struct {
 }
 
 var usageSetConfigSummary = `
-Sets configuration options for a application.`[1:]
+Sets configuration options for an application.`[1:]
 
 var usageSetConfigDetails = `
 Charms may, and frequently do, expose a number of configuration settings
-for a application to the user. These can be set at deploy time, but may be set
+for an application to the user. These can be set at deploy time, but may be set
 at any time by using the `[1:] + "`juju set-config`" + ` command. The actual options
 vary per charm (you can check the charm documentation, or use ` + "`juju get-\nconfig`" +
 	` to check which options may be set).
@@ -126,7 +126,7 @@ func (c *setCommand) getServiceAPI() (serviceAPI, error) {
 	return application.NewClient(root), nil
 }
 
-// Run updates the configuration of a application.
+// Run updates the configuration of an application.
 func (c *setCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.getServiceAPI()
 	if err != nil {

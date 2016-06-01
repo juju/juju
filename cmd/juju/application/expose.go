@@ -13,7 +13,7 @@ import (
 )
 
 var usageExposeSummary = `
-Makes a application publicly available over the network.`[1:]
+Makes an application publicly available over the network.`[1:]
 
 var usageExposeDetails = `
 Adjusts the firewall rules and any relevant security mechanisms of the

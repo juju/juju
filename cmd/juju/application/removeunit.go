@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// NewRemoveUnitCommand returns a command which removes a application's units.
+// NewRemoveUnitCommand returns a command which removes an application's units.
 func NewRemoveUnitCommand() cmd.Command {
 	return modelcmd.Wrap(&removeUnitCommand{})
 }

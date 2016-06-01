@@ -379,7 +379,7 @@ func (p ResourcePersistence) NewRemoveUnitResourcesOps(unitID string) ([]txn.Op,
 
 	ops := newRemoveResourcesOps(docs)
 	// We do not remove the resource from the blob store here. That is
-	// a application-level matter.
+	// an application-level matter.
 	return ops, nil
 }
 

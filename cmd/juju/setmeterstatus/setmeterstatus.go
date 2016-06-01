@@ -22,7 +22,7 @@ Examples:
   juju set-meter-status myapp/0 AMBER --info "my message" # Set AMBER meter status with "my message" as info on unit myapp/0
 `
 
-// SetMeterStatusCommand sets the meter status on a application or unit. Useful for charm authors.
+// SetMeterStatusCommand sets the meter status on an application or unit. Useful for charm authors.
 type SetMeterStatusCommand struct {
 	modelcmd.ModelCommandBase
 	Tag        names.Tag
@@ -40,7 +40,7 @@ func (c *SetMeterStatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-meter-status",
 		Args:    "[application or unit] status",
-		Purpose: "sets the meter status on a application or unit",
+		Purpose: "sets the meter status on an application or unit",
 		Doc:     setMeterStatusDoc,
 	}
 }

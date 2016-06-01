@@ -46,7 +46,7 @@ type MachineStatus struct {
 	WantsVote  bool
 }
 
-// ApplicationStatus holds status info about a application.
+// ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
 	Err           error
 	Charm         string
@@ -177,7 +177,7 @@ type StatusResults struct {
 	Results []StatusResult
 }
 
-// ApplicationStatusResult holds results for a application Full Status
+// ApplicationStatusResult holds results for an application Full Status
 type ApplicationStatusResult struct {
 	Application StatusResult
 	Units       map[string]StatusResult
