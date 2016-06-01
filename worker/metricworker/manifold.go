@@ -30,7 +30,7 @@ func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := NewMetricsManager(client)
+	w, err := NewMetricsManager(client, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

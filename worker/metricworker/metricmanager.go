@@ -11,7 +11,7 @@ import (
 )
 
 // NewMetricsManager creates a runner that will run the metricsmanagement workers.
-func NewMetricsManager(client metricsmanager.MetricsManagerClient) (worker.Runner, error) {
+func NewMetricsManager(client metricsmanager.MetricsManagerClient, notify chan string) (worker.Runner, error) {
 	// TODO(fwereade): break this out into separate manifolds (with their own facades).
 
 	// Periodic workers automatically retry so none should return an error. If they do
@@ -23,16 +23,18 @@ func NewMetricsManager(client metricsmanager.MetricsManagerClient) (worker.Runne
 	moreImportant := func(error, error) bool {
 		return false
 	}
+
 	runner := worker.NewRunner(isFatal, moreImportant, worker.RestartDelay)
 	err := runner.StartWorker("sender", func() (worker.Worker, error) {
-		return NewSender(client), nil
+		return NewSender(client, notify), nil
 	})
 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	err = runner.StartWorker("cleanup", func() (worker.Worker, error) {
-		return NewCleanup(client), nil
+		return NewCleanup(client, notify), nil
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
