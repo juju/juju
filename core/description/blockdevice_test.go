@@ -27,7 +27,7 @@ func (s *BlockDeviceSerializationSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BlockDeviceSerializationSuite) allDeviceArgs() BlockDeviceArgs {
+func allBlockDeviceArgs() BlockDeviceArgs {
 	return BlockDeviceArgs{
 		Name:           "/dev/sda",
 		Links:          []string{"some", "data"},
@@ -43,7 +43,7 @@ func (s *BlockDeviceSerializationSuite) allDeviceArgs() BlockDeviceArgs {
 }
 
 func (s *BlockDeviceSerializationSuite) TestNewBlockDevice(c *gc.C) {
-	d := newBlockDevice(s.allDeviceArgs())
+	d := newBlockDevice(allBlockDeviceArgs())
 	c.Check(d.Name(), gc.Equals, "/dev/sda")
 	c.Check(d.Links(), jc.DeepEquals, []string{"some", "data"})
 	c.Check(d.Label(), gc.Equals, "sda")
@@ -76,7 +76,20 @@ func (s *BlockDeviceSerializationSuite) exportImport(c *gc.C, dev *blockdevice) 
 }
 
 func (s *BlockDeviceSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := newBlockDevice(s.allDeviceArgs())
+	initial := newBlockDevice(allBlockDeviceArgs())
 	imported := s.exportImport(c, initial)
 	c.Assert(imported, jc.DeepEquals, initial)
+}
+
+func (s *BlockDeviceSerializationSuite) TestImportEmpty(c *gc.C) {
+	devices, err := importBlockDevices(emptyBlockDeviceMap())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 0)
+}
+
+func emptyBlockDeviceMap() map[interface{}]interface{} {
+	return map[interface{}]interface{}{
+		"version":       1,
+		"block-devices": []interface{}{},
+	}
 }

@@ -45,6 +45,8 @@ type machine struct {
 	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
+
+	BlockDevices_ blockdevices `yaml:"block-devices,omitempty"`
 }
 
 // MachineArgs is an argument struct used to add a machine to the Model.
@@ -82,6 +84,7 @@ func newMachine(args MachineArgs) *machine {
 		copy(supported, *args.SupportedContainers)
 		m.SupportedContainers_ = &supported
 	}
+	m.setBlockDevices(nil)
 	return m
 }
 
@@ -246,6 +249,27 @@ func (m *machine) Containers() []Machine {
 	return result
 }
 
+// BlockDevices implements Machine.
+func (m *machine) BlockDevices() []BlockDevice {
+	var result []BlockDevice
+	for _, device := range m.BlockDevices_.BlockDevices_ {
+		result = append(result, device)
+	}
+	return result
+}
+
+// AddBlockDevice implements Machine.
+func (m *machine) AddBlockDevice(args BlockDeviceArgs) BlockDevice {
+	return m.BlockDevices_.add(args)
+}
+
+func (m *machine) setBlockDevices(devices []*blockdevice) {
+	m.BlockDevices_ = blockdevices{
+		Version:       1,
+		BlockDevices_: devices,
+	}
+}
+
 // AddContainer implements Machine.
 func (m *machine) AddContainer(args MachineArgs) Machine {
 	container := newMachine(args)
@@ -379,6 +403,8 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"machine-addresses":         schema.List(schema.StringMap(schema.Any())),
 		"preferred-public-address":  schema.StringMap(schema.Any()),
 		"preferred-private-address": schema.StringMap(schema.Any()),
+
+		"block-devices": schema.StringMap(schema.Any()),
 	}
 
 	defaults := schema.Defaults{
@@ -389,6 +415,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		"instance":                  schema.Omit,
 		"supported-containers":      schema.Omit,
 		"opened-ports":              schema.Omit,
+		"block-devices":             schema.Omit,
 		"provider-addresses":        schema.Omit,
 		"machine-addresses":         schema.Omit,
 		"preferred-public-address":  schema.Omit,
@@ -444,6 +471,16 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 			return nil, errors.Trace(err)
 		}
 		result.Instance_ = instance
+	}
+
+	if blockDeviceMap, ok := valid["block-devices"]; ok {
+		devices, err := importBlockDevices(blockDeviceMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.setBlockDevices(devices)
+	} else {
+		result.setBlockDevices(nil)
 	}
 
 	// Tools and status are required, so we expect them to be there.

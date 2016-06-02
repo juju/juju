@@ -138,6 +138,9 @@ type Machine interface {
 	// TODO:
 	// Storage
 
+	BlockDevices() []BlockDevice
+	AddBlockDevice(BlockDeviceArgs) BlockDevice
+
 	OpenedPorts() []OpenedPorts
 	AddOpenedPorts(OpenedPortsArgs) OpenedPorts
 

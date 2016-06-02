@@ -49,6 +49,7 @@ func minimalMachineMap(id string, containers ...interface{}) map[interface{}]int
 		"containers":     containers,
 		"status":         minimalStatusMap(),
 		"status-history": emptyStatusHistoryMap(),
+		"block-devices":  emptyBlockDeviceMap(),
 	}
 }
 
@@ -283,6 +284,7 @@ func (s *MachineSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	m.SetTools(minimalAgentToolsArgs())
 	m.SetStatus(minimalStatusArgs())
 	m.SetInstance(minimalCloudInstanceArgs())
+	m.AddBlockDevice(allBlockDeviceArgs())
 	s.addOpenedPorts(m)
 
 	// Just use one set of address args for both machine and provider.

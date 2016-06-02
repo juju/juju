@@ -27,6 +27,12 @@ type blockdevices struct {
 	BlockDevices_ []*blockdevice `yaml:"block-devices"`
 }
 
+func (d *blockdevices) add(args BlockDeviceArgs) *blockdevice {
+	dev := newBlockDevice(args)
+	d.BlockDevices_ = append(d.BlockDevices_, dev)
+	return dev
+}
+
 type blockdevice struct {
 	Name_           string   `yaml:"name"`
 	Links_          []string `yaml:"links,omitempty"`
@@ -121,7 +127,7 @@ func (b *blockdevice) MountPoint() string {
 	return b.MountPoint_
 }
 
-func importBlockDevices(source map[string]interface{}) ([]*blockdevice, error) {
+func importBlockDevices(source interface{}) ([]*blockdevice, error) {
 	checker := versionedChecker("block-devices")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
