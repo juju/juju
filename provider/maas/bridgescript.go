@@ -176,51 +176,50 @@ class LogicalInterface(object):
             return self._bridge_device(bridge_name)
 
     def _bridge_device(self, bridge_name):
-        s1 = IfaceStanza(self.name, self.family, "manual", [])
-        s2 = AutoStanza(bridge_name)
+        stanzas = []
+        stanzas.append(AutoStanza(bridge_name))
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        return [s1, s2, s3]
+        options.append("bridge_stp on")
+        options.append("bridge_maxwait 0")
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
+        return stanzas
 
     def _bridge_vlan(self, bridge_name, add_auto_stanza):
         stanzas = []
-        s1 = IfaceStanza(self.name, self.family, "manual", self.options)
-        stanzas.append(s1)
         if add_auto_stanza:
             stanzas.append(AutoStanza(bridge_name))
-        options = [x for x in self.options if not x.startswith("vlan")]
+        options = [x for x in self.options if not x.startswith("vlan_id")]
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        stanzas.append(s3)
+        options.append("bridge_stp on")
+        options.append("bridge_maxwait 0")
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
     def _bridge_alias(self, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, self.method, list(self.options))
-        stanzas.append(s1)
+        stanzas.append(IfaceStanza(self.name, self.family, self.method, list(self.options)))
         return stanzas
 
     def _bridge_bond(self, bridge_name, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, "manual", list(self.options))
-        s2 = AutoStanza(bridge_name)
+        stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("bond")]
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        stanzas.extend([s1, s2, s3])
+        options.append("bridge_stp on")
+        options.append("bridge_maxwait 0")
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
     def _bridge_unchanged(self, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, self.method, list(self.options))
-        stanzas.append(s1)
+        stanzas.append(IfaceStanza(self.name, self.family, self.method, list(self.options)))
         return stanzas
 
 
@@ -467,6 +466,8 @@ def main(args):
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ip -d addr show")
     print_shell_cmd("ip route show")
+
+    print_shell_cmd("rm -f /etc/systemd/network/50-cloud-init* > /dev/null")
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
