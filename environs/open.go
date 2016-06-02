@@ -103,8 +103,6 @@ func Prepare(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	details.Cloud = args.CloudName
-	details.Credential = args.CredentialName
 
 	if err := decorateAndWriteInfo(
 		store, details, args.ControllerName, env.Config().Name(),
@@ -191,9 +189,13 @@ func prepare(
 	details.User = AdminUser
 	details.Password = adminSecret
 	details.ModelUUID = cfg.UUID()
-	details.CloudRegion = args.CloudRegion
+	details.ControllerDetails.Cloud = args.CloudName
+	details.ControllerDetails.CloudRegion = args.CloudRegion
+	details.BootstrapConfig.Cloud = args.CloudName
+	details.BootstrapConfig.CloudRegion = args.CloudRegion
 	details.CloudEndpoint = args.CloudEndpoint
 	details.CloudStorageEndpoint = args.CloudStorageEndpoint
+	details.Credential = args.CredentialName
 
 	return env, details, nil
 }

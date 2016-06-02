@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -74,7 +73,7 @@ var getInstances = func(env *environ) ([]instance.Instance, error) {
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	prefix := common.MachineFullName(env.Config().UUID(), "")
+	prefix := env.namespace.Prefix()
 	instances, err := env.gce.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
@@ -95,7 +94,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances() ([]instance.Id, error) {
-	prefix := common.MachineFullName(env.Config().ControllerUUID(), "")
+	prefix := env.namespace.Prefix()
 	instances, err := env.gce.Instances(prefix, instStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)

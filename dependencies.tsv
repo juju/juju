@@ -30,7 +30,7 @@ github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/romulus	git	0e3ed9656382c37dea616e4400e2d3d98dd09a0f	2016-05-31T16:34:57Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
-github.com/juju/testing	git	b9cfe07211e464f16d78ca9304c503d636b8eefa	2016-05-19T00:49:35Z
+github.com/juju/testing	git	e71f328f50bbfc3bae5f0184760e7e151e4fca7f	2016-05-31T10:00:20Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
 github.com/juju/utils	git	ffea6ead0c374583e876c8357c9db6e98bc71476	2016-05-26T02:52:51Z

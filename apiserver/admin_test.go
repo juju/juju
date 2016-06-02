@@ -753,7 +753,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 
 	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "invalid entity name or password",
+		Message: "permission denied",
 		Code:    "unauthorized access",
 	})
 }

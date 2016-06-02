@@ -38,7 +38,6 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		registry.RegisterProvider("dummy", nil)
 	})
-
 	s.managedFilesystemSource = nil
 	s.PatchValue(
 		storageprovisioner.NewManagedFilesystemSource,

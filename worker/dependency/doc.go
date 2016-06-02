@@ -219,8 +219,9 @@ your dependencies *must* be declared in your ManifoldConfig, and *must* be
 accessed via those names. Don't hardcode anything, please.
 
 If you find yourself using the same manifold configuration in several places,
-consider adding helpers to cmd/jujud/agent/util, which includes mechanisms for simple
-definition of manifolds that depend on an API caller; on an agent; or on both.
+consider adding helpers to cmd/jujud/agent/engine, which includes mechanisms
+for simple definition of manifolds that depend on an API caller; on an agent;
+or on both.
 
 
 Testing
@@ -248,7 +249,7 @@ shared dependency C to mediate the information flow. That is, A and B can then
 separately depend upon C; and C itself can start a degenerate worker that never
 errors of its own accord.
 
-For examples of this technique, search for usage of `cmd/jujud/agent/util.NewValueWorker`
+For examples of this technique, search for `cmd/jujud/agent/engine.NewValueWorker`
 (which is generally used inside other manifolds to pass snippets of agent config
 down to workers that don't have a good reason to see, or write, the full agent
 config); and `worker/gate.Manifold`, which is for one-way coordination between

@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/agent"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	workertesting "github.com/juju/juju/worker/testing"
 	"github.com/juju/juju/worker/toolsversionchecker"
 )
 
@@ -37,8 +37,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachine(c *gc.C) {
-	config := toolsversionchecker.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := toolsversionchecker.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(multiwatcher.JobManageModel))
@@ -47,8 +47,8 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
-	config := toolsversionchecker.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := toolsversionchecker.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		mockAPICaller(multiwatcher.JobHostUnits))
@@ -57,8 +57,8 @@ func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestNonMachineAgent(c *gc.C) {
-	config := toolsversionchecker.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := toolsversionchecker.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		toolsversionchecker.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		mockAPICaller(""))

@@ -72,7 +72,6 @@ const (
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
 		"type":            "lxd",
-		"namespace":       "",
 		"remote-url":      "",
 		"client-cert":     "",
 		"client-key":      "",
@@ -96,7 +95,6 @@ type BaseSuiteUnpatched struct {
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
-	Prefix    string
 
 	Addresses     []network.Address
 	Instance      *environInstance
@@ -138,6 +136,10 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
+}
+
+func (s *BaseSuiteUnpatched) Prefix() string {
+	return s.Env.namespace.Prefix()
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
@@ -193,9 +195,13 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}
+	// NOTE: the instance ids used throughout this package are not at all
+	// representative of what they would normally be. They would normally
+	// determined by the instance namespace and the machine id.
 	s.Instance = s.NewInstance(c, "spam")
 	s.RawInstance = s.Instance.raw
-	s.InstName = s.Prefix + "machine-spam"
+	s.InstName, err = s.Env.namespace.Hostname("42")
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
 		InstanceConfig: instanceConfig,
@@ -220,7 +226,9 @@ func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
-	s.Prefix = "juju-" + uuid + "-"
+	namespace, err := instance.NewNamespace(uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Env.namespace = namespace
 }
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
@@ -231,9 +239,6 @@ func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.C
 	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	if raw := updates[cfgNamespace]; raw == nil || raw.(string) == "" {
-		updates[cfgNamespace] = cfg.Name()
-	}
 	cfg, err = cfg.Apply(updates)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
@@ -337,12 +342,6 @@ func NewBaseConfig(c *gc.C) *config.Config {
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err = cfg.Apply(map[string]interface{}{
-		// Default the namespace to the env name.
-		cfgNamespace: cfg.Name(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	return cfg
 }
 
@@ -360,7 +359,6 @@ func NewCustomBaseConfig(c *gc.C, updates map[string]interface{}) *config.Config
 }
 
 type ConfigValues struct {
-	Namespace  string
 	RemoteURL  string
 	ClientCert string
 	ClientKey  string
@@ -415,8 +413,6 @@ func (ecfg *Config) Values(c *gc.C) (ConfigValues, map[string]interface{}) {
 	extras := make(map[string]interface{})
 	for k, v := range ecfg.attrs {
 		switch k {
-		case cfgNamespace:
-			values.Namespace = v.(string)
 		case cfgRemoteURL:
 			values.RemoteURL = v.(string)
 		case cfgClientCert:

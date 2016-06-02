@@ -348,12 +348,8 @@ type changeTestCase struct {
 
 func substNilSinceTimeForStatus(c *gc.C, sInfo *multiwatcher.StatusInfo) {
 	if sInfo.Current != "" {
-		c.Assert(sInfo.Since, gc.NotNil)
+		c.Assert(sInfo.Since, gc.NotNil) // TODO(dfc) WTF does this check do ? separation of concerns much
 	}
-	sInfo.Since = nil
-}
-
-func substNilSinceTimeForStatusNoCheck(sInfo *multiwatcher.StatusInfo) {
 	sInfo.Since = nil
 }
 
@@ -362,20 +358,22 @@ func substNilSinceTimeForStatusNoCheck(sInfo *multiwatcher.StatusInfo) {
 func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 	// Zero out any updated timestamps for unit or service status values
 	// so we can easily check the results.
-	for i, entity := range entities {
-		if unitInfo, ok := entity.(*multiwatcher.UnitInfo); ok {
+	for i := range entities {
+		switch e := entities[i].(type) {
+		case *multiwatcher.UnitInfo:
+			unitInfo := *e // must copy because this entity came out of the multiwatcher cache.
 			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
 			substNilSinceTimeForStatus(c, &unitInfo.JujuStatus)
-			entities[i] = unitInfo
-		}
-		if serviceInfo, ok := entity.(*multiwatcher.ApplicationInfo); ok {
-			substNilSinceTimeForStatus(c, &serviceInfo.Status)
-			entities[i] = serviceInfo
-		}
-		if machineInfo, ok := entity.(*multiwatcher.MachineInfo); ok {
+			entities[i] = &unitInfo
+		case *multiwatcher.ApplicationInfo:
+			applicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
+			substNilSinceTimeForStatus(c, &applicationInfo.Status)
+			entities[i] = &applicationInfo
+		case *multiwatcher.MachineInfo:
+			machineInfo := *e // must copy because this entity came out of the multiwatcher cache.
 			substNilSinceTimeForStatus(c, &machineInfo.JujuStatus)
 			substNilSinceTimeForStatus(c, &machineInfo.MachineStatus)
-			entities[i] = machineInfo
+			entities[i] = &machineInfo
 		}
 	}
 }
@@ -383,21 +381,24 @@ func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 func substNilSinceTimeForEntityNoCheck(entity multiwatcher.EntityInfo) multiwatcher.EntityInfo {
 	// Zero out any updated timestamps for unit or service status values
 	// so we can easily check the results.
-	if unitInfo, ok := entity.(*multiwatcher.UnitInfo); ok {
-		substNilSinceTimeForStatusNoCheck(&unitInfo.WorkloadStatus)
-		substNilSinceTimeForStatusNoCheck(&unitInfo.JujuStatus)
-		return unitInfo
+	switch e := entity.(type) {
+	case *multiwatcher.UnitInfo:
+		unitInfo := *e // must copy because this entity came out of the multiwatcher cache.
+		unitInfo.WorkloadStatus.Since = nil
+		unitInfo.JujuStatus.Since = nil
+		return &unitInfo
+	case *multiwatcher.ApplicationInfo:
+		applicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
+		applicationInfo.Status.Since = nil
+		return &applicationInfo
+	case *multiwatcher.MachineInfo:
+		machineInfo := *e // must copy because we this entity came out of the multiwatcher cache.
+		machineInfo.JujuStatus.Since = nil
+		machineInfo.MachineStatus.Since = nil
+		return &machineInfo
+	default:
+		return entity
 	}
-	if serviceInfo, ok := entity.(*multiwatcher.ApplicationInfo); ok {
-		substNilSinceTimeForStatusNoCheck(&serviceInfo.Status)
-		return serviceInfo
-	}
-	if machineInfo, ok := entity.(*multiwatcher.MachineInfo); ok {
-		substNilSinceTimeForStatusNoCheck(&machineInfo.JujuStatus)
-		substNilSinceTimeForStatusNoCheck(&machineInfo.MachineStatus)
-		return machineInfo
-	}
-	return entity
 }
 
 // changeTestFunc is a function for the preparation of a test and
@@ -621,6 +622,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
+	substNilSinceTimeForEntities(c, entities)
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
 		&multiwatcher.UnitInfo{
 			ModelUUID:      s.state.ModelUUID(),
@@ -1131,23 +1133,19 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 
 			entities = all.All()
 
-			// substNilSinceTimeForEntities gets upset if it sees non-nil
-			// times - which the entities for the first env will have - so
-			// build a list of the entities for the second env.
-			newEntities := make([]multiwatcher.EntityInfo, 0)
-			for _, entity := range entities {
-				if entity.EntityId().ModelUUID == s.state1.ModelUUID() {
-					newEntities = append(newEntities, entity)
-				}
-			}
-			substNilSinceTimeForEntities(c, newEntities)
-
 			// Expected to see entities for both envs.
 			var expectedEntities entityInfoSlice = append(
 				test0.expectContents,
 				test1.expectContents...)
 			sort.Sort(entities)
 			sort.Sort(expectedEntities)
+
+			// for some reason substNilSinceTimeForStatus cares if the Current is not blank
+			// and will abort if it is. Apparently this happens and it's totally fine. So we
+			// must use the NoCheck variant, rather than substNilSinceTimeForEntities(c, entities)
+			for i := range entities {
+				entities[i] = substNilSinceTimeForEntityNoCheck(entities[i])
+			}
 			assertEntitiesEqual(c, entities, expectedEntities)
 		}()
 	}
@@ -1616,13 +1614,16 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 	for i, delta := range deltas {
-		if unitInfo, ok := delta.Entity.(*multiwatcher.UnitInfo); ok {
+		switch e := delta.Entity.(type) {
+		case *multiwatcher.UnitInfo:
+			unitInfo := *e // must copy, we may not own this reference
 			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
 			substNilSinceTimeForStatus(c, &unitInfo.JujuStatus)
-			delta.Entity = unitInfo
-		} else if serviceInfo, ok := delta.Entity.(*multiwatcher.ApplicationInfo); ok {
-			substNilSinceTimeForStatus(c, &serviceInfo.Status)
-			delta.Entity = serviceInfo
+			delta.Entity = &unitInfo
+		case *multiwatcher.ApplicationInfo:
+			applicationInfo := *e // must copy, we may not own this reference
+			substNilSinceTimeForStatus(c, &applicationInfo.Status)
+			delta.Entity = &applicationInfo
 		}
 		deltas[i] = delta
 	}
@@ -3224,7 +3225,6 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 			g := got[i]
 			w := want[i]
 			if !jcDeepEqualsCheck(c, g, w) {
-				firstDiffError += "\n"
 				firstDiffError += fmt.Sprintf("first difference at position %d\n", i)
 				firstDiffError += "got:\n"
 				firstDiffError += fmt.Sprintf("  %T %#v\n", g, g)
@@ -3236,9 +3236,4 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		c.Errorf(firstDiffError)
 	}
 	c.FailNow()
-}
-
-func deepEqual(c *gc.C, got, want interface{}) bool {
-	same, err := jc.DeepEqual(got, want)
-	return err == nil && same
 }

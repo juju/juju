@@ -437,6 +437,7 @@ var commandNames = []string{
 	"remove-application", // alias for destroy-application
 	"remove-backup",
 	"remove-cached-images",
+	"remove-cloud",
 	"remove-credential",
 	"remove-machine",
 	"remove-machines",

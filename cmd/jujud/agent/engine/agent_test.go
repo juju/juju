@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package util_test
+package engine_test
 
 import (
 	"github.com/juju/errors"
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -29,7 +29,7 @@ func (s *AgentManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
 	s.worker = &dummyWorker{}
-	s.manifold = util.AgentManifold(util.AgentManifoldConfig{
+	s.manifold = engine.AgentManifold(engine.AgentManifoldConfig{
 		AgentName: "agent-name",
 	}, s.newWorker)
 }

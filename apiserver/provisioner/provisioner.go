@@ -227,7 +227,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		return result, err
 	}
 	cfg := make(map[string]string)
-	cfg[container.ConfigName] = container.DefaultNamespace
+	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
 
 	switch args.Type {
 	case instance.LXC:
@@ -700,7 +700,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 	}
 
 	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
+		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -708,12 +708,12 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 		// The auth function (canAccess) checks that the machine is a
 		// top level machine (we filter those out next) or that the
 		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, tag)
+		container, err := p.getMachine(canAccess, machineTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if !container.IsContainer() {
-			err = errors.Errorf("cannot prepare network config for %q: not a container", tag)
+			err = errors.Errorf("cannot prepare network config for %q: not a container", machineTag)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if ciid, cerr := container.InstanceId(); maintain == true && cerr == nil {
@@ -800,7 +800,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 			continue
 		}
 
-		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, preparedInfo)
+		allocatedInfo, err := netEnviron.AllocateContainerAddresses(instId, machineTag, preparedInfo)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

@@ -70,7 +70,7 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
-	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, "namespace", true)
+	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -146,6 +146,11 @@ func (m *fakeContainerManager) DestroyContainer(id instance.Id) error {
 func (m *fakeContainerManager) ListContainers() ([]instance.Instance, error) {
 	m.MethodCall(m, "ListContainers")
 	return nil, m.NextErr()
+}
+
+func (m *fakeContainerManager) Namespace() instance.Namespace {
+	ns, _ := instance.NewNamespace(coretesting.ModelTag.Id())
+	return ns
 }
 
 func (m *fakeContainerManager) IsInitialized() bool {

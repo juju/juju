@@ -26,6 +26,8 @@ type ControllerItem struct {
 	ControllerUUID string   `yaml:"uuid" json:"uuid"`
 	APIEndpoints   []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
 	CACert         string   `yaml:"ca-cert" json:"ca-cert"`
+	Cloud          string   `yaml:"cloud" json:"cloud"`
+	CloudRegion    string   `yaml:"region,omitempty" json:"region,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and
@@ -83,6 +85,8 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			APIEndpoints:   details.APIEndpoints,
 			ControllerUUID: details.ControllerUUID,
 			CACert:         details.CACert,
+			Cloud:          details.Cloud,
+			CloudRegion:    details.CloudRegion,
 		}
 	}
 	return controllers, errs

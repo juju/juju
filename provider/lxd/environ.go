@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -31,6 +32,9 @@ type environ struct {
 	uuid string
 	raw  *rawProvider
 	base baseProvider
+
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
 
 	lock sync.Mutex
 	ecfg *environConfig
@@ -51,6 +55,11 @@ func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ
 	}
 
 	env, err := newEnvironRaw(ecfg, raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	env.namespace, err = instance.NewNamespace(cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -172,7 +181,7 @@ func (env *environ) Destroy() error {
 func (env *environ) destroyHostedModelResources() error {
 	// Destroy all instances where juju-controller-uuid,
 	// but not juju-model-uuid, matches env.uuid.
-	prefix := common.EnvFullName("")
+	prefix := env.namespace.Prefix()
 	instances, err := env.prefixedInstances(prefix)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")

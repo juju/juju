@@ -6,7 +6,7 @@ package logsender
 import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -21,10 +21,10 @@ type ManifoldConfig struct {
 // Manifold returns a dependency manifold that runs a logger
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := util.ApiManifoldConfig{
+	typedConfig := engine.ApiManifoldConfig{
 		APICallerName: config.APICallerName,
 	}
-	return util.ApiManifold(typedConfig, config.newWorker)
+	return engine.ApiManifold(typedConfig, config.newWorker)
 }
 
 func (config ManifoldConfig) newWorker(apiCaller base.APICaller) (worker.Worker, error) {
