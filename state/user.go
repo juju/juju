@@ -101,6 +101,27 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
+// RemoveUser removes the user with the given name from the user collection.
+func (st *State) RemoveUser(name string) error {
+
+	name = strings.ToLower(name)
+
+	ops := []txn.Op{{
+		Id:     name,
+		C:      usersC,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	err := st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		err = errors.Errorf("user %q not found", name)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
 	nameToLower := strings.ToLower(user.Name())
 	doc := userDoc{

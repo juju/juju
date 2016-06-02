@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 
@@ -129,6 +130,27 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
+func (s *UserSuite) TestRemoveUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, nil)
+
+	// Look for the user.
+	u, err := s.State.User(names.NewUserTag(user.Name()))
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(u, jc.DeepEquals, user)
+
+	// Remove the user
+	err = s.State.RemoveUser(user.Name())
+	c.Check(err, jc.ErrorIsNil)
+
+	// Check again
+	_, err = s.State.User(names.NewUserTag(user.Name()))
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", user.Name()))
+
+	// Try removing again and check we failed as expected.
+	err = s.State.RemoveUser(user.Name())
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", user.Name()))
+
+}
 func (s *UserSuite) TestDisable(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)
