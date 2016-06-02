@@ -69,7 +69,7 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 		case unitsC:
 			collection.docType = reflect.TypeOf(backingUnit{})
 		case applicationsC:
-			collection.docType = reflect.TypeOf(backingService{})
+			collection.docType = reflect.TypeOf(backingApplication{})
 		case actionsC:
 			collection.docType = reflect.TypeOf(backingAction{})
 		case relationsC:
@@ -372,9 +372,9 @@ func (u *backingUnit) mongoId() string {
 	return u.DocID
 }
 
-type backingService applicationDoc
+type backingApplication applicationDoc
 
-func (svc *backingService) updated(st *State, store *multiwatcherStore, id string) error {
+func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id string) error {
 	if svc.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
@@ -406,26 +406,26 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		info.Constraints = c
 		needConfig = true
 		// Fetch the status.
-		service, err := st.Application(svc.Name)
+		application, err := st.Application(svc.Name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		serviceStatus, err := service.Status()
+		applicationStatus, err := application.Status()
 		if err != nil {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
 		if err == nil {
 			info.Status = multiwatcher.StatusInfo{
-				Current: serviceStatus.Status,
-				Message: serviceStatus.Message,
-				Data:    normaliseStatusData(serviceStatus.Data),
-				Since:   serviceStatus.Since,
+				Current: applicationStatus.Status,
+				Message: applicationStatus.Message,
+				Data:    normaliseStatusData(applicationStatus.Data),
+				Since:   applicationStatus.Since,
 			}
 		} else {
 			// TODO(wallyworld) - bug http://pad.lv/1451283
 			// return an error here once we figure out what's happening
 			// Not sure how status can even return NotFound as it is created
-			// with the service initially. For now, we'll log the error as per
+			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			now := time.Now()
@@ -460,7 +460,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	return nil
 }
 
-func (svc *backingService) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+func (svc *backingApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
 		Kind:      "application",
 		ModelUUID: modelUUID,
@@ -471,14 +471,14 @@ func (svc *backingService) removed(store *multiwatcherStore, modelUUID, id strin
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-func (svc *backingService) fixOwnerTag(env *Model) string {
+func (svc *backingApplication) fixOwnerTag(env *Model) string {
 	if svc.OwnerTag != "" {
 		return svc.OwnerTag
 	}
 	return env.Owner().String()
 }
 
-func (svc *backingService) mongoId() string {
+func (svc *backingApplication) mongoId() string {
 	return svc.DocID
 }
 
@@ -680,16 +680,16 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		}
 	}
 
-	// A change in a unit's status might also affect it's service.
+	// A change in a unit's status might also affect it's application.
 	service, err := st.Application(newInfo.Application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), service.globalKey())
+	applicationId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), service.globalKey())
 	if !ok {
 		return nil
 	}
-	applicationInfo := store.Get(serviceId)
+	applicationInfo := store.Get(applicationId)
 	if applicationInfo == nil {
 		return nil
 	}
@@ -949,7 +949,7 @@ func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, 
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
-	case 's':
+	case 'a':
 		return (&multiwatcher.ApplicationInfo{
 			ModelUUID: modelUUID,
 			Name:      id,

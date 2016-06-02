@@ -2049,7 +2049,7 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id)
 
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
-	's': names.ApplicationTagKind + "-",
+	'a': names.ApplicationTagKind + "-",
 	'u': names.UnitTagKind + "-",
 	'e': names.ModelTagKind + "-",
 	'r': names.RelationTagKind + "-",

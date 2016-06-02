@@ -28,7 +28,7 @@ import (
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
-	_ backingEntityDoc = (*backingService)(nil)
+	_ backingEntityDoc = (*backingApplication)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
