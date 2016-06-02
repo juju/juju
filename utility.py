@@ -303,17 +303,21 @@ def s3_cmd(params, drop_output=False):
     else:
         return subprocess.check_output(command)
 
+
 def _get_test_name_from_filename():
     return os.path.splitext(os.path.basename(sys.argv[0]))[0]
+
 
 def _generate_default_clean_dir():
     """Creates a new unique directory for logging and returns the name"""
     timestamp = datetime.now().strftime("_%Y_%m_%d_%H%M%S")
     return ''.join([_get_test_name_from_filename(), timestamp, '_logs'])
 
+
 def _generate_default_temp_env_name():
     """Creates a new unique name for environment and returns the name"""
     return ''.join([_get_test_name_from_filename(), "_temp_env"])
+
 
 def add_basic_testing_arguments(parser, using_jes=False):
     """Returns the parser loaded with basic testing arguments.
@@ -339,7 +343,8 @@ def add_basic_testing_arguments(parser, using_jes=False):
     :param using_jes: whether args should be tailored for JES testing.
     """
     # Required positional arguments.
-    parser.add_argument('env',
+    parser.add_argument(
+        'env',
         help='The juju environment to base the temp test environment on.')
 
     # Optional postional arguments
@@ -349,7 +354,6 @@ def add_basic_testing_arguments(parser, using_jes=False):
     parser.add_argument('logs',  nargs='?',  type=_clean_dir,
                         help='A directory in which to store logs.',
                         default=_generate_default_clean_dir())
-    #_generate_default_temp_env_name()
     parser.add_argument('temp_env_name', nargs='?',
                         help='A temporary test environment name.',
                         default=_generate_default_temp_env_name())
