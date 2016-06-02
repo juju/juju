@@ -112,7 +112,7 @@ var (
 		"machine-action-runner",
 		"machiner",
 		"proxy-config-updater",
-		// "reboot-executor", not stable, fails due to lp:XXX
+		// "reboot-executor", not stable, fails due to lp:1588186
 		"ssh-authkeys-updater",
 		"storage-provisioner",
 		"unconverted-api-workers",
