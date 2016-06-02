@@ -63,18 +63,18 @@ func (s *KillSuite) TestKillUnknownController(c *gc.C) {
 
 func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	s.apierror = errors.New("connection refused")
-	ctx, err := s.runKillCommand(c, "local.test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillWithAPIConnection(c *gc.C) {
-	_, err := s.runKillCommand(c, "local.test1", "-y")
+	_, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
@@ -98,11 +98,11 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
 
 func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	s.api.SetErrors(errors.New("some destroy error"))
-	ctx, err := s.runKillCommand(c, "local.test1", "-y")
+	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
 	c.Assert(s.api.destroyAll, jc.IsTrue)
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
@@ -114,21 +114,21 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommand(ctx, s.newKillCommand(), "local.test1")
+	_, errc := cmdtesting.RunCommand(ctx, s.newKillCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*local.test1(.|\n)*")
-	checkControllerExistsInStore(c, "local.test1", s.store)
+	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newKillCommand(), "local.test1", "-y")
+	_, err := testing.RunCommand(c, s.newKillCommand(), "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	checkControllerRemovedFromStore(c, "local.test1:test1", s.store)
+	checkControllerRemovedFromStore(c, "test1:test1", s.store)
 }
 
 func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
@@ -136,9 +136,9 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 		return nil, common.ErrPerm
 	}
 	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
-	_, err := testing.RunCommand(c, cmd, "local.test1", "-y")
+	_, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
-	checkControllerExistsInStore(c, "local.test1", s.store)
+	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
@@ -152,10 +152,10 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 	}
 
 	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, modelcmd.OpenFunc(testDialer))
-	ctx, err := testing.RunCommand(c, cmd, "local.test1", "-y")
+	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
-	checkControllerRemovedFromStore(c, "local.test1", s.store)
+	checkControllerRemovedFromStore(c, "test1", s.store)
 	// Check that we were actually told to wait for 10s.
 	c.Assert(clock.wait, gc.Equals, 10*time.Second)
 }

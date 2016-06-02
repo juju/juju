@@ -92,22 +92,17 @@ func (c *migrateCommand) getMigrationSpec() (*controller.ModelMigrationSpec, err
 		return nil, err
 	}
 
-	controllerName, err := modelcmd.ResolveControllerName(store, c.targetController)
+	controllerInfo, err := store.ControllerByName(c.targetController)
 	if err != nil {
 		return nil, err
 	}
 
-	controllerInfo, err := store.ControllerByName(controllerName)
+	accountName, err := store.CurrentAccount(c.targetController)
 	if err != nil {
 		return nil, err
 	}
 
-	accountName, err := store.CurrentAccount(controllerName)
-	if err != nil {
-		return nil, err
-	}
-
-	accountInfo, err := store.AccountByName(controllerName, accountName)
+	accountInfo, err := store.AccountByName(c.targetController, accountName)
 	if err != nil {
 		return nil, err
 	}
