@@ -207,11 +207,12 @@ class LogicalInterface(object):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        stanzas.append(AutoStanza(bridge_name))
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", list(self.options)))
         options = [x for x in self.options if not x.startswith("bond")]
         options.append("bridge_ports {}".format(self.name))
         options.append("bridge_stp on")
         options.append("bridge_maxwait 0")
+        stanzas.append(AutoStanza(bridge_name))
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
