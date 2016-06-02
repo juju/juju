@@ -4155,21 +4155,41 @@ type SetAdminMongoPasswordSuite struct {
 
 var _ = gc.Suite(&SetAdminMongoPasswordSuite{})
 
+func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.UserTag, password string) {
+	session, err := inst.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
+	err = mongo.SetAdminMongoPassword(session, owner.String(), password)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
 	err := inst.Start(testing.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.DestroyWithLog()
 
+	// We need to make an admin user before we initialize the state
+	// because in Mongo3.2 the localhost exception no longer has
+	// permission to create indexes.
+	// https://docs.mongodb.com/manual/core/security-users/#localhost-exception
 	owner := names.NewLocalUserTag("initialize-admin")
-	mongoInfo := &mongo.MongoInfo{
+	password := "huggies"
+	setAdminPassword(c, inst, owner, password)
+
+	noAuthInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{inst.Addr()},
 			CACert: testing.CACert,
 		},
 	}
+	authInfo := &mongo.MongoInfo{
+		Info:     noAuthInfo.Info,
+		Tag:      owner,
+		Password: password,
+	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, mongoInfo, cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(owner, authInfo, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -4183,20 +4203,20 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = st.MongoSession().DB("admin").Login("admin", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = tryOpenState(st.ModelTag(), mongoInfo)
+	err = tryOpenState(st.ModelTag(), noAuthInfo)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	// note: collections are set up in arbitrary order, proximate cause of
 	// failure may differ.
 	c.Check(err, gc.ErrorMatches, `[^:]+: unauthorized mongo access: .*`)
 
-	mongoInfo.Password = "foo"
-	err = tryOpenState(st.ModelTag(), mongoInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	passwordOnlyInfo := *noAuthInfo
+	passwordOnlyInfo.Password = "foo"
 
-	err = st.SetAdminMongoPassword("")
-	c.Assert(err, jc.ErrorIsNil)
-
-	mongoInfo.Password = ""
-	err = tryOpenState(st.ModelTag(), mongoInfo)
+	// Under mongo 3.2 it's not possible to create collections and
+	// indexes with no user - the localhost exception only permits
+	// creating users. There were some checks for unsetting the
+	// password and then creating the state in an older version of
+	// this test, but they couldn't be made to work with 3.2.
+	err = tryOpenState(st.ModelTag(), &passwordOnlyInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
