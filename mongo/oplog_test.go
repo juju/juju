@@ -115,10 +115,6 @@ type fakeIterator struct {
 	timeout bool
 }
 
-func mkIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
-	return &fakeIterator{docs: docs, err: err}
-}
-
 func (i *fakeIterator) Next(result interface{}) bool {
 	if i.pos >= len(i.docs) {
 		return false
@@ -141,6 +137,10 @@ func (i *fakeIterator) Timeout() bool {
 		return false
 	}
 	return i.timeout
+}
+
+func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
+	return &fakeIterator{docs: docs, err: err}
 }
 
 type fakeSession struct {
@@ -172,15 +172,15 @@ func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIt
 
 func (s *fakeSession) Close() {}
 
-func mkSession(iterators ...*fakeIterator) *fakeSession {
+func newFakeSession(iterators ...*fakeIterator) *fakeSession {
 	return &fakeSession{iterators: iterators}
 }
 
 func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
-	session := mkSession(
+	session := newFakeSession(
 		// First iterator terminates with an ErrCursor
-		mkIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
-		mkIterator(nil, &mongo.OplogDoc{Timestamp: 2, OperationId: 42}),
+		newFakeIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
+		newFakeIterator(nil, &mongo.OplogDoc{Timestamp: 2, OperationId: 42}),
 	)
 	tailer := mongo.NewOplogTailerWithSession(session, time.Time{})
 	defer tailer.Stop()
@@ -215,11 +215,11 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 		Timestamp:   2,
 		OperationId: 42,
 	}
-	session := mkSession(
+	session := newFakeSession(
 		// First block of documents, all time 1
-		mkIterator(nil, docs[:5]...),
+		newFakeIterator(nil, docs[:5]...),
 		// Second block, some time 1, one time 2
-		mkIterator(nil, docs[5:]...),
+		newFakeIterator(nil, docs[5:]...),
 	)
 	tailer := mongo.NewOplogTailerWithSession(session, time.Time{})
 	defer tailer.Stop()
