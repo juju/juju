@@ -280,8 +280,7 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool,
 
 // checkControllerMachineCreds checks the special case of a controller
 // machine creating an API connection for a different model so it can
-// run API workers for that model to do things like provisioning
-// machines.
+// run workers that act on behalf of a hosted model.
 func checkControllerMachineCreds(
 	controllerSt *state.State,
 	req params.LoginRequest,
