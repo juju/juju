@@ -110,10 +110,17 @@ def _clean_dir(maybe_dir):
     try:
         contents = os.listdir(maybe_dir)
     except OSError as e:
-        if e.errno != errno.ENOENT:
+        if e.errno == errno.ENOENT:
+            print("Creating logging directory %s" % maybe_dir)
+            try:
+                os.makedirs(maybe_dir)
+            except OSError as exception:
+                if exception.errno == errno.EEXIST:
+                    print("Failed to create non-existent logging directory. " +
+                          "Please specific empty folder or try again")
+                raise
+        else:
             raise
-        # GZ 2016-03-01: We may want to raise or just create the dir here, but
-        # that confuses expectations of all existing parse_args tests.
     else:
         if contents and contents != ["empty"]:
             warnings.warn("Directory %r has existing contents." % (maybe_dir,))
@@ -295,6 +302,17 @@ def s3_cmd(params, drop_output=False):
     else:
         return subprocess.check_output(command)
 
+def _get_test_name_from_filename():
+    return os.path.splitext(os.path.basename(sys.argv[0]))[0]
+
+def _generate_default_clean_dir():
+    """Creates a new unique directory for logging and returns the name"""
+    timestamp = datetime.now().strftime("_%Y_%m_%d_%H%M%S")
+    return ''.join([_get_test_name_from_filename(), timestamp, '_logs'])
+
+def _generate_default_temp_env_name():
+    """Creates a new unique name for environment and returns the name"""
+    return ''.join([_get_test_name_from_filename(), "_temp_env"])
 
 def add_basic_testing_arguments(parser, using_jes=False):
     """Returns the parser loaded with basic testing arguments.
@@ -302,8 +320,13 @@ def add_basic_testing_arguments(parser, using_jes=False):
     The basic testing arguments, used in conjuction with boot_context ensures
     a test can be run in any supported substrate in parallel.
 
-    This helper adds 4 positional arguments that define the minimum needed
-    to run a test script: env, juju_bin, logs, and temp_env_name.
+    This helper adds 1 positional arguments that defines the minimum needed
+    to run a test script: env.
+
+    In addition, 3 additional positional arguments are defined, but optional.
+    These arguments (juju_bin, logs, temp_env_name) allow you to specify
+    specifics for which juju binary, which folder for logging and an
+    environment name for your test respectively.
 
     There are many optional args that either update the env's config or
     manipulate the juju command line options to test in controlled situations
@@ -315,15 +338,21 @@ def add_basic_testing_arguments(parser, using_jes=False):
     :param using_jes: whether args should be tailored for JES testing.
     """
     # Required positional arguments.
-    parser.add_argument(
-        'env',
+    parser.add_argument('env',
         help='The juju environment to base the temp test environment on.')
-    parser.add_argument(
-        'juju_bin', help='Full path to the Juju binary.')
-    parser.add_argument(
-        'logs', type=_clean_dir, help='A directory in which to store logs.')
-    parser.add_argument(
-        'temp_env_name', help='A temporary test environment name.')
+
+    # Optional postional arguments
+    parser.add_argument('juju_bin', nargs='?',
+                        help='Full path to the Juju binary.',
+                        default='/usr/bin/juju')
+    parser.add_argument('logs',  nargs='?',  type=_clean_dir,
+                        help='A directory in which to store logs.',
+                        default=_generate_default_clean_dir())
+    #_generate_default_temp_env_name()
+    parser.add_argument('temp_env_name', nargs='?',
+                        help='A temporary test environment name.',
+                        default=_generate_default_temp_env_name())
+
     # Optional keyword arguments.
     parser.add_argument('--debug', action='store_true',
                         help='Pass --debug to Juju.')
