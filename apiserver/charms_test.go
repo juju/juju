@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing/factory"
 )
 
 // charmsCommonSuite wraps authHttpSuite and adds
@@ -121,7 +122,7 @@ func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
-func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
+func (s *charmsSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 	// Add a machine and try to login.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -405,6 +406,35 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 		resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 		s.assertGetFileResponse(c, resp, t.response, "text/plain; charset=utf-8")
 	}
+}
+
+func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
+	// Make a controller machine.
+	const nonce = "noncey"
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs:  []state.MachineJob{state.JobManageModel},
+		Nonce: nonce,
+	})
+
+	// Create a hosted model and upload a charm for it.
+	envState := s.setupOtherModel(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
+
+	// Controller machine should be able to download the charm from
+	// the hosted model. This is required for controller workers which
+	// are acting on behalf of a particular hosted model.
+	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
+	params := httpRequestParams{
+		method:   "GET",
+		url:      url.String(),
+		tag:      m.Tag().String(),
+		password: password,
+		nonce:    nonce,
+	}
+	resp := s.sendRequest(c, params)
+	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {

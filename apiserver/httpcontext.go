@@ -64,14 +64,30 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.S
 	}
 	entity, _, err := checkCreds(st, req, true, ctxt.srv.authCtxt)
 	if err != nil {
-		// All errors other than a macaroon-discharge error count as
-		// unauthorized at this point.
-		if !common.IsDischargeRequiredError(err) {
-			err = errors.NewUnauthorized(err, "")
+		if common.IsDischargeRequiredError(err) {
+			return nil, nil, errors.Trace(err)
 		}
-		return nil, nil, errors.Trace(err)
+
+		// Handle the special case of a worker on a controller machine
+		// acting on behalf of a hosted model.
+		if isMachineTag(req.AuthTag) {
+			entity, err := checkControllerMachineCreds(ctxt.srv.state, req, ctxt.srv.authCtxt)
+			if err != nil {
+				return nil, nil, errors.NewUnauthorized(err, "")
+			}
+			return st, entity, nil
+		}
+
+		// Any other error at this point should be treated as
+		// "unauthorized".
+		return nil, nil, errors.Trace(errors.NewUnauthorized(err, ""))
 	}
 	return st, entity, nil
+}
+
+func isMachineTag(tag string) bool {
+	kind, err := names.TagKind(tag)
+	return err == nil && kind == names.MachineTagKind
 }
 
 // checkPermissions verifies that given tag passes authentication check.
