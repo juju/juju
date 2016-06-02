@@ -39,6 +39,7 @@ from utility import (
     is_ipv6_address,
     JujuResourceTimeout,
     pause,
+    print_now,
     quote,
     scoped_environ,
     split_address_port,
@@ -1325,7 +1326,7 @@ class EnvJujuClient:
                         # juju claims HA is ready when the monogo replica sets
                         # are not. Juju is not fully usable. The replica set
                         # lag might be 5 minutes.
-                        reporter.finish()
+                        print_now('\n')
                         self._backend.pause(300)
                         return
                 reporter.update(states)
