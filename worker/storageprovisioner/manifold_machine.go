@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -61,9 +61,9 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 
 // MachineManifold returns a dependency.Manifold that runs a storage provisioner.
 func MachineManifold(config MachineManifoldConfig) dependency.Manifold {
-	typedConfig := util.AgentApiManifoldConfig{
+	typedConfig := engine.AgentApiManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	return util.AgentApiManifold(typedConfig, config.newWorker)
+	return engine.AgentApiManifold(typedConfig, config.newWorker)
 }

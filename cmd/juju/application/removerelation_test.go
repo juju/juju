@@ -61,7 +61,7 @@ func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
 	// Invalid removes.
 	err = runRemoveRelation(c, "ping", "pong")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `service "ping" not found`,
+		Message: `application "ping" not found`,
 		Code:    "not found",
 	})
 	err = runRemoveRelation(c, "riak")

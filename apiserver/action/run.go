@@ -20,7 +20,7 @@ import (
 func getAllUnitNames(st *state.State, units, services []string) (result []names.Tag, err error) {
 	unitsSet := set.NewStrings(units...)
 	for _, name := range services {
-		service, err := st.Service(name)
+		service, err := st.Application(name)
 		if err != nil {
 			return nil, err
 		}

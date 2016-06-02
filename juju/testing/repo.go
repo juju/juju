@@ -28,8 +28,8 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Service, []*state.Relation) {
-	svc, err := s.State.Service(name)
+func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Application, []*state.Relation) {
+	svc, err := s.State.Application(name)
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)

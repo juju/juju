@@ -2590,7 +2590,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddService(state.AddServiceArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch})
+	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
@@ -2604,7 +2604,7 @@ type setServiceExposed struct {
 }
 
 func (sse setServiceExposed) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Service(sse.name)
+	s, err := ctx.st.Application(sse.name)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2622,7 +2622,7 @@ type setServiceCharm struct {
 func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
 	c.Assert(err, jc.ErrorIsNil)
-	s, err := ctx.st.Service(ssc.name)
+	s, err := ctx.st.Application(ssc.name)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := state.SetCharmConfig{Charm: ch}
 	err = s.SetCharm(cfg)
@@ -2648,7 +2648,7 @@ type addUnit struct {
 }
 
 func (au addUnit) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Service(au.serviceName)
+	s, err := ctx.st.Application(au.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2664,7 +2664,7 @@ type addAliveUnit struct {
 }
 
 func (aau addAliveUnit) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Service(aau.serviceName)
+	s, err := ctx.st.Application(aau.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2681,7 +2681,7 @@ type setUnitsAlive struct {
 }
 
 func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Service(sua.serviceName)
+	s, err := ctx.st.Application(sua.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	us, err := s.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2807,7 +2807,7 @@ type ensureDyingService struct {
 }
 
 func (e ensureDyingService) step(c *gc.C, ctx *context) {
-	svc, err := ctx.st.Service(e.serviceName)
+	svc, err := ctx.st.Application(e.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2867,7 +2867,7 @@ type addSubordinate struct {
 func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	eps, err := ctx.st.InferEndpoints(u.ServiceName(), as.subService)
+	eps, err := ctx.st.InferEndpoints(u.ApplicationName(), as.subService)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)

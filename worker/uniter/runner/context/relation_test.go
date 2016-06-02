@@ -19,7 +19,7 @@ import (
 
 type ContextRelationSuite struct {
 	testing.JujuConnSuite
-	svc *state.Service
+	svc *state.Application
 	rel *state.Relation
 	ru  *state.RelationUnit
 

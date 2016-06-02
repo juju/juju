@@ -11,20 +11,20 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apiresumer "github.com/juju/juju/api/resumer"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig util.AgentApiManifoldConfig
+type ManifoldConfig engine.AgentApiManifoldConfig
 
 // Manifold returns a dependency manifold that runs a resumer worker,
 // using the api connection resource named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := util.AgentApiManifoldConfig(config)
-	return util.AgentApiManifold(typedConfig, newWorker)
+	typedConfig := engine.AgentApiManifoldConfig(config)
+	return engine.AgentApiManifold(typedConfig, newWorker)
 }
 
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {

@@ -62,7 +62,7 @@ func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "invalid entity name or password")
+	assertJSONError(c, reader, "tag kind machine not valid")
 	s.assertWebsocketClosed(c, reader)
 }
 

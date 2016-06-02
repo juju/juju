@@ -33,8 +33,8 @@ func (s *ResourcePersistenceSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.base = statetest.NewStubPersistence(s.stub)
-	s.base.ReturnServiceExistsOps = []txn.Op{{
-		C:      "service",
+	s.base.ReturnApplicationExistsOps = []txn.Op{{
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}}
@@ -197,14 +197,14 @@ func (s *ResourcePersistenceSuite) TestStageResourceOkay(c *gc.C) {
 	staged, err := p.StageResource(res.Resource, res.storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-application/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -239,8 +239,8 @@ func (s *ResourcePersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 }
 
 func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
-	servicename := "a-application"
-	res, doc := newPersistenceResource(c, servicename, "spam")
+	applicationname := "a-application"
+	res, doc := newPersistenceResource(c, applicationname, "spam")
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
@@ -252,7 +252,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"One",
 		"Run",
-		"ServiceExistsOps",
+		"ApplicationExistsOps",
 		"RunTransaction",
 	)
 	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
@@ -261,15 +261,15 @@ func (s *ResourcePersistenceSuite) TestSetResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
-	servicename := "a-application"
-	res, doc := newPersistenceResource(c, servicename, "spam")
+	applicationname := "a-application"
+	res, doc := newPersistenceResource(c, applicationname, "spam")
 	s.base.ReturnOne = doc
 	expected := doc // a copy
 	expected.StoragePath = ""
@@ -284,7 +284,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 	s.stub.CheckCallNames(c,
 		"One",
 		"Run",
-		"ServiceExistsOps",
+		"ApplicationExistsOps",
 		"RunTransaction",
 	)
 	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
@@ -293,7 +293,7 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &expected,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -301,8 +301,8 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 
 func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	lastPolled := time.Now().UTC()
-	servicename := "a-application"
-	res, doc := newPersistenceResource(c, servicename, "spam")
+	applicationname := "a-application"
+	res, doc := newPersistenceResource(c, applicationname, "spam")
 	expected := doc // a copy
 	expected.DocID += "#charmstore"
 	expected.Username = ""
@@ -313,12 +313,12 @@ func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, nil, ignoredErr)
 
-	err := p.SetCharmStoreResource(res.ID, res.ServiceID, res.Resource.Resource, lastPolled)
+	err := p.SetCharmStoreResource(res.ID, res.ApplicationID, res.Resource.Resource, lastPolled)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c,
 		"Run",
-		"ServiceExistsOps",
+		"ApplicationExistsOps",
 		"RunTransaction",
 	)
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
@@ -327,16 +327,16 @@ func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &expected,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
-	servicename := "a-application"
+	applicationname := "a-application"
 	unitname := "a-application/0"
-	res, doc := newPersistenceUnitResource(c, servicename, unitname, "eggs")
+	res, doc := newPersistenceUnitResource(c, applicationname, unitname, "eggs")
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 	ignoredErr := errors.New("<never reached>")
@@ -345,23 +345,23 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceOkay(c *gc.C) {
 	err := p.SetUnitResource("a-application/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One", "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "One", "Run", "ApplicationExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-application/eggs#unit-a-application/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
 }
 
 func (s *ResourcePersistenceSuite) TestSetUnitResourceNotFound(c *gc.C) {
-	servicename := "a-application"
+	applicationname := "a-application"
 	unitname := "a-application/0"
-	res, _ := newPersistenceUnitResource(c, servicename, unitname, "eggs")
+	res, _ := newPersistenceUnitResource(c, applicationname, unitname, "eggs")
 	p := NewResourcePersistence(s.base)
 	notFound := errors.NewNotFound(nil, "")
 	s.stub.SetErrors(notFound)
@@ -383,14 +383,14 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 	err := p.SetUnitResource("a-application/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One", "Run", "ServiceExistsOps", "RunTransaction", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "One", "Run", "ApplicationExistsOps", "RunTransaction", "ApplicationExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-application/spam#unit-a-application/0",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -405,7 +405,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -426,9 +426,9 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 }
 
 func (s *ResourcePersistenceSuite) TestSetUnitResourceProgress(c *gc.C) {
-	servicename := "a-application"
+	applicationname := "a-application"
 	unitname := "a-application/0"
-	res, doc := newPersistenceUnitResource(c, servicename, unitname, "eggs")
+	res, doc := newPersistenceUnitResource(c, applicationname, unitname, "eggs")
 	s.base.ReturnOne = doc
 	pendingID := "<a pending ID>"
 	res.PendingID = pendingID
@@ -443,14 +443,14 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceProgress(c *gc.C) {
 	err := p.SetUnitResourceProgress("a-application/0", res, progress)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "One", "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "One", "Run", "ApplicationExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 3, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-application/eggs#unit-a-application/0",
 		Assert: txn.DocMissing,
 		Insert: &expected,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -613,9 +613,9 @@ func newPersistenceResource(c *gc.C, serviceID, name string) (storedResource, re
 	}
 
 	doc := resourceDoc{
-		DocID:     "resource#" + res.ID,
-		ID:        res.ID,
-		ServiceID: res.ServiceID,
+		DocID:         "resource#" + res.ID,
+		ID:            res.ID,
+		ApplicationID: res.ApplicationID,
 
 		Name:        res.Name,
 		Type:        res.Type.String(),

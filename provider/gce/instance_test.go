@@ -49,7 +49,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
-	err := s.Instance.OpenPorts("spam", s.Ports)
+	err := s.Instance.OpenPorts("42", s.Ports)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -59,7 +59,7 @@ func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
 }
 
 func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
-	err := s.Instance.ClosePorts("spam", s.Ports)
+	err := s.Instance.ClosePorts("42", s.Ports)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -71,14 +71,14 @@ func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
 func (s *instanceSuite) TestPorts(c *gc.C) {
 	s.FakeConn.PortRanges = s.Ports
 
-	ports, err := s.Instance.Ports("spam")
+	ports, err := s.Instance.Ports("42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ports, jc.DeepEquals, s.Ports)
 }
 
 func (s *instanceSuite) TestPortsAPI(c *gc.C) {
-	_, err := s.Instance.Ports("spam")
+	_, err := s.Instance.Ports("42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)

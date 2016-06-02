@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -1040,7 +1041,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
 	}}
-	result, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	result, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1228,7 +1230,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		MTU:               1500,
 		GatewayAddress:    network.NewAddressOnSpace("freckles", "192.168.1.1"),
 	}}
-	result, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	result, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1239,7 +1242,8 @@ func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, c
 	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 }
 
@@ -1294,7 +1298,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	prepared := []network.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
 	}
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -1328,12 +1333,14 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	prepared := []network.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 	}
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	args := getArgs(c, machine.Calls())
 	maasArgs, ok := args.(gomaasapi.CreateMachineDeviceArgs)
 	c.Assert(ok, jc.IsTrue)
 	expected := gomaasapi.CreateMachineDeviceArgs{
+		Hostname:      "juju-06f00d-1-lxd-0",
 		Subnet:        subnet,
 		MACAddress:    "DEADBEEF",
 		InterfaceName: "eth0",
@@ -1369,7 +1376,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMis
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "NIC eth1 subnet 10.20.20.0/24 not found")
 }
 
@@ -1405,7 +1413,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "creating device interface: boom")
 	args := getArgs(c, device.Calls())
 	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
@@ -1452,7 +1461,8 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), prepared)
+	ignored := names.NewMachineTag("1/lxd/0")
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, "cannot link device interface to subnet: boom")
 	args := getArgs(c, interface_.Calls())
 	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)

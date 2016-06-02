@@ -3,12 +3,8 @@
 
 package metricworker
 
-import (
-	"github.com/juju/testing"
+var (
+	NewCleanup        = newCleanup
+	NewSender         = newSender
+	NewMetricsManager = newMetricsManager
 )
-
-// PatchNotificationChannel sets the notify channel which can be used
-// in tests to know that a particular worker has called its work function.
-func PatchNotificationChannel(n chan string) func() {
-	return testing.PatchValue(&notify, n)
-}

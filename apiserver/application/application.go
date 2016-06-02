@@ -70,7 +70,7 @@ func (api *API) SetMetricCredentials(args params.ApplicationMetricCredentials) (
 		return result, nil
 	}
 	for i, a := range args.Creds {
-		application, err := api.state.Service(a.ApplicationName)
+		application, err := api.state.Application(a.ApplicationName)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -179,7 +179,7 @@ func deployApplication(st *state.State, owner string, args params.ApplicationDep
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
 // taking the configuration from a map of strings.
-func ApplicationSetSettingsStrings(application *state.Service, settings map[string]string) error {
+func ApplicationSetSettingsStrings(application *state.Application, settings map[string]string) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -234,7 +234,7 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 			return errors.Trace(err)
 		}
 	}
-	svc, err := api.state.Service(args.ApplicationName)
+	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -278,7 +278,7 @@ func (api *API) SetCharm(args params.ApplicationSetCharm) error {
 			return errors.Trace(err)
 		}
 	}
-	application, err := api.state.Service(args.ApplicationName)
+	application, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -287,7 +287,7 @@ func (api *API) SetCharm(args params.ApplicationSetCharm) error {
 }
 
 // applicationSetCharm sets the charm for the given for the application.
-func (api *API) applicationSetCharm(application *state.Service, url string, channel csparams.Channel, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
+func (api *API) applicationSetCharm(application *state.Application, url string, channel csparams.Channel, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
@@ -336,7 +336,7 @@ func settingsFromGetYaml(yamlContents map[string]interface{}) (charm.Settings, e
 
 // applicationSetSettingsYAML updates the settings for the given application,
 // taking the configuration from a YAML string.
-func applicationSetSettingsYAML(application *state.Service, settings string) error {
+func applicationSetSettingsYAML(application *state.Application, settings string) error {
 	b := []byte(settings)
 	var all map[string]interface{}
 	if err := goyaml.Unmarshal(b, &all); err != nil {
@@ -366,7 +366,7 @@ func applicationSetSettingsYAML(application *state.Service, settings string) err
 // GetCharmURL returns the charm URL the given application is
 // running at present.
 func (api *API) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
-	application, err := api.state.Service(args.ApplicationName)
+	application, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return params.StringResult{}, err
 	}
@@ -381,7 +381,7 @@ func (api *API) Set(p params.ApplicationSet) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Service(p.ApplicationName)
+	svc, err := api.state.Application(p.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -404,7 +404,7 @@ func (api *API) Unset(p params.ApplicationUnset) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Service(p.ApplicationName)
+	svc, err := api.state.Application(p.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -418,7 +418,7 @@ func (api *API) Unset(p params.ApplicationUnset) error {
 // CharmRelations implements the server side of Application.CharmRelations.
 func (api *API) CharmRelations(p params.ApplicationCharmRelations) (params.ApplicationCharmRelationsResults, error) {
 	var results params.ApplicationCharmRelationsResults
-	application, err := api.state.Service(p.ApplicationName)
+	application, err := api.state.Application(p.ApplicationName)
 	if err != nil {
 		return results, err
 	}
@@ -439,7 +439,7 @@ func (api *API) Expose(args params.ApplicationExpose) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Service(args.ApplicationName)
+	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -452,7 +452,7 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Service(args.ApplicationName)
+	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -461,7 +461,7 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 
 // addApplicationUnits adds a given number of units to an application.
 func addApplicationUnits(st *state.State, args params.AddApplicationUnits) ([]*state.Unit, error) {
-	application, err := st.Service(args.ApplicationName)
+	application, err := st.Application(args.ApplicationName)
 	if err != nil {
 		return nil, err
 	}
@@ -518,7 +518,7 @@ func (api *API) Destroy(args params.ApplicationDestroy) error {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Service(args.ApplicationName)
+	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -527,7 +527,7 @@ func (api *API) Destroy(args params.ApplicationDestroy) error {
 
 // GetConstraints returns the constraints for a given application.
 func (api *API) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
-	svc, err := api.state.Service(args.ApplicationName)
+	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
@@ -540,7 +540,7 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Service(args.ApplicationName)
+	svc, err := api.state.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -562,11 +562,11 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	}
 	outEps := make(map[string]charm.Relation)
 	for _, inEp := range inEps {
-		outEp, err := rel.Endpoint(inEp.ServiceName)
+		outEp, err := rel.Endpoint(inEp.ApplicationName)
 		if err != nil {
 			return params.AddRelationResults{}, err
 		}
-		outEps[inEp.ServiceName] = outEp.Relation
+		outEps[inEp.ApplicationName] = outEp.Relation
 	}
 	return params.AddRelationResults{Endpoints: outEps}, nil
 }

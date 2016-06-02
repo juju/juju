@@ -54,7 +54,7 @@ func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) 
 	return nil
 }
 
-func newResourceResult(c *gc.C, serviceID string, names ...string) ([]resource.Resource, api.ResourcesResult) {
+func newResourceResult(c *gc.C, applicationID string, names ...string) ([]resource.Resource, api.ResourcesResult) {
 	var resources []resource.Resource
 	var apiResult api.ResourcesResult
 	for _, name := range names {
@@ -88,10 +88,10 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, api.R
 			Fingerprint: res.Fingerprint.Bytes(),
 			Size:        res.Size,
 		},
-		ID:        res.ID,
-		ServiceID: res.ServiceID,
-		Username:  username,
-		Timestamp: res.Timestamp,
+		ID:            res.ID,
+		ApplicationID: res.ApplicationID,
+		Username:      username,
+		Timestamp:     res.Timestamp,
 	}
 
 	return res, apiRes
@@ -126,7 +126,7 @@ func newStubFacade(c *gc.C, stub *testing.Stub) *stubFacade {
 				apiResult, ok := s.apiResults[service]
 				if !ok {
 					apiResult.Error = &params.Error{
-						Message: fmt.Sprintf("service %q not found", service),
+						Message: fmt.Sprintf("application %q not found", service),
 						Code:    params.CodeNotFound,
 					}
 				}

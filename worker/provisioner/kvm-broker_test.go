@@ -96,7 +96,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -169,7 +169,7 @@ func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -182,7 +182,7 @@ func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
 		FuncName: "PrepareContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -197,7 +197,7 @@ func (s *kvmBrokerSuite) TestMaintainInstance(c *gc.C) {
 		FuncName: "GetContainerInterfaceInfo",
 		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
 	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -208,7 +208,7 @@ func (s *kvmBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) 
 
 	s.maintainInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-machine-1-kvm-0"))
+	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
 	s.assertInstances(c, kvm)
 }
 
@@ -368,7 +368,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig, false)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)

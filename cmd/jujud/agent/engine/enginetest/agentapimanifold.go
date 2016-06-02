@@ -1,13 +1,13 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package enginetest
 
 import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -15,8 +15,8 @@ import (
 
 // AgentApiManifoldTestConfig returns a AgentApiManifoldConfig
 // suitable for use with RunAgentApiManifold.
-func AgentApiManifoldTestConfig() util.AgentApiManifoldConfig {
-	return util.AgentApiManifoldConfig{
+func AgentApiManifoldTestConfig() engine.AgentApiManifoldConfig {
+	return engine.AgentApiManifoldConfig{
 		AgentName:     "agent-name",
 		APICallerName: "api-caller-name",
 	}

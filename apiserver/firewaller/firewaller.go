@@ -325,14 +325,14 @@ func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Service, error) {
+func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
 	}
 	// The authorization function guarantees that the tag represents a
 	// service.
-	return entity.(*state.Service), nil
+	return entity.(*state.Application), nil
 }
 
 func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {

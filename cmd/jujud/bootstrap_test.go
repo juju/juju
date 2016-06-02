@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -75,7 +75,7 @@ type BootstrapSuite struct {
 	dataDir                      string
 	logDir                       string
 	mongoOplogSize               string
-	fakeEnsureMongo              *agenttesting.FakeEnsureMongo
+	fakeEnsureMongo              *agenttest.FakeEnsureMongo
 	bootstrapName                string
 	hostedModelUUID              string
 
@@ -116,7 +116,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
-	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.

@@ -256,11 +256,11 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 // The provided machineTag must be the tag for the machine the unit was last
 // observed to be assigned to.
 func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineTag) error {
-	service, err := unit.Application()
+	application, err := unit.Application()
 	if err != nil {
 		return err
 	}
-	applicationTag := service.Tag()
+	applicationTag := application.Tag()
 	unitTag := unit.Tag()
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	unitd.machined = fw.machineds[machineTag]
 	unitd.machined.unitds[unitTag] = unitd
 	if fw.applicationids[applicationTag] == nil {
-		err := fw.startService(service)
+		err := fw.startService(application)
 		if err != nil {
 			delete(fw.unitds, unitTag)
 			return err

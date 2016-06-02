@@ -25,7 +25,7 @@ import (
 
 type AssignSuite struct {
 	ConnSuite
-	wordpress *state.Service
+	wordpress *state.Application
 }
 
 var _ = gc.Suite(&AssignSuite{})
@@ -675,7 +675,7 @@ func assertMachineCount(c *gc.C, st *state.State, expect int) {
 type assignCleanSuite struct {
 	ConnSuite
 	policy    state.AssignmentPolicy
-	wordpress *state.Service
+	wordpress *state.Application
 }
 
 var _ = gc.Suite(&assignCleanSuite{ConnSuite{}, state.AssignCleanEmpty, nil})
@@ -1004,7 +1004,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
 	c.Assert(assignedTo.Id(), gc.Equals, "0")
 }
 
-func (s *assignCleanSuite) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {
+func (s *assignCleanSuite) setupSingleStorage(c *gc.C, kind, pool string) (*state.Application, *state.Unit, names.StorageTag) {
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)

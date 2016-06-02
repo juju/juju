@@ -125,7 +125,7 @@ func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
 	container.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary("2.0.5-trusty-amd64"),
 	})
-	application := model.AddService(description.ServiceArgs{
+	application := model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
@@ -162,11 +162,11 @@ func (s *ImportSuite) TestStreamCharmsTools(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Owner: names.NewUserTag("me"),
 	})
-	model.AddService(description.ServiceArgs{
+	model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
-	model.AddService(description.ServiceArgs{
+	model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "cs:trusty/postgresql-42",
 	})

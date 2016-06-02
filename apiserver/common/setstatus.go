@@ -82,7 +82,7 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		service, err := s.st.Service(serviceId)
+		service, err := s.st.Application(serviceId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
@@ -140,7 +140,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 		return err
 	}
 	switch entity := entity.(type) {
-	case *state.Service:
+	case *state.Application:
 		return ErrPerm
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{

@@ -15,12 +15,3 @@ import "fmt"
 func EnvFullName(modelUUID string) string {
 	return fmt.Sprintf("juju-%s", modelUUID)
 }
-
-// MachineFullName returns a string based on the provided model
-// UUID and machine ID that is suitable for identifying instances
-// on a provider. See EnvFullName for an explanation on how this
-// function helps juju users.
-func MachineFullName(modelUUID, machineID string) string {
-	modelstr := EnvFullName(modelUUID)
-	return fmt.Sprintf("%s-machine-%s", modelstr, machineID)
-}

@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/metricsmanager"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig describes the resources used by metrics workers.
-type ManifoldConfig util.ApiManifoldConfig
+type ManifoldConfig engine.ApiManifoldConfig
 
 // Manifold returns a Manifold that encapsulates various metrics workers.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return util.ApiManifold(
-		util.ApiManifoldConfig(config),
+	return engine.ApiManifold(
+		engine.ApiManifoldConfig(config),
 		manifoldStart,
 	)
 }
@@ -30,7 +30,7 @@ func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := NewMetricsManager(client)
+	w, err := newMetricsManager(client, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

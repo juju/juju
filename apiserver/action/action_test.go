@@ -39,9 +39,9 @@ type actionSuite struct {
 	charm         *state.Charm
 	machine0      *state.Machine
 	machine1      *state.Machine
-	dummy         *state.Service
-	wordpress     *state.Service
-	mysql         *state.Service
+	dummy         *state.Application
+	wordpress     *state.Application
+	mysql         *state.Application
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
 }
@@ -66,14 +66,14 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress",
 	})
 
-	s.dummy = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.dummy = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name: "dummy",
 		Charm: factory.MakeCharm(c, &jujuFactory.CharmParams{
 			Name: "dummy",
 		}),
 		Creator: s.AdminUserTag(c),
 	})
-	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "wordpress",
 		Charm:   s.charm,
 		Creator: s.AdminUserTag(c),
@@ -83,14 +83,14 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.wordpress,
-		Machine: s.machine0,
+		Application: s.wordpress,
+		Machine:     s.machine0,
 	})
 
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
 		Creator: s.AdminUserTag(c),
@@ -100,8 +100,8 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine1,
+		Application: s.mysql,
+		Machine:     s.machine1,
 	})
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -190,8 +190,8 @@ func (s *actionSuite) TestFindActionsByName(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	dummyUnit := s.JujuConnSuite.Factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.dummy,
-		Machine: machine,
+		Application: s.dummy,
+		Machine:     machine,
 	})
 	// NOTE: full testing with multiple matches has been moved to state package.
 	arg := params.Actions{Actions: []params.Action{
@@ -699,7 +699,7 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 				{
 					ApplicationTag: names.NewApplicationTag("nonsense").String(),
 					Error: &params.Error{
-						Message: `service "nonsense" not found`,
+						Message: `application "nonsense" not found`,
 						Code:    "not found",
 					},
 				},

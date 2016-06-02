@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -33,18 +33,18 @@ func (config FlagManifoldConfig) start(context dependency.Context) (worker.Worke
 
 }
 
-// FlagManifold runs a worker that implements util.Flag such that
+// FlagManifold runs a worker that implements engine.Flag such that
 // it's only considered set when the referenced gate is unlocked.
 func FlagManifold(config FlagManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.GateName},
 		Start:  config.start,
-		Output: util.FlagOutput,
+		Output: engine.FlagOutput,
 		Filter: bounceUnlocked,
 	}
 }
 
-// NewFlag returns a worker that implements util.Flag,
+// NewFlag returns a worker that implements engine.Flag,
 // backed by the supplied gate's unlockedness.
 func NewFlag(gate Waiter) (*Flag, error) {
 	w := &Flag{
@@ -58,7 +58,7 @@ func NewFlag(gate Waiter) (*Flag, error) {
 	return w, nil
 }
 
-// Flag uses a gate to implement util.Flag.
+// Flag uses a gate to implement engine.Flag.
 type Flag struct {
 	tomb     tomb.Tomb
 	gate     Waiter
@@ -75,7 +75,7 @@ func (w *Flag) Wait() error {
 	return w.tomb.Wait()
 }
 
-// Check is part of the util.Flag interface.
+// Check is part of the engine.Flag interface.
 func (w *Flag) Check() bool {
 	return w.unlocked
 }

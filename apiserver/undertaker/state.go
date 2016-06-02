@@ -35,7 +35,7 @@ type State interface {
 	AllMachines() ([]Machine, error)
 
 	// AllApplications returns all deployed services in the model.
-	AllServices() ([]Service, error)
+	AllApplications() ([]Service, error)
 
 	// ModelConfig retrieves the model configuration.
 	ModelConfig() (*config.Config, error)
@@ -66,8 +66,8 @@ type Machine interface {
 	Watch() state.NotifyWatcher
 }
 
-func (s *stateShim) AllServices() ([]Service, error) {
-	stateServices, err := s.State.AllServices()
+func (s *stateShim) AllApplications() ([]Service, error) {
+	stateServices, err := s.State.AllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

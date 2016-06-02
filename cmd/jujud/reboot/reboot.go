@@ -76,12 +76,10 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 
 func (r *Reboot) runningContainers() ([]instance.Instance, error) {
 	var runningInstances []instance.Instance
-
+	modelUUID := r.acfg.Model().Id()
 	for _, val := range instance.ContainerTypes {
-		managerConfig := container.ManagerConfig{container.ConfigName: container.DefaultNamespace}
-		if namespace := r.acfg.Value(agent.Namespace); namespace != "" {
-			managerConfig[container.ConfigName] = namespace
-		}
+		managerConfig := container.ManagerConfig{
+			container.ConfigModelUUID: modelUUID}
 		cfg := container.ManagerConfig(managerConfig)
 		manager, err := factory.NewContainerManager(val, cfg, nil)
 		if err != nil {

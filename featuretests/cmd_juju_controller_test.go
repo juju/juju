@@ -67,11 +67,11 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
-	expectedOutput := fmt.Sprintf(`
-CONTROLLER  MODEL  USER         SERVER
-kontroll*   admin  admin@local  %s
+	expectedOutput := `
+CONTROLLER  MODEL  USER         CLOUD/REGION
+kontroll*   admin  admin@local  dummy
 
-`[1:], s.APIState.Addr())
+`[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
 }
 
@@ -177,7 +177,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"controller": true},
 	})
 	defer st.Close()
-	factory.NewFactory(st).MakeService(c, nil)
+	factory.NewFactory(st).MakeApplication(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})

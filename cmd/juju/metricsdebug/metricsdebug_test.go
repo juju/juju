@@ -89,9 +89,9 @@ func (s *DebugMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
 
 func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
 	metricA := state.Metric{"pings", "5", newTime}
 	metricB := state.Metric{"pings", "10.5", newTime}
@@ -111,9 +111,9 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 
 func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
 	metricA := state.Metric{"pings", "5", newTime}
 	metricB := state.Metric{"pings", "10.5", newTime}
@@ -133,9 +133,9 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoption(c *gc.C) {
 
 func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
 	metricA := state.Metric{"pings", "5", newTime}
 	metricB := state.Metric{"pings", "10.5", newTime}
@@ -156,8 +156,8 @@ func (s *DebugMetricsCommandSuite) TestServiceWithNoptionGreaterThanMetricCount(
 
 func (s *DebugMetricsCommandSuite) TestNoMetrics(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	ctx, err := coretesting.RunCommand(c, metricsdebug.New(), "metered", "-n", "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
@@ -165,8 +165,8 @@ func (s *DebugMetricsCommandSuite) TestNoMetrics(c *gc.C) {
 
 func (s *DebugMetricsCommandSuite) TestUnitJsonOutput(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
 	metricA := state.Metric{"pings", "5", newTime}
 	metricB := state.Metric{"pings", "10.5", newTime}

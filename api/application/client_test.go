@@ -68,7 +68,7 @@ func (s *serviceSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 }
 
 func (s *serviceSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
-	application := s.Factory.MakeService(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	err := s.client.SetMetricCredentials(application.Name(), []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.Refresh()

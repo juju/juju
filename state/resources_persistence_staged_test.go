@@ -27,8 +27,8 @@ func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.base = statetest.NewStubPersistence(s.stub)
-	s.base.ReturnServiceExistsOps = []txn.Op{{
-		C:      "service",
+	s.base.ReturnApplicationExistsOps = []txn.Op{{
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}}
@@ -55,14 +55,14 @@ func (s *StagedResourceSuite) TestStageOkay(c *gc.C) {
 	err := staged.stage()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-application/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -77,14 +77,14 @@ func (s *StagedResourceSuite) TestStageExists(c *gc.C) {
 	err := staged.stage()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "RunTransaction", "ServiceExistsOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "RunTransaction", "ApplicationExistsOps", "RunTransaction")
 	s.stub.CheckCall(c, 2, "RunTransaction", []txn.Op{{
 		C:      "resources",
 		Id:     "resource#a-application/spam#staged",
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -93,7 +93,7 @@ func (s *StagedResourceSuite) TestStageExists(c *gc.C) {
 		Id:     "resource#a-application/spam#staged",
 		Assert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}})
@@ -123,7 +123,7 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
 	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-application")
 	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
@@ -131,7 +131,7 @@ func (s *StagedResourceSuite) TestActivateOkay(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
@@ -149,7 +149,7 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 	err := staged.Activate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.stub.CheckCallNames(c, "Run", "ServiceExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction", "ServiceExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
+	s.stub.CheckCallNames(c, "Run", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction", "ApplicationExistsOps", "One", "IncCharmModifiedVersionOps", "RunTransaction")
 	s.stub.CheckCall(c, 3, "IncCharmModifiedVersionOps", "a-application")
 	s.stub.CheckCall(c, 4, "RunTransaction", []txn.Op{{
 		C:      "resources",
@@ -157,7 +157,7 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {
@@ -177,7 +177,7 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}, {
-		C:      "service",
+		C:      "application",
 		Id:     "a-application",
 		Assert: txn.DocExists,
 	}, {

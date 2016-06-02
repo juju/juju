@@ -39,13 +39,13 @@ func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 
 func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	testService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: testCharm})
-	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: testService, SetCharmURL: true})
-	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: testService, SetCharmURL: true})
+	testService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: testCharm})
+	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testService, SetCharmURL: true})
+	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testService, SetCharmURL: true})
 
 	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	csService := s.Factory.MakeService(c, &factory.ServiceParams{Name: "cs-service", Charm: csCharm})
-	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: csService, SetCharmURL: true})
+	csService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "cs-service", Charm: csCharm})
+	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: csService, SetCharmURL: true})
 
 	tests := []struct {
 		about  string
@@ -152,7 +152,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 		},
 		assert: func(c *gc.C, results params.ErrorResults) {
 			err := results.OneError()
-			c.Assert(err, gc.DeepEquals, &params.Error{Message: "service \"missing\" not found", Code: "not found"})
+			c.Assert(err, gc.DeepEquals, &params.Error{Message: "application \"missing\" not found", Code: "not found"})
 		},
 	},
 	}
@@ -171,8 +171,8 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 
 func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime := time.Now().Round(time.Second)
 	metricA := state.Metric{"pings", "5", newTime}
 	metricB := state.Metric{"pings", "10.5", newTime}
@@ -209,11 +209,11 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 
 	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit: unit0,
@@ -246,11 +246,11 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithService(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 
 	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit: unit0,

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -30,7 +30,7 @@ import (
 // tests with more detailed testing of the individual components
 // being done in unit tests.
 type dblogSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 func (s *dblogSuite) SetUpTest(c *gc.C) {
@@ -112,7 +112,7 @@ func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
 // debugLogDbSuite tests that the debuglog API works when logs are
 // being read from the database.
 type debugLogDbSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 var _ = gc.Suite(&debugLogDbSuite{})

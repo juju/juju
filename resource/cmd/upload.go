@@ -55,11 +55,11 @@ func NewUploadCommand(deps UploadDeps) *UploadCommand {
 func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "attach",
-		Args:    "service name=file",
-		Purpose: "upload a file as a resource for a service",
+		Args:    "application name=file",
+		Purpose: "upload a file as a resource for an application",
 		Doc: `
 This command uploads a file from your local disk to the juju controller to be
-used as a resource for a service.
+used as a resource for an application.
 `,
 	}
 }
@@ -69,14 +69,14 @@ used as a resource for a service.
 func (c *UploadCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.BadRequestf("missing service name")
+		return errors.BadRequestf("missing application name")
 	case 1:
 		return errors.BadRequestf("no resource specified")
 	}
 
 	service := args[0]
 	if service == "" { // TODO(ericsnow) names.IsValidApplication
-		return errors.NewNotValid(nil, "missing service name")
+		return errors.NewNotValid(nil, "missing application name")
 	}
 	c.service = service
 
@@ -121,7 +121,7 @@ func (c *UploadCommand) Run(*cmd.Context) error {
 }
 
 // upload opens the given file and calls the apiclient to upload it to the given
-// service with the given name.
+// application with the given name.
 func (c *UploadCommand) upload(rf resourceFile, client UploadClient) error {
 	f, err := c.deps.OpenResource(rf.filename)
 	if err != nil {

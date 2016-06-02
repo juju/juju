@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/uniter"
 )
 
 var (
@@ -120,49 +119,15 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	agentConfig := a.CurrentConfig()
-
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
 
-	// Sometimes there are upgrade steps that are needed for each unit.
-	// There are plans afoot to unify the unit and machine agents. When
-	// this happens, there will be a simple helper function for the upgrade
-	// steps to run something for each unit on the machine. Until then, we
-	// need to have the uniter do it, as the overhead of getting a full
-	// upgrade process in the unit agent out weights the current benefits.
-	// So.. since the upgrade steps are all idempotent, we will just call
-	// the upgrade steps when we start the uniter. To be clear, these
-	// should move back to the upgrade package when we do unify the agents.
-	runUpgrades(agentConfig.Tag(), agentConfig.DataDir())
-
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := cmdutil.AgentDone(logger, a.runner.Wait())
 	a.tomb.Kill(err)
 	return err
-}
-
-// runUpgrades is a temporary fix to deal with upgrade steps that need
-// to be run for each unit. This function cannot fail. Errors in the
-// upgrade steps are logged, but the uniter will attempt to continue.
-// Worst case, we are no worse off than we are today, best case, things
-// actually work properly. Only simple upgrade steps that don't use the API
-// are available now. If we need really complex steps using the API, there
-// should be significant steps to unify the agents first.
-func runUpgrades(tag names.Tag, dataDir string) {
-	unitTag, ok := tag.(names.UnitTag)
-	if !ok {
-		logger.Errorf("unit agent tag not a unit tag: %v", tag)
-		return
-	}
-	if err := uniter.AddStoppedFieldToUniterState(unitTag, dataDir); err != nil {
-		logger.Errorf("Upgrade step failed - add Stopped field to uniter state: %v", err)
-	}
-	if err := uniter.AddInstalledToUniterState(unitTag, dataDir); err != nil {
-		logger.Errorf("Upgrade step failed - installed boolean needs to be set in the uniter local state: %v", err)
-	}
 }
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.

@@ -245,7 +245,7 @@ func (c *SSHCommon) setProxyCommand(options *ssh.Options) error {
 		"--proxy=false",
 		"--no-host-key-checks",
 		"--pty=false",
-		apiServerHost,
+		"ubuntu@"+apiServerHost,
 		"-q",
 		"nc %h %p",
 	)

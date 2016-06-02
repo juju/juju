@@ -68,8 +68,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.docType = reflect.TypeOf(backingMachine{})
 		case unitsC:
 			collection.docType = reflect.TypeOf(backingUnit{})
-		case servicesC:
-			collection.docType = reflect.TypeOf(backingService{})
+		case applicationsC:
+			collection.docType = reflect.TypeOf(backingApplication{})
 		case actionsC:
 			collection.docType = reflect.TypeOf(backingAction{})
 		case relationsC:
@@ -277,7 +277,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 	info := &multiwatcher.UnitInfo{
 		ModelUUID:   st.ModelUUID(),
 		Name:        u.Name,
-		Service:     u.Service,
+		Application: u.Application,
 		Series:      u.Series,
 		MachineId:   u.MachineId,
 		Subordinate: u.Principal != "",
@@ -372,9 +372,9 @@ func (u *backingUnit) mongoId() string {
 	return u.DocID
 }
 
-type backingService serviceDoc
+type backingApplication applicationDoc
 
-func (svc *backingService) updated(st *State, store *multiwatcherStore, id string) error {
+func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id string) error {
 	if svc.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
@@ -382,7 +382,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info := &multiwatcher.ServiceInfo{
+	info := &multiwatcher.ApplicationInfo{
 		ModelUUID:   st.ModelUUID(),
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
@@ -395,8 +395,8 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false
 	if oldInfo == nil {
-		logger.Debugf("new service %q added to backing state", svc.Name)
-		key := serviceGlobalKey(svc.Name)
+		logger.Debugf("new application %q added to backing state", svc.Name)
+		key := applicationGlobalKey(svc.Name)
 		// We're adding the entry for the first time,
 		// so fetch the associated child documents.
 		c, err := readConstraints(st, key)
@@ -406,26 +406,26 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		info.Constraints = c
 		needConfig = true
 		// Fetch the status.
-		service, err := st.Service(svc.Name)
+		application, err := st.Application(svc.Name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		serviceStatus, err := service.Status()
+		applicationStatus, err := application.Status()
 		if err != nil {
-			return errors.Annotatef(err, "reading service status for key %s", key)
+			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
 		if err == nil {
 			info.Status = multiwatcher.StatusInfo{
-				Current: serviceStatus.Status,
-				Message: serviceStatus.Message,
-				Data:    normaliseStatusData(serviceStatus.Data),
-				Since:   serviceStatus.Since,
+				Current: applicationStatus.Status,
+				Message: applicationStatus.Message,
+				Data:    normaliseStatusData(applicationStatus.Data),
+				Since:   applicationStatus.Since,
 			}
 		} else {
 			// TODO(wallyworld) - bug http://pad.lv/1451283
 			// return an error here once we figure out what's happening
 			// Not sure how status can even return NotFound as it is created
-			// with the service initially. For now, we'll log the error as per
+			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			now := time.Now()
@@ -437,7 +437,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*multiwatcher.ServiceInfo)
+		oldInfo := oldInfo.(*multiwatcher.ApplicationInfo)
 		info.Constraints = oldInfo.Constraints
 		if info.CharmURL == oldInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
@@ -450,7 +450,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 		}
 	}
 	if needConfig {
-		doc, err := readSettingsDoc(st, serviceSettingsKey(svc.Name, svc.CharmURL))
+		doc, err := readSettingsDoc(st, applicationSettingsKey(svc.Name, svc.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -460,9 +460,9 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id strin
 	return nil
 }
 
-func (svc *backingService) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+func (svc *backingApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
 	store.Remove(multiwatcher.EntityId{
-		Kind:      "service",
+		Kind:      "application",
 		ModelUUID: modelUUID,
 		Id:        id,
 	})
@@ -471,14 +471,14 @@ func (svc *backingService) removed(store *multiwatcherStore, modelUUID, id strin
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-func (svc *backingService) fixOwnerTag(env *Model) string {
+func (svc *backingApplication) fixOwnerTag(env *Model) string {
 	if svc.OwnerTag != "" {
 		return svc.OwnerTag
 	}
 	return env.Owner().String()
 }
 
-func (svc *backingService) mongoId() string {
+func (svc *backingApplication) mongoId() string {
 	return svc.DocID
 }
 
@@ -521,8 +521,8 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 	eps := make([]multiwatcher.Endpoint, len(r.Endpoints))
 	for i, ep := range r.Endpoints {
 		eps[i] = multiwatcher.Endpoint{
-			ServiceName: ep.ServiceName,
-			Relation:    ep.Relation,
+			ApplicationName: ep.ApplicationName,
+			Relation:        ep.Relation,
 		}
 	}
 	info := &multiwatcher.RelationInfo{
@@ -628,7 +628,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 			return err
 		}
 		info0 = &newInfo
-	case *multiwatcher.ServiceInfo:
+	case *multiwatcher.ApplicationInfo:
 		newInfo := *info
 		newInfo.Status.Current = s.Status
 		newInfo.Status.Message = s.StatusInfo
@@ -680,29 +680,29 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		}
 	}
 
-	// A change in a unit's status might also affect it's service.
-	service, err := st.Service(newInfo.Service)
+	// A change in a unit's status might also affect it's application.
+	service, err := st.Application(newInfo.Application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	serviceId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), service.globalKey())
+	applicationId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), service.globalKey())
 	if !ok {
 		return nil
 	}
-	serviceInfo := store.Get(serviceId)
-	if serviceInfo == nil {
+	applicationInfo := store.Get(applicationId)
+	if applicationInfo == nil {
 		return nil
 	}
 	status, err := service.Status()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newServiceInfo := *serviceInfo.(*multiwatcher.ServiceInfo)
-	newServiceInfo.Status.Current = status.Status
-	newServiceInfo.Status.Message = status.Message
-	newServiceInfo.Status.Data = normaliseStatusData(status.Data)
-	newServiceInfo.Status.Since = status.Since
-	store.Update(&newServiceInfo)
+	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
+	newApplicationInfo.Status.Current = status.Status
+	newApplicationInfo.Status.Message = status.Message
+	newApplicationInfo.Status.Data = normaliseStatusData(status.Data)
+	newApplicationInfo.Status.Since = status.Since
+	store.Update(&newApplicationInfo)
 	return nil
 }
 
@@ -731,7 +731,7 @@ func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id str
 	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
 		return nil
-	case *multiwatcher.ServiceInfo:
+	case *multiwatcher.ApplicationInfo:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
@@ -762,12 +762,12 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *multiwatcher.ServiceInfo:
-		// If we're seeing settings for the service with a different
+	case *multiwatcher.ApplicationInfo:
+		// If we're seeing settings for the application with a different
 		// charm URL, we ignore them - we will fetch
 		// them again when the service charm changes.
 		// By doing this we make sure that the settings in the
-		// ServiceInfo are always consistent with the charm URL.
+		// ApplicationInfo are always consistent with the charm URL.
 		if info.CharmURL != url {
 			break
 		}
@@ -788,7 +788,7 @@ func (s *backingSettings) removed(store *multiwatcherStore, modelUUID, id string
 		return nil
 	}
 	parent := store.Get(parentID)
-	if info, ok := parent.(*multiwatcher.ServiceInfo); ok {
+	if info, ok := parent.(*multiwatcher.ApplicationInfo); ok {
 		if info.CharmURL != url {
 			return nil
 		}
@@ -808,7 +808,7 @@ func (s *backingSettings) mongoId() string {
 // settings key. Any extra information in the key is returned in
 // extra.
 func backingEntityIdForSettingsKey(modelUUID, key string) (eid multiwatcher.EntityId, extra string, ok bool) {
-	if !strings.HasPrefix(key, "s#") {
+	if !strings.HasPrefix(key, "a#") {
 		eid, ok = backingEntityIdForGlobalKey(modelUUID, key)
 		return
 	}
@@ -817,7 +817,7 @@ func backingEntityIdForSettingsKey(modelUUID, key string) (eid multiwatcher.Enti
 	if i == -1 {
 		return multiwatcher.EntityId{}, "", false
 	}
-	eid = (&multiwatcher.ServiceInfo{
+	eid = (&multiwatcher.ApplicationInfo{
 		ModelUUID: modelUUID,
 		Name:      key[0:i],
 	}).EntityId()
@@ -949,8 +949,8 @@ func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, 
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
-	case 's':
-		return (&multiwatcher.ServiceInfo{
+	case 'a':
+		return (&multiwatcher.ApplicationInfo{
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
@@ -984,7 +984,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 	collections := makeAllWatcherCollectionInfo(
 		machinesC,
 		unitsC,
-		servicesC,
+		applicationsC,
 		relationsC,
 		annotationsC,
 		statusesC,
@@ -1065,7 +1065,7 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 		modelsC,
 		machinesC,
 		unitsC,
-		servicesC,
+		applicationsC,
 		relationsC,
 		annotationsC,
 		statusesC,

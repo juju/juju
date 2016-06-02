@@ -7,6 +7,7 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -86,6 +87,6 @@ func (env *environ) Ports() ([]network.PortRange, error) {
 	return nil, errors.Trace(errors.NotSupportedf("Ports"))
 }
 
-func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/utils/clock"
@@ -66,7 +66,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 }
 
 // Manifold returns a dependency.Manifold that will run a FlagWorker and
-// expose it to clients as a util.Flag resource.
+// expose it to clients as a engine.Flag resource.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -75,6 +75,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 		},
 		Start:  config.start,
-		Output: util.FlagOutput,
+		Output: engine.FlagOutput,
 	}
 }

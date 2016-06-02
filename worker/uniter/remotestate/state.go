@@ -25,7 +25,7 @@ type Unit interface {
 	Life() params.Life
 	Refresh() error
 	Resolved() (params.ResolvedMode, error)
-	Service() (Application, error)
+	Application() (Application, error)
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
@@ -91,7 +91,7 @@ func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
 	return apiUnit{u}, err
 }
 
-func (u apiUnit) Service() (Application, error) {
-	s, err := u.Unit.Service()
+func (u apiUnit) Application() (Application, error) {
+	s, err := u.Unit.Application()
 	return apiService{s}, err
 }

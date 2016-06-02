@@ -97,7 +97,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	service, err := unit.Service()
+	application, err := unit.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,7 +112,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 			Sent:        false,
 			Created:     batch.Created,
 			Metrics:     batch.Metrics,
-			Credentials: service.MetricCredentials(),
+			Credentials: application.MetricCredentials(),
 		},
 	}
 	if err := metric.validate(); err != nil {
@@ -195,9 +195,9 @@ func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
 	return st.queryLocalMetricBatches(bson.M{"unit": unit})
 }
 
-// MetricBatchesUnit returns metric batches for the given service.
-func (st *State) MetricBatchesForService(service string) ([]MetricBatch, error) {
-	svc, err := st.Service(service)
+// MetricBatchesUnit returns metric batches for the given application.
+func (st *State) MetricBatchesForService(application string) ([]MetricBatch, error) {
+	svc, err := st.Application(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

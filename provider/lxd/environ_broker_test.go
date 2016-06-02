@@ -55,7 +55,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "RemoveInstances",
 		Args: []interface{}{
-			"juju-2d02eeac-9dbb-11e4-89d3-123b93f75cba-machine-",
+			"juju-f75cba-",
 			[]string{"spam"},
 		},
 	}})

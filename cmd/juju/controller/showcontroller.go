@@ -119,6 +119,12 @@ type ControllerDetails struct {
 
 	// CACert is a security certificate for this controller.
 	CACert string `yaml:"ca-cert" json:"ca-cert"`
+
+	// Cloud is the name of the cloud that this controller runs in.
+	Cloud string `yaml:"cloud" json:"cloud"`
+
+	// CloudRegion is the name of the cloud region that this controller runs in.
+	CloudRegion string `yaml:"region,omitempty" json:"region,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -159,6 +165,8 @@ func (c *showControllerCommand) convertControllerForShow(controllerName string, 
 			ControllerUUID: details.ControllerUUID,
 			APIEndpoints:   details.APIEndpoints,
 			CACert:         details.CACert,
+			Cloud:          details.Cloud,
+			CloudRegion:    details.CloudRegion,
 		},
 	}
 	c.convertAccountsForShow(controllerName, &controller)

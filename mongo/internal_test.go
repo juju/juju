@@ -8,7 +8,6 @@ package mongo
 import (
 	"errors"
 	"os"
-	"testing"
 	"time"
 
 	coretesting "github.com/juju/juju/testing"
@@ -27,10 +26,6 @@ type MongoPathSuite struct {
 
 var _ = gc.Suite(&MongoVersionSuite{})
 var _ = gc.Suite(&MongoPathSuite{})
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
 
 var (
 	version1   = Version{Major: 1, Minor: 0}
