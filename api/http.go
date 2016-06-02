@@ -77,6 +77,12 @@ func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*
 		// indicates that we're using macaroon authentication.
 		req.SetBasicAuth(doer.st.tag, doer.st.password)
 	}
+
+	// Set the machine nonce if it was provided.
+	if doer.st.nonce != "" {
+		req.Header.Set(params.MachineNonceHeader, doer.st.nonce)
+	}
+
 	// Add any explicitly-specified macaroons.
 	for _, ms := range doer.st.macaroons {
 		encoded, err := encodeMacaroonSlice(ms)
@@ -202,7 +208,6 @@ func openBlob(httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadClo
 		return nil, errors.Trace(err)
 	}
 	apiURL.RawQuery = args.Encode()
-
 	req, err := http.NewRequest("GET", apiURL.String(), nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create HTTP request")
