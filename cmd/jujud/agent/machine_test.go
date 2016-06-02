@@ -1422,12 +1422,6 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 				s.BackingState.StartSync()
 			case <-timeout:
 				c.Fatalf("timed out waiting for workers")
-			case <-watch.Changes():
-				err = model.Refresh()
-				if errors.IsNotFound(err) {
-					return
-				}
-				c.Assert(err, jc.ErrorIsNil)
 			}
 		}
 	})
