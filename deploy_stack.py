@@ -659,8 +659,7 @@ class BootstrapManager:
                 logging.exception(e)
                 raise LoggedException(e)
         except:
-            for m_client in self.client.iter_model_clients():
-                safe_print_status(m_client)
+            safe_print_status(self.client)
             raise
         else:
             self.client.list_controllers()
@@ -841,7 +840,8 @@ def _deploy_job(args, charm_series, series):
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        client.show_status()
+        for m_client in client.iter_model_clients():
+            m_client.show_status()
     except Exception as e:
         logging.exception(e)
 
