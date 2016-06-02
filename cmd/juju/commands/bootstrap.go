@@ -41,27 +41,37 @@ var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
 
 var usageBootstrapDetails = `
-Initialization consists of creating an 'admin' model and provisioning a 
-machine to act as controller.
+Used without arguments, bootstrap will step you through the process of 
+initializing a Juju cloud environment. Initialization consists of creating
+a 'controller' model and provisioning a machine to act as controller.
+
+We recommend you call your controller ‘username-region’ e.g. ‘fred-us-west-1’
+See --clouds for a list of clouds and credentials.
+See --regions <cloud> for a list of available regions for a given cloud.
+
 Credentials are set beforehand and are distinct from any other 
 configuration (see `[1:] + "`juju add-credential`" + `).
-The 'admin' model typically does not run workloads. It should remain
+The 'controller' model typically does not run workloads. It should remain
 pristine to run and manage Juju's own infrastructure for the corresponding
 cloud. Additional (hosted) models should be created with ` + "`juju create-\nmodel`" + ` for workload purposes.
 Note that a 'default' model is also created and becomes the current model
 of the environment once the command completes. It can be discarded if
 other models are created.
+
 If '--bootstrap-constraints' is used, its values will also apply to any
 future controllers provisioned for high availability (HA).
+
 If '--constraints' is used, its values will be set as the default 
 constraints for all future workload machines in the model, exactly as if 
 the constraints were set with ` + "`juju set-model-constraints`" + `.
+
 It is possible to override constraints and the automatic machine selection
 algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be 
 used with the MAAS provider ('--to <host>.maas').
+
 You can change the default timeout and retry delays used during the 
-bootstrap by changing the following settings in your configuration file
+bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
     # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
@@ -70,6 +80,7 @@ address.
     bootstrap-retry-delay: 5 # default: 5 seconds
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
+    
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 The value of '--agent-version' will become the default tools version to
@@ -78,10 +89,13 @@ use in all models for this controller. The full binary version is accepted
 used. Otherwise, by default, the version used is that of the client.
 
 Examples:
-    juju bootstrap mycontroller google
-    juju bootstrap --config=~/config-rs.yaml mycontroller rackspace
-    juju bootstrap --config agent-version=1.25.3 mycontroller aws
-    juju bootstrap --config bootstrap-timeout=1200 mycontroller azure
+    juju bootstrap
+    juju bootstrap --clouds
+    juju bootstrap --regions aws
+    juju bootstrap joe-us-east1 google
+    juju bootstrap --config=~/config-rs.yaml joe-syd rackspace
+    juju bootstrap --config agent-version=1.25.3 joe-us-east-1 aws
+    juju bootstrap --config bootstrap-timeout=1200 joe-eastus azure
 
 See also: 
     add-credentials
@@ -117,12 +131,14 @@ type bootstrapCommand struct {
 	AgentVersion          *version.Number
 	config                common.ConfigFlag
 
-	controllerName  string
-	hostedModelName string
-	CredentialName  string
-	Cloud           string
-	Region          string
-	noGUI           bool
+	showClouds          bool
+	showRegionsForCloud string
+	controllerName      string
+	hostedModelName     string
+	CredentialName      string
+	Cloud               string
+	Region              string
+	noGUI               bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -152,9 +168,20 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
+	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
+	if c.showClouds && c.showRegionsForCloud != "" {
+		return fmt.Errorf("--clouds and --regions can't be used together")
+	}
+	if c.showClouds {
+		return cmd.CheckEmpty(args)
+	}
+	if c.showRegionsForCloud != "" {
+		return cmd.CheckEmpty(args)
+	}
 	if c.AgentVersionParam != "" && c.UploadTools {
 		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
 	}
@@ -206,16 +233,12 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.New("controller name and cloud name are required")
 	}
-	c.controllerName = bootstrappedControllerName(args[0])
+	c.controllerName = args[0]
 	c.Cloud = args[1]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
 	}
 	return cmd.CheckEmpty(args[2:])
-}
-
-var bootstrappedControllerName = func(controllerName string) string {
-	return fmt.Sprintf("local.%s", controllerName)
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
@@ -248,6 +271,13 @@ run juju autoload-credentials and specify a credential using the --credential ar
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	if c.showClouds {
+		return printClouds(ctx, c.ClientStore())
+	}
+	if c.showRegionsForCloud != "" {
+		return printCloudRegions(ctx, c.showRegionsForCloud)
+	}
+
 	bootstrapFuncs := getBootstrapFuncs()
 
 	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
