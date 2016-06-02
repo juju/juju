@@ -81,6 +81,10 @@ func GetOplog(session *mgo.Session) *mgo.Collection {
 	return session.DB("local").C("oplog.rs")
 }
 
+func isRealOplog(c *mgo.Collection) bool {
+	return c.Database.Name == "local" && c.Name == "oplog.rs"
+}
+
 // The parts of the mgo.Iter that we use - this interface will allow
 // us to switch out the querying for testing.
 type OplogIterator interface {
@@ -89,20 +93,34 @@ type OplogIterator interface {
 	Timeout() bool
 }
 
-type IteratorMaker interface {
+type OplogSession interface {
 	NewIter(bson.MongoTimestamp, []int64) OplogIterator
+	Close()
 }
 
-type iteratorMaker struct {
+type oplogSession struct {
+	session    *mgo.Session
 	collection *mgo.Collection
 	query      bson.D
 }
 
-func (m *iteratorMaker) NewIter(fromTimestamp bson.MongoTimestamp, excludeIds []int64) OplogIterator {
+func newOplogSession(collection *mgo.Collection, query bson.D) *oplogSession {
+	// Use a fresh session for the tailer.
+	session := collection.Database.Session.Copy()
+	return &oplogSession{
+		session:    session,
+		collection: collection.With(session),
+		query:      query,
+	}
+}
+
+const oplogTailTimeout = time.Second
+
+func (s *oplogSession) NewIter(fromTimestamp bson.MongoTimestamp, excludeIds []int64) OplogIterator {
 	// When recreating the iterator (required when the cursor
 	// is invalidated) avoid reporting oplog entries that have
 	// already been reported.
-	sel := append(m.query,
+	sel := append(s.query,
 		bson.DocElem{"ts", bson.D{{"$gte", fromTimestamp}}},
 		bson.DocElem{"h", bson.D{{"$nin", excludeIds}}},
 	)
@@ -114,13 +132,17 @@ func (m *iteratorMaker) NewIter(fromTimestamp bson.MongoTimestamp, excludeIds []
 	// the tailer should stop (these semantics are hinted at
 	// by the mgo docs). Unfortunately this can trigger
 	// panics. See: https://github.com/go-mgo/mgo/issues/121
-	query := m.collection.Find(sel)
-	if isRealOplog(m.collection) {
+	query := s.collection.Find(sel)
+	if isRealOplog(s.collection) {
 		// Apply an optmisation that is only supported with
 		// the real oplog.
 		query = query.LogReplay()
 	}
 	return query.Tail(oplogTailTimeout)
+}
+
+func (s *oplogSession) Close() {
+	s.session.Close()
 }
 
 // NewOplogTailer returns a new OplogTailer.
@@ -142,24 +164,17 @@ func NewOplogTailer(
 	query bson.D,
 	initialTs time.Time,
 ) *OplogTailer {
-	maker := &iteratorMaker{collection: oplog, query: query}
-	return newOplogTailerWithMaker(oplog, query, initialTs, maker)
+	return newOplogTailerWithSession(newOplogSession(oplog, query), initialTs)
 }
 
-func newOplogTailerWithMaker(
-	oplog *mgo.Collection,
-	query bson.D,
+func newOplogTailerWithSession(
+	session OplogSession,
 	initialTs time.Time,
-	maker IteratorMaker,
 ) *OplogTailer {
-	// Use a fresh session for the tailer.
-	session := oplog.Database.Session.Copy()
 	t := &OplogTailer{
-		oplog:     oplog.With(session),
-		query:     query,
+		session:   session,
 		initialTs: NewMongoTimestamp(initialTs),
 		outCh:     make(chan *OplogDoc),
-		iterMaker: maker,
 	}
 	go func() {
 		defer func() {
@@ -175,11 +190,9 @@ func newOplogTailerWithMaker(
 // OplogTailer tails MongoDB's replication oplog.
 type OplogTailer struct {
 	tomb      tomb.Tomb
-	oplog     *mgo.Collection
-	query     bson.D
+	session   OplogSession
 	initialTs bson.MongoTimestamp
 	outCh     chan *OplogDoc
-	iterMaker IteratorMaker
 }
 
 // Out returns a channel that reports the oplog entries matching the
@@ -207,8 +220,6 @@ func (t *OplogTailer) Err() error {
 	return t.tomb.Err()
 }
 
-const oplogTailTimeout = time.Second
-
 func (t *OplogTailer) loop() error {
 	var iter OplogIterator
 
@@ -232,7 +243,7 @@ func (t *OplogTailer) loop() error {
 		}
 
 		if iter == nil {
-			iter = t.iterMaker.NewIter(lastTimestamp, idsForLastTimestamp)
+			iter = t.session.NewIter(lastTimestamp, idsForLastTimestamp)
 		}
 
 		var doc OplogDoc
@@ -261,10 +272,6 @@ func (t *OplogTailer) loop() error {
 			iter = nil
 		}
 	}
-}
-
-func isRealOplog(c *mgo.Collection) bool {
-	return c.Database.Name == "local" && c.Name == "oplog.rs"
 }
 
 func (t *OplogTailer) dying() bool {
