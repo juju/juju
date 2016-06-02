@@ -93,6 +93,9 @@ type OplogIterator interface {
 	Timeout() bool
 }
 
+// The connection to the oplog database, used to create an iterator to
+// get oplog documents (and recreate it if it gets killed or times
+// out).
 type OplogSession interface {
 	NewIter(bson.MongoTimestamp, []int64) OplogIterator
 	Close()
