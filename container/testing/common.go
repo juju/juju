@@ -50,10 +50,6 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	instanceConfig, err := MockMachineConfig(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-
-	//envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	//c.Assert(err, jc.ErrorIsNil)
-	//instanceConfig.Config = envConfig
 	return CreateContainerWithMachineConfig(c, manager, instanceConfig)
 }
 
@@ -116,12 +112,6 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	//envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//instanceConfig.Config = envConfig
 
 	network := container.BridgeNetworkConfig("nic42", 0, nil)
 	storage := &container.StorageConfig{}
