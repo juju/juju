@@ -143,11 +143,15 @@ func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
 	return &fakeIterator{docs: docs, err: err}
 }
 
+type iterArgs struct {
+	timestamp  bson.MongoTimestamp
+	excludeIds []int64
+}
+
 type fakeSession struct {
-	iterators  []*fakeIterator
-	pos        int
-	timestamps []bson.MongoTimestamp
-	excludeIds [][]int64
+	iterators []*fakeIterator
+	pos       int
+	args      chan iterArgs
 }
 
 var timeoutIterator = fakeIterator{timeout: true}
@@ -163,8 +167,7 @@ func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIt
 		// a problem? The real call would block for a second waiting
 		// for new data.
 	}
-	s.timestamps = append(s.timestamps, ts)
-	s.excludeIds = append(s.excludeIds, ids)
+	s.args <- iterArgs{ts, ids}
 	result := s.iterators[s.pos]
 	s.pos++
 	return result
@@ -172,8 +175,22 @@ func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIt
 
 func (s *fakeSession) Close() {}
 
+func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64) {
+	select {
+	case <-time.After(time.Second):
+		c.Logf("timeout getting iter args - test problem")
+		c.FailNow()
+	case res := <-s.args:
+		c.Check(res.timestamp, gc.Equals, ts)
+		c.Check(res.excludeIds, gc.DeepEquals, ids)
+	}
+}
+
 func newFakeSession(iterators ...*fakeIterator) *fakeSession {
-	return &fakeSession{iterators: iterators}
+	return &fakeSession{
+		iterators: iterators,
+		args:      make(chan iterArgs, 1000),
+	}
 }
 
 func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
@@ -189,14 +206,12 @@ func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
 	// the ErrCursor that occurs at the end.
 	doc := s.getNextOplog(c, tailer)
 	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
-	c.Check(session.timestamps[0], gc.Equals, mongo.NewMongoTimestamp(time.Time{}))
-	c.Check(session.excludeIds[0], gc.IsNil)
+	session.checkLastArgs(c, mongo.NewMongoTimestamp(time.Time{}), nil)
 
 	// Ensure that the tailer continues after getting a new iterator.
 	doc = s.getNextOplog(c, tailer)
 	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
-	c.Check(session.timestamps[1], gc.Equals, bson.MongoTimestamp(1))
-	c.Check(session.excludeIds[1], gc.DeepEquals, []int64{99})
+	session.checkLastArgs(c, bson.MongoTimestamp(1), []int64{99})
 }
 
 func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
@@ -231,8 +246,7 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 	}
 
 	// Check the query doesn't exclude any in the first request.
-	c.Check(session.timestamps[0], gc.Equals, mongo.NewMongoTimestamp(time.Time{}))
-	c.Check(session.excludeIds[0], gc.IsNil)
+	session.checkLastArgs(c, mongo.NewMongoTimestamp(time.Time{}), nil)
 
 	// The OplogTailer will fall off the end of the iterator and get a new one.
 
@@ -244,8 +258,7 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 	}
 
 	// Check we got the next block correctly
-	c.Check(session.timestamps[1], gc.Equals, bson.MongoTimestamp(1))
-	c.Check(session.excludeIds[1], gc.DeepEquals, []int64{10, 11, 12, 13, 14})
+	session.checkLastArgs(c, bson.MongoTimestamp(1), []int64{10, 11, 12, 13, 14})
 
 	doc := s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
