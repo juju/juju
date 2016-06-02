@@ -823,7 +823,6 @@ def _deploy_job(args, charm_series, series):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
             return
-        client.show_status()
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
