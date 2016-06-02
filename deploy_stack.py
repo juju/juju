@@ -659,18 +659,14 @@ class BootstrapManager:
                 logging.exception(e)
                 raise LoggedException(e)
         except:
-            admin_client = self.client.get_admin_client()
-            if admin_client != self.client:
-                safe_print_status(admin_client)
-            safe_print_status(self.client)
+            for m_client in self.client.iter_model_clients():
+                safe_print_status(m_client)
             raise
         else:
             self.client.list_controllers()
             self.client.list_models()
-            admin_client = self.client.get_admin_client()
-            if admin_client != self.client:
-                admin_client.show_status()
-            self.client.show_status()
+            for m_client in self.client.iter_model_clients():
+                m_client.show_status()
         finally:
             try:
                 self.dump_all_logs()
@@ -752,10 +748,8 @@ class BootstrapManager:
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
-                    admin_client = self.client.get_admin_client()
-                    if admin_client != self.client:
-                        admin_client.show_status()
-                    self.client.show_status()
+                    for m_client in self.client.iter_model_clients():
+                        m_client.show_status()
                     yield machines
         except LoggedException:
             sys.exit(1)

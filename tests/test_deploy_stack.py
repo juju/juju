@@ -1397,6 +1397,12 @@ class TestBootContext(FakeHomeTestCase):
             patch('deploy_stack.BootstrapManager.dump_all_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
+        if isinstance(client, EnvJujuClient1X):
+            models = []
+        else:
+            models = [{'name': 'controller'}, {'name': 'bar'}]
+        self.addContext(patch.object(client, '_get_models',
+                                     return_value=models, autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True,
                                  return_value=0))
         juju_name = os.path.basename(client.full_path)
