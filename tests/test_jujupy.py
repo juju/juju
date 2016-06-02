@@ -2114,12 +2114,12 @@ class TestEnvJujuClient(ClientTest):
               owner: admin@local
             current-model: foo
         """
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = EnvJujuClient(JujuData('baz'), None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             models = client.get_models()
         gjo_mock.assert_called_once_with(
-            'list-models', '-c', 'foo', '--format', 'yaml', include_e=False)
+            'list-models', '-c', 'baz', '--format', 'yaml', include_e=False)
         expected_models = {
             'models': [
                 {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
