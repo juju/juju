@@ -414,6 +414,7 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		Series_:        valid["series"].(string),
 		ContainerType_: valid["container-type"].(string),
 		StatusHistory_: newStatusHistory(),
+		Jobs_:          convertToStringSlice(valid["jobs"]),
 	}
 	result.importAnnotations(valid)
 	if err := result.importStatusHistory(valid); err != nil {
@@ -428,11 +429,6 @@ func importMachineV1(source map[string]interface{}) (*machine, error) {
 		result.Constraints_ = constraints
 	}
 
-	if jobs := valid["jobs"].([]interface{}); len(jobs) > 0 {
-		for _, job := range jobs {
-			result.Jobs_ = append(result.Jobs_, job.(string))
-		}
-	}
 	if supported, ok := valid["supported-containers"]; ok {
 		supportedList := supported.([]interface{})
 		s := make([]string, len(supportedList))
