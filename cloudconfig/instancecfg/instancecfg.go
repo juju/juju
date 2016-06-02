@@ -426,6 +426,7 @@ func (e requiresError) Error() string {
 	return "invalid machine configuration: missing " + string(e)
 }
 
+// VerifyConfig verifies that the InstanceConfig is valid.
 func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
@@ -516,6 +517,7 @@ func (cfg *InstanceConfig) verifyControllerConfig() (err error) {
 	return nil
 }
 
+// VerifyConfig verifies that the BootstrapConfig is valid.
 func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.Config == nil {
 		return errors.New("missing model configuration")
@@ -544,6 +546,7 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	return nil
 }
 
+// VerifyConfig verifies that the ControllerConfig is valid.
 func (cfg *ControllerConfig) VerifyConfig() error {
 	if cfg.MongoInfo == nil {
 		return errors.New("missing state info")
