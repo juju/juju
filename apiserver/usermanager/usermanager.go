@@ -138,6 +138,33 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	return result, nil
 }
 
+// RemoveUser removes a user.
+// TODO(redir): Also remove user from models.
+// Tests:
+// 4. remove self as admin -- Succeeds! Why?
+// 5. Remove bulk
+// 6. Remove none
+func (api *UserManagerAPI) RemoveUser(entities params.Entities) error {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	if !api.isAdmin {
+		return common.ErrPerm
+	}
+	for _, e := range entities.Entities {
+
+		user, err := names.ParseUserTag(e.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = api.state.RemoveUser(user.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 	userTag, err := names.ParseUserTag(tag)
 	if err != nil {

@@ -4,6 +4,7 @@
 package usermanager_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -589,4 +590,118 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(barb.PasswordValid("new-password"), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
+	// Create a user to delete.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
+
+	expectedError := fmt.Sprintf("user %q not found", jjam.Name())
+	// Make sure the user exists.
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ui.Results, gc.HasLen, 1)
+	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
+
+	// Remove the user
+	err = s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Check(err, jc.ErrorIsNil)
+
+	// Check if deleted.
+	err = jjam.Refresh()
+	c.Assert(err, gc.ErrorMatches, expectedError)
+
+	// Try again and verify we get the expected error.
+	err = s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Check(err, gc.ErrorMatches, expectedError)
+}
+
+func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
+	// Create a user to delete.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
+	// Create a user to delete jjam.
+	chuck := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "chuck",
+		NoModelUser: true,
+	})
+
+	// Authenticate as chuck.
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, s.resources, apiservertesting.FakeAuthorizer{
+			Tag: chuck.Tag(),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the user exists.
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ui.Results, gc.HasLen, 1)
+	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
+
+	// Remove jjam as the chuck and fail.
+	err = usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	// Make sure jjam is still around.
+	err = jjam.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
+	// Create a user to delete.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "jimmyjam",
+		NoModelUser: true,
+	})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, s.resources, apiservertesting.FakeAuthorizer{
+			Tag: jjam.Tag(),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure the user exists.
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ui.Results, gc.HasLen, 1)
+	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
+
+	// Remove the user as the user
+	err = usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	// Check if deleted.
+	err = jjam.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
+
+	expectedError := fmt.Sprintf("user %q not found", "admin")
+
+	// Remove admin as admin.
+	err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
+
+	c.Check(err, jc.ErrorIsNil)
+
+	// Try again to see if we succeeded.
+	err = s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
+	c.Check(err, gc.ErrorMatches, expectedError)
+
+	// OK so admin can delete the last user? This seems wrong.
+	// TODO(redir): Find out if this is defensible.
+	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(ui.Results, gc.HasLen, 0)
 }
