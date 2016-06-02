@@ -52,6 +52,7 @@ type storageMetaDoc struct {
 	Machine  string         `bson:"machine"`
 	Hostname string         `bson:"hostname"`
 	Version  version.Number `bson:"version"`
+	Series   string         `bson:"series"`
 }
 
 func (doc *storageMetaDoc) isFileInfoComplete() bool {
@@ -126,6 +127,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta.Origin.Machine = doc.Machine
 	meta.Origin.Hostname = doc.Hostname
 	meta.Origin.Version = doc.Version
+	meta.Origin.Series = doc.Series
 
 	meta.SetID(doc.ID)
 
@@ -176,6 +178,7 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 	doc.Machine = meta.Origin.Machine
 	doc.Hostname = meta.Origin.Hostname
 	doc.Version = meta.Origin.Version
+	doc.Series = meta.Origin.Series
 
 	return doc
 }

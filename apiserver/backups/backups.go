@@ -8,36 +8,49 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
 
-func init() {
-	common.RegisterStandardFacade("Backups", 1, NewAPI)
-}
-
 var logger = loggo.GetLogger("juju.apiserver.backups")
+
+// Backend exposes state.State functionality needed by the backups Facade.
+type Backend interface {
+	IsController() bool
+	Machine(id string) (*state.Machine, error)
+	MachineSeries(id string) (string, error)
+	MongoConnectionInfo() *mongo.MongoInfo
+	MongoSession() *mgo.Session
+	ModelTag() names.ModelTag
+	ModelConfig() (*config.Config, error)
+	StateServingInfo() (state.StateServingInfo, error)
+	RestoreInfo() *state.RestoreInfo
+}
 
 // API serves backup-specific API methods.
 type API struct {
-	st    *state.State
-	paths *backups.Paths
+	backend Backend
+	paths   *backups.Paths
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
+func NewAPI(backend Backend, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
 	// For now, backup operations are only permitted on the controller environment.
-	if !st.IsController() {
+	if !backend.IsController() {
 		return nil, errors.New("backups are not supported for hosted models")
 	}
 
@@ -61,7 +74,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(err)
 	}
 	b := API{
-		st:        st,
+		backend:   backend,
 		paths:     &paths,
 		machineID: machineID,
 	}
@@ -81,8 +94,8 @@ func extractResourceValue(resources *common.Resources, key string) (string, erro
 	return strRes.String(), nil
 }
 
-var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	stor := backups.NewStorage(st)
+var newBackups = func(backend Backend) (backups.Backups, io.Closer) {
+	stor := backups.NewStorage(backend)
 	return backups.NewBackups(stor), stor
 }
 
@@ -110,6 +123,7 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
+	result.Series = meta.Origin.Series
 
 	// TODO(wallyworld) - remove these ASAP
 	// These are only used by the restore CLI when re-bootstrapping.
@@ -136,6 +150,7 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 	meta.Origin.Machine = result.Machine
 	meta.Origin.Hostname = result.Hostname
 	meta.Origin.Version = result.Version
+	meta.Origin.Series = result.Series
 	meta.Notes = result.Notes
 	meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
 	return meta
