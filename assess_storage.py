@@ -1,20 +1,14 @@
 #!/usr/bin/env python
-"""TODO: add rough description of what is assessed in this module."""
+"""Assess juju charm storage."""
 
 from __future__ import print_function
 import os
 
 import argparse
+import json
 import logging
 import sys
-import yaml
 
-from assess_min_version import (
-    JujuAssertionError
-)
-from assess_block import (
-    wait_for_removed_services,
-)
 from deploy_stack import (
     BootstrapManager,
 )
@@ -22,6 +16,7 @@ from jujucharm import Charm
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
     local_charm_path,
     temp_dir,
 )
@@ -33,31 +28,52 @@ __metaclass__ = type
 log = logging.getLogger("assess_storage")
 
 
+storage_pool_details = {
+    "loopy":
+        {
+            "provider": "loop",
+            "attrs":
+                {
+                    "size": "1G"
+                }},
+    "rooty":
+        {
+            "provider": "rootfs",
+            "attrs":
+                {
+                    "size": "1G"
+                }},
+    "tempy":
+        {
+            "provider": "tmpfs",
+            "attrs":
+                {
+                    "size": "1G"
+                }},
+    "ebsy":
+        {
+            "provider": "ebs",
+            "attrs":
+                {
+                    "size": "1G"
+                }}
+}
+
+
 def storage_list(client):
-    """Returns the storage list"""
-    return yaml.safe_load(client.get_juju_output(
-        'list-storage', '--format', 'yaml'))
+    """Return the storage list."""
+    return json.loads(client.get_juju_output(
+        'list-storage', '--format', 'json'))
 
 
 def storage_pool_list(client):
-    """Returns the list of storage pool"""
-    return yaml.safe_load(client.get_juju_output(
-        'list-storage-pools', '--format', 'yaml'))
-
-
-def make_storage_pool_list(name, provider, size):
-    """Manually create a storage pool list"""
-    pool_list = {}
-    for i in xrange(len(name)):
-        pool_list[name[i]] = {"provider": provider[i],
-                              "attrs": {
-                                  "size": size[i]
-                              }}
-    return pool_list
+    """Return the list of storage pool."""
+    return json.loads(client.get_juju_output(
+        'list-storage-pools', '--format', 'json'))
 
 
 def create_storage_charm(charm_dir, name, summary, storage):
-    """Manually create a temporary charm to test with storage"""
+    """Manually create a temporary charm to test with storage."""
     path = os.path.join(charm_dir, name)
     if not os.path.exists(path):
         os.makedirs(path)
@@ -66,42 +82,53 @@ def create_storage_charm(charm_dir, name, summary, storage):
 
 
 def assess_create_pool(client):
-    """Test creating storage pool"""
-    client.juju('create-storage-pool', ('loopy', 'loop', 'size=1G'))
-    client.juju('create-storage-pool', ('rooty', 'rootfs', 'size=1G'))
-    client.juju('create-storage-pool', ('tempy', 'tmpfs', 'size=1G'))
-    client.juju('create-storage-pool', ('ebsy', 'ebs', 'size=1G'))
-    name_list = ["loopy", "rooty", "tempy", "ebsy"]
-    provider_list = ["loop", "rootfs", "tmpfs", "ebs"]
-    size_list = ["1G", "1G", "1G", "1G"]
-    pool_list_expected = make_storage_pool_list(
-        name_list, provider_list, size_list)
-    if storage_pool_list(client) != pool_list_expected:
-        raise JujuAssertionError()
+    """Test creating storage pool."""
+    for name, pool in storage_pool_details.iteritems():
+        client.juju('create-storage-pool',
+                    (name, pool["provider"],
+                     'size={}'.format(pool["attrs"]["size"])))
+    pool_list = storage_pool_list(client)
+    if pool_list != storage_pool_details:
+        raise JujuAssertionError(pool_list)
 
 
 def assess_add_storage(client, unit, amount="1"):
-    """Test adding storage to service"""
+    """Test adding storage instances to service."""
     client.juju('add-storage', (unit, "data=" + amount))
 
 
 def deploy_storage(client, charm, series, pool, amount="1G"):
-    """Test deploying charm with storage"""
-    client.deploy(charm, series=series, storage="data=" + pool + "," + amount)
+    """Test deploying charm with storage."""
+    if pool == "loop":
+        client.deploy(charm, series=series,
+                      storage="disks=" + pool + "," + amount)
+    else:
+        client.deploy(charm, series=series,
+                      storage="data=" + pool + "," + amount)
     client.wait_for_started()
     # if storage_list(client) != "TODO":
     #     raise JujuAssertionError()
 
 
-def assess_deploy_storage(client, charm_name, storage_type, pool):
-    """Set up the test for deploying charm with storage"""
-    storage = {
-        "data": {
-            "type": storage_type,
-            "location": "/srv/data"
+def assess_deploy_storage(client, charm_series,
+                          charm_name, storage_type, pool):
+    """Set up the test for deploying charm with storage."""
+    if storage_type == 'filesystem':
+        storage = {
+            "data": {
+                "type": storage_type,
+                "location": "/srv/data"
+            }
         }
-    }
-    charm_series = 'trusty'
+    elif storage_type == "block":
+        storage = {
+            "disks": {
+                "type": storage_type,
+                "multiple": {
+                    "range": "0-10"
+                }
+            }
+        }
     with temp_dir() as charm_dir:
         create_storage_charm(charm_dir, charm_name,
                              'Test charm for storage', storage)
@@ -111,23 +138,27 @@ def assess_deploy_storage(client, charm_name, storage_type, pool):
                                  repository=charm_dir, platform=platform)
         deploy_storage(client, charm, charm_series, pool, "1G")
         assess_add_storage(client, charm_name + '/0', "1")
-        client.wait_for_started()
-        wait_for_removed_services(client, charm_name)
 
 
-def assess_storage(client):
-    """Test the storage feature"""
+def assess_storage(client, charm_series):
+    """Test the storage feature."""
     assess_create_pool(client)
-    assess_deploy_storage(client, 'dummy-storage-fs', 'filesystem', 'rootfs')
-    assess_deploy_storage(client, 'dummy-storage-lp', 'filesystem', 'loop')
-    assess_deploy_storage(client, 'dummy-storage-tp', 'filesystem', 'tmpfs')
-    # assess_deploy_storage(client, 'dummy-storage-eb', 'filesystem', 'ebs')
+    assess_deploy_storage(client, charm_series,
+                          'dummy-storage-fs', 'filesystem', 'rootfs')
+    assess_deploy_storage(client, charm_series,
+                          'dummy-storage-lp', 'block', 'loop')
+    assess_deploy_storage(client, charm_series,
+                          'dummy-storage-tp', 'filesystem', 'tmpfs')
+    # storage with provider 'ebs' is still under observation
+    # assess_deploy_storage(client, charm_series,
+    #                       'dummy-storage-eb', 'filesystem', 'ebs')
 
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="TODO: script info")
+    parser = argparse.ArgumentParser(description="Test Storage Feature")
     add_basic_testing_arguments(parser)
+    parser.set_defaults(series='trusty')
     return parser.parse_args(argv)
 
 
@@ -136,7 +167,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_storage(bs_manager.client)
+        assess_storage(bs_manager.client, bs_manager.series)
     return 0
 
 

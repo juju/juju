@@ -440,3 +440,11 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
+
+
+def wait_for_removed_services(client, charm):
+    """Timeout until the remove process ends"""
+    for ignored in until_timeout(60):
+        status = client.get_status()
+        if charm not in status.status['services']:
+            break
