@@ -659,9 +659,17 @@ class BootstrapManager:
                 logging.exception(e)
                 raise LoggedException(e)
         except:
+            admin_client = self.client.get_admin_client()
+            if admin_client != self.client:
+                safe_print_status(admin_client)
             safe_print_status(self.client)
             raise
         else:
+            self.client.list_controllers()
+            self.client.list_models()
+            admin_client = self.client.get_admin_client()
+            if admin_client != self.client:
+                admin_client.show_status()
             self.client.show_status()
         finally:
             try:
@@ -742,6 +750,12 @@ class BootstrapManager:
                     self.client.bootstrap(
                         upload_tools, bootstrap_series=self.series)
                 with self.runtime_context(machines):
+                    self.client.list_controllers()
+                    self.client.list_models()
+                    admin_client = self.client.get_admin_client()
+                    if admin_client != self.client:
+                        admin_client.show_status()
+                    self.client.show_status()
                     yield machines
         except LoggedException:
             sys.exit(1)

@@ -1215,7 +1215,7 @@ class EnvJujuClient:
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
         output = self.get_juju_output(
-            'list-models', '-c', self.env.environment, '--format', 'yaml',
+            'list-models', '-c', self.env.controller.name, '--format', 'yaml',
             include_e=False)
         models = yaml_loads(output)
         return models
@@ -1325,6 +1325,7 @@ class EnvJujuClient:
                         # juju claims HA is ready when the monogo replica sets
                         # are not. Juju is not fully usable. The replica set
                         # lag might be 5 minutes.
+                        reporter.finish()
                         self._backend.pause(300)
                         return
                 reporter.update(states)
