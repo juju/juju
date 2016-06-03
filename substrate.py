@@ -297,8 +297,8 @@ def convert_to_azure_ids(client, instance_ids):
         model['name'], model['model-uuid'])
     config = client.env.config
     arm_client = winazurearm.ARMClient(
-        config['subscription_id'], config['client_id'],
-        config['secret'], config['tenant'])
+        config['subscription-id'], config['application-id'],
+        config['application-password'], config['tenant-id'])
     arm_client.init_services()
     resources = winazurearm.list_resources(
         arm_client, glob=resource_group, recursive=True)
@@ -308,6 +308,37 @@ def convert_to_azure_ids(client, instance_ids):
             resources, machine_name, resource_group)
         vm_ids.append(vm.vm_id)
     return vm_ids
+
+
+class AzureARMAccount:
+    """Represent an Azure ARM Account."""
+
+    def __init__(self, arm_client):
+        """Constructor.
+
+        :param arm_client: An instance of winazurearm.ARMClient.
+        """
+        self.arm_client = arm_client
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """A context manager for a Azure RM account.
+
+        In the case of the Juju 1x, the ARM keys must be in the env's config.
+        subscription_id is the same. The PEM for the SMS is ignored.
+        """
+        arm_client = winazurearm.ARMClient(
+            config['subscription-id'], config['application-id'],
+            config['application-password'], config['tenant-id'])
+        arm_client.init_services()
+        yield cls(arm_client)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            winazurearm.delete_instance(
+                self.arm_client, instance_id, resource_group=None)
 
 
 class AzureAccount:
