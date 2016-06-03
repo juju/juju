@@ -927,6 +927,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
@@ -974,6 +975,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",

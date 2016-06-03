@@ -71,6 +71,7 @@ func (s *registrationSuite) TestMeteredCharm(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
@@ -103,6 +104,7 @@ func (s *registrationSuite) TestMeteredCharmAPIError(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
@@ -153,6 +155,7 @@ func (s *registrationSuite) TestMeteredCharmDeployError(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
@@ -181,6 +184,7 @@ func (s *registrationSuite) TestMeteredLocalCharmWithPlan(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",
@@ -221,6 +225,7 @@ func (s *registrationSuite) TestMeteredLocalCharmNoPlan(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "local:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "local:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "",
@@ -263,6 +268,7 @@ func (s *registrationSuite) TestMeteredCharmNoPlanSet(c *gc.C) {
 		"DefaultPlan", []interface{}{"cs:quantal/metered-1"},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "thisplan",
@@ -366,6 +372,7 @@ func (s *registrationSuite) TestFailedAuth(c *gc.C) {
 		"APICall", []interface{}{"Charms", "IsMetered", params.CharmInfo{CharmURL: "cs:quantal/metered-1"}},
 	}, {
 		"Authorize", []interface{}{metricRegistrationPost{
+			ModelUUID:       "model uuid",
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "application name",
 			PlanURL:         "someplan",

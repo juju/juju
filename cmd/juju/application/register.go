@@ -24,8 +24,9 @@ import (
 var budgetWithLimitRe = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
 
 type metricRegistrationPost struct {
+	ModelUUID       string `json:"env-uuid"`
 	CharmURL        string `json:"charm-url"`
-	ApplicationName string `json:"application-name"`
+	ApplicationName string `json:"service-name"`
 	PlanURL         string `json:"plan-url"`
 	Budget          string `json:"budget"`
 	Limit           string `json:"limit"`
@@ -82,6 +83,7 @@ func (r *RegisterMeteredCharm) RunPre(state api.Connection, bakeryClient *httpba
 	}
 
 	r.credentials, err = r.registerMetrics(
+		deployInfo.ModelUUID,
 		deployInfo.CharmID.URL.String(),
 		deployInfo.ApplicationName,
 		r.budget,
@@ -220,7 +222,7 @@ func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL str
 	return info, nil
 }
 
-func (r *RegisterMeteredCharm) registerMetrics(charmURL, serviceName, budget, limit string, client *httpbakery.Client) ([]byte, error) {
+func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName, budget, limit string, client *httpbakery.Client) ([]byte, error) {
 	if r.RegisterURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
@@ -230,6 +232,7 @@ func (r *RegisterMeteredCharm) registerMetrics(charmURL, serviceName, budget, li
 	}
 
 	registrationPost := metricRegistrationPost{
+		ModelUUID:       modelUUID,
 		CharmURL:        charmURL,
 		ApplicationName: serviceName,
 		PlanURL:         r.Plan,
