@@ -272,6 +272,37 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
+func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	// Create two devices, first with all fields set, second just to show that
+	// we do both.
+	sda := state.BlockDeviceInfo{
+		DeviceName:     "sda",
+		DeviceLinks:    []string{"some", "data"},
+		Label:          "sda-label",
+		UUID:           "some-uuid",
+		HardwareId:     "magic",
+		BusAddress:     "bus stop",
+		Size:           16 * 1024 * 1024 * 1024,
+		FilesystemType: "ext4",
+		InUse:          true,
+		MountPoint:     "/",
+	}
+	sdb := state.BlockDeviceInfo{DeviceName: "sdb", MountPoint: "/var/lib/lxd"}
+	err := machine.SetMachineBlockDevices(sda, sdb)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	imported, err := newSt.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices, err := newSt.BlockDevices(imported.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
+}
+
 func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	// Add a service with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
