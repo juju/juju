@@ -160,13 +160,14 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_safe_print_status(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
-        with patch.object(
-                client, 'juju', autospec=True,
-                side_effect=subprocess.CalledProcessError(
-                    1, 'status', 'status error')
-        ) as mock:
-            safe_print_status(client)
+        error = subprocess.CalledProcessError(1, 'status', 'status error')
+        with patch.object(client, 'juju', autospec=True,
+                          side_effect=[error]) as mock:
+            with patch.object(client, 'iter_model_clients',
+                              return_value=[client]) as imc_mock:
+                safe_print_status(client)
         mock.assert_called_once_with('show-status', ('--format', 'yaml'))
+        imc_mock.assert_called_once_with()
 
     def test_update_env(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})
@@ -1403,6 +1404,12 @@ class TestBootContext(FakeHomeTestCase):
             patch('deploy_stack.BootstrapManager.dump_all_logs'))
         self.addContext(patch('deploy_stack.get_machine_dns_name',
                               return_value='foo', autospec=True))
+        if isinstance(client, EnvJujuClient1X):
+            models = []
+        else:
+            models = [{'name': 'controller'}, {'name': 'bar'}]
+        self.addContext(patch.object(client, '_get_models',
+                                     return_value=models, autospec=True))
         c_mock = self.addContext(patch('subprocess.call', autospec=True,
                                  return_value=0))
         juju_name = os.path.basename(client.full_path)
@@ -1452,8 +1459,15 @@ class TestBootContext(FakeHomeTestCase):
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'list-controllers'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'list-models', '-c', 'bar'), 2)
+        assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'show-status', '-m', 'controller',
+            '--format', 'yaml'), 3)
+        assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'show-status', '-m', 'bar',
-            '--format', 'yaml'), 1)
+            '--format', 'yaml'), 4)
 
     def test_bootstrap_context_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1484,8 +1498,15 @@ class TestBootContext(FakeHomeTestCase):
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'list-controllers'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'list-models', '-c', 'bar'), 2)
+        assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'show-status', '-m', 'controller',
+            '--format', 'yaml'), 3)
+        assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'show-status', '-m', 'bar',
-            '--format', 'yaml'), 1)
+            '--format', 'yaml'), 4)
 
     def test_keep_env_non_jes(self):
         cc_mock = self.addContext(patch('subprocess.check_call'))
@@ -1706,10 +1727,11 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual('steve', client.env.config['region'])
 
     def test_status_error_raises(self):
-        """An error on final show-status propogates so an assess will fail."""
+        """An error on final show-status propagates so an assess will fail."""
         error = subprocess.CalledProcessError(1, ['juju'], '')
+        effects = [None, None, None, None, None, None, error]
         cc_mock = self.addContext(patch('subprocess.check_call', autospec=True,
-                                        side_effect=[None, error]))
+                                        side_effect=effects))
         client = EnvJujuClient(JujuData(
             'foo', {'type': 'paas', 'region': 'qux'}), '1.23', 'path')
         with self.bc_context(client, 'log_dir', jes='kill-controller'):
@@ -1725,8 +1747,15 @@ class TestBootContext(FakeHomeTestCase):
             'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'list-controllers'), 1)
+        assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'list-models', '-c', 'bar'), 2)
+        assert_juju_call(self, cc_mock, client, (
+            'path', '--show-log', 'show-status', '-m', 'controller',
+            '--format', 'yaml'), 3)
+        assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'show-status', '-m', 'bar',
-            '--format', 'yaml'), 1)
+            '--format', 'yaml'), 4)
 
 
 class TestDeployJobParseArgs(FakeHomeTestCase):

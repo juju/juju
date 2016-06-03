@@ -1215,7 +1215,7 @@ class EnvJujuClient:
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
         output = self.get_juju_output(
-            'list-models', '-c', self.env.environment, '--format', 'yaml',
+            'list-models', '-c', self.env.controller.name, '--format', 'yaml',
             include_e=False)
         models = yaml_loads(output)
         return models
@@ -1321,17 +1321,17 @@ class EnvJujuClient:
                     states.setdefault(status, []).append(machine)
                 if states.keys() == [desired_state]:
                     if len(states.get(desired_state, [])) >= 3:
-                        # XXX sinzui 2014-12-04: bug 1399277 happens because
-                        # juju claims HA is ready when the monogo replica sets
-                        # are not. Juju is not fully usable. The replica set
-                        # lag might be 5 minutes.
-                        self._backend.pause(300)
-                        return
+                        break
                 reporter.update(states)
             else:
                 raise Exception('Timed out waiting for voting to be enabled.')
         finally:
             reporter.finish()
+        # XXX sinzui 2014-12-04: bug 1399277 happens because
+        # juju claims HA is ready when the monogo replica sets
+        # are not. Juju is not fully usable. The replica set
+        # lag might be 5 minutes.
+        self._backend.pause(300)
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
         """Wait until service_count services are 'started'.
