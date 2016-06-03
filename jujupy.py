@@ -1093,7 +1093,7 @@ class EnvJujuClient:
         )
         if name:
             args += (name,)
-        e_arg = ('-e', 'local.{}:{}'.format(
+        e_arg = ('-e', '{}:{}'.format(
             self.env.controller.name, self.env.environment))
         args = e_arg + args
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
@@ -1510,6 +1510,12 @@ class EnvJujuClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
+    def run(self, commands, applications):
+        responses = self.get_juju_output(
+            'run', '--format', 'json', '--application', ','.join(applications),
+            *commands)
+        return json.loads(responses)
+
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('list-space'))
 
@@ -1566,6 +1572,12 @@ class EnvJujuClient2B8(EnvJujuClient):
 
     def remove_service(self, service):
         self.juju('remove-service', (service,))
+
+    def run(self, commands, applications):
+        responses = self.get_juju_output(
+            'run', '--format', 'json', '--service', ','.join(applications),
+            *commands)
+        return json.loads(responses)
 
 
 class EnvJujuClient2B7(EnvJujuClient2B8):

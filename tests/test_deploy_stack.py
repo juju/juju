@@ -140,16 +140,22 @@ class DeployStackTestCase(FakeHomeTestCase):
              "ReturnCode": 255,
              "Stderr": "Permission denied (publickey,password)"}])
         with patch.object(client, 'get_juju_output', autospec=True,
-                          return_value=response_ok):
+                          return_value=response_ok) as gjo_mock:
             responses = assess_juju_run(client)
             for machine in responses:
                 self.assertFalse(machine.get('ReturnCode', False))
                 self.assertIn(machine.get('MachineId'), ["1", "2"])
             self.assertEqual(len(responses), 2)
+        gjo_mock.assert_called_once_with(
+            'run', '--format', 'json', '--application',
+            'dummy-source,dummy-sink', 'uname')
         with patch.object(client, 'get_juju_output', autospec=True,
-                          return_value=response_err):
+                          return_value=response_err) as gjo_mock:
             with self.assertRaises(ValueError):
                 responses = assess_juju_run(client)
+        gjo_mock.assert_called_once_with(
+            'run', '--format', 'json', '--application',
+            'dummy-source,dummy-sink', 'uname')
 
     def test_safe_print_status(self):
         env = JujuData('foo', {'type': 'nonlocal'})
