@@ -169,7 +169,11 @@ func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIt
 		// a problem? The real call would block for a second waiting
 		// for new data.
 	}
-	s.args <- iterArgs{ts, ids}
+	select {
+	case <-time.After(coretesting.ShortWait):
+		panic("took too long to save args")
+	case s.args <- iterArgs{ts, ids}:
+	}
 	result := s.iterators[s.pos]
 	s.pos++
 	return result
@@ -179,7 +183,7 @@ func (s *fakeSession) Close() {}
 
 func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64) {
 	select {
-	case <-time.After(time.Second):
+	case <-time.After(coretesting.ShortWait):
 		c.Logf("timeout getting iter args - test problem")
 		c.FailNow()
 	case res := <-s.args:
@@ -191,7 +195,7 @@ func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64
 func newFakeSession(iterators ...*fakeIterator) *fakeSession {
 	return &fakeSession{
 		iterators: iterators,
-		args:      make(chan iterArgs, 1000),
+		args:      make(chan iterArgs, 5),
 	}
 }
 
