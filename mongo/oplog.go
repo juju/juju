@@ -107,7 +107,17 @@ type oplogSession struct {
 	query      bson.D
 }
 
-func newOplogSession(collection *mgo.Collection, query bson.D) *oplogSession {
+// NewOplogSession defines a new OplogSession.
+//
+// Arguments:
+// - "collection" is the collection to use for the oplog. Typically this
+//   would be the result of GetOpLog.
+// - "query" can be used to limit the returned oplog entries. A
+//    typical filter would limit based on ns ("<database>.<collection>")
+//    and o (object).
+//
+// The returned session should be `Close`d when it's no longer needed.
+func NewOplogSession(collection *mgo.Collection, query bson.D) *oplogSession {
 	// Use a fresh session for the tailer.
 	session := collection.Database.Session.Copy()
 	return &oplogSession{
@@ -151,11 +161,8 @@ func (s *oplogSession) Close() {
 // NewOplogTailer returns a new OplogTailer.
 //
 // Arguments:
-// - "oplog" is the collection to use for the oplog. Typically this
-//   would be the result of GetOpLog.
-// - "query" can be used to limit the returned oplog entries. A
-//    typical filter would limit based on ns ("<database>.<collection>")
-//    and o (object).
+// - "session" determines the collection and filtering on records that
+//    should be returned.
 // - "initialTs" sets the operation timestamp to start returning
 //    results from. This can be used to avoid an expensive initial search
 //    through the oplog when the tailer first starts.
@@ -163,14 +170,6 @@ func (s *oplogSession) Close() {
 // Remember to call Stop on the returned OplogTailer when it is no
 // longer needed.
 func NewOplogTailer(
-	oplog *mgo.Collection,
-	query bson.D,
-	initialTs time.Time,
-) *OplogTailer {
-	return newOplogTailerWithSession(newOplogSession(oplog, query), initialTs)
-}
-
-func newOplogTailerWithSession(
 	session OplogSession,
 	initialTs time.Time,
 ) *OplogTailer {

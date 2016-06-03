@@ -31,8 +31,10 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	// DB.
 	oplog := mongo.GetOplog(session)
 	tailer := mongo.NewOplogTailer(
-		oplog,
-		bson.D{{"ns", "foo.bar"}},
+		mongo.NewOplogSession(
+			oplog,
+			bson.D{{"ns", "foo.bar"}},
+		),
 		time.Now().Add(-time.Minute),
 	)
 	defer tailer.Stop()
@@ -81,7 +83,7 @@ func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
 		)
 	}
 
-	tailer := mongo.NewOplogTailer(oplog, nil, t)
+	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), t)
 	defer tailer.Stop()
 
 	for offset := 0; offset <= 1; offset++ {
@@ -95,7 +97,7 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), time.Time{})
 	defer tailer.Stop()
 
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
@@ -199,7 +201,7 @@ func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
 		newFakeIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
 		newFakeIterator(nil, &mongo.OplogDoc{Timestamp: 2, OperationId: 42}),
 	)
-	tailer := mongo.NewOplogTailerWithSession(session, time.Time{})
+	tailer := mongo.NewOplogTailer(session, time.Time{})
 	defer tailer.Stop()
 
 	// First, ensure that the tailer is seeing oplog rows and handles
@@ -236,7 +238,7 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 		// Second block, some time 1, one time 2
 		newFakeIterator(nil, docs[5:]...),
 	)
-	tailer := mongo.NewOplogTailerWithSession(session, time.Time{})
+	tailer := mongo.NewOplogTailer(session, time.Time{})
 	defer tailer.Stop()
 
 	for id := int64(10); id < 15; id++ {
@@ -270,7 +272,7 @@ func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
 	oplog := s.makeFakeOplog(c, session)
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
 
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), time.Time{})
 	defer tailer.Stop()
 
 	doc := s.getNextOplog(c, tailer)
