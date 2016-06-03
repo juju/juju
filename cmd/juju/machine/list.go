@@ -5,7 +5,6 @@ package machine
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -52,9 +51,6 @@ func (c *listMachinesCommand) Info() *cmd.Info {
 }
 
 // Init ensures the machines Command does not take arguments.
-func (c *listMachinesCommand) Init(args []string) (err error) {
-	if args != nil {
-		return errors.Errorf("The machines command does not take any arguments")
-	}
-	return nil
+func (c *listMachinesCommand) Init(args []string) error {
+	return cmd.CheckEmpty(args)
 }

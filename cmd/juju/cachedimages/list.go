@@ -70,7 +70,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.Init.
-func (c *listCommand) Init(args []string) (err error) {
+func (c *listCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
