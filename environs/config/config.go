@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -567,8 +568,8 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if strings.ContainsAny(cfg.mustString(NameKey), "/\\") {
-		return fmt.Errorf("model name contains unsafe characters")
+	if !names.IsValidModelName(cfg.mustString(NameKey)) {
+		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", NameKey)
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
