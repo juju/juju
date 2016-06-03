@@ -4892,6 +4892,29 @@ class TestEnvJujuClient1X(ClientTest):
             'INFO The model is environment foo\n',
             self.log_stream.getvalue())
 
+    def test__get_models(self):
+        data = """\
+            - name: foo
+              model-uuid: aaaa
+            - name: bar
+              model-uuid: bbbb
+        """
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        with patch.object(client, 'get_juju_output', return_value=data):
+            models = client._get_models()
+            self.assertEqual(
+                [{'name': 'foo', 'model-uuid': 'aaaa'},
+                 {'name': 'bar', 'model-uuid': 'bbbb'}],
+                models)
+
+    def test__get_models_exception(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        with patch.object(client, 'get_juju_output',
+                          side_effect=subprocess.CalledProcessError('a', 'b')):
+            self.assertEqual([], client._get_models())
+
     def test_get_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
