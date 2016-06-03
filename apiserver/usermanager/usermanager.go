@@ -161,6 +161,7 @@ func (api *UserManagerAPI) RemoveUser(entities params.Entities) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
+		// Also remove from models.
 	}
 	return nil
 }
