@@ -18,15 +18,15 @@ DEVEL = 'development'
 PROPOSED = 'proposed'
 
 DEVEL_TEMPLATE = """\
-# juju-core {version}
+# Juju {version}
 
-A new development release of Juju, juju-core {version}, is now available.
+A new development release of Juju, juju {version}, is now available.
 This release replaces version {previous}.
 
 
 ## Getting Juju
 
-Juju {version} is available for Xenial and backported to earlier
+Juju {version} is available for Yakkety and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/devel
@@ -35,10 +35,8 @@ Windows, Centos, and OS X users will find installers at:
 
     https://launchpad.net/juju-core/+milestone/{version}
 
-Upgrading from stable releases to development releases is not
-supported. You can upgrade test environments to development releases
-to test new features and fixes, but it is not advised to upgrade
-production environments to {version}.
+Upgrading 1.x environments to {version} is not yet supported. Once 2.x is
+proven we will provide an upgrade path from 1.25
 
 
 ## Notable Changes
@@ -54,19 +52,19 @@ production environments to {version}.
 Finally
 
 We encourage everyone to subscribe the mailing list at
-juju-dev@lists.canonical.com, or join us on #juju-dev on freenode.
+juju@lists.ubuntu.com, or join us on #juju on freenode.
 """
 
 PROPOSED_TEMPLATE = """\
-# juju-core {version}
+# Juju {version}
 
-A new proposed stable release of Juju, juju-core {version}, is now available.
+A new proposed stable release of Juju, juju {version}, is now available.
 This release may replace version {previous} on {release_date}.
 
 
 ## Getting Juju
 
-juju-core {version} is available for Xenial and backported to earlier
+juju {version} is available for Yakkety and backported to earlier
 series in the following PPA:
 
     https://launchpad.net/~juju/+archive/proposed
@@ -93,7 +91,7 @@ juju agents.
 Finally
 
 We encourage everyone to subscribe the mailing list at
-juju-dev@lists.canonical.com, or join us on #juju-dev on freenode.
+juju@lists.ubuntu.com, or join us on #juju on freenode.
 """
 
 
