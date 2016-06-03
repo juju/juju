@@ -22,7 +22,8 @@ Launchpad and GitHub), allowing those users SSH access to Juju machines.
 The user identity supplied is the username on the respective service given
 by 'lp:' or 'gh:'.
 If the user has multiple keys on the service, all the keys will be added.
-Once the keys are imported, they can be viewed with the `[1:] + "`juju ssh-\nkeys`" + ` command, where comments will indicate which ones were imported in
+Once the keys are imported, they can be viewed with the `[1:] + "`juju ssh-keys`" + `
+command, where comments will indicate which ones were imported in
 this way.
 An alternative to this command is the more manual ` + "`juju add-ssh-key`" + `.
 

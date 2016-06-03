@@ -26,13 +26,13 @@ The filter attributes are optional.
 Examples:
 
   # List all cached images.
-  juju cache-images
+  juju cached-images
 
   # List cached images for xenial.
-  juju cache-images --series xenial 
+  juju cached-images --series xenial
 
   # List all cached lxd images for xenial amd64.
-  juju cache-images --kind lxd --series xenial --arch amd64
+  juju cached-images --kind lxd --series xenial --arch amd64
 `
 
 // NewListCommand returns a command for listing chached images.
