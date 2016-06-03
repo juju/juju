@@ -700,10 +700,10 @@ def get_azure_config():
     }
 
 
-@patch('winazurearm.ARMClient.init_services',
-       autospec=True, side_effect=fake_init_services)
 class TestAzureARMAccount(TestCase):
 
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
     def test_manager_from_config(self, is_mock):
         config = get_azure_config()
         with AzureARMAccount.manager_from_config(config) as substrate:
@@ -715,6 +715,8 @@ class TestAzureARMAccount(TestCase):
             self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
             is_mock.assert_called_once_with(substrate.arm_client)
 
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
     def test_terminate_instances(self, is_mock):
         config = get_azure_config()
         arm_client = ARMClient(
@@ -726,6 +728,8 @@ class TestAzureARMAccount(TestCase):
         di_mock.assert_called_once_with(
             arm_client, 'foo-bar', resource_group=None)
 
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env)
@@ -753,7 +757,7 @@ class TestAzureARMAccount(TestCase):
         lr_mock.assert_called_once_with(
             arm_client, glob='juju-controller-model-bar', recursive=True)
 
-    def test_convert_to_azure_ids_1x_client(self, is_mock):
+    def test_convert_to_azure_ids_1x_client(self):
         env = SimpleEnvironment('foo', config=get_azure_config())
         client = fake_juju_client(env=env, version='1.2', cls=EnvJujuClient1X)
         with patch.object(client, 'get_models') as gm_mock:
@@ -763,7 +767,7 @@ class TestAzureARMAccount(TestCase):
         self.assertEqual(0, gm_mock.call_count)
         self.assertEqual(0, lr_mock.call_count)
 
-    def test_convert_to_azure_ids_bug_1586089_fixed(self, is_mock):
+    def test_convert_to_azure_ids_bug_1586089_fixed(self):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
