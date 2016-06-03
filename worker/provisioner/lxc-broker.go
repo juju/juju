@@ -147,7 +147,10 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
+	inst, hardware, err := broker.manager.CreateContainer(
+		args.InstanceConfig, args.Constraints,
+		series, network, storageConfig, args.StatusCallback,
+	)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err

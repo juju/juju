@@ -76,9 +76,8 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
@@ -129,12 +128,13 @@ type fakeContainerManager struct {
 }
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
 	series string,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback container.StatusCallback,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	m.MethodCall(m, "CreateContainer", instanceConfig, series, network, storage, callback)
+	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
 	return nil, nil, m.NextErr()
 }
 
