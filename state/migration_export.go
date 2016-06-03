@@ -179,17 +179,13 @@ func (e *exporter) machines() error {
 	}
 	e.logger.Debugf("found %d machines", len(machines))
 
-	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
-	defer closer()
-
-	var instData []instanceData
-	instances := make(map[string]instanceData)
-	if err := instanceDataCollection.Find(nil).All(&instData); err != nil {
-		return errors.Annotate(err, "instance data")
+	instances, err := e.loadMachineInstanceData()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	e.logger.Debugf("found %d instanceData", len(instData))
-	for _, data := range instData {
-		instances[data.MachineId] = data
+	blockDevices, err := e.loadMachineBlockDevices()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Read all the open ports documents.
@@ -219,7 +215,7 @@ func (e *exporter) machines() error {
 			}
 		}
 
-		exMachine, err := e.newMachine(exParent, machine, instances, portsData)
+		exMachine, err := e.newMachine(exParent, machine, instances, portsData, blockDevices)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -229,7 +225,39 @@ func (e *exporter) machines() error {
 	return nil
 }
 
-func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc) (description.Machine, error) {
+func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
+	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
+	defer closer()
+
+	var instData []instanceData
+	instances := make(map[string]instanceData)
+	if err := instanceDataCollection.Find(nil).All(&instData); err != nil {
+		return nil, errors.Annotate(err, "instance data")
+	}
+	e.logger.Debugf("found %d instanceData", len(instData))
+	for _, data := range instData {
+		instances[data.MachineId] = data
+	}
+	return instances, nil
+}
+
+func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
+	coll, closer := e.st.getCollection(blockDevicesC)
+	defer closer()
+
+	var deviceData []blockDevicesDoc
+	result := make(map[string][]BlockDeviceInfo)
+	if err := coll.Find(nil).All(&deviceData); err != nil {
+		return nil, errors.Annotate(err, "block devices")
+	}
+	e.logger.Debugf("found %d block device records", len(deviceData))
+	for _, data := range deviceData {
+		result[data.Machine] = data.BlockDevices
+	}
+	return result, nil
+}
+
+func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData []portsDoc, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),
 		Nonce:         machine.doc.Nonce,
@@ -273,6 +301,23 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+
+	// We don't rely on devices being there. If they aren't, we get an empty slice,
+	// which is fine to iterate over with range.
+	for _, device := range blockDevices[machine.doc.Id] {
+		exMachine.AddBlockDevice(description.BlockDeviceArgs{
+			Name:           device.DeviceName,
+			Links:          device.DeviceLinks,
+			Label:          device.Label,
+			UUID:           device.UUID,
+			HardwareID:     device.HardwareId,
+			BusAddress:     device.BusAddress,
+			Size:           device.Size,
+			FilesystemType: device.FilesystemType,
+			InUse:          device.InUse,
+			MountPoint:     device.MountPoint,
+		})
+	}
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()

@@ -311,6 +311,9 @@ func (i *importer) machine(m description.Machine) error {
 	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
+	if err := i.importMachineBlockDevices(machine, m); err != nil {
+		return errors.Trace(err)
+	}
 
 	// Now that this machine exists in the database, process each of the
 	// containers in this machine.
@@ -318,6 +321,29 @@ func (i *importer) machine(m description.Machine) error {
 		if err := i.machine(container); err != nil {
 			return errors.Annotate(err, container.Id())
 		}
+	}
+	return nil
+}
+
+func (i *importer) importMachineBlockDevices(machine *Machine, m description.Machine) error {
+	var devices []BlockDeviceInfo
+	for _, device := range m.BlockDevices() {
+		devices = append(devices, BlockDeviceInfo{
+			DeviceName:     device.Name(),
+			DeviceLinks:    device.Links(),
+			Label:          device.Label(),
+			UUID:           device.UUID(),
+			HardwareId:     device.HardwareID(),
+			BusAddress:     device.BusAddress(),
+			Size:           device.Size(),
+			FilesystemType: device.FilesystemType(),
+			InUse:          device.InUse(),
+			MountPoint:     device.MountPoint(),
+		})
+	}
+
+	if err := machine.SetMachineBlockDevices(devices...); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
