@@ -147,15 +147,15 @@ class DeployStackTestCase(FakeHomeTestCase):
                 self.assertIn(machine.get('MachineId'), ["1", "2"])
             self.assertEqual(len(responses), 2)
         gjo_mock.assert_called_once_with(
-            'run', '--format', 'json', '--service', 'dummy-source,dummy-sink',
-            'uname')
+            'run', '--format', 'json', '--application',
+            'dummy-source,dummy-sink', 'uname')
         with patch.object(client, 'get_juju_output', autospec=True,
                           return_value=response_err) as gjo_mock:
             with self.assertRaises(ValueError):
                 responses = assess_juju_run(client)
         gjo_mock.assert_called_once_with(
-            'run', '--format', 'json', '--service', 'dummy-source,dummy-sink',
-            'uname')
+            'run', '--format', 'json', '--application',
+            'dummy-source,dummy-sink', 'uname')
 
     def test_safe_print_status(self):
         env = JujuData('foo', {'type': 'nonlocal'})

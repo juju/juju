@@ -336,9 +336,7 @@ def copy_remote_logs(remote, directory):
 
 
 def assess_juju_run(client):
-    responses = client.get_juju_output('run', '--format', 'json', '--service',
-                                       'dummy-source,dummy-sink', 'uname')
-    responses = json.loads(responses)
+    responses = client.run(('uname',), ['dummy-source', 'dummy-sink'])
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
             raise ValueError('juju run on machine %s returned %d: %s' % (

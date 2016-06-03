@@ -2925,6 +2925,22 @@ class TestEnvJujuClient(ClientTest):
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
 
+    def test_run(self):
+        client = fake_juju_client(cls=EnvJujuClient)
+        run_list = [
+            {"MachineId": "1",
+             "Stdout": "Linux\n",
+             "ReturnCode": 255,
+             "Stderr": "Permission denied (publickey,password)"}]
+        run_output = json.dumps(run_list)
+        with patch.object(client._backend, 'get_juju_output',
+                          return_value=run_output) as gjo_mock:
+            result = client.run(('wname',), applications=['foo', 'bar'])
+        self.assertEqual(run_list, result)
+        gjo_mock.assert_called_once_with(
+            'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
+            frozenset(['address-allocation']), 'foo', 'name', None)
+
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
                                '1.23-series-arch', None)
@@ -4991,6 +5007,23 @@ class TestEnvJujuClient1X(ClientTest):
                 ret]
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
+
+    def test_run(self):
+        env = SimpleEnvironment('name', {}, 'foo')
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        run_list = [
+            {"MachineId": "1",
+             "Stdout": "Linux\n",
+             "ReturnCode": 255,
+             "Stderr": "Permission denied (publickey,password)"}]
+        run_output = json.dumps(run_list)
+        with patch.object(client._backend, 'get_juju_output',
+                          return_value=run_output) as gjo_mock:
+            result = client.run(('wname',), applications=['foo', 'bar'])
+        self.assertEqual(run_list, result)
+        gjo_mock.assert_called_once_with(
+            'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
+            frozenset(['address-allocation']), 'foo', 'name', None)
 
     def test_list_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
