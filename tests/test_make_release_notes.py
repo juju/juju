@@ -71,7 +71,7 @@ class MakeReleaseNotes(TestCase):
         # Proposed purpose points to the proposed PPA without a warning.
         text = make_notes('1.20.0', PROPOSED, "  * One\n    Lp 1")
         self.assertIn(
-            'A new proposed stable release of Juju, juju-core 1.20.0, '
+            'A new proposed stable release of Juju, juju 1.20.0, '
             'is now available.',
             text)
         self.assertIn(
@@ -85,7 +85,7 @@ class MakeReleaseNotes(TestCase):
         # Devel purpose points to the devel PPA and a warning is included.
         text = make_notes('1.21-alpha1', DEVEL, "  * One\n    Lp 1")
         self.assertIn(
-            'A new development release of Juju, juju-core 1.21-alpha1,'
+            'A new development release of Juju, juju 1.21-alpha1,'
             ' is now available.',
             text)
         self.assertIn(
@@ -93,9 +93,6 @@ class MakeReleaseNotes(TestCase):
             text)
         self.assertIn(
             '  * One\n    Lp 1',
-            text)
-        self.assertIn(
-            'Upgrading from stable releases to development releases is not',
             text)
 
     def test_make_notes_with_notable(self):
