@@ -523,7 +523,10 @@ def make_substrate_manager(config):
         'azure': AzureAccount.manager_from_config,
         'lxd': LXDAccount.manager_from_config,
     }
-    factory = substrate_factory.get(config['type'])
+    substrate_type = config['type']
+    if substrate_type == 'azure' and 'application-id' in config:
+        substrate_type = 'azure-arm'
+    factory = substrate_factory.get(substrate_type)
     if factory is None:
         yield None
     else:
