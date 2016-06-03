@@ -1918,9 +1918,16 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def _get_models(self):
         """return a list of model dicts."""
-        return yaml.safe_load(self.get_juju_output(
-            'environments', '-s', self.env.environment, '--format', 'yaml',
-            include_e=False))
+        try:
+            return yaml.safe_load(self.get_juju_output(
+                'environments', '-s', self.env.environment, '--format', 'yaml',
+                include_e=False))
+        except subprocess.CalledProcessError:
+            # This *private* method attempts to use a 1.25 JES feature.
+            # The JES design is dead. The private method is not used to
+            # directly test juju cli; the failure is not a contract violation.
+            log.info('Call to JES juju environments failed, falling back.')
+            return []
 
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
