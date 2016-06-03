@@ -1043,6 +1043,20 @@ class TestMakeSubstrateManager(TestCase):
                              'ab\ncd\n')
         self.assertFalse(os.path.exists(substrate.service_client.cert_file))
 
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_make_substrate_manager_azure_arm(self, is_mock):
+        config = get_azure_config()
+        with make_substrate_manager(config) as substrate:
+            self.assertEqual(
+                substrate.arm_client.subscription_id, 'subscription-id')
+            self.assertEqual(
+                substrate.arm_client.client_id, 'application-id')
+            self.assertEqual(
+                substrate.arm_client.secret, 'application-password')
+            self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
+            is_mock.assert_called_once_with(substrate.arm_client)
+
     def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'

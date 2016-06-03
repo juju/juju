@@ -552,6 +552,7 @@ def make_substrate_manager(config):
         'rackspace': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
+        'azure-arm': AzureARMAccount.manager_from_config,
         'lxd': LXDAccount.manager_from_config,
     }
     substrate_type = config['type']
