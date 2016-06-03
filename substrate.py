@@ -61,10 +61,6 @@ def terminate_instances(env, instance_ids):
         with maas_account_from_config(env.config) as substrate:
             substrate.terminate_instances(instance_ids)
         return
-    elif provider_type == 'lxd':
-        with LXDAccount.manager_from_config(env.config) as substrate:
-            substrate.terminate_instances(instance_ids)
-        return
     else:
         with make_substrate_manager(env.config) as substrate:
             if substrate is None:
