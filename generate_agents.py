@@ -100,7 +100,7 @@ def list_ppas(juju_home):
         return None
     listing = subprocess.check_output(
         ['/bin/bash', '-c', 'source {}; set -u; echo '
-         '$BUILD_STABLE1_ARCH\n'
+         '"$BUILD_STABLE1_ARCH\n'
          '$BUILD_DEVEL1_ARCH\n'
          '$BUILD_SUPPORTED_ARCH"'.format(config)])
     return listing.splitlines()
