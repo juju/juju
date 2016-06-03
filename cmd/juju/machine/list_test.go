@@ -103,5 +103,5 @@ func (s *MachineListCommandSuite) TestListMachineJson(c *gc.C) {
 
 func (s *MachineListCommandSuite) TestListMachineArgsError(c *gc.C) {
 	_, err := testing.RunCommand(c, newMachineListCommand(), "0")
-	c.Assert(err, gc.ErrorMatches, "The machines command does not take any arguments")
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["0"\]`)
 }
