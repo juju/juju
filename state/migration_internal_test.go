@@ -48,6 +48,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// networking
 		spacesC,
+
+		// storage
+		blockDevicesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -135,7 +138,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		endpointBindingsC,
 
 		// storage
-		blockDevicesC,
 		filesystemsC,
 		filesystemAttachmentsC,
 		storageInstancesC,
@@ -529,6 +531,33 @@ func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 		"ProviderId",
 	)
 	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+		// We manage machine through containment.
+		"Machine",
+	)
+	migrated := set.NewStrings(
+		"BlockDevices",
+	)
+	s.AssertExportedFields(c, blockDevicesDoc{}, migrated.Union(ignored))
+	// The meat is in the type stored in "BlockDevices".
+	migrated = set.NewStrings(
+		"DeviceName",
+		"DeviceLinks",
+		"Label",
+		"UUID",
+		"HardwareId",
+		"BusAddress",
+		"Size",
+		"FilesystemType",
+		"InUse",
+		"MountPoint",
+	)
+	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
