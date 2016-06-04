@@ -170,6 +170,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
     def test_delete_controller_members(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_members'])
         client.env = sentinel.env
+        client.env.config = {'type': 'lxd'}
         client.get_controller_members.return_value = [
             Machine('3', {
                 'dns-name': '10.0.0.3',
@@ -210,6 +211,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
     def test_delete_controller_members_leader_only(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
         client.env = sentinel.env
+        client.env.config = {'type': 'lxd'}
         client.get_controller_leader.return_value = Machine('3', {
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',
@@ -224,3 +226,24 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
             ' juju-dddd-machine-3 at 10.0.0.3\n')
+
+    def test_delete_controller_members_azure(self, ti_mock, wsss_mock):
+        client = Mock(spec=['env', 'get_controller_leader'])
+        client.env = sentinel.env
+        client.env.config = {'type': 'azure'}
+        client.get_controller_leader.return_value = Machine('3', {
+            'dns-name': '10.0.0.3',
+            'instance-id': 'juju-dddd-machine-3',
+            'controller-member-status': 'has-vote'})
+        with patch('assess_recovery.convert_to_azure_ids', autospec=True,
+                   return_value=['juju-azure-id']):
+            deleted = delete_controller_members(client, leader_only=True)
+        self.assertEqual(['3'], deleted)
+        client.get_controller_leader.assert_called_once_with()
+        ti_mock.assert_called_once_with(client.env, ['juju-azure-id'])
+        wsss_mock.assert_called_once_with(
+            '10.0.0.3', client, 'juju-azure-id', timeout=120)
+        self.assertEqual(
+            self.log_stream.getvalue(),
+            'INFO Instrumenting node failure for member 3:'
+            ' juju-azure-id at 10.0.0.3\n')

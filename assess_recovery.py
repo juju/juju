@@ -18,6 +18,7 @@ from jujupy import (
     parse_new_state_server_from_error,
 )
 from substrate import (
+    convert_to_azure_ids,
     terminate_instances,
 )
 from utility import (
@@ -82,6 +83,8 @@ def delete_controller_members(client, leader_only=False):
     deleted_machines = []
     for machine in members:
         instance_id = machine.info.get('instance-id')
+        if client.env.config['type'] == 'azure':
+            instance_id = convert_to_azure_ids(client, [instance_id])[0]
         host = machine.info.get('dns-name')
         log.info("Instrumenting node failure for member {}: {} at {}".format(
                  machine.machine_id, instance_id, host))
