@@ -37,7 +37,7 @@ github.com/juju/testing	git	e71f328f50bbfc3bae5f0184760e7e151e4fca7f	2016-05-31T
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
 github.com/juju/utils	git	ee05f709cb3bc6b9cbcb3d30940cdf712662a6da	2016-05-24T18:15:00Z
-github.com/juju/version	git	ef897ad7f130870348ce306f61332f5335355063	2015-11-27T20:34:00Z
+github.com/juju/version	git	4ae6172c00626779a5a462c3e3d22fc0e889431a	2016-06-03T19:49:58Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/juju/zip	git	f6b1e93fa2e29a1d7d49b566b2b51efb060c982a	2016-02-05T10:52:21Z
