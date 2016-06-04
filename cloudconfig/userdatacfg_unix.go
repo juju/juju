@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
@@ -207,9 +205,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
 	}
 
-	if w.icfg.PublicImageSigningKey != "" {
+	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
-		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
+		w.conf.AddRunTextFile(keyFile, w.icfg.Controller.PublicImageSigningKey, 0644)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
@@ -262,75 +260,55 @@ func (w *unixConfigure) ConfigureJuju() error {
 		w.conf.AddCloudArchiveCloudTools()
 	}
 
-	if w.icfg.Bootstrap {
-		// Add the Juju GUI to the bootstrap node.
-		cleanup, err := w.setUpGUI()
-		if err != nil {
-			return errors.Annotate(err, "cannot set up Juju GUI")
+	if w.icfg.Bootstrap != nil {
+		if err := w.configureBootstrap(); err != nil {
+			return errors.Trace(err)
 		}
-		if cleanup != nil {
-			defer cleanup()
-		}
-
-		var metadataDir string
-		if len(w.icfg.CustomImageMetadata) > 0 {
-			metadataDir = path.Join(w.icfg.DataDir, "simplestreams")
-			// TODO(perrito666) 2016-05-02 lp:1558657
-			index, products, err := imagemetadata.MarshalImageMetadataJSON(w.icfg.CustomImageMetadata, nil, time.Now())
-			if err != nil {
-				return err
-			}
-			indexFile := path.Join(metadataDir, imagemetadata.IndexStoragePath())
-			productFile := path.Join(metadataDir, imagemetadata.ProductMetadataStoragePath())
-			w.conf.AddRunTextFile(indexFile, string(index), 0644)
-			w.conf.AddRunTextFile(productFile, string(products), 0644)
-			metadataDir = "  --image-metadata " + shquote(metadataDir)
-		}
-
-		bootstrapCons := w.icfg.Constraints.String()
-		if bootstrapCons != "" {
-			bootstrapCons = " --bootstrap-constraints " + shquote(bootstrapCons)
-		}
-		modelCons := w.icfg.ModelConstraints.String()
-		if modelCons != "" {
-			modelCons = " --constraints " + shquote(modelCons)
-		}
-		var hardware string
-		if w.icfg.HardwareCharacteristics != nil {
-			if hardware = w.icfg.HardwareCharacteristics.String(); hardware != "" {
-				hardware = " --hardware " + shquote(hardware)
-			}
-		}
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
-		loggingOption := " --show-log"
-		// If the bootstrap command was requsted with --debug, then the root
-		// logger will be set to DEBUG.  If it is, then we use --debug here too.
-		if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
-			loggingOption = " --debug"
-		}
-		featureFlags := featureflag.AsEnvironmentValue()
-		if featureFlags != "" {
-			featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
-		}
-		w.conf.AddScripts(
-			// The bootstrapping is always run with debug on.
-			featureFlags + w.icfg.JujuTools() + "/jujud bootstrap-state" +
-				" --data-dir " + shquote(w.icfg.DataDir) +
-				" --model-config " + shquote(base64yaml(w.icfg.Config.AllAttrs())) +
-				" --hosted-model-config " + shquote(base64yaml(w.icfg.HostedModelConfig)) +
-				" --instance-id " + shquote(string(w.icfg.InstanceId)) +
-				hardware +
-				bootstrapCons +
-				modelCons +
-				metadataDir +
-				loggingOption,
-		)
 	}
-
 	return w.addMachineAgentToBoot()
 }
 
-func (w unixConfigure) addDownloadToolsCmds() error {
+func (w *unixConfigure) configureBootstrap() error {
+	// Add the Juju GUI to the bootstrap node.
+	cleanup, err := w.setUpGUI()
+	if err != nil {
+		return errors.Annotate(err, "cannot set up Juju GUI")
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	bootstrapParamsFile := path.Join(w.icfg.DataDir, "bootstrap-params")
+	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
+	if err != nil {
+		return errors.Annotate(err, "marshalling bootstrap params")
+	}
+	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0600)
+
+	loggingOption := "--show-log"
+	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
+		// If the bootstrap command was requested with --debug, then the root
+		// logger will be set to DEBUG. If it is, then we use --debug here too.
+		loggingOption = "--debug"
+	}
+	featureFlags := featureflag.AsEnvironmentValue()
+	if featureFlags != "" {
+		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
+	}
+	bootstrapAgentArgs := []string{
+		featureFlags + w.icfg.JujuTools() + "/jujud",
+		"bootstrap-state",
+		"--data-dir", shquote(w.icfg.DataDir),
+		loggingOption,
+		shquote(bootstrapParamsFile),
+	}
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping Juju machine agent"))
+	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
+
+	return nil
+}
+
+func (w *unixConfigure) addDownloadToolsCmds() error {
 	tools := w.icfg.ToolsList()[0]
 	if strings.HasPrefix(tools.URL, fileSchemePrefix) {
 		toolsData, err := ioutil.ReadFile(tools.URL[len(fileSchemePrefix):])
@@ -344,7 +322,7 @@ func (w unixConfigure) addDownloadToolsCmds() error {
 		for _, tools := range w.icfg.ToolsList() {
 			urls = append(urls, tools.URL)
 		}
-		if w.icfg.Bootstrap {
+		if w.icfg.Bootstrap != nil {
 			curlCommand += " --retry 10"
 			if w.icfg.DisableSSLHostnameVerification {
 				curlCommand += " --insecure"
@@ -386,16 +364,16 @@ func (w unixConfigure) addDownloadToolsCmds() error {
 // The returned clean up function must be called when the bootstrapping
 // process is completed.
 func (w *unixConfigure) setUpGUI() (func(), error) {
-	if w.icfg.GUI == nil {
+	if w.icfg.Bootstrap.GUI == nil {
 		// No GUI archives were found on simplestreams, and no development
 		// GUI path has been passed with the JUJU_GUI environment variable.
 		return nil, nil
 	}
-	u, err := url.Parse(w.icfg.GUI.URL)
+	u, err := url.Parse(w.icfg.Bootstrap.GUI.URL)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot parse Juju GUI URL")
 	}
-	guiJson, err := json.Marshal(w.icfg.GUI)
+	guiJson, err := json.Marshal(w.icfg.Bootstrap.GUI)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -427,7 +405,7 @@ func (w *unixConfigure) setUpGUI() (func(), error) {
 		"[ -f $gui/gui.tar.bz2 ] && sha256sum $gui/gui.tar.bz2 > $gui/jujugui.sha256",
 		fmt.Sprintf(
 			`[ -f $gui/jujugui.sha256 ] && (grep '%s' $gui/jujugui.sha256 && printf %%s %s > $gui/downloaded-gui.txt || echo Juju GUI checksum mismatch)`,
-			w.icfg.GUI.SHA256, shquote(string(guiJson))),
+			w.icfg.Bootstrap.GUI.SHA256, shquote(string(guiJson))),
 	)
 	return func() {
 		// Don't remove the GUI archive until after bootstrap agent runs,

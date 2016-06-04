@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"github.com/juju/cmd"
@@ -68,7 +69,7 @@ func (s *addSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *addSuite) TestInit(c *gc.C) {
-
+	modelNameErr := "%q is not a valid name: model names may only contain lowercase letters, digits and hyphens"
 	for i, test := range []struct {
 		args   []string
 		err    string
@@ -81,6 +82,21 @@ func (s *addSuite) TestInit(c *gc.C) {
 		}, {
 			args: []string{"new-model"},
 			name: "new-model",
+		}, {
+			args: []string{"n"},
+			name: "n",
+		}, {
+			args: []string{"new model"},
+			err:  fmt.Sprintf(modelNameErr, "new model"),
+		}, {
+			args: []string{"newModel"},
+			err:  fmt.Sprintf(modelNameErr, "newModel"),
+		}, {
+			args: []string{"-"},
+			err:  fmt.Sprintf(modelNameErr, "-"),
+		}, {
+			args: []string{"new@model"},
+			err:  fmt.Sprintf(modelNameErr, "new@model"),
 		}, {
 			args:  []string{"new-model", "--owner", "foo"},
 			name:  "new-model",

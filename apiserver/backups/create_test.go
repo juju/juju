@@ -50,5 +50,6 @@ func (s *backupsSuite) TestCreateError(c *gc.C) {
 	var args params.BackupsCreateArgs
 	_, err := s.api.Create(args)
 
+	c.Logf("%v", err)
 	c.Check(err, gc.ErrorMatches, "failed!")
 }

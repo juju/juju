@@ -160,16 +160,13 @@ func StartInstanceWithParams(
 	}
 
 	machineNonce := "fake_nonce"
-	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
 		preferredSeries,
-		"",
 		true,
-		stateInfo,
 		apiInfo,
 	)
 	if err != nil {

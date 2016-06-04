@@ -11,7 +11,7 @@ import (
 
 // Info provides the implementation of the API method.
 func (a *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, error) {
-	backups, closer := newBackups(a.st)
+	backups, closer := newBackups(a.backend)
 	defer closer.Close()
 
 	meta, file, err := backups.Get(args.ID)

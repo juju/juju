@@ -21,13 +21,14 @@ var bootstrapNode = names.NewMachineTag("0")
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
+	logger.Infof("Starting server side restore")
 
 	// Get hold of a backup file Reader
-	backup, closer := newBackups(a.st)
+	backup, closer := newBackups(a.backend)
 	defer closer.Close()
 
 	// Obtain the address of current machine, where we will be performing restore.
-	machine, err := a.st.Machine(a.machineID)
+	machine, err := a.backend.Machine(a.machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -44,7 +45,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	}
 
-	info := a.st.RestoreInfo()
+	info := a.backend.RestoreInfo()
 	// Signal to current state and api server that restore will begin
 	err = info.SetStatus(state.RestoreInProgress)
 	if err != nil {
@@ -69,13 +70,29 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		NewInstSeries:  machine.Series(),
 	}
 
-	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
+	session := a.backend.MongoSession().Copy()
+	defer session.Close()
+
+	// Don't go if HA isn't ready.
+	err = waitUntilReady(session, 60)
+	if err != nil {
+		return errors.Annotatef(err, "HA not ready; try again later")
+	}
+
+	mgoInfo := a.backend.MongoConnectionInfo()
+	logger.Debugf("mongo info from state %+v", mgoInfo)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	oldTagString, err := backup.Restore(p.BackupId, dbInfo, restoreArgs)
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
 	// A backup can be made of any component of an ha array.
-	// The files in a backup dont contain purely relativized paths.
+	// The files in a backup don't contain purely relativized paths.
 	// If the backup is made of the bootstrap node (machine 0) the
 	// recently created machine will have the same paths and therefore
 	// the startup scripts will fit the new juju. If the backup belongs
@@ -114,14 +131,14 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 // PrepareRestore implements the server side of Backups.PrepareRestore.
 func (a *API) PrepareRestore() error {
-	info := a.st.RestoreInfo()
+	info := a.backend.RestoreInfo()
 	logger.Infof("entering restore preparation mode")
 	return info.SetStatus(state.RestorePending)
 }
 
 // FinishRestore implements the server side of Backups.FinishRestore.
 func (a *API) FinishRestore() error {
-	info := a.st.RestoreInfo()
+	info := a.backend.RestoreInfo()
 	currentStatus, err := info.Status()
 	if err != nil {
 		return errors.Trace(err)

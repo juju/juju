@@ -106,7 +106,7 @@ func (s *RestoreInfoSuite) TestUpdateRaceExhaustion(c *gc.C) {
 		perturb,
 	).Check()
 	err := s.info.SetStatus(state.RestoreInProgress)
-	c.Check(err, gc.ErrorMatches, "state changing too quickly; try again soon")
+	c.Check(err, gc.ErrorMatches, "setting status \"RESTORING\": state changing too quickly; try again soon")
 }
 
 //--------------------------------------
@@ -120,11 +120,7 @@ func (s *RestoreInfoSuite) TestNotActiveSetPending(c *gc.C) {
 }
 
 func (s *RestoreInfoSuite) TestNotActiveSetInProgress(c *gc.C) {
-	s.checkBadSetStatus(c, state.RestoreFinished)
-}
-
-func (s *RestoreInfoSuite) TestNotActiveSetFinished(c *gc.C) {
-	s.checkBadSetStatus(c, state.RestoreFinished)
+	s.checkBadSetStatus(c, state.RestoreInProgress)
 }
 
 func (s *RestoreInfoSuite) TestNotActiveSetChecked(c *gc.C) {
@@ -154,11 +150,6 @@ func (s *RestoreInfoSuite) TestPendingSetPending(c *gc.C) {
 func (s *RestoreInfoSuite) TestPendingSetInProgress(c *gc.C) {
 	s.setupPending(c)
 	s.checkSetStatus(c, state.RestoreInProgress)
-}
-
-func (s *RestoreInfoSuite) TestPendingSetFinished(c *gc.C) {
-	s.setupPending(c)
-	s.checkBadSetStatus(c, state.RestoreFinished)
 }
 
 func (s *RestoreInfoSuite) TestPendingSetChecked(c *gc.C) {
@@ -270,11 +261,6 @@ func (s *RestoreInfoSuite) TestCheckedSetInProgress(c *gc.C) {
 	s.checkBadSetStatus(c, state.RestoreInProgress)
 }
 
-func (s *RestoreInfoSuite) TestCheckedSetFinished(c *gc.C) {
-	s.setupChecked(c)
-	s.checkBadSetStatus(c, state.RestoreFinished)
-}
-
 func (s *RestoreInfoSuite) TestCheckedSetChecked(c *gc.C) {
 	s.setupChecked(c)
 	s.checkSetStatus(c, state.RestoreChecked)
@@ -338,6 +324,6 @@ func (s *RestoreInfoSuite) checkSetStatus(c *gc.C, status state.RestoreStatus) {
 
 func (s *RestoreInfoSuite) checkBadSetStatus(c *gc.C, status state.RestoreStatus) {
 	err := s.info.SetStatus(status)
-	expect := fmt.Sprintf("invalid restore transition: [-A-Z]+ => %s", status)
+	expect := fmt.Sprintf("setting status %q: invalid restore transition: [-A-Z]+ => %s", status, status)
 	c.Check(err, gc.ErrorMatches, expect)
 }
