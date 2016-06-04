@@ -84,11 +84,6 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 		return errors.Trace(err)
 	}
 
-	// TODO: evaluate the impact of setting the constraints on the
-	// instanceConfig for all machines rather than just controller nodes.
-	// This limitation is why the constraints are assigned directly here.
-	args.InstanceConfig.Constraints = args.Constraints
-
 	return nil
 }
 

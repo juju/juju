@@ -101,8 +101,8 @@ func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	envInfo := result.Result
 	c.Assert(envInfo.UUID, gc.Equals, otherSt.ModelUUID())
-	c.Assert(envInfo.Name, gc.Equals, "hosted_env")
-	c.Assert(envInfo.GlobalName, gc.Equals, "user-admin@local/hosted_env")
+	c.Assert(envInfo.Name, gc.Equals, "hosted-env")
+	c.Assert(envInfo.GlobalName, gc.Equals, "user-admin@local/hosted-env")
 	c.Assert(envInfo.IsSystem, jc.IsFalse)
 	c.Assert(envInfo.Life, gc.Equals, params.Alive)
 }
@@ -167,7 +167,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
-	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted_env"})
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted-env"})
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

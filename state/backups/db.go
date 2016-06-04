@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -11,7 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"github.com/juju/version"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
@@ -225,64 +227,263 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 	return databases, nil
 }
 
-// mongoRestoreArgsForVersion returns a string slice containing the args to be used
-// to call mongo restore since these can change depending on the backup method.
-// Version 0: a dump made with --db, stopping the controller.
-// Version 1: a dump made with --oplog with a running controller.
-// TODO (perrito666) change versions to use metadata version
-func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
-	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
-	switch {
-	case ver.Major == 1 && ver.Minor < 22:
-		return []string{"--drop", "--journal", "--dbpath", dbDir, dumpPath}, nil
-	case ver.Major == 1 && ver.Minor >= 22,
-		ver.Major == 2:
-		return []string{"--drop", "--journal", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
-	default:
-		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
-	}
-}
-
 var getMongorestorePath = func() (string, error) {
 	return getMongoToolPath(restoreName, os.Stat, exec.LookPath)
 }
 
-var restoreArgsForVersion = mongoRestoreArgsForVersion
-
-// placeNewMongoService wraps placeNewMongo with the proper service stopping
-// and starting before dumping the new mongo db, it is mainly to easy testing
-// of placeNewMongo.
-func placeNewMongoService(newMongoDumpPath string, ver version.Number) error {
-	err := mongo.StopService()
-	if err != nil {
-		return errors.Annotate(err, "failed to stop mongo")
-	}
-
-	if err := placeNewMongo(newMongoDumpPath, ver); err != nil {
-		return errors.Annotate(err, "cannot place new mongo")
-	}
-	err = mongo.StartService()
-	return errors.Annotate(err, "failed to start mongo")
+// DBDumper is any type that dumps something to a dump dir.
+type DBRestorer interface {
+	// Dump something to dumpDir.
+	Restore(dumpDir string, dialInfo *mgo.DialInfo) error
 }
 
-// placeNewMongo tries to use mongorestore to replace an existing
-// mongo with the dump in newMongoDumpPath returns an error if its not possible.
-func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
-	mongoRestore, err := getMongorestorePath()
-	if err != nil {
-		return errors.Annotate(err, "mongorestore not available")
+type mongoRestorer struct {
+	*mgo.DialInfo
+	// binPath is the path to the dump executable.
+	binPath         string
+	tagUser         string
+	tagUserPassword string
+	runCommandFn    func(string, ...string) error
+}
+type mongoRestorer32 struct {
+	mongoRestorer
+	getDB           func(string, MongoSession) MongoDB
+	newMongoSession func(*mgo.DialInfo) (MongoSession, error)
+}
+
+type mongoRestorer24 struct {
+	mongoRestorer
+	stopMongo  func() error
+	startMongo func() error
+}
+
+func (md *mongoRestorer24) options(dumpDir string) []string {
+	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
+	options := []string{
+		"--drop",
+		"--journal",
+		"--oplogReplay",
+		"--dbpath", dbDir,
+		dumpDir,
+	}
+	return options
+}
+
+func (md *mongoRestorer24) Restore(dumpDir string, _ *mgo.DialInfo) error {
+	logger.Debugf("stopping mongo service for restore")
+	if err := md.stopMongo(); err != nil {
+		return errors.Annotate(err, "cannot stop mongo to replace files")
+	}
+	options := md.options(dumpDir)
+	logger.Infof("restoring database with params %v", options)
+	if err := md.runCommandFn(md.binPath, options...); err != nil {
+		return errors.Annotate(err, "error restoring database")
+	}
+	if err := md.startMongo(); err != nil {
+		return errors.Annotate(err, "cannot start mongo after restore")
 	}
 
-	mgoRestoreArgs, err := restoreArgsForVersion(ver, newMongoDumpPath)
+	return nil
+}
+
+// GetDB wraps mgo.Session.DB to ease testing.
+func GetDB(s string, session MongoSession) MongoDB {
+	return session.DB(s)
+}
+
+// NewMongoSession wraps mgo.DialInfo to ease testing.
+func NewMongoSession(dialInfo *mgo.DialInfo) (MongoSession, error) {
+	return mgo.DialWithInfo(dialInfo)
+}
+
+type RestorerArgs struct {
+	DialInfo        *mgo.DialInfo
+	NewMongoSession func(*mgo.DialInfo) (MongoSession, error)
+	Version         mongo.Version
+	TagUser         string
+	TagUserPassword string
+	GetDB           func(string, MongoSession) MongoDB
+
+	RunCommandFn func(string, ...string) error
+	StartMongo   func() error
+	StopMongo    func() error
+}
+
+var mongoInstalledVersion = mongo.InstalledVersion
+
+// NewDBRestorer returns a new structure that can perform a restore
+// on the db pointed in dialInfo.
+func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
+	mongorestorePath, err := getMongorestorePath()
 	if err != nil {
-		return errors.Errorf("cannot restore this backup version")
+		return nil, errors.Annotate(err, "mongorestrore not available")
 	}
 
-	err = runCommandFn(mongoRestore, mgoRestoreArgs...)
-
-	if err != nil {
-		return errors.Annotate(err, "failed to restore database dump")
+	installedMongo := mongoInstalledVersion()
+	// NewerThan will check Major and Minor so migration between micro versions
+	// will work, before changing this bewar, Mongo has been known to break
+	// compatibility between minors.
+	if args.Version.NewerThan(installedMongo) != 0 {
+		return nil, errors.NotSupportedf("restore mongo version %s into version %s", args.Version.String(), installedMongo.String())
 	}
 
+	var restorer DBRestorer
+	mgoRestorer := mongoRestorer{
+		DialInfo:        args.DialInfo,
+		binPath:         mongorestorePath,
+		tagUser:         args.TagUser,
+		tagUserPassword: args.TagUserPassword,
+		runCommandFn:    args.RunCommandFn,
+	}
+	switch args.Version.Major {
+	case 2:
+		restorer = &mongoRestorer24{
+			mongoRestorer: mgoRestorer,
+			startMongo:    args.StartMongo,
+			stopMongo:     args.StopMongo,
+		}
+	case 3:
+		restorer = &mongoRestorer32{
+			mongoRestorer:   mgoRestorer,
+			getDB:           args.GetDB,
+			newMongoSession: args.NewMongoSession,
+		}
+	default:
+		return nil, errors.Errorf("cannot restore from mongo version %q", args.Version.String())
+	}
+	return restorer, nil
+}
+
+func (md *mongoRestorer32) options(dumpDir string) []string {
+	options := []string{
+		"--ssl",
+		"--authenticationDatabase", "admin",
+		"--host", md.Addrs[0],
+		"--username", md.Username,
+		"--password", md.Password,
+		"--drop",
+		"--oplogReplay",
+		dumpDir,
+	}
+	return options
+}
+
+// MongoDB represents a mgo.DB.
+type MongoDB interface {
+	UpsertUser(*mgo.User) error
+}
+
+// MongoSession represents mgo.Session.
+type MongoSession interface {
+	Run(cmd interface{}, result interface{}) error
+	Close()
+	DB(string) *mgo.Database
+}
+
+// ensureOplogPermissions adds a special role to the admin user, this role
+// is required by mongorestore when doing oplogreplay.
+func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error {
+	s, err := md.newMongoSession(dialInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.Close()
+
+	roles := bson.D{
+		{"createRole", "oploger"},
+		{"privileges", []bson.D{
+			bson.D{
+				{"resource", bson.M{"anyResource": true}},
+				{"actions", []string{"anyAction"}},
+			},
+		}},
+		{"roles", []string{}},
+	}
+	var mgoErr bson.M
+	err = s.Run(roles, &mgoErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	result, ok := mgoErr["ok"]
+	success, isFloat := result.(float64)
+	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+		return errors.Errorf("could not create special role to replay oplog, result was: %#v", mgoErr)
+	}
+
+	// This will replace old user with the new credentials
+	admin := md.getDB("admin", s)
+
+	grant := bson.D{
+		{"grantRolesToUser", md.DialInfo.Username},
+		{"roles", []string{"oploger"}},
+	}
+
+	err = s.Run(grant, &mgoErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	result, ok = mgoErr["ok"]
+	success, isFloat = result.(float64)
+	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+		return errors.Errorf("could not grant special role to %q, result was: %#v", md.DialInfo.Username, mgoErr)
+	}
+
+	grant = bson.D{
+		{"grantRolesToUser", "admin"},
+		{"roles", []string{"oploger"}},
+	}
+
+	err = s.Run(grant, &mgoErr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	result, ok = mgoErr["ok"]
+	success, isFloat = result.(float64)
+	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+		return errors.Errorf("could not grant special role to \"admin\", result was: %#v", mgoErr)
+	}
+
+	if err := admin.UpsertUser(&mgo.User{
+		Username: md.DialInfo.Username,
+		Password: md.DialInfo.Password,
+	}); err != nil {
+		return errors.Errorf("cannot set new admin credentials: %v", err)
+	}
+
+	return nil
+}
+
+func (md *mongoRestorer32) ensureTagUser() error {
+	s, err := md.newMongoSession(md.DialInfo)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer s.Close()
+
+	admin := md.getDB("admin", s)
+
+	if err := admin.UpsertUser(&mgo.User{
+		Username: md.tagUser,
+		Password: md.tagUserPassword,
+	}); err != nil {
+		return fmt.Errorf("cannot set tag user credentials: %v", err)
+	}
+	return nil
+}
+
+func (md *mongoRestorer32) Restore(dumpDir string, dialInfo *mgo.DialInfo) error {
+	if err := md.ensureOplogPermissions(dialInfo); err != nil {
+		return errors.Annotate(err, "setting special user permission in db")
+	}
+
+	options := md.options(dumpDir)
+	logger.Infof("restoring database with params %v", options)
+	if err := md.runCommandFn(md.binPath, options...); err != nil {
+		return errors.Annotate(err, "error restoring database")
+	}
+	logger.Infof("updating user credentials")
+	if err := md.ensureTagUser(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }

@@ -194,10 +194,10 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 		Endpoint:   "hearnoretheir",
 		Stream:     "released",
 	})
-	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 2)
-	c.Assert(env.instanceConfig.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
-	c.Assert(env.instanceConfig.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
-	c.Assert(env.instanceConfig.Constraints, jc.DeepEquals, bootstrapCons)
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 2)
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
 }
 
 // TestBootstrapImageMetadataFromAllSources tests that we are looking for
@@ -369,10 +369,10 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.0.42 release installation\n")
 
 	// The most recent GUI release info has been stored.
-	c.Assert(env.instanceConfig.GUI.URL, gc.Equals, "https://1.2.3.4/juju-gui-2.0.42.tar.bz2")
-	c.Assert(env.instanceConfig.GUI.Version.String(), gc.Equals, "2.0.42")
-	c.Assert(env.instanceConfig.GUI.Size, gc.Equals, int64(42))
-	c.Assert(env.instanceConfig.GUI.SHA256, gc.Equals, "hash-2.0.42")
+	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "https://1.2.3.4/juju-gui-2.0.42.tar.bz2")
+	c.Assert(env.instanceConfig.Bootstrap.GUI.Version.String(), gc.Equals, "2.0.42")
+	c.Assert(env.instanceConfig.Bootstrap.GUI.Size, gc.Equals, int64(42))
+	c.Assert(env.instanceConfig.Bootstrap.GUI.SHA256, gc.Equals, "hash-2.0.42")
 }
 
 func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
@@ -385,8 +385,8 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Preparing for Juju GUI 2.2.0 installation from local archive\n")
 
 	// Check GUI URL and version.
-	c.Assert(env.instanceConfig.GUI.URL, gc.Equals, "file://"+path)
-	c.Assert(env.instanceConfig.GUI.Version.String(), gc.Equals, "2.2.0")
+	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "file://"+path)
+	c.Assert(env.instanceConfig.Bootstrap.GUI.Version.String(), gc.Equals, "2.2.0")
 
 	// Check GUI size.
 	f, err := os.Open(path)
@@ -394,13 +394,13 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	defer f.Close()
 	info, err := f.Stat()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.GUI.Size, gc.Equals, info.Size())
+	c.Assert(env.instanceConfig.Bootstrap.GUI.Size, gc.Equals, info.Size())
 
 	// Check GUI hash.
 	h := sha256.New()
 	_, err = io.Copy(h, f)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.GUI.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
+	c.Assert(env.instanceConfig.Bootstrap.GUI.SHA256, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 }
 
 func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
@@ -409,7 +409,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
-	c.Assert(env.instanceConfig.GUI, gc.IsNil)
+	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
@@ -423,7 +423,7 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "No available Juju GUI archives found\n")
-	c.Assert(env.instanceConfig.GUI, gc.IsNil)
+	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
@@ -437,7 +437,7 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju GUI info: bad wolf\n")
-	c.Assert(env.instanceConfig.GUI, gc.IsNil)
+	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
@@ -546,8 +546,8 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	// Bugs #1542127, #1542131
 	c.Assert(datasources[0].PublicSigningKey(), gc.Equals, "")
 	c.Assert(env.instanceConfig, gc.NotNil)
-	c.Assert(env.instanceConfig.CustomImageMetadata, gc.HasLen, 1)
-	c.Assert(env.instanceConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 1)
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
 }
 
 func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
@@ -558,7 +558,7 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.instanceConfig.PublicImageSigningKey, gc.Equals, "publickey")
+	c.Assert(env.instanceConfig.Controller.PublicImageSigningKey, gc.Equals, "publickey")
 }
 
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {

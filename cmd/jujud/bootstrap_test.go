@@ -26,13 +26,13 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -55,8 +56,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	statestorage "github.com/juju/juju/state/storage"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -68,16 +67,16 @@ import (
 type BootstrapSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	envcfg                       *config.Config
-	b64yamlControllerModelConfig string
-	b64yamlHostedModelConfig     string
-	instanceId                   instance.Id
-	dataDir                      string
-	logDir                       string
-	mongoOplogSize               string
-	fakeEnsureMongo              *agenttest.FakeEnsureMongo
-	bootstrapName                string
-	hostedModelUUID              string
+
+	bootstrapParamsFile string
+	bootstrapParams     instancecfg.StateInitializationParams
+
+	dataDir         string
+	logDir          string
+	mongoOplogSize  string
+	fakeEnsureMongo *agenttest.FakeEnsureMongo
+	bootstrapName   string
+	hostedModelUUID string
 
 	toolsStorage storage.Storage
 }
@@ -97,7 +96,6 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	})
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -115,9 +113,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+	s.bootstrapParamsFile = filepath.Join(s.dataDir, "bootstrap-params")
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
+	s.makeTestEnv(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
@@ -173,10 +173,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
 	info := filepath.Join(dir, "downloaded-gui.txt")
 	err := os.Remove(info)
 	c.Assert(err, jc.ErrorIsNil)
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
@@ -203,10 +200,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 	err := os.Chmod(info, 0000)
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.Chmod(info, 0600)
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
@@ -227,10 +221,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 	archive := filepath.Join(dir, "gui.tar.bz2")
 	err := os.Remove(archive)
 	c.Assert(err, jc.ErrorIsNil)
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
@@ -246,10 +237,7 @@ func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var tw loggo.TestWriter
@@ -335,19 +323,16 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	err = machineConf.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
+	if len(args) == 0 {
+		args = []string{s.bootstrapParamsFile}
+	}
 	cmd = NewBootstrapCommand()
-
 	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
-	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	machConf, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId), "--hardware", hw.String(),
-	)
+	machConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -393,12 +378,12 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instid, gc.Equals, instance.Id(string(s.instanceId)))
+	c.Assert(instid, gc.Equals, s.bootstrapParams.InstanceId)
 
 	stateHw, err := machines[0].HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateHw, gc.NotNil)
-	c.Assert(*stateHw, gc.DeepEquals, hw)
+	c.Assert(stateHw, gc.DeepEquals, s.bootstrapParams.HardwareCharacteristics)
 
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -406,17 +391,12 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.envcfg.AuthorizedKeys()+"\npublic-key")
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.Config.AuthorizedKeys()+"\npublic-key")
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
-	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId), "--hardware", hw.String(),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
@@ -424,18 +404,14 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	// bootstrap with 1.99.1 but there will be no tools so version will be reset.
-	envcfg, err := s.envcfg.Apply(map[string]interface{}{
+	cfg, err := s.bootstrapParams.Config.Apply(map[string]interface{}{
 		"agent-version": "1.99.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	b64yamlControllerModelConfig := b64yaml(envcfg.AllAttrs()).encode()
+	s.bootstrapParams.Config = cfg
+	s.writeBootstrapParamsFile(c)
 
-	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId), "--hardware", hw.String(),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -450,7 +426,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	cfg, err := st.ModelConfig()
+	cfg, err = st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -458,15 +434,11 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
-	bootstrapCons := constraints.Value{Mem: uint64p(4096), CpuCores: uint64p(4)}
-	modelCons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
-	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-		"--bootstrap-constraints", bootstrapCons.String(),
-		"--constraints", modelCons.String(),
-	)
+	s.bootstrapParams.BootstrapMachineConstraints = constraints.Value{Mem: uint64p(4096), CpuCores: uint64p(4)}
+	s.bootstrapParams.ModelConstraints = constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
+	s.writeBootstrapParamsFile(c)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,14 +455,14 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, modelCons)
+	c.Assert(cons, gc.DeepEquals, s.bootstrapParams.ModelConstraints)
 
 	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	cons, err = machines[0].Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, gc.DeepEquals, bootstrapCons)
+	c.Assert(cons, gc.DeepEquals, s.bootstrapParams.BootstrapMachineConstraints)
 }
 
 func uint64p(v uint64) *uint64 {
@@ -503,11 +475,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		state.JobHostUnits,
 		state.JobManageNetworking,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -528,11 +496,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
-	_, cmd, err := s.initBootstrapCommand(c, jobs,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, jobs)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -564,11 +528,7 @@ func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Run(nil)
@@ -621,70 +581,16 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 }
 
 var bootstrapArgTests = []struct {
-	input              []string
-	err                string
-	expectedInstanceId string
-	expectedHardware   instance.HardwareCharacteristics
-	expectedConfig     map[string]interface{}
+	input                       []string
+	err                         string
+	expectedBootstrapParamsFile string
 }{
 	{
-		// no value supplied for model-config
-		err: "--model-config option must be set",
+		err:   "bootstrap-params file must be specified",
+		input: []string{"--data-dir", "/tmp/juju/data/dir"},
 	}, {
-		// empty model-config
-		input: []string{"--model-config", ""},
-		err:   "--model-config option must be set",
-	}, {
-		// wrong, should be base64
-		input: []string{"--model-config", "name: banana\n"},
-		err:   ".*illegal base64 data at input byte.*",
-	}, {
-		// no value supplied for hosted-model-config
-		input: []string{
-			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-		},
-		err: "--hosted-model-config option must be set",
-	}, {
-		// no value supplied for instance-id
-		input: []string{
-			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-		},
-		err: "--instance-id option must be set",
-	}, {
-		// empty instance-id
-		input: []string{
-			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--instance-id", "",
-		},
-		err: "--instance-id option must be set",
-	}, {
-		input: []string{
-			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--instance-id", "anything",
-		},
-		expectedInstanceId: "anything",
-		expectedConfig:     map[string]interface{}{"name": "banana"},
-	}, {
-		input: []string{
-			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--instance-id", "anything",
-			"--hardware", "nonsense",
-		},
-		err: `invalid value "nonsense" for flag --hardware: malformed characteristic "nonsense"`,
-	}, {
-		input: []string{
-			"--model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--hosted-model-config", base64.StdEncoding.EncodeToString([]byte("name: banana\n")),
-			"--instance-id", "anything",
-			"--hardware", "arch=amd64 cpu-cores=4 root-disk=2T",
-		},
-		expectedInstanceId: "anything",
-		expectedHardware:   instance.MustParseHardware("arch=amd64 cpu-cores=4 root-disk=2T"),
-		expectedConfig:     map[string]interface{}{"name": "banana"},
+		input: []string{"/some/where"},
+		expectedBootstrapParamsFile: "/some/where",
 	},
 }
 
@@ -697,9 +603,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 		if t.err == "" {
 			c.Assert(cmd, gc.NotNil)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(cmd.ControllerModelConfig, gc.DeepEquals, t.expectedConfig)
-			c.Assert(cmd.InstanceId, gc.Equals, t.expectedInstanceId)
-			c.Assert(cmd.Hardware, gc.DeepEquals, t.expectedHardware)
+			c.Assert(cmd.BootstrapParamsFile, gc.Equals, t.expectedBootstrapParamsFile)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -720,11 +624,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -740,18 +640,15 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 
-	envcfg, err := s.envcfg.Apply(map[string]interface{}{
+	cfg, err := s.bootstrapParams.Config.Apply(map[string]interface{}{
 		"bootstrap-timeout": "13",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	b64yamlControllerModelConfig := b64yaml(envcfg.AllAttrs()).encode()
+	s.bootstrapParams.Config = cfg
+	s.writeBootstrapParamsFile(c)
 
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -762,11 +659,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
-	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -797,11 +690,8 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
-	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -850,93 +740,16 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}
 }
 
-const (
-	indexContent = `{
-    "index": {
-        "com.ubuntu.cloud:%v": {
-            "updated": "Fri, 17 Jul 2015 13:42:48 +1000",
-            "format": "products:1.0",
-            "datatype": "image-ids",
-            "cloudname": "custom",
-            "clouds": [
-                {
-                    "region": "%v",
-                    "endpoint": "endpoint"
-                }
-            ],
-            "path": "streams/v1/products.json",
-            "products": [
-                "com.ubuntu.cloud:server:14.04:%v"
-            ]
-        }
-    },
-    "updated": "Fri, 17 Jul 2015 13:42:48 +1000",
-    "format": "index:1.0"
-}`
-
-	productContent = `{
-    "products": {
-        "com.ubuntu.cloud:server:14.04:%v": {
-            "version": "14.04",
-            "arch": "%v",
-            "versions": {
-                "20151707": {
-                    "items": {
-                        "%v": {
-                            "id": "%v",
-                            "root_store": "%v",
-                            "virt": "%v",
-                            "region": "%v",
-                            "endpoint": "endpoint"
-                        }
-                    }
-                }
-            }
-        }
-     },
-    "updated": "Fri, 17 Jul 2015 13:42:48 +1000",
-    "format": "products:1.0",
-    "content_id": "com.ubuntu.cloud:%v"
-}`
-)
-
-func writeTempFiles(c *gc.C, metadataDir string, expected []struct{ path, content string }) {
-	for _, pair := range expected {
-		path := filepath.Join(metadataDir, pair.path)
-		err := os.MkdirAll(filepath.Dir(path), 0755)
-		c.Assert(err, jc.ErrorIsNil)
-		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func createImageMetadata(c *gc.C) (string, cloudimagemetadata.Metadata, []struct{ path, content string }) {
-	// setup data for this test
-	metadata := cloudimagemetadata.Metadata{
-		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
-			Region:          "region",
-			Series:          "trusty",
-			Arch:            "amd64",
-			VirtType:        "virtType",
-			RootStorageType: "rootStore",
-			Source:          "custom"},
-		Priority: simplestreams.CUSTOM_CLOUD_DATA,
-		ImageId:  "imageId"}
-
-	// setup files containing test's data
-	metadataDir := c.MkDir()
-	expected := []struct{ path, content string }{{
-		path:    "streams/v1/index.json",
-		content: fmt.Sprintf(indexContent, metadata.Source, metadata.Region, metadata.Arch),
-	}, {
-		path:    "streams/v1/products.json",
-		content: fmt.Sprintf(productContent, metadata.Arch, metadata.Arch, metadata.ImageId, metadata.ImageId, metadata.RootStorageType, metadata.VirtType, metadata.Region, metadata.Source),
-	}, {
-		path:    "wayward/file.txt",
-		content: "ghi",
+func createImageMetadata(c *gc.C) []*imagemetadata.ImageMetadata {
+	return []*imagemetadata.ImageMetadata{{
+		Id:         "imageId",
+		Storage:    "rootStore",
+		VirtType:   "virtType",
+		Arch:       "amd64",
+		Version:    "14.04",
+		Endpoint:   "endpoint",
+		RegionName: "region",
 	}}
-	writeTempFiles(c, metadataDir, expected)
-	return metadataDir, metadata, expected
 }
 
 func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
@@ -959,104 +772,39 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
-	dir, m, _ := createImageMetadata(c)
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-		"--image-metadata", dir,
-	)
+	s.bootstrapParams.CustomImageMetadata = createImageMetadata(c)
+	s.writeBootstrapParamsFile(c)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This metadata should have also been written to state...
-	// m.Version would be deduced from m.Series
-	m.Version = "14.04"
-	assertWrittenToState(c, m)
-
-}
-
-func (s *BootstrapSuite) TestCustomDataSourceHasKey(c *gc.C) {
-	dir, _, _ := createImageMetadata(c)
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-		"--image-metadata", dir,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	called := false
-	s.PatchValue(&storeImageMetadataFromFiles, func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
-		called = true
-		// This data source does not require to contain signed data.
-		// However, it may still contain it.
-		// Since we will always try to read signed data first,
-		// we want to be able to try to read this signed data
-		// with a user provided public key. For this test, none is provided.
-		// Bugs #1542127, #1542131
-		c.Assert(source.PublicSigningKey(), gc.Equals, "")
-		return nil
-	})
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
+	expect := cloudimagemetadata.Metadata{
+		cloudimagemetadata.MetadataAttributes{
+			Region:          "region",
+			Arch:            "amd64",
+			Version:         "14.04",
+			Series:          "trusty",
+			RootStorageType: "rootStore",
+			VirtType:        "virtType",
+			Source:          "custom",
+		},
+		simplestreams.CUSTOM_CLOUD_DATA,
+		"imageId",
+	}
+	assertWrittenToState(c, expect)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	dir, _, _ := createImageMetadata(c)
+	s.bootstrapParams.CustomImageMetadata = createImageMetadata(c)
+	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
+	s.writeBootstrapParamsFile(c)
 
-	msg := "my test error"
-	s.PatchValue(&seriesFromVersion, func(string) (string, error) {
-		return "", errors.New(msg)
-	})
-
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-		"--image-metadata", dir,
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-}
-
-func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
-	metadataDir, _, expected := createImageMetadata(c)
-
-	var stor statetesting.MapStorage
-	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
-		return &stor
-	})
-
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil,
-		"--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-		"--image-metadata", metadataDir,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The contents of the directory should have been added to
-	// environment storage.
-	for _, pair := range expected {
-		r, length, err := stor.Get(pair.path)
-		c.Assert(err, jc.ErrorIsNil)
-		data, err := ioutil.ReadAll(r)
-		r.Close()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(length, gc.Equals, int64(len(pair.content)))
-		c.Assert(data, gc.HasLen, int(length))
-		c.Assert(string(data), gc.Equals, pair.content)
-	}
+	c.Assert(err, gc.ErrorMatches, `cannot determine series for version woat: unknown series for version: \"woat\"`)
 }
 
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
@@ -1079,21 +827,31 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, jc.ErrorIsNil)
-	s.instanceId = inst.Id()
 
 	addresses, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	addr, _ := network.SelectPublicAddress(addresses)
 	s.bootstrapName = addr.Value
-	s.envcfg = env.Config()
-	s.b64yamlControllerModelConfig = b64yaml(s.envcfg.AllAttrs()).encode()
-
 	s.hostedModelUUID = utils.MustNewUUID().String()
-	hostedModelConfigAttrs := map[string]interface{}{
+
+	var args instancecfg.StateInitializationParams
+	args.InstanceId = inst.Id()
+	args.Config = env.Config()
+	hw := instance.MustParseHardware("arch=amd64 mem=8G")
+	args.HardwareCharacteristics = &hw
+	args.HostedModelConfig = map[string]interface{}{
 		"name": "hosted-model",
 		"uuid": s.hostedModelUUID,
 	}
-	s.b64yamlHostedModelConfig = b64yaml(hostedModelConfigAttrs).encode()
+	s.bootstrapParams = args
+	s.writeBootstrapParamsFile(c)
+}
+
+func (s *BootstrapSuite) writeBootstrapParamsFile(c *gc.C) {
+	data, err := s.bootstrapParams.Marshal()
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(s.bootstrapParamsFile, data, 0600)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func nullContext() environs.BootstrapContext {
@@ -1115,11 +873,7 @@ func (m b64yaml) encode() string {
 }
 
 func (s *BootstrapSuite) TestDefaultStoragePools(c *gc.C) {
-	_, cmd, err := s.initBootstrapCommand(
-		c, nil, "--model-config", s.b64yamlControllerModelConfig,
-		"--hosted-model-config", s.b64yamlHostedModelConfig,
-		"--instance-id", string(s.instanceId),
-	)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)

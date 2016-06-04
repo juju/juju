@@ -21,6 +21,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
@@ -567,8 +568,8 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if strings.ContainsAny(cfg.mustString(NameKey), "/\\") {
-		return fmt.Errorf("model name contains unsafe characters")
+	if !names.IsValidModelName(cfg.mustString(NameKey)) {
+		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", NameKey)
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave

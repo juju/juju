@@ -504,17 +504,27 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 // shutdown will be blocked until the API handler returns.
 func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		srv.wg.Add(1)
-		defer srv.wg.Done()
-		// If we've got to this stage and the tomb is still
-		// alive, we know that any tomb.Kill must occur after we
-		// have called wg.Add, so we avoid the possibility of a
-		// handler goroutine running after Stop has returned.
-		if srv.tomb.Err() != tomb.ErrStillAlive {
-			return
+		// Care must be taken to not increment the waitgroup count
+		// after the listener has closed.
+		//
+		// First we check to see if the tomb has not yet been killed
+		// because the closure of the listener depends on the tomb being
+		// killed to trigger the defer block in srv.run.
+		select {
+		case <-srv.tomb.Dying():
+			// This request was accepted before the listener was closed
+			// but after the tomb was killed. As we're in the process of
+			// shutting down, do not consider this request as in progress,
+			// just send a 503 and return.
+			http.Error(w, "apiserver shutdown in progress", 503)
+		default:
+			// If we get here then the tomb was not killed therefore the
+			// listener is still open. It is safe to increment the
+			// wg counter as wg.Wait in srv.run has not yet been called.
+			srv.wg.Add(1)
+			defer srv.wg.Done()
+			handler.ServeHTTP(w, r)
 		}
-
-		handler.ServeHTTP(w, r)
 	})
 }
 

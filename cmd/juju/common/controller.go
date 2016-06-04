@@ -67,7 +67,7 @@ var (
 func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return apiblock.NewClient(root), nil
 }
