@@ -844,9 +844,9 @@ def safe_print_status(client):
         logging.exception(e)
 
 
-def wait_for_state_server_to_shutdown(host, client, instance_id):
+def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
-    wait_for_port(host, 17070, closed=True)
+    wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
     provider_type = client.env.config.get('type')
     if provider_type == 'openstack':

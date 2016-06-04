@@ -194,9 +194,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
              call(client.env, ['juju-dddd-machine-3'])],
             ti_mock.mock_calls)
         self.assertEqual(
-            [call('10.0.0.2', client, 'juju-cccc-machine-2'),
-             call('10.0.0.0', client, 'juju-aaaa-machine-0'),
-             call('10.0.0.3', client, 'juju-dddd-machine-3')],
+            [call('10.0.0.2', client, 'juju-cccc-machine-2', timeout=120),
+             call('10.0.0.0', client, 'juju-aaaa-machine-0', timeout=120),
+             call('10.0.0.3', client, 'juju-dddd-machine-3', timeout=120)],
             wsss_mock.mock_calls)
         self.assertEqual(
             self.log_stream.getvalue(),
@@ -219,7 +219,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         client.get_controller_leader.assert_called_once_with()
         ti_mock.assert_called_once_with(client.env, ['juju-dddd-machine-3'])
         wsss_mock.assert_called_once_with(
-            '10.0.0.3', client, 'juju-dddd-machine-3')
+            '10.0.0.3', client, 'juju-dddd-machine-3', timeout=120)
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
