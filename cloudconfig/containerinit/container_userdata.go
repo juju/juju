@@ -102,6 +102,7 @@ iface {{.InterfaceName}} inet manual{{if .DNSServers}}
 {{end}}`
 
 var networkInterfacesFile = "/etc/network/interfaces.d/00-juju.cfg"
+var networkInterfaces50CloudInitFile = "/etc/network/interfaces.d/50-cloud-init.cfg"
 
 // GenerateNetworkConfig renders a network config for one or more
 // network interfaces, using the given non-nil networkConfig
@@ -159,6 +160,7 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 
 	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
 	cloudConfig.AddRunCmd("ifup -a || true")
+	cloudConfig.AddRunCmd(fmt.Sprintf("test -f '%s' && rm -f '%s'", networkInterfacesFile, networkInterfaces50CloudInitFile))
 	return cloudConfig, nil
 }
 

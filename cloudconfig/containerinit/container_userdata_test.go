@@ -31,9 +31,10 @@ func Test(t *stdtesting.T) {
 type UserDataSuite struct {
 	testing.BaseSuite
 
-	networkInterfacesFile string
-	fakeInterfaces        []network.InterfaceInfo
-	expectedNetConfig     string
+	networkInterfacesFile            string
+	networkInterfaces50CloudInitFile string
+	fakeInterfaces                   []network.InterfaceInfo
+	expectedNetConfig                string
 }
 
 var _ = gc.Suite(&UserDataSuite{})
@@ -41,6 +42,7 @@ var _ = gc.Suite(&UserDataSuite{})
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.networkInterfacesFile = filepath.Join(c.MkDir(), "interfaces")
+	s.networkInterfaces50CloudInitFile = filepath.Join(c.MkDir(), "50-cloud-init.cfg")
 	s.fakeInterfaces = []network.InterfaceInfo{{
 		InterfaceName:    "eth0",
 		CIDR:             "0.1.2.0/24",
@@ -98,6 +100,7 @@ iface eth2 inet manual
 
 `
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
+	s.PatchValue(containerinit.NetworkInterfaces50CloudInitFile, s.networkInterfaces50CloudInitFile)
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
@@ -135,6 +138,7 @@ bootcmd:
   ' > '` + s.networkInterfacesFile + `'
 runcmd:
 - ifup -a || true
+- test -f '` + s.networkInterfacesFile + `' && rm -f '` + s.networkInterfaces50CloudInitFile + `'
 `
 	assertUserData(c, cloudConf, expected)
 }
