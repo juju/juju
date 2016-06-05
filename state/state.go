@@ -76,7 +76,6 @@ type State struct {
 	modelTag      names.ModelTag
 	controllerTag names.ModelTag
 	mongoInfo     *mongo.MongoInfo
-	mongoDialOpts mongo.DialOpts
 	session       *mgo.Session
 	database      Database
 	policy        Policy
@@ -227,24 +226,38 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 
 // ForModel returns a connection to mongo for the specified model. The
 // connection uses the same credentials and policy as the existing connection.
-func (st *State) ForModel(env names.ModelTag) (*State, error) {
-	newState, err := open(env, st.mongoInfo, st.mongoDialOpts, st.policy)
+func (st *State) ForModel(model names.ModelTag) (*State, error) {
+	session := st.session.Copy()
+	newSt, err := newState(
+		model, session, st.mongoInfo, st.policy,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newState.start(st.controllerTag); err != nil {
+	if err := newSt.start(st.controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newState, nil
+	return newSt, nil
 }
 
 // start makes a *State functional post-creation, by:
+//
 //   * setting controllerTag and leaseClientId
 //   * starting lease managers and watcher backends
 //   * creating cloud metadata storage
-func (st *State) start(controllerTag names.ModelTag) error {
-	st.controllerTag = controllerTag
+//
+// start will close the *State if it fails.
+func (st *State) start(controllerTag names.ModelTag) (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err2 := st.Close(); err2 != nil {
+			logger.Errorf("closing State for %s: %v", st.modelTag, err2)
+		}
+	}()
 
+	st.controllerTag = controllerTag
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
