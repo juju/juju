@@ -42,6 +42,7 @@ func NewModel(args ModelArgs) Model {
 	m.setRelations(nil)
 	m.setSpaces(nil)
 	m.setSubnets(nil)
+	m.setIPAddresses(nil)
 	return m
 }
 
@@ -77,12 +78,13 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Users_     users     `yaml:"users"`
-	Machines_  machines  `yaml:"machines"`
-	Services_  services  `yaml:"services"`
-	Relations_ relations `yaml:"relations"`
-	Spaces_    spaces    `yaml:"spaces"`
-	Subnets_   subnets   `yaml:"subnets"`
+	Users_       users       `yaml:"users"`
+	Machines_    machines    `yaml:"machines"`
+	Services_    services    `yaml:"services"`
+	Relations_   relations   `yaml:"relations"`
+	Spaces_      spaces      `yaml:"spaces"`
+	IPAddresses_ ipaddresses `yaml:"ipaddresses"`
+	Subnets_     subnets     `yaml:"subnets"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -273,6 +275,15 @@ func (m *model) Subnets() []Subnet {
 	return result
 }
 
+// IPAddresses implements Model.
+func (m *model) IPAddresses() []IPAddress {
+	var result []IPAddress
+	for _, addr := range m.IPAddresses_.IPAddresses_ {
+		result = append(result, subnet)
+	}
+	return result
+}
+
 // AddSubnet implemets Model.
 func (m *model) AddSubnet(args SubnetArgs) Subnet {
 	subnet := newSubnet(args)
@@ -284,6 +295,20 @@ func (m *model) setSubnets(subnetList []*subnet) {
 	m.Subnets_ = subnets{
 		Version:  1,
 		Subnets_: subnetList,
+	}
+}
+
+// AddIPAddress implements Model.
+func (m *model) AddIPAddress(args IPAddressArgs) IPAddress {
+	addr := newIPAddress(args)
+	m.IPAddresses_.IPAddresses_ = append(m.IPAddresses_.IPAddresses_, addr)
+	return addr
+}
+
+func (m *model) setIPAddresses(addressesList []*ipaddress) {
+	m.IPAddresses_ = ipaddresses{
+		Version:      1,
+		IPAddresses_: addressesList,
 	}
 }
 
@@ -403,6 +428,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"machines":     schema.StringMap(schema.Any()),
 		"services":     schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
+		"ipaddresses":  schema.StringMap(schema.Any()),
 		"spaces":       schema.StringMap(schema.Any()),
 		"subnets":      schema.StringMap(schema.Any()),
 		"sequences":    schema.StringMap(schema.Int()),
@@ -495,5 +521,11 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSubnets(subnets)
 
+	addressMap := valid["ipaddresses"].(map[string]interface{})
+	addresses, err := importIPAddresses(addressMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "ipaddresses")
+	}
+	result.setIPAddresses(addresses)
 	return result, nil
 }

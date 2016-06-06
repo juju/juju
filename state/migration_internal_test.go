@@ -47,6 +47,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		relationScopesC,
 
 		// networking
+		ipAddressesC,
 		spacesC,
 		subnetsC,
 
@@ -148,7 +149,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumeAttachmentsC,
 
 		// network
-		ipAddressesC,
 		providerIDsC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
@@ -583,6 +583,25 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"AllocatableIPLow",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DeviceName",
+		"MachineID",
+		"DNSSearchDomains",
+		"GatewayAddress",
+		"ProviderID",
+		"DNSServers",
+		"SubnetCIDR",
+		"ConfigMethod",
+		"Value",
+	)
+	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

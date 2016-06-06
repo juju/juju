@@ -358,3 +358,19 @@ func (s *ModelSerializationSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Subnets(), jc.DeepEquals, subnets)
 }
+
+func (s *ModelSerializationSuite) TestIPAddress(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	addr := initial.AddIPAddress(IPAddressArgs{Value: "10.0.0.4"})
+	c.Assert(addr.Value(), gc.Equals, "10.0.0.4")
+	addresses := initial.IPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(addresses[0], jc.DeepEquals, addr)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.IPAddresses(), jc.DeepEquals, addresses)
+}

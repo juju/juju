@@ -66,6 +66,9 @@ type Model interface {
 	Subnets() []Subnet
 	AddSubnet(SubnetArgs) Subnet
 
+	IPAddresses() []IPAddress
+	AddIPAddress(IPAddressArgs) IPAddress
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -330,4 +333,17 @@ type Subnet interface {
 	SpaceName() string
 	AllocatableIPHigh() string
 	AllocatableIPLow() string
+}
+
+// IPAddress represents an IP address.
+type IPAddress interface {
+	ProviderID() string
+	DeviceName() string
+	MachineID() string
+	SubnetCIDR() string
+	ConfigMethod() string
+	Value() string
+	DNSServers() []string
+	DNSSearchDomains() []string
+	GatewayAddress() string
 }

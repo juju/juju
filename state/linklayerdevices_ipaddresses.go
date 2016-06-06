@@ -328,3 +328,19 @@ func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultD
 
 	return errors.Trace(iter.Close())
 }
+
+// AllIPAddresses returns all ip addresses in the model.
+func (st *State) AllIPAddresses() (addresses []*Address, err error) {
+	addressesCollection, closer := st.getCollection(ipAddressesC)
+	defer closer()
+
+	sdocs := []ipAddressDoc{}
+	err = addressesCollection.Find(bson.D{}).All(&sdocs)
+	if err != nil {
+		return nil, errors.Errorf("cannot get all ip addresses")
+	}
+	for _, a := range sdocs {
+		addresses = append(addresses, newIPAddress(st, a))
+	}
+	return addresses, nil
+}
