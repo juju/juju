@@ -92,9 +92,9 @@ def assess_create_pool(client):
         raise JujuAssertionError(pool_list)
 
 
-def assess_add_storage(client, unit, amount="1"):
+def assess_add_storage(client, unit, storage_type, amount="1"):
     """Test adding storage instances to service."""
-    client.juju('add-storage', (unit, "data=" + amount))
+    client.juju('add-storage', (unit, storage_type + "=" + amount))
 
 
 def deploy_storage(client, charm, series, pool, amount="1G"):
@@ -111,19 +111,19 @@ def deploy_storage(client, charm, series, pool, amount="1G"):
 
 
 def assess_deploy_storage(client, charm_series,
-                          charm_name, storage_type, pool):
+                          charm_name, provider_type, pool):
     """Set up the test for deploying charm with storage."""
-    if storage_type == 'filesystem':
+    if provider_type == 'filesystem':
         storage = {
             "data": {
-                "type": storage_type,
+                "type": provider_type,
                 "location": "/srv/data"
             }
         }
-    elif storage_type == "block":
+    elif provider_type == "block":
         storage = {
             "disks": {
-                "type": storage_type,
+                "type": provider_type,
                 "multiple": {
                     "range": "0-10"
                 }
@@ -137,7 +137,7 @@ def assess_deploy_storage(client, charm_series,
                                  series=charm_series,
                                  repository=charm_dir, platform=platform)
         deploy_storage(client, charm, charm_series, pool, "1G")
-        assess_add_storage(client, charm_name + '/0', "1")
+        assess_add_storage(client, charm_name + '/0', storage.keys()[0], "1")
 
 
 def assess_storage(client, charm_series):

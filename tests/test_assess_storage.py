@@ -85,7 +85,7 @@ class TestAssess(TestCase):
                 call('add-storage',
                      ('dummy-storage-fs/0', 'data=1')),
                 call('add-storage',
-                     ('dummy-storage-lp/0', 'data=1')),
+                     ('dummy-storage-lp/0', 'disks=1')),
                 call('add-storage',
                      ('dummy-storage-tp/0', 'data=1'))],
             mock_client.juju.mock_calls)
