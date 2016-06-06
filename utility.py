@@ -305,7 +305,11 @@ def s3_cmd(params, drop_output=False):
 
 
 def _get_test_name_from_filename():
-    return os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    try:
+        calling_file = sys._getframe(2).f_back.f_globals['__file__']
+        return os.path.splitext(os.path.basename(calling_file))[0]
+    except:
+        return 'unknown_test'
 
 
 def _generate_default_clean_dir():
@@ -325,12 +329,11 @@ def add_basic_testing_arguments(parser, using_jes=False):
     The basic testing arguments, used in conjuction with boot_context ensures
     a test can be run in any supported substrate in parallel.
 
-    This helper adds 1 positional arguments that defines the minimum needed
-    to run a test script: env.
+    This helper adds 4 positional arguments that defines the minimum needed
+    to run a test script.
 
-    In addition, 3 additional positional arguments are defined, but optional.
-    These arguments (juju_bin, logs, temp_env_name) allow you to specify
-    specifics for which juju binary, which folder for logging and an
+    These arguments (env, juju_bin, logs, temp_env_name) allow you to specify
+    specifics for which env, juju binary, which folder for logging and an
     environment name for your test respectively.
 
     There are many optional args that either update the env's config or
@@ -342,12 +345,12 @@ def add_basic_testing_arguments(parser, using_jes=False):
     :param parser: an ArgumentParser.
     :param using_jes: whether args should be tailored for JES testing.
     """
-    # Required positional arguments.
-    parser.add_argument(
-        'env',
-        help='The juju environment to base the temp test environment on.')
 
     # Optional postional arguments
+    parser.add_argument(
+        'env', nargs='?',
+        help='The juju environment to base the temp test environment on.',
+        default='lxd')
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary.',
                         default='/usr/bin/juju')

@@ -361,6 +361,20 @@ class TestGetDebArch(TestCase):
 
 class TestAddBasicTestingArguments(TestCase):
 
+    def test_no_args(self):
+        cmd_line = ['']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        args = parser.parse_args(cmd_line)
+        self.assertEqual(args.env, 'lxd')
+        self.assertEqual(args.juju_bin, '/usr/bin/juju')
+        test_str, utility_str, date_str, logs_str = args.logs.split("_")
+        self.assertEqual(test_str, 'test')
+        self.assertEqual(utility_str, 'utility')
+        self.assertTrue(datetime.strptime(date_str, "%Y%m%d%H%M%S"))
+        self.assertEqual(logs_str, 'logs')
+        self.assertEqual(args.temp_env_name, 'test_utility_temp_env')
+
+
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser())
