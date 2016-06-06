@@ -63,6 +63,9 @@ type Model interface {
 	Spaces() []Space
 	AddSpace(SpaceArgs) Space
 
+	IPAddresses() []IPAddress
+	AddIPAddress(IPAddressArgs) IPAddress
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -316,4 +319,17 @@ type Space interface {
 	Name() string
 	Public() bool
 	ProviderID() string
+}
+
+// IPAddress represents an IP address.
+type IPAddress interface {
+	ProviderID() string
+	DeviceName() string
+	MachineID() string
+	SubnetCIDR() string
+	ConfigMethod() string
+	Value() string
+	DNSServers() []string
+	DNSSearchDomains() []string
+	GatewayAddress() string
 }
