@@ -84,6 +84,9 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.subnets(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -581,6 +584,27 @@ func (e *exporter) relations() error {
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
+	}
+	return nil
+}
+
+func (e *exporter) subnets() error {
+	subnets, err := e.st.AllSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d subnets", len(subnets))
+
+	for _, subnet := range subnets {
+		e.model.AddSubnet(description.SubnetArgs{
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
+			AllocatableIPHigh: subnet.AllocatableIPHigh(),
+			AllocatableIPLow:  subnet.AllocatableIPLow(),
+		})
 	}
 	return nil
 }

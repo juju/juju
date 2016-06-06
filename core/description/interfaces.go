@@ -60,6 +60,9 @@ type Model interface {
 	Relations() []Relation
 	AddRelation(RelationArgs) Relation
 
+	Subnets() []Subnet
+	AddSubnet(SubnetArgs) Subnet
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -303,4 +306,15 @@ type Endpoint interface {
 
 	Settings(unitName string) map[string]interface{}
 	SetUnitSettings(unitName string, settings map[string]interface{})
+}
+
+// Subnet represents a network subnet.
+type Subnet interface {
+	ProviderId() string
+	CIDR() string
+	VLANTag() int
+	AvailabilityZone() string
+	SpaceName() string
+	AllocatableIPHigh() string
+	AllocatableIPLow() string
 }

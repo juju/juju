@@ -59,7 +59,9 @@ type subnetDoc struct {
 	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
 	VLANTag           int    `bson:"vlantag,omitempty"`
 	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
-	IsPublic          bool   `bson:"is-public,omitempty"`
+	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
+	// IsPublic to migration import/export.
+	IsPublic bool `bson:"is-public,omitempty"`
 	// TODO(dooferlad 2015-08-03): add an upgrade step to insert IsPublic=false
 	SpaceName string `bson:"space-name,omitempty"`
 }
@@ -365,38 +367,13 @@ var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
 
-	subnetID := st.docID(args.CIDR)
-	subDoc := subnetDoc{
-		DocID:             subnetID,
-		ModelUUID:         st.ModelUUID(),
-		Life:              Alive,
-		CIDR:              args.CIDR,
-		VLANTag:           args.VLANTag,
-		ProviderId:        string(args.ProviderId),
-		AllocatableIPHigh: args.AllocatableIPHigh,
-		AllocatableIPLow:  args.AllocatableIPLow,
-		AvailabilityZone:  args.AvailabilityZone,
-		SpaceName:         args.SpaceName,
-	}
-	subnet = &Subnet{doc: subDoc, st: st}
-	err = subnet.Validate()
+	subnet, err = st.newSubnetFromArgs(args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-
+	ops := st.addSubnetOps(args)
+	ops = append(ops, assertModelActiveOp(st.ModelUUID()))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		ops := []txn.Op{
-			assertModelActiveOp(st.ModelUUID()),
-			{
-				C:      subnetsC,
-				Id:     subnetID,
-				Assert: txn.DocMissing,
-				Insert: subDoc,
-			},
-		}
-		if args.ProviderId != "" {
-			ops = append(ops, st.networkEntityGlobalKeyOp("subnet", args.ProviderId))
-		}
 
 		if attempt != 0 {
 			if err := checkModelActive(st); err != nil {
@@ -419,6 +396,56 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, errors.Trace(err)
 	}
 	return subnet, nil
+}
+
+func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
+	subnetID := st.docID(args.CIDR)
+	subDoc := subnetDoc{
+		DocID:             subnetID,
+		ModelUUID:         st.ModelUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        string(args.ProviderId),
+		AllocatableIPHigh: args.AllocatableIPHigh,
+		AllocatableIPLow:  args.AllocatableIPLow,
+		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
+	}
+	subnet := &Subnet{doc: subDoc, st: st}
+	err := subnet.Validate()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return subnet, nil
+}
+
+func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
+	subnetID := st.docID(args.CIDR)
+	subDoc := subnetDoc{
+		DocID:             subnetID,
+		ModelUUID:         st.ModelUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        string(args.ProviderId),
+		AllocatableIPHigh: args.AllocatableIPHigh,
+		AllocatableIPLow:  args.AllocatableIPLow,
+		AvailabilityZone:  args.AvailabilityZone,
+		SpaceName:         args.SpaceName,
+	}
+	ops := []txn.Op{
+		{
+			C:      subnetsC,
+			Id:     subnetID,
+			Assert: txn.DocMissing,
+			Insert: subDoc,
+		},
+	}
+	if args.ProviderId != "" {
+		ops = append(ops, st.networkEntityGlobalKeyOp("subnet", args.ProviderId))
+	}
+	return ops
 }
 
 // Subnet returns the subnet specified by the cidr.

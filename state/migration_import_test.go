@@ -494,6 +494,31 @@ func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.
 	c.Assert(m.Life(), gc.Equals, life)
 }
 
+func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
+	original, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:             "10.0.0.0/24",
+		ProviderId:       network.Id("foo"),
+		VLANTag:          64,
+		AvailabilityZone: "bar",
+		SpaceName:        "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	subnet, err := newSt.Subnet(original.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.
