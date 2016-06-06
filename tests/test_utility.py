@@ -362,7 +362,7 @@ class TestGetDebArch(TestCase):
 class TestAddBasicTestingArguments(TestCase):
 
     def test_no_args(self):
-        cmd_line = ['']
+        cmd_line = []
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
