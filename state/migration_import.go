@@ -98,6 +98,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.spaces(); err != nil {
 		return nil, nil, errors.Annotate(err, "spaces")
 	}
+	if err := restore.linklayerdevices(); err != nil {
+		return nil, nil, errors.Annotate(err, "linklayerdevices")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -842,6 +845,59 @@ func (i *importer) spaces() error {
 	}
 
 	i.logger.Debugf("importing spaces succeeded")
+	return nil
+}
+
+func (i *importer) linklayerdevices() error {
+	i.logger.Debugf("importing ip devices")
+	for _, device := range i.model.LinkLayerDevices() {
+		err := i.addLinkLayerDevice(device)
+		if err != nil {
+			i.logger.Errorf("error importing ip device %v: %s", device, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ip devices succeeded")
+	return nil
+}
+
+func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error {
+	deviceValue := device.Value()
+	subnetCIDR := device.SubnetCIDR()
+
+	globalKey := ipAddressGlobalKey(device.MachineID(), device.DeviceName(), deviceValue)
+	ipAddressDocID := i.st.docID(globalKey)
+	providerID := device.ProviderID()
+
+	modelUUID := i.st.ModelUUID()
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       device.DeviceName(),
+		MachineID:        device.MachineID(),
+		SubnetCIDR:       subnetCIDR,
+		ConfigMethod:     AddressConfigMethod(device.ConfigMethod()),
+		Value:            deviceValue,
+		DNSServers:       device.DNSServers(),
+		DNSSearchDomains: device.DNSSearchDomains(),
+		GatewayAddress:   device.GatewayAddress(),
+	}
+
+	ops := []txn.Op{{
+		C:      linkLayerDevicesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	}}
+
+	if providerID != "" {
+		id := network.Id(device.ProviderID())
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("device", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

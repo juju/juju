@@ -48,6 +48,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// networking
 		spacesC,
+		linkLayerDevicesC,
+		linkLayerDevicesRefsC,
 
 		// storage
 		blockDevicesC,
@@ -149,8 +151,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// network
 		ipAddressesC,
 		providerIDsC,
-		linkLayerDevicesC,
-		linkLayerDevicesRefsC,
 		subnetsC,
 
 		// actions
