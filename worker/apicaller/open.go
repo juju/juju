@@ -148,6 +148,7 @@ func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, 
 	var err error
 	var st api.Connection
 	if !useOldPassword {
+		logger.Debugf("connecting with current password")
 		// We let the API dial fail immediately because the
 		// runner's loop outside the caller of openAPIState will
 		// keep on retrying. If we block for ages here,
@@ -179,12 +180,14 @@ func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, 
 		}
 	}
 	if err != nil {
+		logger.Debugf("failed to connect")
 		if params.IsCodeNotProvisioned(err) || params.IsCodeUnauthorized(err) {
 			logger.Errorf("agent terminating due to error returned during API open: %v", err)
 			return nil, false, worker.ErrTerminateAgent
 		}
 		return nil, false, err
 	}
+	logger.Debugf("connected")
 
 	return st, useOldPassword, nil
 }
