@@ -36,7 +36,7 @@ func (s *SSHKeysSuite) assertHelpOutput(c *gc.C, cmd, args string) {
 }
 
 func (s *SSHKeysSuite) TestHelpList(c *gc.C) {
-	s.assertHelpOutput(c, "list-ssh-keys", "")
+	s.assertHelpOutput(c, "ssh-keys", "")
 }
 
 func (s *SSHKeysSuite) TestHelpAdd(c *gc.C) {

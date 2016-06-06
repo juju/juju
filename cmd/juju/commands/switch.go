@@ -41,7 +41,7 @@ When switching by controller name alone, the model
 you get is the active model for that controller. If you want a different
 model then you must switch using controller:model notation or switch to 
 the controller and then to the model. 
-The `[1:] + "`juju list-models`" + ` command can be used to determine the active model
+The `[1:] + "`juju models`" + ` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
 
 Examples:
@@ -51,8 +51,8 @@ Examples:
     juju switch mycontroller:mymodel
 
 See also: 
-    list-controllers
-    list-models
+    controllers
+    models
     show-controller`
 
 func (c *switchCommand) Info() *cmd.Info {

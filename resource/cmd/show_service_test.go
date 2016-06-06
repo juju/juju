@@ -61,8 +61,8 @@ func (s *ShowServiceSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "list-resources",
-		Aliases: []string{"resources"},
+		Name:    "resources",
+		Aliases: []string{"list-resources"},
 		Args:    "service-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `

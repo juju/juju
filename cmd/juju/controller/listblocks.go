@@ -28,7 +28,7 @@ type listBlocksCommand struct {
 var listBlocksDoc = `List all blocks for models within the specified controller`
 
 // listBlocksAPI defines the methods on the controller API endpoint
-// that the list-blocks command calls.
+// that the blocks command calls.
 type listBlocksAPI interface {
 	Close() error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
@@ -37,9 +37,10 @@ type listBlocksAPI interface {
 // Info implements Command.Info.
 func (c *listBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-all-blocks",
+		Name:    "blocks",
 		Purpose: "list all blocks within the controller",
 		Doc:     listBlocksDoc,
+		Aliases: []string{"list-all-blocks", "list-blocks"},
 	}
 }
 
