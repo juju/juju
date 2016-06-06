@@ -763,7 +763,7 @@ func (i *importer) relation(rel description.Relation) error {
 					Key: ruKey,
 				},
 			},
-				createSettingsOp(ruKey, endpoint.Settings(unit.Name())),
+				createSettingsOp(settingsC, ruKey, endpoint.Settings(unit.Name())),
 			)
 		}
 	}

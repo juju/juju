@@ -33,30 +33,30 @@ const (
 	ServicesC         = servicesC
 	EndpointBindingsC = endpointBindingsC
 	SettingsC         = settingsC
-	UnitsC            = unitsC
+	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
-	StatusesHistoryC  = statusesHistoryC
 	GUISettingsC      = guisettingsC
 )
 
 var (
-	BinarystorageNew       = &binarystorageNew
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	ControllerAvailable    = &controllerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
-	AddVolumeOps           = (*State).addVolumeOps
-	CombineMeterStatus     = combineMeterStatus
-	ServiceGlobalKey       = serviceGlobalKey
-	MergeBindings          = mergeBindings
-	UpgradeInProgressError = errUpgradeInProgress
+	BinarystorageNew               = &binarystorageNew
+	ImageStorageNewStorage         = &imageStorageNewStorage
+	MachineIdLessThan              = machineIdLessThan
+	ControllerAvailable            = &controllerAvailable
+	GetOrCreatePorts               = getOrCreatePorts
+	GetPorts                       = getPorts
+	NowToTheSecond                 = nowToTheSecond
+	PickAddress                    = &pickAddress
+	AddVolumeOps                   = (*State).addVolumeOps
+	CombineMeterStatus             = combineMeterStatus
+	ServiceGlobalKey               = serviceGlobalKey
+	MergeBindings                  = mergeBindings
+	ReadSettings                   = readSettings
+	UpgradeInProgressError         = errUpgradeInProgress
+	RetainModelConfigAttributes    = retainModelConfigAttributes
+	ControllerOnlyConfigAttributes = controllerOnlyConfigAttributes
 )
 
 type (

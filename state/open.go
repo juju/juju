@@ -181,6 +181,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
+// modelSetupOps returns the transactions necessary to set up a model.
 func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
@@ -196,21 +197,39 @@ func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string,
 		Status: status.StatusAvailable,
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
+	var currentControllerCfg map[string]interface{} = make(map[string]interface{})
 	if serverUUID == "" {
 		serverUUID = modelUUID
 	}
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
+	isHostedModel := serverUUID != modelUUID
+	if isHostedModel {
+		// This is a hosted model so we can load the controller
+		// config to see what is different in the new model.
+		var err error
+		currentControllerCfg, err = st.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	// Split the model config attribute into controller and model buckets.
+	controllerCfg, modelCfg := controllerAndModelConfig(currentControllerCfg, cfg.AllAttrs())
+
 	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
-		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 	}
-	if modelUUID != serverUUID {
+	if isHostedModel {
 		ops = append(ops, incHostedModelCountOp())
+	} else {
+		// When creating a controller model we first need to save the config
+		// specific to the controller.
+		ops = append(ops, createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg))
 	}
 	ops = append(ops,
+		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
 		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),

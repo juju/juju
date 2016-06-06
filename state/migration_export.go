@@ -37,6 +37,9 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.readControllerSettings(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.readAllAnnotations(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -44,9 +47,27 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	envConfig, found := export.settings[modelGlobalKey]
+	// Overall model config is the combination of controller
+	// and model specific config values.
+	modelConfig, found := export.modelSettings[modelGlobalKey]
 	if !found {
-		return nil, errors.New("missing environ config")
+		return nil, errors.New("missing model config")
+	}
+	if len(export.controllerSettings.Settings) == 0 {
+		return nil, errors.New("missing controller config")
+	}
+	combinedConfig := make(settingsMap)
+	for k, v := range export.controllerSettings.Settings {
+		// Any settings values that are only relevant to the controller
+		// are not included. This includes api port, CA cert etc which
+		// are not relevant when restoring a model.
+		if controllerOnlyAttribute(k) {
+			continue
+		}
+		combinedConfig[k] = v
+	}
+	for k, v := range modelConfig.Settings {
+		combinedConfig[k] = v
 	}
 
 	blocks, err := export.readBlocks()
@@ -56,7 +77,7 @@ func (st *State) Export() (description.Model, error) {
 
 	args := description.ModelArgs{
 		Owner:              dbModel.Owner(),
-		Config:             envConfig.Settings,
+		Config:             combinedConfig,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
@@ -100,11 +121,12 @@ type exporter struct {
 	model   description.Model
 	logger  loggo.Logger
 
-	annotations   map[string]annotatorDoc
-	constraints   map[string]bson.M
-	settings      map[string]settingsDoc
-	status        map[string]bson.M
-	statusHistory map[string][]historicalStatusDoc
+	annotations        map[string]annotatorDoc
+	constraints        map[string]bson.M
+	modelSettings      map[string]settingsDoc
+	controllerSettings settingsDoc
+	status             map[string]bson.M
+	statusHistory      map[string][]historicalStatusDoc
 	// Map of service name to units. Populated as part
 	// of the services export.
 	units map[string][]*Unit
@@ -428,7 +450,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	settingsKey := service.settingsKey()
 	leadershipKey := leadershipSettingsKey(service.Name())
 
-	serviceSettingsDoc, found := e.settings[settingsKey]
+	serviceSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
 		return errors.Errorf("missing settings for service %q", service.Name())
 	}
@@ -436,7 +458,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 	if !found {
 		return errors.Errorf("missing settings refcount for service %q", service.Name())
 	}
-	leadershipSettingsDoc, found := e.settings[leadershipKey]
+	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
 		return errors.Errorf("missing leadership settings for service %q", service.Name())
 	}
@@ -574,7 +596,7 @@ func (e *exporter) relations() error {
 				if !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
-				settingsDoc, found := e.settings[key]
+				settingsDoc, found := e.modelSettings[key]
 				if !found {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
@@ -718,10 +740,20 @@ func (e *exporter) readAllSettings() error {
 		return errors.Trace(err)
 	}
 
-	e.settings = make(map[string]settingsDoc)
+	e.modelSettings = make(map[string]settingsDoc)
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
-		e.settings[key] = doc
+		e.modelSettings[key] = doc
+	}
+	return nil
+}
+
+func (e *exporter) readControllerSettings() error {
+	controllers, closer := e.st.getCollection(controllersC)
+	defer closer()
+
+	if err := controllers.Find(bson.D{{"_id", controllerSettingsGlobalKey}}).One(&e.controllerSettings); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

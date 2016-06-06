@@ -941,7 +941,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
-	if err := readSettingsDocInto(w.st, key, &doc); err != nil {
+	if err := readSettingsDocInto(w.st, settingsC, key, &doc); err != nil {
 		return -1, err
 	}
 	setRelationUnitChangeVersion(changes, key, doc.Version)
@@ -1310,7 +1310,15 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
+	return newDocWatcher(st, []docKey{
+		{
+			settingsC,
+			st.docID(modelGlobalKey),
+		}, {
+			controllersC,
+			controllerSettingsGlobalKey,
+		},
+	})
 }
 
 // WatchForUnitAssignment watches for new services that request units to be

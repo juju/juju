@@ -15,7 +15,7 @@ import (
 )
 
 func removeLeadershipSettingsOp(serviceId string) txn.Op {
-	return removeSettingsOp(leadershipSettingsKey(serviceId))
+	return removeSettingsOp(settingsC, leadershipSettingsKey(serviceId))
 }
 
 func leadershipSettingsKey(serviceId string) string {
