@@ -9,9 +9,11 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// controllerGlobalKey is the key for the controller and its settings.
+// controllerSettingsGlobalKey is the key for the controller and its settings.
 const controllerSettingsGlobalKey = "controllerSettings"
 
+// controllerOnlyConfigAttributes are attributes which are only relevant
+// for a controller, never a model.
 var controllerOnlyConfigAttributes = []string{
 	config.ApiPort,
 	config.StatePort,
@@ -44,6 +46,9 @@ func retainModelAttribute(attr string) bool {
 	return false
 }
 
+// controllerAndModelConfig splits the given model config in cfg into the controller
+// values and model values. The model values are those which differ from the current
+// controller configuration.
 func controllerAndModelConfig(currentControllerCfg, cfg map[string]interface{}) (controllerCfg, modelCfg map[string]interface{}) {
 	controllerCfg = make(map[string]interface{})
 	modelCfg = make(map[string]interface{})
@@ -82,6 +87,7 @@ func controllerAndModelConfig(currentControllerCfg, cfg map[string]interface{}) 
 	return controllerCfg, modelCfg
 }
 
+// ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (map[string]interface{}, error) {
 	settings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
 	if err != nil {
