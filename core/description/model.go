@@ -279,7 +279,7 @@ func (m *model) Subnets() []Subnet {
 func (m *model) IPAddresses() []IPAddress {
 	var result []IPAddress
 	for _, addr := range m.IPAddresses_.IPAddresses_ {
-		result = append(result, subnet)
+		result = append(result, addr)
 	}
 	return result
 }
