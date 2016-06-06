@@ -12,6 +12,6 @@ import (
 
 // Restore satisfies the Backups interface on non-Linux OSes (e.g.
 // windows, darwin).
-func (*backups) Restore(_ string, _ RestoreArgs) (names.Tag, error) {
+func (*backups) Restore(_ string, _ *DBInfo, _ RestoreArgs) (names.Tag, error) {
 	return nil, errors.Errorf("backups supported only on Linux")
 }
