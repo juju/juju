@@ -468,6 +468,9 @@ def main(args):
     print_shell_cmd("ip -d addr show")
     print_shell_cmd("ip route show")
 
+    # Remove any other config that can cause issues (i.e. DHCP on eth0 in
+    # addition to static)
+    print_shell_cmd("rm -f /etc/network/interfaces.d/*.cfg > /dev/null")
     print_shell_cmd("rm -f /etc/systemd/network/50-cloud-init* > /dev/null")
 
 # This script re-renders an interfaces(5) file to add a bridge to
