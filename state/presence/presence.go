@@ -337,14 +337,14 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	DocID   string `bson:"_id,omitempty"`
+	DocID   string `bson:"_id"`
 	Seq     int64  `bson:"seq,omitempty"`
 	EnvUUID string `bson:"env-uuid,omitempty"`
 	Key     string `bson:"key,omitempty"`
 }
 
 type pingInfo struct {
-	DocID string           `bson:"_id,omitempty"`
+	DocID string           `bson:"_id"`
 	Slot  int64            `bson:"slot,omitempty"`
 	Alive map[string]int64 `bson:",omitempty"`
 	Dead  map[string]int64 `bson:",omitempty"`
