@@ -47,9 +47,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		relationScopesC,
 
 		// networking
+		ipAddressesC,
 		spacesC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
+		subnetsC,
 
 		// storage
 		blockDevicesC,
@@ -149,9 +151,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		volumeAttachmentsC,
 
 		// network
-		ipAddressesC,
-		providerIDsC,
-		subnetsC,
+		providerIDsC, // no need to migrate as will be recreated
 
 		// actions
 		actionsC,
@@ -558,6 +558,50 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"MountPoint",
 	)
 	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
+}
+
+func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// DocID is the env + name
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Always alive, not explicitly exported.
+		"Life",
+
+		// Currently unused (never set or exposed).
+		"IsPublic",
+	)
+	migrated := set.NewStrings(
+		"CIDR",
+		"VLANTag",
+		"SpaceName",
+		"ProviderId",
+		"AvailabilityZone",
+		"AllocatableIPHigh",
+		"AllocatableIPLow",
+	)
+	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DeviceName",
+		"MachineID",
+		"DNSSearchDomains",
+		"GatewayAddress",
+		"ProviderID",
+		"DNSServers",
+		"SubnetCIDR",
+		"ConfigMethod",
+		"Value",
+	)
+	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

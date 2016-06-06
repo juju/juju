@@ -66,6 +66,12 @@ type Model interface {
 	LinkLayerDevices() []LinkLayerDevice
 	AddLinkLayerDevice(LinkLayerDeviceArgs) LinkLayerDevice
 
+	Subnets() []Subnet
+	AddSubnet(SubnetArgs) Subnet
+
+	IPAddresses() []IPAddress
+	AddIPAddress(IPAddressArgs) IPAddress
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -323,6 +329,30 @@ type Space interface {
 
 // LinkLayerDevice represents an IP device.
 type LinkLayerDevice interface {
+	ProviderID() string
+	DeviceName() string
+	MachineID() string
+	SubnetCIDR() string
+	ConfigMethod() string
+	Value() string
+	DNSServers() []string
+	DNSSearchDomains() []string
+	GatewayAddress() string
+}
+
+// Subnet represents a network subnet.
+type Subnet interface {
+	ProviderId() string
+	CIDR() string
+	VLANTag() int
+	AvailabilityZone() string
+	SpaceName() string
+	AllocatableIPHigh() string
+	AllocatableIPLow() string
+}
+
+// IPAddress represents an IP address.
+type IPAddress interface {
 	ProviderID() string
 	DeviceName() string
 	MachineID() string

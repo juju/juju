@@ -87,6 +87,13 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.spaces(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.subnets(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := export.ipaddresses(); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := export.linklayerdevices(); err != nil {
 		return nil, errors.Trace(err)
@@ -671,6 +678,49 @@ func (e *exporter) linklayerdevices() error {
 			DNSServers:       device.DNSServers(),
 			DNSSearchDomains: device.DNSSearchDomains(),
 			GatewayAddress:   device.GatewayAddress(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) subnets() error {
+	subnets, err := e.st.AllSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d subnets", len(subnets))
+
+	for _, subnet := range subnets {
+		e.model.AddSubnet(description.SubnetArgs{
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
+			AllocatableIPHigh: subnet.AllocatableIPHigh(),
+			AllocatableIPLow:  subnet.AllocatableIPLow(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) ipaddresses() error {
+	ipaddresses, err := e.st.AllIPAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d ip addresses", len(ipaddresses))
+	for _, addr := range ipaddresses {
+		e.model.AddIPAddress(description.IPAddressArgs{
+			ProviderID:       string(addr.ProviderID()),
+			DeviceName:       addr.DeviceName(),
+			MachineID:        addr.MachineID(),
+			SubnetCIDR:       addr.SubnetCIDR(),
+			ConfigMethod:     string(addr.ConfigMethod()),
+			Value:            addr.Value(),
+			DNSServers:       addr.DNSServers(),
+			DNSSearchDomains: addr.DNSSearchDomains(),
+			GatewayAddress:   addr.GatewayAddress(),
 		})
 	}
 	return nil

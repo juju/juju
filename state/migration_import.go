@@ -101,6 +101,12 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
 	}
+	if err := restore.subnets(); err != nil {
+		return nil, nil, errors.Annotate(err, "subnets")
+	}
+	if err := restore.ipaddresses(); err != nil {
+		return nil, nil, errors.Annotate(err, "ipaddresses")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -865,16 +871,8 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 	deviceValue := device.Value()
 	subnetCIDR := device.SubnetCIDR()
 
-	globalKey := ipAddressGlobalKey(device.MachineID(), device.DeviceName(), deviceValue)
-	ipAddressDocID := i.st.docID(globalKey)
 	providerID := device.ProviderID()
-
-	modelUUID := i.st.ModelUUID()
-
 	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        modelUUID,
-		ProviderID:       providerID,
 		DeviceName:       device.DeviceName(),
 		MachineID:        device.MachineID(),
 		SubnetCIDR:       subnetCIDR,
@@ -890,10 +888,109 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 		Id:     newDoc.DocID,
 		Insert: newDoc,
 	}}
-
 	if providerID != "" {
 		id := network.Id(device.ProviderID())
 		ops = append(ops, i.st.networkEntityGlobalKeyOp("device", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) subnets() error {
+	i.logger.Debugf("importing subnets")
+	for _, subnet := range i.model.Subnets() {
+		err := i.addSubnet(SubnetInfo{
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
+			AllocatableIPHigh: subnet.AllocatableIPHigh(),
+			AllocatableIPLow:  subnet.AllocatableIPLow(),
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing subnets succeeded")
+	return nil
+}
+
+func (i *importer) addSubnet(args SubnetInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		subnet, err := i.st.newSubnetFromArgs(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := i.st.addSubnetOps(args)
+		if attempt != 0 {
+			if _, err = i.st.Subnet(args.CIDR); err == nil {
+				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+			}
+			if err := subnet.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		return ops, nil
+	}
+	err := i.st.run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) ipaddresses() error {
+	i.logger.Debugf("importing ip addresses")
+	for _, addr := range i.model.IPAddresses() {
+		err := i.addIPAddress(addr)
+		if err != nil {
+			i.logger.Errorf("error importing ip address %v: %s", addr, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ip addresses succeeded")
+	return nil
+}
+
+func (i *importer) addIPAddress(addr description.IPAddress) error {
+	addressValue := addr.Value()
+	subnetCIDR := addr.SubnetCIDR()
+
+	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), addressValue)
+	ipAddressDocID := i.st.docID(globalKey)
+	providerID := addr.ProviderID()
+
+	modelUUID := i.st.ModelUUID()
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       addr.DeviceName(),
+		MachineID:        addr.MachineID(),
+		SubnetCIDR:       subnetCIDR,
+		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		Value:            addressValue,
+		DNSServers:       addr.DNSServers(),
+		DNSSearchDomains: addr.DNSSearchDomains(),
+		GatewayAddress:   addr.GatewayAddress(),
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	}}
+
+	if providerID != "" {
+		id := network.Id(addr.ProviderID())
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
