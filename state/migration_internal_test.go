@@ -49,6 +49,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// networking
 		ipAddressesC,
 		spacesC,
+		subnetsC,
 
 		// storage
 		blockDevicesC,
@@ -151,7 +152,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		providerIDsC,
 		linkLayerDevicesC,
 		linkLayerDevicesRefsC,
-		subnetsC,
 
 		// actions
 		actionsC,
@@ -558,6 +558,31 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"MountPoint",
 	)
 	s.AssertExportedFields(c, BlockDeviceInfo{}, migrated)
+}
+
+func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		// DocID is the env + name
+		"DocID",
+		// ModelUUID shouldn't be exported, and is inherited
+		// from the model definition.
+		"ModelUUID",
+		// Always alive, not explicitly exported.
+		"Life",
+
+		// Currently unused (never set or exposed).
+		"IsPublic",
+	)
+	migrated := set.NewStrings(
+		"CIDR",
+		"VLANTag",
+		"SpaceName",
+		"ProviderId",
+		"AvailabilityZone",
+		"AllocatableIPHigh",
+		"AllocatableIPLow",
+	)
+	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {

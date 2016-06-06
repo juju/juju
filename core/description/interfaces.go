@@ -63,6 +63,9 @@ type Model interface {
 	Spaces() []Space
 	AddSpace(SpaceArgs) Space
 
+	Subnets() []Subnet
+	AddSubnet(SubnetArgs) Subnet
+
 	IPAddresses() []IPAddress
 	AddIPAddress(IPAddressArgs) IPAddress
 
@@ -319,6 +322,17 @@ type Space interface {
 	Name() string
 	Public() bool
 	ProviderID() string
+}
+
+// Subnet represents a network subnet.
+type Subnet interface {
+	ProviderId() string
+	CIDR() string
+	VLANTag() int
+	AvailabilityZone() string
+	SpaceName() string
+	AllocatableIPHigh() string
+	AllocatableIPLow() string
 }
 
 // IPAddress represents an IP address.

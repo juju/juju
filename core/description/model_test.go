@@ -343,6 +343,22 @@ func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	c.Assert(model.Spaces(), jc.DeepEquals, spaces)
 }
 
+func (s *ModelSerializationSuite) TestSubnets(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	subnet := initial.AddSubnet(SubnetArgs{CIDR: "10.0.0.0/24"})
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	subnets := initial.Subnets()
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0], jc.DeepEquals, subnet)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Subnets(), jc.DeepEquals, subnets)
+}
+
 func (s *ModelSerializationSuite) TestIPAddress(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	addr := initial.AddIPAddress(IPAddressArgs{Value: "10.0.0.4"})

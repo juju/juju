@@ -41,6 +41,7 @@ func NewModel(args ModelArgs) Model {
 	m.setServices(nil)
 	m.setRelations(nil)
 	m.setSpaces(nil)
+	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	return m
 }
@@ -83,6 +84,7 @@ type model struct {
 	Relations_   relations   `yaml:"relations"`
 	Spaces_      spaces      `yaml:"spaces"`
 	IPAddresses_ ipaddresses `yaml:"ipaddresses"`
+	Subnets_     subnets     `yaml:"subnets"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -264,6 +266,15 @@ func (m *model) setSpaces(spaceList []*space) {
 	}
 }
 
+// Subnets implements Model.
+func (m *model) Subnets() []Subnet {
+	var result []Subnet
+	for _, subnet := range m.Subnets_.Subnets_ {
+		result = append(result, subnet)
+	}
+	return result
+}
+
 // IPAddresses implements Model.
 func (m *model) IPAddresses() []IPAddress {
 	var result []IPAddress
@@ -271,6 +282,20 @@ func (m *model) IPAddresses() []IPAddress {
 		result = append(result, addr)
 	}
 	return result
+}
+
+// AddSubnet implemets Model.
+func (m *model) AddSubnet(args SubnetArgs) Subnet {
+	subnet := newSubnet(args)
+	m.Subnets_.Subnets_ = append(m.Subnets_.Subnets_, subnet)
+	return subnet
+}
+
+func (m *model) setSubnets(subnetList []*subnet) {
+	m.Subnets_ = subnets{
+		Version:  1,
+		Subnets_: subnetList,
+	}
 }
 
 // AddIPAddress implements Model.
@@ -405,6 +430,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"relations":    schema.StringMap(schema.Any()),
 		"ipaddresses":  schema.StringMap(schema.Any()),
 		"spaces":       schema.StringMap(schema.Any()),
+		"subnets":      schema.StringMap(schema.Any()),
 		"sequences":    schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -488,12 +514,18 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSpaces(spaces)
 
+	subnetsMap := valid["subnets"].(map[string]interface{})
+	subnets, err := importSubnets(subnetsMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "subnets")
+	}
+	result.setSubnets(subnets)
+
 	addressMap := valid["ipaddresses"].(map[string]interface{})
 	addresses, err := importIPAddresses(addressMap)
 	if err != nil {
 		return nil, errors.Annotate(err, "ipaddresses")
 	}
 	result.setIPAddresses(addresses)
-
 	return result, nil
 }
