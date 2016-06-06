@@ -33,7 +33,7 @@ type CharmResourceLister interface {
 	Close() error
 }
 
-// ListCharmResourcesCommand implements the "juju charm list-resources" command.
+// ListCharmResourcesCommand implements the "juju charm resources" command.
 type ListCharmResourcesCommand struct {
 	modelcmd.ModelCommandBase
 	CharmCommandBase
@@ -71,11 +71,11 @@ Thus the above examples imply that the local series is trusty.
 // Info implements cmd.Command.
 func (c *ListCharmResourcesCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-resources",
+		Name:    "resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc:     listCharmResourcesDoc,
-		Aliases: []string{"resources"},
+		Aliases: []string{"list-resources"},
 	}
 }
 

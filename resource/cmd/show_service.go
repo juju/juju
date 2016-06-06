@@ -48,10 +48,10 @@ func NewShowServiceCommand(deps ShowServiceDeps) *ShowServiceCommand {
 // Info implements cmd.Command.Info.
 func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-resources",
-		Aliases: []string{"resources"},
+		Name:    "resources",
+		Aliases: []string{"list-resources"},
 		Args:    "application-or-unit",
-		Purpose: "show the resources for an application or unit",
+		Purpose: "show the resources for a service or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any

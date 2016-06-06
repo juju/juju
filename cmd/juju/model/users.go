@@ -26,8 +26,8 @@ var usageListSharesDetails = `
 By default, the model is the current model.
 
 Examples:
-    juju list-shares
-    juju list-shares -m mymodel
+    juju shares
+    juju shares -m mymodel
 
 See also: 
     grant`[1:]
@@ -60,9 +60,10 @@ func (c *usersCommand) getAPI() (UsersAPI, error) {
 // Info implements Command.Info.
 func (c *usersCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-shares",
+		Name:    "shares",
 		Purpose: usageListSharesSummary,
 		Doc:     usageListSharesDetails,
+		Aliases: []string{"list-shares"},
 	}
 }
 

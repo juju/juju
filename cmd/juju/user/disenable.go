@@ -23,8 +23,8 @@ Examples:
     juju disable-user bob
 
 See also: 
+    users
     enable-user
-    list-users
     login`[1:]
 
 var usageEnableUserSummary = `
@@ -37,8 +37,8 @@ Examples:
     juju enable-user bob
 
 See also: 
+    users
     disable-user
-    list-users
     login`[1:]
 
 // disenableUserBase common code for enable/disable user commands
