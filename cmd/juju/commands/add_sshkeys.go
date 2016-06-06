@@ -40,7 +40,7 @@ to the command:
 juju add-ssh-key "$(cat ~/mykey.pub)"
 
 See also: 
-    list-ssh-key
+    ssh-keys
     remove-ssh-key
     import-ssh-key`[1:]
 

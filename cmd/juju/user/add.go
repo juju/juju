@@ -41,8 +41,8 @@ Examples:
 See also: 
     register
     grant
+    users
     show-user
-    list-users
     switch-user
     disable-user
     enable-user

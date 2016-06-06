@@ -30,7 +30,7 @@ Examples:
     juju get-model-constraints
     juju get-model-constraints -m mymodel
 
-See also: list-models
+See also: models
           set-model-constraints
           set-constraints
           get-constraints
@@ -53,7 +53,7 @@ Examples:
     juju set-model-constraints cpu-cores=8 mem=16G
     juju set-model-constraints -m mymodel root-disk=64G
 
-See also: list-models
+See also: models
           get-model-constraints
           set-constraints
           get-constraints

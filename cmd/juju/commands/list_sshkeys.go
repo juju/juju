@@ -27,11 +27,11 @@ each key and its text identifier. By using the '--full' option, the entire
 key may be displayed.
 
 Examples:
-    juju list-ssh-keys
+    juju ssh-keys
 
 To examine the full key, use the '--full' option:
 
-    juju list-keys -m jujutest --full`[1:]
+    juju ssh-keys -m jujutest --full`[1:]
 
 // NewListKeysCommand returns a command used to list the authorized ssh keys.
 func NewListKeysCommand() cmd.Command {
@@ -48,10 +48,10 @@ type listKeysCommand struct {
 // Info implements Command.Info.
 func (c *listKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-ssh-keys",
+		Name:    "ssh-keys",
 		Purpose: usageListSSHKeysSummary,
 		Doc:     usageListSSHKeysDetails,
-		Aliases: []string{"ssh-key", "ssh-keys", "list-ssh-key"},
+		Aliases: []string{"list-ssh-keys", "ssh-key", "list-ssh-key"},
 	}
 }
 

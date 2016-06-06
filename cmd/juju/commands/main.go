@@ -82,15 +82,15 @@ Common commands:
 
     add-cloud           Adds a user-defined cloud to Juju.
     add-credential      Adds or replaces credentials for a cloud.
+    add-model           Adds a hosted model.
     add-relation        Adds a relation between two applications.
     add-unit            Adds extra units of a deployed application.
     add-user            Adds a Juju user to a controller.
     bootstrap           Initializes a cloud environment.
-    add-model           Adds a hosted model.
+    controllers         Lists all controllers.
     deploy              Deploys a new application.
     expose              Makes an application publicly available over the network.
-    list-controllers    Lists all controllers.
-    list-models         Lists models a user can access on a controller.
+    models              Lists models a user can access on a controller.
     status              Displays the current status of Juju, applications, and units.
     switch              Selects or identifies the current controller and model.
 
