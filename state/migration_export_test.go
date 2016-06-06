@@ -499,6 +499,29 @@ func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
 	c.Assert(model.Spaces(), gc.HasLen, 3)
 }
 
+func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:             "10.0.0.0/24",
+		ProviderId:       network.Id("foo"),
+		VLANTag:          64,
+		AvailabilityZone: "bar",
+		SpaceName:        "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets := model.Subnets()
+	c.Assert(subnets, gc.HasLen, 1)
+	subnet := subnets[0]
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token

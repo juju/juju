@@ -98,6 +98,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.spaces(); err != nil {
 		return nil, nil, errors.Annotate(err, "spaces")
 	}
+	if err := restore.subnets(); err != nil {
+		return nil, nil, errors.Annotate(err, "subnets")
+	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -842,6 +845,53 @@ func (i *importer) spaces() error {
 	}
 
 	i.logger.Debugf("importing spaces succeeded")
+	return nil
+}
+
+func (i *importer) subnets() error {
+	i.logger.Debugf("importing subnets")
+	for _, subnet := range i.model.Subnets() {
+		err := i.addSubnet(SubnetInfo{
+			CIDR:              subnet.CIDR(),
+			ProviderId:        network.Id(subnet.ProviderId()),
+			VLANTag:           subnet.VLANTag(),
+			AvailabilityZone:  subnet.AvailabilityZone(),
+			SpaceName:         subnet.SpaceName(),
+			AllocatableIPHigh: subnet.AllocatableIPHigh(),
+			AllocatableIPLow:  subnet.AllocatableIPLow(),
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing subnets succeeded")
+	return nil
+}
+
+func (i *importer) addSubnet(args SubnetInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		subnet, err := i.st.newSubnetFromArgs(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := i.st.addSubnetOps(args)
+		if attempt != 0 {
+			if _, err = i.st.Subnet(args.CIDR); err == nil {
+				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+			}
+			if err := subnet.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		return ops, nil
+	}
+	err := i.st.run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

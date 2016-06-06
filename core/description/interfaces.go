@@ -63,6 +63,9 @@ type Model interface {
 	Spaces() []Space
 	AddSpace(SpaceArgs) Space
 
+	Subnets() []Subnet
+	AddSubnet(SubnetArgs) Subnet
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -316,4 +319,15 @@ type Space interface {
 	Name() string
 	Public() bool
 	ProviderID() string
+}
+
+// Subnet represents a network subnet.
+type Subnet interface {
+	ProviderId() string
+	CIDR() string
+	VLANTag() int
+	AvailabilityZone() string
+	SpaceName() string
+	AllocatableIPHigh() string
+	AllocatableIPLow() string
 }

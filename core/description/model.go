@@ -41,6 +41,7 @@ func NewModel(args ModelArgs) Model {
 	m.setServices(nil)
 	m.setRelations(nil)
 	m.setSpaces(nil)
+	m.setSubnets(nil)
 	return m
 }
 
@@ -81,6 +82,7 @@ type model struct {
 	Services_  services  `yaml:"services"`
 	Relations_ relations `yaml:"relations"`
 	Spaces_    spaces    `yaml:"spaces"`
+	Subnets_   subnets   `yaml:"subnets"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -262,6 +264,29 @@ func (m *model) setSpaces(spaceList []*space) {
 	}
 }
 
+// Subnets implements Model.
+func (m *model) Subnets() []Subnet {
+	var result []Subnet
+	for _, subnet := range m.Subnets_.Subnets_ {
+		result = append(result, subnet)
+	}
+	return result
+}
+
+// AddSubnet implemets Model.
+func (m *model) AddSubnet(args SubnetArgs) Subnet {
+	subnet := newSubnet(args)
+	m.Subnets_.Subnets_ = append(m.Subnets_.Subnets_, subnet)
+	return subnet
+}
+
+func (m *model) setSubnets(subnetList []*subnet) {
+	m.Subnets_ = subnets{
+		Version:  1,
+		Subnets_: subnetList,
+	}
+}
+
 // Sequences implements Model.
 func (m *model) Sequences() map[string]int {
 	return m.Sequences_
@@ -379,6 +404,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"services":     schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
 		"spaces":       schema.StringMap(schema.Any()),
+		"subnets":      schema.StringMap(schema.Any()),
 		"sequences":    schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
@@ -461,6 +487,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "spaces")
 	}
 	result.setSpaces(spaces)
+
+	subnetsMap := valid["subnets"].(map[string]interface{})
+	subnets, err := importSubnets(subnetsMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "subnets")
+	}
+	result.setSubnets(subnets)
 
 	return result, nil
 }
