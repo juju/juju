@@ -111,13 +111,13 @@ def _clean_dir(maybe_dir):
         contents = os.listdir(maybe_dir)
     except OSError as e:
         if e.errno == errno.ENOENT:
-            print("Creating logging directory %s" % maybe_dir)
+            warnings.warn("Creating logging directory %s" % maybe_dir)
             try:
                 os.makedirs(maybe_dir)
-            except OSError as exception:
-                if exception.errno == errno.EEXIST:
-                    print("Failed to create logging directory: " +
-                          maybe_dir +
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    warnings.warn("Failed to create logging directory: " + \
+                          maybe_dir + \
                           ". Please specify empty folder or try again")
                 raise
         else:
@@ -310,7 +310,7 @@ def _get_test_name_from_filename():
 
 def _generate_default_clean_dir():
     """Creates a new unique directory for logging and returns the name"""
-    timestamp = datetime.now().strftime("_%Y_%m_%d_%H%M%S")
+    timestamp = datetime.now().strftime("_%Y%m%d%H%M%S")
     return ''.join([_get_test_name_from_filename(), timestamp, '_logs'])
 
 
