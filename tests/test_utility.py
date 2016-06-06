@@ -374,7 +374,6 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(logs_str, 'logs')
         self.assertEqual(args.temp_env_name, 'test_utility_temp_env')
 
-
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser())

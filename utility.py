@@ -116,9 +116,9 @@ def _clean_dir(maybe_dir):
                 os.makedirs(maybe_dir)
             except OSError as e:
                 if e.errno == errno.EEXIST:
-                    warnings.warn("Failed to create logging directory: " + \
-                          maybe_dir + \
-                          ". Please specify empty folder or try again")
+                    warnings.warn("Failed to create logging directory: " +
+                                  maybe_dir +
+                                  ". Please specify empty folder or try again")
                 raise
         else:
             raise
