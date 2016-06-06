@@ -1024,7 +1024,7 @@ class EnvJujuClient:
                                         self.env.juju_home, model, timeout)
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, resource=None):
+               service=None, force=False, resource=None, storage=None):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -1036,6 +1036,8 @@ class EnvJujuClient:
             args.extend(['--force'])
         if resource is not None:
             args.extend(['--resource', resource])
+        if storage is not None:
+            args.extend(['--storage', storage])
         return self.juju('deploy', tuple(args))
 
     def attach(self, service, resource):
