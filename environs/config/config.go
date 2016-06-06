@@ -230,6 +230,15 @@ const (
 	IgnoreMachineAddresses = "ignore-machine-addresses"
 )
 
+// ControllerOnlyConfigAttributes are attributes which are only relevant
+// for a controller, never a model.
+var ControllerOnlyConfigAttributes = []string{
+	ApiPort,
+	StatePort,
+	CACertKey,
+	ControllerUUIDKey,
+}
+
 // ParseHarvestMode parses description of harvesting method and
 // returns the representation.
 func ParseHarvestMode(description string) (HarvestMode, error) {

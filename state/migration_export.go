@@ -58,12 +58,6 @@ func (st *State) Export() (description.Model, error) {
 	}
 	combinedConfig := make(settingsMap)
 	for k, v := range export.controllerSettings.Settings {
-		// Any settings values that are only relevant to the controller
-		// are not included. This includes api port, CA cert etc which
-		// are not relevant when restoring a model.
-		if controllerOnlyAttribute(k) {
-			continue
-		}
 		combinedConfig[k] = v
 	}
 	for k, v := range modelConfig.Settings {

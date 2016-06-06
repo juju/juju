@@ -20,9 +20,8 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// The settings we use will consist of the controller settings
-	// and any model settings which will take precedence of the
-	// controller values.
+	// Callers still expect ModelConfig to contain all of the controller
+	// settings attributes.
 	attrs := controllerSettings.Map()
 	for k, v := range modelSettings.Map() {
 		attrs[k] = v
@@ -42,6 +41,11 @@ func checkModelConfig(cfg *config.Config) error {
 }
 
 func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
+	for attr := range updateAttrs {
+		if controllerOnlyAttribute(attr) {
+			return nil, errors.Errorf("cannot set controller attribute %q on a model", attr)
+		}
+	}
 	newConfig, err := oldConfig.Apply(updateAttrs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -75,11 +79,6 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	// been a concurrent update, the change may not be what
 	// the user asked for.
 
-	controllerSettings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
 	if err != nil {
 		return errors.Trace(err)
@@ -104,22 +103,16 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	validAttrs := validCfg.AllAttrs()
 	for k := range oldConfig.AllAttrs() {
 		if _, ok := validAttrs[k]; !ok {
-			controllerSettings.Delete(k)
 			modelSettings.Delete(k)
 		}
 	}
 	modelSettings.Update(validAttrs)
 
-	// Remove any model settings that are the same as those of
-	// its host controller.
-	for k, v := range modelSettings.Map() {
-		// Some attributes we want to retain regardless.
-		if retainModelAttribute(k) {
-			continue
-		}
-		if cv, ok := controllerSettings.Get(k); ok && v == cv {
-			modelSettings.Delete(k)
-		}
+	// Remove any model settings that should only be on the controller.
+	// TODO(wallyworld) - we need this for now because existing code splats
+	// a model config containing all the things.
+	for _, attr := range config.ControllerOnlyConfigAttributes {
+		modelSettings.Delete(attr)
 	}
 
 	_, err = modelSettings.Write()

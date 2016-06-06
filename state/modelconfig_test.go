@@ -61,6 +61,12 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
+	updateAttrs := map[string]interface{}{"api-port": 1234}
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
+}
+
 func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
@@ -76,65 +82,4 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(oldCfg, gc.DeepEquals, cfg)
-}
-
-func (s *ModelConfigSuite) TestModelConfigIgnoresSameControllerValue(c *gc.C) {
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
-	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("apt-mirror", "http://mirror")
-	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	attrs := map[string]interface{}{
-		"authorized-keys": "different-keys",
-		"apt-mirror":      "http://mirror",
-	}
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelSettings, err := state.ReadSettings(s.State, state.SettingsC, "model")
-	c.Assert(err, jc.ErrorIsNil)
-	_, ok := modelSettings.Get("apt-mirror")
-	c.Assert(ok, jc.IsFalse)
-	keys, ok := modelSettings.Get("authorized-keys")
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(keys, gc.Equals, "different-keys")
-}
-
-func (s *ModelConfigSuite) TestModelConfigInheritsControllerValue(c *gc.C) {
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
-	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("apt-mirror", "http://mirror")
-	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
-}
-
-func (s *ModelConfigSuite) TestModelConfigRetainsSpecialValues(c *gc.C) {
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
-	c.Assert(err, jc.ErrorIsNil)
-
-	attrs := make(map[string]interface{})
-	for _, attr := range state.RetainModelConfigAttributes {
-		v, ok := controllerSettings.Get(attr)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.Not(gc.Equals), "")
-		attrs[attr] = v
-	}
-
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelSettings, err := state.ReadSettings(s.State, state.SettingsC, "model")
-	c.Assert(err, jc.ErrorIsNil)
-	for _, attr := range state.RetainModelConfigAttributes {
-		modelV, ok := modelSettings.Get(attr)
-		c.Assert(ok, jc.IsTrue)
-		controllerV, ok := controllerSettings.Get(attr)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(modelV, gc.Equals, controllerV)
-	}
 }

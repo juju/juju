@@ -132,7 +132,11 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
+	// Note: cfg may have been constructed with model and controller UUIDs
+	// but these are ignored and replaced with uuid below.
+	// TODO(wallyworld) - why are we creating initial cfg with uuids.
 	logger.Infof("initializing controller model %s", uuid)
+
 	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -141,6 +145,11 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, err
 	}
+	// Extract just the controller config.
+	controllerCfg := controllerConfig(nil, cfg.AllAttrs())
+	// Ensure the controller config has the uuid that was passed in.
+	controllerCfg[config.ControllerUUIDKey] = uuid
+
 	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
@@ -169,6 +178,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
+		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
 	}
 	ops = append(ops, modelOps...)
 
@@ -182,7 +192,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+func (st *State) modelSetupOps(cfg *config.Config, modelUUID, controllerUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,41 +207,34 @@ func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string,
 		Status: status.StatusAvailable,
 	}
 
-	var currentControllerCfg map[string]interface{} = make(map[string]interface{})
-	if serverUUID == "" {
-		serverUUID = modelUUID
-	}
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
-	isHostedModel := serverUUID != modelUUID
-	if isHostedModel {
-		// This is a hosted model so we can load the controller
-		// config to see what is different in the new model.
-		var err error
-		currentControllerCfg, err = st.ControllerConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	// Split the model config attribute into controller and model buckets.
-	controllerCfg, modelCfg := controllerAndModelConfig(currentControllerCfg, cfg.AllAttrs())
+	isHostedModel := controllerUUID != modelUUID
 
 	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
 	}
+	var controllerCfg map[string]interface{}
 	if isHostedModel {
 		ops = append(ops, incHostedModelCountOp())
-	} else {
-		// When creating a controller model we first need to save the config
-		// specific to the controller.
-		ops = append(ops, createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg))
+		// Hosted models already have a controller config.
+		var err error
+		controllerCfg, err = st.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
+
+	modelCfg := modelConfig(controllerCfg, cfg.AllAttrs())
+	// Ensure the model config has the uuid that was passed in.
+	modelCfg[config.UUIDKey] = modelUUID
+
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
-		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
+		createModelOp(st, owner, cfg.Name(), modelUUID, controllerUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
 	)

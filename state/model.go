@@ -22,7 +22,7 @@ import (
 
 // modelGlobalKey is the key for the model, its
 // settings and constraints.
-const modelGlobalKey = "model"
+const modelGlobalKey = "e"
 
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string

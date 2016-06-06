@@ -12,17 +12,8 @@ import (
 // controllerSettingsGlobalKey is the key for the controller and its settings.
 const controllerSettingsGlobalKey = "controllerSettings"
 
-// controllerOnlyConfigAttributes are attributes which are only relevant
-// for a controller, never a model.
-var controllerOnlyConfigAttributes = []string{
-	config.ApiPort,
-	config.StatePort,
-	config.CACertKey,
-	config.ControllerUUIDKey,
-}
-
 func controllerOnlyAttribute(attr string) bool {
-	for _, a := range controllerOnlyConfigAttributes {
+	for _, a := range config.ControllerOnlyConfigAttributes {
 		if attr == a {
 			return true
 		}
@@ -30,61 +21,42 @@ func controllerOnlyAttribute(attr string) bool {
 	return false
 }
 
-// retainModelConfigAttributes are those attributes we always want to
-// store with the model, even if the controller settings hold the same values.
-var retainModelConfigAttributes = []string{
-	config.UUIDKey,
-	config.AgentVersionKey,
-}
-
-func retainModelAttribute(attr string) bool {
-	for _, a := range retainModelConfigAttributes {
-		if attr == a {
-			return true
-		}
-	}
-	return false
-}
-
-// controllerAndModelConfig splits the given model config in cfg into the controller
-// values and model values. The model values are those which differ from the current
-// controller configuration.
-func controllerAndModelConfig(currentControllerCfg, cfg map[string]interface{}) (controllerCfg, modelCfg map[string]interface{}) {
-	controllerCfg = make(map[string]interface{})
-	modelCfg = make(map[string]interface{})
+// controllerConfig returns the controller config attributes that result when we have
+// have a current config and want to save a new config, possible overwriting some current values.
+func controllerConfig(currentControllerCfg, cfg map[string]interface{}) map[string]interface{} {
+	controllerCfg := make(map[string]interface{})
 
 	if len(currentControllerCfg) == 0 {
 		// No controller config yet, so we are setting up a
-		// new controller. The initial controller config is
-		// that of the controller model.
-		for attr, value := range cfg {
-			controllerCfg[attr] = value
+		// new controller. We'll grab the controller config
+		// attributes from the passed in config.
+		for _, attr := range config.ControllerOnlyConfigAttributes {
+			controllerCfg[attr] = cfg[attr]
 		}
 	} else {
 		// Copy across attributes only valid for the controller config.
-		for _, attr := range controllerOnlyConfigAttributes {
+		for _, attr := range config.ControllerOnlyConfigAttributes {
 			if v, ok := currentControllerCfg[attr]; ok {
 				controllerCfg[attr] = v
 			}
 		}
 	}
+	return controllerCfg
+}
 
-	// Add to the controller attributes any model attributes different to those
-	// of the controller, and delete said attributes from the model.
-	for attr := range cfg {
+// modelConfig returns the model config attributes that result when we
+// have a current controller config and want to save a new model config.
+// currentControllerCfg is not currently used - it will be when we support inheritance.
+func modelConfig(currentControllerCfg, cfg map[string]interface{}) map[string]interface{} {
+	modelCfg := make(map[string]interface{})
+	// The model config contains any attributes not controller only.
+	for attr, value := range cfg {
 		if controllerOnlyAttribute(attr) {
 			continue
 		}
-		modelValue := cfg[attr]
-		if retainModelAttribute(attr) {
-			modelCfg[attr] = modelValue
-			continue
-		}
-		if cv, ok := controllerCfg[attr]; !ok || modelValue != cv {
-			modelCfg[attr] = modelValue
-		}
+		modelCfg[attr] = value
 	}
-	return controllerCfg, modelCfg
+	return modelCfg
 }
 
 // ControllerConfig returns the config values for the controller.

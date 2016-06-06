@@ -150,7 +150,7 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, good.AllAttrs())
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
 }
 
 func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
@@ -176,5 +176,5 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, good.AllAttrs())
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
 }
