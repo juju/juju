@@ -406,7 +406,7 @@ func (w *Watcher) sync() error {
 	var ping []pingInfo
 	q := bson.D{{"$or", []pingInfo{{DocID: slot}, {DocID: previousSlot}}}}
 	err := pings.Find(q).All(&ping)
-	if err != nil && err == mgo.ErrNotFound {
+	if err != nil && err != mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
 
@@ -467,7 +467,8 @@ func (w *Watcher) sync() error {
 					if err == mgo.ErrNotFound {
 						logger.Tracef("found seq=%d unowned", seq)
 						continue
-					} else if err != nil {
+					}
+					if err != nil {
 						return errors.Trace(err)
 					}
 				}
