@@ -131,12 +131,9 @@ type PreparedConfig struct {
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
 func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
-	// Collect those two as they need all to rendered once.
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gatewayAddress := ""
-
-	// Collect those for later rendering.
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
 
