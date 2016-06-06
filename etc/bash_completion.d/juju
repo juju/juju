@@ -1,12 +1,11 @@
-#!/bin/bash
-# juju-core.bash_completion.sh: dynamic bash completion for juju cmdline,
+# juju-core.bash_completion.sh: dynamic bash completion for juju 2.0 cmdline,
 # from parsed (and cached) juju status output.
 #
 # Author: JuanJo Ciarlante <jjo@canonical.com>
-# Copyright 2013+, Canonical Ltd.
+# Copyright 2016+, Canonical Ltd.
 # License: GPLv3
 #
-# For juju2, includes --model and --controller handling:
+# Includes --model and --controller handling:
 #   juju list-models --controller <TAB>
 #   juju switch <TAB>
 #   juju status --model <TAB>
@@ -121,8 +120,9 @@ _juju_completion_func_for_cmd() {
         *juju?ssh*|*juju?scp*)    echo _juju_units_and_machines_from_status_file;;
         *\<service*)    echo _juju_services_from_status_file;;
         *\<machine*)    echo _juju_machines_from_status_file;;
-        *pattern*)      echo _juju_services_and_units_from_status_file;; # e.g. status
-        *\<controller\>:\<model\>*|*--model*) echo _juju_list_controllers_models_noflags;;
+        *pattern*|*service-or-unit*)      echo _juju_services_and_units_from_status_file;; # e.g. status
+        *\<controller*:*\<model*|*--model*) echo _juju_list_controllers_models_noflags;;
+        *\<controller?name*) echo _juju_list_controllers_noflags;;
         ?*)     echo true ;;  # help ok, existing command, no more expansion
         *)      echo false;;  # failed, not a command
     esac
@@ -150,19 +150,23 @@ _juju_cache_cmd() {
     local cmd="${*:?}"
     local cache_dir=$HOME/.cache/juju
     local cache_file=${cache_dir}/${cmd// /__}
+    local cmd_pid=
     test -d ${cache_dir} || install -d ${cache_dir} -m 700
-    # if can't find a fresh (age < $cache_ttl) saved file, with a ~reasonable size ...
-    if [[ -z $(find "${cache_file}" -mmin -${cache_ttl} -a -size +32c 2> /dev/null) ]]; then
-        # ... create it
-        $cmd > "${cache_file}".tmp && \
-            mv "${cache_file}".tmp "${cache_file}"
-        rm -f "${cache_file}".tmp
+    # older than TTL => remove
+    find "${cache_file}" -mmin +${cache_ttl} -a -size +64c -delete 2> /dev/null
+    # older than TTL/2 or missing => refresh in background
+    if [[ -z $(find "${cache_file}" -mmin -$((${cache_ttl}/2)) -a -size +64c 2> /dev/null) ]]; then
+        # ... create it in background (locking the .tmp to avoid many runs against same cache file
+        flock -xn "${cache_file}".tmp \
+            sh -c "$cmd > ${cache_file}.tmp && mv -f ${cache_file}.tmp ${cache_file}; rm -f ${cache_file}.tmp" &
+        cmd_pid="$!"
     fi
-    if [ -r "${cache_file}" ]; then
-        "${ret_action}" "${cache_file}"
-    else
-        return 1
-    fi
+    # if missing => wait
+    [ ! -r "${cache_file}" -a -n "${cmd_pid}" ] && wait
+    # if still missing => fail
+    [ ! -r "${cache_file}" ] && return 1
+    # use it:
+    "${ret_action}" "${cache_file}"
 }
 # Print (return) filename from juju status cached output (if not expired),
 # create cache dirs if needed
@@ -232,5 +236,5 @@ _juju() {
     return $?
 }
 complete -F _juju juju
-complete -F _juju juju2
+complete -F _juju juju-2.0
 # vim: ai et sw=2 ts=2
