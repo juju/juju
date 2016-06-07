@@ -12,7 +12,6 @@ from time import sleep
 
 from deploy_stack import BootstrapManager
 from utility import (
-    JujuResourceTimeout,
     add_basic_testing_arguments,
     configure_logging,
     until_timeout,
@@ -64,6 +63,14 @@ def _new_log_dir(log_dir, post_fix):
 
 
 def wait_for_model(client, model_name, timeout=60):
+    """Wait for a given `timeout` for a model of `model_name` to appear within
+    `client`.
+
+    Defaults to 10 seconds timeout.
+    :raises AssertionError: If the named model does not appear in the specified
+      timeout.
+
+    """
     for _ in until_timeout(timeout):
         models = client.get_models()
         if model_name in [m['name'] for m in models['models']]:
@@ -89,6 +96,12 @@ def test_deployed_mongo_is_up(client):
 
 
 def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
+    """Test simple migration of a model to another controller.
+
+    Ensure that migration a model that has an application deployed upon it is
+    able to continue it's operation after the migration process.
+
+    """
     with bs1.booted_context(upload_tools):
         bs1.client.enable_feature('migration')
 
@@ -111,7 +124,7 @@ def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
 
             wait_for_model(migration_target_client, bs1.client.env.environment)
 
-            # WIP logging
+            # For logging purposes
             migration_target_client.show_status()
 
             migration_target_client.wait_for_started()
