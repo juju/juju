@@ -4,21 +4,13 @@
 package state_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 // ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
