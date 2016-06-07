@@ -202,11 +202,10 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if len(controllers) > 0 {
-			return nil, ErrNotLoggedInToController
+		if len(controllers) == 0 {
+			return nil, errors.Trace(ErrNoControllerSpecified)
 		}
-
-		return nil, errors.Trace(ErrNoControllerSpecified)
+		return nil, errors.Trace(ErrNotLoggedInToController)
 	}
 	if c.modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)

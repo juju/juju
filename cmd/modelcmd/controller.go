@@ -160,7 +160,14 @@ func (c *ControllerCommandBase) NewUserManagerAPIClient() (*usermanager.Client, 
 // through this API connection.
 func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	if c.controllerName == "" {
-		return nil, errors.Trace(ErrNoControllerSpecified)
+		controllers, err := c.store.AllControllers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(controllers) == 0 {
+			return nil, errors.Trace(ErrNoControllerSpecified)
+		}
+		return nil, errors.Trace(ErrNotLoggedInToController)
 	}
 	if c.accountName == "" {
 		return nil, errors.Trace(ErrNoAccountSpecified)
