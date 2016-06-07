@@ -66,6 +66,7 @@ type BackupsMetadataResult struct {
 	Machine  string
 	Hostname string
 	Version  version.Number
+	Series   string
 
 	CACert       string
 	CAPrivateKey string

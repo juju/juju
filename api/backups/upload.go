@@ -29,7 +29,7 @@ func (c *Client) Upload(archive io.ReadSeeker, meta params.BackupsMetadataResult
 		return "", errors.Annotatef(err, "cannot create multipart body")
 	}
 	req.Header.Set("Content-Type", contentType)
-	var result params.BackupsMetadataResult
+	var result params.BackupsUploadResult
 	if err := c.client.Do(req, body, &result); err != nil {
 		return "", errors.Trace(err)
 	}

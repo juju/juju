@@ -123,9 +123,8 @@ func (s *lxcBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	machineNonce := "fake-nonce"
 	// To isolate the tests from the host's architecture, we override it here.
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	hostname, err := s.namespace.Hostname(machineId)
 	c.Assert(err, jc.ErrorIsNil)

@@ -48,8 +48,8 @@ func NewShowServiceCommand(deps ShowServiceDeps) *ShowServiceCommand {
 // Info implements cmd.Command.Info.
 func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-resources",
-		Aliases: []string{"resources"},
+		Name:    "resources",
+		Aliases: []string{"list-resources"},
 		Args:    "service-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `

@@ -58,11 +58,11 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	dirname = mkdir(filepath.Join(paths.DataDir, "agents"))
 	touch(dirname, "machine-"+machineID+".conf")
 
-	dirname = mkdir(paths.LogsDir)
-	touch(dirname, "machine-"+machineID+".log")
-
 	dirname = mkdir("/home/ubuntu/.ssh")
 	touch(dirname, "authorized_keys")
+
+	dirname = mkdir(filepath.Join(paths.DataDir, "init", "juju-db"))
+	touch(dirname, "juju-db.service")
 }
 
 func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
@@ -112,7 +112,7 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/machine-0.log"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
@@ -193,7 +193,7 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/machine-10.log"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
@@ -209,7 +209,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	missing := []string{
 		"/var/lib/juju/nonce.txt",
 		"/home/ubuntu/.ssh/authorized_keys",
-		"/var/log/juju/machine-0.log",
 	}
 	for _, filename := range missing {
 		err := os.Remove(filepath.Join(s.root, filename))
@@ -225,6 +224,7 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	// This got re-created.
 	expected = append(expected, filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"))

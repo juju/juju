@@ -97,7 +97,7 @@ func (b *FakeBackups) Remove(id string) error {
 }
 
 // Restore restores a machine to a backed up status.
-func (b *FakeBackups) Restore(bkpId string, args backups.RestoreArgs) (names.Tag, error) {
+func (b *FakeBackups) Restore(bkpId string, dbInfo *backups.DBInfo, args backups.RestoreArgs) (names.Tag, error) {
 	b.Calls = append(b.Calls, "Restore")
 	b.PrivateAddr = args.PrivateAddress
 	b.InstanceId = args.NewInstId

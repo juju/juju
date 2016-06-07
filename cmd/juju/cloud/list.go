@@ -39,7 +39,7 @@ var listCloudsDoc = "" +
 var listCloudsDocExamples = `
 Examples:
 
-    juju list-clouds
+    juju clouds
 
 See also: show-cloud
           update-clouds
@@ -53,9 +53,10 @@ func NewListCloudsCommand() cmd.Command {
 
 func (c *listCloudsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-clouds",
+		Name:    "clouds",
 		Purpose: "Lists all clouds available to Juju.",
 		Doc:     listCloudsDoc,
+		Aliases: []string{"list-clouds"},
 	}
 }
 

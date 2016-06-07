@@ -40,9 +40,9 @@ Credentials denoted with an asterisk '*' are currently set as the default
 for the given cloud.
 
 Examples:
-    juju list-credentials
-    juju list-credentials aws
-    juju list-credentials --format yaml --show-secrets
+    juju credentials
+    juju credentials aws
+    juju credentials --format yaml --show-secrets
 
 See also: 
     add-credential
@@ -75,10 +75,11 @@ func NewListCredentialsCommand() cmd.Command {
 
 func (c *listCredentialsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-credentials",
+		Name:    "credentials",
 		Args:    "[<cloud name>]",
 		Purpose: usageListCredentialsSummary,
 		Doc:     usageListCredentialsDetails,
+		Aliases: []string{"list-credentials"},
 	}
 }
 

@@ -898,8 +898,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, errors.New("no CA certificate in model configuration")
 	}
-	if args.InstanceConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
-		return nil, errors.New("entity tag must match started machine")
+	if args.InstanceConfig.Controller != nil {
+		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {
+			return nil, errors.New("entity tag must match started machine")
+		}
 	}
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
@@ -978,6 +980,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			},
 		}
 	}
+	var mongoInfo *mongo.MongoInfo
+	if args.InstanceConfig.Controller != nil {
+		mongoInfo = args.InstanceConfig.Controller.MongoInfo
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -990,7 +996,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Volumes:          volumes,
 		Instance:         i,
 		Jobs:             args.InstanceConfig.Jobs,
-		Info:             args.InstanceConfig.MongoInfo,
+		Info:             mongoInfo,
 		APIInfo:          args.InstanceConfig.APIInfo,
 		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
 		Secret:           e.ecfg().secret(),

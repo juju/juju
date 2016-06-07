@@ -124,7 +124,7 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 }
 
 var maasEnvAttrs = coretesting.Attrs{
-	"name":            "test env",
+	"name":            "test-env",
 	"type":            "maas",
 	"maas-oauth":      "a:b:c",
 	"maas-agent-name": exampleAgentName,

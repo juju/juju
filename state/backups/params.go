@@ -4,9 +4,8 @@
 package backups
 
 import (
-	"github.com/juju/names"
-
 	"github.com/juju/juju/instance"
+	"github.com/juju/names"
 )
 
 // RestoreArgs holds the args to be used to call state/backups.Restore

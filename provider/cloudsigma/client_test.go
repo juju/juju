@@ -178,10 +178,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	params := environs.StartInstanceParams{
-		Constraints: constraints.Value{},
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Bootstrap: true,
-		},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 	}
 	err = params.InstanceConfig.SetTools(tools.List{
 		&tools.Tools{
@@ -209,10 +206,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	cli.conn.OperationTimeout(1 * time.Second)
 
 	params := environs.StartInstanceParams{
-		Constraints: constraints.Value{},
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Bootstrap: true,
-		},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 	}
 	err = params.InstanceConfig.SetTools(tools.List{
 		&tools.Tools{
@@ -226,7 +220,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	cs := newConstraints(params.InstanceConfig.Bootstrap, params.Constraints, img)
+	cs := newConstraints(true, params.Constraints, img)
 	c.Assert(cs, gc.NotNil)
 	c.Check(err, gc.IsNil)
 
