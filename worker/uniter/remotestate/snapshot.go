@@ -4,8 +4,8 @@
 package remotestate
 
 import (
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -54,7 +54,7 @@ type Snapshot struct {
 	Leader bool
 
 	// LeaderSettingsVersion is the last published
-	// version of the leader settings for the service.
+	// version of the leader settings for the application.
 	LeaderSettingsVersion int
 
 	// UpdateStatusVersion increments each time an

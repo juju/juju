@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -79,7 +79,7 @@ type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
 	ModelUUID              string `bson:"model-uuid"`
-	Service                string
+	Application            string
 	Series                 string
 	CharmURL               *charm.URL
 	Principal              string
@@ -113,9 +113,9 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// Service returns the service.
-func (u *Unit) Service() (*Service, error) {
-	return u.st.Service(u.doc.Service)
+// Application returns the application.
+func (u *Unit) Application() (*Application, error) {
+	return u.st.Application(u.doc.Application)
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -126,7 +126,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st, settingsC, serviceSettingsKey(u.doc.Service, u.doc.CharmURL))
+	settings, err := readSettings(u.st, settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -141,9 +141,9 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-// ServiceName returns the service name.
-func (u *Unit) ServiceName() string {
-	return u.doc.Service
+// ApplicationName returns the application name.
+func (u *Unit) ApplicationName() string {
+	return u.doc.Application
 }
 
 // Series returns the deployed charm's series.
@@ -350,7 +350,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
-	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
+	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
 	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
 	setDyingOp := txn.Op{
 		C:      unitsC,
@@ -400,7 +400,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 // destroyHostOps returns all necessary operations to destroy the service unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
-func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
+func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 	if s.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
@@ -494,7 +494,7 @@ var errAlreadyRemoved = errors.New("entity has already been removed")
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
-	svc, err := u.st.Service(u.doc.Service)
+	svc, err := u.st.Application(u.doc.Application)
 	if errors.IsNotFound(err) {
 		// If the service has been removed, the unit must already have been.
 		return nil, errAlreadyRemoved
@@ -586,7 +586,7 @@ func (u *Unit) Remove() (err error) {
 	// EnsureDead does not require that it already be Dying, so this is the
 	// only point at which we can safely backstop lp:1233457 and mitigate
 	// the impact of unit agent bugs that leave relation scopes occupied).
-	relations, err := serviceRelations(u.st, u.doc.Service)
+	relations, err := applicationRelations(u.st, u.doc.Application)
 	if err != nil {
 		return err
 	}
@@ -663,7 +663,7 @@ type relationPredicate func(ru *RelationUnit) (bool, error)
 
 // relations implements RelationsJoined and RelationsInScope.
 func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
-	candidates, err := serviceRelations(u.st, u.doc.Service)
+	candidates, err := applicationRelations(u.st, u.doc.Application)
 	if err != nil {
 		return nil, err
 	}
@@ -1058,7 +1058,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the service settings for the new charm.
-		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
+		incOp, err := settingsIncRefOp(u.st, u.doc.Application, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1075,7 +1075,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			}}
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
+			decOps, err := settingsDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1649,13 +1649,13 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
-	svc, err := u.Service()
+	svc, err := u.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	curl, _ := svc.CharmURL()
 	if curl == nil {
-		return nil, errors.Errorf("no URL set for service %q", svc.Name())
+		return nil, errors.Errorf("no URL set for application %q", svc.Name())
 	}
 	ch, err := u.st.Charm(curl)
 	if err != nil {
@@ -2116,13 +2116,13 @@ func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 	curl, _ := u.CharmURL()
 	if curl == nil {
 		// If unit charm URL is not yet set, fall back to service
-		svc, err := u.Service()
+		svc, err := u.Application()
 		if err != nil {
 			return none, err
 		}
 		curl, _ = svc.CharmURL()
 		if curl == nil {
-			return none, errors.Errorf("no URL set for service %q", svc.Name())
+			return none, errors.Errorf("no URL set for application %q", svc.Name())
 		}
 	}
 	ch, err := u.st.Charm(curl)
@@ -2247,7 +2247,7 @@ func (u *Unit) ClearResolved() error {
 func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	// TODO(axw) eventually we should be able to override service
 	// storage constraints at the unit level.
-	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
+	return readStorageConstraints(u.st, applicationGlobalKey(u.doc.Application))
 }
 
 type addUnitOpsArgs struct {

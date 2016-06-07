@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"

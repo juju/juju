@@ -4,8 +4,8 @@
 package environs
 
 import (
-	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"

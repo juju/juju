@@ -66,9 +66,9 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
-	svc, err := s.unit.Service()
+	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherUnit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Service: svc})
+	otherUnit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Application: svc})
 	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
 
 	res, err := s.strategy.RetryStrategy(args)
@@ -127,9 +127,9 @@ func (s *retryStrategySuite) setRetryStrategy(c *gc.C, automaticallyRetryHooks b
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
-	svc, err := s.unit.Service()
+	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherUnit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Service: svc})
+	otherUnit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Application: svc})
 	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
 
 	res, err := s.strategy.WatchRetryStrategy(args)

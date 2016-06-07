@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
@@ -46,8 +46,8 @@ The active model is denoted by an asterisk.
 
 Examples:
 
-    juju list-models
-    juju list-models --user bob
+    juju models
+    juju models --user bob
 
 See also: add-model
           share-model
@@ -72,9 +72,10 @@ type ModelsSysAPI interface {
 // Info implements Command.Info
 func (c *modelsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-models",
+		Name:    "models",
 		Purpose: "Lists models a user can access on a controller.",
 		Doc:     listModelsDoc,
+		Aliases: []string{"list-models"},
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
@@ -36,7 +36,7 @@ type Firewaller struct {
 	machineds       map[names.MachineTag]*machineData
 	unitsChange     chan *unitsChange
 	unitds          map[names.UnitTag]*unitData
-	serviceds       map[names.ServiceTag]*serviceData
+	applicationids  map[names.ApplicationTag]*serviceData
 	exposedChange   chan *exposedChange
 	globalMode      bool
 	globalPortRef   map[network.PortRange]int
@@ -47,13 +47,13 @@ type Firewaller struct {
 // depending on what the API supports.
 func NewFirewaller(st *firewaller.State) (worker.Worker, error) {
 	fw := &Firewaller{
-		st:            st,
-		machineds:     make(map[names.MachineTag]*machineData),
-		unitsChange:   make(chan *unitsChange),
-		unitds:        make(map[names.UnitTag]*unitData),
-		serviceds:     make(map[names.ServiceTag]*serviceData),
-		exposedChange: make(chan *exposedChange),
-		machinePorts:  make(map[names.MachineTag]machineRanges),
+		st:             st,
+		machineds:      make(map[names.MachineTag]*machineData),
+		unitsChange:    make(chan *unitsChange),
+		unitds:         make(map[names.UnitTag]*unitData),
+		applicationids: make(map[names.ApplicationTag]*serviceData),
+		exposedChange:  make(chan *exposedChange),
+		machinePorts:   make(map[names.MachineTag]machineRanges),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &fw.catacomb,
@@ -256,11 +256,11 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 // The provided machineTag must be the tag for the machine the unit was last
 // observed to be assigned to.
 func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineTag) error {
-	service, err := unit.Service()
+	application, err := unit.Application()
 	if err != nil {
 		return err
 	}
-	serviceTag := service.Tag()
+	applicationTag := application.Tag()
 	unitTag := unit.Tag()
 	if err != nil {
 		return err
@@ -274,14 +274,14 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 
 	unitd.machined = fw.machineds[machineTag]
 	unitd.machined.unitds[unitTag] = unitd
-	if fw.serviceds[serviceTag] == nil {
-		err := fw.startService(service)
+	if fw.applicationids[applicationTag] == nil {
+		err := fw.startService(application)
 		if err != nil {
 			delete(fw.unitds, unitTag)
 			return err
 		}
 	}
-	unitd.serviced = fw.serviceds[serviceTag]
+	unitd.serviced = fw.applicationids[applicationTag]
 	unitd.serviced.unitds[unitTag] = unitd
 
 	m, err := unitd.machined.machine()
@@ -306,16 +306,16 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 
 // startService creates a new data value for tracking details of the
 // service and starts watching the service for exposure changes.
-func (fw *Firewaller) startService(service *firewaller.Service) error {
+func (fw *Firewaller) startService(service *firewaller.Application) error {
 	exposed, err := service.IsExposed()
 	if err != nil {
 		return err
 	}
 	serviced := &serviceData{
-		fw:      fw,
-		service: service,
-		exposed: exposed,
-		unitds:  make(map[names.UnitTag]*unitData),
+		fw:          fw,
+		application: service,
+		exposed:     exposed,
+		unitds:      make(map[names.UnitTag]*unitData),
 	}
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &serviced.catacomb,
@@ -329,7 +329,7 @@ func (fw *Firewaller) startService(service *firewaller.Service) error {
 	if err := fw.catacomb.Add(serviced); err != nil {
 		return errors.Trace(err)
 	}
-	fw.serviceds[service.Tag()] = serviced
+	fw.applicationids[service.Tag()] = serviced
 	return nil
 }
 
@@ -725,9 +725,9 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	delete(serviced.unitds, unitd.tag)
 	logger.Debugf("stopped watching %q", unitd.tag)
 	if stoppedService {
-		serviceTag := serviced.service.Tag()
-		delete(fw.serviceds, serviceTag)
-		logger.Debugf("stopped watching %q", serviceTag)
+		applicationTag := serviced.application.Tag()
+		delete(fw.applicationids, applicationTag)
+		logger.Debugf("stopped watching %q", applicationTag)
 	}
 }
 
@@ -811,16 +811,16 @@ type exposedChange struct {
 
 // serviceData holds service details and watches exposure changes.
 type serviceData struct {
-	catacomb catacomb.Catacomb
-	fw       *Firewaller
-	service  *firewaller.Service
-	exposed  bool
-	unitds   map[names.UnitTag]*unitData
+	catacomb    catacomb.Catacomb
+	fw          *Firewaller
+	application *firewaller.Application
+	exposed     bool
+	unitds      map[names.UnitTag]*unitData
 }
 
 // watchLoop watches the service's exposed flag for changes.
 func (sd *serviceData) watchLoop(exposed bool) error {
-	serviceWatcher, err := sd.service.Watch()
+	serviceWatcher, err := sd.application.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -835,13 +835,13 @@ func (sd *serviceData) watchLoop(exposed bool) error {
 			if !ok {
 				return errors.New("service watcher closed")
 			}
-			if err := sd.service.Refresh(); err != nil {
+			if err := sd.application.Refresh(); err != nil {
 				if !params.IsCodeNotFound(err) {
 					return errors.Trace(err)
 				}
 				return nil
 			}
-			change, err := sd.service.IsExposed()
+			change, err := sd.application.IsExposed()
 			if err != nil {
 				return errors.Trace(err)
 			}

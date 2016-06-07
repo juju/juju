@@ -395,7 +395,7 @@ type StorageDetails struct {
 	// StorageTag holds tag for this storage.
 	StorageTag string `json:"storagetag"`
 
-	// OwnerTag holds tag for the owner of this storage, unit or service.
+	// OwnerTag holds tag for the owner of this storage, unit or application.
 	OwnerTag string `json:"ownertag"`
 
 	// Kind holds what kind of storage this instance is.

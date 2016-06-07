@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -74,7 +74,7 @@ type modelEntityRefsDoc struct {
 	Machines []string `bson:"machines"`
 
 	// Services contains the names of the services in the model.
-	Services []string `bson:"services"`
+	Services []string `bson:"applications"`
 }
 
 // ControllerModel returns the model that was bootstrapped.
@@ -520,7 +520,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			Id: uuid,
 			Assert: bson.D{
 				{"machines", bson.D{{"$size", 0}}},
-				{"services", bson.D{{"$size", 0}}},
+				{"applications", bson.D{{"$size", 0}}},
 			},
 		})
 	}
@@ -672,20 +672,20 @@ func removeModelMachineRefOp(st *State, machineId string) txn.Op {
 	}
 }
 
-func addModelServiceRefOp(st *State, serviceName string) txn.Op {
+func addModelServiceRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$addToSet", bson.D{{"services", serviceName}}}},
+		Update: bson.D{{"$addToSet", bson.D{{"applications", applicationname}}}},
 	}
 }
 
-func removeModelServiceRefOp(st *State, serviceName string) txn.Op {
+func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{"services", serviceName}}}},
+		Update: bson.D{{"$pull", bson.D{{"applications", applicationname}}}},
 	}
 }
 

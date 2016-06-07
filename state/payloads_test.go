@@ -32,7 +32,7 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 	machine := "0"
 	unit := addUnit(c, s.ConnSuite, unitArgs{
 		charm:    "dummy",
-		service:  "a-service",
+		service:  "a-application",
 		metadata: payloadsMetaYAML,
 		machine:  machine,
 	})
@@ -54,7 +54,7 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 		},
 		Status: payload.StateRunning,
 		ID:     "xyz",
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -73,7 +73,7 @@ func (s *envPayloadsSuite) TestFunctional(c *gc.C) {
 			ID:     "xyz",
 			Status: payload.StateRunning,
 			Labels: []string{},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: machine,
 	}})
@@ -97,7 +97,7 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 	machine := "0"
 	unit := addUnit(c, s.ConnSuite, unitArgs{
 		charm:    "dummy",
-		service:  "a-service",
+		service:  "a-application",
 		metadata: payloadsMetaYAML,
 		machine:  machine,
 	})
@@ -116,7 +116,7 @@ func (s *unitPayloadsSuite) TestFunctional(c *gc.C) {
 		},
 		ID:     "xyz",
 		Status: payload.StateRunning,
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	}
 	err = st.Track(pl)
 	c.Assert(err, jc.ErrorIsNil)

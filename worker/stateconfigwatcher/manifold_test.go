@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"

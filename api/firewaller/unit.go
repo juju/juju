@@ -5,7 +5,7 @@ package firewaller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -42,16 +42,16 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// Service returns the service.
-func (u *Unit) Service() (*Service, error) {
-	serviceName, err := names.UnitService(u.Name())
+// Application returns the application.
+func (u *Unit) Application() (*Application, error) {
+	serviceName, err := names.UnitApplication(u.Name())
 	if err != nil {
 		return nil, err
 	}
-	serviceTag := names.NewServiceTag(serviceName)
-	service := &Service{
+	applicationTag := names.NewApplicationTag(serviceName)
+	service := &Application{
 		st:  u.st,
-		tag: serviceTag,
+		tag: applicationTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.

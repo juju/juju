@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
@@ -82,7 +82,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {
+func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Application, *state.Unit, names.StorageTag) {
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
@@ -133,7 +133,7 @@ storage:
 	return ch
 }
 
-func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Service {
+func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Application {
 	storageCons := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("environscoped", 1024, 1),
 		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
@@ -369,7 +369,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch})
+	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,7 +387,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: "user-test-admin@local", Charm: ch})
+	storageFilesystem, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Owner: "user-test-admin@local", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -402,8 +402,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
-	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
-		return s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
+	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addService(storage)
@@ -414,14 +414,14 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 1),
 	}
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 1024, 2)
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 2048, 2)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 	storageCons["multi1to10"] = makeStorageCons("ebs-fast", 1024, 10)
-	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs-fast" not found`)
+	assertErr(storageCons, `cannot add application "storage-block2": pool "ebs-fast" not found`)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 10)
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -435,7 +435,7 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	service, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: cons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -507,7 +507,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storageCons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -516,8 +516,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
-		return s.State.AddService(state.AddServiceArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
+	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),

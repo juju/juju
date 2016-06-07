@@ -46,7 +46,7 @@ func (s *ListCharmSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "list-resources",
+		Name:    "resources",
 		Args:    "<charm>",
 		Purpose: "display the resources for a charm in the charm store",
 		Doc: `
@@ -65,7 +65,7 @@ For cs:~user/trusty/mysql
 Where the series is not supplied, the series from your local host is used.
 Thus the above examples imply that the local series is trusty.
 `,
-		Aliases: []string{"resources"},
+		Aliases: []string{"list-resources"},
 	})
 }
 

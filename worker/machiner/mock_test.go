@@ -4,8 +4,8 @@
 package machiner_test
 
 import (
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"

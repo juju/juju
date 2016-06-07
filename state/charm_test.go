@@ -49,7 +49,7 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(config.Options["title"], gc.Equals,
 		charm.Option{
 			Default:     "My Title",
-			Description: "A descriptive title used for the service.",
+			Description: "A descriptive title used for the application.",
 			Type:        "string",
 		},
 	)

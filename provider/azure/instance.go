@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 type azureInstance struct {

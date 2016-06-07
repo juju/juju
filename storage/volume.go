@@ -3,7 +3,7 @@
 
 package storage
 
-import "github.com/juju/names"
+import "gopkg.in/juju/names.v2"
 
 // Volume identifies and describes a volume (disk, logical volume, etc.)
 type Volume struct {

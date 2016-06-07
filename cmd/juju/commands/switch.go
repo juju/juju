@@ -41,7 +41,7 @@ When switching by controller name alone, the model
 you get is the active model for that controller. If you want a different
 model then you must switch using controller:model notation or switch to 
 the controller and then to the model. 
-The `[1:] + "`juju list-models`" + ` command can be used to determine the active model
+The `[1:] + "`juju models`" + ` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
 
 Examples:
@@ -51,8 +51,8 @@ Examples:
     juju switch mycontroller:mymodel
 
 See also: 
-    list-controllers
-    list-models
+    controllers
+    models
     show-controller`
 
 func (c *switchCommand) Info() *cmd.Info {
@@ -113,8 +113,8 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// If the target identifies a controller, then set that as the current controller.
-	var newControllerName string
-	if newControllerName, err = modelcmd.ResolveControllerName(c.Store, c.Target); err == nil {
+	var newControllerName = c.Target
+	if _, err = c.Store.ControllerByName(c.Target); err == nil {
 		if newControllerName == currentControllerName {
 			newName = currentName
 			return nil
@@ -135,9 +135,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// case, the model must exist in the current controller.
 	newControllerName, modelName := modelcmd.SplitModelName(c.Target)
 	if newControllerName != "" {
-		// A controller was specified so see if we should use a local version.
-		newControllerName, err = modelcmd.ResolveControllerName(c.Store, newControllerName)
-		if err != nil {
+		if _, err = c.Store.ControllerByName(newControllerName); err != nil {
 			return errors.Trace(err)
 		}
 		newName = modelcmd.JoinModelName(newControllerName, modelName)

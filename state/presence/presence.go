@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
@@ -353,14 +353,14 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	DocID     string `bson:"_id,omitempty"`
+	DocID     string `bson:"_id"`
 	Seq       int64  `bson:"seq,omitempty"`
 	ModelUUID string `bson:"model-uuid,omitempty"`
 	Key       string `bson:"key,omitempty"`
 }
 
 type pingInfo struct {
-	DocID string           `bson:"_id,omitempty"`
+	DocID string           `bson:"_id"`
 	Slot  int64            `bson:"slot,omitempty"`
 	Alive map[string]int64 `bson:",omitempty"`
 	Dead  map[string]int64 `bson:",omitempty"`
@@ -406,7 +406,7 @@ func (w *Watcher) sync() error {
 	var ping []pingInfo
 	q := bson.D{{"$or", []pingInfo{{DocID: slot}, {DocID: previousSlot}}}}
 	err := pings.Find(q).All(&ping)
-	if err != nil && err == mgo.ErrNotFound {
+	if err != nil && err != mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
 
@@ -467,7 +467,8 @@ func (w *Watcher) sync() error {
 					if err == mgo.ErrNotFound {
 						logger.Tracef("found seq=%d unowned", seq)
 						continue
-					} else if err != nil {
+					}
+					if err != nil {
 						return errors.Trace(err)
 					}
 				}

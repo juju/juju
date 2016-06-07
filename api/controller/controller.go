@@ -6,7 +6,7 @@ package controller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -126,7 +126,7 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 			Life:               r.Life,
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,
-			ServiceCount:       r.ServiceCount,
+			ServiceCount:       r.ApplicationCount,
 		}
 
 	}

@@ -4,11 +4,11 @@
 package api
 
 import (
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/payload"
 )
@@ -29,7 +29,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 			ID:     "idspam",
 			Status: payload.StateRunning,
 			Labels: []string{"a-tag"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	})
@@ -40,7 +40,7 @@ func (helpersSuite) TestPayload2api(c *gc.C) {
 		ID:      "idspam",
 		Status:  payload.StateRunning,
 		Labels:  []string{"a-tag"},
-		Unit:    names.NewUnitTag("a-service/0").String(),
+		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
 	})
 }
@@ -52,7 +52,7 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 		ID:      "idspam",
 		Status:  payload.StateRunning,
 		Labels:  []string{"a-tag"},
-		Unit:    names.NewUnitTag("a-service/0").String(),
+		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +66,7 @@ func (helpersSuite) TestAPI2Payload(c *gc.C) {
 			ID:     "idspam",
 			Status: payload.StateRunning,
 			Labels: []string{"a-tag"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	})

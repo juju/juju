@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -339,7 +339,7 @@ var _ = gc.Suite(&clientSuite{})
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
 func clearSinceTimes(status *params.FullStatus) {
-	for serviceId, service := range status.Services {
+	for applicationId, service := range status.Applications {
 		for unitId, unit := range service.Units {
 			unit.WorkloadStatus.Since = nil
 			unit.AgentStatus.Since = nil
@@ -351,7 +351,7 @@ func clearSinceTimes(status *params.FullStatus) {
 			service.Units[unitId] = unit
 		}
 		service.Status.Since = nil
-		status.Services[serviceId] = service
+		status.Applications[applicationId] = service
 	}
 	for id, machine := range status.Machines {
 		machine.AgentStatus.Since = nil
