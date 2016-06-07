@@ -31,14 +31,21 @@ func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
 var allowedMethodsDuringUpgrades = map[string]set.Strings{
 	"Client": set.NewStrings(
 		"FullStatus",          // for "juju status"
-		"ModelGet",            // for "juju ssh"
-		"PrivateAddress",      // for "juju ssh"
-		"PublicAddress",       // for "juju ssh"
 		"FindTools",           // for "juju upgrade-juju", before we can reset upgrade to re-run
 		"AbortCurrentUpgrade", // for "juju upgrade-juju", so that we can reset upgrade to re-run
+
+	),
+	"SSHClient": set.NewStrings( // allow all SSH client related calls
+		"PublicAddress",
+		"PrivateAddress",
+		"PublicKeys",
+		"Proxy",
 	),
 	"Pinger": set.NewStrings(
 		"Ping",
+	),
+	"Backups": set.NewStrings(
+		"FinishRestore",
 	),
 }
 

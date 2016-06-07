@@ -1373,19 +1373,18 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	}
 
 	// Update addresses now.
-	envConfig, err := m.st.ModelConfig()
-	if err != nil {
-		return err
-	}
-	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
+	network.SortAddresses(addressesToSet)
 	origin := OriginProvider
 	if fieldName == "machineaddresses" {
 		origin = OriginMachine
 	}
 	stateAddresses := fromNetworkAddresses(addressesToSet, origin)
 
-	var newPrivate, newPublic address
-	var changedPrivate, changedPublic bool
+	var (
+		newPrivate, newPublic         address
+		changedPrivate, changedPublic bool
+		err                           error
+	)
 	machine := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
@@ -1421,10 +1420,9 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		return ops, nil
 	}
 	err = m.st.run(buildTxn)
-	if err != nil {
-		if err == txn.ErrAborted {
-			return ErrDead
-		}
+	if err == txn.ErrAborted {
+		return ErrDead
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 

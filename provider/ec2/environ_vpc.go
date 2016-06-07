@@ -533,7 +533,7 @@ func validateModelVPC(apiClient vpcAPIClient, modelName, vpcID string) error {
 	case isVPCNotRecommendedError(err):
 		// VPC does not meet minumum validation criteria, but that's less
 		// important for hosted models, as the controller is already accessible.
-		logger.Warningf(
+		logger.Infof(
 			"Juju will use, but does not recommend using VPC %q: %v",
 			vpcID, err.Error(),
 		)

@@ -11,7 +11,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apideployer "github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -27,14 +27,14 @@ type ManifoldConfig struct {
 // Manifold returns a dependency manifold that runs a deployer worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := util.AgentApiManifoldConfig{
+	typedConfig := engine.AgentApiManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	return util.AgentApiManifold(typedConfig, config.newWorker)
+	return engine.AgentApiManifold(typedConfig, config.newWorker)
 }
 
-// newWorker trivially wraps NewDeployer for use in a util.AgentApiManifold.
+// newWorker trivially wraps NewDeployer for use in a engine.AgentApiManifold.
 //
 // It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.

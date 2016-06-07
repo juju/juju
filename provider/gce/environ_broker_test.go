@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -110,8 +111,10 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 
 	// When StateServingInfo is not nil, verify OpenPorts was called
 	// for the API port.
-	s.StartInstArgs.InstanceConfig.StateServingInfo = &params.StateServingInfo{
-		APIPort: apiPort,
+	s.StartInstArgs.InstanceConfig.Bootstrap = &instancecfg.BootstrapConfig{
+		StateServingInfo: params.StateServingInfo{
+			APIPort: apiPort,
+		},
 	}
 
 	result, err := s.Env.StartInstance(s.StartInstArgs)
@@ -260,6 +263,6 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
-	c.Check(calls[0].Prefix, gc.Equals, "juju-2d02eeac-9dbb-11e4-89d3-123b93f75cba-machine-")
+	c.Check(calls[0].Prefix, gc.Equals, s.Prefix())
 	c.Check(calls[0].IDs, gc.DeepEquals, []string{"spam"})
 }

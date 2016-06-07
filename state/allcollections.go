@@ -6,6 +6,7 @@ package state
 import (
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/state/audit"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -303,17 +304,9 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		// TODO(mfoord): remove providerid indices here and switch to
-		// using providerIDsC to track unique provider ids.
-		ipAddressesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"providerid"},
-				Unique: true,
-				Sparse: true,
-			}},
-		},
-		endpointBindingsC: {},
-		openedPortsC:      {},
+		ipAddressesC:          {},
+		endpointBindingsC:     {},
+		openedPortsC:          {},
 
 		// -----
 
@@ -372,6 +365,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -385,6 +383,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	auditC                   = audit.CollectionName
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"

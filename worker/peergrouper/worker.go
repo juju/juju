@@ -119,7 +119,7 @@ func New(st *state.State) (worker.Worker, error) {
 		apiPort:   cfg.APIPort(),
 	}
 	supportsSpaces := networkingcommon.SupportsSpaces(shim) == nil
-	return newWorker(shim, newPublisher(st, cfg.PreferIPv6()), supportsSpaces)
+	return newWorker(shim, newPublisher(st), supportsSpaces)
 }
 
 func newWorker(st stateInterface, pub publisherInterface, supportsSpaces bool) (worker.Worker, error) {

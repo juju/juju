@@ -48,7 +48,7 @@ func (s *listSuite) TestInfo(c *gc.C) {
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &cmd.Info{
-		Name:    "list-payloads",
+		Name:    "payloads",
 		Args:    "[pattern ...]",
 		Purpose: "display status information about known payloads",
 		Doc: `
@@ -66,6 +66,7 @@ will be checked against the following info in Juju:
 - payload tag
 - payload status
 `,
+		Aliases: []string{"list-payloads"},
 	})
 }
 

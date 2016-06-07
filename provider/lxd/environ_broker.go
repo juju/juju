@@ -12,13 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -86,13 +84,6 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) erro
 		return errors.Trace(err)
 	}
 
-	// TODO: evaluate the impact of setting the constraints on the
-	// instanceConfig for all machines rather than just controller nodes.
-	// This limitation is why the constraints are assigned directly here.
-	args.InstanceConfig.Constraints = args.Constraints
-
-	args.InstanceConfig.AgentEnvironment[agent.Namespace] = env.ecfg.namespace()
-
 	return nil
 }
 
@@ -139,7 +130,10 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclient.Instance, error) {
-	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
+	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
@@ -179,7 +173,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := lxdclient.InstanceSpec{
-		Name:  machineID,
+		Name:  hostname,
 		Image: image,
 		//Type:              spec.InstanceType.Name,
 		//Disks:             getDisks(spec, args.Constraints),
@@ -295,7 +289,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env.Config().UUID(), "")
+	prefix := env.namespace.Prefix()
 	err := env.raw.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

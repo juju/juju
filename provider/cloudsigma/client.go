@@ -174,7 +174,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	logger.Debugf("Juju Constraints:" + args.Constraints.String())
 	logger.Debugf("InstanceConfig: %#v", args.InstanceConfig)
 
-	constraints := newConstraints(args.InstanceConfig.Bootstrap, args.Constraints, img)
+	constraints := newConstraints(args.InstanceConfig.Bootstrap != nil, args.Constraints, img)
 	logger.Debugf("CloudSigma Constraints: %v", constraints)
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)

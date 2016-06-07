@@ -16,12 +16,18 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.pprof")
 
-// Start starts a pprof server listening on a unix socket in /tmp.
-// The name of the file is derived from the name of the process, as
-// provided by os.Args[0], and the pid of the process.
-// Start returns a function which will stop the pprof server and clean
-// up the socket file.
-func Start() func() error {
+// Filename contains the filename to use for the pprof unix socket for this
+// process. The name is derived from the process name, as provided in
+// os.Args[0], and the process ID.
+var Filename = fmt.Sprintf(
+	"pprof.%s.%d",
+	filepath.Base(os.Args[0]),
+	os.Getpid(),
+)
+
+// Start starts a pprof server listening on a unix socket which will be
+// created at the specified path.
+func Start(path string) func() error {
 	if runtime.GOOS != "linux" {
 		logger.Infof("pprof debugging not supported on %q", runtime.GOOS)
 		return func() error { return nil }
@@ -37,7 +43,6 @@ func Start() func() error {
 		Handler: mux,
 	}
 
-	path := socketpath()
 	addr, err := net.ResolveUnixAddr("unix", path)
 	if err != nil {
 		logger.Errorf("unable to resolve unix socket: %v", err)
@@ -61,12 +66,4 @@ func Start() func() error {
 	}()
 
 	return l.Close
-}
-
-// socketpath returns the path for this processes' pprof socket.
-func socketpath() string {
-	cmd := filepath.Base(os.Args[0])
-	name := fmt.Sprintf("pprof.%s.%d", cmd, os.Getpid())
-	path := filepath.Join(os.TempDir(), name)
-	return path
 }

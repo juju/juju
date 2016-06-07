@@ -389,12 +389,13 @@ func (fw *Firewaller) reconcileInstances() error {
 				return err
 			}
 			continue
-		} else if err != nil {
+		}
+		if err != nil {
 			return err
 		}
 		instanceId, err := m.InstanceId()
 		if errors.IsNotProvisioned(err) {
-			logger.Warningf("Machine not yet provisioned: %v", err)
+			logger.Errorf("Machine not yet provisioned: %v", err)
 			continue
 		}
 		if err != nil {
@@ -403,7 +404,8 @@ func (fw *Firewaller) reconcileInstances() error {
 		instances, err := fw.environ.Instances([]instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
-		} else if err != nil {
+		}
+		if err != nil {
 			return err
 		}
 		machineId := machined.tag.Id()

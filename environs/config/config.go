@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -567,8 +568,8 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if strings.ContainsAny(cfg.mustString(NameKey), "/\\") {
-		return fmt.Errorf("model name contains unsafe characters")
+	if !names.IsValidModelName(cfg.mustString(NameKey)) {
+		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", NameKey)
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
@@ -1011,13 +1012,6 @@ func (c *Config) Development() bool {
 	return c.defined["development"].(bool)
 }
 
-// PreferIPv6 returns whether IPv6 addresses for API endpoints and
-// machines will be preferred (when available) over IPv4.
-func (c *Config) PreferIPv6() bool {
-	v, _ := c.defined["prefer-ipv6"].(bool)
-	return v
-}
-
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
@@ -1335,7 +1329,6 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                false,
 	"proxy-ssh":                false,
 	"lxc-clone-aufs":           false,
-	"prefer-ipv6":              false,
 	"enable-os-refresh-update": schema.Omit,
 	"enable-os-upgrade":        schema.Omit,
 }
@@ -1360,7 +1353,6 @@ func allDefaults() schema.Defaults {
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
 		"proxy-ssh":                  false,
-		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
@@ -1407,7 +1399,6 @@ var immutableAttributes = []string{
 	LxcClone,
 	LXCDefaultMTU,
 	"lxc-clone-aufs",
-	"prefer-ipv6",
 	IdentityURL,
 	IdentityPublicKey,
 }
@@ -1438,7 +1429,7 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 		if fields[name] == nil {
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
-				logger.Warningf("unknown config field %q", name)
+				logger.Errorf("unknown config field %q", name)
 			}
 			result[name] = value
 		}
@@ -1777,12 +1768,6 @@ global or per instance security groups.`,
 	NoProxyKey: {
 		Description: "List of domain addresses not to be proxied (comma-separated)",
 		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	"prefer-ipv6": {
-		Description: `Whether to prefer IPv6 over IPv4 addresses for API endpoints and machines`,
-		Type:        environschema.Tbool,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	ProvisionerHarvestModeKey: {

@@ -47,9 +47,8 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.api = &fakeDestroyAPI{}
 	s.api.err = nil
 
-	err := modelcmd.WriteCurrentController("test1")
-	c.Assert(err, jc.ErrorIsNil)
 	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "test1"
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{ControllerUUID: "test1-uuid"}
 	s.store.Models["test1"] = jujuclient.ControllerAccountModels{
 		AccountModels: map[string]*jujuclient.AccountModels{

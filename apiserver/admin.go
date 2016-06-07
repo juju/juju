@@ -229,7 +229,7 @@ func (a *admin) checkCredsOfControllerMachine(req params.LoginRequest) (state.En
 	}
 	// The machine does exist in the controller model, but it
 	// doesn't manage models, so reject it.
-	return nil, errors.Trace(common.ErrBadCreds)
+	return nil, errors.Trace(common.ErrPerm)
 }
 
 func (a *admin) maintenanceInProgress() bool {

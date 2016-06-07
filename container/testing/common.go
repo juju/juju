@@ -10,19 +10,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
@@ -31,9 +29,8 @@ var logger = loggo.GetLogger("juju.container.testing")
 
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", true, apiInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -53,10 +50,6 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	instanceConfig, err := MockMachineConfig(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-
-	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Config = envConfig
 	return CreateContainerWithMachineConfig(c, manager, instanceConfig)
 }
 
@@ -80,11 +73,12 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 ) instance.Instance {
 
 	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
-		name := "test-" + names.NewMachineTag(instanceConfig.MachineId).String()
+		name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
+		c.Assert(err, jc.ErrorIsNil)
 		EnsureLXCRootFSEtcNetwork(c, name)
 	}
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", networkConfig, storageConfig, callback)
+	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
@@ -119,17 +113,11 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 		return nil, errors.Trace(err)
 	}
 
-	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	instanceConfig.Config = envConfig
-
 	network := container.BridgeNetworkConfig("nic42", 0, nil)
 	storage := &container.StorageConfig{}
 
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "quantal", network, storage, callback)
+	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", network, storage, callback)
 
 	if err != nil {
 		return nil, errors.Trace(err)

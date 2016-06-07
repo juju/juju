@@ -59,7 +59,7 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 			Date:  filter.Date,
 			Delta: filter.Delta,
 		},
-		Tag: tag,
+		Tag: tag.String(),
 	}
 	bulkArgs := params.StatusHistoryRequests{Requests: []params.StatusHistoryRequest{args}}
 	err := c.facade.FacadeCall("StatusHistory", bulkArgs, &results)

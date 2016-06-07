@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs/config"
@@ -55,8 +56,8 @@ func (s *LiveSuite) SetUpTest(c *gc.C) {
 func (s *LiveSuite) newManager(c *gc.C, name string) container.Manager {
 	manager, err := kvm.NewContainerManager(
 		container.ManagerConfig{
-			container.ConfigName:   name,
-			container.ConfigLogDir: c.MkDir(),
+			container.ConfigModelUUID: coretesting.ModelTag.Id(),
+			container.ConfigLogDir:    c.MkDir(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
@@ -86,9 +87,8 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 
 func createContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	machineNonce := "fake-nonce"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	network := container.BridgeNetworkConfig("virbr0", 0, nil)
 
@@ -103,7 +103,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil, callback)
+	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "precise", network, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", arch.HostArch())

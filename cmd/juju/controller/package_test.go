@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -32,9 +31,6 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.modelsYaml = testModelsYaml
 	s.accountsYaml = testAccountsYaml
 	s.store = nil
-
-	err := modelcmd.WriteCurrentController("local.mallards")
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclienttesting.MemStore {
@@ -48,7 +44,8 @@ func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclienttesting.
 	c.Assert(err, jc.ErrorIsNil)
 
 	store := jujuclienttesting.NewMemStore()
-	store.Controllers = controllers
+	store.Controllers = controllers.Controllers
+	store.CurrentControllerName = controllers.CurrentController
 	store.Models = models
 	store.Accounts = accounts
 	s.store = store
@@ -61,14 +58,20 @@ controllers:
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
+    cloud: aws
+    region: us-east-1
   local.mallards:
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
+    cloud: mallards
+    region: mallards1
   local.mark-test-prodstack:
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
+    cloud: prodstack
+current-controller: local.mallards
 `
 
 const testModelsYaml = `

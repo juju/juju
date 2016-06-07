@@ -42,8 +42,7 @@ type configSuite struct {
 
 func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    s.remote,
+		Remote: s.remote,
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,36 +51,30 @@ func (s *configSuite) TestWithDefaultsOkay(c *gc.C) {
 }
 
 func (s *configSuite) TestWithDefaultsMissingRemote(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-	}
+	cfg := lxdclient.Config{}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    lxdclient.Local,
+		Remote: lxdclient.Local,
 	})
 }
 
 func (s *configSuite) TestWithDefaultsMissingStream(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    s.remote,
+		Remote: s.remote,
 	}
 	updated, err := cfg.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(updated, jc.DeepEquals, lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    s.remote,
+		Remote: s.remote,
 	})
 }
 
 func (s *configSuite) TestValidateOkay(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    s.remote,
+		Remote: s.remote,
 	}
 	err := cfg.Validate()
 
@@ -98,9 +91,7 @@ func (s *configSuite) TestValidateOnlyRemote(c *gc.C) {
 }
 
 func (s *configSuite) TestValidateMissingRemote(c *gc.C) {
-	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-	}
+	cfg := lxdclient.Config{}
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -115,8 +106,7 @@ func (s *configSuite) TestValidateZeroValue(c *gc.C) {
 
 func (s *configSuite) TestUsingTCPRemoteNoop(c *gc.C) {
 	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    s.remote,
+		Remote: s.remote,
 	}
 	nonlocal, err := cfg.UsingTCPRemote()
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,15 +155,13 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 	lxdclient.PatchGenerateCertificate(&s.CleanupSuite, testingCert, testingKey)
 
 	cfg := lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    lxdclient.Local,
+		Remote: lxdclient.Local,
 	}
 	nonlocal, err := cfg.UsingTCPRemote()
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkValidRemote(c, &nonlocal.Remote)
 	c.Check(nonlocal, jc.DeepEquals, lxdclient.Config{
-		Namespace: "my-ns",
 		Remote: lxdclient.Remote{
 			Name:          lxdclient.Local.Name,
 			Host:          nonlocal.Remote.Host,
@@ -191,8 +179,7 @@ func (s *configFunctionalSuite) TestUsingTCPRemote(c *gc.C) {
 
 func newLocalClient(c *gc.C) *lxdclient.Client {
 	client, err := lxdclient.Connect(lxdclient.Config{
-		Namespace: "my-ns",
-		Remote:    lxdclient.Local,
+		Remote: lxdclient.Local,
 	})
 	if err != nil {
 		c.Log(err)

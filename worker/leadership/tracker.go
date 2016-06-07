@@ -209,7 +209,7 @@ func (t *Tracker) setMinion() error {
 			logger.Debugf("%s waiting for %s leadership release", t.unitName, t.serviceName)
 			err := t.claimer.BlockUntilLeadershipReleased(t.serviceName)
 			if err != nil {
-				logger.Warningf("error while %s waiting for %s leadership release: %v", t.unitName, t.serviceName, err)
+				logger.Debugf("error while %s waiting for %s leadership release: %v", t.unitName, t.serviceName, err)
 			}
 			// We don't need to do anything else with the error, because we just
 			// close the claimLease channel and trigger a leadership claim on the

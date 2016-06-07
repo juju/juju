@@ -5,13 +5,14 @@ package container
 
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
 
 const (
-	ConfigName   = "name"
-	ConfigLogDir = "log-dir"
+	ConfigModelUUID = "model-uuid"
+	ConfigLogDir    = "log-dir"
 
 	// ConfigIPForwarding, if set to a non-empty value, instructs the
 	// container manager to enable IP forwarding as part of the
@@ -46,6 +47,7 @@ type Manager interface {
 	// machine.
 	CreateContainer(
 		instanceConfig *instancecfg.InstanceConfig,
+		cons constraints.Value,
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig,
@@ -62,6 +64,10 @@ type Manager interface {
 	// IsInitialized check whether or not required packages have been installed
 	// to support this manager.
 	IsInitialized() bool
+
+	// Namespace returns the namespace of the manager. This namespace defines the
+	// prefix of all the hostnames.
+	Namespace() instance.Namespace
 }
 
 // Initialiser is responsible for performing the steps required to initialise

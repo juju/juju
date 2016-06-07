@@ -40,11 +40,11 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-actions",
+		Name:    "actions",
 		Args:    "<service name>",
 		Purpose: "list actions defined for a service",
 		Doc:     listDoc,
-		Aliases: []string{"actions"},
+		Aliases: []string{"list-actions"},
 	}
 }
 

@@ -171,7 +171,7 @@ func (db *database) CopySession() (Database, SessionCloser) {
 func (db *database) GetCollection(name string) (collection mongo.Collection, closer SessionCloser) {
 	info, found := db.schema[name]
 	if !found {
-		logger.Warningf("using unknown collection %q", name)
+		logger.Errorf("using unknown collection %q", name)
 	}
 
 	// Copy session if necessary.

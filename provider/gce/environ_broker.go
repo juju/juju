@@ -57,10 +57,10 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	if isController(args.InstanceConfig) {
+	if args.InstanceConfig.Bootstrap != nil {
 		ports := network.PortRange{
-			FromPort: args.InstanceConfig.StateServingInfo.APIPort,
-			ToPort:   args.InstanceConfig.StateServingInfo.APIPort,
+			FromPort: args.InstanceConfig.Bootstrap.StateServingInfo.APIPort,
+			ToPort:   args.InstanceConfig.Bootstrap.StateServingInfo.APIPort,
 			Protocol: "tcp",
 		}
 		if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
@@ -145,7 +145,10 @@ func (env *environ) findInstanceSpec(
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
+	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
 	if err != nil {
@@ -158,7 +161,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 	tags := []string{
 		env.globalFirewallName(),
-		machineID,
+		hostname,
 	}
 
 	disks, err := getDisks(
@@ -173,7 +176,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := google.InstanceSpec{
-		ID:                machineID,
+		ID:                hostname,
 		Type:              spec.InstanceType.Name,
 		Disks:             disks,
 		NetworkInterfaces: []string{"ExternalNAT"},
@@ -308,7 +311,7 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env.Config().UUID(), "")
+	prefix := env.namespace.Prefix()
 	err := env.gce.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

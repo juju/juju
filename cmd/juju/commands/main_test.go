@@ -159,9 +159,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "list-controllers"}, // global flags before
-		{"list-controllers", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "list-controllers", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "controllers"}, // global flags before
+		{"controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -372,14 +372,18 @@ var commandNames = []string{
 	"autoload-credentials",
 	"backups",
 	"block",
+	"blocks",
 	"bootstrap",
 	"cached-images",
 	"change-user-password",
 	"charm",
+	"clouds",
 	"collect-metrics",
+	"controllers",
 	"create-backup",
 	"create-budget",
 	"create-storage-pool",
+	"credentials",
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",
@@ -410,6 +414,7 @@ var commandNames = []string{
 	"list-agreements",
 	"list-all-blocks",
 	"list-backups",
+	"list-blocks",
 	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
@@ -431,11 +436,13 @@ var commandNames = []string{
 	"logout",
 	"machine",
 	"machines",
+	"models",
 	"publish",
 	"register",
 	"remove-all-blocks",
 	"remove-backup",
 	"remove-cached-images",
+	"remove-cloud",
 	"remove-credential",
 	"remove-machine",
 	"remove-machines",
@@ -463,6 +470,7 @@ var commandNames = []string{
 	"set-plan",
 	"ssh-key",
 	"ssh-keys",
+	"shares",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
@@ -481,6 +489,7 @@ var commandNames = []string{
 	"status",
 	"status-history",
 	"storage",
+	"storage-pools",
 	"subnets",
 	"switch",
 	"sync-tools",
@@ -493,6 +502,7 @@ var commandNames = []string{
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"users",
 	"version",
 }
 

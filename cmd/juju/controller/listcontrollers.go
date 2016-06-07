@@ -23,11 +23,11 @@ The output format may be selected with the '--format' option. In the
 default tabular output, the current controller is marked with an asterisk.
 
 Examples:
-    juju list-controllers
-    juju list-controllers --format json --output ~/tmp/controllers.json
+    juju controllers
+    juju controllers --format json --output ~/tmp/controllers.json
 
 See also:
-    list-models
+    models
     show-controller`[1:]
 
 // NewListControllersCommand returns a command to list registered controllers.
@@ -41,9 +41,10 @@ func NewListControllersCommand() cmd.Command {
 // Info implements Command.Info
 func (c *listControllersCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-controllers",
+		Name:    "controllers",
 		Purpose: helpControllersSummary,
 		Doc:     helpControllersDetails,
+		Aliases: []string{"list-controllers"},
 	}
 }
 
@@ -67,15 +68,11 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 	if len(errs) > 0 {
 		fmt.Fprintln(ctx.Stderr, strings.Join(errs, "\n"))
 	}
-	currentController, err := modelcmd.ReadCurrentController()
-	if err != nil {
-		return errors.Annotate(err, "getting current controller")
-	}
-	if _, ok := controllers[currentController]; !ok {
-		// TODO(axw) move handling of current-controller to
-		// the jujuclient code, and make sure the file is
-		// kept in-sync with the controllers.yaml file.
+	currentController, err := c.store.CurrentController()
+	if errors.IsNotFound(err) {
 		currentController = ""
+	} else if err != nil {
+		return errors.Annotate(err, "getting current controller")
 	}
 	controllerSet := ControllerSet{
 		Controllers:       details,

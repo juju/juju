@@ -51,13 +51,16 @@ func (r *Reboot) checkForRebootState() error {
 		return nil
 	}
 
-	if r.machineLock.Message() == RebootMessage {
-		// Not a lock held by the machne agent in order to reboot
-		if err := r.machineLock.BreakLock(); err != nil {
-			return errors.Trace(err)
-		}
+	msg, err := r.machineLock.Message()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return nil
+	if msg != RebootMessage {
+		return nil
+	}
+	// Not a lock held by the machne agent in order to reboot
+	err = r.machineLock.BreakLock()
+	return errors.Trace(err)
 }
 
 func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {

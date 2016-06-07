@@ -70,15 +70,14 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	s.manager = &fakeContainerManager{}
-	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, "namespace", true)
+	s.broker, err = provisioner.NewLxdBroker(s.api, s.manager, s.agentConfig, true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
@@ -129,12 +128,13 @@ type fakeContainerManager struct {
 }
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
 	series string,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback container.StatusCallback,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	m.MethodCall(m, "CreateContainer", instanceConfig, series, network, storage, callback)
+	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
 	return nil, nil, m.NextErr()
 }
 
@@ -146,6 +146,11 @@ func (m *fakeContainerManager) DestroyContainer(id instance.Id) error {
 func (m *fakeContainerManager) ListContainers() ([]instance.Instance, error) {
 	m.MethodCall(m, "ListContainers")
 	return nil, m.NextErr()
+}
+
+func (m *fakeContainerManager) Namespace() instance.Namespace {
+	ns, _ := instance.NewNamespace(coretesting.ModelTag.Id())
+	return ns
 }
 
 func (m *fakeContainerManager) IsInitialized() bool {

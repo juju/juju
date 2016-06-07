@@ -330,7 +330,7 @@ func PrepareEndpointsForCaching(
 		collapsedHPs := network.CollapseHostPorts(allHostPorts)
 		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
 		uniqueHPs := network.DropDuplicatedHostPorts(filteredHPs)
-		network.SortHostPorts(uniqueHPs, false)
+		network.SortHostPorts(uniqueHPs)
 
 		for _, addr := range addrConnectedTo {
 			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)

@@ -35,22 +35,26 @@ using the "-m" flag.
 // GetCurrentModel returns the name of the current Juju model.
 //
 // If $JUJU_MODEL is set, use that. Otherwise, get the current
-// controller by reading $XDG_DATA_HOME/juju/current-controller,
-// and then identifying the current model for that controller
-// in models.yaml. If there is no current controller, or no
-// current model for that controller, then an empty string is
-// returned. It is not an error to have no default model.
+// controller from controllers.yaml, and then identify the current
+// model for that controller in models.yaml. If there is no current
+// controller, then an empty string is returned. It is not an error
+// to have no current model.
+//
+// If there is a current controller, but no current model for that
+// controller, then GetCurrentModel will return the string
+// "<controller>:". If there is a current model as well, it will
+// return "<controller>:<model>". Only when $JUJU_MODEL is set,
+// will the result possibly be unqualified.
 func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 	if model := os.Getenv(osenv.JujuModelEnvKey); model != "" {
 		return model, nil
 	}
 
-	currentController, err := ReadCurrentController()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if currentController == "" {
+	currentController, err := store.CurrentController()
+	if errors.IsNotFound(err) {
 		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
 	}
 
 	currentAccount, err := store.CurrentAccount(currentController)
@@ -62,11 +66,11 @@ func GetCurrentModel(store jujuclient.ClientStore) (string, error) {
 
 	currentModel, err := store.CurrentModel(currentController, currentAccount)
 	if errors.IsNotFound(err) {
-		return "", nil
+		return currentController + ":", nil
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
-	return currentModel, nil
+	return JoinModelName(currentController, currentModel), nil
 }
 
 // ModelCommand extends cmd.Command with a SetModelName method.
@@ -136,12 +140,11 @@ func (c *ModelCommandBase) ClientStore() jujuclient.ClientStore {
 func (c *ModelCommandBase) SetModelName(modelName string) error {
 	controllerName, modelName := SplitModelName(modelName)
 	if controllerName == "" {
-		currentController, err := ReadCurrentController()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if currentController == "" {
+		currentController, err := c.store.CurrentController()
+		if errors.IsNotFound(err) {
 			return errors.Errorf("no current controller, and none specified")
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 		controllerName = currentController
 	} else {

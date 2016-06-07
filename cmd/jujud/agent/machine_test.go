@@ -11,14 +11,12 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -29,31 +27,21 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
-	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	lxctesting "github.com/juju/juju/container/lxc/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
@@ -64,225 +52,21 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
-	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/mongoupgrader"
-	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/resumer"
-	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/workertest"
 )
-
-var (
-	_ = gc.Suite(&MachineSuite{})
-	_ = gc.Suite(&MachineWithCharmsSuite{})
-	_ = gc.Suite(&mongoSuite{})
-)
-
-type commonMachineSuite struct {
-	singularRecord *singularRunnerRecord
-	lxctesting.TestSuite
-	fakeEnsureMongo *agenttesting.FakeEnsureMongo
-	AgentSuite
-}
-
-func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
-	s.AgentSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
-	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
-}
-
-func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
-	s.AgentSuite.TearDownSuite(c)
-}
-
-func (s *commonMachineSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.SetUpTest(c)
-	s.TestSuite.SetUpTest(c)
-	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
-
-	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
-
-	testpath := c.MkDir()
-	s.AgentSuite.PatchEnvPathPrepend(testpath)
-	// mock out the start method so we can fake install services without sudo
-	fakeCmd(filepath.Join(testpath, "start"))
-	fakeCmd(filepath.Join(testpath, "stop"))
-
-	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
-
-	s.singularRecord = newSingularRunnerRecord()
-	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
-		return newDummyWorker(), nil
-	})
-
-	s.fakeEnsureMongo = agenttesting.InstallFakeEnsureMongo(s)
-}
-
-func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
-	// Wait for channel to be active.
-	select {
-	case <-aChannel:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for %v", intent)
-	}
-}
-
-func (s *commonMachineSuite) assertChannelInactive(c *gc.C, aChannel chan struct{}, intent string) {
-	// Now make sure the channel is not active.
-	select {
-	case <-aChannel:
-		c.Fatalf("%v unexpectedly", intent)
-	case <-time.After(startWorkerWait):
-	}
-}
-
-func fakeCmd(path string) {
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\nexit 0"), 0755)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (s *commonMachineSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.TearDownTest(c)
-	s.AgentSuite.TearDownTest(c)
-}
-
-// primeAgent adds a new Machine to run the given jobs, and sets up the
-// machine agent's directory.  It returns the new machine, the
-// agent's configuration and the tools currently running.
-func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	vers := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
-	}
-	return s.primeAgentVersion(c, vers, jobs...)
-}
-
-// primeAgentVersion is similar to primeAgent, but permits the
-// caller to specify the version.Binary to prime with.
-func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.State.AddMachine("quantal", jobs...)
-	c.Assert(err, jc.ErrorIsNil)
-	return s.primeAgentWithMachine(c, m, vers)
-}
-
-func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		err := pinger.Stop()
-		c.Check(err, jc.ErrorIsNil)
-	})
-	return s.configureMachine(c, m.Id(), vers)
-}
-
-func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
-	machine *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
-) {
-	m, err := s.State.Machine(machineId)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
-	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
-
-	// Add an address for the tests in case the initiateMongoServer
-	// codepath is exercised.
-	s.setFakeMachineAddresses(c, m)
-
-	// Set up the new machine.
-	err = m.SetAgentVersion(vers)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetPassword(initialMachinePassword)
-	c.Assert(err, jc.ErrorIsNil)
-	tag := m.Tag()
-	if m.IsManager() {
-		err = m.SetMongoPassword(initialMachinePassword)
-		c.Assert(err, jc.ErrorIsNil)
-		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
-		info, ok := agentConfig.StateServingInfo()
-		c.Assert(ok, jc.IsTrue)
-		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
-		err = s.State.SetStateServingInfo(ssi)
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
-	}
-	err = agentConfig.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	return m, agentConfig, tools
-}
-
-func NewTestMachineAgentFactory(
-	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
-	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
-		return NewMachineAgent(
-			machineId,
-			agentConfWriter,
-			bufferedLogs,
-			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
-			&mockLoopDeviceManager{},
-			rootDir,
-		)
-	}
-}
-
-// newAgent returns a new MachineAgent instance
-func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	agentConf := agentConf{dataDir: s.DataDir()}
-	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
-	return machineAgentFactory(m.Id())
-}
-
-func (s *MachineSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, AgentConf) {
-		agentConf := agentConf{dataDir: s.DataDir()}
-		a := NewMachineAgentCmd(
-			nil,
-			NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
-			&agentConf,
-			&agentConf,
-		)
-		a.(*machineAgentCmd).logToStdErr = true
-
-		return a, &agentConf
-	}
-	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
-	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
-}
 
 type MachineSuite struct {
 	commonMachineSuite
 }
 
-var perEnvSingularWorkers = []string{
-	"cleaner",
-	"minunitsworker",
-	"addresserworker",
-	"environ-provisioner",
-	"charm-revision-updater",
-	"discoverspaces",
-	"instancepoller",
-	"firewaller",
-	"unitassigner",
-}
-
-const initialMachinePassword = "machine-password-1234567890"
+var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
@@ -308,6 +92,23 @@ func (s *MachineSuite) TestParseUnknown(c *gc.C) {
 	a := &machineAgentCmd{agentInitializer: &agentConf}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
+}
+
+func (s *MachineSuite) TestParseSuccess(c *gc.C) {
+	create := func() (cmd.Command, AgentConf) {
+		agentConf := agentConf{dataDir: s.DataDir()}
+		a := NewMachineAgentCmd(
+			nil,
+			NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+			&agentConf,
+			&agentConf,
+		)
+		a.(*machineAgentCmd).logToStdErr = true
+
+		return a, &agentConf
+	}
+	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
+	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
 }
 
 func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
@@ -503,34 +304,6 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	ctx.waitDeployed(c)
 }
 
-func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
-	ctx := &fakeContext{
-		inited:   newSignal(),
-		deployed: make(set.Strings),
-	}
-	orig := newDeployContext
-	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
-		ctx.st = st
-		ctx.agentConfig = agentConfig
-		ctx.inited.trigger()
-		return ctx
-	}
-	return ctx, func() { newDeployContext = orig }
-}
-
-func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	addrs := network.NewAddresses("0.1.2.3")
-	err := machine.SetProviderAddresses(addrs...)
-	c.Assert(err, jc.ErrorIsNil)
-	// Set the addresses in the environ instance as well so that if the instance poller
-	// runs it won't overwrite them.
-	instId, err := machine.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances([]instance.Id{instId})
-	c.Assert(err, jc.ErrorIsNil)
-	dummy.SetInstanceAddresses(insts[0], addrs)
-}
-
 func (s *MachineSuite) TestManageModel(c *gc.C) {
 	usefulVersion := version.Binary{
 		Number: jujuversion.Current,
@@ -604,8 +377,6 @@ func (s *MachineSuite) TestManageModelRunsResumer(c *gc.C) {
 	}()
 	started.assertTriggered(c, "resumer worker to start")
 }
-
-const startWorkerWait = 250 * time.Millisecond
 
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
@@ -790,11 +561,6 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	defer a.Stop() // in case of failure
 	s.waitStopped(c, state.JobManageModel, a, done)
 	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsFalse)
-}
-
-var fastDialOpts = api.DialOpts{
-	Timeout:    coretesting.LongWait,
-	RetryDelay: coretesting.ShortWait,
 }
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
@@ -1033,28 +799,6 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 				continue
 			}
 			return
-		}
-	}
-}
-
-// opRecvTimeout waits for any of the given kinds of operation to
-// be received from ops, and times out if not.
-func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
-	st.StartSync()
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case op := <-opc:
-			for _, k := range kinds {
-				if reflect.TypeOf(op) == reflect.TypeOf(k) {
-					return op
-				}
-			}
-			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(coretesting.ShortWait):
-			st.StartSync()
-		case <-timeout:
-			c.Fatalf("time out wating for operation")
 		}
 	}
 }
@@ -1588,41 +1332,37 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
-		alwaysModelWorkers, deadModelWorkers...,
-	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
-
 	st, closer := s.setUpNewModel(c)
 	defer closer()
-	uuid := st.ModelUUID()
 	timeout := time.After(ReallyLongWait)
 
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
 		model, err := st.Model()
 		c.Assert(err, jc.ErrorIsNil)
+		watch := model.Watch()
+		defer workertest.CleanKill(c, watch)
+
 		err = model.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 
-		// Wait for the running workers to imply that we've
-		// passed beyond Dying...
+		// Wait for the model to go away.
 		for {
-			if check(uuid) {
-				break
-			}
 			select {
+			case <-watch.Changes():
+				err := model.Refresh()
+				cause := errors.Cause(err)
+				if err == nil {
+					continue // still there
+				} else if errors.IsNotFound(cause) {
+					return // successfully removed
+				}
+				c.Assert(err, jc.ErrorIsNil) // guaranteed fail
 			case <-time.After(coretesting.ShortWait):
 				s.BackingState.StartSync()
 			case <-timeout:
 				c.Fatalf("timed out waiting for workers")
 			}
 		}
-
-		// ...and verify that's reflected in the database.
-		err = model.Refresh()
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(model.Life(), gc.Equals, state.Dead)
 	})
 }
 
@@ -1681,324 +1421,4 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
-}
-
-// MachineWithCharmsSuite provides infrastructure for tests which need to
-// work with charms.
-type MachineWithCharmsSuite struct {
-	commonMachineSuite
-	charmtesting.CharmSuite
-
-	machine *state.Machine
-}
-
-func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
-	s.commonMachineSuite.SetUpSuite(c)
-	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
-}
-
-func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
-	s.commonMachineSuite.TearDownSuite(c)
-}
-
-func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
-	s.commonMachineSuite.SetUpTest(c)
-	s.CharmSuite.SetUpTest(c)
-}
-
-func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.CharmSuite.TearDownTest(c)
-	s.commonMachineSuite.TearDownTest(c)
-}
-
-func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-
-	s.SetupScenario(c)
-
-	a := s.newAgent(c, m)
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	checkRevision := func() bool {
-		curl := charm.MustParseURL("cs:quantal/mysql")
-		placeholder, err := s.State.LatestPlaceholderCharm(curl)
-		return err == nil && placeholder.String() == curl.WithRevision(23).String()
-	}
-	success := false
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if success = checkRevision(); success {
-			break
-		}
-	}
-	c.Assert(success, jc.IsTrue)
-}
-
-type mongoSuite struct {
-	coretesting.BaseSuite
-}
-
-func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *gc.C) {
-	s.testStateWorkerDialSetsWriteMajority(c, true)
-}
-
-func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetConfig(c *gc.C) {
-	s.testStateWorkerDialSetsWriteMajority(c, false)
-}
-
-func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureReplset bool) {
-	inst := gitjujutesting.MgoInstance{
-		EnableJournal: true,
-		Params:        []string{"--replSet", "juju"},
-	}
-	err := inst.Start(coretesting.Certs)
-	c.Assert(err, jc.ErrorIsNil)
-	defer inst.Destroy()
-
-	var expectedWMode string
-	dialOpts := stateWorkerDialOpts
-	dialOpts.Timeout = coretesting.LongWait
-	if configureReplset {
-		info := inst.DialInfo()
-		info.Timeout = dialOpts.Timeout
-		args := peergrouper.InitiateMongoParams{
-			DialInfo:       info,
-			MemberHostPort: inst.Addr(),
-		}
-		err = peergrouper.InitiateMongoServer(args)
-		c.Assert(err, jc.ErrorIsNil)
-		expectedWMode = "majority"
-	} else {
-		dialOpts.Direct = true
-	}
-
-	mongoInfo := mongo.Info{
-		Addrs:  []string{inst.Addr()},
-		CACert: coretesting.CACert,
-	}
-	session, err := mongo.DialWithInfo(mongoInfo, dialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer session.Close()
-
-	safe := session.Safe()
-	c.Assert(safe, gc.NotNil)
-	c.Assert(safe.WMode, gc.Equals, expectedWMode)
-	c.Assert(safe.J, jc.IsTrue) // always enabled
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	providerType string
-	tag          names.Tag
-}
-
-func (m *mockAgentConfig) Tag() names.Tag {
-	return m.tag
-}
-
-func (m *mockAgentConfig) Value(key string) string {
-	if key == agent.ProviderType {
-		return m.providerType
-	}
-	return ""
-}
-
-type singularRunnerRecord struct {
-	runnerC chan *fakeSingularRunner
-}
-
-func newSingularRunnerRecord() *singularRunnerRecord {
-	return &singularRunnerRecord{
-		runnerC: make(chan *fakeSingularRunner, 64),
-	}
-}
-
-func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
-	sr, err := singular.New(runner, conn)
-	if err != nil {
-		return nil, err
-	}
-	fakeRunner := &fakeSingularRunner{
-		Runner: sr,
-		startC: make(chan string, 64),
-	}
-	r.runnerC <- fakeRunner
-	return fakeRunner, nil
-}
-
-// nextRunner blocks until a new singular runner is created.
-func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case r := <-r.runnerC:
-			return r
-		case <-timeout:
-			c.Fatal("timed out waiting for singular runner to be created")
-		}
-	}
-}
-
-type fakeSingularRunner struct {
-	worker.Runner
-	startC chan string
-}
-
-func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
-	logger.Infof("starting fake worker %q", name)
-	r.startC <- name
-	return r.Runner.StartWorker(name, start)
-}
-
-// waitForWorker waits for a given worker to be started, returning all
-// workers started while waiting.
-func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
-	var seen []string
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			c.Logf("still waiting for %q; workers seen so far: %+v", target, seen)
-		case workerName := <-r.startC:
-			seen = append(seen, workerName)
-			if workerName == target {
-				c.Logf("target worker %q started; workers seen so far: %+v", workerName, seen)
-				return seen
-			}
-			c.Logf("worker %q started; still waiting for %q; workers seen so far: %+v", workerName, target, seen)
-		case <-timeout:
-			c.Fatal("timed out waiting for " + target)
-		}
-	}
-}
-
-// waitForWorkers waits for a given worker to be started, returning all
-// workers started while waiting.
-func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string {
-	var seen []string
-	seenTargets := make(map[string]bool)
-	numSeenTargets := 0
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case workerName := <-r.startC:
-			c.Logf("worker %q started; workers seen so far: %+v (len: %d, len(targets): %d)", workerName, seen, len(seen), len(targets))
-			if seenTargets[workerName] == true {
-				c.Fatal("worker started twice: " + workerName)
-			}
-			seenTargets[workerName] = true
-			numSeenTargets++
-			seen = append(seen, workerName)
-			if numSeenTargets == len(targets) {
-				c.Logf("all expected target workers started: %+v", seen)
-				return seen
-			}
-			c.Logf("still waiting for workers %+v to start; numSeenTargets=%d", targets, numSeenTargets)
-		case <-timeout:
-			c.Fatalf("timed out waiting for %v", targets)
-		}
-	}
-}
-
-type mockMetricAPI struct {
-	stop          chan struct{}
-	cleanUpCalled chan struct{}
-	sendCalled    chan struct{}
-}
-
-func newMockMetricAPI() *mockMetricAPI {
-	return &mockMetricAPI{
-		stop:          make(chan struct{}),
-		cleanUpCalled: make(chan struct{}),
-		sendCalled:    make(chan struct{}),
-	}
-}
-
-func (m *mockMetricAPI) CleanupOldMetrics() error {
-	go func() {
-		select {
-		case m.cleanUpCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendMetrics() error {
-	go func() {
-		select {
-		case m.sendCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendCalled() <-chan struct{} {
-	return m.sendCalled
-}
-
-func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
-	return m.cleanUpCalled
-}
-
-func (m *mockMetricAPI) Stop() {
-	close(m.stop)
-}
-
-type mockLoopDeviceManager struct {
-	detachLoopDevicesArgRootfs string
-	detachLoopDevicesArgPrefix string
-}
-
-func (m *mockLoopDeviceManager) DetachLoopDevices(rootfs, prefix string) error {
-	m.detachLoopDevicesArgRootfs = rootfs
-	m.detachLoopDevicesArgPrefix = prefix
-	return nil
-}
-
-func newSignal() *signal {
-	return &signal{ch: make(chan struct{})}
-}
-
-type signal struct {
-	mu sync.Mutex
-	ch chan struct{}
-}
-
-func (s *signal) triggered() <-chan struct{} {
-	return s.ch
-}
-
-func (s *signal) assertTriggered(c *gc.C, thing string) {
-	select {
-	case <-s.triggered():
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for " + thing)
-	}
-}
-
-func (s *signal) assertNotTriggered(c *gc.C, wait time.Duration, thing string) {
-	select {
-	case <-s.triggered():
-		c.Fatalf("%v unexpectedly", thing)
-	case <-time.After(wait):
-	}
-}
-
-func (s *signal) trigger() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	select {
-	case <-s.ch:
-		// Already closed.
-	default:
-		close(s.ch)
-	}
 }

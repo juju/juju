@@ -480,7 +480,7 @@ func GetObservedNetworkConfig() ([]params.NetworkConfig, error) {
 
 // MergeProviderAndObservedNetworkConfigs returns the effective, sorted, network
 // configs after merging providerConfig with observedConfig.
-func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
+func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) ([]params.NetworkConfig, error) {
 	providerConfigsByName := make(map[string][]params.NetworkConfig)
 	sortedProviderConfigs := SortNetworkConfigsByParents(providerConfigs)
 	for _, config := range sortedProviderConfigs {
@@ -490,19 +490,16 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 
 	jsonProviderConfig, err := NetworkConfigsToIndentedJSON(sortedProviderConfigs)
 	if err != nil {
-		logger.Warningf("cannot serialize provider config %#v as JSON: %v", sortedProviderConfigs, err)
-	} else {
-		logger.Debugf("provider network config of machine:\n%s", jsonProviderConfig)
+		return nil, errors.Annotatef(err, "cannot serialize provider config %#v as JSON", sortedProviderConfigs)
 	}
+	logger.Debugf("provider network config of machine:\n%s", jsonProviderConfig)
 
 	sortedObservedConfigs := SortNetworkConfigsByParents(observedConfigs)
-
 	jsonObservedConfig, err := NetworkConfigsToIndentedJSON(sortedObservedConfigs)
 	if err != nil {
-		logger.Warningf("cannot serialize observed config %#v as JSON: %v", sortedObservedConfigs, err)
-	} else {
-		logger.Debugf("observed network config of machine:\n%s", jsonObservedConfig)
+		return nil, errors.Annotatef(err, "cannot serialize observed config %#v as JSON", sortedObservedConfigs)
 	}
+	logger.Debugf("observed network config of machine:\n%s", jsonObservedConfig)
 
 	var mergedConfigs []params.NetworkConfig
 	for _, config := range sortedObservedConfigs {
@@ -591,10 +588,9 @@ func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []p
 
 	jsonMergedConfig, err := NetworkConfigsToIndentedJSON(sortedMergedConfigs)
 	if err != nil {
-		logger.Warningf("cannot serialize merged config %#v as JSON: %v", sortedMergedConfigs, err)
-	} else {
-		logger.Debugf("combined machine network config:\n%s", jsonMergedConfig)
+		errors.Annotatef(err, "cannot serialize merged config %#v as JSON", sortedMergedConfigs)
 	}
+	logger.Debugf("combined machine network config:\n%s", jsonMergedConfig)
 
-	return mergedConfigs
+	return mergedConfigs, nil
 }

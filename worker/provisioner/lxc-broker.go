@@ -54,14 +54,12 @@ func newLxcBroker(api APICalls,
 	enableNAT bool,
 	defaultMTU int,
 ) (environs.InstanceBroker, error) {
-	namespace := maybeGetManagerConfigNamespaces(managerConfig)
 	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &lxcBroker{
 		manager:     manager,
-		namespace:   namespace,
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
@@ -71,7 +69,6 @@ func newLxcBroker(api APICalls,
 
 type lxcBroker struct {
 	manager     container.Manager
-	namespace   string
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
@@ -143,7 +140,6 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.Proxy,
 		config.AptProxy,
 		config.AptMirror,
-		config.PreferIPv6,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
 	); err != nil {
@@ -151,7 +147,10 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, err
 	}
 
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
+	inst, hardware, err := broker.manager.CreateContainer(
+		args.InstanceConfig, args.Constraints,
+		series, network, storageConfig, args.StatusCallback,
+	)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -202,7 +201,7 @@ func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
 			return err
 		}
 		providerType := broker.agentConfig.Value(agent.ProviderType)
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, lxcLogger, providerType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.manager.Namespace(), lxcLogger, providerType)
 	}
 	return nil
 }
@@ -605,16 +604,6 @@ func configureContainerNetwork(
 	return finalIfaceInfo, nil
 }
 
-func maybeGetManagerConfigNamespaces(managerConfig container.ManagerConfig) string {
-	if len(managerConfig) == 0 {
-		return ""
-	}
-	if namespace, ok := managerConfig[container.ConfigName]; ok {
-		return namespace
-	}
-	return ""
-}
-
 func prepareOrGetContainerInterfaceInfo(
 	api APICalls,
 	machineID string,
@@ -697,7 +686,7 @@ func prepareOrGetContainerInterfaceInfo(
 func maybeReleaseContainerAddresses(
 	api APICalls,
 	instanceID instance.Id,
-	namespace string,
+	namespace instance.Namespace,
 	log loggo.Logger,
 	providerType string,
 ) {
@@ -709,9 +698,7 @@ func maybeReleaseContainerAddresses(
 	// 1.8+ device to register the container when provisioning. In that case we
 	// need to attempt releasing the device, but ignore a NotSupported error
 	// (when we're not using MAAS 1.8+).
-	namespacePrefix := fmt.Sprintf("%s-", namespace)
-	tagString := strings.TrimPrefix(string(instanceID), namespacePrefix)
-	containerTag, err := names.ParseMachineTag(tagString)
+	containerTag, err := namespace.MachineTag(string(instanceID))
 	if err != nil {
 		// Not a reason to cause StopInstances to fail though..
 		log.Warningf("unexpected container tag %q: %v", instanceID, err)

@@ -156,7 +156,8 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 	if errors.IsNotProvisioned(err) {
 		logger.Infof("not updating provider network config: %v", err)
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(providerConfig) == 0 {
@@ -164,7 +165,10 @@ func (api *MachinerAPI) SetObservedNetworkConfig(args params.SetMachineNetworkCo
 		return nil
 	}
 
-	mergedConfig := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	mergedConfig, err := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	logger.Tracef("merged observed and provider network config: %+v", mergedConfig)
 
 	return api.setOneMachineNetworkConfig(m, mergedConfig)

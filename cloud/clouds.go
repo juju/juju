@@ -3,7 +3,6 @@
 
 // Package cloud provides functionality to parse information
 // describing clouds, including regions, supported auth types etc.
-
 package cloud
 
 import (
@@ -20,7 +19,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-//go:generate go run ../generate/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015
+//go:generate go run ../generate/filetoconst/filetoconst.go fallbackPublicCloudInfo fallback-public-cloud.yaml fallback_public_cloud.go 2015 cloud
 
 // AuthType is the type of authentication used by the cloud.
 type AuthType string
@@ -69,6 +68,12 @@ type Cloud struct {
 	// The first region in the slice is the default region for the
 	// cloud.
 	Regions []Region
+
+	// Config contains optional cloud-specific configuration to use
+	// when bootstrapping Juju in this cloud. The cloud configuration
+	// will be combined with Juju-generated, and user-supplied values;
+	// user-supplied values taking precedence.
+	Config map[string]interface{}
 }
 
 // Region is a cloud region.
@@ -94,11 +99,12 @@ type cloudSet struct {
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
-	Type            string     `yaml:"type"`
-	AuthTypes       []AuthType `yaml:"auth-types,omitempty,flow"`
-	Endpoint        string     `yaml:"endpoint,omitempty"`
-	StorageEndpoint string     `yaml:"storage-endpoint,omitempty"`
-	Regions         regions    `yaml:"regions,omitempty"`
+	Type            string                 `yaml:"type"`
+	AuthTypes       []AuthType             `yaml:"auth-types,omitempty,flow"`
+	Endpoint        string                 `yaml:"endpoint,omitempty"`
+	StorageEndpoint string                 `yaml:"storage-endpoint,omitempty"`
+	Regions         regions                `yaml:"regions,omitempty"`
+	Config          map[string]interface{} `yaml:"config,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -218,6 +224,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 			Endpoint:        cloud.Endpoint,
 			StorageEndpoint: cloud.StorageEndpoint,
 			Regions:         regions,
+			Config:          cloud.Config,
 		}
 		meta.denormaliseMetadata()
 		clouds[name] = meta
@@ -266,6 +273,7 @@ func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 			Endpoint:        metadata.Endpoint,
 			StorageEndpoint: metadata.StorageEndpoint,
 			Regions:         regions,
+			Config:          metadata.Config,
 		}
 	}
 	data, err := yaml.Marshal(clouds)

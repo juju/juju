@@ -14,16 +14,18 @@ import (
 // MemStore is an in-memory implementation of jujuclient.ClientStore,
 // intended for testing.
 type MemStore struct {
-	Controllers     map[string]jujuclient.ControllerDetails
-	Models          map[string]jujuclient.ControllerAccountModels
-	Accounts        map[string]*jujuclient.ControllerAccounts
-	Credentials     map[string]cloud.CloudCredential
-	BootstrapConfig map[string]jujuclient.BootstrapConfig
+	Controllers           map[string]jujuclient.ControllerDetails
+	CurrentControllerName string
+	Models                map[string]jujuclient.ControllerAccountModels
+	Accounts              map[string]*jujuclient.ControllerAccounts
+	Credentials           map[string]cloud.CloudCredential
+	BootstrapConfig       map[string]jujuclient.BootstrapConfig
 }
 
 func NewMemStore() *MemStore {
 	return &MemStore{
 		make(map[string]jujuclient.ControllerDetails),
+		"",
 		make(map[string]jujuclient.ControllerAccountModels),
 		make(map[string]*jujuclient.ControllerAccounts),
 		make(map[string]cloud.CloudCredential),
@@ -45,6 +47,26 @@ func (c *MemStore) ControllerByName(name string) (*jujuclient.ControllerDetails,
 		return &result, nil
 	}
 	return nil, errors.NotFoundf("controller %s", name)
+}
+
+// CurrentController implements ControllerGetter.CurrentController
+func (c *MemStore) CurrentController() (string, error) {
+	if c.CurrentControllerName == "" {
+		return "", errors.NotFoundf("current controller")
+	}
+	return c.CurrentControllerName, nil
+}
+
+// SetCurrentController implements ControllerUpdater.SetCurrentController
+func (c *MemStore) SetCurrentController(name string) error {
+	if err := jujuclient.ValidateControllerName(name); err != nil {
+		return err
+	}
+	if _, ok := c.Controllers[name]; !ok {
+		return errors.NotFoundf("controller %s", name)
+	}
+	c.CurrentControllerName = name
+	return nil
 }
 
 // UpdateController implements ControllerUpdater.UpdateController
@@ -69,6 +91,9 @@ func (c *MemStore) RemoveController(name string) error {
 		for name, details := range c.Controllers {
 			if details.ControllerUUID == namedControllerDetails.ControllerUUID {
 				names.Add(name)
+				if name == c.CurrentControllerName {
+					c.CurrentControllerName = ""
+				}
 			}
 		}
 	}

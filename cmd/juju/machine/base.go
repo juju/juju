@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-// statusAPI defines the API methods for the list-mahines and show-machine commands.
+// statusAPI defines the API methods for the machines and show-machine commands.
 type statusAPI interface {
 	Status(pattern []string) (*params.FullStatus, error)
 	Close() error

@@ -90,9 +90,8 @@ func SampleConfig() testing.Attrs {
 		"api-port":                  4321,
 		"default-series":            series.LatestLts(),
 
-		"secret":      "pork",
-		"controller":  true,
-		"prefer-ipv6": false,
+		"secret":     "pork",
+		"controller": true,
 	}
 }
 
@@ -107,22 +106,13 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
-// shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
-// will be added as primary.
-func stateInfo(preferIPv6 bool) *mongo.MongoInfo {
+// shared dummy state, if it exists.
+func stateInfo() *mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
-	var addrs []string
-	if preferIPv6 {
-		addrs = []string{
-			net.JoinHostPort("::1", mongoPort),
-			net.JoinHostPort("localhost", mongoPort),
-		}
-	} else {
-		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
-	}
+	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  addrs,
@@ -253,7 +243,6 @@ type environState struct {
 	apiState        *state.State
 	apiStatePool    *state.StatePool
 	bootstrapConfig *config.Config
-	preferIPv6      bool
 }
 
 // environ represents a client's connection to a given environment's
@@ -687,7 +676,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return nil, err
 	}
-	network.SetPreferIPv6(e.Config().PreferIPv6())
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")
@@ -711,7 +699,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if estate.bootstrapped {
 		return nil, fmt.Errorf("model is already bootstrapped")
 	}
-	estate.preferIPv6 = e.Config().PreferIPv6()
 
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
@@ -731,7 +718,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
 		// so that we can call it here.
 
-		info := stateInfo(estate.preferIPv6)
+		info := stateInfo()
 		// Since the admin user isn't setup until after here,
 		// the password in the info structure is empty, so the admin
 		// user is constructed with an empty password here.
@@ -911,8 +898,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, errors.New("no CA certificate in model configuration")
 	}
-	if args.InstanceConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
-		return nil, errors.New("entity tag must match started machine")
+	if args.InstanceConfig.Controller != nil {
+		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {
+			return nil, errors.New("entity tag must match started machine")
+		}
 	}
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
@@ -922,9 +911,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
-	if estate.preferIPv6 {
-		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1)))
-	}
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -994,6 +980,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			},
 		}
 	}
+	var mongoInfo *mongo.MongoInfo
+	if args.InstanceConfig.Controller != nil {
+		mongoInfo = args.InstanceConfig.Controller.MongoInfo
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -1006,7 +996,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Volumes:          volumes,
 		Instance:         i,
 		Jobs:             args.InstanceConfig.Jobs,
-		Info:             args.InstanceConfig.MongoInfo,
+		Info:             mongoInfo,
 		APIInfo:          args.InstanceConfig.APIInfo,
 		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
 		Secret:           e.ecfg().secret(),
@@ -1692,7 +1682,7 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

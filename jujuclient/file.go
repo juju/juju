@@ -58,7 +58,7 @@ func (s *store) lock(operation string) (*fslock.Lock, error) {
 		return nil, errors.Trace(err)
 	}
 
-	logger.Infof("breaking jujuclient lock: %s, lock holder message: %s", lockName, lock.Message())
+	logger.Infof("breaking jujuclient lock: %s", lockName)
 
 	// If we are unable to acquire the lock within the lockTimeout,
 	// consider it broken for some reason, and break it.
@@ -98,7 +98,28 @@ func (s *store) AllControllers() (map[string]ControllerDetails, error) {
 		return nil, errors.Annotate(err, "cannot read all controllers")
 	}
 	defer s.unlock(lock)
-	return ReadControllersFile(JujuControllersPath())
+	controllers, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controllers.Controllers, nil
+}
+
+// CurrentController implements ControllersGetter.
+func (s *store) CurrentController() (string, error) {
+	lock, err := s.lock("read-current-controller")
+	if err != nil {
+		return "", errors.Annotate(err, "cannot get current controller name")
+	}
+	defer s.unlock(lock)
+	controllers, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if controllers.CurrentController == "" {
+		return "", errors.NotFoundf("current controller")
+	}
+	return controllers.CurrentController, nil
 }
 
 // ControllerByName implements ControllersGetter.
@@ -117,7 +138,7 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if result, ok := controllers[name]; ok {
+	if result, ok := controllers.Controllers[name]; ok {
 		return &result, nil
 	}
 	return nil, errors.NotFoundf("controller %s", name)
@@ -143,12 +164,38 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 		return errors.Annotate(err, "cannot get controllers")
 	}
 
-	if len(all) == 0 {
-		all = make(map[string]ControllerDetails)
+	if len(all.Controllers) == 0 {
+		all.Controllers = make(map[string]ControllerDetails)
 	}
 
-	all[name] = details
+	all.Controllers[name] = details
 	return WriteControllersFile(all)
+}
+
+// SetCurrentController implements ControllersUpdater.
+func (s *store) SetCurrentController(name string) error {
+	if err := ValidateControllerName(name); err != nil {
+		return errors.Trace(err)
+	}
+
+	lock, err := s.lock("set-current-controller")
+	if err != nil {
+		return errors.Annotate(err, "cannot set current controller name")
+	}
+	defer s.unlock(lock)
+
+	controllers, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, ok := controllers.Controllers[name]; !ok {
+		return errors.NotFoundf("controller %v", name)
+	}
+	if controllers.CurrentController == name {
+		return nil
+	}
+	controllers.CurrentController = name
+	return WriteControllersFile(controllers)
 }
 
 // RemoveController implements ControllersRemover
@@ -169,15 +216,18 @@ func (s *store) RemoveController(name string) error {
 	}
 
 	// We remove all controllers with the same UUID as the named one.
-	namedControllerDetails, ok := controllers[name]
+	namedControllerDetails, ok := controllers.Controllers[name]
 	if !ok {
 		return nil
 	}
 	var names []string
-	for name, details := range controllers {
+	for name, details := range controllers.Controllers {
 		if details.ControllerUUID == namedControllerDetails.ControllerUUID {
 			names = append(names, name)
-			delete(controllers, name)
+			delete(controllers.Controllers, name)
+			if controllers.CurrentController == name {
+				controllers.CurrentController = ""
+			}
 		}
 	}
 
@@ -451,7 +501,7 @@ func (s *store) RemoveModel(controllerName, accountName, modelName string) error
 			}
 			delete(models.Models, modelName)
 			if models.CurrentModel == modelName {
-				models.CurrentModel = modelName
+				models.CurrentModel = ""
 			}
 			return true, nil
 		},

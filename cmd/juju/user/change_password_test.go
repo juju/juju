@@ -117,7 +117,7 @@ func (s *ChangePasswordCommandSuite) TestNoSetPasswordAfterFailedWrite(c *gc.C) 
 		return &jujuclient.ControllerDetails{}, nil
 	}
 	s.store = store
-	store.SetErrors(errors.New("failed to write"))
+	store.SetErrors(nil, errors.New("failed to write"))
 
 	_, err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "failed to update client credentials: failed to write")

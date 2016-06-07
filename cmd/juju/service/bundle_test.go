@@ -63,9 +63,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/mysql-42
-service mysql deployed (charm cs:xenial/mysql-42 with the charm series "xenial")
+service mysql deployed (charm cs:xenial/mysql-42 with the series "xenial" defined by the bundle)
 added charm cs:xenial/wordpress-47
-service wordpress deployed (charm cs:xenial/wordpress-47 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-47 with the series "xenial" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -91,9 +91,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/terms1-17
-service terms1 deployed (charm cs:xenial/terms1-17 with the charm series "xenial")
+service terms1 deployed (charm cs:xenial/terms1-17 with the series "xenial" defined by the bundle)
 added charm cs:xenial/terms2-42
-service terms2 deployed (charm cs:xenial/terms2-42 with the charm series "xenial")
+service terms2 deployed (charm cs:xenial/terms2-42 with the series "xenial" defined by the bundle)
 added terms1/0 unit to new machine
 added terms2/0 unit to new machine
 deployment of bundle "cs:bundle/terms-simple-1" completed`
@@ -121,9 +121,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/mysql-42
-service mysql deployed (charm cs:xenial/mysql-42 with the charm series "xenial")
+service mysql deployed (charm cs:xenial/mysql-42 with the series "xenial" defined by the bundle)
 added charm cs:xenial/wordpress-47
-service wordpress deployed (charm cs:xenial/wordpress-47 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-47 with the series "xenial" defined by the bundle)
 related wordpress:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress/0 unit to new machine
@@ -174,9 +174,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/mysql-42
-service mysql deployed (charm cs:xenial/mysql-42 with the charm series "xenial")
+service mysql deployed (charm cs:xenial/mysql-42 with the series "xenial" defined by the bundle)
 added charm cs:xenial/wordpress-extra-bindings-47
-service wordpress-extra-bindings deployed (charm cs:xenial/wordpress-extra-bindings-47 with the charm series "xenial")
+service wordpress-extra-bindings deployed (charm cs:xenial/wordpress-extra-bindings-47 with the series "xenial" defined by the bundle)
 related wordpress-extra-bindings:db and mysql:server
 added mysql/0 unit to new machine
 added wordpress-extra-bindings/0 unit to new machine
@@ -604,7 +604,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceOptions(c *gc.C) {
 added charm cs:precise/dummy-0
 service customized deployed (charm cs:precise/dummy-0 with the series "precise" defined by the bundle)
 added charm cs:xenial/wordpress-42
-service wordpress deployed (charm cs:xenial/wordpress-42 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 added customized/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
@@ -644,7 +644,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceConstrants(c *gc.C)
 added charm cs:precise/dummy-0
 service customized deployed (charm cs:precise/dummy-0 with the series "precise" defined by the bundle)
 added charm cs:xenial/wordpress-42
-service wordpress deployed (charm cs:xenial/wordpress-42 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 added customized/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
 	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
@@ -687,7 +687,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleServiceUpgrade(c *gc.C) {
 added charm cs:vivid/upgrade-1
 service up deployed (charm cs:vivid/upgrade-1 with the series "vivid" defined by the bundle)
 added charm cs:xenial/wordpress-42
-service wordpress deployed (charm cs:xenial/wordpress-42 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 added up/0 unit to new machine
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
@@ -755,7 +755,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/wordpress-42
-service wordpress deployed (charm cs:xenial/wordpress-42 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-42 with the series "xenial" defined by the bundle)
 service wordpress exposed
 added wordpress/0 unit to new machine
 deployment of bundle "local:bundle/example-0" completed`
@@ -859,13 +859,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMultipleRelations(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/mysql-1
-service mysql deployed (charm cs:xenial/mysql-1 with the charm series "xenial")
+service mysql deployed (charm cs:xenial/mysql-1 with the series "xenial" defined by the bundle)
 added charm cs:xenial/postgres-2
 service pgres deployed (charm cs:xenial/postgres-2 with the series "xenial" defined by the bundle)
 added charm cs:xenial/varnish-3
 service varnish deployed (charm cs:xenial/varnish-3 with the series "xenial" defined by the bundle)
 added charm cs:xenial/wordpress-0
-service wp deployed (charm cs:xenial/wordpress-0 with the charm series "xenial")
+service wp deployed (charm cs:xenial/wordpress-0 with the series "xenial" defined by the bundle)
 related wp:db and mysql:server
 related wp:db and pgres:server
 related varnish:webcache and wp:cache
@@ -1140,7 +1140,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInService(c *gc.
 added charm cs:xenial/django-42
 service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 added charm cs:xenial/wordpress-0
-service wordpress deployed (charm cs:xenial/wordpress-0 with the charm series "xenial")
+service wordpress deployed (charm cs:xenial/wordpress-0 with the series "xenial" defined by the bundle)
 added wordpress/0 unit to new machine
 added wordpress/1 unit to new machine
 added wordpress/2 unit to new machine
@@ -1192,7 +1192,7 @@ service django deployed (charm cs:xenial/django-42 with the series "xenial" defi
 added charm cs:xenial/mem-47
 service memcached deployed (charm cs:xenial/mem-47 with the series "xenial" defined by the bundle)
 added charm cs:xenial/rails-0
-service ror deployed (charm cs:xenial/rails-0 with the charm series "xenial")
+service ror deployed (charm cs:xenial/rails-0 with the series "xenial" defined by the bundle)
 created new machine 0 for holding memcached and ror units
 added memcached/0 unit to machine 0
 added ror/0 unit to machine 0
@@ -1248,7 +1248,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedToMachines(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/django-42
-service django deployed (charm cs:xenial/django-42 with the charm series "xenial")
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 created new machine 0 for holding django unit
 created new machine 1 for holding django unit
 added django/0 unit to machine 0
@@ -1311,7 +1311,7 @@ service django deployed (charm cs:xenial/django-42 with the series "xenial" defi
 added charm cs:xenial/mem-47
 service memcached deployed (charm cs:xenial/mem-47 with the series "xenial" defined by the bundle)
 added charm cs:xenial/rails-0
-service ror deployed (charm cs:xenial/rails-0 with the charm series "xenial")
+service ror deployed (charm cs:xenial/rails-0 with the series "xenial" defined by the bundle)
 created new machine 0 for holding django, memcached and ror units
 created new machine 1 for holding memcached unit
 created new machine 2 for holding memcached and ror units
@@ -1438,7 +1438,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 added charm cs:xenial/django-42
-service django deployed (charm cs:xenial/django-42 with the charm series "xenial")
+service django deployed (charm cs:xenial/django-42 with the series "xenial" defined by the bundle)
 annotations set for service django
 added charm cs:xenial/mem-47
 service memcached deployed (charm cs:xenial/mem-47 with the series "xenial" defined by the bundle)

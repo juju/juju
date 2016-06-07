@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/cmd/jujud/agent/util"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -31,7 +31,7 @@ func (*ManifoldSuite) TestInputs(c *gc.C) {
 func (*ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	manifold := migrationflag.Manifold(migrationflag.ManifoldConfig{})
 	in := &struct{ worker.Worker }{}
-	var out util.Flag
+	var out engine.Flag
 	err := manifold.Output(in, &out)
 	c.Check(err, gc.ErrorMatches, "expected in to implement Flag; got a .*")
 }
@@ -47,7 +47,7 @@ func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 func (*ManifoldSuite) TestOutputBadInput(c *gc.C) {
 	manifold := migrationflag.Manifold(migrationflag.ManifoldConfig{})
 	in := &migrationflag.Worker{}
-	var out util.Flag
+	var out engine.Flag
 	err := manifold.Output(in, &out)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(out, gc.Equals, in)

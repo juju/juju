@@ -18,9 +18,9 @@ import (
 )
 
 // ControllerModelName is the name of the admin model in each controller.
-const ControllerModelName = "admin"
+const ControllerModelName = "controller"
 
-// adminUser is the initial admin user created for all controllers.
+// AdminUser is the initial admin user created for all controllers.
 const AdminUser = "admin@local"
 
 // New returns a new environment based on the provided configuration.
@@ -103,8 +103,6 @@ func Prepare(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	details.Cloud = args.CloudName
-	details.Credential = args.CredentialName
 
 	if err := decorateAndWriteInfo(
 		store, details, args.ControllerName, env.Config().Name(),
@@ -191,9 +189,13 @@ func prepare(
 	details.User = AdminUser
 	details.Password = adminSecret
 	details.ModelUUID = cfg.UUID()
-	details.CloudRegion = args.CloudRegion
+	details.ControllerDetails.Cloud = args.CloudName
+	details.ControllerDetails.CloudRegion = args.CloudRegion
+	details.BootstrapConfig.Cloud = args.CloudName
+	details.BootstrapConfig.CloudRegion = args.CloudRegion
 	details.CloudEndpoint = args.CloudEndpoint
 	details.CloudStorageEndpoint = args.CloudStorageEndpoint
+	details.Credential = args.CredentialName
 
 	return env, details, nil
 }
@@ -260,9 +262,12 @@ func Destroy(
 	env Environ,
 	store jujuclient.ControllerRemover,
 ) error {
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
 	err := store.RemoveController(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.Destroy())
+	return nil
 }

@@ -25,14 +25,12 @@ func NewKvmBroker(
 	managerConfig container.ManagerConfig,
 	enableNAT bool,
 ) (environs.InstanceBroker, error) {
-	namespace := maybeGetManagerConfigNamespaces(managerConfig)
 	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &kvmBroker{
 		manager:     manager,
-		namespace:   namespace,
 		api:         api,
 		agentConfig: agentConfig,
 		enableNAT:   enableNAT,
@@ -41,7 +39,6 @@ func NewKvmBroker(
 
 type kvmBroker struct {
 	manager     container.Manager
-	namespace   string
 	api         APICalls
 	agentConfig agent.Config
 	enableNAT   bool
@@ -114,7 +111,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.Proxy,
 		config.AptProxy,
 		config.AptMirror,
-		config.PreferIPv6,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
 	); err != nil {
@@ -125,7 +121,10 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	storageConfig := &container.StorageConfig{
 		AllowMount: true,
 	}
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
+	inst, hardware, err := broker.manager.CreateContainer(
+		args.InstanceConfig, args.Constraints,
+		series, network, storageConfig, args.StatusCallback,
+	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -176,7 +175,7 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 			return err
 		}
 		providerType := broker.agentConfig.Value(agent.ProviderType)
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger, providerType)
+		maybeReleaseContainerAddresses(broker.api, id, broker.manager.Namespace(), kvmLogger, providerType)
 	}
 	return nil
 }

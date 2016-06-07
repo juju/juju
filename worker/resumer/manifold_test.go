@@ -13,11 +13,11 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	resumer "github.com/juju/juju/worker/resumer"
-	workertesting "github.com/juju/juju/worker/testing"
 )
 
 type ManifoldSuite struct {
@@ -38,8 +38,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachine(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := resumer.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{machineJob: multiwatcher.JobManageModel})
@@ -48,8 +48,8 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestMachineNonManagerErrors(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := resumer.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{machineJob: multiwatcher.JobHostUnits})
@@ -58,8 +58,8 @@ func (s *ManifoldSuite) TestMachineNonManagerErrors(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestUnitErrors(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := resumer.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		&fakeAPIConn{})
@@ -68,8 +68,8 @@ func (s *ManifoldSuite) TestUnitErrors(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestNonAgentErrors(c *gc.C) {
-	config := resumer.ManifoldConfig(workertesting.AgentApiManifoldTestConfig())
-	_, err := workertesting.RunAgentApiManifold(
+	config := resumer.ManifoldConfig(enginetest.AgentApiManifoldTestConfig())
+	_, err := enginetest.RunAgentApiManifold(
 		resumer.Manifold(config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})

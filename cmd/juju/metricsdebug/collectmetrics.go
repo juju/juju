@@ -10,10 +10,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v6-unstable"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	actionapi "github.com/juju/juju/api/action"
+	"github.com/juju/juju/api/service"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -24,9 +28,9 @@ const collectMetricsDoc = `
 collect-metrics
 trigger metrics collection
 
-Collect metrics infinitely waits for the command to finish.
-However if you cancel the command while waiting, you can still
-look for the results under 'juju action status'.
+This command waits for the metric collection to finish before returning.
+You may abort this command and it will continue to run asynchronously.
+Results may be checked by 'juju action status'.
 `
 
 const (
@@ -34,11 +38,14 @@ const (
 	commandTimeout = 3 * time.Second
 )
 
+var logger = loggo.GetLogger("juju.cmd.juju.collect-metrics")
+
 // collectMetricsCommand retrieves metrics stored in the juju controller.
 type collectMetricsCommand struct {
 	modelcmd.ModelCommandBase
-	units    []string
-	services []string
+	unit    string
+	service string
+	entity  string
 }
 
 // NewCollectMetricsCommand creates a new collectMetricsCommand.
@@ -61,10 +68,11 @@ func (c *collectMetricsCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("you need to specify a unit or service.")
 	}
-	if names.IsValidUnit(args[0]) {
-		c.units = []string{args[0]}
+	c.entity = args[0]
+	if names.IsValidUnit(c.entity) {
+		c.unit = c.entity
 	} else if names.IsValidService(args[0]) {
-		c.services = []string{args[0]}
+		c.service = c.entity
 	} else {
 		return errors.Errorf("%q is not a valid unit or service", args[0])
 	}
@@ -84,12 +92,8 @@ type runClient interface {
 	Run(run params.RunParams) ([]params.ActionResult, error)
 }
 
-var newRunClient = func(env modelcmd.ModelCommandBase) (runClient, error) {
-	root, err := env.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return actionapi.NewClient(root), errors.Trace(err)
+var newRunClient = func(conn api.Connection) runClient {
+	return actionapi.NewClient(conn)
 }
 
 func parseRunOutput(result params.ActionResult) (string, string, error) {
@@ -108,7 +112,10 @@ func parseRunOutput(result params.ActionResult) (string, string, error) {
 }
 
 func parseActionResult(result params.ActionResult) (string, error) {
-	stdout, stderr, err := parseRunOutput(result)
+	if result.Action != nil {
+		logger.Infof("ran action id %v", result.Action.Tag)
+	}
+	_, stderr, err := parseRunOutput(result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -116,27 +123,74 @@ func parseActionResult(result params.ActionResult) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if stdout == "ok" {
-		return tag.Id(), nil
-	}
-	if strings.Contains(stderr, "No such file or directory") {
-		return "", errors.New("not a locally-deployed metered charm")
+	if strings.Contains(stderr, "nc: unix connect failed: No such file or directory") {
+		return "", errors.New("no collect service listening: does service support metric collection?")
 	}
 	return tag.Id(), nil
 }
 
+type serviceClient interface {
+	GetCharmURL(service string) (*charm.URL, error)
+}
+
+var newServiceClient = func(root api.Connection) serviceClient {
+	return service.NewClient(root)
+}
+
+func isLocalCharmURL(conn api.Connection, entity string) (bool, error) {
+	serviceName := entity
+	var err error
+	if names.IsValidUnit(entity) {
+		serviceName, err = names.UnitService(entity)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+	}
+
+	client := newServiceClient(conn)
+	// TODO (mattyw, anastasiamac) The storage work might lead to an api
+	// allowing us to query charm url for a unit.
+	// When that api exists we should use that here.
+	url, err := client.GetCharmURL(serviceName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return url.Schema == "local", nil
+}
+
+var newAPIConn = func(cmd modelcmd.ModelCommandBase) (api.Connection, error) {
+	return cmd.NewAPIRoot()
+}
+
 // Run implements Command.Run.
 func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
-	runnerClient, err := newRunClient(c.ModelCommandBase)
+	root, err := newAPIConn(c.ModelCommandBase)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	runnerClient := newRunClient(root)
 	defer runnerClient.Close()
 
+	islocal, err := isLocalCharmURL(root, c.entity)
+	if err != nil {
+		return errors.Annotate(err, "failed to find charmURL for entity")
+	}
+	if !islocal {
+		return errors.Errorf("%q is not a local charm", c.entity)
+	}
+
+	units := []string{}
+	services := []string{}
+	if c.unit != "" {
+		units = []string{c.unit}
+	}
+	if c.service != "" {
+		services = []string{c.service}
+	}
 	runParams := params.RunParams{
 		Timeout:  commandTimeout,
-		Units:    c.units,
-		Services: c.services,
+		Units:    units,
+		Services: services,
 		Commands: "nc -U ../metrics-collect.socket",
 	}
 

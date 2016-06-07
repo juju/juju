@@ -47,7 +47,6 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
 	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
-	c.Assert(config.PreferIPv6(), jc.IsTrue)
 }
 
 var agentConfig1_18Contents = `
@@ -196,7 +195,6 @@ caprivatekey: '-----BEGIN RSA PRIVATE KEY-----
 
 '
 apiport: 17070
-prefer-ipv6: true
 `[1:]
 
 var agentConfig1_18NotStateMachine = `
@@ -255,5 +253,4 @@ values:
   STORAGE_ADDR: 10.0.3.1:8040
   STORAGE_DIR: /home/user/.local/share/juju/local/storage
 apiport: 17070
-prefer-ipv6: true
 `[1:]

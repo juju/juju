@@ -101,7 +101,7 @@ func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value,
 var _ = gc.Suite(&EnableHASuite{})
 
 func (s *EnableHASuite) runEnableHA(c *gc.C, args ...string) (*cmd.Context, error) {
-	command := &enableHACommand{haClient: s.fake}
+	command := &enableHACommand{newHAClientFunc: func() (MakeHAClient, error) { return s.fake, nil }}
 	return coretesting.RunCommand(c, modelcmd.Wrap(command), args...)
 }
 

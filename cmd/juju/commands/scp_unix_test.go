@@ -6,246 +6,192 @@
 package commands
 
 import (
-	"bytes"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&SCPSuite{})
-var _ = gc.Suite(&expandArgsSuite{})
 
 type SCPSuite struct {
 	SSHCommonSuite
 }
 
-type expandArgsSuite struct{}
-
 var scpTests = []struct {
-	about  string
-	args   []string
-	result string
-	proxy  bool
-	error  string
+	about    string
+	args     []string
+	expected argsSpec
+	error    string
 }{
 	{
-		about:  "scp from machine 0 to current dir",
-		args:   []string{"0:foo", "."},
-		result: commonArgs + "ubuntu@admin-0.dns:foo .\n",
+		about: "scp from machine 0 to current dir",
+		args:  []string{"0:foo", "."},
+		expected: argsSpec{
+			args:            "ubuntu@0.public:foo .",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp from machine 0 to current dir with extra args",
-		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		result: commonArgs + "ubuntu@admin-0.dns:foo . -rv -o SomeOption\n",
+		about: "scp from machine 0 to current dir with extra args",
+		args:  []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
+		expected: argsSpec{
+			args:            "ubuntu@0.public:foo . -rv -o SomeOption",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp from current dir to machine 0",
-		args:   []string{"foo", "0:"},
-		result: commonArgs + "foo ubuntu@admin-0.dns:\n",
+		about: "scp from current dir to machine 0",
+		args:  []string{"foo", "0:"},
+		expected: argsSpec{
+			args:            "foo ubuntu@0.public:",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp from current dir to machine 0 with extra args",
-		args:   []string{"foo", "0:", "-r", "-v"},
-		result: commonArgs + "foo ubuntu@admin-0.dns: -r -v\n",
+		about: "scp when no keys available",
+		args:  []string{"foo", "1:"},
+		error: `retrieving SSH host keys for "1": keys not found`,
 	}, {
-		about:  "scp from machine 0 to unit mysql/0",
-		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgs + "ubuntu@admin-0.dns:foo ubuntu@admin-0.dns:/foo\n",
+		about: "scp when no keys available, with --no-host-key-checks",
+		args:  []string{"--no-host-key-checks", "foo", "1:"},
+		expected: argsSpec{
+			args:            "foo ubuntu@1.public:",
+			hostKeyChecking: "no",
+			knownHosts:      "null",
+		},
 	}, {
-		about:  "scp from machine 0 to unit mysql/0 and extra args",
-		args:   []string{"0:foo", "mysql/0:/foo", "-q"},
-		result: commonArgs + "ubuntu@admin-0.dns:foo ubuntu@admin-0.dns:/foo -q\n",
+		about: "scp from current dir to machine 0 with extra args",
+		args:  []string{"foo", "0:", "-r", "-v"},
+		expected: argsSpec{
+			args:            "foo ubuntu@0.public: -r -v",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp from machine 0 to unit mysql/0 and extra args before",
-		args:   []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
-		result: commonArgs + "-q -r ubuntu@admin-0.dns:foo ubuntu@admin-0.dns:/foo\n",
+		about: "scp from machine 0 to unit mysql/0",
+		args:  []string{"0:foo", "mysql/0:/foo"},
+		expected: argsSpec{
+			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp two local files to unit mysql/0",
-		args:   []string{"file1", "file2", "mysql/0:/foo/"},
-		result: commonArgs + "file1 file2 ubuntu@admin-0.dns:/foo/\n",
+		about: "scp from machine 0 to unit mysql/0 and extra args",
+		args:  []string{"0:foo", "mysql/0:/foo", "-q"},
+		expected: argsSpec{
+			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo -q",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp from unit mongodb/1 to unit mongodb/0 and multiple extra args",
-		args:   []string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
-		result: commonArgs + "ubuntu@admin-2.dns:foo ubuntu@admin-1.dns: -r -v -q -l5\n",
+		about: "scp from machine 0 to unit mysql/0 and extra args before",
+		args:  []string{"-q", "-r", "0:foo", "mysql/0:/foo"},
+		error: "flag provided but not defined: -q",
 	}, {
-		about:  "scp works with IPv6 addresses",
-		args:   []string{"ipv6-svc/0:foo", "bar"},
-		result: commonArgs + `ubuntu@[2001:db8::1]:foo bar` + "\n",
+		about: "scp two local files to unit mysql/0",
+		args:  []string{"file1", "file2", "mysql/0:/foo/"},
+		expected: argsSpec{
+			args:            "file1 file2 ubuntu@0.public:/foo/",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		about:  "scp from machine 0 to unit mysql/0 with proxy",
-		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgsWithProxy + "ubuntu@admin-0.internal:foo ubuntu@admin-0.internal:/foo\n",
-		proxy:  true,
+		about: "scp from machine 0 to unit mysql/0 and multiple extra args",
+		args:  []string{"0:foo", "mysql/0:", "-r", "-v", "-q", "-l5"},
+		expected: argsSpec{
+			args:            "ubuntu@0.public:foo ubuntu@0.public: -r -v -q -l5",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		result: commonArgs + "ubuntu@admin-0.dns:foo . -rv -o SomeOption\n",
+		about: "scp works with IPv6 addresses",
+		args:  []string{"2:foo", "bar"},
+		expected: argsSpec{
+			args:            `ubuntu@[2001:db8::1]:foo bar`,
+			hostKeyChecking: "yes",
+			knownHosts:      "2",
+		},
 	}, {
-		args:   []string{"foo", "0:", "-r", "-v"},
-		result: commonArgs + "foo ubuntu@admin-0.dns: -r -v\n",
+		about: "scp from machine 0 to unit mysql/0 with proxy",
+		args:  []string{"--proxy=true", "0:foo", "mysql/0:/bar"},
+		expected: argsSpec{
+			args:            "ubuntu@0.private:foo ubuntu@0.private:/bar",
+			withProxy:       true,
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
-		args:   []string{"mongodb/1:foo", "mongodb/0:", "-r", "-v", "-q", "-l5"},
-		result: commonArgs + "ubuntu@admin-2.dns:foo ubuntu@admin-1.dns: -r -v -q -l5\n",
+		about: "scp from unit mysql/0 to machine 2 with a --",
+		args:  []string{"--", "-r", "-v", "mysql/0:foo", "2:", "-q", "-l5"},
+		expected: argsSpec{
+			args:            "-r -v ubuntu@0.public:foo ubuntu@[2001:db8::1]: -q -l5",
+			hostKeyChecking: "yes",
+			knownHosts:      "0,2",
+		},
 	}, {
-		about:  "scp from unit mongodb/1 to unit mongodb/0 with a --",
-		args:   []string{"--", "-r", "-v", "mongodb/1:foo", "mongodb/0:", "-q", "-l5"},
-		result: commonArgs + "-- -r -v ubuntu@admin-2.dns:foo ubuntu@admin-1.dns: -q -l5\n",
-	}, {
-		about:  "scp from unit mongodb/1 to current dir as 'mongo' user",
-		args:   []string{"mongo@mongodb/1:foo", "."},
-		result: commonArgs + "mongo@admin-2.dns:foo .\n",
+		about: "scp from unit mysql/0 to current dir as 'sam' user",
+		args:  []string{"sam@mysql/0:foo", "."},
+		expected: argsSpec{
+			args:            "sam@0.public:foo .",
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+		},
 	}, {
 		about: "scp with no such machine",
 		args:  []string{"5:foo", "bar"},
-		error: `machine 5 not found \(not found\)`,
+		error: `machine 5 not found`,
+	}, {
+		about: "scp from arbitrary host name to current dir",
+		args:  []string{"some.host:foo", "."},
+		expected: argsSpec{
+			args:            "some.host:foo .",
+			hostKeyChecking: "",
+		},
+	}, {
+		about: "scp from arbitrary user & host to current dir",
+		args:  []string{"someone@some.host:foo", "."},
+		expected: argsSpec{
+			args:            "someone@some.host:foo .",
+			hostKeyChecking: "",
+		},
+	}, {
+		about: "scp with arbitrary host name and an entity",
+		args:  []string{"some.host:foo", "0:"},
+		error: `can't determine host keys for all targets: consider --no-host-key-checks`,
+	}, {
+		about: "scp with arbitrary host name and an entity, --no-host-key-checks",
+		args:  []string{"--no-host-key-checks", "some.host:foo", "0:"},
+		expected: argsSpec{
+			args:            "some.host:foo ubuntu@0.public:",
+			hostKeyChecking: "no",
+			knownHosts:      "null",
+		},
 	},
 }
 
 func (s *SCPSuite) TestSCPCommand(c *gc.C) {
-	m := s.makeMachines(4, c, true)
-	ch := testcharms.Repo.CharmDir("dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      "dummy-1-sha256",
-	}
-	dummyCharm, err := s.State.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	srv := s.AddTestingService(c, "mysql", dummyCharm)
-	s.addUnit(srv, m[0], c)
-
-	srv = s.AddTestingService(c, "mongodb", dummyCharm)
-	s.addUnit(srv, m[1], c)
-	s.addUnit(srv, m[2], c)
-	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
-	s.addUnit(srv, m[3], c)
-	// Simulate machine 3 has a public IPv6 address.
-	ipv6Addr := network.NewScopedAddress("2001:db8::1", network.ScopePublic)
-	err = m[3].SetProviderAddresses(ipv6Addr)
-	c.Assert(err, jc.ErrorIsNil)
+	s.setupModel(c)
 
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
-		ctx := coretesting.Context(c)
-		scpcmd := &scpCommand{}
-		scpcmd.proxy = t.proxy
 
-		err := modelcmd.Wrap(scpcmd).Init(t.args)
-		c.Check(err, jc.ErrorIsNil)
-		err = modelcmd.Wrap(scpcmd).Run(ctx)
+		ctx, err := coretesting.RunCommand(c, newSCPCommand(), t.args...)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
-			c.Check(t.result, gc.Equals, "")
 		} else {
-			c.Check(err, jc.ErrorIsNil)
-			// we suppress stdout from scp
-			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
-			data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
-			c.Check(err, jc.ErrorIsNil)
-			actual := string(data)
-			if t.proxy {
-				actual = strings.Replace(actual, ".dns", ".internal", 2)
-			}
-			c.Check(actual, gc.Equals, t.result)
+			c.Assert(err, jc.ErrorIsNil)
+			// we suppress stdout from scp, so get the scp args used
+			// from the "scp.args" file that the fake scp executable
+			// installed by SSHCommonSuite generates.
+			c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+			c.Check(coretesting.Stdout(ctx), gc.Equals, "")
+			actual, err := ioutil.ReadFile(filepath.Join(s.binDir, "scp.args"))
+			c.Assert(err, jc.ErrorIsNil)
+			t.expected.check(c, string(actual))
 		}
 	}
-}
-
-type userHost struct {
-	user string
-	host string
-}
-
-var userHostsFromTargets = map[string]userHost{
-	"0":               {"ubuntu", "admin-0.dns"},
-	"mysql/0":         {"ubuntu", "admin-0.dns"},
-	"mongodb/0":       {"ubuntu", "admin-1.dns"},
-	"mongodb/1":       {"ubuntu", "admin-2.dns"},
-	"mongo@mongodb/1": {"mongo", "admin-2.dns"},
-	"ipv6-svc/0":      {"ubuntu", "2001:db8::1"},
-}
-
-func dummyHostsFromTarget(target string) (string, string, error) {
-	if res, ok := userHostsFromTargets[target]; ok {
-		return res.user, res.host, nil
-	}
-	return "ubuntu", target, nil
-}
-
-func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
-	for i, t := range scpTests {
-		if t.error != "" {
-			// We are just running a focused set of tests on
-			// expandArgs, we aren't implementing the full
-			// userHostsFromTargets to actually trigger errors
-			continue
-		}
-		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
-		// expandArgs doesn't add the commonArgs prefix, so strip it
-		// off, along with the trailing '\n'
-		var argString string
-		if t.proxy {
-			c.Check(strings.HasPrefix(t.result, commonArgsWithProxy), jc.IsTrue)
-			argString = t.result[len(commonArgsWithProxy):]
-		} else {
-			c.Check(strings.HasPrefix(t.result, commonArgs), jc.IsTrue)
-			argString = t.result[len(commonArgs):]
-		}
-		c.Check(strings.HasSuffix(argString, "\n"), jc.IsTrue)
-		argString = argString[:len(argString)-1]
-		args := strings.Split(argString, " ")
-		expanded, err := expandArgs(t.args, func(target string) (string, string, error) {
-			if res, ok := userHostsFromTargets[target]; ok {
-				if t.proxy {
-					res.host = strings.Replace(res.host, ".dns", ".internal", 1)
-				}
-				return res.user, res.host, nil
-			}
-			return "ubuntu", target, nil
-		})
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(expanded, gc.DeepEquals, args)
-	}
-}
-
-var expandTests = []struct {
-	about  string
-	args   []string
-	result []string
-}{
-	{
-		"don't expand params that start with '-'",
-		[]string{"-0:stuff", "0:foo", "."},
-		[]string{"-0:stuff", "ubuntu@admin-0.dns:foo", "."},
-	},
-}
-
-func (s *expandArgsSuite) TestExpandArgs(c *gc.C) {
-	for i, t := range expandTests {
-		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
-		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(expanded, gc.DeepEquals, t.result)
-	}
-}
-
-func (s *expandArgsSuite) TestExpandArgsPropagatesErrors(c *gc.C) {
-	erroringUserHostFromTargets := func(string) (string, string, error) {
-		return "", "", fmt.Errorf("this is my error")
-	}
-	expanded, err := expandArgs([]string{"foo:1", "bar"}, erroringUserHostFromTargets)
-	c.Assert(err, gc.ErrorMatches, "this is my error")
-	c.Check(expanded, gc.IsNil)
 }

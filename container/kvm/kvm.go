@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
@@ -73,45 +72,54 @@ var IsKVMSupported = func() (bool, error) {
 }
 
 // NewContainerManager returns a manager object that can start and stop kvm
-// containers. The containers that are created are namespaced by the name
-// parameter.
+// containers.
 func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	name := conf.PopValue(container.ConfigName)
-	if name == "" {
-		return nil, fmt.Errorf("name is required")
+	modelUUID := conf.PopValue(container.ConfigModelUUID)
+	if modelUUID == "" {
+		return nil, errors.Errorf("model UUID is required")
+	}
+	namespace, err := instance.NewNamespace(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
 		logDir = agent.DefaultPaths.LogDir
 	}
 	conf.WarnAboutUnused()
-	return &containerManager{name: name, logdir: logDir}, nil
+	return &containerManager{namespace: namespace, logdir: logDir}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific
 // level. It makes sure that the necessary directories are in place, that the
 // user-data is written out in the right place.
 type containerManager struct {
-	name   string
-	logdir string
+	namespace instance.Namespace
+	logdir    string
 }
 
 var _ container.Manager = (*containerManager)(nil)
+
+// Namespace implements container.Manager.
+func (manager *containerManager) Namespace() instance.Namespace {
+	return manager.namespace
+}
 
 // Exposed so tests can observe our side-effects
 var startParams StartParams
 
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback container.StatusCallback,
 ) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
-	name := names.NewMachineTag(instanceConfig.MachineId).String()
-	if manager.name != "" {
-		name = fmt.Sprintf("%s-%s", manager.name, name)
+	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	defer func() {
@@ -123,7 +131,7 @@ func (manager *containerManager) CreateContainer(
 	// Set the MachineContainerHostname to match the name returned by virsh list
 	instanceConfig.MachineContainerHostname = name
 
-	// Note here that the kvmObjectFacotry only returns a valid container
+	// Note here that the kvmObjectFactory only returns a valid container
 	// object, and doesn't actually construct the underlying kvm container on
 	// disk.
 	kvmContainer := KvmObjectFactory.New(name)
@@ -142,7 +150,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, err
 	}
 	// Create the container.
-	startParams = ParseConstraintsToStartParams(instanceConfig.Constraints)
+	startParams = ParseConstraintsToStartParams(cons)
 	startParams.Arch = arch.HostArch()
 	startParams.Series = series
 	startParams.Network = networkConfig
@@ -163,7 +171,7 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
-	logger.Tracef("create the container, constraints: %v", instanceConfig.Constraints)
+	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")
 		logger.Infof(err.Error())
@@ -202,7 +210,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		logger.Errorf("failed getting all instances: %v", err)
 		return
 	}
-	managerPrefix := fmt.Sprintf("%s-", manager.name)
+	managerPrefix := manager.namespace.Prefix()
 	for _, container := range containers {
 		// Filter out those not starting with our name.
 		name := container.Name()

@@ -80,7 +80,10 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	machineID := common.MachineFullName(env.Config().UUID(), args.InstanceConfig.MachineId)
+	machineID, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {
@@ -131,8 +134,10 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			continue
 		}
 		apiPort := 0
-		if isController(args.InstanceConfig) {
-			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		if isController(args.InstanceConfig) && args.InstanceConfig.Bootstrap != nil {
+			// TODO(axw) 2016-06-01 #1587739
+			// We should be doing this for non-bootstrap machines as well.
+			apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
 		}
 		spec := &instanceSpec{
 			machineID: machineID,

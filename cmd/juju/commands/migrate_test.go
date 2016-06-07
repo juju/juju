@@ -39,7 +39,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		CACert:         "somecert",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelcmd.WriteCurrentController("source")
+	err = s.store.SetCurrentController("source")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define an account for the model in the source controller in the config.

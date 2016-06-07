@@ -203,7 +203,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, gc.Equals, "admin")
+	c.Check(opBootstrap.Env, gc.Equals, environs.ControllerModelName)
 	c.Check(opBootstrap.Args.ModelConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
@@ -212,7 +212,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
-	c.Check(opFinalizeBootstrap.Env, gc.Equals, "admin")
+	c.Check(opFinalizeBootstrap.Env, gc.Equals, environs.ControllerModelName)
 	c.Check(opFinalizeBootstrap.InstanceConfig.ToolsList(), gc.Not(gc.HasLen), 0)
 	if test.upload != "" {
 		c.Check(opFinalizeBootstrap.InstanceConfig.AgentVersion().String(), gc.Equals, test.upload)
@@ -230,10 +230,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 
-	// Controller model should be called "admin".
-	controllerModel, err := s.store.ModelByName(expectedBootstrappedControllerName, "admin@local", "admin")
-	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
+	controllerModel, err := s.store.ModelByName(expectedBootstrappedControllerName, "admin@local", environs.ControllerModelName)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
 
 	// Bootstrap config should have been saved, and should only contain
 	// the type, name, and any user-supplied configuration.
@@ -242,7 +241,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(bootstrapConfig.Cloud, gc.Equals, "dummy")
 	c.Assert(bootstrapConfig.Credential, gc.Equals, "")
 	c.Assert(bootstrapConfig.Config, jc.DeepEquals, map[string]interface{}{
-		"name":           "admin",
+		"name":           environs.ControllerModelName,
 		"type":           "dummy",
 		"default-series": "raring",
 	})
@@ -296,7 +295,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      `failed to bootstrap model: model "admin" of type dummy does not support instances running on "mips64"`,
+	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, environs.ControllerModelName),
 }, {
 	info:     "--upload-tools always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -386,8 +385,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
-	currentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, bootstrappedControllerName("devcontroller"))
 	modelName, err := s.store.CurrentModel(currentController, "admin@local")
 	c.Assert(err, jc.ErrorIsNil)
@@ -512,7 +510,9 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	store.SetErrors(errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
-	_, err := coretesting.RunCommand(c, modelcmd.Wrap(cmd), controllerName, "dummy", "--auto-upgrade")
+	wrapped := modelcmd.Wrap(cmd, modelcmd.ModelSkipFlags, modelcmd.ModelSkipDefault)
+	_, err := coretesting.RunCommand(c, wrapped, controllerName, "dummy", "--auto-upgrade")
+	store.CheckCallNames(c, "CredentialForCloud")
 	c.Assert(err, gc.ErrorMatches, `loading credentials: oh noes`)
 }
 
@@ -549,7 +549,7 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, mo
 		ControllerUUID: "y",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelcmd.WriteCurrentController(controller)
+	err = s.store.SetCurrentController(controller)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.UpdateAccount(controller, account, jujuclient.AccountDetails{
 		User:     account,
@@ -581,8 +581,7 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
 	c.Assert(err, gc.ErrorMatches, "mock-prepare")
 
-	oldCurrentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	oldCurrentController := s.store.CurrentControllerName
 	c.Assert(oldCurrentController, gc.Equals, bootstrappedControllerName("olddevcontroller"))
 	oldCurrentAccount, err := s.store.CurrentAccount(oldCurrentController)
 	c.Assert(err, jc.ErrorIsNil)
@@ -604,8 +603,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	err := <-errc
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, expectedBootstrappedName))
-	currentController, err := modelcmd.ReadCurrentController()
-	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "local.devcontroller")
 	currentAccount, err := s.store.CurrentAccount(currentController)
 	c.Assert(err, jc.ErrorIsNil)
@@ -770,7 +768,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "admin")
+	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, environs.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
 	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
@@ -817,10 +815,10 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Creating Juju controller "local.devcontroller" on dummy-cloud/region-1
-Bootstrapping model "admin"
+Bootstrapping model %q
 Starting new instance for initial controller
 Building tools to upload (1.7.3.1-raring-%s)
-`[1:], arch.HostArch()))
+`[1:], environs.ControllerModelName, arch.HostArch()))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot upload bootstrap tools: an error")
 }
 
@@ -1025,6 +1023,18 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+	_, err := coretesting.RunCommand(
+		c, s.newBootstrapCommand(), "ctrl", "dummy-cloud-with-config",
+		"--auto-upgrade",
+		// Configuration specified on the command line overrides
+		// anything specified in files, no matter what the order.
+		"--config", "controller=false",
+	)
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
+}
+
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
@@ -1053,6 +1063,11 @@ clouds:
             region-2:
     dummy-cloud-without-regions:
         type: dummy
+    dummy-cloud-with-config:
+        type: dummy
+        config:
+            broken: Bootstrap
+            controller: not-a-bool
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }

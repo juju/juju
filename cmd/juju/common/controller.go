@@ -41,7 +41,7 @@ func SetBootstrapEndpointAddress(store jujuclient.ControllerStore, controllerNam
 		return errors.Errorf("found no instances, expected at least one")
 	}
 	if length > 1 {
-		logger.Warningf("expected one instance, got %d", length)
+		return errors.Errorf("expected one instance, got %d", length)
 	}
 	bootstrapInstance := instances[0]
 
@@ -67,7 +67,7 @@ var (
 func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return apiblock.NewClient(root), nil
 }
