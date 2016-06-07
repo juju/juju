@@ -696,6 +696,13 @@ func (p *Pinger) prepare() error {
 // sequence in use by the pinger.
 func (p *Pinger) ping() (err error) {
 	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	defer func() {
+		// If the session is killed from underneath us, it panics when we
+		// try to copy it, so deal with that here.
+		if v := recover(); v != nil {
+			err = fmt.Errorf("%v", v)
+		}
+	}()
 	session := p.pings.Database.Session.Copy()
 	defer session.Close()
 	if p.delta == 0 {
