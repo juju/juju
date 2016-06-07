@@ -20,14 +20,6 @@ import (
 
 var (
 	logger = loggo.GetLogger("juju.controller.modelmanager")
-
-	configValuesFromController = []string{
-		"type",
-		config.CACertKey,
-		"state-port",
-		"api-port",
-		config.ControllerUUIDKey,
-	}
 )
 
 const (
@@ -182,7 +174,9 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	var fields []string
-	fields = append(fields, configValuesFromController...)
+	fields = append(fields, config.ControllerOnlyConfigAttributes...)
+	// For now, all models in a controller must be of the same type.
+	fields = append(fields, config.TypeKey)
 	fields = append(fields, provider.RestrictedConfigAttributes()...)
 	return fields, nil
 }

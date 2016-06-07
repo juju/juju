@@ -44,9 +44,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	envConfig, found := export.settings[modelGlobalKey]
+	modelConfig, found := export.modelSettings[modelGlobalKey]
 	if !found {
-		return nil, errors.New("missing environ config")
+		return nil, errors.New("missing model config")
 	}
 
 	blocks, err := export.readBlocks()
@@ -56,7 +56,7 @@ func (st *State) Export() (description.Model, error) {
 
 	args := description.ModelArgs{
 		Owner:              dbModel.Owner(),
-		Config:             envConfig.Settings,
+		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
@@ -102,7 +102,7 @@ type exporter struct {
 
 	annotations   map[string]annotatorDoc
 	constraints   map[string]bson.M
-	settings      map[string]settingsDoc
+	modelSettings map[string]settingsDoc
 	status        map[string]bson.M
 	statusHistory map[string][]historicalStatusDoc
 	// Map of application name to units. Populated as part
@@ -428,7 +428,7 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 	settingsKey := application.settingsKey()
 	leadershipKey := leadershipSettingsKey(application.Name())
 
-	applicationSettingsDoc, found := e.settings[settingsKey]
+	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
 		return errors.Errorf("missing settings for application %q", application.Name())
 	}
@@ -436,7 +436,7 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 	if !found {
 		return errors.Errorf("missing settings refcount for application %q", application.Name())
 	}
-	leadershipSettingsDoc, found := e.settings[leadershipKey]
+	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
 		return errors.Errorf("missing leadership settings for application %q", application.Name())
 	}
@@ -574,7 +574,7 @@ func (e *exporter) relations() error {
 				if !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
-				settingsDoc, found := e.settings[key]
+				settingsDoc, found := e.modelSettings[key]
 				if !found {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
@@ -718,10 +718,10 @@ func (e *exporter) readAllSettings() error {
 		return errors.Trace(err)
 	}
 
-	e.settings = make(map[string]settingsDoc)
+	e.modelSettings = make(map[string]settingsDoc)
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
-		e.settings[key] = doc
+		e.modelSettings[key] = doc
 	}
 	return nil
 }

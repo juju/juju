@@ -108,6 +108,12 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid := cfg.UUID()
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
+	controllerUUID := cfg.ControllerUUID()
+	if controllerUUID != uuid {
+		return nil, errors.Errorf("when initialising state, model and controller UUIDs must be equal, got %v and %v", uuid, controllerUUID)
+	}
 	modelTag := names.NewModelTag(uuid)
 	st, err := open(modelTag, info, opts, policy)
 	if err != nil {
@@ -130,10 +136,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
 	logger.Infof("initializing controller model %s", uuid)
-	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(cfg, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,6 +145,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, err
 	}
+	// Extract just the controller config.
+	controllerCfg := controllerConfig(cfg.AllAttrs())
+
 	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
 		txn.Op{
@@ -169,6 +176,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
+		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
 	}
 	ops = append(ops, modelOps...)
 
@@ -181,11 +189,14 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+// modelSetupOps returns the transaction operations necessary to set up a model.
+func (st *State) modelSetupOps(cfg *config.Config, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	modelUUID := cfg.UUID()
+	controllerUUID := cfg.ControllerUUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
 		// TODO(fwereade): 2016-03-17 lp:1558657
@@ -198,21 +209,29 @@ func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string,
 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
-	if serverUUID == "" {
-		serverUUID = modelUUID
-	}
+	isHostedModel := controllerUUID != modelUUID
+
 	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
 		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
-		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
 	}
-	if modelUUID != serverUUID {
+	var controllerCfg map[string]interface{}
+	if isHostedModel {
 		ops = append(ops, incHostedModelCountOp())
+		// Hosted models already have a controller config.
+		var err error
+		controllerCfg, err = st.ControllerConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
+
+	modelCfg := modelConfig(controllerCfg, cfg.AllAttrs())
 	ops = append(ops,
+		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
-		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
+		createModelOp(st, owner, cfg.Name(), modelUUID, controllerUUID, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
 	)

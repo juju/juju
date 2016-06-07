@@ -108,6 +108,12 @@ const (
 	// AgentVersionKey is the key for the model's Juju agent version.
 	AgentVersionKey = "agent-version"
 
+	// ApiPort is the port used for api connections.
+	ApiPort = "api-port"
+
+	// StatePort is the port used for mongo connections.
+	StatePort = "state-port"
+
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
 
@@ -223,6 +229,15 @@ const (
 	// on start up.
 	IgnoreMachineAddresses = "ignore-machine-addresses"
 )
+
+// ControllerOnlyConfigAttributes are attributes which are only relevant
+// for a controller, never a model.
+var ControllerOnlyConfigAttributes = []string{
+	ApiPort,
+	StatePort,
+	CACertKey,
+	ControllerUUIDKey,
+}
 
 // ParseHarvestMode parses description of harvesting method and
 // returns the representation.
@@ -784,12 +799,12 @@ func (c *Config) DefaultSeries() (string, bool) {
 
 // StatePort returns the controller port for the environment.
 func (c *Config) StatePort() int {
-	return c.mustInt("state-port")
+	return c.mustInt(StatePort)
 }
 
 // APIPort returns the API server port for the environment.
 func (c *Config) APIPort() int {
-	return c.mustInt("api-port")
+	return c.mustInt(ApiPort)
 }
 
 // NumaCtlPreference returns if numactl is preferred.
@@ -1322,8 +1337,8 @@ var alwaysOptional = schema.Defaults{
 
 	// For backward compatibility only - default ports were
 	// not filled out in previous versions of the configuration.
-	"state-port": DefaultStatePort,
-	"api-port":   DefaultAPIPort,
+	StatePort: DefaultStatePort,
+	ApiPort:   DefaultAPIPort,
 	// Previously image-stream could be set to an empty value
 	"image-stream":             "",
 	"test-mode":                false,
@@ -1347,8 +1362,8 @@ func allDefaults() schema.Defaults {
 		"firewall-mode":              FwInstance,
 		"development":                false,
 		"ssl-hostname-verification":  true,
-		"state-port":                 DefaultStatePort,
-		"api-port":                   DefaultAPIPort,
+		StatePort:                    DefaultStatePort,
+		ApiPort:                      DefaultAPIPort,
 		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
@@ -1391,8 +1406,8 @@ var immutableAttributes = []string{
 	UUIDKey,
 	ControllerUUIDKey,
 	"firewall-mode",
-	"state-port",
-	"api-port",
+	StatePort,
+	ApiPort,
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
@@ -1560,7 +1575,7 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
-	"api-port": {
+	ApiPort: {
 		Description: "The TCP port for the API servers to listen on",
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
@@ -1813,7 +1828,7 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"state-port": {
+	StatePort: {
 		Description: "Port for the API server to listen on.",
 		Type:        environschema.Tint,
 		Immutable:   true,

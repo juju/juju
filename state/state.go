@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -435,26 +434,6 @@ func (st *State) WatchAllModels() *Multiwatcher {
 	return NewMultiwatcher(st.allModelManager)
 }
 
-func (st *State) ModelConfig() (*config.Config, error) {
-	settings, err := readSettings(st, modelGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	attrs := settings.Map()
-	return config.New(config.NoDefaults, attrs)
-}
-
-// checkModelConfig returns an error if the config is definitely invalid.
-func checkModelConfig(cfg *config.Config) error {
-	if cfg.AdminSecret() != "" {
-		return errors.Errorf("admin-secret should never be written to the state")
-	}
-	if _, ok := cfg.AgentVersion(); !ok {
-		return errors.Errorf("agent-version must always be set in state")
-	}
-	return nil
-}
-
 // versionInconsistentError indicates one or more agents have a
 // different version from the current one (even empty, when not yet
 // set).
@@ -550,7 +529,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, modelGlobalKey)
+		settings, err := readSettings(st, settingsC, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -598,71 +577,6 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
 	}
-	return errors.Trace(err)
-}
-
-func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
-	newConfig, err := oldConfig.Apply(updateAttrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(removeAttrs) != 0 {
-		newConfig, err = newConfig.Remove(removeAttrs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if err := checkModelConfig(newConfig); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st.validate(newConfig, oldConfig)
-}
-
-type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
-
-// UpdateModelConfig adds, updates or removes attributes in the current
-// configuration of the model with the provided updateAttrs and
-// removeAttrs.
-func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
-	if len(updateAttrs)+len(removeAttrs) == 0 {
-		return nil
-	}
-
-	// TODO(axw) 2013-12-6 #1167616
-	// Ensure that the settings on disk have not changed
-	// underneath us. The settings changes are actually
-	// applied as a delta to what's on disk; if there has
-	// been a concurrent update, the change may not be what
-	// the user asked for.
-	settings, err := readSettings(st, modelGlobalKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Get the existing model config from state.
-	oldConfig, err := config.New(config.NoDefaults, settings.Map())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if additionalValidation != nil {
-		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	validCfg, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	validAttrs := validCfg.AllAttrs()
-	for k := range oldConfig.AllAttrs() {
-		if _, ok := validAttrs[k]; !ok {
-			settings.Delete(k)
-		}
-	}
-	settings.Update(validAttrs)
-	_, err = settings.Write()
 	return errors.Trace(err)
 }
 
@@ -1867,31 +1781,6 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
-
-	if doc.ModelUUID == "" {
-		logger.Warningf("controllers info has no model UUID so retrieving it from model")
-
-		// This only happens when migrating from 1.20 to 1.21 before
-		// upgrade steps have been run. Without this hack modelTag
-		// on State ends up empty, breaking basic functionality needed
-		// to run upgrade steps (a chicken-and-egg scenario).
-		environments := db.C(modelsC)
-
-		var envDoc modelDoc
-		query := environments.Find(nil)
-		count, err := query.Count()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get model document count")
-		}
-		if count != 1 {
-			return nil, errors.New("expected just one model to get UUID from")
-		}
-		if err := query.One(&envDoc); err != nil {
-			return nil, errors.Annotate(err, "cannot load model document")
-		}
-		doc.ModelUUID = envDoc.UUID
-	}
-
 	return &ControllerInfo{
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,

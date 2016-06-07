@@ -33,11 +33,10 @@ const (
 	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
 	SettingsC         = settingsC
-	UnitsC            = unitsC
+	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
-	StatusesHistoryC  = statusesHistoryC
 	GUISettingsC      = guisettingsC
 )
 
@@ -48,8 +47,6 @@ var (
 	ControllerAvailable    = &controllerAvailable
 	GetOrCreatePorts       = getOrCreatePorts
 	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
 	NowToTheSecond         = nowToTheSecond
 	PickAddress            = &pickAddress
 	AddVolumeOps           = (*State).addVolumeOps

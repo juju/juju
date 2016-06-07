@@ -61,7 +61,8 @@ func FakeConfig() Attrs {
 // ModelConfig returns a default environment configuration suitable for
 // setting in the state.
 func ModelConfig(c *gc.C) *config.Config {
-	return CustomModelConfig(c, Attrs{"uuid": mustUUID()})
+	uuid := mustUUID()
+	return CustomModelConfig(c, Attrs{"uuid": uuid, "controller-uuid": uuid})
 }
 
 // mustUUID returns a stringified uuid or panics

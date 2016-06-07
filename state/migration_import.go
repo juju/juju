@@ -43,8 +43,16 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
+	// Create the config attributes of the model to import.
+	attr, err := st.ControllerConfig()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	for k, v := range model.Config() {
+		attr[k] = v
+	}
 	// Create the model.
-	cfg, err := config.New(config.NoDefaults, model.Config())
+	cfg, err := config.New(config.NoDefaults, attr)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -763,7 +771,7 @@ func (i *importer) relation(rel description.Relation) error {
 					Key: ruKey,
 				},
 			},
-				createSettingsOp(ruKey, endpoint.Settings(unit.Name())),
+				createSettingsOp(settingsC, ruKey, endpoint.Settings(unit.Name())),
 			)
 		}
 	}

@@ -104,12 +104,12 @@ func (st *State) Model() (*Model, error) {
 	models, closer := st.getCollection(modelsC)
 	defer closer()
 
-	env := &Model{st: st}
+	model := &Model{st: st}
 	uuid := st.modelTag.Id()
-	if err := env.refresh(models.FindId(uuid)); err != nil {
+	if err := model.refresh(models.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return env, nil
+	return model, nil
 }
 
 // GetModel looks for the model identified by the uuid passed in.
@@ -167,11 +167,6 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}
 
-	ssEnv, err := st.ControllerModel()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not load controller model")
-	}
-
 	uuid := args.Config.UUID()
 	newState, err := st.ForModel(names.NewModelTag(uuid))
 	if err != nil {
@@ -183,7 +178,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}()
 
-	ops, err := newState.modelSetupOps(args.Config, uuid, ssEnv.UUID(), owner, args.MigrationMode)
+	ops, err := newState.modelSetupOps(args.Config, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}

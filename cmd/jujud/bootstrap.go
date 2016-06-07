@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -52,7 +51,6 @@ var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
 	agentInitializeState = agentbootstrap.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
-	newStateStorage      = storage.NewStorage
 	minSocketTimeout     = 1 * time.Minute
 	logger               = loggo.GetLogger("juju.cmd.jujud")
 )

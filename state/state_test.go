@@ -1860,23 +1860,6 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestModelConfig(c *gc.C) {
-	attrs := map[string]interface{}{
-		"authorized-keys": "different-keys",
-		"arbitrary-key":   "shazam!",
-	}
-	cfg, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err = cfg.Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	oldCfg, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(oldCfg, gc.DeepEquals, cfg)
-}
-
 func (s *StateSuite) TestModelConstraints(c *gc.C) {
 	// Environ constraints start out empty (for now).
 	cons, err := s.State.ModelConstraints()
@@ -2419,37 +2402,6 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
-	updateAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
-	configValidator1 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		c.Assert(updateAttrs, gc.DeepEquals, map[string]interface{}{"logging-config": "juju=ERROR"})
-		if _, found := updateAttrs["logging-config"]; found {
-			return fmt.Errorf("cannot change logging-config")
-		}
-		return nil
-	}
-	removeAttrs := []string{"logging-config"}
-	configValidator2 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		c.Assert(removeAttrs, gc.DeepEquals, []string{"logging-config"})
-		for _, i := range removeAttrs {
-			if i == "logging-config" {
-				return fmt.Errorf("cannot remove logging-config")
-			}
-		}
-		return nil
-	}
-	configValidator3 := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		return nil
-	}
-
-	err := s.State.UpdateModelConfig(updateAttrs, nil, configValidator1)
-	c.Assert(err, gc.ErrorMatches, "cannot change logging-config")
-	err = s.State.UpdateModelConfig(nil, removeAttrs, configValidator2)
-	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
-	err = s.State.UpdateModelConfig(updateAttrs, nil, configValidator3)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
@@ -2620,6 +2572,23 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
+	w := s.State.WatchForModelConfigChanges()
+	defer statetesting.AssertStop(c, w)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initially we get one change notification
+	wc.AssertOneChange()
+
+	// Updating a controller setting value triggers the watcher.
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
+	c.Assert(err, jc.ErrorIsNil)
+	controllerSettings.Set("apt-mirror", "http://mirror")
+	_, err = controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 }
 
 func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
@@ -3224,6 +3193,9 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
+	for _, attr := range config.ControllerOnlyConfigAttributes {
+		delete(attrs, attr)
+	}
 	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
 }
 
@@ -3315,11 +3287,11 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	assertAgentVersion(c, s.State, currentVersion)
 }
 
-func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentFailsIfUpgrading(c *gc.C) {
 	// Get the agent-version set in the model.
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 
 	machine, err := s.State.AddMachine("series", state.JobManageModel)
@@ -3406,18 +3378,6 @@ func (s *StateSuite) TestControllerInfo(c *gc.C) {
 
 	// TODO(rog) more testing here when we can actually add
 	// controllers.
-}
-
-func (s *StateSuite) TestControllerInfoWithPreMigrationDoc(c *gc.C) {
-	err := s.controllers.Update(
-		nil,
-		bson.D{{"$unset", bson.D{{"model-uuid", 1}}}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ids, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
 }
 
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {

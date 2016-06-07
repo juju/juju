@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
@@ -118,9 +119,15 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
 	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
-	config, err := dbModel.Config()
+	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Config(), jc.DeepEquals, config.AllAttrs())
+
+	// Remove all controller config before comparision.
+	modelAttrs := dbModelCfg.AllAttrs()
+	for _, attr := range config.ControllerOnlyConfigAttributes {
+		delete(modelAttrs, attr)
+	}
+	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
