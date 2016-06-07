@@ -21,8 +21,8 @@ var (
 	// explicitly specified, and there is no default controller.
 	ErrNoControllerSpecified = errors.New(`no controller
 
-Please create a new controller using "juju bootstrap" or 
-use "juju switch" to set the current controller/model.
+Please either create your own new controller using "juju bootstrap" or
+connect to another controller that you have been given access to using "juju register".
 `)
 	// ErrNotLoggedInToController is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
