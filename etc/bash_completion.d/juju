@@ -56,9 +56,7 @@ _juju_list_commands() {
     juju help commands 2>/dev/null | awk '{print $1}'
 }
 
-# Print (return) flags for juju action, shamelessly excluding
-# -m/--model for cleaner completion for common usage cases
-# (e.g. juju ssh <TAB>, etc)
+# Print (return) flags for juju action
 _juju_flags_for() {
     test -z "${1}" && return 0
     juju help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|sort -u
