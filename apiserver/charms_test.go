@@ -15,6 +15,7 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -22,6 +23,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -83,6 +85,27 @@ func (s *charmsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStat
 	return charmResponse
 }
 
+func (s *charmsCommonSuite) createMigratingModel(c *gc.C) *state.State {
+	st := s.setupOtherModel(c)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+
+	spec := state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5555"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	}
+	_, err := st.CreateModelMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelUUID = st.ModelUUID()
+	return st
+}
+
 type charmsSuite struct {
 	charmsCommonSuite
 }
@@ -124,32 +147,22 @@ func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 
 func (s *charmsSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 	// Add a machine and try to login.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-
+	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "noncy",
+	})
 	resp := s.sendRequest(c, httpRequestParams{
-		tag:      machine.Tag().String(),
-		password: password,
-		method:   "POST",
-		url:      s.charmsURI(c, ""),
-		nonce:    "fake_nonce",
+		tag:         machine.Tag().String(),
+		password:    password,
+		method:      "POST",
+		url:         s.charmsURI(c, ""),
+		nonce:       "noncy",
+		contentType: "foo/bar",
 	})
 	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "tag kind machine not valid")
 
 	// Now try a user login.
 	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
-}
-
-func (s *charmsSuite) TestUploadRequiresSeries(c *gc.C) {
-	resp := s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip.+")
 }
 
 func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
@@ -236,6 +249,13 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *gc.C) {
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	resp := s.uploadRequest(c, s.charmsURL(c, "").String(), "application/zip", ch.Path)
+	expectedURL := charm.MustParseURL("local:dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
 func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
@@ -330,6 +350,56 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	c.Assert(bundle.Revision(), jc.DeepEquals, sch.Revision())
 	c.Assert(bundle.Meta(), jc.DeepEquals, sch.Meta())
 	c.Assert(bundle.Config(), jc.DeepEquals, sch.Config())
+}
+
+func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("cs:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-storage-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	_, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
+	s.assertErrorResponse(c, resp, 400, "cs charms may only be uploaded during model migration")
+}
+
+func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
+	// Check that upload of charms with the "cs:" schema works (for
+	// model migrations).
+	st := s.createMigratingModel(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
+
+	expectedURL := charm.MustParseURL("cs:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+	sch, err := st.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), gc.Equals, 1)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
+	st := s.createMigratingModel(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&revision=99"), "application/zip", ch.Path)
+
+	expectedURL := charm.MustParseURL("cs:dummy-99")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+	sch, err := st.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), gc.Equals, 99)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
 func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
@@ -561,11 +631,12 @@ func (s *charmsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 		return s.userTag.Id()
 	}
 	resp := s.sendRequest(c, httpRequestParams{
-		do:     s.doer(),
-		method: "POST",
-		url:    s.charmsURI(c, ""),
+		do:          s.doer(),
+		method:      "POST",
+		url:         s.charmsURI(c, ""),
+		contentType: "foo/bar",
 	})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip.+")
 	c.Assert(checkCount, gc.Equals, 1)
 }
 

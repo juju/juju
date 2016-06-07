@@ -61,8 +61,7 @@ func (h *charmsHandler) servePost(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Add a local charm to the store provider.
-	// Requires a "series" query specifying the series to use for the charm.
+	// Add a charm to the store provider.
 	charmURL, err := h.processPost(r, st)
 	if err != nil {
 		return errors.NewBadRequest(err, "")
@@ -210,51 +209,90 @@ func (h *charmsHandler) archiveSender(w http.ResponseWriter, r *http.Request, bu
 // processPost handles a charm upload POST request after authentication.
 func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.URL, error) {
 	query := r.URL.Query()
-	series := query.Get("series")
-	if series == "" {
-		return nil, fmt.Errorf("expected series=URL argument")
+	schema := query.Get("schema")
+	if schema == "" {
+		schema = "local"
 	}
+	series := query.Get("series")
+
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
 		return nil, fmt.Errorf("expected Content-Type: application/zip, got: %v", contentType)
 	}
-	tempFile, err := ioutil.TempFile("", "charm")
+
+	charmFileName, err := writeCharmToTempFile(r.Body)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create temp file: %v", err)
+		return nil, errors.Trace(err)
 	}
-	defer tempFile.Close()
-	defer os.Remove(tempFile.Name())
-	if _, err := io.Copy(tempFile, r.Body); err != nil {
-		return nil, fmt.Errorf("error processing file upload: %v", err)
-	}
-	err = h.processUploadedArchive(tempFile.Name())
+	defer os.Remove(charmFileName)
+
+	err = h.processUploadedArchive(charmFileName)
 	if err != nil {
 		return nil, err
 	}
-	archive, err := charm.ReadCharmArchive(tempFile.Name())
+	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, fmt.Errorf("invalid charm archive: %v", err)
 	}
+
 	// We got it, now let's reserve a charm URL for it in state.
-	archiveURL := &charm.URL{
-		Schema:   "local",
+	curl := &charm.URL{
+		Schema:   schema,
 		Name:     archive.Meta().Name,
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	preparedURL, err := st.PrepareLocalCharmUpload(archiveURL)
-	if err != nil {
-		return nil, err
+	if schema == "local" {
+		curl, err = st.PrepareLocalCharmUpload(curl)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// "cs:" charms may only be uploaded during model
+		// migrations. There's currently no other time where it makes
+		// sense to accept charm store charms through this endpoint.
+		if migrationInProgress, err := st.IsModelMigrationActive(); err != nil {
+			return nil, errors.Trace(err)
+		} else if !migrationInProgress {
+			return nil, errors.New("cs charms may only be uploaded during model migration")
+		}
+
+		// If a revision argument is provided, it takes precedence
+		// over the revision in the charm archive. This is required to
+		// handle the revision differences between unpublished and
+		// published charms in the charm store.
+		revisionStr := query.Get("revision")
+		if revisionStr != "" {
+			curl.Revision, err = strconv.Atoi(revisionStr)
+			if err != nil {
+				return nil, errors.NotValidf("revision")
+			}
+		}
+		if _, err := st.PrepareStoreCharmUpload(curl); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
+
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = h.repackageAndUploadCharm(st, archive, preparedURL)
+	err = h.repackageAndUploadCharm(st, archive, curl)
 	if err != nil {
 		return nil, err
 	}
-	// All done.
-	return preparedURL, nil
+	return curl, nil
+}
+
+func writeCharmToTempFile(r io.Reader) (string, error) {
+	tempFile, err := ioutil.TempFile("", "charm")
+	if err != nil {
+		return "", errors.Annotate(err, "creating temp file")
+	}
+	defer tempFile.Close()
+	if _, err := io.Copy(tempFile, r); err != nil {
+		return "", errors.Annotate(err, "processing upload")
+	}
+	return tempFile.Name(), nil
 }
 
 // processUploadedArchive opens the given charm archive from path,
