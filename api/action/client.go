@@ -91,20 +91,20 @@ func (c *Client) Cancel(arg params.Actions) (params.ActionResults, error) {
 	return results, err
 }
 
-// servicesCharmActions is a batched query for the charm.Actions for a slice
+// applicationsCharmActions is a batched query for the charm.Actions for a slice
 // of services by Entity.
-func (c *Client) servicesCharmActions(arg params.Entities) (params.ServicesCharmActionsResults, error) {
-	results := params.ServicesCharmActionsResults{}
-	err := c.facade.FacadeCall("ServicesCharmActions", arg, &results)
+func (c *Client) applicationsCharmActions(arg params.Entities) (params.ApplicationsCharmActionsResults, error) {
+	results := params.ApplicationsCharmActionsResults{}
+	err := c.facade.FacadeCall("ApplicationsCharmsActions", arg, &results)
 	return results, err
 }
 
-// ServiceCharmActions is a single query which uses ServicesCharmActions to
+// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 // get the charm.Actions for a single Service by tag.
-func (c *Client) ServiceCharmActions(arg params.Entity) (*charm.Actions, error) {
+func (c *Client) ApplicationCharmActions(arg params.Entity) (*charm.Actions, error) {
 	none := &charm.Actions{}
 	tags := params.Entities{Entities: []params.Entity{{Tag: arg.Tag}}}
-	results, err := c.servicesCharmActions(tags)
+	results, err := c.applicationsCharmActions(tags)
 	if err != nil {
 		return none, err
 	}
@@ -115,8 +115,8 @@ func (c *Client) ServiceCharmActions(arg params.Entity) (*charm.Actions, error) 
 	if result.Error != nil {
 		return none, result.Error
 	}
-	if result.ServiceTag != arg.Tag {
-		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
+	if result.ApplicationTag != arg.Tag {
+		return none, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
 	}
 	return result.Actions, nil
 }

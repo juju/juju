@@ -71,9 +71,9 @@ will be checked against the following info in Juju:
 }
 
 func (s *listSuite) TestOkay(c *gc.C) {
-	p1 := status.NewPayload("spam", "a-service", 1, 0)
+	p1 := status.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
-	p2 := status.NewPayload("eggs", "another-service", 2, 1)
+	p2 := status.NewPayload("eggs", "another-application", 2, 1)
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
 	command := status.NewListCommand(s.newAPIClient)
@@ -82,9 +82,9 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-a-service/0       1       spam          running docker idspam a-tag 
-another-service/1 2       eggs          running docker ideggs       
+UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-application/0       1       spam          running docker idspam a-tag 
+another-application/1 2       eggs          running docker ideggs       
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -104,9 +104,9 @@ UNIT MACHINE PAYLOAD-CLASS STATUS TYPE ID TAGS
 }
 
 func (s *listSuite) TestPatternsOkay(c *gc.C) {
-	p1 := status.NewPayload("spam", "a-service", 1, 0)
+	p1 := status.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
-	p2 := status.NewPayload("eggs", "another-service", 2, 1)
+	p2 := status.NewPayload("eggs", "another-application", 2, 1)
 	p2.Labels = []string{"a-tag"}
 	s.client.payloads = append(s.client.payloads, p1, p2)
 
@@ -114,16 +114,16 @@ func (s *listSuite) TestPatternsOkay(c *gc.C) {
 	args := []string{
 		"a-tag",
 		"other",
-		"some-service/1",
+		"some-application/1",
 	}
 	code, stdout, stderr := runList(c, command, args...)
 	c.Assert(code, gc.Equals, 0)
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-a-service/0       1       spam          running docker idspam a-tag 
-another-service/1 2       eggs          running docker ideggs a-tag 
+UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-application/0       1       spam          running docker idspam a-tag 
+another-application/1 2       eggs          running docker ideggs a-tag 
 
 `[1:])
 	c.Check(stderr, gc.Equals, "")
@@ -138,7 +138,7 @@ another-service/1 2       eggs          running docker ideggs a-tag
 			[]string{
 				"a-tag",
 				"other",
-				"some-service/1",
+				"some-application/1",
 			},
 		},
 	}, {
@@ -147,9 +147,9 @@ another-service/1 2       eggs          running docker ideggs a-tag
 }
 
 func (s *listSuite) TestOutputFormats(c *gc.C) {
-	p1 := status.NewPayload("spam", "a-service", 1, 0)
+	p1 := status.NewPayload("spam", "a-application", 1, 0)
 	p1.Labels = []string{"a-tag"}
-	p2 := status.NewPayload("eggs", "another-service", 2, 1)
+	p2 := status.NewPayload("eggs", "another-application", 2, 1)
 	s.client.payloads = append(s.client.payloads,
 		p1,
 		p2,
@@ -158,13 +158,13 @@ func (s *listSuite) TestOutputFormats(c *gc.C) {
 	formats := map[string]string{
 		"tabular": `
 [Unit Payloads]
-UNIT              MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
-a-service/0       1       spam          running docker idspam a-tag 
-another-service/1 2       eggs          running docker ideggs       
+UNIT                  MACHINE PAYLOAD-CLASS STATUS  TYPE   ID     TAGS  
+a-application/0       1       spam          running docker idspam a-tag 
+another-application/1 2       eggs          running docker ideggs       
 
 `[1:],
 		"yaml": `
-- unit: a-service/0
+- unit: a-application/0
   machine: "1"
   id: idspam
   type: docker
@@ -172,7 +172,7 @@ another-service/1 2       eggs          running docker ideggs
   tags:
   - a-tag
   status: running
-- unit: another-service/1
+- unit: another-application/1
   machine: "2"
   id: ideggs
   type: docker
@@ -182,7 +182,7 @@ another-service/1 2       eggs          running docker ideggs
 		"json": strings.Replace(""+
 			"["+
 			" {"+
-			`  "unit":"a-service/0",`+
+			`  "unit":"a-application/0",`+
 			`  "machine":"1",`+
 			`  "id":"idspam",`+
 			`  "type":"docker",`+
@@ -190,7 +190,7 @@ another-service/1 2       eggs          running docker ideggs
 			`  "tags":["a-tag"],`+
 			`  "status":"running"`+
 			" },{"+
-			`  "unit":"another-service/1",`+
+			`  "unit":"another-application/1",`+
 			`  "machine":"2",`+
 			`  "id":"ideggs",`+
 			`  "type":"docker",`+

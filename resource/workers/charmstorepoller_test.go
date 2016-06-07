@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -36,7 +36,7 @@ func (s *LatestCharmHandlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
-	serviceID := names.NewServiceTag("a-service")
+	applicationID := names.NewApplicationTag("a-application")
 	info := charmstore.CharmInfo{
 		OriginalURL:    &charm.URL{},
 		Timestamp:      time.Now().UTC(),
@@ -47,19 +47,19 @@ func (s *LatestCharmHandlerSuite) TestSuccess(c *gc.C) {
 	}
 	handler := workers.NewLatestCharmHandler(s.store)
 
-	err := handler.HandleLatest(serviceID, info)
+	err := handler.HandleLatest(applicationID, info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "SetCharmStoreResources")
-	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-service", info.LatestResources, info.Timestamp)
+	s.stub.CheckCall(c, 0, "SetCharmStoreResources", "a-application", info.LatestResources, info.Timestamp)
 }
 
 type stubDataStore struct {
 	*testing.Stub
 }
 
-func (s *stubDataStore) SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error {
-	s.AddCall("SetCharmStoreResources", serviceID, info, lastPolled)
+func (s *stubDataStore) SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error {
+	s.AddCall("SetCharmStoreResources", applicationID, info, lastPolled)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/action"
@@ -22,7 +22,7 @@ import (
 
 type ListSuite struct {
 	BaseActionSuite
-	svc            *state.Service
+	svc            *state.Application
 	wrappedCommand cmd.Command
 	command        *action.ListCommand
 }
@@ -38,30 +38,30 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectedSvc          names.ServiceTag
+		expectedSvc          names.ApplicationTag
 		expectedOutputSchema bool
 		expectedErr          string
 	}{{
-		should:      "fail with missing service name",
+		should:      "fail with missing application name",
 		args:        []string{},
-		expectedErr: "no service name specified",
+		expectedErr: "no application name specified",
 	}, {
-		should:      "fail with invalid service name",
+		should:      "fail with invalid application name",
 		args:        []string{invalidServiceId},
-		expectedErr: "invalid service name \"" + invalidServiceId + "\"",
+		expectedErr: "invalid application name \"" + invalidServiceId + "\"",
 	}, {
 		should:      "fail with too many args",
 		args:        []string{"two", "things"},
 		expectedErr: "unrecognized args: \\[\"things\"\\]",
 	}, {
-		should:      "init properly with valid service name",
+		should:      "init properly with valid application name",
 		args:        []string{validServiceId},
-		expectedSvc: names.NewServiceTag(validServiceId),
+		expectedSvc: names.NewApplicationTag(validServiceId),
 	}, {
-		should:               "init properly with valid service name and --schema",
+		should:               "init properly with valid application name and --schema",
 		args:                 []string{"--schema", validServiceId},
 		expectedOutputSchema: true,
-		expectedSvc:          names.NewServiceTag(validServiceId),
+		expectedSvc:          names.NewApplicationTag(validServiceId),
 	}}
 
 	for i, t := range tests {
@@ -72,7 +72,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := testing.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
-				c.Check(s.command.ServiceTag(), gc.Equals, t.expectedSvc)
+				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
 				c.Check(s.command.FullSchema(), gc.Equals, t.expectedOutputSchema)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)

@@ -230,7 +230,7 @@ all of them are. The agent facades are (almost?) all implemented correctly, but
 the Client facade is almost exclusively not. As functionality evolves, and new
 versions of the client APIs are implemented, we must take care to implement them
 consistently -- this means both implementing bulk calls *and* splitting the
-monolithic Client facade into smaller service-specific facades, such that we
+monolithic Client facade into smaller application-specific facades, such that we
 can evolve interaction with (say) users without bumping global API versions
 across the board).
 

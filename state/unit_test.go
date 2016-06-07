@@ -28,7 +28,7 @@ const (
 type UnitSuite struct {
 	ConnSuite
 	charm   *state.Charm
-	service *state.Service
+	service *state.Application
 	unit    *state.Unit
 }
 
@@ -52,9 +52,9 @@ func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 }
 
 func (s *UnitSuite) TestService(c *gc.C) {
-	svc, err := s.unit.Service()
+	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Name(), gc.Equals, s.unit.ServiceName())
+	c.Assert(svc.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {

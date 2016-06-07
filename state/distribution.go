@@ -35,7 +35,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if distributor == nil {
 		return nil, fmt.Errorf("policy returned nil instance distributor without an error")
 	}
-	distributionGroup, err := ServiceInstances(u.st, u.doc.Service)
+	distributionGroup, err := ServiceInstances(u.st, u.doc.Application)
 	if err != nil {
 		return nil, err
 	}
@@ -46,9 +46,9 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 }
 
 // ServiceInstances returns the instance IDs of provisioned
-// machines that are assigned units of the specified service.
-func ServiceInstances(st *State, service string) ([]instance.Id, error) {
-	units, err := allUnits(st, service)
+// machines that are assigned units of the specified application.
+func ServiceInstances(st *State, application string) ([]instance.Id, error) {
+	units, err := allUnits(st, application)
 	if err != nil {
 		return nil, err
 	}

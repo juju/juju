@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -26,13 +26,13 @@ func NewListResourcesArgs(services []string) (ListResourcesArgs, error) {
 	var args ListResourcesArgs
 	var errs []error
 	for _, service := range services {
-		if !names.IsValidService(service) {
-			err := errors.Errorf("invalid service %q", service)
+		if !names.IsValidApplication(service) {
+			err := errors.Errorf("invalid application %q", service)
 			errs = append(errs, err)
 			continue
 		}
 		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewServiceTag(service).String(),
+			Tag: names.NewApplicationTag(service).String(),
 		})
 	}
 	if err := resolveErrors(errs); err != nil {
@@ -53,13 +53,13 @@ type AddPendingResourcesArgs struct {
 
 // NewAddPendingResourcesArgs returns the arguments for the
 // AddPendingResources API endpoint.
-func NewAddPendingResourcesArgs(serviceID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
+func NewAddPendingResourcesArgs(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (AddPendingResourcesArgs, error) {
 	var args AddPendingResourcesArgs
 
-	if !names.IsValidService(serviceID) {
-		return args, errors.Errorf("invalid service %q", serviceID)
+	if !names.IsValidApplication(applicationID) {
+		return args, errors.Errorf("invalid application %q", applicationID)
 	}
-	tag := names.NewServiceTag(serviceID).String()
+	tag := names.NewApplicationTag(applicationID).String()
 
 	var apiResources []CharmResource
 	for _, res := range resources {
@@ -97,11 +97,11 @@ type ResourcesResults struct {
 }
 
 // ResourcesResult holds the resources that result from an API call
-// for a single service.
+// for a single application.
 type ResourcesResult struct {
 	params.ErrorResult
 
-	// Resources is the list of resources for the service.
+	// Resources is the list of resources for the application.
 	Resources []Resource
 
 	// CharmStoreResources is the list of resources associated with the charm in
@@ -109,7 +109,7 @@ type ResourcesResult struct {
 	CharmStoreResources []CharmResource
 
 	// UnitResources contains a list of the resources for each unit in the
-	// service.
+	// application.
 	UnitResources []UnitResources
 }
 
@@ -138,7 +138,7 @@ type UploadResult struct {
 type Resource struct {
 	CharmResource
 
-	// ID uniquely identifies a resource-service pair within the model.
+	// ID uniquely identifies a resource-application pair within the model.
 	// Note that the model ignores pending resources (those with a
 	// pending ID) except for in a few clearly pending-related places.
 	ID string
@@ -148,8 +148,8 @@ type Resource struct {
 	// ID (and from the active resource).
 	PendingID string
 
-	// ServiceID identifies the service for the resource.
-	ServiceID string
+	// ApplicationID identifies the application for the resource.
+	ApplicationID string
 
 	// Username is the ID of the user that added the revision
 	// to the model (whether implicitly or explicitly).

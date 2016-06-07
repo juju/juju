@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -174,10 +174,10 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Service returns the service.
-func (u *Unit) Service() (*Service, error) {
-	service := &Service{
+func (u *Unit) Application() (*Application, error) {
+	service := &Application{
 		st:  u.st,
-		tag: u.ServiceTag(),
+		tag: u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -211,18 +211,18 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	return charm.Settings(result.Settings), nil
 }
 
-// ServiceName returns the service name.
-func (u *Unit) ServiceName() string {
-	service, err := names.UnitService(u.Name())
+// ApplicationName returns the service name.
+func (u *Unit) ApplicationName() string {
+	application, err := names.UnitApplication(u.Name())
 	if err != nil {
 		panic(err)
 	}
-	return service
+	return application
 }
 
-// ServiceTag returns the service tag.
-func (u *Unit) ServiceTag() names.ServiceTag {
-	return names.NewServiceTag(u.ServiceName())
+// ApplicationTag returns the service tag.
+func (u *Unit) ApplicationTag() names.ApplicationTag {
+	return names.NewApplicationTag(u.ApplicationName())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as

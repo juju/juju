@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/sshclient"
@@ -304,7 +304,7 @@ func (c *SSHCommon) resolveTarget(target string) (*resolvedTarget, error) {
 
 // AllowInterspersedFlags for ssh/scp is set to false so that
 // flags after the unit name are passed through to ssh, for eg.
-// `juju ssh -v service-name/0 uname -a`.
+// `juju ssh -v application-name/0 uname -a`.
 func (c *SSHCommon) AllowInterspersedFlags() bool {
 	return false
 }

@@ -6,17 +6,17 @@ package metricsadder_test
 import (
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/metricsadder"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	factory "github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/testing/factory"
 )
 
 type metricsAdderSuite struct {
@@ -115,11 +115,11 @@ func (s *metricsAdderIntegrationSuite) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	meteredService := f.MakeService(c, &factory.ServiceParams{
+	meteredService := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
 	meteredUnit := f.MakeUnit(c, &factory.UnitParams{
-		Service:     meteredService,
+		Application: meteredService,
 		SetCharmURL: true,
 		Machine:     machine0,
 	})

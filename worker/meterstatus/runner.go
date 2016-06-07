@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/fslock"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"

@@ -17,41 +17,41 @@ import (
 // Resources describes the state functionality for resources.
 type Resources interface {
 	// ListResources returns the list of resources for the given service.
-	ListResources(serviceID string) (resource.ServiceResources, error)
+	ListResources(applicationID string) (resource.ServiceResources, error)
 
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
-	AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
 
 	// GetResource returns the identified resource.
-	GetResource(serviceID, name string) (resource.Resource, error)
+	GetResource(applicationID, name string) (resource.Resource, error)
 
 	// GetPendingResource returns the identified resource.
-	GetPendingResource(serviceID, name, pendingID string) (resource.Resource, error)
+	GetPendingResource(applicationID, name, pendingID string) (resource.Resource, error)
 
 	// SetResource adds the resource to blob storage and updates the metadata.
-	SetResource(serviceID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	SetResource(applicationID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// UpdatePendingResource adds the resource to blob storage and updates the metadata.
-	UpdatePendingResource(serviceID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
+	UpdatePendingResource(applicationID, pendingID, userID string, res charmresource.Resource, r io.Reader) (resource.Resource, error)
 
 	// OpenResource returns the metadata for a resource and a reader for the resource.
-	OpenResource(serviceID, name string) (resource.Resource, io.ReadCloser, error)
+	OpenResource(applicationID, name string) (resource.Resource, io.ReadCloser, error)
 
 	// OpenResourceForUniter returns the metadata for a resource and a reader for the resource.
 	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 
 	// SetCharmStoreResources sets the "polled" resources for the
 	// service to the provided values.
-	SetCharmStoreResources(serviceID string, info []charmresource.Resource, lastPolled time.Time) error
+	SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error
 
 	// TODO(ericsnow) Move this down to ResourcesPersistence.
 
 	// NewResolvePendingResourcesOps generates mongo transaction operations
 	// to set the identified resources as active.
-	NewResolvePendingResourcesOps(serviceID string, pendingIDs map[string]string) ([]txn.Op, error)
+	NewResolvePendingResourcesOps(applicationID string, pendingIDs map[string]string) ([]txn.Op, error)
 }
 
 var newResources func(Persistence, *State) Resources
@@ -82,7 +82,7 @@ type ResourcesPersistence interface {
 
 	// NewRemoveResourcesOps returns mgo transaction operations that
 	// remove all the service's resources from state.
-	NewRemoveResourcesOps(serviceID string) ([]txn.Op, error)
+	NewRemoveResourcesOps(applicationID string) ([]txn.Op, error)
 }
 
 var newResourcesPersistence func(Persistence) ResourcesPersistence

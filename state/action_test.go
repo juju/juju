@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -24,8 +24,8 @@ type ActionSuite struct {
 	ConnSuite
 	charm             *state.Charm
 	actionlessCharm   *state.Charm
-	service           *state.Service
-	actionlessService *state.Service
+	service           *state.Application
+	actionlessService *state.Application
 	unit              *state.Unit
 	unit2             *state.Unit
 	charmlessUnit     *state.Unit

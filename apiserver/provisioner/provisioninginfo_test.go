@@ -355,7 +355,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		{Tag: s.machines[0].Tag().String() + "-lxc-0"},
 		{Tag: "machine-42"},
 		{Tag: s.machines[1].Tag().String()},
-		{Tag: "service-bar"},
+		{Tag: "application-bar"},
 	}}
 
 	// Only machine 0 and containers therein can be accessed.

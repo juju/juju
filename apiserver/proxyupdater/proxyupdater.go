@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 )
 
 // Backend defines the state methods this facade needs, so they can be

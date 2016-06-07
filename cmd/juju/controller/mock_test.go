@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/network"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 type mockAPIConnection struct {

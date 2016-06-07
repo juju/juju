@@ -15,12 +15,12 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"

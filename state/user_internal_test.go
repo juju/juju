@@ -4,8 +4,8 @@
 package state
 
 import (
-	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 )
 
 type internalUserSuite struct {

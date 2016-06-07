@@ -36,7 +36,7 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
-	controllerName := "local.test-master"
+	controllerName := "test-master"
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = controllerName

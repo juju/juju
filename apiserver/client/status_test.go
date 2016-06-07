@@ -40,7 +40,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.ModelName, gc.Equals, "admin")
-	c.Check(status.Services, gc.HasLen, 0)
+	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
@@ -117,7 +117,7 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	service := s.MakeService(c, nil)
+	service := s.MakeApplication(c, nil)
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +137,7 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	serviceStatus, ok := status.Services[service.Name()]
+	serviceStatus, ok := status.Applications[service.Name()]
 	c.Assert(ok, gc.Equals, true)
 
 	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
@@ -198,7 +198,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 	client := s.APIState.Client()
 	status, _ := client.Status(nil)
 
-	serviceStatus, ok := status.Services["mysql"]
+	serviceStatus, ok := status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "")
 
@@ -209,7 +209,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 
 	// Check if CanUpgradeTo suggest the latest revision.
 	status, _ = client.Status(nil)
-	serviceStatus, ok = status.Services["mysql"]
+	serviceStatus, ok = status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
 }

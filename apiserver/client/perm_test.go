@@ -7,15 +7,15 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/service"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
@@ -78,11 +78,11 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientStatus,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.Set",
+		about: "Application.Set",
 		op:    opClientServiceSet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.Get",
+		about: "Application.Get",
 		op:    opClientServiceGet,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -90,19 +90,19 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientResolved,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.Expose",
+		about: "Application.Expose",
 		op:    opClientServiceExpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.Unexpose",
+		about: "Application.Unexpose",
 		op:    opClientServiceUnexpose,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.Update",
+		about: "Application.Update",
 		op:    opClientServiceUpdate,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.SetCharm",
+		about: "Application.SetCharm",
 		op:    opClientServiceSetCharm,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -114,23 +114,23 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientSetAnnotations,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.AddUnits",
+		about: "Application.AddUnits",
 		op:    opClientAddServiceUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.DestroyUnits",
+		about: "Application.DestroyUnits",
 		op:    opClientDestroyServiceUnits,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.Destroy",
+		about: "Application.Destroy",
 		op:    opClientServiceDestroy,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.GetConstraints",
+		about: "Application.GetConstraints",
 		op:    opClientGetServiceConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.SetConstraints",
+		about: "Application.SetConstraints",
 		op:    opClientSetServiceConstraints,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
@@ -158,11 +158,11 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		op:    opClientCharmInfo,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.AddRelation",
+		about: "Application.AddRelation",
 		op:    opClientAddRelation,
 		allow: []names.Tag{userAdmin, userOther},
 	}, {
-		about: "Service.DestroyRelation",
+		about: "Application.DestroyRelation",
 		op:    opClientDestroyRelation,
 		allow: []names.Tag{userAdmin, userOther},
 	}} {
@@ -212,7 +212,7 @@ func opClientCharmInfo(c *gc.C, st api.Connection, mst *state.State) (func(), er
 }
 
 func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := service.NewClient(st).AddRelation("nosuch1", "nosuch2")
+	_, err := application.NewClient(st).AddRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -220,7 +220,7 @@ func opClientAddRelation(c *gc.C, st api.Connection, mst *state.State) (func(), 
 }
 
 func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).DestroyRelation("nosuch1", "nosuch2")
+	err := application.NewClient(st).DestroyRelation("nosuch1", "nosuch2")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -240,7 +240,7 @@ func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error
 
 func resetBlogTitle(c *gc.C, st api.Connection) func() {
 	return func() {
-		err := service.NewClient(st).Set("wordpress", map[string]string{
+		err := application.NewClient(st).Set("wordpress", map[string]string{
 			"blog-title": "",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -248,7 +248,7 @@ func resetBlogTitle(c *gc.C, st api.Connection) func() {
 }
 
 func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).Set("wordpress", map[string]string{
+	err := application.NewClient(st).Set("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
 	if err != nil {
@@ -258,7 +258,7 @@ func opClientServiceSet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := service.NewClient(st).Get("wordpress")
+	_, err := application.NewClient(st).Get("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -266,19 +266,19 @@ func opClientServiceGet(c *gc.C, st api.Connection, mst *state.State) (func(), e
 }
 
 func opClientServiceExpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).Expose("wordpress")
+	err := application.NewClient(st).Expose("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
-		svc, err := mst.Service("wordpress")
+		svc, err := mst.Application("wordpress")
 		c.Assert(err, jc.ErrorIsNil)
 		svc.ClearExposed()
 	}, nil
 }
 
 func opClientServiceUnexpose(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).Unexpose("wordpress")
+	err := application.NewClient(st).Unexpose("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
@@ -304,12 +304,12 @@ func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error
 }
 
 func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	ann, err := annotations.NewClient(st).Get([]string{"service-wordpress"})
+	ann, err := annotations.NewClient(st).Get([]string{"application-wordpress"})
 	if err != nil {
 		return func() {}, err
 	}
 	c.Assert(ann, gc.DeepEquals, []params.AnnotationsGetResult{{
-		EntityTag:   "service-wordpress",
+		EntityTag:   "application-wordpress",
 		Annotations: map[string]string{},
 	}})
 	return func() {}, nil
@@ -318,7 +318,7 @@ func opClientGetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
 	setParams := map[string]map[string]string{
-		"service-wordpress": pairs,
+		"application-wordpress": pairs,
 	}
 	_, err := annotations.NewClient(st).Set(setParams)
 	if err != nil {
@@ -327,21 +327,21 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 	return func() {
 		pairs := map[string]string{"key1": "", "key2": ""}
 		setParams := map[string]map[string]string{
-			"service-wordpress": pairs,
+			"application-wordpress": pairs,
 		}
 		annotations.NewClient(st).Set(setParams)
 	}, nil
 }
 
 func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	args := params.ServiceUpdate{
-		ServiceName:     "no-such-charm",
+	args := params.ApplicationUpdate{
+		ApplicationName: "no-such-charm",
 		CharmUrl:        "cs:quantal/wordpress-42",
 		ForceCharmUrl:   true,
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}
-	err := service.NewClient(st).Update(args)
+	err := application.NewClient(st).Update(args)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -349,13 +349,13 @@ func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func()
 }
 
 func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	cfg := service.SetCharmConfig{
-		ServiceName: "nosuch",
+	cfg := application.SetCharmConfig{
+		ApplicationName: "nosuch",
 		CharmID: charmstore.CharmID{
 			URL: charm.MustParseURL("local:quantal/wordpress"),
 		},
 	}
-	err := service.NewClient(st).SetCharm(cfg)
+	err := application.NewClient(st).SetCharm(cfg)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -363,7 +363,7 @@ func opClientServiceSetCharm(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := service.NewClient(st).AddUnits("nosuch", 1, nil)
+	_, err := application.NewClient(st).AddUnits("nosuch", 1, nil)
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -371,7 +371,7 @@ func opClientAddServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).DestroyUnits("wordpress/99")
+	err := application.NewClient(st).DestroyUnits("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}
@@ -379,7 +379,7 @@ func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (
 }
 
 func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	err := service.NewClient(st).Destroy("non-existent")
+	err := application.NewClient(st).Destroy("non-existent")
 	if params.IsCodeNotFound(err) {
 		err = nil
 	}
@@ -387,13 +387,13 @@ func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(
 }
 
 func opClientGetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := service.NewClient(st).GetConstraints("wordpress")
+	_, err := application.NewClient(st).GetConstraints("wordpress")
 	return func() {}, err
 }
 
 func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := service.NewClient(st).SetConstraints("wordpress", nullConstraints)
+	err := application.NewClient(st).SetConstraints("wordpress", nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}

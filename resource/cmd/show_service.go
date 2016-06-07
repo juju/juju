@@ -6,7 +6,7 @@ package cmd
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -15,7 +15,7 @@ import (
 
 // ShowServiceClient has the API client methods needed by ShowServiceCommand.
 type ShowServiceClient interface {
-	// ListResources returns info about resources for services in the model.
+	// ListResources returns info about resources for applications in the model.
 	ListResources(services []string) ([]resource.ServiceResources, error)
 	// Close closes the connection.
 	Close() error
@@ -24,7 +24,7 @@ type ShowServiceClient interface {
 // ShowServiceDeps is a type that contains external functions that ShowService
 // depends on to function.
 type ShowServiceDeps struct {
-	// NewClient returns the value that wraps the API for showing service
+	// NewClient returns the value that wraps the API for showing application
 	// resources from the server.
 	NewClient func(*ShowServiceCommand) (ShowServiceClient, error)
 }
@@ -50,11 +50,11 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
-		Args:    "service-or-unit",
+		Args:    "application-or-unit",
 		Purpose: "show the resources for a service or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing
-service or unit in your model.  When run for a service, it will also show any
+application or unit in your model.  When run for an application, it will also show any
 updates available for resources from the charmstore.
 `,
 	}
@@ -76,7 +76,7 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 // errors.BadRequest if you give it an incorrect number of arguments.
 func (c *ShowServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.NewBadRequest(nil, "missing service name")
+		return errors.NewBadRequest(nil, "missing application name")
 	}
 	c.target = args[0]
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
@@ -95,12 +95,12 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 
 	var unit string
 	var service string
-	if names.IsValidService(c.target) {
+	if names.IsValidApplication(c.target) {
 		service = c.target
 	} else {
-		service, err = names.UnitService(c.target)
+		service, err = names.UnitApplication(c.target)
 		if err != nil {
-			return errors.Errorf("%q is neither a service nor a unit", c.target)
+			return errors.Errorf("%q is neither an application nor a unit", c.target)
 		}
 		unit = c.target
 	}

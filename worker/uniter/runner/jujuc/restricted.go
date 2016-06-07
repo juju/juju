@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -31,13 +31,13 @@ func (*RestrictedContext) UnitStatus() (*StatusInfo, error) { return nil, ErrRes
 // SetUnitStatus implements jujuc.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 
-// ServiceStatus implements jujuc.Context.
-func (*RestrictedContext) ServiceStatus() (ServiceStatusInfo, error) {
-	return ServiceStatusInfo{}, ErrRestrictedContext
+// ApplicationStatus implements jujuc.Context.
+func (*RestrictedContext) ApplicationStatus() (ApplicationStatusInfo, error) {
+	return ApplicationStatusInfo{}, ErrRestrictedContext
 }
 
-// SetServiceStatus implements jujuc.Context.
-func (*RestrictedContext) SetServiceStatus(StatusInfo) error { return ErrRestrictedContext }
+// SetApplicationStatus implements jujuc.Context.
+func (*RestrictedContext) SetApplicationStatus(StatusInfo) error { return ErrRestrictedContext }
 
 // AvailabilityZone implements jujuc.Context.
 func (*RestrictedContext) AvailabilityZone() (string, error) { return "", ErrRestrictedContext }
