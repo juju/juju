@@ -14,15 +14,15 @@ type linklayerdevices struct {
 }
 
 type linklayerdevice struct {
-	ProviderID_       string   `yaml:"provider-id,omitempty"`
-	DeviceName_       string   `yaml:"devicename"`
-	MachineID_        string   `yaml:"machineid"`
-	SubnetCIDR_       string   `yaml:"subnetcidr"`
-	ConfigMethod_     string   `yaml:"configmethod"`
-	Value_            string   `yaml:"value"`
-	DNSServers_       []string `yaml:"dnsservers"`
-	DNSSearchDomains_ []string `yaml:"dnssearchdomains"`
-	GatewayAddress_   string   `yaml:"gatewaydevice"`
+	Name_        string `yaml:"name"`
+	MTU_         uint   `yaml:"mtu"`
+	ProviderID_  string `yaml:"provider-id,omitempty"`
+	MachineID_   string `yaml:"machineid"`
+	Type_        string `yaml:"type"`
+	MACAddress_  string `yaml:"macaddress"`
+	IsAutoStart_ bool   `yaml:"isautostart"`
+	IsUp_        bool   `yaml:"isup"`
+	ParentName_  string `yaml:"parentname"`
 }
 
 // ProviderID implements LinkLayerDevice.
@@ -30,71 +30,71 @@ func (i *linklayerdevice) ProviderID() string {
 	return i.ProviderID_
 }
 
-// DeviceName implements LinkLayerDevice.
-func (i *linklayerdevice) DeviceName() string {
-	return i.DeviceName_
-}
-
 // MachineID implements LinkLayerDevice.
 func (i *linklayerdevice) MachineID() string {
 	return i.MachineID_
 }
 
-// SubnetCIDR implements LinkLayerDevice.
-func (i *linklayerdevice) SubnetCIDR() string {
-	return i.SubnetCIDR_
+// Name implements LinkLayerDevice.
+func (i *linklayerdevice) Name() string {
+	return i.Name_
 }
 
-// ConfigMethod implements LinkLayerDevice.
-func (i *linklayerdevice) ConfigMethod() string {
-	return i.ConfigMethod_
+// MTU implements LinkLayerDevice.
+func (i *linklayerdevice) MTU() uint {
+	return i.MTU_
 }
 
-// Value implements LinkLayerDevice.
-func (i *linklayerdevice) Value() string {
-	return i.Value_
+// Type implements LinkLayerDevice.
+func (i *linklayerdevice) Type() string {
+	return i.Type_
 }
 
-// DNSServers implements LinkLayerDevice.
-func (i *linklayerdevice) DNSServers() []string {
-	return i.DNSServers_
+// MACAddress implements LinkLayerDevice.
+func (i *linklayerdevice) MACAddress() string {
+	return i.MACAddress_
 }
 
-// DNSSearchDomains implements LinkLayerDevice.
-func (i *linklayerdevice) DNSSearchDomains() []string {
-	return i.DNSSearchDomains_
+// IsAutoStart implements LinkLayerDevice.
+func (i *linklayerdevice) IsAutoStart() bool {
+	return i.IsAutoStart_
 }
 
-// GatewayAddress implements LinkLayerDevice.
-func (i *linklayerdevice) GatewayAddress() string {
-	return i.GatewayAddress_
+// IsUp implements LinkLayerDevice.
+func (i *linklayerdevice) IsUp() bool {
+	return i.IsUp_
+}
+
+// ParentName implements LinkLayerDevice.
+func (i *linklayerdevice) ParentName() string {
+	return i.ParentName_
 }
 
 // LinkLayerDeviceArgs is an argument struct used to create a
 // new internal linklayerdevice type that supports the LinkLayerDevice interface.
 type LinkLayerDeviceArgs struct {
-	ProviderID       string
-	DeviceName       string
-	MachineID        string
-	SubnetCIDR       string
-	ConfigMethod     string
-	Value            string
-	DNSServers       []string
-	DNSSearchDomains []string
-	GatewayAddress   string
+	Name        string
+	MTU         uint
+	ProviderID  string
+	MachineID   string
+	Type        string
+	MACAddress  string
+	IsAutoStart bool
+	IsUp        bool
+	ParentName  string
 }
 
 func newLinkLayerDevice(args LinkLayerDeviceArgs) *linklayerdevice {
 	return &linklayerdevice{
-		ProviderID_:       args.ProviderID,
-		DeviceName_:       args.DeviceName,
-		MachineID_:        args.MachineID,
-		SubnetCIDR_:       args.SubnetCIDR,
-		ConfigMethod_:     args.ConfigMethod,
-		Value_:            args.Value,
-		DNSServers_:       args.DNSServers,
-		DNSSearchDomains_: args.DNSSearchDomains,
-		GatewayAddress_:   args.GatewayAddress,
+		ProviderID_:  args.ProviderID,
+		MachineID_:   args.MachineID,
+		Name_:        args.Name,
+		MTU_:         args.MTU,
+		Type_:        args.Type,
+		MACAddress_:  args.MACAddress,
+		IsAutoStart_: args.IsAutoStart,
+		IsUp_:        args.IsUp,
+		ParentName_:  args.ParentName,
 	}
 }
 
@@ -139,15 +139,15 @@ var linklayerdeviceDeserializationFuncs = map[int]linklayerdeviceDeserialization
 
 func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, error) {
 	fields := schema.Fields{
-		"provider-id":      schema.String(),
-		"devicename":       schema.String(),
-		"machineid":        schema.String(),
-		"subnetcidr":       schema.String(),
-		"configmethod":     schema.String(),
-		"value":            schema.String(),
-		"dnsservers":       schema.List(schema.String()),
-		"dnssearchdomains": schema.List(schema.String()),
-		"gatewaydevice":    schema.String(),
+		"provider-id": schema.String(),
+		"machineid":   schema.String(),
+		"name":        schema.String(),
+		"mtu":         schema.Int(),
+		"type":        schema.String(),
+		"macaddress":  schema.String(),
+		"isautostart": schema.Bool(),
+		"isup":        schema.Bool(),
+		"parentname":  schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -160,25 +160,15 @@ func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, e
 		return nil, errors.Annotatef(err, "linklayerdevice v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	dnsserversInterface := valid["dnsservers"].([]interface{})
-	dnsservers := make([]string, len(dnsserversInterface))
-	for i, d := range dnsserversInterface {
-		dnsservers[i] = d.(string)
-	}
-	dnssearchInterface := valid["dnssearchdomains"].([]interface{})
-	dnssearch := make([]string, len(dnssearchInterface))
-	for i, d := range dnssearchInterface {
-		dnssearch[i] = d.(string)
-	}
 	return &linklayerdevice{
-		ProviderID_:       valid["provider-id"].(string),
-		DeviceName_:       valid["devicename"].(string),
-		MachineID_:        valid["machineid"].(string),
-		SubnetCIDR_:       valid["subnetcidr"].(string),
-		ConfigMethod_:     valid["configmethod"].(string),
-		Value_:            valid["value"].(string),
-		DNSServers_:       dnsservers,
-		DNSSearchDomains_: dnssearch,
-		GatewayAddress_:   valid["gatewaydevice"].(string),
+		ProviderID_:  valid["provider-id"].(string),
+		MachineID_:   valid["machineid"].(string),
+		Name_:        valid["name"].(string),
+		MTU_:         valid["mtu"].(uint),
+		Type_:        valid["type"].(string),
+		MACAddress_:  valid["macaddress"].(string),
+		IsAutoStart_: valid["isautostart"].(bool),
+		IsUp_:        valid["isup"].(bool),
+		ParentName_:  valid["parentname"].(string),
 	}, nil
 }

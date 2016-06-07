@@ -329,15 +329,15 @@ type Space interface {
 
 // LinkLayerDevice represents an IP device.
 type LinkLayerDevice interface {
+	Name() string
+	MTU() uint
 	ProviderID() string
-	DeviceName() string
 	MachineID() string
-	SubnetCIDR() string
-	ConfigMethod() string
-	Value() string
-	DNSServers() []string
-	DNSSearchDomains() []string
-	GatewayAddress() string
+	Type() string
+	MACAddress() string
+	IsAutoStart() bool
+	IsUp() bool
+	ParentName() string
 }
 
 // Subnet represents a network subnet.
