@@ -168,8 +168,6 @@ class LogicalInterface(object):
         stanzas.append(AutoStanza(bridge_name))
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
-        options.append("bridge_stp on")
-        options.append("bridge_maxwait 0")
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
@@ -179,8 +177,6 @@ class LogicalInterface(object):
             stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("vlan_id")]
         options.append("bridge_ports {}".format(self.name))
-        options.append("bridge_stp on")
-        options.append("bridge_maxwait 0")
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
@@ -198,8 +194,6 @@ class LogicalInterface(object):
         stanzas.append(IfaceStanza(self.name, self.family, "manual", list(self.options)))
         options = [x for x in self.options if not x.startswith("bond")]
         options.append("bridge_ports {}".format(self.name))
-        options.append("bridge_stp on")
-        options.append("bridge_maxwait 0")
         stanzas.append(AutoStanza(bridge_name))
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
@@ -455,11 +449,6 @@ def main(args):
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ip -d addr show")
     print_shell_cmd("ip route show")
-
-    # Remove any other config that can cause issues (i.e. DHCP on eth0 in
-    # addition to static)
-    print_shell_cmd("rm -f /etc/network/interfaces.d/*.cfg > /dev/null")
-    print_shell_cmd("rm -f /etc/systemd/network/50-cloud-init* > /dev/null")
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
