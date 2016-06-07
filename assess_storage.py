@@ -66,6 +66,28 @@ def storage_list(client):
         'list-storage', '--format', 'json'))
 
 
+def assert_storage_lists_equal(storage_list_derived, storage_list_expected):
+    """Check if two storage lists are equal as requested."""
+    equal = True
+    derived_keys = storage_list_derived["storage"].keys().sort()
+    expected_keys = storage_list_expected["storage"].keys().sort()
+    if derived_keys != expected_keys:
+        equal = False
+    while equal:
+        for key, value in storage_list_derived["storage"].iteritems():
+            if value["kind"] != storage_list_expected["storage"][key]["kind"]:
+                equal = False
+            expected_unit = storage_list_expected["storage"][key]["attachments"]["units"]
+            if value["attachments"]["units"].keys() != expected_unit.keys():
+                equal = False
+            expected_charm = expected_unit.keys()[0]
+            if value["kind"] == "filesystem":
+                location_expected = expected_unit[expected_charm]["location"]
+                if value["attachments"]["units"][expected_charm]["location"] != location_expected:
+                    equal = False
+    return equal
+
+
 def storage_pool_list(client):
     """Return the list of storage pool."""
     return json.loads(client.get_juju_output(
@@ -93,7 +115,8 @@ def assess_create_pool(client):
 
 
 def assess_add_storage(client, unit, storage_type, amount="1"):
-    """Test adding storage instances to service."""
+    """Test adding storage instances to service.
+    Only type 'disk' is able to add instances"""
     client.juju('add-storage', (unit, storage_type + "=" + amount))
 
 
@@ -137,7 +160,6 @@ def assess_deploy_storage(client, charm_series,
                                  series=charm_series,
                                  repository=charm_dir, platform=platform)
         deploy_storage(client, charm, charm_series, pool, "1G")
-        assess_add_storage(client, charm_name + '/0', storage.keys()[0], "1")
 
 
 def assess_storage(client, charm_series):
@@ -145,10 +167,45 @@ def assess_storage(client, charm_series):
     assess_create_pool(client)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
+    storage_list_expected = {"storage":
+                                 {"data/0": {
+                                     "kind": "filesystem",
+                                     "attachments":
+                                         {"units":
+                                              {"dummy-storage-fs/0":
+                                                   {"location": "/srv/data"}}}}}}
+    storage_list_derived = storage_list(client)
+    if not assert_storage_lists_equal(storage_list_derived, storage_list_expected):
+        raise JujuAssertionError(storage_list_derived)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
+    storage_list_expected["storage"]["disk/1"] = {"kind": "block",
+                                                  "attachments":
+                                                      {"units":
+                                                           {"dummy-storage-lp/0":
+                                                                {"location": ""}}}}
+    storage_list_derived = storage_list(client)
+    if not assert_storage_lists_equal(storage_list_derived, storage_list_expected):
+        raise JujuAssertionError(storage_list_derived)
+    assess_add_storage(client, 'dummy-storage-lp/0', 'disk', "1")
+    storage_list_expected["storage"]["disk/2"] = {"kind": "block",
+                                                  "attachments":
+                                                      {"units":
+                                                           {"dummy-storage-lp/0":
+                                                                {"location": ""}}}}
+    storage_list_derived = storage_list(client)
+    if not assert_storage_lists_equal(storage_list_derived, storage_list_expected):
+        raise JujuAssertionError(storage_list_derived)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
+    storage_list_expected["storage"]["data/3"] = {"kind": "filesystem",
+                                                  "attachments":
+                                                      {"units":
+                                                           {"dummy-storage-tp/0":
+                                                                {"location": "/srv/data"}}}}
+    storage_list_derived = storage_list(client)
+    if not assert_storage_lists_equal(storage_list_derived, storage_list_expected):
+        raise JujuAssertionError(storage_list_derived)
     # storage with provider 'ebs' is still under observation
     # assess_deploy_storage(client, charm_series,
     #                       'dummy-storage-eb', 'filesystem', 'ebs')
@@ -173,3 +230,4 @@ def main(argv=None):
 
 if __name__ == '__main__':
     sys.exit(main())
+
