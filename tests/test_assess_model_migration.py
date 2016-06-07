@@ -63,9 +63,9 @@ class TestGetBootstrapManagers(TestCase):
                 self.assertEqual(bs2, ret_bs[1])
 
     def test_gives_second_manager_unique_env(self):
-        fake_bs1 = Mock()
-        fake_bs1.temp_env_name = 'testing-env-name'
-        ret_bs = [fake_bs1, Mock()]
+        mock_bs1 = Mock()
+        mock_bs1.temp_env_name = 'testing-env-name'
+        ret_bs = [mock_bs1, Mock()]
         with temp_dir() as log_dir:
             args = Mock(logs=log_dir)
             with patch.object(BootstrapManager, 'from_args',
@@ -111,20 +111,20 @@ class TestWaitForModel(TestCase):
                 amm.wait_for_model(Mock(), 'TestModelName')
 
     def test_returns_when_model_found(self):
-        fake_client = Mock()
-        fake_client.get_models.return_value = dict(
+        mock_client = Mock()
+        mock_client.get_models.return_value = dict(
             models=[
                 dict(name='TestModelName')])
-        amm.wait_for_model(fake_client, 'TestModelName')
+        amm.wait_for_model(mock_client, 'TestModelName')
 
     def test_pauses_between_failed_matches(self):
-        fake_client = Mock()
-        fake_client.get_models.side_effect = [
+        mock_client = Mock()
+        mock_client.get_models.side_effect = [
             dict(models=[]),    # Failed check
             dict(models=[dict(name='TestModelName')]),  # Successful check
             ]
         with patch.object(amm, 'sleep') as mock_sleep:
-            amm.wait_for_model(fake_client, 'TestModelName')
+            amm.wait_for_model(mock_client, 'TestModelName')
             mock_sleep.assert_called_once_with(1)
 
 
