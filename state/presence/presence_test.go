@@ -92,9 +92,21 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 	c.Assert(alive, gc.Equals, alive)
 }
 
+// assertStopped stops a worker and waits until it reports stopped.
+// Use this method in favor of defer w.Stop() because you _must_ ensure
+// that the worker has stopped, and thus is no longer using its mgo
+// session before TearDownTest shuts down the connection.
+func assertStopped(c *gc.C, w interface {
+	Stop() error
+	Wait() error
+}) {
+	c.Assert(w.Stop(), gc.IsNil)
+	w.Wait()
+}
+
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	defer w.Stop()
+	defer assertStopped(c, w)
 
 	c.Assert(errors.Cause(w.Err()), gc.Equals, tomb.ErrStillAlive)
 	select {
@@ -109,18 +121,6 @@ func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
 	default:
 		c.Fatalf("Dead channel should have fired")
 	}
-}
-
-// assertStopped stops a worker and waits until it reports stopped.
-// Use this method in favor of defer w.Stop() because you _must_ ensure
-// that the worker has stopped, and thus is no longer using its mgo
-// session before TearDownTest shuts down the connection.
-func assertStopped(c *gc.C, w interface {
-	Stop() error
-	Wait() error
-}) {
-	c.Assert(w.Stop(), gc.IsNil)
-	w.Wait()
 }
 
 func (s *PresenceSuite) TestAliveError(c *gc.C) {
@@ -301,7 +301,8 @@ func (s *PresenceSuite) TestWatchPeriod(c *gc.C) {
 
 func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	ch := make(chan presence.Change)
+	defer assertStopped(c, w)
+	ch := make(chan presence.Change, 100)
 	for i := 0; i < 100; i++ {
 		key := strconv.Itoa(i)
 		c.Logf("Adding %q", key)
