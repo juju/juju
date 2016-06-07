@@ -152,19 +152,19 @@ const (
 	CloudImageBaseURL = "cloudimg-base-url"
 
 	// LogFwdSyslogHost sets the hostname:port of the syslog server.
-	LogFwdSyslogHost = "logfwd-syslog-host"
+	LogFwdSyslogHost = "syslog-host"
 
 	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
 	// server certificate.
-	LogFwdSyslogCACert = "logfwd-syslog-ca-cert"
+	LogFwdSyslogCACert = "syslog-ca-cert"
 
 	// LogFwdSyslogClientCert sets the client certificate for syslog
 	// forwarding.
-	LogFwdSyslogClientCert = "logfwd-syslog-client-cert"
+	LogFwdSyslogClientCert = "syslog-client-cert"
 
 	// LogFwdSyslogClientKey sets the client key for syslog
 	// forwarding.
-	LogFwdSyslogClientKey = "logfwd-syslog-client-key"
+	LogFwdSyslogClientKey = "syslog-client-key"
 
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
