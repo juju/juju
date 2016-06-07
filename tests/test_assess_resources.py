@@ -67,6 +67,10 @@ class TestAssessResources(TestCase):
         verify_status(
             make_resource_list(), 'dummy-resource/foo', 'foo', '1234', 27)
 
+    def test_verify_status_serviceid(self):
+        verify_status(make_resource_list('serviceid'), 'dummy-resource/foo',
+                      'foo', '1234', 27)
+
     def test_verify_status_exception(self):
         status = make_resource_list()
         status['resources'][0]['expected']['origin'] = 'charmstore'
@@ -213,17 +217,17 @@ def make_args():
         temp_env_name='an-env-mod', upload_tools=False, verbose=10)
 
 
-def make_resource_list():
+def make_resource_list(service_app_id='applicationId'):
     return {'resources': [{
         'expected': {
             'origin': 'upload', 'used': True, 'description': 'foo resource.',
             'username': 'admin@local', 'resourceid': 'dummy-resource/foo',
-            'name': 'foo', 'applicationId': 'dummy-resource', 'size': 27,
+            'name': 'foo', service_app_id: 'dummy-resource', 'size': 27,
             'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
         'unit': {
             'origin': 'upload', 'username': 'admin@local', 'used': True,
             'name': 'foo', 'resourceid': 'dummy-resource/foo',
-            'applicationId': 'dummy-resource', 'fingerprint': '1234',
+            service_app_id: 'dummy-resource', 'fingerprint': '1234',
             'path': 'foo.txt', 'size': 27, 'type': 'file',
             'description': 'foo resource.'}}]}
 
