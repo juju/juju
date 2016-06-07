@@ -16,10 +16,10 @@ from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
 )
-from jujupy import until_timeout
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    wait_for_removed_services,
 )
 
 
@@ -57,14 +57,6 @@ def test_blocked(client, command, args, include_e=True):
         raise JujuAssertionError()
     except Exception:
         pass
-
-
-def wait_for_removed_services(client, charm):
-    """Timeout until the remove process ends"""
-    for ignored in until_timeout(60):
-        status = client.get_status()
-        if charm not in status.status['services']:
-            break
 
 
 def assess_block_destroy_model(client, charm_series):

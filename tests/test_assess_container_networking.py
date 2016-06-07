@@ -199,7 +199,7 @@ class TestContainerNetworking(TestCase):
 
         jcnet.clean_environment(self.client)
         self.assertItemsEqual(self.juju_mock.commands, [
-            ('remove-service', ('name',)),
+            ('remove-application', ('name',)),
             ('remove-machine', '1'),
             ('remove-machine', '2'),
         ])
@@ -228,7 +228,7 @@ class TestContainerNetworking(TestCase):
 
         jcnet.clean_environment(self.client, True)
         self.assertEqual(self.juju_mock.commands, [
-            ('remove-service', ('name',)),
+            ('remove-application', ('name',)),
         ])
 
     def test_make_machines(self):

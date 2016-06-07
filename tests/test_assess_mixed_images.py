@@ -98,7 +98,7 @@ class TestAssess(TestCase):
                     'juju-status': {'current': 'idle'},
                     },
                 },
-            'services': {
+            'applications': {
                 'dummy-sink': {
                     'exposed': False,
                     'relations': {'source': ['dummy-source']},
