@@ -636,9 +636,11 @@ class BootstrapManager:
 
     @contextmanager
     def existing_bootstrap_context(self, machines, omit_config=None):
-        """
-        Context for bootstrapping a state server that shares the environment
-        with an existing bootstrap environment.
+        """ Context for bootstrapping a state server that shares the
+        environment with an existing bootstrap environment.
+
+        Using this context makes it possible to boot multiple simultaneous
+        environments that share a JUJU_HOME.
 
         """
         bootstrap_host = self.known_hosts.get('0')
