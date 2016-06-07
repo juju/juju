@@ -37,9 +37,6 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.readControllerSettings(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.readAllAnnotations(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -47,21 +44,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Overall model config is the combination of controller
-	// and model specific config values.
 	modelConfig, found := export.modelSettings[modelGlobalKey]
 	if !found {
 		return nil, errors.New("missing model config")
-	}
-	if len(export.controllerSettings.Settings) == 0 {
-		return nil, errors.New("missing controller config")
-	}
-	combinedConfig := make(settingsMap)
-	for k, v := range export.controllerSettings.Settings {
-		combinedConfig[k] = v
-	}
-	for k, v := range modelConfig.Settings {
-		combinedConfig[k] = v
 	}
 
 	blocks, err := export.readBlocks()
@@ -71,7 +56,7 @@ func (st *State) Export() (description.Model, error) {
 
 	args := description.ModelArgs{
 		Owner:              dbModel.Owner(),
-		Config:             combinedConfig,
+		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
@@ -115,12 +100,11 @@ type exporter struct {
 	model   description.Model
 	logger  loggo.Logger
 
-	annotations        map[string]annotatorDoc
-	constraints        map[string]bson.M
-	modelSettings      map[string]settingsDoc
-	controllerSettings settingsDoc
-	status             map[string]bson.M
-	statusHistory      map[string][]historicalStatusDoc
+	annotations   map[string]annotatorDoc
+	constraints   map[string]bson.M
+	modelSettings map[string]settingsDoc
+	status        map[string]bson.M
+	statusHistory map[string][]historicalStatusDoc
 	// Map of service name to units. Populated as part
 	// of the services export.
 	units map[string][]*Unit
@@ -738,16 +722,6 @@ func (e *exporter) readAllSettings() error {
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
 		e.modelSettings[key] = doc
-	}
-	return nil
-}
-
-func (e *exporter) readControllerSettings() error {
-	controllers, closer := e.st.getCollection(controllersC)
-	defer closer()
-
-	if err := controllers.Find(bson.D{{"_id", controllerSettingsGlobalKey}}).One(&e.controllerSettings); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }

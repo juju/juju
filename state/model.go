@@ -178,7 +178,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}()
 
-	ops, err := newState.modelSetupOps(args.Config, uuid, st.controllerTag.Id(), owner, args.MigrationMode)
+	ops, err := newState.modelSetupOps(args.Config, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}

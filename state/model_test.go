@@ -55,7 +55,7 @@ func (s *ModelSuite) TestModelDestroy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("non-existent@local")
 
 	_, _, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
@@ -63,7 +63,7 @@ func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first model.
@@ -106,33 +106,33 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModel(c *gc.C) {
-	cfg, uuid := s.createTestEnvConfig(c)
+	cfg, uuid := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	model, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
 	modelTag := names.NewModelTag(uuid)
-	assertEnvMatches := func(env *state.Model) {
-		c.Assert(env.UUID(), gc.Equals, modelTag.Id())
-		c.Assert(env.Tag(), gc.Equals, modelTag)
-		c.Assert(env.ControllerTag(), gc.Equals, s.modelTag)
-		c.Assert(env.Owner(), gc.Equals, owner)
-		c.Assert(env.Name(), gc.Equals, "testing")
-		c.Assert(env.Life(), gc.Equals, state.Alive)
+	assertModelMatches := func(model *state.Model) {
+		c.Assert(model.UUID(), gc.Equals, modelTag.Id())
+		c.Assert(model.Tag(), gc.Equals, modelTag)
+		c.Assert(model.ControllerTag(), gc.Equals, s.modelTag)
+		c.Assert(model.Owner(), gc.Equals, owner)
+		c.Assert(model.Name(), gc.Equals, "testing")
+		c.Assert(model.Life(), gc.Equals, state.Alive)
 	}
-	assertEnvMatches(env)
+	assertModelMatches(model)
 
 	// Since the model tag for the State connection is different,
 	// asking for this model through FindEntity returns a not found error.
-	env, err = s.State.GetModel(modelTag)
+	model, err = s.State.GetModel(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	assertEnvMatches(env)
+	assertModelMatches(model)
 
-	env, err = st.Model()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	assertEnvMatches(env)
+	assertModelMatches(model)
 
 	_, err = s.State.FindEntity(modelTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -147,7 +147,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
 	env, st, err := s.State.NewModel(state.ModelArgs{
@@ -162,7 +162,7 @@ func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
 }
 
 func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
 	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
@@ -187,7 +187,7 @@ func (s *ModelSuite) TestControllerModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	_, st, err := s.State.NewModel(state.ModelArgs{
 		Config: cfg,
 		Owner:  names.NewUserTag("test@remote"),
@@ -233,13 +233,14 @@ func (s *ModelSuite) TestConfigForOtherEnv(c *gc.C) {
 	c.Assert(conf.UUID(), gc.Equals, otherEnv.UUID())
 }
 
-// createTestEnvConfig returns a new model config and its UUID for testing.
-func (s *ModelSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
+// createTestModelConfig returns a new model config and its UUID for testing.
+func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return testing.CustomModelConfig(c, testing.Attrs{
-		"name": "testing",
-		"uuid": uuid.String(),
+		"name":            "testing",
+		"uuid":            uuid.String(),
+		"controller-uuid": s.modelTag.Id(),
 	}), uuid.String()
 }
 

@@ -21,24 +21,12 @@ func controllerOnlyAttribute(attr string) bool {
 	return false
 }
 
-// controllerConfig returns the controller config attributes that result when we have
-// have a current config and want to save a new config, possible overwriting some current values.
-func controllerConfig(currentControllerCfg, cfg map[string]interface{}) map[string]interface{} {
+// controllerConfig returns the controller config attributes from cfg.
+func controllerConfig(cfg map[string]interface{}) map[string]interface{} {
 	controllerCfg := make(map[string]interface{})
-
-	if len(currentControllerCfg) == 0 {
-		// No controller config yet, so we are setting up a
-		// new controller. We'll grab the controller config
-		// attributes from the passed in config.
-		for _, attr := range config.ControllerOnlyConfigAttributes {
-			controllerCfg[attr] = cfg[attr]
-		}
-	} else {
-		// Copy across attributes only valid for the controller config.
-		for _, attr := range config.ControllerOnlyConfigAttributes {
-			if v, ok := currentControllerCfg[attr]; ok {
-				controllerCfg[attr] = v
-			}
+	for _, attr := range config.ControllerOnlyConfigAttributes {
+		if val, ok := cfg[attr]; ok {
+			controllerCfg[attr] = val
 		}
 	}
 	return controllerCfg

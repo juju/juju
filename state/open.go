@@ -108,6 +108,12 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid := cfg.UUID()
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
+	controllerUUID := cfg.ControllerUUID()
+	if controllerUUID != uuid {
+		return nil, errors.Errorf("when initialising state, model and controller UUIDs must be equal, got %v and %v", uuid, controllerUUID)
+	}
 	modelTag := names.NewModelTag(uuid)
 	st, err := open(modelTag, info, opts, policy)
 	if err != nil {
@@ -130,14 +136,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
-	// Note: cfg may have been constructed with model and controller UUIDs
-	// but these are ignored and replaced with uuid below.
-	// TODO(wallyworld) - why are we creating initial cfg with uuids.
 	logger.Infof("initializing controller model %s", uuid)
-
-	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(cfg, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,9 +146,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, err
 	}
 	// Extract just the controller config.
-	controllerCfg := controllerConfig(nil, cfg.AllAttrs())
-	// Ensure the controller config has the uuid that was passed in.
-	controllerCfg[config.ControllerUUIDKey] = uuid
+	controllerCfg := controllerConfig(cfg.AllAttrs())
 
 	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
@@ -191,12 +189,14 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-// modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(cfg *config.Config, modelUUID, controllerUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+// modelSetupOps returns the transaction operations necessary to set up a model.
+func (st *State) modelSetupOps(cfg *config.Config, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkModelConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	modelUUID := cfg.UUID()
+	controllerUUID := cfg.ControllerUUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
 		// TODO(fwereade): 2016-03-17 lp:1558657
@@ -228,9 +228,6 @@ func (st *State) modelSetupOps(cfg *config.Config, modelUUID, controllerUUID str
 	}
 
 	modelCfg := modelConfig(controllerCfg, cfg.AllAttrs())
-	// Ensure the model config has the uuid that was passed in.
-	modelCfg[config.UUIDKey] = modelUUID
-
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
