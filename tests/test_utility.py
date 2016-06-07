@@ -367,12 +367,21 @@ class TestAddBasicTestingArguments(TestCase):
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
-        test_str, utility_str, date_str, logs_str = args.logs.split("_")
-        self.assertEqual(test_str, 'test')
-        self.assertEqual(utility_str, 'utility')
-        self.assertTrue(datetime.strptime(date_str, "%Y%m%d%H%M%S"))
-        self.assertEqual(logs_str, 'logs')
-        self.assertEqual(args.temp_env_name, 'test_utility_temp_env')
+
+        logs_arg = args.logs.split("_")
+        logs_ts = logs_arg[2]
+        self.assertEqual(logs_arg[0:2], ['test', 'utility'])
+        self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
+        self.assertEqual(logs_arg[3], 'logs')
+
+        temp_env_name_arg = args.temp_env_name.split("_")
+        temp_env_name_ts = temp_env_name_arg[2]
+        self.assertEqual(temp_env_name_arg[0:2], ['test', 'utility'])
+        self.assertTrue(temp_env_name_ts,
+                        datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
+        self.assertEqual(temp_env_name_arg[3:5], ['temp', 'env'])
+
+        self.assertEqual(logs_ts, temp_env_name_ts)
 
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']

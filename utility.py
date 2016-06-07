@@ -312,15 +312,14 @@ def _get_test_name_from_filename():
         return 'unknown_test'
 
 
-def _generate_default_clean_dir():
+def _generate_default_clean_dir(timestamp):
     """Creates a new unique directory for logging and returns the name"""
-    timestamp = datetime.now().strftime("_%Y%m%d%H%M%S")
     return ''.join([_get_test_name_from_filename(), timestamp, '_logs'])
 
 
-def _generate_default_temp_env_name():
+def _generate_default_temp_env_name(timestamp):
     """Creates a new unique name for environment and returns the name"""
-    return ''.join([_get_test_name_from_filename(), "_temp_env"])
+    return ''.join([_get_test_name_from_filename(), timestamp, "_temp_env"])
 
 
 def add_basic_testing_arguments(parser, using_jes=False):
@@ -347,6 +346,8 @@ def add_basic_testing_arguments(parser, using_jes=False):
     """
 
     # Optional postional arguments
+    # generate timestamp for use with default args
+    timestamp = datetime.now().strftime("_%Y%m%d%H%M%S")
     parser.add_argument(
         'env', nargs='?',
         help='The juju environment to base the temp test environment on.',
@@ -356,10 +357,10 @@ def add_basic_testing_arguments(parser, using_jes=False):
                         default='/usr/bin/juju')
     parser.add_argument('logs',  nargs='?',  type=_clean_dir,
                         help='A directory in which to store logs.',
-                        default=_generate_default_clean_dir())
+                        default=_generate_default_clean_dir(timestamp))
     parser.add_argument('temp_env_name', nargs='?',
                         help='A temporary test environment name.',
-                        default=_generate_default_temp_env_name())
+                        default=_generate_default_temp_env_name(timestamp))
 
     # Optional keyword arguments.
     parser.add_argument('--debug', action='store_true',
