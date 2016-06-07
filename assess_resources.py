@@ -26,7 +26,7 @@ log = logging.getLogger("assess_resources")
 def _resource_info(name, fingerprint, size):
     data = {}
     data['resourceid'] = "dummy-resource/{}".format(name)
-    data['serviceid'] = 'dummy-resource'
+    data['applicationId'] = 'dummy-resource'
     data['name'] = name
     data['type'] = 'file'
     data['description'] = '{} resource.'.format(name)

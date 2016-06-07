@@ -218,12 +218,12 @@ def make_resource_list():
         'expected': {
             'origin': 'upload', 'used': True, 'description': 'foo resource.',
             'username': 'admin@local', 'resourceid': 'dummy-resource/foo',
-            'name': 'foo', 'serviceid': 'dummy-resource', 'path': 'foo.txt',
-            'fingerprint': '1234', 'type': 'file', 'size': 27},
+            'name': 'foo', 'applicationId': 'dummy-resource', 'size': 27,
+            'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
         'unit': {
             'origin': 'upload', 'username': 'admin@local', 'used': True,
             'name': 'foo', 'resourceid': 'dummy-resource/foo',
-            'serviceid': 'dummy-resource', 'fingerprint': '1234',
+            'applicationId': 'dummy-resource', 'fingerprint': '1234',
             'path': 'foo.txt', 'size': 27, 'type': 'file',
             'description': 'foo resource.'}}]}
 
