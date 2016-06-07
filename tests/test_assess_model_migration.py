@@ -11,10 +11,7 @@ from tests import (
     parse_error,
     TestCase,
 )
-from utility import (
-    JujuResourceTimeout,
-    until_timeout,
-)
+from utility import until_timeout
 
 
 class TestParseArgs(TestCase):
@@ -94,7 +91,7 @@ class TestWaitForModel(TestCase):
     # Pass in a timeout for the model check
     def test_raises_exception_when_timeout_occurs(self):
         with patch.object(until_timeout, 'next', side_effect=StopIteration()):
-            with self.assertRaises(JujuResourceTimeout):
+            with self.assertRaises(AssertionError):
                 amm.wait_for_model(Mock(), 'TestModelName')
 
     def test_returns_when_model_found(self):
@@ -110,9 +107,9 @@ class TestWaitForModel(TestCase):
             dict(models=[]),    # Failed check
             dict(models=[dict(name='TestModelName')]),  # Successful check
             ]
-        with patch.object(amm, 'pause') as fake_pause:
+        with patch.object(amm, 'sleep') as mock_sleep:
             amm.wait_for_model(fake_client, 'TestModelName')
-            fake_pause.assert_called_once_with(1)
+            mock_sleep.assert_called_once_with(1)
 
 
 class TestMain(TestCase):
