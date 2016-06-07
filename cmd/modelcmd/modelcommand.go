@@ -203,7 +203,7 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 			return nil, errors.Trace(err)
 		}
 		if len(controllers) == 0 {
-			return nil, errors.Trace(ErrNoControllerSpecified)
+			return nil, errors.Trace(ErrNoControllersDefined)
 		}
 		return nil, errors.Trace(ErrNotLoggedInToController)
 	}

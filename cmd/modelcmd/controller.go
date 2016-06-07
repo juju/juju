@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	// ErrNoControllerSpecified is returned by commands that operate on
+	// ErrNoControllersDefined is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller.
-	ErrNoControllerSpecified = errors.New(`no controller
+	ErrNoControllersDefined = errors.New(`no controller
 
 Please either create your own new controller using "juju bootstrap" or
 connect to another controller that you have been given access to using "juju register".
@@ -165,7 +165,7 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 			return nil, errors.Trace(err)
 		}
 		if len(controllers) == 0 {
-			return nil, errors.Trace(ErrNoControllerSpecified)
+			return nil, errors.Trace(ErrNoControllersDefined)
 		}
 		return nil, errors.Trace(ErrNotLoggedInToController)
 	}
@@ -268,7 +268,7 @@ func (w *sysCommandWrapper) Init(args []string) error {
 		if w.controllerName == "" && w.useDefaultControllerName {
 			currentController, err := store.CurrentController()
 			if errors.IsNotFound(err) {
-				return ErrNoControllerSpecified
+				return ErrNoControllersDefined
 			}
 			if err != nil {
 				return errors.Trace(err)
@@ -276,7 +276,7 @@ func (w *sysCommandWrapper) Init(args []string) error {
 			w.controllerName = currentController
 		}
 		if w.controllerName == "" && !w.useDefaultControllerName {
-			return ErrNoControllerSpecified
+			return ErrNoControllersDefined
 		}
 	}
 	if w.controllerName != "" {
