@@ -23,7 +23,7 @@ var _ = gc.Suite(&ControllerCommandSuite{})
 
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 	_, err := initTestControllerCommand(c, nil)
-	c.Assert(err, gc.ErrorMatches, "no controller specified(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no controller(.|\n)*")
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
