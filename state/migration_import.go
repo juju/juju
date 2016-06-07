@@ -868,19 +868,10 @@ func (i *importer) linklayerdevices() error {
 }
 
 func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error {
-	deviceValue := device.Value()
-	subnetCIDR := device.SubnetCIDR()
-
 	providerID := device.ProviderID()
-	newDoc := &ipAddressDoc{
-		DeviceName:       device.DeviceName(),
-		MachineID:        device.MachineID(),
-		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     AddressConfigMethod(device.ConfigMethod()),
-		Value:            deviceValue,
-		DNSServers:       device.DNSServers(),
-		DNSSearchDomains: device.DNSSearchDomains(),
-		GatewayAddress:   device.GatewayAddress(),
+	newDoc := &linkLayerDeviceDoc{
+		MachineID:  device.MachineID(),
+		ProviderID: providerID,
 	}
 
 	ops := []txn.Op{{
@@ -890,7 +881,7 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 	}}
 	if providerID != "" {
 		id := network.Id(device.ProviderID())
-		ops = append(ops, i.st.networkEntityGlobalKeyOp("device", id))
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("linklayerdevice", id))
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
