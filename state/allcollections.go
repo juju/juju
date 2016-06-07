@@ -6,6 +6,7 @@ package state
 import (
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/state/audit"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -364,6 +365,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -377,6 +383,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	auditC                   = audit.CollectionName
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"

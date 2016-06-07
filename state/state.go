@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/audit"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/workers"
@@ -103,6 +104,9 @@ type State struct {
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
+
+	// PutAuditEntry writes an audit entry to the audit collection.
+	PutAuditEntry func(audit.AuditEntryDoc) error
 }
 
 // StateServingInfo holds information needed by a controller.

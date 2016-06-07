@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/audit"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
 )
@@ -264,14 +265,17 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 	}
 
 	// Create State.
-	return &State{
+	st := &State{
 		modelTag:      modelTag,
 		mongoInfo:     mongoInfo,
 		mongoDialOpts: dialOpts,
 		session:       session,
 		database:      database,
 		policy:        policy,
-	}, nil
+	}
+	st.PutAuditEntry = audit.PutAuditEntryFn(st.getCollection)
+
+	return st, nil
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
