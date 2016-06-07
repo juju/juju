@@ -344,7 +344,7 @@ func (s *InternalSuite) TestControllerValues(c *gc.C) {
 	config := testing.ModelConfig(c)
 	fields := migration.ControllerValues(config)
 	c.Assert(fields, jc.DeepEquals, map[string]interface{}{
-		"controller-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"controller-uuid": config.UUID(),
 		"state-port":      19034,
 		"api-port":        17777,
 		"ca-cert":         testing.CACert,

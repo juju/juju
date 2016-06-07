@@ -865,10 +865,10 @@ func (s *serverSuite) TestClientModelSetImmutable(c *gc.C) {
 	// The various immutable config values are tested in
 	// environs/config/config_test.go, so just choosing one here.
 	params := params.ModelSet{
-		Config: map[string]interface{}{"state-port": "1"},
+		Config: map[string]interface{}{"firewall-mode": "global"},
 	}
 	err := s.client.ModelSet(params)
-	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to 1`)
+	c.Check(err, gc.ErrorMatches, `cannot change firewall-mode from .* to "global"`)
 }
 
 func (s *serverSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {

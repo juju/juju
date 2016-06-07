@@ -81,7 +81,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:           "testenv",
 		UUID:           s.st.model.cfg.UUID(),
-		ControllerUUID: coretesting.ModelTag.Id(),
+		ControllerUUID: s.st.model.cfg.UUID(),
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
 		DefaultSeries:  series.LatestLts(),
