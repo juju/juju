@@ -15,7 +15,6 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -23,7 +22,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -85,25 +83,11 @@ func (s *charmsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStat
 	return charmResponse
 }
 
-func (s *charmsCommonSuite) createMigratingModel(c *gc.C) *state.State {
-	st := s.setupOtherModel(c)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-
-	spec := state.ModelMigrationSpec{
-		InitiatedBy: names.NewUserTag("admin"),
-		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
-			Addrs:         []string{"1.2.3.4:5555"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("user"),
-			Password:      "password",
-		},
-	}
-	_, err := st.CreateModelMigration(spec)
+func (s *charmsCommonSuite) setModelImporting(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.modelUUID = st.ModelUUID()
-	return st
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type charmsSuite struct {
@@ -367,20 +351,20 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
-	s.assertErrorResponse(c, resp, 400, "cs charms may only be uploaded during model migration")
+	s.assertErrorResponse(c, resp, 400, "cs charms may only be uploaded during model migration import")
 }
 
 func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 	// Check that upload of charms with the "cs:" schema works (for
 	// model migrations).
-	st := s.createMigratingModel(c)
+	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
 	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
 
 	expectedURL := charm.MustParseURL("cs:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
-	sch, err := st.Charm(expectedURL)
+	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 1)
@@ -388,14 +372,14 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 }
 
 func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
-	st := s.createMigratingModel(c)
+	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
 	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&revision=99"), "application/zip", ch.Path)
 
 	expectedURL := charm.MustParseURL("cs:dummy-99")
 	s.assertUploadResponse(c, resp, expectedURL.String())
-	sch, err := st.Charm(expectedURL)
+	sch, err := s.State.Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 99)

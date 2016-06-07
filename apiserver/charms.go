@@ -249,13 +249,14 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 			return nil, err
 		}
 	} else {
-		// "cs:" charms may only be uploaded during model
-		// migrations. There's currently no other time where it makes
-		// sense to accept charm store charms through this endpoint.
-		if migrationInProgress, err := st.IsModelMigrationActive(); err != nil {
+		// "cs:" charms may only be uploaded into models which are
+		// being imported during model migrations. There's currently
+		// no other time where it makes sense to accept charm store
+		// charms through this endpoint.
+		if isImporting, err := modelIsImporting(st); err != nil {
 			return nil, errors.Trace(err)
-		} else if !migrationInProgress {
-			return nil, errors.New("cs charms may only be uploaded during model migration")
+		} else if !isImporting {
+			return nil, errors.New("cs charms may only be uploaded during model migration import")
 		}
 
 		// If a revision argument is provided, it takes precedence
@@ -281,18 +282,6 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, err
 	}
 	return curl, nil
-}
-
-func writeCharmToTempFile(r io.Reader) (string, error) {
-	tempFile, err := ioutil.TempFile("", "charm")
-	if err != nil {
-		return "", errors.Annotate(err, "creating temp file")
-	}
-	defer tempFile.Close()
-	if _, err := io.Copy(tempFile, r); err != nil {
-		return "", errors.Annotate(err, "processing upload")
-	}
-	return tempFile.Name(), nil
 }
 
 // processUploadedArchive opens the given charm archive from path,
@@ -519,4 +508,24 @@ func cleanupFile(file *os.File) {
 	// the file is already closed or has been moved.
 	file.Close()
 	os.Remove(file.Name())
+}
+
+func writeCharmToTempFile(r io.Reader) (string, error) {
+	tempFile, err := ioutil.TempFile("", "charm")
+	if err != nil {
+		return "", errors.Annotate(err, "creating temp file")
+	}
+	defer tempFile.Close()
+	if _, err := io.Copy(tempFile, r); err != nil {
+		return "", errors.Annotate(err, "processing upload")
+	}
+	return tempFile.Name(), nil
+}
+
+func modelIsImporting(st *state.State) (bool, error) {
+	model, err := st.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return model.MigrationMode() == state.MigrationModeImporting, nil
 }
