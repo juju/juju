@@ -6,9 +6,8 @@ package state_test
 import (
 	"testing"
 
-	"github.com/juju/utils/os"
-
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/utils/os"
 )
 
 func TestPackage(t *testing.T) {
