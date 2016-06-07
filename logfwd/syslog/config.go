@@ -31,7 +31,9 @@ type RawConfig struct {
 	// be used.
 	Host string
 
-	// TODO(ericsnow) Add ExpectedServerCert?
+	// ExpectedServerCert is the TLS certificate that the server must
+	// use when the client connects.
+	ExpectedServerCert string
 
 	// CACert is the CA cert PEM to use for the client cert.
 	ClientCACert string
@@ -105,6 +107,13 @@ func parseHost(host string) (*network.HostPort, error) {
 // TODO(ericsnow) Split up validateSSL() to make it more follow-able?
 
 func (cfg RawConfig) validateSSL() error {
+	if cfg.ExpectedServerCert == "" {
+		return errors.NewNotValid(nil, "syslog forwarding config missing server cert")
+	}
+	if _, err := cert.ParseCert(cfg.ExpectedServerCert); err != nil {
+		return errors.NewNotValid(err, "syslog forwarding config has invalid server cert")
+	}
+
 	if cfg.ClientCert == "" {
 		return errors.NewNotValid(nil, "syslog forwarding config missing client cert")
 	}

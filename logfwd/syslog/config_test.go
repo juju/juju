@@ -20,10 +20,11 @@ var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -33,10 +34,11 @@ func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateWithoutPort(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -54,10 +56,11 @@ func (s *ConfigSuite) TestRawValidateZeroValue(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -68,10 +71,11 @@ func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         ":9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               ":9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -82,10 +86,11 @@ func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadHostname(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "###:9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "###:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -96,10 +101,11 @@ func (s *ConfigSuite) TestRawValidateBadHostname(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateMissingPort(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -110,10 +116,11 @@ func (s *ConfigSuite) TestRawValidateMissingPort(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadPort(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:xyz",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:xyz",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -122,12 +129,58 @@ func (s *ConfigSuite) TestRawValidateBadPort(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `syslog forwarding config has bad host: cannot parse "a.b.c:xyz" port: strconv.ParseInt: parsing "xyz": invalid syntax`)
 }
 
+func (s *ConfigSuite) TestRawValidateMissingServerCert(c *gc.C) {
+	cfg := syslog.RawConfig{
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: "",
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
+	}
+
+	err := cfg.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `syslog forwarding config missing server cert`)
+}
+
+func (s *ConfigSuite) TestRawValidateBadServerCert(c *gc.C) {
+	cfg := syslog.RawConfig{
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: invalidCert,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
+	}
+
+	err := cfg.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid server cert: asn1: syntax error: data truncated`)
+}
+
+func (s *ConfigSuite) TestRawValidateBadServerCertFormat(c *gc.C) {
+	cfg := syslog.RawConfig{
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: "abc",
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
+	}
+
+	err := cfg.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid server cert: no certificates found`)
+}
+
 func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: "",
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       "",
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -138,10 +191,11 @@ func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: invalidCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       invalidCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -152,10 +206,11 @@ func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: "abc",
-		ClientCert:   validCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       "abc",
+		ClientCert:         validCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -166,10 +221,11 @@ func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   "",
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         "",
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -180,10 +236,11 @@ func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   invalidCert,
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         invalidCert,
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -194,10 +251,11 @@ func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   "abc",
-		ClientKey:    validKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         "abc",
+		ClientKey:          validKey,
 	}
 
 	err := cfg.Validate()
@@ -208,10 +266,11 @@ func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    "",
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          "",
 	}
 
 	err := cfg.Validate()
@@ -222,10 +281,11 @@ func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    invalidKey,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          invalidKey,
 	}
 
 	err := cfg.Validate()
@@ -236,10 +296,11 @@ func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    "abc",
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          "abc",
 	}
 
 	err := cfg.Validate()
@@ -250,10 +311,11 @@ func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:         "a.b.c:9876",
-		ClientCACert: validCACert,
-		ClientCert:   validCert,
-		ClientKey:    validKey2,
+		Host:               "a.b.c:9876",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       validCACert,
+		ClientCert:         validCert,
+		ClientKey:          validKey2,
 	}
 
 	err := cfg.Validate()

@@ -154,6 +154,10 @@ const (
 	// LogFwdSyslogHost sets the hostname:port of the syslog server.
 	LogFwdSyslogHost = "syslog-host"
 
+	// LogFwdSyslogServerCert sets the expected server certificate for
+	// syslog forwarding.
+	LogFwdSyslogServerCert = "syslog-server-cert"
+
 	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
 	// server certificate.
 	LogFwdSyslogCACert = "syslog-ca-cert"
@@ -732,6 +736,11 @@ func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
 		lfCfg.Host = s.(string)
 	}
 
+	if s, ok := c.defined[LogFwdSyslogServerCert]; ok && s != "" {
+		partial = true
+		lfCfg.ExpectedServerCert = s.(string)
+	}
+
 	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
 		partial = true
 		lfCfg.ClientCACert = s.(string)
@@ -1029,6 +1038,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	LogFwdSyslogHost:             schema.Omit,
+	LogFwdSyslogServerCert:       schema.Omit,
 	LogFwdSyslogCACert:           schema.Omit,
 	LogFwdSyslogClientCert:       schema.Omit,
 	LogFwdSyslogClientKey:        schema.Omit,
@@ -1439,6 +1449,11 @@ global or per instance security groups.`,
 	},
 	LogFwdSyslogHost: {
 		Description: `LogFwdSyslogHost specifies the hostname:port of the syslog server.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogServerCert: {
+		Description: `The expected syslog server certificate in PEM format.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

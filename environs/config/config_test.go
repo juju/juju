@@ -653,12 +653,26 @@ var configTests = []configTest{
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
 	}, {
+		about:       "Invalid syslog server cert",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": invalidCACert,
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey,
+		}),
+		err: "syslog forwarding config has invalid server cert: asn1: syntax error: data truncated",
+	}, {
 		about:       "Invalid syslog ca cert format",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     "abc",
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
@@ -671,6 +685,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     invalidCACert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
@@ -681,6 +696,7 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"syslog-host":        "10.0.0.1:12345",
+			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": invalidCACert,
 			"syslog-client-key":  caKey,
@@ -691,6 +707,7 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"syslog-host":        "10.0.0.1:12345",
+			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  invalidCAKey,
@@ -701,6 +718,7 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"syslog-host":        "10.0.0.1:12345",
+			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey2,
@@ -713,6 +731,7 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
@@ -988,6 +1007,13 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 
 	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
+	if v, ok := test.attrs["syslog-server-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ExpectedServerCert, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ExpectedServerCert, gc.Equals, "")
+	}
 	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
 		c.Assert(hasLogCfg, jc.IsTrue)
 		c.Assert(lfCfg.ClientCACert, gc.Equals, v)
