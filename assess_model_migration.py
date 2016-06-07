@@ -8,9 +8,9 @@ import logging
 import os
 from subprocess import CalledProcessError
 import sys
+from time import sleep
 
 from deploy_stack import BootstrapManager
-from jujupy import pause
 from utility import (
     JujuResourceTimeout,
     add_basic_testing_arguments,
@@ -63,13 +63,16 @@ def _new_log_dir(log_dir, post_fix):
     return new_log_dir
 
 
-def wait_for_model(client, model_name):
-    for _ in until_timeout(60):
+def wait_for_model(client, model_name, timeout=60):
+    for _ in until_timeout(timeout):
         models = client.get_models()
         if model_name in [m['name'] for m in models['models']]:
             return
-        pause(1)
-    raise JujuResourceTimeout()
+        sleep(1)
+    raise AssertionError(
+        'Model \'{}\' failed to appear after {} seconds'.format(
+            model_name, timeout
+        ))
 
 
 def test_deployed_mongo_is_up(client):
@@ -101,8 +104,7 @@ def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
 
             bs1.client.controller_juju(
                 'migrate',
-                (bs1.client.env.environment,
-                 'local.{}'.format(bs2.client.env.controller.name)))
+                (bs1.client.env.environment, bs2.client.env.controller.name))
 
             migration_target_client = bs2.client.clone(
                 bs2.client.env.clone(bs1.client.env.environment))
@@ -110,7 +112,7 @@ def ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools):
             wait_for_model(migration_target_client, bs1.client.env.environment)
 
             # WIP logging
-            migration_target_client.juju('status', ())
+            migration_target_client.show_status()
 
             migration_target_client.wait_for_started()
             test_deployed_mongo_is_up(migration_target_client)

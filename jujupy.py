@@ -1208,7 +1208,6 @@ class EnvJujuClient:
 
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
-        # This should be using controller name
         output = self.get_juju_output(
             'list-models', '-c', self.env.controller.name, '--format', 'yaml',
             include_e=False)
