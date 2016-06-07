@@ -4,10 +4,10 @@
 package uniter_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -21,7 +21,7 @@ import (
 // into relationSuite to avoid running the former's tests twice.
 type commonRelationSuiteMixin struct {
 	mysqlMachine *state.Machine
-	mysqlService *state.Service
+	mysqlService *state.Application
 	mysqlCharm   *state.Charm
 	mysqlUnit    *state.Unit
 

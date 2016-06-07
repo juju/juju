@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -276,7 +276,7 @@ func (p *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]s
 		if !unit.IsPrincipal() {
 			continue
 		}
-		service, err := unit.Service()
+		service, err := unit.Application()
 		if err != nil {
 			return nil, err
 		}

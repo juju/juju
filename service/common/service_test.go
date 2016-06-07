@@ -19,7 +19,7 @@ var _ = gc.Suite(&serviceSuite{})
 
 func (*serviceSuite) TestNoConfMissing(c *gc.C) {
 	service := common.Service{
-		Name: "a-service",
+		Name: "a-application",
 	}
 	noConf := service.NoConf()
 
@@ -28,7 +28,7 @@ func (*serviceSuite) TestNoConfMissing(c *gc.C) {
 
 func (*serviceSuite) TestNoConfEmpty(c *gc.C) {
 	service := common.Service{
-		Name: "a-service",
+		Name: "a-application",
 		Conf: common.Conf{},
 	}
 	noConf := service.NoConf()
@@ -38,7 +38,7 @@ func (*serviceSuite) TestNoConfEmpty(c *gc.C) {
 
 func (*serviceSuite) TestNoConfFalse(c *gc.C) {
 	service := common.Service{
-		Name: "a-service",
+		Name: "a-application",
 		Conf: common.Conf{
 			Desc:      "some service",
 			ExecStart: "/path/to/some-command x y z",
@@ -51,7 +51,7 @@ func (*serviceSuite) TestNoConfFalse(c *gc.C) {
 
 func (*serviceSuite) TestValidateOkay(c *gc.C) {
 	service := common.Service{
-		Name: "a-service",
+		Name: "a-application",
 		Conf: common.Conf{
 			Desc:      "some service",
 			ExecStart: "/path/to/some-command x y z",
@@ -76,7 +76,7 @@ func (*serviceSuite) TestValidateMissingName(c *gc.C) {
 
 func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 	service := common.Service{
-		Name: "a-service",
+		Name: "a-application",
 		Conf: common.Conf{
 			ExecStart: "/path/to/some-command x y z",
 		},
@@ -88,7 +88,7 @@ func (*serviceSuite) TestValidateMissingDesc(c *gc.C) {
 
 func (*serviceSuite) TestValidateMissingExecStart(c *gc.C) {
 	service := common.Service{
-		Name: "a-service",
+		Name: "a-application",
 		Conf: common.Conf{
 			Desc: "some service",
 		},

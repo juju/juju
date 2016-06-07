@@ -17,7 +17,7 @@ Disables a Juju user.`[1:]
 var usageDisableUserDetails = `
 A disabled Juju user is one that cannot log in to any controller.
 This command has no affect on models that the disabled user may have
-created and/or shared nor any services associated with that user.
+created and/or shared nor any applictions associated with that user.
 
 Examples:
     juju disable-user bob

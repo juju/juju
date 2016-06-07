@@ -22,7 +22,7 @@ var _ = gc.Suite(&BootstrapConfigFileSuite{})
 
 const testBootstrapConfigYAML = `
 controllers:
-  local.aws-test:
+  aws-test:
     config:
       name: admin
       type: ec2
@@ -30,7 +30,7 @@ controllers:
     cloud: aws
     region: us-east-1
     endpoint: https://us-east-1.amazonaws.com
-  local.mallards:
+  mallards:
     config:
       name: admin
       type: maas
@@ -39,7 +39,7 @@ controllers:
 `
 
 var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
-	"local.aws-test": {
+	"aws-test": {
 		Config: map[string]interface{}{
 			"type": "ec2",
 			"name": "admin",
@@ -49,7 +49,7 @@ var testBootstrapConfig = map[string]jujuclient.BootstrapConfig{
 		CloudRegion:   "us-east-1",
 		CloudEndpoint: "https://us-east-1.amazonaws.com",
 	},
-	"local.mallards": {
+	"mallards": {
 		Config: map[string]interface{}{
 			"type": "maas",
 			"name": "admin",
@@ -101,7 +101,7 @@ func (s *BootstrapConfigFileSuite) TestParseControllerMetadata(c *gc.C) {
 	for name, _ := range controllers {
 		names = append(names, name)
 	}
-	c.Assert(names, jc.SameContents, []string{"local.mallards", "local.aws-test"})
+	c.Assert(names, jc.SameContents, []string{"mallards", "aws-test"})
 }
 
 func (s *BootstrapConfigFileSuite) TestParseControllerMetadataError(c *gc.C) {

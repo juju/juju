@@ -35,7 +35,7 @@ func (s *baseSuite) newPayload(name, ptype, id, status string) payload.Payload {
 		},
 		ID:     id,
 		Status: status,
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	}
 	return pl
 }

@@ -5,10 +5,10 @@ package leadership_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
@@ -36,7 +36,7 @@ func (s *settingsSuite) TestReadSettings(c *gc.C) {
 
 	results, err := accessor.Read(params.Entities{
 		[]params.Entity{
-			{Tag: names.NewServiceTag(StubServiceNm).String()},
+			{Tag: names.NewApplicationTag(StubServiceNm).String()},
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -73,8 +73,8 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
 		[]params.MergeLeadershipSettingsParam{
 			{
-				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
-				Settings:   map[string]string{"baz": "biz"},
+				ApplicationTag: names.NewApplicationTag(StubServiceNm).String(),
+				Settings:       map[string]string{"baz": "biz"},
 			},
 		},
 	})
@@ -112,8 +112,8 @@ func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
 		[]params.MergeLeadershipSettingsParam{
 			{
-				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
-				Settings:   map[string]string{"baz": "biz"},
+				ApplicationTag: names.NewApplicationTag(StubServiceNm).String(),
+				Settings:       map[string]string{"baz": "biz"},
 			},
 		},
 	})
@@ -137,7 +137,7 @@ func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, registerWatcher, nil, nil, nil)
 
 	results, err := accessor.WatchLeadershipSettings(params.Entities{[]params.Entity{
-		{names.NewServiceTag(StubServiceNm).String()},
+		{names.NewApplicationTag(StubServiceNm).String()},
 	}})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

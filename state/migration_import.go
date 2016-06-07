@@ -88,8 +88,8 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
 	}
-	if err := restore.services(); err != nil {
-		return nil, nil, errors.Annotate(err, "services")
+	if err := restore.applications(); err != nil {
+		return nil, nil, errors.Annotate(err, "applications")
 	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
@@ -111,9 +111,9 @@ type importer struct {
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
-	// serviceUnits is populated at the end of loading the services, and is a
-	// map of service name to units of that service.
-	serviceUnits map[string][]*Unit
+	// applicationUnits is populated at the end of loading the applications, and is a
+	// map of application name to units of that application.
+	applicationUnits map[string][]*Unit
 }
 
 func (i *importer) modelExtras() error {
@@ -473,11 +473,11 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 	return result
 }
 
-func (i *importer) services() error {
-	i.logger.Debugf("importing services")
-	for _, s := range i.model.Services() {
-		if err := i.service(s); err != nil {
-			i.logger.Errorf("error importing service %s: %s", s.Name(), err)
+func (i *importer) applications() error {
+	i.logger.Debugf("importing applications")
+	for _, s := range i.model.Applications() {
+		if err := i.application(s); err != nil {
+			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}
 	}
@@ -485,7 +485,7 @@ func (i *importer) services() error {
 	if err := i.loadUnits(); err != nil {
 		return errors.Annotate(err, "loading new units from db")
 	}
-	i.logger.Debugf("importing services succeeded")
+	i.logger.Debugf("importing applications succeeded")
 	return nil
 }
 
@@ -501,10 +501,10 @@ func (i *importer) loadUnits() error {
 
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
-		units := result[doc.Service]
-		result[doc.Service] = append(units, newUnit(i.st, &doc))
+		units := result[doc.Application]
+		result[doc.Application] = append(units, newUnit(i.st, &doc))
 	}
-	i.serviceUnits = result
+	i.applicationUnits = result
 	return nil
 
 }
@@ -519,12 +519,12 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 	}
 }
 
-func (i *importer) service(s description.Service) error {
-	// Import this service, then soon, its units.
-	i.logger.Debugf("importing service %s", s.Name())
+func (i *importer) application(s description.Application) error {
+	// Import this application, then soon, its units.
+	i.logger.Debugf("importing application %s", s.Name())
 
-	// 1. construct a serviceDoc
-	sdoc, err := i.makeServiceDoc(s)
+	// 1. construct an applicationDoc
+	sdoc, err := i.makeApplicationDoc(s)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -537,10 +537,10 @@ func (i *importer) service(s description.Service) error {
 	statusDoc := i.makeStatusDoc(status)
 	// TODO: update never set malarky... maybe...
 
-	ops := addServiceOps(i.st, addServiceOpsArgs{
-		serviceDoc:  sdoc,
-		statusDoc:   statusDoc,
-		constraints: i.constraints(s.Constraints()),
+	ops := addApplicationOps(i.st, addApplicationOpsArgs{
+		applicationDoc: sdoc,
+		statusDoc:      statusDoc,
+		constraints:    i.constraints(s.Constraints()),
 		// storage          TODO,
 		settings:           s.Settings(),
 		settingsRefCount:   s.SettingsRefCount(),
@@ -551,7 +551,7 @@ func (i *importer) service(s description.Service) error {
 		return errors.Trace(err)
 	}
 
-	svc := newService(i.st, sdoc)
+	svc := newApplication(i.st, sdoc)
 	if annotations := s.Annotations(); len(annotations) > 0 {
 		if err := i.st.SetAnnotations(svc, annotations); err != nil {
 			return errors.Trace(err)
@@ -579,7 +579,7 @@ func (i *importer) service(s description.Service) error {
 	return nil
 }
 
-func (i *importer) unit(s description.Service, u description.Unit) error {
+func (i *importer) unit(s description.Application, u description.Unit) error {
 	i.logger.Debugf("importing unit %s", u.Name())
 
 	// 1. construct a unitDoc
@@ -649,13 +649,13 @@ func (i *importer) unit(s description.Service, u description.Unit) error {
 	return nil
 }
 
-func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
+func (i *importer) makeApplicationDoc(s description.Application) (*applicationDoc, error) {
 	charmUrl, err := charm.ParseURL(s.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return &serviceDoc{
+	return &applicationDoc{
 		Name:                 s.Name(),
 		Series:               s.Series(),
 		Subordinate:          s.Subordinate(),
@@ -672,12 +672,12 @@ func (i *importer) makeServiceDoc(s description.Service) (*serviceDoc, error) {
 	}, nil
 }
 
-func (i *importer) relationCount(service string) int {
+func (i *importer) relationCount(application string) int {
 	count := 0
 
 	for _, rel := range i.model.Relations() {
 		for _, ep := range rel.Endpoints() {
-			if ep.ServiceName() == service {
+			if ep.ApplicationName() == application {
 				count++
 			}
 		}
@@ -686,11 +686,11 @@ func (i *importer) relationCount(service string) int {
 	return count
 }
 
-func (i *importer) makeUnitDoc(s description.Service, u description.Unit) (*unitDoc, error) {
+func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*unitDoc, error) {
 	// NOTE: if we want to support units having different charms deployed
-	// than the service recomments and migrate that, then we should serialize
-	// the charm url for each unit rather than grabbing the services charm url.
-	// Currently the units charm url matching the service is a precondiation
+	// than the application recomments and migrate that, then we should serialize
+	// the charm url for each unit rather than grabbing the applications charm url.
+	// Currently the units charm url matching the application is a precondiation
 	// to migration.
 	charmUrl, err := charm.ParseURL(s.CharmURL())
 	if err != nil {
@@ -706,7 +706,7 @@ func (i *importer) makeUnitDoc(s description.Service, u description.Unit) (*unit
 
 	return &unitDoc{
 		Name:         u.Name(),
-		Service:      s.Name(),
+		Application:  s.Name(),
 		Series:       s.Series(),
 		CharmURL:     charmUrl,
 		Principal:    u.Principal().Id(),
@@ -745,10 +745,10 @@ func (i *importer) relation(rel description.Relation) error {
 
 	dbRelation := newRelation(i.st, relationDoc)
 	// Add an op that adds the relation scope document for each
-	// unit of the service, and an op that adds the relation settings
+	// unit of the application, and an op that adds the relation settings
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
-		units := i.serviceUnits[endpoint.ServiceName()]
+		units := i.applicationUnits[endpoint.ApplicationName()]
 		for _, unit := range units {
 			ru, err := dbRelation.Unit(unit)
 			if err != nil {
@@ -785,7 +785,7 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 	}
 	for i, ep := range endpoints {
 		doc.Endpoints[i] = Endpoint{
-			ServiceName: ep.ServiceName(),
+			ApplicationName: ep.ApplicationName(),
 			Relation: charm.Relation{
 				Name:      ep.Name(),
 				Role:      charm.RelationRole(ep.Role()),

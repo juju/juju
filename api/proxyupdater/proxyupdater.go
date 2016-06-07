@@ -11,8 +11,8 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/names.v2"
 )
 
 const proxyUpdaterFacade = "ProxyUpdater"

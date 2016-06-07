@@ -28,7 +28,7 @@ func (s *filterSuite) newPayload(name string) payload.FullPayloadInfo {
 			ID:     "id" + name,
 			Status: "running",
 			Labels: []string{"a-tag"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	}
@@ -139,7 +139,7 @@ func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
 			ID:     "idspam",
 			Status: "running",
 			Labels: []string{"tagA", "tagB"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	}
@@ -153,7 +153,7 @@ func (s *filterSuite) TestBuildPredicatesForOkay(c *gc.C) {
 		"running",
 		"tagA",
 		"tagB",
-		"a-service/0",
+		"a-application/0",
 		"1",
 	}
 	for _, pattern := range patterns {
@@ -215,7 +215,7 @@ func (s *filterSuite) TestMatch(c *gc.C) {
 			ID:     "idspam",
 			Status: "running",
 			Labels: []string{"tagA", "tagB"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	}
@@ -228,7 +228,7 @@ func (s *filterSuite) TestMatch(c *gc.C) {
 		"running",
 		"tagA",
 		"tagB",
-		"a-service/0",
+		"a-application/0",
 		"1",
 	} {
 		c.Logf("check %q", pattern)

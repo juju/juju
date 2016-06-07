@@ -48,7 +48,7 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 		"migration-master",
 		"not-alive-flag",
 		"not-dead-flag",
-		"service-scaler",
+		"application-scaler",
 		"space-importer",
 		"spaces-imported-gate",
 		"state-cleaner",

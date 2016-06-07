@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -20,6 +19,7 @@ import (
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/s3"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"

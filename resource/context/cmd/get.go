@@ -45,15 +45,15 @@ the controller, if necessary.
 
 If "resource-get" for a resource has not been run before (for the unit)
 then the resource is downloaded from the controller at the revision
-associated with the unit's service. That file is stored in the unit's
+associated with the unit's application. That file is stored in the unit's
 local cache. If "resource-get" *has* been run before then each
 subsequent run syncs the resource with the controller. This ensures
 that the revision of the unit-local copy of the resource matches the
-revision of the resource associated with the unit's service.
+revision of the resource associated with the unit's application.
 
 Either way, the path provided by "resource-get" references the
 up-to-date file for the resource. Note that the resource may get
-updated on the controller for the service at any time, meaning the
+updated on the controller for the application at any time, meaning the
 cached copy *may* be out of date at any time after you call
 "resource-get". Consequently, the command should be run at every
 point where it is critical that the resource be up to date.
@@ -61,7 +61,7 @@ point where it is critical that the resource be up to date.
 The "upgrade-charm" hook is useful for keeping your charm's resources
 on a unit up to date.  Run "resource-get" there for each of your
 charm's resources to do so. The hook fires whenever the the file for
-one of the service's resources changes on the controller (in addition
+one of the application's resources changes on the controller (in addition
 to when the charm itself changes). That means it happens in response
 to "juju upgrade-charm" as well as to "juju push-resource".
 

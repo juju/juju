@@ -3,12 +3,12 @@ package testing
 import (
 	"sort"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -28,8 +28,8 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Service, []*state.Relation) {
-	svc, err := s.State.Service(name)
+func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Application, []*state.Relation) {
+	svc, err := s.State.Application(name)
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := svc.Charm()
 	c.Assert(err, jc.ErrorIsNil)

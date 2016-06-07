@@ -4,9 +4,9 @@
 package client
 
 import (
-	"github.com/juju/names"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -33,10 +33,10 @@ type Unit interface {
 type stateInterface interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	Unit(string) (Unit, error)
-	Service(string) (*state.Service, error)
+	Application(string) (*state.Application, error)
 	Machine(string) (*state.Machine, error)
 	AllMachines() ([]*state.Machine, error)
-	AllServices() ([]*state.Service, error)
+	AllApplications() ([]*state.Application, error)
 	AllRelations() ([]*state.Relation, error)
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)

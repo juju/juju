@@ -16,9 +16,9 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"

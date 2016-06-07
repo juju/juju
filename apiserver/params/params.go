@@ -108,7 +108,7 @@ type AddRelation struct {
 }
 
 // AddRelationResults holds the results of a AddRelation call. The Endpoints
-// field maps service names to the involved endpoints.
+// field maps application names to the involved endpoints.
 type AddRelationResults struct {
 	Endpoints map[string]charm.Relation
 }
@@ -196,14 +196,14 @@ type DestroyMachines struct {
 	Force        bool
 }
 
-// ServicesDeploy holds the parameters for deploying one or more services.
-type ServicesDeploy struct {
-	Services []ServiceDeploy
+// ApplicationsDeploy holds the parameters for deploying one or more applications.
+type ApplicationsDeploy struct {
+	Applications []ApplicationDeploy
 }
 
-// ServiceDeploy holds the parameters for making the service Deploy call.
-type ServiceDeploy struct {
-	ServiceName      string
+// ApplicationDeploy holds the parameters for making the application Deploy call.
+type ApplicationDeploy struct {
+	ApplicationName  string
 	Series           string
 	CharmUrl         string
 	Channel          string
@@ -217,9 +217,9 @@ type ServiceDeploy struct {
 	Resources        map[string]string
 }
 
-// ServiceUpdate holds the parameters for making the service Update call.
-type ServiceUpdate struct {
-	ServiceName     string
+// ApplicationUpdate holds the parameters for making the application Update call.
+type ApplicationUpdate struct {
+	ApplicationName string
 	CharmUrl        string
 	ForceCharmUrl   bool
 	ForceSeries     bool
@@ -229,10 +229,10 @@ type ServiceUpdate struct {
 	Constraints     *constraints.Value
 }
 
-// ServiceSetCharm sets the charm for a given service.
-type ServiceSetCharm struct {
-	// ServiceName is the name of the service to set the charm on.
-	ServiceName string `json:"servicename"`
+// ApplicationSetCharm sets the charm for a given application.
+type ApplicationSetCharm struct {
+	// ApplicationName is the name of the application to set the charm on.
+	ApplicationName string `json:"applicationname"`
 	// CharmUrl is the new url for the charm.
 	CharmUrl string `json:"charmurl"`
 	// Channel is the charm store channel from which the charm came.
@@ -247,64 +247,64 @@ type ServiceSetCharm struct {
 	ResourceIDs map[string]string `json:"resourceids"`
 }
 
-// ServiceExpose holds the parameters for making the service Expose call.
-type ServiceExpose struct {
-	ServiceName string
+// ApplicationExpose holds the parameters for making the application Expose call.
+type ApplicationExpose struct {
+	ApplicationName string
 }
 
-// ServiceSet holds the parameters for a service Set
+// ApplicationSet holds the parameters for an application Set
 // command. Options contains the configuration data.
-type ServiceSet struct {
-	ServiceName string
-	Options     map[string]string
+type ApplicationSet struct {
+	ApplicationName string
+	Options         map[string]string
 }
 
-// ServiceUnset holds the parameters for a service Unset
+// ApplicationUnset holds the parameters for an application Unset
 // command. Options contains the option attribute names
 // to unset.
-type ServiceUnset struct {
-	ServiceName string
-	Options     []string
+type ApplicationUnset struct {
+	ApplicationName string
+	Options         []string
 }
 
-// ServiceGet holds parameters for making the Get or
+// ApplicationGet holds parameters for making the Get or
 // GetCharmURL calls.
-type ServiceGet struct {
-	ServiceName string
+type ApplicationGet struct {
+	ApplicationName string
 }
 
-// ServiceGetResults holds results of the service Get call.
-type ServiceGetResults struct {
-	Service     string
+// ApplicationGetResults holds results of the application Get call.
+type ApplicationGetResults struct {
+	Application string
 	Charm       string
 	Config      map[string]interface{}
 	Constraints constraints.Value
 }
 
-// ServiceCharmRelations holds parameters for making the service CharmRelations call.
-type ServiceCharmRelations struct {
-	ServiceName string
+// ApplicationCharmRelations holds parameters for making the application CharmRelations call.
+type ApplicationCharmRelations struct {
+	ApplicationName string
 }
 
-// ServiceCharmRelationsResults holds the results of the service CharmRelations call.
-type ServiceCharmRelationsResults struct {
+// ApplicationCharmRelationsResults holds the results of the application CharmRelations call.
+type ApplicationCharmRelationsResults struct {
 	CharmRelations []string
 }
 
-// ServiceUnexpose holds parameters for the service Unexpose call.
-type ServiceUnexpose struct {
-	ServiceName string
+// ApplicationUnexpose holds parameters for the application Unexpose call.
+type ApplicationUnexpose struct {
+	ApplicationName string
 }
 
-// ServiceMetricCredential holds parameters for the SetServiceCredentials call.
-type ServiceMetricCredential struct {
-	ServiceName       string
+// ApplicationMetricCredential holds parameters for the SetApplicationCredentials call.
+type ApplicationMetricCredential struct {
+	ApplicationName   string
 	MetricCredentials []byte
 }
 
-// ServiceMetricCredentials holds multiple ServiceMetricCredential parameters.
-type ServiceMetricCredentials struct {
-	Creds []ServiceMetricCredential
+// ApplicationMetricCredentials holds multiple ApplicationMetricCredential parameters.
+type ApplicationMetricCredentials struct {
+	Creds []ApplicationMetricCredential
 }
 
 // PublicAddress holds parameters for the PublicAddress call.
@@ -335,32 +335,32 @@ type Resolved struct {
 
 // ResolvedResults holds results of the Resolved call.
 type ResolvedResults struct {
-	Service  string
-	Charm    string
-	Settings map[string]interface{}
+	Application string
+	Charm       string
+	Settings    map[string]interface{}
 }
 
-// AddServiceUnitsResults holds the names of the units added by the
+// AddApplicationUnitsResults holds the names of the units added by the
 // AddUnits call.
-type AddServiceUnitsResults struct {
+type AddApplicationUnitsResults struct {
 	Units []string
 }
 
-// AddServiceUnits holds parameters for the AddUnits call.
-type AddServiceUnits struct {
-	ServiceName string
-	NumUnits    int
-	Placement   []*instance.Placement
+// AddApplicationUnits holds parameters for the AddUnits call.
+type AddApplicationUnits struct {
+	ApplicationName string
+	NumUnits        int
+	Placement       []*instance.Placement
 }
 
-// DestroyServiceUnits holds parameters for the DestroyUnits call.
-type DestroyServiceUnits struct {
+// DestroyApplicationUnits holds parameters for the DestroyUnits call.
+type DestroyApplicationUnits struct {
 	UnitNames []string
 }
 
-// ServiceDestroy holds the parameters for making the service Destroy call.
-type ServiceDestroy struct {
-	ServiceName string
+// ApplicationDestroy holds the parameters for making the application Destroy call.
+type ApplicationDestroy struct {
+	ApplicationName string
 }
 
 // Creds holds credentials for identifying an entity.
@@ -407,9 +407,9 @@ type SetAnnotations struct {
 	Pairs map[string]string
 }
 
-// GetServiceConstraints stores parameters for making the GetServiceConstraints call.
-type GetServiceConstraints struct {
-	ServiceName string
+// GetApplicationConstraints stores parameters for making the GetApplicationConstraints call.
+type GetApplicationConstraints struct {
+	ApplicationName string
 }
 
 // GetConstraintsResults holds results of the GetConstraints call.
@@ -419,8 +419,8 @@ type GetConstraintsResults struct {
 
 // SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
-	ServiceName string //optional, if empty, model constraints are set.
-	Constraints constraints.Value
+	ApplicationName string //optional, if empty, model constraints are set.
+	Constraints     constraints.Value
 }
 
 // ResolveCharms stores charm references for a ResolveCharms call.

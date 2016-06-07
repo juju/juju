@@ -4,10 +4,10 @@
 package testing
 
 import (
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"

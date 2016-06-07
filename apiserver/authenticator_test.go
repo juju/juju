@@ -4,9 +4,9 @@
 package apiserver_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
@@ -68,7 +68,7 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
 	srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewServiceTag("not-support"))
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewApplicationTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
 	c.Assert(authenticator, gc.IsNil)
 }

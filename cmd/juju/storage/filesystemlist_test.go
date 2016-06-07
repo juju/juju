@@ -264,7 +264,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 			},
 			Storage: &params.StorageDetails{
 				StorageTag: "storage-shared-fs-0",
-				OwnerTag:   "service-transcode",
+				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindBlock,
 				Status:     createTestStatus(status.StatusAttached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{

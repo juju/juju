@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -83,7 +83,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclient.ClientStore) {
-	const controllerName = "local.my-controller"
+	const controllerName = "my-controller"
 
 	store := jujuclienttesting.NewMemStore()
 
@@ -264,7 +264,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 
 	startTime := time.Now()
 	st, err := newAPIConnectionFromNames(c,
-		"local.my-controller", "admin@local", "only", store, apiOpen,
+		"my-controller", "admin@local", "only", store, apiOpen,
 		modelcmd.NewGetBootstrapConfigFunc(store),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,11 +290,11 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 
 func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, addr, host string) {
 	// Populate the controller details with known address and hostname.
-	details, err := store.ControllerByName("local.my-controller")
+	details, err := store.ControllerByName("my-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	details.APIEndpoints = []string{addr}
 	details.UnresolvedAPIEndpoints = []string{host}
-	err = store.UpdateController("local.my-controller", *details)
+	err = store.UpdateController("my-controller", *details)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -331,7 +331,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		st, err := newAPIConnectionFromNames(c,
-			"local.my-controller", "admin@local", "only", store, apiOpen,
+			"my-controller", "admin@local", "only", store, apiOpen,
 			modelcmd.NewGetBootstrapConfigFunc(store),
 		)
 		c.Check(err, jc.ErrorIsNil)
@@ -386,7 +386,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := newAPIConnectionFromNames(c, "local.my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
 	c.Check(err, gc.ErrorMatches, "connecting with bootstrap config: config connect failed")
 	c.Check(st, gc.IsNil)
 }

@@ -5,11 +5,11 @@ package storageprovisioner_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -36,7 +36,7 @@ func (s *ConfigSuite) TestNilScope(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestInvalidScope(c *gc.C) {
-	s.config.Scope = names.NewServiceTag("boo")
+	s.config.Scope = names.NewApplicationTag("boo")
 	s.checkNotValid(c, ".* Scope not valid")
 }
 

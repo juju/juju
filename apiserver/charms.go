@@ -24,9 +24,9 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
@@ -375,7 +375,7 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	}
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
-	info := service.CharmArchive{
+	info := application.CharmArchive{
 		ID:     curl,
 		Charm:  archive,
 		Data:   &repackagedArchive,
@@ -383,7 +383,7 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 		SHA256: bundleSHA256,
 	}
 	// Store the charm archive in environment storage.
-	return service.StoreCharmArchive(st, info)
+	return application.StoreCharmArchive(st, info)
 }
 
 // processGet handles a charm file GET request after authentication.

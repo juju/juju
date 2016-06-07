@@ -6,9 +6,9 @@ package uniter_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"

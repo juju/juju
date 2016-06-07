@@ -6,8 +6,8 @@ package state
 import (
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -27,10 +27,10 @@ type Entity interface {
 	Tag() names.Tag
 }
 
-// EntityWithService is implemented by Units it is intended
-// for anything that can return its Service.
-type EntityWithService interface {
-	Service() (*Service, error)
+// EntityWithApplication is implemented by Units it is intended
+// for anything that can return its Application.
+type EntityWithApplication interface {
+	Application() (*Application, error)
 }
 
 // Lifer represents an entity with a life.

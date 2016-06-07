@@ -258,7 +258,7 @@ func (s *prepareSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-wordpress"},
 		{Tag: "network-foo"},
 		{Tag: "anything-invalid"},
 		{Tag: "42"},
@@ -270,7 +270,7 @@ func (s *prepareSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 		apiservertesting.ServerError(
 			`"unit-wordpress-0" is not a valid machine tag`),
 		apiservertesting.ServerError(
-			`"service-wordpress" is not a valid machine tag`),
+			`"application-wordpress" is not a valid machine tag`),
 		apiservertesting.ServerError(
 			`"network-foo" is not a valid machine tag`),
 		apiservertesting.ServerError(
@@ -779,7 +779,7 @@ func (s *releaseSuite) TestErrorsWithNonMachineOrInvalidTags(c *gc.C) {
 	s.newAPI(c, true, false)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
-		{Tag: "service-wordpress"},
+		{Tag: "application-wordpress"},
 		{Tag: "network-foo"},
 		{Tag: "anything-invalid"},
 		{Tag: "42"},

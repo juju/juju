@@ -86,12 +86,9 @@ func (c *ControllerCommandBase) ClientStore() jujuclient.ClientStore {
 
 // SetControllerName implements the ControllerCommand interface.
 func (c *ControllerCommandBase) SetControllerName(controllerName string) error {
-	actualControllerName, err := ResolveControllerName(c.ClientStore(), controllerName)
-	if err != nil {
+	if _, err := c.ClientStore().ControllerByName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	controllerName = actualControllerName
-
 	accountName, err := c.store.CurrentAccount(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -270,27 +267,4 @@ func (w *sysCommandWrapper) Init(args []string) error {
 		}
 	}
 	return w.ControllerCommand.Init(args)
-}
-
-// ResolveControllerName returns the canonical name of a controller given
-// an unambiguous identifier for that controller.
-// Locally created controllers (i.e. those whose names begin with "local.")
-// may be identified with or without the "local." prefix if there exists no
-// other controller in the store with the same unprefixed name.
-func ResolveControllerName(store jujuclient.ControllerStore, controllerName string) (string, error) {
-	_, err := store.ControllerByName(controllerName)
-	if err == nil {
-		return controllerName, nil
-	}
-	if !errors.IsNotFound(err) {
-		return "", err
-	}
-	var secondErr error
-	localName := "local." + controllerName
-	_, secondErr = store.ControllerByName(localName)
-	// If fallback name not found, return the original error.
-	if errors.IsNotFound(secondErr) {
-		return "", err
-	}
-	return localName, secondErr
 }

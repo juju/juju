@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -77,24 +77,24 @@ func NewFacade(store DataStore, newClient func() (CharmStore, error)) (*Facade, 
 // resourceInfoStore is the portion of Juju's "state" needed
 // for the resources facade.
 type resourceInfoStore interface {
-	// ListResources returns the resources for the given service.
+	// ListResources returns the resources for the given application.
 	ListResources(service string) (resource.ServiceResources, error)
 
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
 	// it is resolved. The returned ID is used to identify the pending
 	// resources when resolving it.
-	AddPendingResource(serviceID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
+	AddPendingResource(applicationID, userID string, chRes charmresource.Resource, r io.Reader) (string, error)
 }
 
-// ListResources returns the list of resources for the given service.
+// ListResources returns the list of resources for the given application.
 func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults, error) {
 	var r api.ResourcesResults
 	r.Results = make([]api.ResourcesResult, len(args.Entities))
 
 	for i, e := range args.Entities {
 		logger.Tracef("Listing resources for %q", e.Tag)
-		tag, apierr := parseServiceTag(e.Tag)
+		tag, apierr := parseApplicationTag(e.Tag)
 		if apierr != nil {
 			r.Results[i] = api.ResourcesResult{
 				ErrorResult: params.ErrorResult{
@@ -121,15 +121,15 @@ func (f Facade) ListResources(args api.ListResourcesArgs) (api.ResourcesResults,
 func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPendingResourcesResult, error) {
 	var result api.AddPendingResourcesResult
 
-	tag, apiErr := parseServiceTag(args.Tag)
+	tag, apiErr := parseApplicationTag(args.Tag)
 	if apiErr != nil {
 		result.Error = apiErr
 		return result, nil
 	}
-	serviceID := tag.Id()
+	applicationID := tag.Id()
 
 	channel := csparams.Channel(args.Channel)
-	ids, err := f.addPendingResources(serviceID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
+	ids, err := f.addPendingResources(applicationID, args.URL, channel, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -138,7 +138,7 @@ func (f Facade) AddPendingResources(args api.AddPendingResourcesArgs) (api.AddPe
 	return result, nil
 }
 
-func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
+func (f Facade) addPendingResources(applicationID, chRef string, channel csparams.Channel, csMac *macaroon.Macaroon, apiResources []api.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := api.API2CharmResource(apiRes)
@@ -176,7 +176,7 @@ func (f Facade) addPendingResources(serviceID, chRef string, channel csparams.Ch
 
 	var ids []string
 	for _, res := range resources {
-		pendingID, err := f.addPendingResource(serviceID, res)
+		pendingID, err := f.addPendingResource(applicationID, res)
 		if err != nil {
 			// We don't bother aggregating errors since a partial
 			// completion is disruptive and a retry of this endpoint
@@ -305,25 +305,25 @@ func resolveStoreResource(res charmresource.Resource, storeResources map[string]
 	return res, nil
 }
 
-func (f Facade) addPendingResource(serviceID string, chRes charmresource.Resource) (pendingID string, err error) {
+func (f Facade) addPendingResource(applicationID string, chRes charmresource.Resource) (pendingID string, err error) {
 	userID := ""
 	var reader io.Reader
-	pendingID, err = f.store.AddPendingResource(serviceID, userID, chRes, reader)
+	pendingID, err = f.store.AddPendingResource(applicationID, userID, chRes, reader)
 	if err != nil {
 		return "", errors.Annotatef(err, "while adding pending resource info for %q", chRes.Name)
 	}
 	return pendingID, nil
 }
 
-func parseServiceTag(tagStr string) (names.ServiceTag, *params.Error) { // note the concrete error type
-	serviceTag, err := names.ParseServiceTag(tagStr)
+func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { // note the concrete error type
+	ApplicationTag, err := names.ParseApplicationTag(tagStr)
 	if err != nil {
-		return serviceTag, &params.Error{
+		return ApplicationTag, &params.Error{
 			Message: err.Error(),
 			Code:    params.CodeBadRequest,
 		}
 	}
-	return serviceTag, nil
+	return ApplicationTag, nil
 }
 
 func errorResult(err error) api.ResourcesResult {

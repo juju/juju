@@ -18,11 +18,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"

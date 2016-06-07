@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -99,7 +99,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("Programming error. We should only ever pass in machines, services, or units. Received %T.", i))
+			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, or units. Received %T.", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
@@ -108,8 +108,8 @@ func BuildPredicateFor(patterns []string) Predicate {
 			return or(shims...)
 		case *state.Unit:
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
-		case *state.Service:
-			shims, err := buildServiceMatcherShims(i.(*state.Service), patterns...)
+		case *state.Application:
+			shims, err := buildServiceMatcherShims(i.(*state.Application), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -176,7 +176,7 @@ func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, erro
 }
 
 func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
-	s, err := u.Service()
+	s, err := u.Application()
 	if err != nil {
 		return false, false, err
 	}
@@ -191,7 +191,7 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
-func buildServiceMatcherShims(s *state.Service, patterns ...string) (shims []closurePredicate, _ error) {
+func buildServiceMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
@@ -307,7 +307,7 @@ func matchSubnet(patterns []string, addresses ...string) (bool, bool, error) {
 	return false, oneValidPattern, nil
 }
 
-func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
+func matchExposure(patterns []string, s *state.Application) (bool, bool, error) {
 	if len(patterns) >= 1 && patterns[0] == "exposed" {
 		return s.IsExposed(), true, nil
 	} else if len(patterns) >= 2 && patterns[0] == "not" && patterns[1] == "exposed" {

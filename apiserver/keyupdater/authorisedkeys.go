@@ -5,8 +5,8 @@ package keyupdater
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/ssh"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"

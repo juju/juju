@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/common/networkingcommon"

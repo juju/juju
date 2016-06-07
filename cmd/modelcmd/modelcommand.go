@@ -149,8 +149,7 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 		controllerName = currentController
 	} else {
 		var err error
-		controllerName, err = ResolveControllerName(c.store, controllerName)
-		if err != nil {
+		if _, err = c.store.ControllerByName(controllerName); err != nil {
 			return errors.Trace(err)
 		}
 	}
