@@ -732,9 +732,9 @@ var configTests = []configTest{
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
 			"syslog-server-cert": caCert2,
-			"syslog-ca-cert":     caCert,
-			"syslog-client-cert": caCert,
-			"syslog-client-key":  caKey,
+			"syslog-ca-cert":     testing.CACert,
+			"syslog-client-cert": testing.ServerCert,
+			"syslog-client-key":  testing.ServerKey,
 		}),
 	}, {
 		about:       "Invalid identity URL value",

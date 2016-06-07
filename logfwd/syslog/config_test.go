@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/logfwd/syslog"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ConfigSuite struct {
@@ -22,9 +23,9 @@ func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
 	cfg := syslog.RawConfig{
 		Host:               "a.b.c:9876",
 		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		ClientCACert:       coretesting.CACert,
+		ClientCert:         coretesting.ServerCert,
+		ClientKey:          coretesting.ServerKey,
 	}
 
 	err := cfg.Validate()
@@ -36,9 +37,9 @@ func (s *ConfigSuite) TestRawValidateWithoutPort(c *gc.C) {
 	cfg := syslog.RawConfig{
 		Host:               "a.b.c",
 		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		ClientCACert:       coretesting.CACert,
+		ClientCert:         coretesting.ServerCert,
+		ClientKey:          coretesting.ServerKey,
 	}
 
 	err := cfg.Validate()
@@ -322,6 +323,20 @@ func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: private key does not match public key`)
+}
+
+func (s *ConfigSuite) TestRawValidateCACertMismatch(c *gc.C) {
+	cfg := syslog.RawConfig{
+		Host:               "a.b.c",
+		ExpectedServerCert: validCert2,
+		ClientCACert:       coretesting.OtherCACert,
+		ClientCert:         coretesting.ServerCert,
+		ClientKey:          coretesting.ServerKey,
+	}
+
+	err := cfg.Validate()
+
+	c.Check(err, gc.ErrorMatches, `invalid ClientCert: cert does not match CA cert: x509: certificate signed by unknown authority \(possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "juju-generated CA for model \\"juju testing\\""\)`)
 }
 
 var validCACert = `

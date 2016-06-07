@@ -8,6 +8,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -104,9 +105,8 @@ func parseHost(host string) (*network.HostPort, error) {
 	return hostport, nil
 }
 
-// TODO(ericsnow) Split up validateSSL() to make it more follow-able?
-
 func (cfg RawConfig) validateSSL() error {
+	// Check the server cert.
 	if cfg.ExpectedServerCert == "" {
 		return errors.NewNotValid(nil, "empty ExpectedServerCert")
 	}
@@ -115,14 +115,13 @@ func (cfg RawConfig) validateSSL() error {
 		return errors.Annotate(err, "invalid ExpectedServerCert")
 	}
 
+	// Check the client cert and key.
 	if cfg.ClientCert == "" {
 		return errors.NewNotValid(nil, "empty ClientCert")
 	}
-
 	if cfg.ClientKey == "" {
 		return errors.NewNotValid(nil, "empty ClientKey")
 	}
-
 	if _, _, err := cert.ParseCertAndKey(cfg.ClientCert, cfg.ClientKey); err != nil {
 		if _, err := cert.ParseCert(cfg.ClientCert); err != nil {
 			err = errors.NewNotValid(err, "")
@@ -132,6 +131,7 @@ func (cfg RawConfig) validateSSL() error {
 		return errors.Annotate(err, "invalid ClientKey")
 	}
 
+	// Check the client CA cert.
 	if cfg.ClientCACert == "" {
 		return errors.NewNotValid(nil, "empty ClientCACert")
 	}
@@ -140,7 +140,10 @@ func (cfg RawConfig) validateSSL() error {
 		return errors.Annotate(err, "invalid ClientCACert")
 	}
 
-	// TODO(ericsnow) Also call cert.Verify() to ensure the CA cert matches?
+	if err := cert.Verify(cfg.ClientCert, cfg.ClientCACert, time.Now()); err != nil {
+		err = errors.NewNotValid(err, "cert does not match CA cert")
+		return errors.Annotate(err, "invalid ClientCert")
+	}
 
 	return nil
 }
