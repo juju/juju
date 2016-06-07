@@ -83,7 +83,8 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		UUID:           s.st.model.cfg.UUID(),
 		ControllerUUID: coretesting.ModelTag.Id(),
 		OwnerTag:       "user-bob@local",
-		ProviderType:   "someprovider",
+		Cloud:          "mycloud",
+		CloudRegion:    "mycloudregion",
 		DefaultSeries:  series.LatestLts(),
 		Life:           params.Dying,
 		Status: params.EntityStatus{
@@ -119,6 +120,8 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
+		{"Cloud", nil},
+		{"CloudRegion", nil},
 	})
 }
 
@@ -284,6 +287,18 @@ func (m *mockModel) Life() state.Life {
 func (m *mockModel) Status() (status.StatusInfo, error) {
 	m.MethodCall(m, "Status")
 	return m.status, m.NextErr()
+}
+
+func (m *mockModel) Cloud() string {
+	m.MethodCall(m, "Cloud")
+	m.PopNoErr()
+	return "mycloud"
+}
+
+func (m *mockModel) CloudRegion() string {
+	m.MethodCall(m, "CloudRegion")
+	m.PopNoErr()
+	return "mycloudregion"
 }
 
 func (m *mockModel) Users() ([]common.ModelUser, error) {

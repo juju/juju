@@ -124,6 +124,21 @@ func allCollections() collectionSchema {
 		// one model migration document exists per environment.
 		migrationsActiveC: {global: true},
 
+		// This collection holds information about clouds, and is
+		// global. Any user may have an entry in the collection,
+		// with the document ID keyed on the canonicalized user tag.
+		cloudsC: {
+			global: true,
+		},
+
+		// This collection holds information about cloud credentials,
+		// and is user-specific. Any user may have an entry in the
+		// collection, with the document ID keyed on the canonicalized
+		// user tag.
+		cloudCredentialsC: {
+			global: true,
+		},
+
 		// This collection holds user information that's not specific to any
 		// one model.
 		usersC: {
@@ -383,6 +398,8 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudsC                  = "clouds"
+	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
-	"github.com/juju/version"
 )
 
 // modelGlobalKey is the key for the model, its
@@ -59,6 +59,17 @@ type modelDoc struct {
 	Owner         string        `bson:"owner"`
 	ServerUUID    string        `bson:"server-uuid"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
+
+	// Cloud is the name of the cloud that the model is managed within.
+	Cloud string `bson:"cloud"`
+
+	// CloudRegion is the name of the cloud region that the model is
+	// managed within. For clouds without regions, this will be empty.
+	CloudRegion string `bson:"cloud-region,omitempty"`
+
+	// TODO(axw) put this in config? Probably better off here, since
+	// we'll need to refer to the field in transactions.
+	CloudCredential string `bson:"cloud-credential,omitempty"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
@@ -145,9 +156,45 @@ func (st *State) AllModels() ([]*Model, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
-	Config        *config.Config
-	Owner         names.UserTag
+	// Cloud is the name of the cloud that the model is deployed to.
+	Cloud string
+
+	// CloudRegion is the name of the cloud region that the model is
+	// deployed to. For clouds without regions, this will be empty.
+	CloudRegion string
+
+	// CloudCredential is the name of the cloud credential. The name is
+	// relative to the model owner and the cloud name. For clouds that
+	// do not require authentication, this will be empty.
+	CloudCredential string
+
+	// Config is the model config.
+	Config *config.Config
+
+	// Owner is the user that owns the model.
+	Owner names.UserTag
+
+	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
+}
+
+// Validate validates the ModelArgs.
+func (m ModelArgs) Validate() error {
+	if m.Cloud == "" {
+		return errors.NotValidf("empty Cloud")
+	}
+	if m.Config == nil {
+		return errors.NotValidf("nil Config")
+	}
+	if m.Owner == (names.UserTag{}) {
+		return errors.NotValidf("empty Owner")
+	}
+	switch m.MigrationMode {
+	case MigrationModeActive, MigrationModeImporting:
+	default:
+		return errors.NotValidf("initial migration mode %q", m.MigrationMode)
+	}
+	return nil
 }
 
 // NewModel creates a new model with its own UUID and
@@ -160,6 +207,10 @@ type ModelArgs struct {
 // models, perhaps for future use around cross model
 // relations.
 func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	owner := args.Owner
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
@@ -183,7 +234,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}()
 
-	ops, err := newState.modelSetupOps(args.Config, uuid, ssEnv.UUID(), owner, args.MigrationMode)
+	ops, err := newState.modelSetupOps(
+		args.Config, uuid, ssEnv.UUID(),
+		args.Cloud, args.CloudRegion, args.CloudCredential,
+		owner, args.MigrationMode,
+	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -253,6 +308,23 @@ func (m *Model) ControllerUUID() string {
 // Name returns the human friendly name of the model.
 func (m *Model) Name() string {
 	return m.doc.Name
+}
+
+// Cloud returns the name of the cloud that the model is deployed to.
+func (m *Model) Cloud() string {
+	return m.doc.Cloud
+}
+
+// CloudRegion returns the name of the cloud region that the model is
+// deployed to.
+func (m *Model) CloudRegion() string {
+	return m.doc.CloudRegion
+}
+
+// CloudCredential returns the name of the cloud credential for the
+// model.
+func (m *Model) CloudCredential() string {
+	return m.doc.CloudCredential
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -743,14 +815,21 @@ func ensureDestroyable(st *State) error {
 
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createModelOp(st *State, owner names.UserTag, name, uuid, server string, mode MigrationMode) txn.Op {
+func createModelOp(
+	st *State, owner names.UserTag,
+	name, uuid, server, cloud, cloudRegion, cloudCredential string,
+	mode MigrationMode,
+) txn.Op {
 	doc := &modelDoc{
-		UUID:          uuid,
-		Name:          name,
-		Life:          Alive,
-		Owner:         owner.Canonical(),
-		ServerUUID:    server,
-		MigrationMode: mode,
+		UUID:            uuid,
+		Name:            name,
+		Life:            Alive,
+		Owner:           owner.Canonical(),
+		ServerUUID:      server,
+		MigrationMode:   mode,
+		Cloud:           cloud,
+		CloudRegion:     cloudRegion,
+		CloudCredential: cloudCredential,
 	}
 	return txn.Op{
 		C:      modelsC,

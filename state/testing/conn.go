@@ -26,7 +26,18 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	mgoInfo := NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 
-	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: cfg,
+			Cloud:  "dummy",
+		},
+		MongoInfo:        mgoInfo,
+		MongoDialOpts:    dialOpts,
+		Policy:           policy,
+		PublicClouds:     TestClouds(),
+		CloudCredentials: TestCredentials(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

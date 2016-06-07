@@ -103,7 +103,7 @@ models:
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
-  type: dummy
+  cloud: dummy
   life: alive
   status:
     current: available

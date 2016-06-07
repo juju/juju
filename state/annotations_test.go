@@ -179,7 +179,11 @@ func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	env, st, err := s.State.NewModel(state.ModelArgs{
+		Config: cfg,
+		Owner:  owner,
+		Cloud:  "dummy",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env, st
 }

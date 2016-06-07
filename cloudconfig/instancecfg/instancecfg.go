@@ -24,6 +24,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -207,6 +208,30 @@ type StateInitializationParams struct {
 	// to store in environment storage at bootstrap time. This is ignored
 	// in non-bootstrap instances.
 	CustomImageMetadata []*imagemetadata.ImageMetadata
+
+	// PublicClouds contains the public clouds known to the client, which
+	// will be stored in the controller.
+	PublicClouds map[string]cloud.Cloud
+
+	// PersonalClouds contains the bootstrapping user's personal clouds,
+	// which will be stored in the controller.
+	PersonalClouds map[string]cloud.Cloud
+
+	// CloudCredentials contains the cloud credentials which will be stored
+	// in the controller for the admin user.
+	CloudCredentials map[string]cloud.CloudCredential
+
+	// Cloud is the name of the cloud that Juju will be bootstrapped in.
+	Cloud string
+
+	// CloudRegion is the name of the cloud region that Juju will be
+	// bootstrapped in. This will be empty for clouds that do not support
+	// regions.
+	CloudRegion string
+
+	// CloudCredential is the name of the cloud credential used to
+	// bootstrap Juju.
+	CloudCredential string
 }
 
 type stateInitializationParamsInternal struct {
@@ -217,6 +242,12 @@ type stateInitializationParamsInternal struct {
 	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
 	CustomImageMetadataJSON     string                            `yaml:"custom-image-metadata,omitempty"`
+	PublicCloudsYAML            string                            `yaml:"public-clouds"`
+	PersonalCloudsYAML          string                            `yaml:"personal-clouds"`
+	CloudCredentials            map[string]cloud.CloudCredential
+	Cloud                       string `yaml:"cloud"`
+	CloudRegion                 string `yaml:"cloud-region,omitempty"`
+	CloudCredential             string `yaml:"cloud-credential,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -224,6 +255,14 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	customImageMetadataJSON, err := json.Marshal(p.CustomImageMetadata)
 	if err != nil {
 		return nil, errors.Annotate(err, "marshalling custom image metadata")
+	}
+	publicCloudsYAML, err := cloud.MarshalCloudMetadata(p.PublicClouds)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling public cloud metadata")
+	}
+	personalCloudsYAML, err := cloud.MarshalCloudMetadata(p.PersonalClouds)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling personal cloud metadata")
 	}
 	internal := stateInitializationParamsInternal{
 		p.InstanceId,
@@ -233,6 +272,12 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.BootstrapMachineConstraints,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
+		string(publicCloudsYAML),
+		string(personalCloudsYAML),
+		p.CloudCredentials,
+		p.Cloud,
+		p.CloudRegion,
+		p.CloudCredential,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -252,6 +297,14 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	publicClouds, err := cloud.ParseCloudMetadata([]byte(internal.PublicCloudsYAML))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	personalClouds, err := cloud.ParseCloudMetadata([]byte(internal.PersonalCloudsYAML))
+	if err != nil {
+		return errors.Trace(err)
+	}
 	*p = StateInitializationParams{
 		InstanceId:                  internal.InstanceId,
 		HardwareCharacteristics:     internal.HardwareCharacteristics,
@@ -260,6 +313,12 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
 		ModelConstraints:            internal.ModelConstraints,
 		CustomImageMetadata:         imageMetadata,
+		PublicClouds:                publicClouds,
+		PersonalClouds:              personalClouds,
+		CloudCredentials:            internal.CloudCredentials,
+		Cloud:                       internal.Cloud,
+		CloudRegion:                 internal.CloudRegion,
+		CloudCredential:             internal.CloudCredential,
 	}
 	return nil
 }

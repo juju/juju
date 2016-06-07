@@ -48,10 +48,13 @@ func (*ModelSerializationSuite) TestUnknownVersion(c *gc.C) {
 }
 
 func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
-	model := NewModel(ModelArgs{Config: map[string]interface{}{
-		"name": "awesome",
-		"uuid": "some-uuid",
-	}})
+	model := NewModel(ModelArgs{
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		Cloud: "dummy",
+	})
 	model.UpdateConfig(map[string]interface{}{
 		"name": "something else",
 		"key":  "value",
@@ -181,7 +184,7 @@ func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {
 }
 
 func (*ModelSerializationSuite) TestModelValidationChecksMachines(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
 	model.AddMachine(MachineArgs{})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, "machine missing id not valid")
@@ -197,14 +200,14 @@ func (s *ModelSerializationSuite) addMachineToModel(model Model, id string) Mach
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksMachinesGood(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
 	s.addMachineToModel(model, "0")
 	err := model.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
 	machine := s.addMachineToModel(model, "0")
 	machine.AddOpenedPorts(OpenedPortsArgs{
 		OpenedPorts: []PortRangeArgs{
@@ -221,7 +224,10 @@ func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.
 }
 
 func (*ModelSerializationSuite) TestModelValidationChecksServices(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{
+		Owner: names.NewUserTag("owner"),
+		Cloud: "dummy",
+	})
 	model.AddService(ServiceArgs{})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, "service missing name not valid")
@@ -256,7 +262,9 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		Owner: names.NewUserTag("owner"),
 		Config: map[string]interface{}{
 			"uuid": "some-uuid",
-		}})
+		},
+		Cloud: "dummy",
+	})
 	s.addServiceToModel(model, "wordpress", 2)
 	s.addServiceToModel(model, "mysql", 1)
 

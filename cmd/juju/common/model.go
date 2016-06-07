@@ -18,7 +18,8 @@ type ModelInfo struct {
 	UUID           string                   `json:"model-uuid" yaml:"model-uuid"`
 	ControllerUUID string                   `json:"controller-uuid" yaml:"controller-uuid"`
 	Owner          string                   `json:"owner" yaml:"owner"`
-	ProviderType   string                   `json:"type" yaml:"type"`
+	Cloud          string                   `json:"cloud" yaml:"cloud"`
+	CloudRegion    string                   `json:"region,omitempty" yaml:"region,omitempty"`
 	Life           string                   `json:"life" yaml:"life"`
 	Status         ModelStatus              `json:"status" yaml:"status"`
 	Users          map[string]ModelUserInfo `json:"users" yaml:"users"`
@@ -59,7 +60,8 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Owner:          tag.Id(),
 		Life:           string(info.Life),
 		Status:         status,
-		ProviderType:   info.ProviderType,
+		Cloud:          info.Cloud,
+		CloudRegion:    info.CloudRegion,
 		Users:          ModelUserInfoFromParams(info.Users, now),
 	}, nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -92,6 +93,30 @@ type BootstrapParams struct {
 	// used to retrieve the Juju GUI archive installed in the controller.
 	// If not set, the Juju GUI is not installed from simplestreams.
 	GUIDataSourceBaseURL string
+
+	// PublicClouds contains the public clouds known to the client, which
+	// will be stored in the controller.
+	PublicClouds map[string]cloud.Cloud
+
+	// PersonalClouds contains the bootstrapping user's personal clouds,
+	// which will be stored in the controller.
+	PersonalClouds map[string]cloud.Cloud
+
+	// CloudCredentials contains the cloud credentials which will be stored
+	// in the controller for the admin user.
+	CloudCredentials map[string]cloud.CloudCredential
+
+	// Cloud is the name of the cloud that Juju will be bootstrapped in.
+	Cloud string
+
+	// CloudRegion is the name of the cloud region that Juju will be
+	// bootstrapped in. This will be empty for clouds that do not support
+	// regions.
+	CloudRegion string
+
+	// CloudCredential is the name of the cloud credential used to
+	// bootstrap Juju.
+	CloudCredential string
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -267,6 +292,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
+	instanceConfig.Bootstrap.PublicClouds = args.PublicClouds
+	instanceConfig.Bootstrap.PersonalClouds = args.PersonalClouds
+	instanceConfig.Bootstrap.CloudCredentials = args.CloudCredentials
+	instanceConfig.Bootstrap.Cloud = args.Cloud
+	instanceConfig.Bootstrap.CloudRegion = args.CloudRegion
+	instanceConfig.Bootstrap.CloudCredential = args.CloudCredential
 
 	if err := result.Finalize(ctx, instanceConfig); err != nil {
 		return err

@@ -592,6 +592,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	_, st, err := factory.st.NewModel(state.ModelArgs{
 		Config: cfg,
 		Owner:  params.Owner.(names.UserTag),
+		Cloud:  "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
