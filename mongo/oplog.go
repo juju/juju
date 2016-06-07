@@ -85,17 +85,17 @@ func isRealOplog(c *mgo.Collection) bool {
 	return c.Database.Name == "local" && c.Name == "oplog.rs"
 }
 
-// The parts of the mgo.Iter that we use - this interface will allow
-// us to switch out the querying for testing.
+// OplogIterator defines the parts of the mgo.Iter that we use - this
+// interface allows us to switch out the querying for testing.
 type OplogIterator interface {
 	Next(interface{}) bool
 	Err() error
 	Timeout() bool
 }
 
-// The connection to the oplog database, used to create an iterator to
-// get oplog documents (and recreate it if it gets killed or times
-// out).
+// OplogSession represents a connection to the oplog store, used
+// to create an iterator to get oplog documents (and recreate it if it
+// gets killed or times out).
 type OplogSession interface {
 	NewIter(bson.MongoTimestamp, []int64) OplogIterator
 	Close()
@@ -137,20 +137,16 @@ func (s *oplogSession) NewIter(fromTimestamp bson.MongoTimestamp, excludeIds []i
 		bson.DocElem{"ts", bson.D{{"$gte", fromTimestamp}}},
 		bson.DocElem{"h", bson.D{{"$nin", excludeIds}}},
 	)
-	// Time the tail call out every second so that requests to
-	// stop can be honoured.
-	//
-	// TODO(mjs): Ideally -1 (no timeout) could be used here,
-	// with session.Close() being used to unblock Next() if
-	// the tailer should stop (these semantics are hinted at
-	// by the mgo docs). Unfortunately this can trigger
-	// panics. See: https://github.com/go-mgo/mgo/issues/121
+
 	query := s.collection.Find(sel)
 	if isRealOplog(s.collection) {
-		// Apply an optmisation that is only supported with
+		// Apply an optimisation that is only supported with
 		// the real oplog.
 		query = query.LogReplay()
 	}
+
+	// Time the tail call out every second so that requests to
+	// stop can be honoured.
 	return query.Tail(oplogTailTimeout)
 }
 

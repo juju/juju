@@ -4,6 +4,7 @@
 package mongo_test
 
 import (
+	"errors"
 	"reflect"
 	"time"
 
@@ -110,96 +111,7 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	c.Assert(tailer.Err(), jc.ErrorIsNil)
 }
 
-type fakeIterator struct {
-	docs    []*mongo.OplogDoc
-	pos     int
-	err     error
-	timeout bool
-}
-
-func (i *fakeIterator) Next(result interface{}) bool {
-	if i.pos >= len(i.docs) {
-		return false
-	}
-	target := reflect.ValueOf(result).Elem()
-	target.Set(reflect.ValueOf(*i.docs[i.pos]))
-	i.pos++
-	return true
-}
-
-func (i *fakeIterator) Err() error {
-	if i.pos < len(i.docs) {
-		return nil
-	}
-	return i.err
-}
-
-func (i *fakeIterator) Timeout() bool {
-	if i.pos < len(i.docs) {
-		return false
-	}
-	return i.timeout
-}
-
-func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
-	return &fakeIterator{docs: docs, err: err}
-}
-
-type iterArgs struct {
-	timestamp  bson.MongoTimestamp
-	excludeIds []int64
-}
-
-type fakeSession struct {
-	iterators []*fakeIterator
-	pos       int
-	args      chan iterArgs
-}
-
-var timeoutIterator = fakeIterator{timeout: true}
-
-func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIterator {
-	if s.pos >= len(s.iterators) {
-		// We've run out of results - at this point the calls to get
-		// more data would just keep timing out.
-		return &timeoutIterator
-		// TODO(babbageclunk): the tailer goroutine will just keep
-		// calling this in a tight loop once it's gone through the
-		// canned iterators (until the tailer.Stop kills it). Is this
-		// a problem? The real call would block for a second waiting
-		// for new data.
-	}
-	select {
-	case <-time.After(coretesting.ShortWait):
-		panic("took too long to save args")
-	case s.args <- iterArgs{ts, ids}:
-	}
-	result := s.iterators[s.pos]
-	s.pos++
-	return result
-}
-
-func (s *fakeSession) Close() {}
-
-func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64) {
-	select {
-	case <-time.After(coretesting.ShortWait):
-		c.Logf("timeout getting iter args - test problem")
-		c.FailNow()
-	case res := <-s.args:
-		c.Check(res.timestamp, gc.Equals, ts)
-		c.Check(res.excludeIds, gc.DeepEquals, ids)
-	}
-}
-
-func newFakeSession(iterators ...*fakeIterator) *fakeSession {
-	return &fakeSession{
-		iterators: iterators,
-		args:      make(chan iterArgs, 5),
-	}
-}
-
-func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
+func (s *oplogSuite) TestRestartsOnErrCursor(c *gc.C) {
 	session := newFakeSession(
 		// First iterator terminates with an ErrCursor
 		newFakeIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
@@ -272,24 +184,18 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 }
 
 func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
-	_, session := s.startMongo(c)
-	oplog := s.makeFakeOplog(c, session)
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
+	expectedErr := errors.New("oh no, the collection went away!")
+	session := newFakeSession(
+		newFakeIterator(expectedErr, &mongo.OplogDoc{Timestamp: 1}),
+	)
 
-	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), time.Time{})
+	tailer := mongo.NewOplogTailer(session, time.Time{})
 	defer tailer.Stop()
 
 	doc := s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
-
-	// Induce a fatal error by removing the oplog collection.
-	err := oplog.DropCollection()
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.assertStopped(c, tailer)
-	// The actual error varies by MongoDB version so just check that
-	// there is one.
-	c.Assert(tailer.Err(), gc.Not(jc.ErrorIsNil))
+	c.Assert(tailer.Err(), gc.Equals, expectedErr)
 }
 
 func (s *oplogSuite) TestNewMongoTimestamp(c *gc.C) {
@@ -406,5 +312,89 @@ func (s *oplogSuite) assertStopped(c *gc.C, tailer *mongo.OplogTailer) {
 		// Success.
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("tailer should have died")
+	}
+}
+
+type fakeIterator struct {
+	docs    []*mongo.OplogDoc
+	pos     int
+	err     error
+	timeout bool
+}
+
+func (i *fakeIterator) Next(result interface{}) bool {
+	if i.pos >= len(i.docs) {
+		return false
+	}
+	target := reflect.ValueOf(result).Elem()
+	target.Set(reflect.ValueOf(*i.docs[i.pos]))
+	i.pos++
+	return true
+}
+
+func (i *fakeIterator) Err() error {
+	if i.pos < len(i.docs) {
+		return nil
+	}
+	return i.err
+}
+
+func (i *fakeIterator) Timeout() bool {
+	if i.pos < len(i.docs) {
+		return false
+	}
+	return i.timeout
+}
+
+func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
+	return &fakeIterator{docs: docs, err: err}
+}
+
+type iterArgs struct {
+	timestamp  bson.MongoTimestamp
+	excludeIds []int64
+}
+
+type fakeSession struct {
+	iterators []*fakeIterator
+	pos       int
+	args      chan iterArgs
+}
+
+var timeoutIterator = fakeIterator{timeout: true}
+
+func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIterator {
+	if s.pos >= len(s.iterators) {
+		// We've run out of results - at this point the calls to get
+		// more data would just keep timing out.
+		return &timeoutIterator
+	}
+	select {
+	case <-time.After(coretesting.LongWait):
+		panic("took too long to save args")
+	case s.args <- iterArgs{ts, ids}:
+	}
+	result := s.iterators[s.pos]
+	s.pos++
+	return result
+}
+
+func (s *fakeSession) Close() {}
+
+func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64) {
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Logf("timeout getting iter args - test problem")
+		c.FailNow()
+	case res := <-s.args:
+		c.Check(res.timestamp, gc.Equals, ts)
+		c.Check(res.excludeIds, gc.DeepEquals, ids)
+	}
+}
+
+func newFakeSession(iterators ...*fakeIterator) *fakeSession {
+	return &fakeSession{
+		iterators: iterators,
+		args:      make(chan iterArgs, 5),
 	}
 }
