@@ -62,15 +62,15 @@ func (cfg RawConfig) Validate() error {
 
 func (cfg RawConfig) validateHost() error {
 	if cfg.Host == "" {
-		return errors.NewNotValid(nil, "syslog forwarding config missing host")
+		return errors.NewNotValid(nil, "empty Host")
 	}
 
 	hostport, err := parseHost(cfg.Host)
 	if err != nil {
-		return errors.NewNotValid(err, "syslog forwarding config has bad host")
+		return errors.NewNotValid(err, "bad Host")
 	}
 	if hostport.Type == network.HostName && hostport.Value == "" {
-		return errors.NewNotValid(nil, "syslog forwarding config host missing hostname")
+		return errors.NewNotValid(nil, "empty hostname in Host")
 	}
 
 	return nil
@@ -108,32 +108,36 @@ func parseHost(host string) (*network.HostPort, error) {
 
 func (cfg RawConfig) validateSSL() error {
 	if cfg.ExpectedServerCert == "" {
-		return errors.NewNotValid(nil, "syslog forwarding config missing server cert")
+		return errors.NewNotValid(nil, "empty ExpectedServerCert")
 	}
 	if _, err := cert.ParseCert(cfg.ExpectedServerCert); err != nil {
-		return errors.NewNotValid(err, "syslog forwarding config has invalid server cert")
+		err = errors.NewNotValid(err, "")
+		return errors.Annotate(err, "invalid ExpectedServerCert")
 	}
 
 	if cfg.ClientCert == "" {
-		return errors.NewNotValid(nil, "syslog forwarding config missing client cert")
+		return errors.NewNotValid(nil, "empty ClientCert")
 	}
 
 	if cfg.ClientKey == "" {
-		return errors.NewNotValid(nil, "syslog forwarding config missing client SSL key")
+		return errors.NewNotValid(nil, "empty ClientKey")
 	}
 
 	if _, _, err := cert.ParseCertAndKey(cfg.ClientCert, cfg.ClientKey); err != nil {
 		if _, err := cert.ParseCert(cfg.ClientCert); err != nil {
-			return errors.NewNotValid(err, "syslog forwarding config has invalid SSL certificate")
+			err = errors.NewNotValid(err, "")
+			return errors.Annotate(err, "invalid ClientCert")
 		}
-		return errors.NewNotValid(err, "syslog forwarding config has invalid client key or key does not match certificate")
+		err = errors.NewNotValid(err, "bad key or key does not match certificate")
+		return errors.Annotate(err, "invalid ClientKey")
 	}
 
 	if cfg.ClientCACert == "" {
-		return errors.NewNotValid(nil, "syslog forwarding config missing SSL CA cert")
+		return errors.NewNotValid(nil, "empty ClientCACert")
 	}
 	if _, err := cert.ParseCert(cfg.ClientCACert); err != nil {
-		return errors.NewNotValid(err, "syslog forwarding config has invalid CA certificate")
+		err = errors.NewNotValid(err, "")
+		return errors.Annotate(err, "invalid ClientCACert")
 	}
 
 	// TODO(ericsnow) Also call cert.Verify() to ensure the CA cert matches?

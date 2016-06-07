@@ -66,7 +66,7 @@ func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config missing host`)
+	c.Check(err, gc.ErrorMatches, `empty Host`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
@@ -81,7 +81,7 @@ func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config host missing hostname`)
+	c.Check(err, gc.ErrorMatches, `empty hostname in Host`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadHostname(c *gc.C) {
@@ -96,7 +96,7 @@ func (s *ConfigSuite) TestRawValidateBadHostname(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has bad host: invalid domain name "###"`)
+	c.Check(err, gc.ErrorMatches, `bad Host: invalid domain name "###"`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingPort(c *gc.C) {
@@ -111,7 +111,7 @@ func (s *ConfigSuite) TestRawValidateMissingPort(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has bad host: cannot parse "a.b.c:" port: strconv.ParseInt: parsing "": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `bad Host: cannot parse "a.b.c:" port: strconv.ParseInt: parsing "": invalid syntax`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadPort(c *gc.C) {
@@ -126,7 +126,7 @@ func (s *ConfigSuite) TestRawValidateBadPort(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has bad host: cannot parse "a.b.c:xyz" port: strconv.ParseInt: parsing "xyz": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `bad Host: cannot parse "a.b.c:xyz" port: strconv.ParseInt: parsing "xyz": invalid syntax`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingServerCert(c *gc.C) {
@@ -141,7 +141,7 @@ func (s *ConfigSuite) TestRawValidateMissingServerCert(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config missing server cert`)
+	c.Check(err, gc.ErrorMatches, `empty ExpectedServerCert`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadServerCert(c *gc.C) {
@@ -156,7 +156,7 @@ func (s *ConfigSuite) TestRawValidateBadServerCert(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid server cert: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `invalid ExpectedServerCert: asn1: syntax error: data truncated`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadServerCertFormat(c *gc.C) {
@@ -171,7 +171,7 @@ func (s *ConfigSuite) TestRawValidateBadServerCertFormat(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid server cert: no certificates found`)
+	c.Check(err, gc.ErrorMatches, `invalid ExpectedServerCert: no certificates found`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
@@ -186,7 +186,7 @@ func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config missing SSL CA cert`)
+	c.Check(err, gc.ErrorMatches, `empty ClientCACert`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
@@ -201,7 +201,7 @@ func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid CA certificate: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientCACert: asn1: syntax error: data truncated`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
@@ -216,7 +216,7 @@ func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid CA certificate: no certificates found`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientCACert: no certificates found`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
@@ -231,7 +231,7 @@ func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config missing client cert`)
+	c.Check(err, gc.ErrorMatches, `empty ClientCert`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
@@ -246,7 +246,7 @@ func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid SSL certificate: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientCert: asn1: syntax error: data truncated`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
@@ -261,7 +261,7 @@ func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid SSL certificate: no certificates found`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientCert: no certificates found`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
@@ -276,7 +276,7 @@ func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config missing client SSL key`)
+	c.Check(err, gc.ErrorMatches, `empty ClientKey`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
@@ -291,7 +291,7 @@ func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: failed to parse private key`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: failed to parse private key`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
@@ -306,7 +306,7 @@ func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: failed to find any PEM data in key input`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: failed to find any PEM data in key input`)
 }
 
 func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
@@ -321,7 +321,7 @@ func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
 	err := cfg.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: private key does not match public key`)
+	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: private key does not match public key`)
 }
 
 var validCACert = `

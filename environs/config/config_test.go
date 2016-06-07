@@ -664,7 +664,7 @@ var configTests = []configTest{
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
 		}),
-		err: "syslog forwarding config has invalid server cert: asn1: syntax error: data truncated",
+		err: `invalid "syslog-server-cert": asn1: syntax error: data truncated`,
 	}, {
 		about:       "Invalid syslog ca cert format",
 		useDefaults: config.UseDefaults,
@@ -677,7 +677,7 @@ var configTests = []configTest{
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
 		}),
-		err: "syslog forwarding config has invalid CA certificate: no certificates found",
+		err: `invalid "syslog-ca-cert": no certificates found`,
 	}, {
 		about:       "Invalid syslog ca cert",
 		useDefaults: config.UseDefaults,
@@ -690,7 +690,7 @@ var configTests = []configTest{
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
 		}),
-		err: "syslog forwarding config has invalid CA certificate: asn1: syntax error: data truncated",
+		err: `invalid "syslog-ca-cert": asn1: syntax error: data truncated`,
 	}, {
 		about:       "invalid syslog cert",
 		useDefaults: config.UseDefaults,
@@ -701,7 +701,7 @@ var configTests = []configTest{
 			"syslog-client-cert": invalidCACert,
 			"syslog-client-key":  caKey,
 		}),
-		err: "syslog forwarding config has invalid SSL certificate: asn1: syntax error: data truncated",
+		err: `invalid "syslog-client-cert": asn1: syntax error: data truncated`,
 	}, {
 		about:       "invalid syslog key",
 		useDefaults: config.UseDefaults,
@@ -712,7 +712,7 @@ var configTests = []configTest{
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  invalidCAKey,
 		}),
-		err: "syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: failed to parse private key",
+		err: `invalid "syslog-client-key": bad key or key does not match certificate: crypto/tls: failed to parse private key`,
 	}, {
 		about:       "Mismatched syslog cert and key",
 		useDefaults: config.UseDefaults,
@@ -723,7 +723,7 @@ var configTests = []configTest{
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey2,
 		}),
-		err: "syslog forwarding config has invalid client key or key does not match certificate: crypto/tls: private key does not match public key",
+		err: `invalid "syslog-client-key": bad key or key does not match certificate: crypto/tls: private key does not match public key`,
 	}, {
 		about:       "Valid syslog config values",
 		useDefaults: config.UseDefaults,

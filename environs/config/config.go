@@ -487,7 +487,24 @@ func Validate(cfg, old *Config) error {
 
 	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
 		if err := lfCfg.Validate(); err != nil {
-			return errors.Trace(err)
+			// Clean up the error messages a bit.
+			msg := err.Error()
+			var field string
+			switch {
+			case strings.Contains(msg, "Host"):
+				field = LogFwdSyslogHost
+			case strings.Contains(msg, "ExpectedServerCert"):
+				field = LogFwdSyslogServerCert
+			case strings.Contains(msg, "ClientCACert"):
+				field = LogFwdSyslogCACert
+			case strings.Contains(msg, "ClientCert"):
+				field = LogFwdSyslogClientCert
+			case strings.Contains(msg, "ClientKey"):
+				field = LogFwdSyslogClientKey
+			default:
+				return errors.Annotate(err, "invalid syslog forwarding config")
+			}
+			return errors.Annotatef(errors.Cause(err), "invalid %q", field)
 		}
 	}
 
