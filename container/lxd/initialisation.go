@@ -132,8 +132,8 @@ var configureLXDBridge = func() error {
 	}
 
 	/* non-systemd systems don't have the lxd-bridge service, so this always fails */
-	_ = exec.Command("application", "lxd-bridge", "restart").Run()
-	return exec.Command("application", "lxd", "restart").Run()
+	_ = exec.Command("service", "lxd-bridge", "restart").Run()
+	return exec.Command("service", "lxd", "restart").Run()
 }
 
 var interfaceAddrs = func() ([]net.Addr, error) {
