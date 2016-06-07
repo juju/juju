@@ -168,7 +168,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST http://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
+	c.Assert(err, gc.ErrorMatches, `POST http://.+: the POST method is not allowed`)
 }
 
 func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
