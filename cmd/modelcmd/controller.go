@@ -19,11 +19,19 @@ var (
 	// ErrNoControllerSpecified is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller.
-	ErrNoControllerSpecified = errors.New(`no controller specified
+	ErrNoControllerSpecified = errors.New(`no controller
 
-There is no current controller. Please use "juju switch" to
-set the current controller/model, or create a new controller
-using "juju bootstrap".
+Please create a new controller using "juju bootstrap" or 
+use "juju switch" to set the current controller/model.
+`)
+	// ErrNotLoggedInToController is returned by commands that operate on
+	// a controller if there is no current controller, no controller has been
+	// explicitly specified, and there is no default controller but there are
+	// controllers that client knows about, i.e. the user needs to log in to one of them.
+	ErrNotLoggedInToController = errors.New(`not logged in
+
+Please use "juju controllers" to view all controllers available to you. 
+You can login into an existing controller using "juju login -c <controller>".
 `)
 
 	// ErrNoAccountSpecified is returned by commands that operate on a
