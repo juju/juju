@@ -100,6 +100,22 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 	return &LinkLayerDevice{st: st, doc: doc}
 }
 
+// AllLinkLayerDevices returns all link layer devices in the model.
+func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
+	addressesCollection, closer := st.getCollection(linkLayerDevicesC)
+	defer closer()
+
+	sdocs := []linkLayerDeviceDoc{}
+	err = addressesCollection.Find(bson.D{}).All(&sdocs)
+	if err != nil {
+		return nil, errors.Errorf("cannot get all link layer devices")
+	}
+	for _, d := range sdocs {
+		devices = append(devices, newLinkLayerDevice(st, d))
+	}
+	return devices, nil
+}
+
 // DocID returns the globally unique ID of the link-layer device, including the
 // model UUID as prefix.
 func (dev *LinkLayerDevice) DocID() string {
