@@ -56,8 +56,7 @@ func formatCloudDetailsTabular(clouds cloudList, credStore jujuclient.Credential
 				sortedCredNames = append(sortedCredNames, credName)
 			}
 			sort.Strings(sortedCredNames)
-			i := 0
-			for _, credName := range sortedCredNames {
+			for i, credName := range sortedCredNames {
 				if i == 0 {
 					p(name, credName, cred.DefaultRegion)
 				} else {
