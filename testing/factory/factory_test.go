@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -332,50 +332,50 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	c.Assert(saved.BundleSha256(), gc.Equals, ch.BundleSha256())
 }
 
-func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
-	service := s.Factory.MakeService(c, nil)
-	c.Assert(service, gc.NotNil)
+func (s *factorySuite) TestMakeApplicationNil(c *gc.C) {
+	application := s.Factory.MakeApplication(c, nil)
+	c.Assert(application, gc.NotNil)
 
-	saved, err := s.State.Service(service.Name())
+	saved, err := s.State.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(saved.Name(), gc.Equals, service.Name())
-	c.Assert(saved.Tag(), gc.Equals, service.Tag())
-	c.Assert(saved.Life(), gc.Equals, service.Life())
+	c.Assert(saved.Name(), gc.Equals, application.Name())
+	c.Assert(saved.Tag(), gc.Equals, application.Tag())
+	c.Assert(saved.Life(), gc.Equals, application.Life())
 }
 
-func (s *factorySuite) TestMakeService(c *gc.C) {
+func (s *factorySuite) TestMakeApplication(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "bill"}).Tag()
-	service := s.Factory.MakeService(c, &factory.ServiceParams{
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm:   charm,
 		Creator: creator,
 	})
-	c.Assert(service, gc.NotNil)
+	c.Assert(application, gc.NotNil)
 
-	c.Assert(service.Name(), gc.Equals, "wordpress")
-	c.Assert(service.GetOwnerTag(), gc.Equals, creator.String())
-	curl, _ := service.CharmURL()
+	c.Assert(application.Name(), gc.Equals, "wordpress")
+	c.Assert(application.GetOwnerTag(), gc.Equals, creator.String())
+	curl, _ := application.CharmURL()
 	c.Assert(curl, gc.DeepEquals, charm.URL())
 
-	saved, err := s.State.Service(service.Name())
+	saved, err := s.State.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(saved.Name(), gc.Equals, service.Name())
-	c.Assert(saved.Tag(), gc.Equals, service.Tag())
-	c.Assert(saved.Life(), gc.Equals, service.Life())
+	c.Assert(saved.Name(), gc.Equals, application.Name())
+	c.Assert(saved.Tag(), gc.Equals, application.Tag())
+	c.Assert(saved.Life(), gc.Equals, application.Life())
 }
 
-func (s *factorySuite) TestMakeServiceInvalidCreator(c *gc.C) {
-	serviceName := "mysql"
+func (s *factorySuite) TestMakeApplicationInvalidCreator(c *gc.C) {
+	applicationName := "mysql"
 	invalidFunc := func() {
-		s.Factory.MakeService(c, &factory.ServiceParams{
-			Name:    serviceName,
+		s.Factory.MakeApplication(c, &factory.ApplicationParams{
+			Name:    applicationName,
 			Creator: names.NewMachineTag("0"),
 		})
 	}
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.Service(serviceName)
+	saved, err := s.State.Application(applicationName)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(saved, gc.IsNil)
 }
@@ -388,32 +388,32 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Name(), gc.Equals, unit.Name())
-	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
+	c.Assert(saved.ApplicationName(), gc.Equals, unit.ApplicationName())
 	c.Assert(saved.Series(), gc.Equals, unit.Series())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
 }
 
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
-	service := s.Factory.MakeService(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Service:     service,
+		Application: application,
 		SetCharmURL: true,
 	})
 	c.Assert(unit, gc.NotNil)
 
-	c.Assert(unit.ServiceName(), gc.Equals, service.Name())
+	c.Assert(unit.ApplicationName(), gc.Equals, application.Name())
 
 	saved, err := s.State.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Name(), gc.Equals, unit.Name())
-	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
+	c.Assert(saved.ApplicationName(), gc.Equals, unit.ApplicationName())
 	c.Assert(saved.Series(), gc.Equals, unit.Series())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
 
-	serviceCharmURL, _ := service.CharmURL()
+	applicationCharmURL, _ := application.CharmURL()
 	unitCharmURL, _ := saved.CharmURL()
-	c.Assert(unitCharmURL, gc.DeepEquals, serviceCharmURL)
+	c.Assert(unitCharmURL, gc.DeepEquals, applicationCharmURL)
 }
 
 func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
@@ -430,8 +430,8 @@ func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeRelation(c *gc.C) {
-	s1 := s.Factory.MakeService(c, &factory.ServiceParams{
-		Name: "service1",
+	s1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "application1",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
@@ -439,8 +439,8 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	e1, err := s1.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s2 := s.Factory.MakeService(c, &factory.ServiceParams{
-		Name: "service2",
+	s2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "application2",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
@@ -483,8 +483,8 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit:    unit,
 		Time:    &now,

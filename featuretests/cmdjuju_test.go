@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -46,7 +46,7 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := testing.RunCommand(c, service.NewServiceGetConstraintsCommand(), "svc")
+	context, err := testing.RunCommand(c, application.NewServiceGetConstraintsCommand(), "svc")
 	c.Assert(testing.Stdout(context), gc.Equals, "cpu-cores=64\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 }
@@ -55,7 +55,7 @@ func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 
-	_, err := testing.RunCommand(c, service.NewSetCommand(), "dummy-service",
+	_, err := testing.RunCommand(c, application.NewSetCommand(), "dummy-service",
 		"username=hello", "outlook=hello@world.tld")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,7 +81,7 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	err := svc.UpdateConfigSettings(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, service.NewSetCommand(), "--to-default", "dummy-service", "username")
+	_, err = testing.RunCommand(c, application.NewSetCommand(), "--to-default", "dummy-service", "username")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := charm.Settings{
@@ -93,8 +93,8 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 }
 
 func (s *cmdJujuSuite) TestServiceGet(c *gc.C) {
-	expected := `charm: dummy
-service: dummy-service
+	expected := `application: dummy-service
+charm: dummy
 settings:
   outlook:
     default: true
@@ -106,7 +106,7 @@ settings:
     type: int
   title:
     default: true
-    description: A descriptive title used for the service.
+    description: A descriptive title used for the application.
     type: string
     value: My Title
   username:
@@ -118,14 +118,14 @@ settings:
 	ch := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "dummy-service", ch)
 
-	context, err := testing.RunCommand(c, service.NewGetCommand(), "dummy-service")
+	context, err := testing.RunCommand(c, application.NewGetCommand(), "dummy-service")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stdout(context), jc.DeepEquals, expected)
 }
 
 func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "some-service-name", ch)
+	svc := s.AddTestingService(c, "some-application-name", ch)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +136,7 @@ func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, service.NewAddUnitCommand(), "some-service-name",
+	_, err = testing.RunCommand(c, application.NewAddUnitCommand(), "some-application-name",
 		"--to", container.Id())
 	c.Assert(err, jc.ErrorIsNil)
 

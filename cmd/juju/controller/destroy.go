@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/base"
@@ -66,7 +66,7 @@ Destroys a controller.`[1:]
 
 var destroySysMsg = `
 WARNING! This command will destroy the %q controller.
-This includes all machines, services, data and other resources.
+This includes all machines, applications, data and other resources.
 
 Continue [y/N]? `[1:]
 

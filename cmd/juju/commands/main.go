@@ -19,6 +19,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/status"
@@ -56,7 +56,7 @@ func init() {
 //  Main
 
 var jujuDoc = `
-juju provides easy, intelligent service orchestration on top of cloud
+juju provides easy, intelligent application orchestration on top of cloud
 infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
 Azure, or your local machine.
 
@@ -69,7 +69,7 @@ var usageHelp = `
 Usage: juju [help] <command>
 
 Summary:
-Juju is model & service management software designed to leverage the power
+Juju is model & application management software designed to leverage the power
 of existing resource pools, particularly cloud-based ones. It has built-in
 support for cloud providers such as Amazon EC2, Google GCE, Microsoft
 Azure, OpenStack, and Rackspace. It also works very well with MAAS and
@@ -83,15 +83,15 @@ Common commands:
     add-cloud           Adds a user-defined cloud to Juju.
     add-credential      Adds or replaces credentials for a cloud.
     add-model           Adds a hosted model.
-    add-relation        Adds a relation between two services.
-    add-unit            Adds extra units of a deployed service.
+    add-relation        Adds a relation between two applications.
+    add-unit            Adds extra units of a deployed application.
     add-user            Adds a Juju user to a controller.
     bootstrap           Initializes a cloud environment.
     controllers         Lists all controllers.
-    deploy              Deploys a new service.
-    expose              Makes a service publicly available over the network.
+    deploy              Deploys a new application.
+    expose              Makes an application publicly available over the network.
     models              Lists models a user can access on a controller.
-    status              Displays the current status of Juju, services, and units.
+    status              Displays the current status of Juju, applications, and units.
     switch              Selects or identifies the current controller and model.
 
 Example help commands:
@@ -220,12 +220,12 @@ type commandRegistry interface {
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Creation commands.
 	r.Register(newBootstrapCommand())
-	r.Register(service.NewAddRelationCommand())
+	r.Register(application.NewAddRelationCommand())
 
 	// Destruction commands.
-	r.Register(service.NewRemoveRelationCommand())
-	r.Register(service.NewRemoveServiceCommand())
-	r.Register(service.NewRemoveUnitCommand())
+	r.Register(application.NewRemoveRelationCommand())
+	r.Register(application.NewRemoveServiceCommand())
+	r.Register(application.NewRemoveUnitCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -245,7 +245,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
 	r.Register(newUpgradeJujuCommand(nil))
-	r.Register(service.NewUpgradeCharmCommand())
+	r.Register(application.NewUpgradeCharmCommand())
 
 	// Charm publishing commands.
 	r.Register(newPublishCommand())
@@ -314,14 +314,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newEnableHACommand())
 
 	// Manage and control services
-	r.Register(service.NewAddUnitCommand())
-	r.Register(service.NewGetCommand())
-	r.Register(service.NewSetCommand())
-	r.Register(service.NewDeployCommand())
-	r.Register(service.NewExposeCommand())
-	r.Register(service.NewUnexposeCommand())
-	r.Register(service.NewServiceGetConstraintsCommand())
-	r.Register(service.NewServiceSetConstraintsCommand())
+	r.Register(application.NewAddUnitCommand())
+	r.Register(application.NewGetCommand())
+	r.Register(application.NewSetCommand())
+	r.Register(application.NewDeployCommand())
+	r.Register(application.NewExposeCommand())
+	r.Register(application.NewUnexposeCommand())
+	r.Register(application.NewServiceGetConstraintsCommand())
+	r.Register(application.NewServiceSetConstraintsCommand())
 
 	// Operation protection commands
 	r.Register(block.NewSuperBlockCommand())

@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // OldAgentError is returned when an api call is not supported

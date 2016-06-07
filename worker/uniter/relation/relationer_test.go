@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -29,7 +29,7 @@ import (
 type RelationerSuite struct {
 	jujutesting.JujuConnSuite
 	hooks   chan hook.Info
-	svc     *state.Service
+	app     *state.Application
 	rel     *state.Relation
 	dir     *relation.StateDir
 	dirPath string
@@ -44,9 +44,9 @@ var _ = gc.Suite(&RelationerSuite{})
 func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.svc = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
+	s.app = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, jc.ErrorIsNil)
-	rels, err := s.svc.Relations()
+	rels, err := s.app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)
 	s.rel = rels[0]
@@ -74,7 +74,7 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
-	u, err := s.svc.AddUnit()
+	u, err := s.app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Name(), gc.Equals, name)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)

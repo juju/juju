@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/highavailability"
@@ -61,7 +61,7 @@ type enableHACommand struct {
 }
 
 const enableHADoc = `
-To ensure availability of deployed services, the Juju infrastructure
+To ensure availability of deployed applications, the Juju infrastructure
 must itself be highly available.  enable-ha must be called
 to ensure that the specified number of controllers are made available.
 

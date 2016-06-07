@@ -92,8 +92,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(ModelInfo)
 	case "machine":
 		d.Entity = new(MachineInfo)
-	case "service":
-		d.Entity = new(ServiceInfo)
+	case "application":
+		d.Entity = new(ApplicationInfo)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
@@ -140,7 +140,7 @@ func (i *MachineInfo) EntityId() EntityId {
 }
 
 // StatusInfo holds the unit and machine status information. It is
-// used by ServiceInfo and UnitInfo.
+// used by ApplicationInfo and UnitInfo.
 type StatusInfo struct {
 	Err     error
 	Current status.Status
@@ -162,9 +162,9 @@ func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
 	}
 }
 
-// ServiceInfo holds the information about a service that is tracked
+// ApplicationInfo holds the information about an application that is tracked
 // by multiwatcherStore.
-type ServiceInfo struct {
+type ApplicationInfo struct {
 	ModelUUID   string
 	Name        string
 	Exposed     bool
@@ -178,11 +178,11 @@ type ServiceInfo struct {
 	Status      StatusInfo
 }
 
-// EntityId returns a unique identifier for a service across
+// EntityId returns a unique identifier for an application across
 // models.
-func (i *ServiceInfo) EntityId() EntityId {
+func (i *ApplicationInfo) EntityId() EntityId {
 	return EntityId{
-		Kind:      "service",
+		Kind:      "application",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
 	}
@@ -193,7 +193,7 @@ func (i *ServiceInfo) EntityId() EntityId {
 type UnitInfo struct {
 	ModelUUID      string
 	Name           string
-	Service        string
+	Application    string
 	Series         string
 	CharmURL       string
 	PublicAddress  string
@@ -252,10 +252,10 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-// Endpoint holds a service-relation pair.
+// Endpoint holds an application-relation pair.
 type Endpoint struct {
-	ServiceName string
-	Relation    charm.Relation
+	ApplicationName string
+	Relation        charm.Relation
 }
 
 // EntityId returns a unique identifier for a relation across

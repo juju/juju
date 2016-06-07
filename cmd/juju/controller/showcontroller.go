@@ -78,15 +78,11 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 	}
 	controllers := make(map[string]ShowControllerDetails)
 	for _, name := range controllerNames {
-		actualName, err := modelcmd.ResolveControllerName(c.store, name)
+		one, err := c.store.ControllerByName(name)
 		if err != nil {
 			return err
 		}
-		one, err := c.store.ControllerByName(actualName)
-		if err != nil {
-			return err
-		}
-		controllers[name] = c.convertControllerForShow(actualName, one)
+		controllers[name] = c.convertControllerForShow(name, one)
 	}
 	return c.out.Write(ctx, controllers)
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 type RemoteStateWatcher struct {
 	st                        State
 	unit                      Unit
-	service                   Service
+	service                   Application
 	relations                 map[names.RelationTag]*relationUnitsWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
@@ -162,7 +162,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
 		return errors.Trace(err)
 	}
-	w.service, err = w.unit.Service()
+	w.service, err = w.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}

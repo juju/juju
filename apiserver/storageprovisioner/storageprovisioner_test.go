@@ -7,9 +7,9 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -893,7 +893,7 @@ func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{"service-mysql"},
+		{"application-mysql"},
 		{"machine-1"},
 		{"machine-42"}},
 	}
@@ -902,7 +902,7 @@ func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
-			{Error: &params.Error{Message: `"service-mysql" is not a valid machine tag`}},
+			{Error: &params.Error{Message: `"application-mysql" is not a valid machine tag`}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -953,7 +953,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 		{MachineTag: "machine-0", AttachmentTag: "volume-0-2"},
 		{MachineTag: "machine-1", AttachmentTag: "volume-1"},
 		{MachineTag: "machine-42", AttachmentTag: "volume-42"},
-		{MachineTag: "service-mysql", AttachmentTag: "volume-1"},
+		{MachineTag: "application-mysql", AttachmentTag: "volume-1"},
 	}}
 	results, err := s.api.VolumeBlockDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -968,7 +968,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: `"service-mysql" is not a valid machine tag`}},
+			{Error: &params.Error{Message: `"application-mysql" is not a valid machine tag`}},
 		},
 	})
 }

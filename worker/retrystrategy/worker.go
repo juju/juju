@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // Facade defines the capabilities required by the worker from the API.

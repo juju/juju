@@ -58,8 +58,8 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 		"set status information\n" +
 		"\n" +
 		"Options:\n" +
-		"--service  (= false)\n" +
-		"    set this status for the service to which the unit belongs if the unit is the leader\n" +
+		"--application  (= false)\n" +
+		"    set this status for the application to which the unit belongs if the unit is the leader\n" +
 		"\n" +
 		"Details:\n" +
 		"Sets the workload status of the charm. Message is optional.\n" +
@@ -93,8 +93,8 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 
 func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	for i, args := range [][]string{
-		[]string{"--service", "maintenance", "doing some work"},
-		[]string{"--service", "active", ""},
+		[]string{"--application", "maintenance", "doing some work"},
+		[]string{"--application", "active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -105,10 +105,10 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-		status, err := hctx.ServiceStatus()
+		status, err := hctx.ApplicationStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Service.Status, gc.Equals, args[1])
-		c.Assert(status.Service.Info, gc.Equals, args[2])
+		c.Assert(status.Application.Status, gc.Equals, args[1])
+		c.Assert(status.Application.Info, gc.Equals, args[2])
 		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
 
 	}

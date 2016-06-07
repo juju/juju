@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -569,8 +569,8 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
-	c.Assert(s.apiUnit.ServiceName(), gc.Equals, s.wordpressService.Name())
-	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, s.wordpressService.Tag())
+	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressService.Name())
+	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressService.Tag())
 }
 
 func (s *unitSuite) TestJoinedRelations(c *gc.C) {
@@ -784,11 +784,11 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	service := s.Factory.MakeService(c, &jujufactory.ServiceParams{
+	service := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Charm: s.charm,
 	})
 	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
-		Service:     service,
+		Application: service,
 		SetCharmURL: true,
 	})
 

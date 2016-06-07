@@ -6,8 +6,8 @@ package instancepoller
 import (
 	"fmt"
 
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("InstancePoller", 2, newInstancePollerAPI)
+	common.RegisterStandardFacade("InstancePoller", 3, newInstancePollerAPI)
 }
 
 // InstancePollerAPI provides access to the InstancePoller API facade.

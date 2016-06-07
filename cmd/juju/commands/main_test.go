@@ -22,8 +22,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
@@ -41,10 +41,10 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(service.NewDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
 }
 func setconfigHelpText() string {
-	return cmdtesting.HelpText(service.NewSetCommand(), "juju set-config")
+	return cmdtesting.HelpText(application.NewSetCommand(), "juju set-config")
 }
 
 func syncToolsHelpText() string {
@@ -391,7 +391,7 @@ var commandNames = []string{
 	"destroy-controller",
 	"destroy-model",
 	"destroy-relation",
-	"destroy-service",
+	"destroy-application",
 	"destroy-unit",
 	"disable-user",
 	"download-backup",
@@ -440,6 +440,7 @@ var commandNames = []string{
 	"publish",
 	"register",
 	"remove-all-blocks",
+	"remove-application", // alias for destroy-application
 	"remove-backup",
 	"remove-cached-images",
 	"remove-cloud",
@@ -447,7 +448,6 @@ var commandNames = []string{
 	"remove-machine",
 	"remove-machines",
 	"remove-relation", // alias for destroy-relation
-	"remove-service",  // alias for destroy-service
 	"remove-ssh-key",
 	"remove-ssh-keys",
 	"remove-unit", // alias for destroy-unit

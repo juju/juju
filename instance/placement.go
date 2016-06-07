@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 const (

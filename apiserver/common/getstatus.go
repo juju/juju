@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -103,13 +103,13 @@ func NewServiceStatusGetter(st *state.State, getCanAccess GetAuthFunc) *ServiceS
 }
 
 // Status returns the status of the Service for each given Unit tag.
-func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatusResults, error) {
-	result := params.ServiceStatusResults{
-		Results: make([]params.ServiceStatusResult, len(args.Entities)),
+func (s *ServiceStatusGetter) Status(args params.Entities) (params.ApplicationStatusResults, error) {
+	result := params.ApplicationStatusResults{
+		Results: make([]params.ApplicationStatusResult, len(args.Entities)),
 	}
 	canAccess, err := s.getCanAccess()
 	if err != nil {
-		return params.ServiceStatusResults{}, err
+		return params.ApplicationStatusResults{}, err
 	}
 
 	for i, arg := range args.Entities {
@@ -142,12 +142,12 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 
 		// Now we have the unit, we can get the service that should have been
 		// specified in the first place...
-		serviceId, err := names.UnitService(unitId)
+		serviceId, err := names.UnitApplication(unitId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		service, err := s.st.Service(serviceId)
+		service, err := s.st.Application(serviceId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
@@ -167,14 +167,14 @@ func (s *ServiceStatusGetter) Status(args params.Entities) (params.ServiceStatus
 		// ...and collect the results.
 		serviceStatus, unitStatuses, err := service.ServiceAndUnitsStatus()
 		if err != nil {
-			result.Results[i].Service.Error = ServerError(err)
+			result.Results[i].Application.Error = ServerError(err)
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		result.Results[i].Service.Status = serviceStatus.Status.String()
-		result.Results[i].Service.Info = serviceStatus.Message
-		result.Results[i].Service.Data = serviceStatus.Data
-		result.Results[i].Service.Since = serviceStatus.Since
+		result.Results[i].Application.Status = serviceStatus.Status.String()
+		result.Results[i].Application.Info = serviceStatus.Message
+		result.Results[i].Application.Data = serviceStatus.Data
+		result.Results[i].Application.Since = serviceStatus.Since
 
 		result.Results[i].Units = make(map[string]params.StatusResult, len(unitStatuses))
 		for uTag, r := range unitStatuses {

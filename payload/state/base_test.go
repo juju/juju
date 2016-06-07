@@ -45,7 +45,7 @@ func (s *basePayloadsSuite) newPayload(pType string, id string) payload.FullPayl
 			},
 			Status: payload.StateRunning,
 			ID:     rawID,
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "0",
 	}

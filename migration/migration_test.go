@@ -10,12 +10,12 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
@@ -125,11 +125,11 @@ func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
 	container.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary("2.0.5-trusty-amd64"),
 	})
-	service := model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("magic"),
+	application := model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
-	unit := service.AddUnit(description.UnitArgs{
+	unit := application.AddUnit(description.UnitArgs{
 		Tag: names.NewUnitTag("magic/0"),
 	})
 	unit.SetTools(description.AgentToolsArgs{
@@ -162,12 +162,12 @@ func (s *ImportSuite) TestStreamCharmsTools(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Owner: names.NewUserTag("me"),
 	})
-	model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("magic"),
+	model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "local:trusty/magic",
 	})
-	model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("magic"),
+	model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "cs:trusty/postgresql-42",
 	})
 

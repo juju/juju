@@ -19,18 +19,18 @@ import (
 // for deploy.
 type DeployClient interface {
 	// AddPendingResources adds pending metadata for store-based resources.
-	AddPendingResources(serviceID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
+	AddPendingResources(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error)
 
-	// AddPendingResource uploads data and metadata for a pending resource for the given service.
-	AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
+	// AddPendingResource uploads data and metadata for a pending resource for the given application.
+	AddPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
 
 // DeployResourcesArgs holds the arguments to DeployResources().
 type DeployResourcesArgs struct {
-	// ServiceID identifies the service being deployed.
-	ServiceID string
+	// ApplicationID identifies the application being deployed.
+	ApplicationID string
 
-	// CharmID identifies the service's charm.
+	// CharmID identifies the application's charm.
 	CharmID charmstore.CharmID
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
@@ -58,13 +58,13 @@ type DeployResourcesArgs struct {
 // metadata. It returns a map of resource name to pending resource IDs.
 func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error) {
 	d := deployUploader{
-		serviceID: args.ServiceID,
-		chID:      args.CharmID,
-		csMac:     args.CharmStoreMacaroon,
-		client:    args.Client,
-		resources: args.ResourcesMeta,
-		osOpen:    func(s string) (ReadSeekCloser, error) { return os.Open(s) },
-		osStat:    func(s string) error { _, err := os.Stat(s); return err },
+		applicationID: args.ApplicationID,
+		chID:          args.CharmID,
+		csMac:         args.CharmStoreMacaroon,
+		client:        args.Client,
+		resources:     args.ResourcesMeta,
+		osOpen:        func(s string) (ReadSeekCloser, error) { return os.Open(s) },
+		osStat:        func(s string) error { _, err := os.Stat(s); return err },
 	}
 
 	ids, err = d.upload(args.Filenames, args.Revisions)
@@ -75,13 +75,13 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 }
 
 type deployUploader struct {
-	serviceID string
-	chID      charmstore.CharmID
-	csMac     *macaroon.Macaroon
-	resources map[string]charmresource.Meta
-	client    DeployClient
-	osOpen    func(path string) (ReadSeekCloser, error)
-	osStat    func(path string) error
+	applicationID string
+	chID          charmstore.CharmID
+	csMac         *macaroon.Macaroon
+	resources     map[string]charmresource.Meta
+	client        DeployClient
+	osOpen        func(path string) (ReadSeekCloser, error)
+	osStat        func(path string) error
 }
 
 func (d deployUploader) upload(files map[string]string, revisions map[string]int) (map[string]string, error) {
@@ -100,7 +100,7 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 	storeResources := d.storeResources(files, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
-		ids, err := d.client.AddPendingResources(d.serviceID, d.chID, d.csMac, storeResources)
+		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, d.csMac, storeResources)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -188,7 +188,7 @@ func (d deployUploader) uploadFile(resourcename, filename string) (id string, er
 		Origin: charmresource.OriginUpload,
 	}
 
-	id, err = d.client.AddPendingResource(d.serviceID, res, filename, f)
+	id, err = d.client.AddPendingResource(d.applicationID, res, filename, f)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

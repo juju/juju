@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 const (
