@@ -566,6 +566,11 @@ func (p *Pinger) Start() error {
 	return nil
 }
 
+// Kill is part of the worker.Worker interface.
+func (p *Pinger) Kill() {
+	p.tomb.Kill(nil)
+}
+
 // Wait returns when the Pinger has stopped, and returns the first error
 // it encountered.
 func (p *Pinger) Wait() error {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -96,12 +97,8 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 // Use this method in favor of defer w.Stop() because you _must_ ensure
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
-func assertStopped(c *gc.C, w interface {
-	Stop() error
-	Wait() error
-}) {
-	c.Assert(w.Stop(), gc.IsNil)
-	w.Wait()
+func assertStopped(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), gc.IsNil)
 }
 
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
