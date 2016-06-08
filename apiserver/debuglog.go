@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -149,6 +150,7 @@ func (s *debugLogSocketImpl) sendError(err error) {
 
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
+	start         time.Time
 	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
@@ -164,6 +166,15 @@ type debugLogParams struct {
 
 func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	params := new(debugLogParams)
+
+	if value := queryMap.Get("startTime"); value != "" {
+		unix, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("startTime value %q is not a valid number", value)
+		}
+		// 1 second granularity is good enough.
+		params.start = time.Unix(int64(unix), 0)
+	}
 
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)

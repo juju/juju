@@ -74,6 +74,7 @@ func handleDebugLogDBRequest(
 
 func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	params := &state.LogTailerParams{
+		StartTime:     reqParams.start,
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		InitialLines:  int(reqParams.backlog),
@@ -85,6 +86,7 @@ func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	}
 	if reqParams.fromTheStart {
 		params.InitialLines = 0
+		params.StartTime = time.Time{}
 	}
 	return params
 }
