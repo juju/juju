@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"text/template"
 
@@ -70,7 +71,8 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	storageDir := c.MkDir()
-	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	toolsDir := path.Join(storageDir, "tools")
+	suite.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
 	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 
