@@ -5822,6 +5822,25 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(e.unit_name, '0')
         self.assertEqual(e.state, failure)
 
+    def do_check_agents_started_info_and_status_failure(self, failure):
+        status = Status({
+            'machines': {
+                '0': {
+                    'agent-state-info': failure,
+                    'juju-status': {
+                        'current': 'error',
+                        'message': failure}
+                     },
+                }
+            }, '')
+        with self.assertRaises(ErroredUnit) as e_cxt:
+            status.check_agents_started()
+        e = e_cxt.exception
+        self.assertEqual(
+            str(e), '0 is in state {}'.format(failure))
+        self.assertEqual(e.unit_name, '0')
+        self.assertEqual(e.state, failure)
+
     def test_check_agents_started_read_juju_status_error(self):
         failures = ['no "centos7" images in us-east-1 with arches [amd64]',
                     'sending new instance request: GCE operation ' +
