@@ -27,7 +27,7 @@ ${_juju_cmd_PYTHON?} -c '
 trail="'${2}'"
 import json, sys; j=json.load(sys.stdin)
 all_units=[]
-for k,v in j["applications"].items():
+for k,v in j.get("services", {}).items():
     if v.get("units"):
         all_units.extend(v["units"].keys())
 print ("\n".join([unit + trail for unit in all_units]))
