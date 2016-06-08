@@ -18,7 +18,7 @@ func newDebugLogDBHandler(ctxt httpContext) http.Handler {
 }
 
 func handleDebugLogDBRequest(
-	st state.LoggingState,
+	st state.LogTailerState,
 	reqParams *debugLogParams,
 	socket debugLogSocket,
 	stop <-chan struct{},
@@ -90,6 +90,6 @@ func formatTime(t time.Time) string {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+func _newLogTailer(st state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 	return state.NewLogTailer(st, params)
 }

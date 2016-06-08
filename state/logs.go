@@ -35,12 +35,18 @@ const (
 // previously forwarded log record could not be found.
 var ErrNeverForwarded = errors.Errorf("cannot find timestamp of the last forwarded record")
 
-// LoggingState describes the methods on State required for logging to
-// the database.
-type LoggingState interface {
-	ModelUUID() string
+// MongoSessioner supports creating new mongo sessions.
+type MongoSessioner interface {
+	// MongoSession creates a new Mongo session.
 	MongoSession() *mgo.Session
-	IsController() bool
+}
+
+// ModelSessioner supports creating new mongo sessions for a model.
+type ModelSessioner interface {
+	MongoSessioner
+
+	// ModelUUID returns the ID of the current model.
+	ModelUUID() string
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
@@ -67,7 +73,7 @@ type lastSentDoc struct {
 
 // NewLastSentLogger returns a NewLastSentLogger struct that records and retrieves
 // the timestamps of the most recent log records forwarded to the log sink.
-func NewLastSentLogger(st LoggingState, sink string) *DbLoggerLastSent {
+func NewLastSentLogger(st ModelSessioner, sink string) *DbLoggerLastSent {
 	return &DbLoggerLastSent{
 		id:      fmt.Sprintf("%v#%v", st.ModelUUID(), sink),
 		model:   st.ModelUUID(),
@@ -141,7 +147,7 @@ type DbLogger struct {
 
 // NewDbLogger returns a DbLogger instance which is used to write logs
 // to the database.
-func NewDbLogger(st LoggingState, entity names.Tag) *DbLogger {
+func NewDbLogger(st ModelSessioner, entity names.Tag) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
@@ -237,9 +243,18 @@ const oplogOverlap = time.Minute
 // output of large broken models with logging at DEBUG.
 var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
+// LogTailerState describes the methods on State required for logging to
+// the database.
+type LogTailerState interface {
+	ModelSessioner
+
+	// IsController indicates whether or not the model is the admin model.
+	IsController() bool
+}
+
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LoggingState, params *LogTailerParams) (LogTailer, error) {
+func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
 	if !st.IsController() && params.AllModels {
 		return nil, errors.NewNotValid(nil, "not allowed to tail logs from all models: not a controller")
 	}
@@ -515,7 +530,7 @@ func logDocToRecord(doc *logDoc) *LogRecord {
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
+func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
@@ -596,7 +611,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 // initLogsSession creates a new session suitable for logging updates,
 // returning the session and a logs mgo.Collection connected to that
 // session.
-func initLogsSession(st LoggingState) (*mgo.Session, *mgo.Collection) {
+func initLogsSession(st MongoSessioner) (*mgo.Session, *mgo.Collection) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
 	// when the replicaset only has one member (i.e. a single primary).

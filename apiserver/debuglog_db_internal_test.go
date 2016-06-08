@@ -40,7 +40,7 @@ func (s *debugLogDBIntSuite) TestParamConversion(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		// Start time will be used once the client is extended to send
@@ -71,7 +71,7 @@ func (s *debugLogDBIntSuite) TestParamConversionReplay(c *gc.C) {
 	}
 
 	called := false
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 		called = true
 
 		c.Assert(params.StartTime.IsZero(), jc.IsTrue)
@@ -106,7 +106,7 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 		Level:    loggo.ERROR,
 		Message:  "whoops",
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 		return tailer, nil
 	})
 
@@ -126,7 +126,7 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 
 func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	tailer := newFakeLogTailer()
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 		close(tailer.logsCh) // make the request stop immediately
 		return tailer, nil
 	})
@@ -149,7 +149,7 @@ func (s *debugLogDBIntSuite) TestMaxLines(c *gc.C) {
 			Message:  "stuff happened",
 		}
 	}
-	s.PatchValue(&newLogTailer, func(_ state.LoggingState, params *state.LogTailerParams) (state.LogTailer, error) {
+	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 		return tailer, nil
 	})
 
@@ -197,7 +197,7 @@ func (s *debugLogDBIntSuite) assertStops(c *gc.C, done chan error, tailer *fakeL
 }
 
 type fakeState struct {
-	state.LoggingState
+	state.LogTailerState
 }
 
 func newFakeLogTailer() *fakeLogTailer {
