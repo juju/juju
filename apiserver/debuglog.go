@@ -77,7 +77,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+			st, _, err := h.ctxt.stateForRequestAuthenticated(req)
 			if err != nil {
 				socket.sendError(err)
 				return
@@ -113,6 +113,9 @@ func isBrokenPipe(err error) bool {
 type debugLogSocket interface {
 	io.Writer
 
+	// WriteJSON sends the input as JSON.
+	WriteJSON(interface{}) error
+
 	// sendOk sends a nil error response, indicating there were no errors.
 	sendOk()
 
@@ -125,6 +128,11 @@ type debugLogSocket interface {
 // methods.
 type debugLogSocketImpl struct {
 	*websocket.Conn
+}
+
+// WriteJSON implements debugLogSocket.
+func (s *debugLogSocketImpl) WriteJSON(data interface{}) error {
+	return websocket.JSON.Send(s.Conn, data)
 }
 
 // sendOk implements debugLogSocket.
@@ -150,6 +158,8 @@ type debugLogParams struct {
 	excludeEntity []string
 	includeModule []string
 	excludeModule []string
+	format        string
+	allModels     bool
 }
 
 func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
@@ -177,6 +187,18 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
+	}
+
+	if value := queryMap.Get("all"); value != "" {
+		allModels, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("all value %q is not a valid boolean", value)
+		}
+		params.allModels = allModels
+	}
+
+	if value := queryMap.Get("format"); value != "" {
+		params.format = value
 	}
 
 	if value := queryMap.Get("backlog"); value != "" {
