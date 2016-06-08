@@ -87,7 +87,7 @@ def test_deployed_mongo_is_up(client):
     """Ensure the mongo service is running as expected."""
     try:
         output = client.get_juju_output(
-            'ssh', 'mongodb/0', 'mongo --eval "db.getMongo()"')
+            'run', 'mongodb/0', 'mongo --eval "db.getMongo()"')
         if 'connecting to: test' in output:
             return
     except CalledProcessError as e:
