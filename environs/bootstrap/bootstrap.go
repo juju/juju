@@ -64,9 +64,9 @@ type BootstrapParams struct {
 	// Cloud is the name of the cloud that Juju will be bootstrapped in.
 	Cloud string
 
-	// SharedCloudConfig is the set of config attributes to be shared
+	// CloudConfig is the set of config attributes to be shared
 	// across all models on the same cloud.
-	SharedCloudConfig map[string]interface{}
+	CloudConfig map[string]interface{}
 
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
@@ -271,7 +271,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	instanceConfig.Bootstrap.CustomImageMetadata = customImageMetadata
 	instanceConfig.Bootstrap.ControllerCloud = args.Cloud
-	instanceConfig.Bootstrap.SharedCloudConfig = args.SharedCloudConfig
+	instanceConfig.Bootstrap.CloudConfig = args.CloudConfig
 	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)

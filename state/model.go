@@ -212,9 +212,9 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}()
 
-	sharedCfg, err := st.SharedCloudConfig()
+	sharedCfg, err := st.CloudConfig()
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not red shared config for new model")
+		return nil, nil, errors.Annotate(err, "could not read shared config for new model")
 	}
 	ops, err := newState.modelSetupOps(args.Config, args.Cloud, sharedCfg, owner, args.MigrationMode)
 	if err != nil {

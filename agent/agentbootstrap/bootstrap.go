@@ -68,7 +68,7 @@ func InitializeState(
 	c agent.ConfigSetter,
 	cfg *config.Config,
 	cloud string,
-	sharedCloudConfigAttrs map[string]interface{},
+	cloudConfigAttrs map[string]interface{},
 	hostedModelConfigAttrs map[string]interface{},
 	machineCfg BootstrapMachineConfig,
 	dialOpts mongo.DialOpts,
@@ -95,7 +95,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(adminUser, info, cloud, sharedCloudConfigAttrs, cfg, dialOpts, policy)
+	st, err := state.Initialize(adminUser, info, cloud, cloudConfigAttrs, cfg, dialOpts, policy)
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
 	}

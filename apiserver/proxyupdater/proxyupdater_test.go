@@ -70,6 +70,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	s.state.Stub.CheckCallNames(c,
+		"Model",
 		"WatchForModelConfigChanges",
 		"WatchAPIHostPorts",
 	)
@@ -192,6 +193,20 @@ func (sb *stubBackend) SetModelConfig(ca coretesting.Attrs) {
 	sb.configAttrs = ca
 }
 
+type mockModel struct{}
+
+func (mm *mockModel) Cloud() string {
+	return "dummy"
+}
+
+func (sb *stubBackend) Model() (proxyupdater.Model, error) {
+	sb.MethodCall(sb, "Model")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	return &mockModel{}, nil
+}
+
 func (sb *stubBackend) ModelConfig() (*config.Config, error) {
 	sb.MethodCall(sb, "ModelConfig")
 	if err := sb.NextErr(); err != nil {
@@ -218,7 +233,7 @@ func (sb *stubBackend) WatchAPIHostPorts() state.NotifyWatcher {
 	return sb.hpWatcher
 }
 
-func (sb *stubBackend) WatchForModelConfigChanges() state.NotifyWatcher {
+func (sb *stubBackend) WatchForModelConfigChanges(cloudName string) state.NotifyWatcher {
 	sb.MethodCall(sb, "WatchForModelConfigChanges")
 	return sb.confWatcher
 }

@@ -2549,7 +2549,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchForModelConfigChanges()
+	w := s.State.WatchForModelConfigChanges("dummy")
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -2575,7 +2575,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
-	w := s.State.WatchForModelConfigChanges()
+	w := s.State.WatchForModelConfigChanges("dummy")
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)

@@ -195,9 +195,9 @@ type StateInitializationParams struct {
 	// bootstrapped in.
 	ControllerCloud string
 
-	// SharedCloudConfig is a set of config attributes to be shared by all
+	// CloudConfig is a set of config attributes to be shared by all
 	// models hosted by this controller on the same cloud.
-	SharedCloudConfig map[string]interface{}
+	CloudConfig map[string]interface{}
 
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
@@ -221,7 +221,7 @@ type stateInitializationParamsInternal struct {
 	InstanceId                  instance.Id                       `yaml:"instance-id"`
 	HardwareCharacteristics     *instance.HardwareCharacteristics `yaml:"hardware,omitempty"`
 	ControllerModelConfig       map[string]interface{}            `yaml:"controller-model-config"`
-	SharedCloudConfig           map[string]interface{}            `yaml:"shared-cloud-config,omitempty"`
+	CloudConfig                 map[string]interface{}            `yaml:"cloud-config,omitempty"`
 	HostedModelConfig           map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
 	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
@@ -238,7 +238,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.InstanceId,
 		p.HardwareCharacteristics,
 		p.ControllerModelConfig.AllAttrs(),
-		p.SharedCloudConfig,
+		p.CloudConfig,
 		p.HostedModelConfig,
 		p.BootstrapMachineConstraints,
 		p.ModelConstraints,
@@ -266,7 +266,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		InstanceId:                  internal.InstanceId,
 		HardwareCharacteristics:     internal.HardwareCharacteristics,
 		ControllerModelConfig:       cfg,
-		SharedCloudConfig:           internal.SharedCloudConfig,
+		CloudConfig:                 internal.CloudConfig,
 		HostedModelConfig:           internal.HostedModelConfig,
 		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
 		ModelConstraints:            internal.ModelConstraints,

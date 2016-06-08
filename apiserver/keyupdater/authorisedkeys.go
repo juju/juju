@@ -84,7 +84,12 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 			continue
 		}
 		// 3. Watch for changes
-		watch := api.state.WatchForModelConfigChanges()
+		model, err := api.state.Model()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		watch := api.state.WatchForModelConfigChanges(model.Cloud())
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
 			results[i].NotifyWatcherId = api.resources.Register(watch)

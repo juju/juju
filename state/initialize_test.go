@@ -114,11 +114,11 @@ func (s *InitializeSuite) TestInitializeWithSharedConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
-	shared := map[string]interface{}{
+	cloudAttrs := map[string]interface{}{
 		"default-series": initial["default-series"],
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", shared, cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", cloudAttrs, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
@@ -128,9 +128,9 @@ func (s *InitializeSuite) TestInitializeWithSharedConfig(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	sharedAttr, err := s.State.SharedCloudConfig()
+	cloudCfg, err := s.State.CloudConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sharedAttr, jc.DeepEquals, shared)
+	c.Assert(cloudCfg, jc.DeepEquals, cloudAttrs)
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,10 +217,10 @@ func (s *InitializeSuite) TestSharedConfigWithForbiddenValues(c *gc.C) {
 	good := testing.ModelConfig(c)
 
 	for _, badAttrName := range badAttrNames {
-		badSharedAttrs := map[string]interface{}{badAttrName: "foo"}
+		badCloudAttrs := map[string]interface{}{badAttrName: "foo"}
 		owner := names.NewLocalUserTag("initialize-admin")
 
-		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", badSharedAttrs, good, mongotest.DialOpts(), state.Policy(nil))
+		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", badCloudAttrs, good, mongotest.DialOpts(), state.Policy(nil))
 		c.Assert(err, gc.ErrorMatches, "shared config cannot contain .*")
 	}
 }

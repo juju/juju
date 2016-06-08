@@ -104,7 +104,12 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			watch := u.st.WatchForModelConfigChanges()
+			model, err := u.st.Model()
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			watch := u.st.WatchForModelConfigChanges(model.Cloud())
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
 			// in the Watch response. But NotifyWatchers

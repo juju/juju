@@ -13,8 +13,8 @@ func cloudGlobalKey(name string) string {
 	return fmt.Sprintf("%s#%s#cloud", modelGlobalKey, name)
 }
 
-// ControllerConfig returns the config values shared across models.
-func (st *State) SharedCloudConfig() (map[string]interface{}, error) {
+// CloudConfig returns the config values common to the cloud associated with this state's model.
+func (st *State) CloudConfig() (map[string]interface{}, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, err

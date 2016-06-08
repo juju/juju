@@ -119,7 +119,12 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.Noti
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			watch := h.st.WatchForModelConfigChanges()
+			model, err := h.st.Model()
+			if err != nil {
+				results.Results[i].Error = common.ServerError(err)
+				continue
+			}
+			watch := h.st.WatchForModelConfigChanges(model.Cloud())
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.

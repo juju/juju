@@ -61,7 +61,12 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 		}
 		err = common.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
-			watch := api.state.WatchForModelConfigChanges()
+			model, err := api.state.Model()
+			if err != nil {
+				result[i].Error = common.ServerError(err)
+				continue
+			}
+			watch := api.state.WatchForModelConfigChanges(model.Cloud())
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.

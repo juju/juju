@@ -262,7 +262,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	_, _, err = agentbootstrap.InitializeState(adminUser, cfg,
-		"dummy", nil, nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongotest.DialOpts(), environs.NewStatePolicy())
+		nil, "dummy", nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongotest.DialOpts(), environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }

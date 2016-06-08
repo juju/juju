@@ -126,7 +126,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	controllerModel, err := environs.New(args.ControllerModelConfig)
+	env, err := environs.New(args.ControllerModelConfig)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
-		_, toolsErr := envtools.FindTools(controllerModel, -1, -1, stream, filter)
+		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
 			logger.Infof("tools are available, upgrade will occur after bootstrap")
 		}
@@ -160,7 +160,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	instances, err := controllerModel.Instances([]instance.Id{args.InstanceId})
+	instances, err := env.Instances([]instance.Id{args.InstanceId})
 	if err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
-	controllerModelCfg, err := controllerModel.Config().Apply(newConfigAttrs)
+	controllerModelCfg, err := env.Config().Apply(newConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
 	}
@@ -251,7 +251,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig,
 			controllerModelCfg,
 			args.ControllerCloud,
-			args.SharedCloudConfig,
+			args.CloudConfig,
 			args.HostedModelConfig,
 			agentbootstrap.BootstrapMachineConfig{
 				Addresses:            addrs,
@@ -273,12 +273,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	// Populate the tools catalogue.
-	if err := c.populateTools(st, controllerModel); err != nil {
+	if err := c.populateTools(st, env); err != nil {
 		return err
 	}
 
 	// Populate the GUI archive catalogue.
-	if err := c.populateGUIArchive(st, controllerModel); err != nil {
+	if err := c.populateGUIArchive(st, env); err != nil {
 		// Do not stop the bootstrapping process for Juju GUI archive errors.
 		logger.Warningf("cannot set up Juju GUI: %s", err)
 	} else {
