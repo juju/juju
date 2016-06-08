@@ -191,7 +191,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.Cloud(), gc.Equals, "hosted-cloud")
+	c.Assert(hostedModel.Cloud(), gc.Equals, "dummy")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]

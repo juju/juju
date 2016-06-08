@@ -111,6 +111,11 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
+	settings, err := state.ReadSettings(s.State, state.CloudSettingsC, state.CloudGlobalKey("dummy"))
+	c.Assert(err, jc.ErrorIsNil)
+	settings.Set("apt-mirror", "http://mirror")
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,13 +126,14 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Remove all controller config before comparison.
 	modelAttrs := dbModelCfg.AllAttrs()
+	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
+
+	// Remove all controller and cloud config before comparison.
 	for _, attr := range config.ControllerOnlyConfigAttributes {
 		delete(modelAttrs, attr)
 	}
-	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
+	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)

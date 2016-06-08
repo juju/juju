@@ -285,35 +285,35 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 	}{{
 		provider: "azure",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
 			"location", "endpoint", "storage-endpoint",
 		},
 	}, {
 		provider: "dummy",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
 		},
 	}, {
 		provider: "joyent",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "sdc-url",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key", "sdc-url",
 		},
 	}, {
 		provider: "maas",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
 			"maas-server",
 		},
 	}, {
 		provider: "openstack",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
 			"region", "auth-url", "auth-mode",
 		},
 	}, {
 		provider: "ec2",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
 			"region", "vpc-id-force",
 		},
 	}} {

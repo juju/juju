@@ -236,6 +236,9 @@ func (st *State) ForModel(tag names.ModelTag) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := newState.start(st.controllerTag); err != nil {
+		if err2 := newState.Close(); err2 != nil {
+			logger.Errorf("cannot close state after failing to open: %v", err2)
+		}
 		return nil, errors.Trace(err)
 	}
 	return newState, nil
@@ -254,6 +257,9 @@ func (st *State) start(controllerTag names.ModelTag) error {
 	defer closer()
 	var doc modelDoc
 	if err := models.FindId(st.ModelUUID()).Select(bson.D{{"cloud", 1}}).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return errors.NotFoundf("model")
+		}
 		return errors.Trace(err)
 	}
 	st.cloudName = doc.Cloud

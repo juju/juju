@@ -53,7 +53,7 @@ var (
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 	ApplicationGlobalKey   = applicationGlobalKey
-	CreateSettings         = createSettings
+	ReadSettings           = readSettings
 	CloudGlobalKey         = cloudGlobalKey
 	MergeBindings          = mergeBindings
 	UpgradeInProgressError = errUpgradeInProgress

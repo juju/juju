@@ -17,10 +17,12 @@ type CloudConfigSuite struct {
 var _ = gc.Suite(&CloudConfigSuite{})
 
 func (s *CloudConfigSuite) TestCloudConfig(c *gc.C) {
-	_, err := state.CreateSettings(s.State, state.CloudSettingsC, state.CloudGlobalKey("dummy"),
-		map[string]interface{}{
-			"foo": "bar",
-		})
+	settings, err := state.ReadSettings(s.State, state.CloudSettingsC, state.CloudGlobalKey("dummy"))
+	c.Assert(err, jc.ErrorIsNil)
+	settings.Set("foo", "bar")
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
 	cfg, err := s.State.CloudConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["foo"], gc.Equals, "bar")

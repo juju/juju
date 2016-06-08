@@ -226,6 +226,7 @@ type stateInitializationParamsInternal struct {
 	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
 	CustomImageMetadataJSON     string                            `yaml:"custom-image-metadata,omitempty"`
+	ControllerCloud             string                            `yaml:"controller-cloud"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -243,6 +244,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.BootstrapMachineConstraints,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
+		p.ControllerCloud,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -271,6 +273,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
 		ModelConstraints:            internal.ModelConstraints,
 		CustomImageMetadata:         imageMetadata,
+		ControllerCloud:             internal.ControllerCloud,
 	}
 	return nil
 }

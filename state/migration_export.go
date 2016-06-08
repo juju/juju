@@ -55,6 +55,7 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Cloud:              dbModel.Cloud(),
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),

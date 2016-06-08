@@ -111,7 +111,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag})
 }
 
-func (s *InitializeSuite) TestInitializeWithSharedConfig(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithCloudConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
@@ -207,7 +207,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
 }
 
-func (s *InitializeSuite) TestSharedConfigWithForbiddenValues(c *gc.C) {
+func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	badAttrNames := []string{
 		config.AdminSecretKey,
 		config.AgentVersionKey,
@@ -222,6 +222,6 @@ func (s *InitializeSuite) TestSharedConfigWithForbiddenValues(c *gc.C) {
 		owner := names.NewLocalUserTag("initialize-admin")
 
 		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", badCloudAttrs, good, mongotest.DialOpts(), state.Policy(nil))
-		c.Assert(err, gc.ErrorMatches, "shared config cannot contain .*")
+		c.Assert(err, gc.ErrorMatches, "cloud config cannot contain .*")
 	}
 }
