@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 )
@@ -155,7 +156,7 @@ func openAPIStateUsingInfo(info *api.Info, oldPassword string) (api.Connection, 
 		// then the worker that's calling this cannot
 		// be interrupted.
 		st, err = apiOpen(info, api.DialOpts{})
-		if params.IsCodeUnauthorized(err) {
+		if params.IsCodeUnauthorized(err) || errors.Cause(err) == common.ErrBadCreds {
 			// We've perhaps used the wrong password, so
 			// try again with the fallback password.
 			useOldPassword = true
