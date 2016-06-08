@@ -342,18 +342,12 @@ func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Spaces(), jc.DeepEquals, spaces)
 
-	bytes, err := yaml.Marshal(initial)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := Deserialize(bytes)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.LinkLayerDevices(), jc.DeepEquals, devices)
 }
 
 func (s *ModelSerializationSuite) TestLinkLayerDevice(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	device := initial.AddLinkLayerDevice(LinkLayerDeviceArgs{Value: "10.0.0.4"})
-	c.Assert(device.Value(), gc.Equals, "10.0.0.4")
+	device := initial.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo"})
+	c.Assert(device.Name(), gc.Equals, "foo")
 	devices := initial.LinkLayerDevices()
 	c.Assert(devices, gc.HasLen, 1)
 	c.Assert(devices[0], jc.DeepEquals, device)
@@ -363,7 +357,7 @@ func (s *ModelSerializationSuite) TestLinkLayerDevice(c *gc.C) {
 
 	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Subnets(), jc.DeepEquals, devices)
+	c.Assert(model.LinkLayerDevices(), jc.DeepEquals, devices)
 }
 
 func (s *ModelSerializationSuite) TestSubnets(c *gc.C) {

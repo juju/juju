@@ -29,26 +29,26 @@ func (s *LinkLayerDeviceSerializationSuite) SetUpTest(c *gc.C) {
 
 func (s *LinkLayerDeviceSerializationSuite) TestNewLinkLayerDevice(c *gc.C) {
 	args := LinkLayerDeviceArgs{
-		SubnetCIDR:       "10.0.0.0/24",
-		ProviderID:       "magic",
-		DeviceName:       "foo",
-		MachineID:        "bar",
-		ConfigMethod:     "static",
-		Value:            "10.0.0.4",
-		DNSServers:       []string{"10.1.0.1", "10.2.0.1"},
-		DNSSearchDomains: []string{"bam", "mam"},
-		GatewayAddress:   "10.0.0.1",
+		ProviderID:  "magic",
+		MachineID:   "bar",
+		Name:        "foo",
+		MTU:         54,
+		Type:        "loopback",
+		MACAddress:  "DEADBEEF",
+		IsAutoStart: true,
+		IsUp:        true,
+		ParentName:  "bam",
 	}
 	device := newLinkLayerDevice(args)
-	c.Assert(device.SubnetCIDR(), gc.Equals, args.SubnetCIDR)
 	c.Assert(device.ProviderID(), gc.Equals, args.ProviderID)
-	c.Assert(device.DeviceName(), gc.Equals, args.DeviceName)
 	c.Assert(device.MachineID(), gc.Equals, args.MachineID)
-	c.Assert(device.ConfigMethod(), gc.Equals, args.ConfigMethod)
-	c.Assert(device.Value(), gc.Equals, args.Value)
-	c.Assert(device.DNSServers(), jc.DeepEquals, args.DNSServers)
-	c.Assert(device.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
-	c.Assert(device.GatewayAddress(), gc.Equals, args.GatewayAddress)
+	c.Assert(device.Name(), gc.Equals, args.Name)
+	c.Assert(device.MTU(), gc.Equals, args.MTU)
+	c.Assert(device.Type(), gc.Equals, args.Type)
+	c.Assert(device.MACAddress(), gc.Equals, args.MACAddress)
+	c.Assert(device.IsAutoStart(), gc.Equals, args.IsAutoStart)
+	c.Assert(device.IsUp(), gc.Equals, args.IsUp)
+	c.Assert(device.ParentName(), gc.Equals, args.ParentName)
 }
 
 func (s *LinkLayerDeviceSerializationSuite) TestParsingSerializedData(c *gc.C) {
@@ -56,17 +56,17 @@ func (s *LinkLayerDeviceSerializationSuite) TestParsingSerializedData(c *gc.C) {
 		Version: 1,
 		LinkLayerDevices_: []*linklayerdevice{
 			newLinkLayerDevice(LinkLayerDeviceArgs{
-				SubnetCIDR:       "10.0.0.0/24",
-				ProviderID:       "magic",
-				DeviceName:       "foo",
-				MachineID:        "bar",
-				ConfigMethod:     "static",
-				Value:            "10.0.0.4",
-				DNSServers:       []string{"10.1.0.1", "10.2.0.1"},
-				DNSSearchDomains: []string{"bam", "mam"},
-				GatewayAddress:   "10.0.0.1",
+				ProviderID:  "magic",
+				MachineID:   "bar",
+				Name:        "foo",
+				MTU:         54,
+				Type:        "loopback",
+				MACAddress:  "DEADBEEF",
+				IsAutoStart: true,
+				IsUp:        true,
+				ParentName:  "bam",
 			}),
-			newLinkLayerDevice(LinkLayerDeviceArgs{Value: "10.0.0.5"}),
+			newLinkLayerDevice(LinkLayerDeviceArgs{Name: "weeee"}),
 		},
 	}
 
