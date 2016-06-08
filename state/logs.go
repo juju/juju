@@ -202,13 +202,19 @@ type LogTailer interface {
 // LogRecord defines a single Juju log message as returned by
 // LogTailer.
 type LogRecord struct {
-	Time      time.Time
-	Entity    string
-	Module    string
-	Location  string
-	Level     loggo.Level
-	Message   string
-	ModelUUID string
+	// origin fields
+	ControllerUUID string
+	ModelUUID      string
+	Entity         string
+
+	// universal fields
+	Time time.Time
+
+	// logging-specific fields
+	Level    loggo.Level
+	Module   string
+	Location string
+	Message  string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -248,6 +254,9 @@ var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 type LogTailerState interface {
 	ModelSessioner
 
+	// ControllerUUID returns the model UUID for the controller model.
+	ControllerUUID() string
+
 	// IsController indicates whether or not the model is the admin model.
 	IsController() bool
 }
@@ -261,12 +270,13 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		modelUUID: st.ModelUUID(),
-		session:   session,
-		logsColl:  session.DB(logsDB).C(logsC).With(session),
-		params:    params,
-		logCh:     make(chan *LogRecord),
-		recentIds: newRecentIdTracker(maxRecentLogIds),
+		controllerUUID: st.ControllerUUID(),
+		modelUUID:      st.ModelUUID(),
+		session:        session,
+		logsColl:       session.DB(logsDB).C(logsC).With(session),
+		params:         params,
+		logCh:          make(chan *LogRecord),
+		recentIds:      newRecentIdTracker(maxRecentLogIds),
 	}
 	go func() {
 		err := t.loop()
@@ -279,14 +289,15 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 }
 
 type logTailer struct {
-	tomb      tomb.Tomb
-	modelUUID string
-	session   *mgo.Session
-	logsColl  *mgo.Collection
-	params    *LogTailerParams
-	logCh     chan *LogRecord
-	lastTime  time.Time
-	recentIds *recentIdTracker
+	tomb           tomb.Tomb
+	controllerUUID string
+	modelUUID      string
+	session        *mgo.Session
+	logsColl       *mgo.Collection
+	params         *LogTailerParams
+	logCh          chan *LogRecord
+	lastTime       time.Time
+	recentIds      *recentIdTracker
 }
 
 // Logs implements the LogTailer interface.
@@ -352,7 +363,7 @@ func (t *logTailer) processCollection() error {
 		select {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
-		case t.logCh <- logDocToRecord(doc):
+		case t.logCh <- logDocToRecord(doc, t.controllerUUID):
 			t.lastTime = doc.Time
 			t.recentIds.Add(doc.Id)
 		}
@@ -408,7 +419,7 @@ func (t *logTailer) tailOplog() error {
 			select {
 			case <-t.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
-			case t.logCh <- logDocToRecord(doc):
+			case t.logCh <- logDocToRecord(doc, t.controllerUUID):
 			}
 		}
 	}
@@ -514,15 +525,18 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(doc *logDoc) *LogRecord {
+func logDocToRecord(doc *logDoc, controllerUUID string) *LogRecord {
 	return &LogRecord{
-		Time:      doc.Time,
-		Entity:    doc.Entity,
-		Module:    doc.Module,
-		Location:  doc.Location,
-		Level:     doc.Level,
-		Message:   doc.Message,
-		ModelUUID: doc.ModelUUID,
+		ControllerUUID: controllerUUID,
+		ModelUUID:      doc.ModelUUID,
+		Entity:         doc.Entity,
+
+		Time:    doc.Time,
+		Message: doc.Message,
+
+		Level:    doc.Level,
+		Module:   doc.Module,
+		Location: doc.Location,
 	}
 }
 

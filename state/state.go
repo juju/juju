@@ -133,6 +133,12 @@ func (st *State) IsController() bool {
 	return st.modelTag == st.controllerTag
 }
 
+// ControllerUUID returns the model UUID for the controller model
+// of this state instance.
+func (st *State) ControllerUUID() string {
+	return st.controllerTag.Id()
+}
+
 // RemoveAllModelDocs removes all documents from multi-model
 // collections. The model should be put into a dying state before call
 // this method. Otherwise, there is a race condition in which collections
