@@ -50,6 +50,7 @@ from jujupy import (
     EnvJujuClient2B2,
     EnvJujuClient2B3,
     EnvJujuClient2B7,
+    EnvJujuClient2B8,
     ErroredUnit,
     GroupReporter,
     get_cache_path,
@@ -68,6 +69,7 @@ from jujupy import (
     make_safe_config,
     parse_new_state_server_from_error,
     SimpleEnvironment,
+    ServiceStatus,
     Status,
     SYSTEM,
     tear_down,
@@ -90,6 +92,15 @@ from utility import (
 
 
 __metaclass__ = type
+
+
+def check_juju_output(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        if 'service' in result:
+            raise AssertionError('Result contained service')
+        return result
+    return wrapper
 
 
 class AdminOperation(Exception):
@@ -290,7 +301,7 @@ class FakeEnvironmentState:
                 'relations': self.relations.get(service, {}),
                 'exposed': service in self.exposed,
                 }
-        return {'machines': machines, 'services': services}
+        return {'machines': machines, 'applications': services}
 
 
 class FakeBackend:
@@ -434,6 +445,8 @@ class FakeBackend:
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
+        if 'service' in command:
+            raise Exception('Command names must not contain "service".')
         if isinstance(args, basestring):
             args = (args,)
         self._log_command(command, args, model)
@@ -456,9 +469,7 @@ class FakeBackend:
                 parsed = parser.parse_args(args)
                 self.deploy(model_state, parsed.charm_name,
                             parsed.service_name, parsed.series)
-            if command == 'destroy-service':
-                model_state.destroy_service(*args)
-            if command == 'remove-service':
+            if command == 'remove-application':
                 model_state.destroy_service(*args)
             if command == 'add-relation':
                 if args[0] == 'dummy-source':
@@ -528,8 +539,11 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
+    @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags,
                         juju_home, model=None, timeout=None):
+        if 'service' in command:
+            raise Exception('No service')
         self._log_command(command, args, model, logging.DEBUG)
         if model is not None:
             if ':' in model:
@@ -581,6 +595,21 @@ def get_user_register_command_info(username):
 
 def get_user_register_token(username):
     return b64encode(sha512(username).digest())
+
+
+class FakeBackend2B7(FakeBackend):
+
+    def juju(self, command, args, used_feature_flags,
+             juju_home, model=None, check=True, timeout=None, extra_env=None):
+        if model is not None:
+            model_state = self.controller_state.models[model]
+        if command == 'destroy-service':
+            model_state.destroy_service(*args)
+        if command == 'remove-service':
+            model_state.destroy_service(*args)
+        return super(FakeBackend2B7).juju(command, args, used_feature_flags,
+                                          juju_home, model, check, timeout,
+                                          extra_env)
 
 
 class FakeBackendOptionalJES(FakeBackend):
@@ -1065,6 +1094,7 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-beta6'
             yield '2.0-beta7'
             yield '2.0-beta8'
+            yield '2.0-beta9'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -1129,8 +1159,11 @@ class TestEnvJujuClient(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B7)
             self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B8)
             self.assertEqual(client.version, '2.0-beta8')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta9')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
@@ -1590,7 +1623,7 @@ class TestEnvJujuClient(ClientTest):
             machines:
               "0":
                 {0}: {1}
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -1731,7 +1764,7 @@ class TestEnvJujuClient(ClientTest):
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.remove_service('mondogb')
-        mock_juju.assert_called_with('remove-service', ('mondogb',))
+        mock_juju.assert_called_with('remove-application', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient(
@@ -2020,7 +2053,7 @@ class TestEnvJujuClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -2043,7 +2076,7 @@ class TestEnvJujuClient(ClientTest):
             machines:
               "0":
                 agent-state: started
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -2061,7 +2094,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_wait_for_workload(self):
         initial_status = Status.from_text("""\
-            services:
+            applications:
               jenkins:
                 units:
                   jenkins/0:
@@ -2073,7 +2106,7 @@ class TestEnvJujuClient(ClientTest):
                         current: unknown
         """)
         final_status = Status(copy.deepcopy(initial_status.status), None)
-        final_status.status['services']['jenkins']['units']['jenkins/0'][
+        final_status.status['applications']['jenkins']['units']['jenkins/0'][
             'workload-status']['current'] = 'active'
         client = EnvJujuClient(JujuData('local'), None, None)
         writes = []
@@ -2144,12 +2177,12 @@ class TestEnvJujuClient(ClientTest):
               owner: admin@local
             current-model: foo
         """
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = EnvJujuClient(JujuData('baz'), None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=data) as gjo_mock:
             models = client.get_models()
         gjo_mock.assert_called_once_with(
-            'list-models', '-c', 'foo', '--format', 'yaml', include_e=False)
+            'list-models', '-c', 'baz', '--format', 'yaml', include_e=False)
         expected_models = {
             'models': [
                 {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
@@ -2414,7 +2447,7 @@ class TestEnvJujuClient(ClientTest):
             'machines': {
                 '0': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'baz': 'qux'}
@@ -2431,7 +2464,7 @@ class TestEnvJujuClient(ClientTest):
             'machines': {
                 '0': {'agent-state': 'started'},
             },
-            'services': {},
+            'applications': {},
         })
         client = EnvJujuClient(JujuData('local'), None, None)
         with patch('jujupy.until_timeout', lambda x: range(0)):
@@ -2960,6 +2993,22 @@ class TestEnvJujuClient(ClientTest):
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
 
+    def test_run(self):
+        client = fake_juju_client(cls=EnvJujuClient)
+        run_list = [
+            {"MachineId": "1",
+             "Stdout": "Linux\n",
+             "ReturnCode": 255,
+             "Stderr": "Permission denied (publickey,password)"}]
+        run_output = json.dumps(run_list)
+        with patch.object(client._backend, 'get_juju_output',
+                          return_value=run_output) as gjo_mock:
+            result = client.run(('wname',), applications=['foo', 'bar'])
+        self.assertEqual(run_list, result)
+        gjo_mock.assert_called_once_with(
+            'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
+            frozenset(['address-allocation']), 'foo', 'name', None)
+
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
                                '1.23-series-arch', None)
@@ -3160,6 +3209,16 @@ class TestEnvJujuClient(ClientTest):
             expected_args = _get_expected_args(permissions=permissions)
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
+
+
+class TestEnvJujuClient2B8(ClientTest):
+
+    def test_remove_service(self):
+        env = EnvJujuClient2B7(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.remove_service('mondogb')
+        mock_juju.assert_called_with('remove-service', ('mondogb',))
 
 
 class TestEnvJujuClient2B7(ClientTest):
@@ -3472,6 +3531,7 @@ class TestEnvJujuClient1X(ClientTest):
             yield '2.0-beta6'
             yield '2.0-beta7'
             yield '2.0-beta8'
+            yield '2.0-beta9'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -3536,8 +3596,11 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertIs(type(client), EnvJujuClient2B7)
             self.assertEqual(client.version, '2.0-beta7')
             client = EnvJujuClient1X.by_version(None)
-            self.assertIs(type(client), EnvJujuClient)
+            self.assertIs(type(client), EnvJujuClient2B8)
             self.assertEqual(client.version, '2.0-beta8')
+            client = EnvJujuClient1X.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta9')
             client = EnvJujuClient1X.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
@@ -3882,7 +3945,7 @@ class TestEnvJujuClient1X(ClientTest):
             result = client.get_status()
         gjo_mock.assert_called_once_with(
             'status', '--format', 'yaml', admin=False)
-        self.assertEqual(Status, type(result))
+        self.assertEqual(ServiceStatus, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
     def test_get_status_retries_on_error(self):
@@ -4242,7 +4305,7 @@ class TestEnvJujuClient1X(ClientTest):
                         'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_workload(self):
-        initial_status = Status.from_text("""\
+        initial_status = ServiceStatus.from_text("""\
             services:
               jenkins:
                 units:
@@ -4901,6 +4964,29 @@ class TestEnvJujuClient1X(ClientTest):
             'INFO The model is environment foo\n',
             self.log_stream.getvalue())
 
+    def test__get_models(self):
+        data = """\
+            - name: foo
+              model-uuid: aaaa
+            - name: bar
+              model-uuid: bbbb
+        """
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        with patch.object(client, 'get_juju_output', return_value=data):
+            models = client._get_models()
+            self.assertEqual(
+                [{'name': 'foo', 'model-uuid': 'aaaa'},
+                 {'name': 'bar', 'model-uuid': 'bbbb'}],
+                models)
+
+    def test__get_models_exception(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        with patch.object(client, 'get_juju_output',
+                          side_effect=subprocess.CalledProcessError('a', 'b')):
+            self.assertEqual([], client._get_models())
+
     def test_get_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
@@ -5016,6 +5102,23 @@ class TestEnvJujuClient1X(ClientTest):
                 ret]
             out = client.action_do_fetch("foo/0", "myaction", "param=5")
             self.assertEqual(out, ret)
+
+    def test_run(self):
+        env = SimpleEnvironment('name', {}, 'foo')
+        client = fake_juju_client(cls=EnvJujuClient1X, env=env)
+        run_list = [
+            {"MachineId": "1",
+             "Stdout": "Linux\n",
+             "ReturnCode": 255,
+             "Stderr": "Permission denied (publickey,password)"}]
+        run_output = json.dumps(run_list)
+        with patch.object(client._backend, 'get_juju_output',
+                          return_value=run_output) as gjo_mock:
+            result = client.run(('wname',), applications=['foo', 'bar'])
+        self.assertEqual(run_list, result)
+        gjo_mock.assert_called_once_with(
+            'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
+            frozenset(['address-allocation']), 'foo', 'name', None)
 
     def test_list_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -5397,7 +5500,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
             },
-            'services': {}}, '')
+            'applications': {}}, '')
         self.assertEqual(list(status.iter_machines()),
                          [('1', status.status['machines']['1'])])
 
@@ -5406,14 +5509,14 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
             },
-            'services': {}}, '')
+            'applications': {}}, '')
         self.assertEqual(list(status.iter_machines(containers=True)), [
             ('1', status.status['machines']['1']),
             ('1/lxc/0', {'baz': 'qux'}),
         ])
 
     def test_agent_items_empty(self):
-        status = Status({'machines': {}, 'services': {}}, '')
+        status = Status({'machines': {}, 'applications': {}}, '')
         self.assertItemsEqual([], status.agent_items())
 
     def test_agent_items(self):
@@ -5421,7 +5524,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar'}
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {
@@ -5446,7 +5549,7 @@ class TestStatus(FakeHomeTestCase):
                     '2': {'qux': 'baz'},
                 }}
             },
-            'services': {}
+            'applications': {}
         }, '')
         expected = [
             ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
@@ -5469,7 +5572,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5504,7 +5607,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5521,7 +5624,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5546,7 +5649,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {},
             },
-            'services': {
+            'applications': {
                 'ubuntu': {},
                 'jenkins': {
                     'units': {
@@ -5590,7 +5693,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5612,7 +5715,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5634,7 +5737,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-status': {'current': 'bad'}},
@@ -5657,7 +5760,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'juju-status': {'current': 'good'}},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'juju-status': {'current': 'bad'}},
@@ -5680,7 +5783,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'good'},
                 '2': {},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {'agent-state': 'bad'},
@@ -5698,7 +5801,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'started'},
                 '2': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {
@@ -5722,7 +5825,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-state': 'started'},
                 '2': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/1': {
@@ -5745,7 +5848,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'agent-state': 'any-error'},
             },
-            'services': {}
+            'applications': {}
         }, '')
         with self.assertRaisesRegexp(ErroredUnit,
                                      '1 is in state any-error'):
@@ -5755,7 +5858,7 @@ class TestStatus(FakeHomeTestCase):
         status = Status({
             'machines': {'0': {
                 'agent-state-info': failure}},
-            'services': {},
+            'applications': {},
         }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
             status.check_agents_started()
@@ -5784,7 +5887,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'agent-state-info': 'any-error'},
             },
-            'services': {}
+            'applications': {}
         }, '')
         with self.assertRaisesRegexp(ErroredUnit,
                                      '1 is in state any-error'):
@@ -5796,7 +5899,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'agent-version': '1.6.2'},
                 '2': {'agent-version': '1.6.1'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/0': {
@@ -5818,7 +5921,7 @@ class TestStatus(FakeHomeTestCase):
                 '1': {'juju-status': {'version': '1.6.2'}},
                 '2': {'juju-status': {'version': '1.6.1'}},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/0': {
@@ -5869,7 +5972,7 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(status.status_text, text)
         self.assertEqual(status.status, {
             'machines': {'0': {'agent-state': 'pending'}},
-            'services': {'jenkins': {'units': {'jenkins/0': {
+            'applications': {'jenkins': {'units': {'jenkins/0': {
                 'agent-state': 'horsefeathers'}}}}
         })
 
@@ -5886,7 +5989,7 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'agent-state': 'started'},
             },
-            'services': {
+            'applications': {
                 'jenkins': {
                     'units': {
                         'jenkins/0': unit_with_subordinates,
@@ -5910,6 +6013,23 @@ class TestStatus(FakeHomeTestCase):
         gen = status.iter_units()
         self.assertIsInstance(gen, types.GeneratorType)
         self.assertEqual(expected, list(gen))
+
+    def test_get_applications_gets_applications(self):
+        status = Status({
+            'services': {'service': {}},
+            'applications': {'application': {}},
+            }, '')
+        self.assertEqual({'application': {}}, status.get_applications())
+
+
+class TestServiceStatus(FakeHomeTestCase):
+
+    def test_get_applications_gets_services(self):
+        status = ServiceStatus({
+            'services': {'service': {}},
+            'applications': {'application': {}},
+            }, '')
+        self.assertEqual({'service': {}}, status.get_applications())
 
 
 def fast_timeout(count):

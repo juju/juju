@@ -336,9 +336,7 @@ def copy_remote_logs(remote, directory):
 
 
 def assess_juju_run(client):
-    responses = client.get_juju_output('run', '--format', 'json', '--service',
-                                       'dummy-source,dummy-sink', 'uname')
-    responses = json.loads(responses)
+    responses = client.run(('uname',), ['dummy-source', 'dummy-sink'])
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
             raise ValueError('juju run on machine %s returned %d: %s' % (
@@ -710,7 +708,10 @@ class BootstrapManager:
             safe_print_status(self.client)
             raise
         else:
-            self.client.show_status()
+            self.client.list_controllers()
+            self.client.list_models()
+            for m_client in self.client.iter_model_clients():
+                m_client.show_status()
         finally:
             try:
                 self.dump_all_logs()
@@ -790,6 +791,10 @@ class BootstrapManager:
                     self.client.bootstrap(
                         upload_tools, bootstrap_series=self.series)
                 with self.runtime_context(machines):
+                    self.client.list_controllers()
+                    self.client.list_models()
+                    for m_client in self.client.iter_model_clients():
+                        m_client.show_status()
                     yield machines
         except LoggedException:
             sys.exit(1)
@@ -871,7 +876,6 @@ def _deploy_job(args, charm_series, series):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
             return
-        client.show_status()
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
@@ -896,7 +900,8 @@ def _deploy_job(args, charm_series, series):
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        client.show_status()
+        for m_client in client.iter_model_clients():
+            m_client.show_status()
     except Exception as e:
         logging.exception(e)
 

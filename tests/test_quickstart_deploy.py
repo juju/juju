@@ -102,7 +102,9 @@ class TestQuickstartTest(FakeHomeTestCase):
         with patch('deploy_stack.safe_print_status'):
             with patch('deploy_stack.tear_down'):
                 with patch('quickstart_deploy.BootstrapManager.dump_all_logs'):
-                    steps.close()
+                    with patch('jujupy.EnvJujuClient.iter_model_clients',
+                               return_value=[]):
+                        steps.close()
 
     def test_iter_steps_context(self):
         client = fake_juju_client()

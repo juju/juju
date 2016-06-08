@@ -136,8 +136,11 @@ def detect_bootstrap_machine(bs_manager):
 
 
 def assess_recovery(bs_manager, strategy, charm_series):
+    log.info("Setting up test.")
     client = bs_manager.client
     deploy_stack(client, charm_series)
+    log.info("Setup complete.")
+    log.info("Test started.")
     admin_client = client.get_admin_client()
     if strategy in ('ha', 'ha-backup'):
         admin_client.enable_ha()
@@ -151,13 +154,17 @@ def assess_recovery(bs_manager, strategy, charm_series):
         leader_only = False
     deleted_machine_ids = delete_controller_members(
         admin_client, leader_only=leader_only)
+    log.info("Deleted {}".format(deleted_machine_ids))
     for m_id in deleted_machine_ids:
         if bs_manager.known_hosts.get(m_id):
             del bs_manager.known_hosts[m_id]
     if strategy == 'ha':
         client.get_status(600)
+        log.info("HA recovered from leader failure.")
+        log.info("PASS")
     else:
         restore_missing_state_server(client, admin_client, backup_file)
+    log.info("Test complete.")
 
 
 def main(argv):
