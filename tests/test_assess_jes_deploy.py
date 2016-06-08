@@ -147,9 +147,9 @@ class TestHostedEnvironment(tests.FakeHomeTestCase):
         os.mkdir(log_dir)
         with patch("deploy_stack.copy_remote_logs", autospec=True) as mock_crl:
             with hosted_environment(hosting_client, log_dir, 'bar') as client:
-                client.juju("deploy", ["cs:a-service"])
+                client.juju("deploy", ["cs:a-application"])
                 status = client.get_status()
-                unit_machine = status.get_unit("a-service/0")["machine"]
+                unit_machine = status.get_unit("a-application/0")["machine"]
                 addr = status.status["machines"][unit_machine]["dns-name"]
         hosted_dir = os.path.join(log_dir, "bar")
         machine_dir = os.path.join(hosted_dir, "machine-0")

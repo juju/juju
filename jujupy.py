@@ -224,7 +224,7 @@ class Status:
         return cls(status_yaml, text)
 
     def get_applications(self):
-        return self.status.get('services', {})
+        return self.status.get('applications', {})
 
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
@@ -323,6 +323,12 @@ class Status:
         If no ports are listed for the unit, the empty list is returned.
         """
         return self.get_unit(unit_name).get('open-ports', [])
+
+
+class ServiceStatus(Status):
+
+    def get_applications(self):
+        return self.status.get('services', {})
 
 
 class Juju2Backend:
@@ -659,6 +665,8 @@ class EnvJujuClient:
             client_class = EnvJujuClient2B3
         elif re.match('^2\.0-(beta7)', version):
             client_class = EnvJujuClient2B7
+        elif re.match('^2\.0-beta8', version):
+            client_class = EnvJujuClient2B8
         else:
             client_class = EnvJujuClient
         return client_class(env, version, full_path, debug=debug)
@@ -1018,7 +1026,7 @@ class EnvJujuClient:
                                         self.env.juju_home, model, timeout)
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, resource=None):
+               service=None, force=False, resource=None, storage=None):
         args = [charm]
         if service is not None:
             args.extend([service])
@@ -1030,6 +1038,8 @@ class EnvJujuClient:
             args.extend(['--force'])
         if resource is not None:
             args.extend(['--resource', resource])
+        if storage is not None:
+            args.extend(['--storage', storage])
         return self.juju('deploy', tuple(args))
 
     def attach(self, service, resource):
@@ -1064,7 +1074,7 @@ class EnvJujuClient:
         self.juju('upgrade-charm', args)
 
     def remove_service(self, service):
-        self.juju('remove-service', (service,))
+        self.juju('remove-application', (service,))
 
     @classmethod
     def format_bundle(cls, bundle_template):
@@ -1315,17 +1325,17 @@ class EnvJujuClient:
                     states.setdefault(status, []).append(machine)
                 if states.keys() == [desired_state]:
                     if len(states.get(desired_state, [])) >= 3:
-                        # XXX sinzui 2014-12-04: bug 1399277 happens because
-                        # juju claims HA is ready when the monogo replica sets
-                        # are not. Juju is not fully usable. The replica set
-                        # lag might be 5 minutes.
-                        self._backend.pause(300)
-                        return
+                        break
                 reporter.update(states)
             else:
                 raise Exception('Timed out waiting for voting to be enabled.')
         finally:
             reporter.finish()
+        # XXX sinzui 2014-12-04: bug 1399277 happens because
+        # juju claims HA is ready when the monogo replica sets
+        # are not. Juju is not fully usable. The replica set
+        # lag might be 5 minutes.
+        self._backend.pause(300)
 
     def wait_for_deploy_started(self, service_count=1, timeout=1200):
         """Wait until service_count services are 'started'.
@@ -1504,6 +1514,12 @@ class EnvJujuClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
+    def run(self, commands, applications):
+        responses = self.get_juju_output(
+            'run', '--format', 'json', '--application', ','.join(applications),
+            *commands)
+        return json.loads(responses)
+
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('list-space'))
 
@@ -1554,7 +1570,21 @@ class EnvJujuClient:
         self.controller_juju('revoke', args)
 
 
-class EnvJujuClient2B7(EnvJujuClient):
+class EnvJujuClient2B8(EnvJujuClient):
+
+    status_class = ServiceStatus
+
+    def remove_service(self, service):
+        self.juju('remove-service', (service,))
+
+    def run(self, commands, applications):
+        responses = self.get_juju_output(
+            'run', '--format', 'json', '--service', ','.join(applications),
+            *commands)
+        return json.loads(responses)
+
+
+class EnvJujuClient2B7(EnvJujuClient2B8):
 
     def get_admin_model_name(self):
         """Return the name of the 'admin' model.
@@ -1900,9 +1930,16 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def _get_models(self):
         """return a list of model dicts."""
-        return yaml.safe_load(self.get_juju_output(
-            'environments', '-s', self.env.environment, '--format', 'yaml',
-            include_e=False))
+        try:
+            return yaml.safe_load(self.get_juju_output(
+                'environments', '-s', self.env.environment, '--format', 'yaml',
+                include_e=False))
+        except subprocess.CalledProcessError:
+            # This *private* method attempts to use a 1.25 JES feature.
+            # The JES design is dead. The private method is not used to
+            # directly test juju cli; the failure is not a contract violation.
+            log.info('Call to JES juju environments failed, falling back.')
+            return []
 
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
