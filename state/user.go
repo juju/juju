@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -101,25 +102,48 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// RemoveUser removes the user with the given name from the user collection.
-func (st *State) RemoveUser(name string) error {
+// RemoveUser removes the user with the given name from the User collection as
+// well as any modeluser entries in the ModelUser collection.
+func (st *State) RemoveUser(user names.UserTag) error {
 
-	name = strings.ToLower(name)
+	modelUsers, userCloser := st.getRawCollection(modelUsersC)
+	defer userCloser()
 
-	ops := []txn.Op{{
-		Id:     name,
-		C:      usersC,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
-	err := st.runTransaction(ops)
-	if err == txn.ErrAborted {
-		err = errors.Errorf("user %q not found", name)
+	name := strings.ToLower(user.Name())
+
+	// This builds the transaction operations we want to try. It is rerun 3
+	// times by state.run.
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+
+		ops := []txn.Op{{
+			Id:     name,
+			C:      usersC,
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+		var modelUserIDs []struct {
+			ID string `bson:"_id"`
+		}
+		err := modelUsers.Find(bson.D{
+			{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&modelUserIDs)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else {
+				return nil, errors.Trace(err)
+			}
+		}
+		for _, entry := range modelUserIDs {
+			ops = append(ops, txn.Op{
+				C:      modelUsersC,
+				Id:     entry.ID,
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+		}
+		return ops, nil
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return st.run(buildTxn)
 }
 
 func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {

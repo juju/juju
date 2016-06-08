@@ -139,7 +139,7 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(u, jc.DeepEquals, user)
 
 	// Remove the user
-	err = s.State.RemoveUser(user.Name())
+	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
 	// Check again
@@ -147,10 +147,28 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", user.Name()))
 
 	// Try removing again and check we failed as expected.
-	err = s.State.RemoveUser(user.Name())
+	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", user.Name()))
 
 }
+
+func (s *UserSuite) TestRemoveUserwithModel(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
+		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = user.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.State.ModelUser(modelUser.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *UserSuite) TestDisable(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)
