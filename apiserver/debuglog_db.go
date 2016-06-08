@@ -46,12 +46,13 @@ func handleDebugLogDBRequest(
 
 			if reqParams.format == "json" {
 				err = socket.WriteJSON(params.LogRecord{
-					ModelUUID: rec.ModelUUID,
-					Time:      rec.Time,
-					Module:    rec.Module,
-					Location:  rec.Location,
-					Level:     rec.Level,
-					Message:   rec.Message,
+					ControllerUUID: rec.ControllerUUID,
+					ModelUUID:      rec.ModelUUID,
+					Time:           rec.Time,
+					Module:         rec.Module,
+					Location:       rec.Location,
+					Level:          rec.Level,
+					Message:        rec.Message,
 				})
 				if err != nil {
 					return errors.Trace(err)
