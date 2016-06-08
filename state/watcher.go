@@ -1309,7 +1309,7 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
-func (st *State) WatchForModelConfigChanges(cloudName string) NotifyWatcher {
+func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 	return newDocWatcher(st, []docKey{
 		{
 			settingsC,
@@ -1319,7 +1319,7 @@ func (st *State) WatchForModelConfigChanges(cloudName string) NotifyWatcher {
 			controllerSettingsGlobalKey,
 		}, {
 			cloudSettingsC,
-			cloudGlobalKey(cloudName),
+			cloudGlobalKey(st.cloudName),
 		},
 	})
 }

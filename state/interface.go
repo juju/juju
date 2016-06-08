@@ -100,8 +100,7 @@ type AgentEntity interface {
 // ModelAccessor defines the methods needed to watch for model
 // config changes, and read the model config.
 type ModelAccessor interface {
-	WatchForModelConfigChanges(cloudName string) NotifyWatcher
-	Model() (*Model, error)
+	WatchForModelConfigChanges() NotifyWatcher
 	ModelConfig() (*config.Config, error)
 }
 

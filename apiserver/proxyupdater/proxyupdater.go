@@ -17,20 +17,13 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// Model defines the needed methods of state.Model for
-// the work of the proxy updater.
-type Model interface {
-	Cloud() string
-}
-
 // Backend defines the state methods this facade needs, so they can be
 // mocked for testing.
 type Backend interface {
-	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
-	WatchForModelConfigChanges(cloudName string) state.NotifyWatcher
+	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 type ProxyUpdaterAPI struct {
@@ -54,13 +47,8 @@ func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer commo
 func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
 	var result params.NotifyWatchResult
 
-	model, err := api.backend.Model()
-	if err != nil {
-		result.Error = common.ServerError(err)
-		return result
-	}
 	watch := common.NewMultiNotifyWatcher(
-		api.backend.WatchForModelConfigChanges(model.Cloud()),
+		api.backend.WatchForModelConfigChanges(),
 		api.backend.WatchAPIHostPorts())
 
 	if _, ok := <-watch.Changes(); ok {

@@ -172,7 +172,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// model constraints set.
 	newModelCfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	// Add in the shared attributes.
+	// Add in the cloud attributes.
 	expectedAttrs := modelCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
 	c.Assert(newModelCfg.AllAttrs(), gc.DeepEquals, expectedAttrs)
@@ -191,6 +191,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
+	c.Assert(hostedModel.Cloud(), gc.Equals, "hosted-cloud")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]

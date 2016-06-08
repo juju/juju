@@ -10,7 +10,7 @@ import (
 
 // cloudGlobalKey returns the global database key for the specified cloud.
 func cloudGlobalKey(name string) string {
-	return fmt.Sprintf("%s#%s#cloud", modelGlobalKey, name)
+	return fmt.Sprintf("x#%s", name)
 }
 
 // CloudConfig returns the config values common to the cloud associated with this state's model.

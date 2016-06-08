@@ -70,6 +70,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(state.CloudName(st), gc.Equals, "dummy")
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 

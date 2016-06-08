@@ -104,15 +104,7 @@ func (st *State) ControllerModel() (*Model, error) {
 
 // Model returns the model entity.
 func (st *State) Model() (*Model, error) {
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	model := &Model{st: st}
-	uuid := st.modelTag.Id()
-	if err := model.refresh(models.FindId(uuid)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return model, nil
+	return st.GetModel(st.modelTag)
 }
 
 // GetModel looks for the model identified by the uuid passed in.
@@ -120,11 +112,11 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 	models, closer := st.getCollection(modelsC)
 	defer closer()
 
-	env := &Model{st: st}
-	if err := env.refresh(models.FindId(tag.Id())); err != nil {
+	model := &Model{st: st}
+	if err := model.refresh(models.FindId(tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return env, nil
+	return model, nil
 }
 
 // AllModels returns all the models in the system.
@@ -202,7 +194,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	uuid := args.Config.UUID()
-	newState, err := st.ForModel(names.NewModelTag(uuid))
+	newState, err := open(names.NewModelTag(uuid), st.mongoInfo, st.mongoDialOpts, st.policy)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -244,6 +236,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
+	}
+
+	err = newState.start(st.controllerTag)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
 
 	newEnv, err := newState.Model()

@@ -19,10 +19,6 @@ type stateShim struct {
 	st *state.State
 }
 
-func (s *stateShim) Model() (Model, error) {
-	return s.st.Model()
-}
-
 func (s *stateShim) ModelConfig() (*config.Config, error) {
 	return s.st.ModelConfig()
 }
@@ -35,6 +31,6 @@ func (s *stateShim) WatchAPIHostPorts() state.NotifyWatcher {
 	return s.st.WatchAPIHostPorts()
 }
 
-func (s *stateShim) WatchForModelConfigChanges(cloudName string) state.NotifyWatcher {
-	return s.st.WatchForModelConfigChanges(cloudName)
+func (s *stateShim) WatchForModelConfigChanges() state.NotifyWatcher {
+	return s.st.WatchForModelConfigChanges()
 }

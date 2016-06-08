@@ -80,6 +80,10 @@ type State struct {
 	database      Database
 	policy        Policy
 
+	// cloudName is the name of the cloud on which the model
+	// represented by this state runs.
+	cloudName string
+
 	// leaseClientId is used by the lease infrastructure to
 	// differentiate between machines whose clocks may be
 	// relatively-skewed.
@@ -226,8 +230,8 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 
 // ForModel returns a connection to mongo for the specified model. The
 // connection uses the same credentials and policy as the existing connection.
-func (st *State) ForModel(env names.ModelTag) (*State, error) {
-	newState, err := open(env, st.mongoInfo, st.mongoDialOpts, st.policy)
+func (st *State) ForModel(tag names.ModelTag) (*State, error) {
+	newState, err := open(tag, st.mongoInfo, st.mongoDialOpts, st.policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -238,11 +242,21 @@ func (st *State) ForModel(env names.ModelTag) (*State, error) {
 }
 
 // start makes a *State functional post-creation, by:
-//   * setting controllerTag and leaseClientId
+//   * setting controllerTag, cloudName and leaseClientId
 //   * starting lease managers and watcher backends
 //   * creating cloud metadata storage
 func (st *State) start(controllerTag names.ModelTag) error {
 	st.controllerTag = controllerTag
+
+	// Read the cloud name for this state's model.
+	// We'll use it later when starting watchers.
+	models, closer := st.getCollection(modelsC)
+	defer closer()
+	var doc modelDoc
+	if err := models.FindId(st.ModelUUID()).Select(bson.D{{"cloud", 1}}).One(&doc); err != nil {
+		return errors.Trace(err)
+	}
+	st.cloudName = doc.Cloud
 
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I

@@ -53,8 +53,7 @@ var (
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 	ApplicationGlobalKey   = applicationGlobalKey
-	ReadSettings           = readSettings
-	ModelGlobalKey         = modelGlobalKey
+	CreateSettings         = createSettings
 	CloudGlobalKey         = cloudGlobalKey
 	MergeBindings          = mergeBindings
 	UpgradeInProgressError = errUpgradeInProgress
@@ -325,6 +324,10 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func CloudName(st *State) string {
+	return st.cloudName
 }
 
 func UserModelNameIndex(username, modelName string) string {

@@ -843,7 +843,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		"name": "hosted-model",
 		"uuid": s.hostedModelUUID,
 	}
-	args.Cloud = "dummy"
+	args.ControllerCloud = "dummy"
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

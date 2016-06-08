@@ -39,11 +39,7 @@ func NewModelWatcher(st state.ModelAccessor, resources *Resources, authorizer Au
 // so we use the regular error return.
 func (m *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	model, err := m.st.Model()
-	if err != nil {
-		return result, err
-	}
-	watch := m.st.WatchForModelConfigChanges(model.Cloud())
+	watch := m.st.WatchForModelConfigChanges()
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers
