@@ -80,11 +80,10 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 			continue
 		}
 		inputs := set.NewStrings(manifold.Inputs...)
-		if inputs.Contains("is-responsible-flag") {
-			continue
+		if !inputs.Contains("is-responsible-flag") {
+			c.Check(inputs.Contains("migration-fortress"), jc.IsTrue)
+			c.Check(inputs.Contains("migration-inactive-flag"), jc.IsTrue)
 		}
-		c.Check(inputs.Contains("migration-fortress"), jc.IsTrue)
-		c.Check(inputs.Contains("migration-inactive-flag"), jc.IsTrue)
 	}
 }
 

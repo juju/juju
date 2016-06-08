@@ -218,7 +218,7 @@ func (tracker *engineTracker) Install(raw dependency.Manifolds, id string) error
 	names := make([]string, 0, len(raw))
 	for name := range raw {
 		if name == trackerName {
-			return errors.New("engine tracker installed repeatedly")
+			return errors.New("engine tracker already installed")
 		}
 		names = append(names, name)
 	}
@@ -226,7 +226,7 @@ func (tracker *engineTracker) Install(raw dependency.Manifolds, id string) error
 	tracker.mu.Lock()
 	defer tracker.mu.Unlock()
 	if _, exists := tracker.current[id]; exists {
-		return errors.Errorf("manifolds for %s created repeatedly", id)
+		return errors.Errorf("engine for %s already started", id)
 	}
 	raw[trackerName] = dependency.Manifold{
 		Inputs: names,
