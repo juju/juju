@@ -537,26 +537,12 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: "foo",
 		Type: state.EthernetDevice,
 	}
-	err = machine.SetLinkLayerDevices(deviceArgs)
+	err := machine.SetLinkLayerDevices(deviceArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
-	}
-	err = machine.SetDevicesAddresses(args)
-	c.Assert(err, jc.ErrorIsNil)
-
 	_, newSt := s.importModel(c)
 	defer func() {
 		c.Assert(newSt.Close(), jc.ErrorIsNil)
@@ -566,15 +552,8 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	c.Assert(devices, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	device := devices[0]
-	c.Assert(device.Value(), gc.Equals, "0.1.2.3")
-	c.Assert(device.MachineID(), gc.Equals, machine.Id())
-	c.Assert(device.DeviceName(), gc.Equals, "foo")
-	c.Assert(device.ConfigMethod(), gc.Equals, state.StaticAddress)
-	c.Assert(device.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(device.ProviderID(), gc.Equals, network.Id("bar"))
-	c.Assert(device.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
-	c.Assert(device.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
-	c.Assert(device.GatewayAddress(), gc.Equals, "0.1.2.1")
+	c.Assert(device.Name(), gc.Equals, "foo")
+	c.Assert(device.Type(), gc.Equals, state.EthernetDevice)
 }
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
