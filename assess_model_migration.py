@@ -10,7 +10,10 @@ from subprocess import CalledProcessError
 import sys
 from time import sleep
 
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    assess_upgrade,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -25,7 +28,7 @@ log = logging.getLogger("assess_model_migration")
 
 
 def assess_model_migration(bs1, bs2, upload_tools):
-    ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
+    # ensure_able_to_migrate_model_between_controllers(bs1, bs2, upload_tools)
     ensure_fail_to_migrate_to_lower_version_controller(bs1, bs2, upload_tools)
 
 
@@ -49,10 +52,7 @@ def get_bootstrap_managers(args):
     bs_2 = BootstrapManager.from_args(args)
 
     # Need to be able to upgrade this controller.
-    try:
-        bs_1.client.env.config.pop('enable-os-upgrade')
-    except KeyError:
-        pass
+    bs_1.client.env.config['enable-os-upgrade'] = True
 
     # Give the second a separate/unique name.
     bs_2.temp_env_name = '{}-b'.format(bs_1.temp_env_name)
@@ -89,34 +89,21 @@ def wait_for_model(client, model_name, timeout=60):
         ))
 
 
-def _get_controllers_version(client):
-    status_details = client.get_status()
-    return status_details.status['machines']['0']['juju-status']['version']
-
-
-def _get_admin_client(client):
-    return client.clone(client.env.clone('admin'))
-
-
 def _update_client_controller(client):
     log.info('Updating clients ({}) controller'.format(
         client.env.environment))
-    admin_client = _get_admin_client(client)
-    original_version = _get_controllers_version(admin_client)
-    admin_client.juju('upgrade-juju', ('--upload-tools'))
 
-    # Wait for update to happen on controller
-    for _ in until_timeout(60):
-        if original_version == _get_controllers_version(admin_client):
-            return
-    raise RuntimeError('Failed to update controller.')
+    admin_client = client.get_admin_client()
+    admin_client.env.local = True
+    assess_upgrade(admin_client, admin_client.full_path)
+    # After upgrade, is there an exception perhaps?
 
 
 def test_deployed_mongo_is_up(client):
     """Ensure the mongo service is running as expected."""
     try:
         output = client.get_juju_output(
-            'ssh', 'mongodb/0', 'mongo --eval "db.getMongo()"')
+            'run', 'mongodb/0', 'mongo --eval "db.getMongo()"')
         if 'connecting to: test' in output:
             return
     except CalledProcessError as e:
