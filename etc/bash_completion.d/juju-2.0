@@ -38,7 +38,6 @@ print ("\n".join([unit + trail for unit in all_units]))
 _juju_2_0_services_from_status_file() {
 [ -n "${1}" ] || return 0
 ${_juju_cmd_PYTHON?} -c '
-[ -n "${1}" ] || return 0
 import json, sys; j=json.load(sys.stdin)
 print ("\n".join(j("services", {}).keys()));' < ${1}
 }
