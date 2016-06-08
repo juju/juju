@@ -126,7 +126,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	env, err := environs.New(args.Config)
+	controllerModel, err := environs.New(args.ControllerModelConfig)
 	if err != nil {
 		return err
 	}
@@ -134,18 +134,18 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
-	desiredVersion, ok := args.Config.AgentVersion()
+	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
 	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
-		stream := envtools.PreferredStream(&desiredVersion, args.Config.Development(), args.Config.AgentStream())
+		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
 		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
 		filter := tools.Filter{
 			Number: desiredVersion,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
-		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
+		_, toolsErr := envtools.FindTools(controllerModel, -1, -1, stream, filter)
 		if toolsErr == nil {
 			logger.Infof("tools are available, upgrade will occur after bootstrap")
 		}
@@ -160,7 +160,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	instances, err := env.Instances([]instance.Id{args.InstanceId})
+	instances, err := controllerModel.Instances([]instance.Id{args.InstanceId})
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to generate system key")
 	}
-	authorizedKeys := config.ConcatAuthKeys(args.Config.AuthorizedKeys(), publicKey)
+	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
 	newConfigAttrs[config.AuthKeysConfig] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
@@ -218,7 +218,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
-	envCfg, err := env.Config().Apply(newConfigAttrs)
+	controllerModelCfg, err := controllerModel.Config().Apply(newConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
 	}
@@ -231,7 +231,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// Set a longer socket timeout than usual, as the machine
 		// will be starting up and disk I/O slower than usual. This
 		// has been known to cause timeouts in queries.
-		timeouts := envCfg.BootstrapSSHOpts()
+		timeouts := controllerModelCfg.BootstrapSSHOpts()
 		dialOpts.SocketTimeout = timeouts.Timeout
 		if dialOpts.SocketTimeout < minSocketTimeout {
 			dialOpts.SocketTimeout = minSocketTimeout
@@ -249,7 +249,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		st, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
-			envCfg,
+			controllerModelCfg,
+			args.ControllerCloud,
+			args.SharedCloudConfig,
 			args.HostedModelConfig,
 			agentbootstrap.BootstrapMachineConfig{
 				Addresses:            addrs,
@@ -271,12 +273,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	// Populate the tools catalogue.
-	if err := c.populateTools(st, env); err != nil {
+	if err := c.populateTools(st, controllerModel); err != nil {
 		return err
 	}
 
 	// Populate the GUI archive catalogue.
-	if err := c.populateGUIArchive(st, env); err != nil {
+	if err := c.populateGUIArchive(st, controllerModel); err != nil {
 		// Do not stop the bootstrapping process for Juju GUI archive errors.
 		logger.Warningf("cannot set up Juju GUI: %s", err)
 	} else {

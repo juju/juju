@@ -117,7 +117,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
-	s.makeTestEnv(c)
+	s.makeTestModel(c)
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	current := version.Binary{
@@ -391,7 +391,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	cfg, err := st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.Config.AuthorizedKeys()+"\npublic-key")
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys()+"\npublic-key")
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
@@ -404,11 +404,11 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	// bootstrap with 1.99.1 but there will be no tools so version will be reset.
-	cfg, err := s.bootstrapParams.Config.Apply(map[string]interface{}{
+	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
 		"agent-version": "1.99.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapParams.Config = cfg
+	s.bootstrapParams.ControllerModelConfig = cfg
 	s.writeBootstrapParamsFile(c)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
@@ -612,7 +612,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, hostedModelConfig map[string]interface{}, machineCfg agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ *config.Config, _ string, sharedCloudConfig, hostedModelConfig map[string]interface{}, _ agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -633,18 +633,18 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, hostedModelConfig map[string]interface{}, machineCfg agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ *config.Config, _ string, sharedCloudConfig, hostedModelConfig map[string]interface{}, _ agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
 		return nil, nil, errors.New("failed to initialize state")
 	}
 
-	cfg, err := s.bootstrapParams.Config.Apply(map[string]interface{}{
+	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
 		"bootstrap-timeout": "13",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapParams.Config = cfg
+	s.bootstrapParams.ControllerModelConfig = cfg
 	s.writeBootstrapParamsFile(c)
 
 	s.PatchValue(&agentInitializeState, initializeState)
@@ -807,7 +807,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot determine series for version woat: unknown series for version: \"woat\"`)
 }
 
-func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
+func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"agent-version":     jujuversion.Current.String(),
@@ -836,13 +836,14 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 
 	var args instancecfg.StateInitializationParams
 	args.InstanceId = inst.Id()
-	args.Config = env.Config()
+	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
 	args.HardwareCharacteristics = &hw
 	args.HostedModelConfig = map[string]interface{}{
 		"name": "hosted-model",
 		"uuid": s.hostedModelUUID,
 	}
+	args.Cloud = "dummy"
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

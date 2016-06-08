@@ -532,6 +532,15 @@ to clean up the model.`[1:])
 	delete(hostedModelConfig, config.AuthKeysConfig)
 	delete(hostedModelConfig, config.AgentVersionKey)
 
+	// Based on the attribute names in clouds.yaml, create
+	// a map of shared config for all models on this cloud.
+	sharedAttrs := make(map[string]interface{})
+	for k := range cloud.Config {
+		if v, ok := controllerConfigAttrs[k]; ok {
+			sharedAttrs[k] = v
+		}
+	}
+
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
 	var guiDataSourceBaseURL string
@@ -549,6 +558,8 @@ to clean up the model.`[1:])
 		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
+		Cloud:                c.Cloud,
+		SharedCloudConfig:    sharedAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})

@@ -182,7 +182,7 @@ func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
 // nil, and the instance config is for a bootstrap machine.
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
 	if envConfig != nil && cfg.Bootstrap != nil {
-		cfg.Bootstrap.Config = envConfig
+		cfg.Bootstrap.ControllerModelConfig = envConfig
 		cfg.Bootstrap.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
 	}
 	return cfg
@@ -553,7 +553,7 @@ func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
 // check that any --model-config $base64 is valid and matches t.cfg.Config
 func checkEnvConfig(c *gc.C, cfg *config.Config, scripts []string) {
 	args := getStateInitializationParams(c, scripts)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, args.Config.AllAttrs())
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, args.ControllerModelConfig.AllAttrs())
 }
 
 func getStateInitializationParams(c *gc.C, scripts []string) instancecfg.StateInitializationParams {
@@ -619,7 +619,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		scripts := getScripts(configKeyValues)
 		assertScriptMatch(c, scripts, test.expectScripts, !test.inexactMatch)
 		if testConfig.Bootstrap != nil {
-			checkEnvConfig(c, testConfig.Bootstrap.Config, scripts)
+			checkEnvConfig(c, testConfig.Bootstrap.ControllerModelConfig, scripts)
 		}
 
 		// curl should always be installed, since it's required by jujud.
@@ -924,7 +924,7 @@ var verifyTests = []struct {
 		cfg.MachineId = "-1"
 	}},
 	{"invalid bootstrap configuration: missing model configuration", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.Config = nil
+		cfg.Bootstrap.ControllerModelConfig = nil
 	}},
 	{"invalid controller configuration: missing state info", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Controller.MongoInfo = nil
@@ -1030,9 +1030,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		return instancecfg.InstanceConfig{
 			Bootstrap: &instancecfg.BootstrapConfig{
 				StateInitializationParams: instancecfg.StateInitializationParams{
-					InstanceId:        "i-bootstrap",
-					Config:            minimalModelConfig(c),
-					HostedModelConfig: map[string]interface{}{"name": "hosted-model"},
+					InstanceId:            "i-bootstrap",
+					ControllerModelConfig: minimalModelConfig(c),
+					HostedModelConfig:     map[string]interface{}{"name": "hosted-model"},
 				},
 				StateServingInfo: stateServingInfo,
 			},

@@ -60,6 +60,9 @@ type modelDoc struct {
 	ServerUUID    string        `bson:"server-uuid"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
 
+	// Cloud is the name of the cloud that the model is managed within.
+	Cloud string `bson:"cloud"`
+
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
@@ -145,9 +148,36 @@ func (st *State) AllModels() ([]*Model, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
-	Config        *config.Config
-	Owner         names.UserTag
+	// Cloud is the name of the cloud that the model is deployed to.
+	Cloud string
+
+	// Config is the model config.
+	Config *config.Config
+
+	// Owner is the user that owns the model.
+	Owner names.UserTag
+
+	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
+}
+
+// Validate validates the ModelArgs.
+func (m ModelArgs) Validate() error {
+	if m.Cloud == "" {
+		return errors.NotValidf("empty Cloud")
+	}
+	if m.Config == nil {
+		return errors.NotValidf("nil Config")
+	}
+	if m.Owner == (names.UserTag{}) {
+		return errors.NotValidf("empty Owner")
+	}
+	switch m.MigrationMode {
+	case MigrationModeActive, MigrationModeImporting:
+	default:
+		return errors.NotValidf("initial migration mode %q", m.MigrationMode)
+	}
+	return nil
 }
 
 // NewModel creates a new model with its own UUID and
@@ -160,6 +190,10 @@ type ModelArgs struct {
 // models, perhaps for future use around cross model
 // relations.
 func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	owner := args.Owner
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
@@ -178,7 +212,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}()
 
-	ops, err := newState.modelSetupOps(args.Config, owner, args.MigrationMode)
+	sharedCfg, err := st.SharedCloudConfig()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not red shared config for new model")
+	}
+	ops, err := newState.modelSetupOps(args.Config, args.Cloud, sharedCfg, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -248,6 +286,11 @@ func (m *Model) ControllerUUID() string {
 // Name returns the human friendly name of the model.
 func (m *Model) Name() string {
 	return m.doc.Name
+}
+
+// Cloud returns the name of the cloud that the model is deployed to.
+func (m *Model) Cloud() string {
+	return m.doc.Cloud
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -738,7 +781,7 @@ func ensureDestroyable(st *State) error {
 
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createModelOp(st *State, owner names.UserTag, name, uuid, server string, mode MigrationMode) txn.Op {
+func createModelOp(st *State, owner names.UserTag, name, uuid, server, cloud string, mode MigrationMode) txn.Op {
 	doc := &modelDoc{
 		UUID:          uuid,
 		Name:          name,
@@ -746,6 +789,7 @@ func createModelOp(st *State, owner names.UserTag, name, uuid, server string, mo
 		Owner:         owner.Canonical(),
 		ServerUUID:    server,
 		MigrationMode: mode,
+		Cloud:         cloud,
 	}
 	return txn.Op{
 		C:      modelsC,

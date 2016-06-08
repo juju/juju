@@ -16,6 +16,14 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	cloudSettings, err := readSettings(st, cloudSettingsC, cloudGlobalKey(model.Cloud()))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -23,6 +31,13 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	// Callers still expect ModelConfig to contain all of the controller
 	// settings attributes.
 	attrs := controllerSettings.Map()
+
+	// Merge in the cloud settings.
+	for k, v := range cloudSettings.Map() {
+		attrs[k] = v
+	}
+
+	// Finally, any model specific settings are added.
 	for k, v := range modelSettings.Map() {
 		attrs[k] = v
 	}
@@ -40,10 +55,35 @@ func checkModelConfig(cfg *config.Config) error {
 	return nil
 }
 
+// checkCloudConfig returns an error if the shared config is definitely invalid.
+func checkCloudConfig(attrs map[string]interface{}) error {
+	if _, ok := attrs[config.AdminSecretKey]; ok {
+		return errors.Errorf("cloud config cannot contain admin-secret")
+	}
+	if _, ok := attrs[config.AgentVersionKey]; ok {
+		return errors.Errorf("cloud config cannot contain agent-version")
+	}
+	for _, attrName := range config.ControllerOnlyConfigAttributes {
+		if _, ok := attrs[attrName]; ok {
+			return errors.Errorf("cloud config cannot contain controller attribute %q", attrName)
+		}
+	}
+	return nil
+}
+
 func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
 	for attr := range updateAttrs {
 		if controllerOnlyAttribute(attr) {
 			return nil, errors.Errorf("cannot set controller attribute %q on a model", attr)
+		}
+	}
+	sharedCloudConfig, err := st.SharedCloudConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for attr := range updateAttrs {
+		if _, ok := sharedCloudConfig[attr]; ok {
+			return nil, errors.Errorf("cannot set shared cloud attribute %q on a model", attr)
 		}
 	}
 	newConfig, err := oldConfig.Apply(updateAttrs)
@@ -106,15 +146,20 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 			modelSettings.Delete(k)
 		}
 	}
-	modelSettings.Update(validAttrs)
 
-	// Remove any model settings that should only be on the controller.
-	// TODO(wallyworld) - we need this for now because existing code splats
-	// a model config containing all the things.
-	for _, attr := range config.ControllerOnlyConfigAttributes {
-		modelSettings.Delete(attr)
+	// Remove any attributes that are the same as what's in shared config.
+	sharedAttrs, err := st.SharedCloudConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for attr, sharedValue := range sharedAttrs {
+		if newValue, ok := validAttrs[attr]; ok && newValue == sharedValue {
+			delete(validAttrs, attr)
+			modelSettings.Delete(attr)
+		}
 	}
 
+	modelSettings.Update(validAttrs)
 	_, err = modelSettings.Write()
 	return errors.Trace(err)
 }

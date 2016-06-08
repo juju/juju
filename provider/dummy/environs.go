@@ -724,7 +724,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// user is constructed with an empty password here.
 		// It is set just below.
 		st, err := state.Initialize(
-			names.NewUserTag("admin@local"), info, cfg,
+			names.NewUserTag("admin@local"), info, "dummy", nil, cfg,
 			mongotest.DialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)

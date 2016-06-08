@@ -24,6 +24,7 @@ type ModelArgs struct {
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
 	Blocks             map[string]string
+	Cloud              string
 }
 
 // NewModel returns a Model based on the args specified.
@@ -35,6 +36,7 @@ func NewModel(args ModelArgs) Model {
 		LatestToolsVersion_: args.LatestToolsVersion,
 		Sequences_:          make(map[string]int),
 		Blocks_:             args.Blocks,
+		Cloud_:              args.Cloud,
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -85,6 +87,8 @@ type model struct {
 	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
+
+	Cloud_ string `yaml:"cloud"`
 
 	// TODO:
 	// Spaces
@@ -260,11 +264,21 @@ func (m *model) SetConstraints(args ConstraintsArgs) {
 	m.Constraints_ = newConstraints(args)
 }
 
+// Cloud implements Model.
+func (m *model) Cloud() string {
+	return m.Cloud_
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
 	if m.Owner_ == "" {
 		return errors.NotValidf("missing model owner")
+	}
+
+	// A model must have a cloud.
+	if m.Cloud_ == "" {
+		return errors.NotValidf("missing cloud name")
 	}
 
 	unitsWithOpenPorts := set.NewStrings()
@@ -346,6 +360,7 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
 		"owner":        schema.String(),
+		"cloud":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
 		"blocks":       schema.StringMap(schema.String()),
@@ -378,6 +393,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		Config_:    valid["config"].(map[string]interface{}),
 		Sequences_: make(map[string]int),
 		Blocks_:    convertToStringMap(valid["blocks"]),
+		Cloud_:     valid["cloud"].(string),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})

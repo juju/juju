@@ -77,6 +77,10 @@ func allCollections() collectionSchema {
 		// everything in state.
 		controllersC: {global: true},
 
+		// This collection holds any model settings common to all models on
+		// a given cloud.
+		cloudSettingsC: {global: true},
+
 		// This collection is used to track progress when restoring a
 		// controller from backup.
 		restoreInfoC: {global: true},
@@ -383,6 +387,7 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudSettingsC           = "cloudsettings"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"

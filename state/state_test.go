@@ -4149,7 +4149,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, authInfo, cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(owner, authInfo, "dummy", nil, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

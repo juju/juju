@@ -122,11 +122,12 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Remove all controller config before comparision.
+	// Remove all controller config before comparison.
 	modelAttrs := dbModelCfg.AllAttrs()
 	for _, attr := range config.ControllerOnlyConfigAttributes {
 		delete(modelAttrs, attr)
 	}
+	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)

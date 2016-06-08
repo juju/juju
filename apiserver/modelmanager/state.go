@@ -35,6 +35,7 @@ type Model interface {
 	Life() state.Life
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
+	Cloud() string
 	Users() ([]common.ModelUser, error)
 }
 

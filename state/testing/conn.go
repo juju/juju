@@ -26,7 +26,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	mgoInfo := NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 
-	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
+	st, err := state.Initialize(owner, mgoInfo, "dummy", nil, cfg, dialOpts, policy)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

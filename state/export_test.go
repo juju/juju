@@ -34,6 +34,7 @@ const (
 	EndpointBindingsC = endpointBindingsC
 	SettingsC         = settingsC
 	ControllersC      = controllersC
+	CloudSettingsC    = cloudSettingsC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
@@ -52,6 +53,9 @@ var (
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 	ApplicationGlobalKey   = applicationGlobalKey
+	ReadSettings           = readSettings
+	ModelGlobalKey         = modelGlobalKey
+	CloudGlobalKey         = cloudGlobalKey
 	MergeBindings          = mergeBindings
 	UpgradeInProgressError = errUpgradeInProgress
 )

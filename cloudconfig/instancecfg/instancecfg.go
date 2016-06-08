@@ -188,8 +188,16 @@ type StateInitializationParams struct {
 	// the bootstrap agent during state initialisation.
 	HardwareCharacteristics *instance.HardwareCharacteristics
 
-	// Config holds the initial controller model configuration.
-	Config *config.Config
+	// ControllerModelConfig holds the initial controller model configuration.
+	ControllerModelConfig *config.Config
+
+	// ControllerCloud is the name of the cloud that Juju will be
+	// bootstrapped in.
+	ControllerCloud string
+
+	// SharedCloudConfig is a set of config attributes to be shared by all
+	// models hosted by this controller on the same cloud.
+	SharedCloudConfig map[string]interface{}
 
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
@@ -212,7 +220,8 @@ type StateInitializationParams struct {
 type stateInitializationParamsInternal struct {
 	InstanceId                  instance.Id                       `yaml:"instance-id"`
 	HardwareCharacteristics     *instance.HardwareCharacteristics `yaml:"hardware,omitempty"`
-	Config                      map[string]interface{}            `yaml:"controller-model-config"`
+	ControllerModelConfig       map[string]interface{}            `yaml:"controller-model-config"`
+	SharedCloudConfig           map[string]interface{}            `yaml:"shared-cloud-config,omitempty"`
 	HostedModelConfig           map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
 	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
 	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
@@ -228,7 +237,8 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	internal := stateInitializationParamsInternal{
 		p.InstanceId,
 		p.HardwareCharacteristics,
-		p.Config.AllAttrs(),
+		p.ControllerModelConfig.AllAttrs(),
+		p.SharedCloudConfig,
 		p.HostedModelConfig,
 		p.BootstrapMachineConstraints,
 		p.ModelConstraints,
@@ -248,14 +258,15 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err := json.Unmarshal([]byte(internal.CustomImageMetadataJSON), &imageMetadata); err != nil {
 		return errors.Trace(err)
 	}
-	cfg, err := config.New(config.NoDefaults, internal.Config)
+	cfg, err := config.New(config.NoDefaults, internal.ControllerModelConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	*p = StateInitializationParams{
 		InstanceId:                  internal.InstanceId,
 		HardwareCharacteristics:     internal.HardwareCharacteristics,
-		Config:                      cfg,
+		ControllerModelConfig:       cfg,
+		SharedCloudConfig:           internal.SharedCloudConfig,
 		HostedModelConfig:           internal.HostedModelConfig,
 		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
 		ModelConstraints:            internal.ModelConstraints,
@@ -519,7 +530,7 @@ func (cfg *InstanceConfig) verifyControllerConfig() (err error) {
 
 // VerifyConfig verifies that the BootstrapConfig is valid.
 func (cfg *BootstrapConfig) VerifyConfig() (err error) {
-	if cfg.Config == nil {
+	if cfg.ControllerModelConfig == nil {
 		return errors.New("missing model configuration")
 	}
 	if len(cfg.StateServingInfo.Cert) == 0 {
@@ -752,7 +763,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		PrivateKey:   string(key),
 		CAPrivateKey: caPrivateKey,
 	}
-	if icfg.Bootstrap.Config, err = bootstrapConfig(cfg); err != nil {
+	if icfg.Bootstrap.ControllerModelConfig, err = bootstrapConfig(cfg); err != nil {
 		return errors.Trace(err)
 	}
 

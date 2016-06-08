@@ -65,7 +65,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", nil, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
@@ -110,18 +110,45 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag})
 }
 
+func (s *InitializeSuite) TestInitializeWithSharedConfig(c *gc.C) {
+	cfg := testing.ModelConfig(c)
+	uuid := cfg.UUID()
+	initial := cfg.AllAttrs()
+	shared := map[string]interface{}{
+		"default-series": initial["default-series"],
+	}
+	owner := names.NewLocalUserTag("initialize-admin")
+	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", shared, cfg, mongotest.DialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.NotNil)
+	modelTag := st.ModelTag()
+	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.openState(c, modelTag)
+
+	sharedAttr, err := s.State.SharedCloudConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sharedAttr, jc.DeepEquals, shared)
+
+	cfg, err = s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
+}
+
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
 
 	mgoInfo := statetesting.NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
-	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	st, err := state.Initialize(owner, mgoInfo, "dummy", nil, cfg, dialOpts, state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	st, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	st, err = state.Initialize(owner, mgoInfo, "dummy", nil, cfg, dialOpts, state.Policy(nil))
 	c.Check(err, gc.ErrorMatches, "already initialized")
 	if !c.Check(st, gc.IsNil) {
 		err = st.Close()
@@ -136,7 +163,7 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 	bad, err := good.Apply(badUpdateAttrs)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, mongotest.DialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", nil, bad, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateModelConfig.
@@ -162,7 +189,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, mongotest.DialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", nil, bad, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	st := statetesting.Initialize(c, owner, good, nil)
@@ -177,4 +204,23 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
+}
+
+func (s *InitializeSuite) TestSharedConfigWithForbiddenValues(c *gc.C) {
+	badAttrNames := []string{
+		config.AdminSecretKey,
+		config.AgentVersionKey,
+	}
+	for _, attr := range config.ControllerOnlyConfigAttributes {
+		badAttrNames = append(badAttrNames, attr)
+	}
+	good := testing.ModelConfig(c)
+
+	for _, badAttrName := range badAttrNames {
+		badSharedAttrs := map[string]interface{}{badAttrName: "foo"}
+		owner := names.NewLocalUserTag("initialize-admin")
+
+		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", badSharedAttrs, good, mongotest.DialOpts(), state.Policy(nil))
+		c.Assert(err, gc.ErrorMatches, "shared config cannot contain .*")
+	}
 }
