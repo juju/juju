@@ -273,19 +273,18 @@ class Status:
             state_info = item.get('agent-state-info', '')
             if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
-            # sometimes the state may be hidden in juju status message
-            juju_status = item.get('juju-status', '')
-            if juju_status:
-                juju_status_info = juju_status.get('current', '')
-                if 'error' in juju_status_info:
-                    juju_status_msg = juju_status.get('message', None)
-                    if juju_status_msg:
-                        raise ErroredUnit(item_name, juju_status_msg)
         states = self.agent_states()
         if set(states.keys()).issubset(AGENTS_READY):
             return None
         for state, entries in states.items():
             if 'error' in state:
+                # sometimes the state may be hidden in juju status message
+                juju_status = \
+                    dict(self.agent_items())[entries[0]].get('juju-status')
+                if juju_status:
+                    juju_status_msg = juju_status.get('message')
+                    if juju_status_msg:
+                        raise ErroredUnit(entries[0], juju_status_msg)
                 raise ErroredUnit(entries[0], state)
         return states
 
