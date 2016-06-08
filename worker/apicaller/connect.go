@@ -111,11 +111,9 @@ func connectFallback(
 	if !didFallback {
 		logger.Debugf("connecting with current password")
 		tryConnect()
-		if err != nil {
-			if params.IsCodeUnauthorized(err) || errors.Cause(err) == common.ErrBadCreds {
-				didFallback = true
+		if params.IsCodeUnauthorized(err) || errors.Cause(err) == common.ErrBadCreds {
+			didFallback = true
 
-			}
 		}
 	}
 	if didFallback {
