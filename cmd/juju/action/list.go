@@ -4,12 +4,17 @@
 package action
 
 import (
+	"bytes"
+	"fmt"
+	"text/tabwriter"
+
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -94,11 +99,33 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 
 	shortOutput := make(map[string]string)
+	var sortedNames []string
 	for name, action := range actions.ActionSpecs {
 		shortOutput[name] = action.Description
 		if shortOutput[name] == "" {
 			shortOutput[name] = "No description"
 		}
+		sortedNames = append(sortedNames, name)
 	}
-	return c.out.Write(ctx, shortOutput)
+	sortedNames = common.SortStringsNaturally(sortedNames)
+	return c.printTabular(ctx, shortOutput, sortedNames)
+}
+
+// printTabular prints the list of actions in tabular format
+func (c *listCommand) printTabular(ctx *cmd.Context, actions map[string]string, sortedNames []string) error {
+	var out bytes.Buffer
+	const (
+		// To format things into columns.
+		minwidth = 0
+		tabwidth = 2
+		padding  = 2
+		padchar  = ' '
+		flags    = 0
+	)
+	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	for _, name := range sortedNames {
+		fmt.Fprintf(tw, "%s\t%s\n", name, actions[name])
+	}
+	tw.Flush()
+	return c.out.Write(ctx, string(out.Bytes()))
 }

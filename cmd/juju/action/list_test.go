@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
@@ -81,6 +80,14 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}
 }
 
+var simpleOutput = `
+kill            Kill the database.
+no-description  No description
+no-params       An action with no parameters.
+snapshot        Take a snapshot of the database.
+
+`[1:]
+
 func (s *ListSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should           string
@@ -139,7 +146,7 @@ func (s *ListSuite) TestRun(c *gc.C) {
 					} else if t.expectNoResults {
 						c.Check(string(result), gc.Matches, t.expectMessage+"(?sm).*")
 					} else {
-						checkSimpleSchema(c, t.withCharmActions, result)
+						c.Check(testing.Stdout(ctx), gc.Equals, simpleOutput)
 					}
 				}
 
@@ -154,19 +161,4 @@ func checkFullSchema(c *gc.C, expected *charm.Actions, actual []byte) {
 		expectedOutput[k] = v.Params
 	}
 	c.Check(string(actual), jc.YAMLEquals, expectedOutput)
-}
-
-func checkSimpleSchema(c *gc.C, expected *charm.Actions, actualOutput []byte) {
-	specs := expected.ActionSpecs
-	expectedSpecs := make(map[string]string)
-	for name, spec := range specs {
-		expectedSpecs[name] = spec.Description
-		if expectedSpecs[name] == "" {
-			expectedSpecs[name] = "No description"
-		}
-	}
-	actual := make(map[string]string)
-	err := yaml.Unmarshal(actualOutput, &actual)
-	c.Assert(err, gc.IsNil)
-	c.Check(actual, jc.DeepEquals, expectedSpecs)
 }
