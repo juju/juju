@@ -25,10 +25,15 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	modelSettings, err := s.State.ReadSettings(state.SettingsC, "e")
 	c.Assert(err, jc.ErrorIsNil)
 
+	optional := func(attr string) bool {
+		return attr == config.IdentityURL || attr == config.IdentityPublicKey
+	}
 	for _, controllerAttr := range config.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.Not(gc.Equals), "")
+		if !optional(controllerAttr) {
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(v, gc.Not(gc.Equals), "")
+		}
 
 		_, ok = modelSettings.Get(controllerAttr)
 		c.Assert(ok, jc.IsFalse)

@@ -105,6 +105,9 @@ const (
 	// TypeKey is the key for the model's cloud type.
 	TypeKey = "type"
 
+	// AdminSecret is the administrator password.
+	AdminSecretKey = "admin-secret"
+
 	// AgentVersionKey is the key for the model's Juju agent version.
 	AgentVersionKey = "agent-version"
 
@@ -237,6 +240,8 @@ var ControllerOnlyConfigAttributes = []string{
 	StatePort,
 	CACertKey,
 	ControllerUUIDKey,
+	IdentityURL,
+	IdentityPublicKey,
 }
 
 // ParseHarvestMode parses description of harvesting method and
@@ -977,7 +982,7 @@ func (c *Config) CAPrivateKey() (key string, ok bool) {
 // AdminSecret returns the administrator password.
 // It's empty if the password has not been set.
 func (c *Config) AdminSecret() string {
-	if s, ok := c.defined["admin-secret"]; ok && s != "" {
+	if s, ok := c.defined[AdminSecretKey]; ok && s != "" {
 		return s.(string)
 	}
 	return ""
@@ -1328,7 +1333,7 @@ var alwaysOptional = schema.Defaults{
 	// omitted.
 	// TODO(rog) remove this support when we can
 	// remove upgrade compatibility with versions prior to 1.14.
-	"admin-secret":       "", // TODO(rog) omit
+	AdminSecretKey:       "", // TODO(rog) omit
 	"ca-private-key":     "", // TODO(rog) omit
 	"image-metadata-url": "", // TODO(rog) omit
 	AgentMetadataURLKey:  "", // TODO(rog) omit
@@ -1547,7 +1552,7 @@ func Schema(extra environschema.Fields) (environschema.Fields, error) {
 // the config package.
 // TODO(rog) make this available to external packages.
 var configSchema = environschema.Fields{
-	"admin-secret": {
+	AdminSecretKey: {
 		Description: "The password for the administrator user",
 		Type:        environschema.Tstring,
 		Secret:      true,

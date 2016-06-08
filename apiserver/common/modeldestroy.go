@@ -44,17 +44,17 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 	}
 
 	if destroyHostedModels {
-		envs, err := st.AllModels()
+		models, err := st.AllModels()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, env := range envs {
-			envSt, err := st.ForModel(env.ModelTag())
-			defer envSt.Close()
+		for _, model := range models {
+			modelSt, err := st.ForModel(model.ModelTag())
+			defer modelSt.Close()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			check := NewBlockChecker(envSt)
+			check := NewBlockChecker(modelSt)
 			if err = check.DestroyAllowed(); err != nil {
 				return errors.Trace(err)
 			}

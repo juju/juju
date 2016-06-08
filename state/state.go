@@ -79,6 +79,10 @@ type State struct {
 	database      Database
 	policy        Policy
 
+	// cloudName is the name of the cloud on which the model
+	// represented by this state runs.
+	cloudName string
+
 	// leaseClientId is used by the lease infrastructure to
 	// differentiate between machines whose clocks may be
 	// relatively-skewed.
@@ -240,8 +244,7 @@ func (st *State) ForModel(model names.ModelTag) (*State, error) {
 }
 
 // start makes a *State functional post-creation, by:
-//
-//   * setting controllerTag and leaseClientId
+//   * setting controllerTag, cloudName and leaseClientId
 //   * starting lease managers and watcher backends
 //   * creating cloud metadata storage
 //
@@ -257,6 +260,20 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 	}()
 
 	st.controllerTag = controllerTag
+
+	// Read the cloud name for this state's model.
+	// We'll use it later when starting watchers.
+	models, closer := st.getCollection(modelsC)
+	defer closer()
+	var doc modelDoc
+	if err := models.FindId(st.ModelUUID()).Select(bson.D{{"cloud", 1}}).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return errors.NotFoundf("model")
+		}
+		return errors.Trace(err)
+	}
+	st.cloudName = doc.Cloud
+
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to

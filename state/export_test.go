@@ -34,6 +34,7 @@ const (
 	EndpointBindingsC = endpointBindingsC
 	SettingsC         = settingsC
 	ControllersC      = controllersC
+	CloudSettingsC    = cloudSettingsC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
@@ -52,6 +53,8 @@ var (
 	AddVolumeOps           = (*State).addVolumeOps
 	CombineMeterStatus     = combineMeterStatus
 	ApplicationGlobalKey   = applicationGlobalKey
+	ReadSettings           = readSettings
+	CloudGlobalKey         = cloudGlobalKey
 	MergeBindings          = mergeBindings
 	UpgradeInProgressError = errUpgradeInProgress
 )
@@ -321,6 +324,10 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func CloudName(st *State) string {
+	return st.cloudName
 }
 
 func UserModelNameIndex(username, modelName string) string {

@@ -61,12 +61,6 @@ func (s *ModelConfigSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
-	updateAttrs := map[string]interface{}{"api-port": 1234}
-	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
-}
-
 func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"authorized-keys": "different-keys",
@@ -82,4 +76,37 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(oldCfg, gc.DeepEquals, cfg)
+}
+
+func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C) {
+	updateAttrs := map[string]interface{}{"api-port": 1234}
+	err := s.State.UpdateModelConfig(updateAttrs, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set controller attribute "api-port" on a model`)
+}
+
+func (s *ModelConfigSuite) TestModelConfigRejectsSharedCloudValue(c *gc.C) {
+	sharedSettings, err := s.State.ReadSettings(state.CloudSettingsC, state.CloudGlobalKey("dummy"))
+	c.Assert(err, jc.ErrorIsNil)
+	sharedSettings.Set("apt-mirror", "http://mirror")
+	_, err = sharedSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	attrs := map[string]interface{}{
+		"authorized-keys": "different-keys",
+		"apt-mirror":      "http://mirror",
+	}
+	err = s.State.UpdateModelConfig(attrs, nil, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set shared cloud attribute "apt-mirror" on a model`)
+}
+
+func (s *ModelConfigSuite) TestModelConfigInheritsSharedValue(c *gc.C) {
+	sharedSettings, err := s.State.ReadSettings(state.CloudSettingsC, state.CloudGlobalKey("dummy"))
+	c.Assert(err, jc.ErrorIsNil)
+	sharedSettings.Set("apt-mirror", "http://mirror")
+	_, err = sharedSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
 }

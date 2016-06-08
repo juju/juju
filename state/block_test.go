@@ -116,7 +116,7 @@ func (s *blockSuite) TestNonsenseBlocked(c *gc.C) {
 
 func (s *blockSuite) TestMultiEnvBlocked(c *gc.C) {
 	// create another env
-	_, st2 := s.createTestEnv(c)
+	_, st2 := s.createTestModel(c)
 	defer st2.Close()
 
 	// switch one block type on
@@ -132,7 +132,7 @@ func (s *blockSuite) TestMultiEnvBlocked(c *gc.C) {
 }
 
 func (s *blockSuite) TestAllBlocksForController(c *gc.C) {
-	_, st2 := s.createTestEnv(c)
+	_, st2 := s.createTestModel(c)
 	defer st2.Close()
 
 	err := st2.SwitchBlockOn(state.ChangeBlock, "block test")
@@ -146,7 +146,7 @@ func (s *blockSuite) TestAllBlocksForController(c *gc.C) {
 }
 
 func (s *blockSuite) TestRemoveAllBlocksForController(c *gc.C) {
-	_, st2 := s.createTestEnv(c)
+	_, st2 := s.createTestModel(c)
 	defer st2.Close()
 
 	err := st2.SwitchBlockOn(state.ChangeBlock, "block test")
@@ -163,7 +163,7 @@ func (s *blockSuite) TestRemoveAllBlocksForController(c *gc.C) {
 }
 
 func (s *blockSuite) TestRemoveAllBlocksForControllerNoBlocks(c *gc.C) {
-	_, st2 := s.createTestEnv(c)
+	_, st2 := s.createTestModel(c)
 	defer st2.Close()
 
 	err := st2.RemoveAllBlocksForController()
@@ -186,7 +186,7 @@ func (s *blockSuite) TestModelUUID(c *gc.C) {
 	c.Assert(blocks[0].ModelUUID(), gc.Equals, st.ModelUUID())
 }
 
-func (s *blockSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
+func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
@@ -194,7 +194,7 @@ func (s *blockSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	return env, st
 }

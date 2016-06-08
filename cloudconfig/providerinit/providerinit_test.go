@@ -162,7 +162,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
-	c.Check(icfg.Bootstrap.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
+	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
 	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
@@ -236,7 +236,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	if bootstrap {
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
-				Config: envConfig,
+				ControllerModelConfig: envConfig,
 			},
 			StateServingInfo: params.StateServingInfo{
 				StatePort:    envConfig.StatePort(),

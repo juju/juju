@@ -37,15 +37,15 @@ func NewModelWatcher(st state.ModelAccessor, resources *Resources, authorizer Au
 // Note that although the NotifyWatchResult contains an Error field,
 // it's not used because we are only returning a single watcher,
 // so we use the regular error return.
-func (e *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, error) {
+func (m *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	watch := e.st.WatchForModelConfigChanges()
+	watch := m.st.WatchForModelConfigChanges()
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = e.resources.Register(watch)
+		result.NotifyWatcherId = m.resources.Register(watch)
 	} else {
 		return result, watcher.EnsureErr(watch)
 	}
@@ -53,16 +53,16 @@ func (e *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, e
 }
 
 // ModelConfig returns the current environment's configuration.
-func (e *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
+func (m *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
 	result := params.ModelConfigResult{}
 
-	config, err := e.st.ModelConfig()
+	config, err := m.st.ModelConfig()
 	if err != nil {
 		return result, err
 	}
 	allAttrs := config.AllAttrs()
 
-	if !e.authorizer.AuthModelManager() {
+	if !m.authorizer.AuthModelManager() {
 		// Mask out any secrets in the environment configuration
 		// with values of the same type, so it'll pass validation.
 		//

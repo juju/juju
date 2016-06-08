@@ -188,7 +188,7 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
-		instanceConfig.Bootstrap.Config.BootstrapSSHOpts(),
+		instanceConfig.Bootstrap.ControllerModelConfig.BootstrapSSHOpts(),
 	)
 	if err != nil {
 		return err

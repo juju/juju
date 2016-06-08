@@ -83,6 +83,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		"uuid": s.modelUUID,
 	})
 	_, s.st, err = s.State.NewModel(state.ModelArgs{
+		Cloud:  "dummy",
 		Config: cfg,
 		Owner:  names.NewLocalUserTag("test-admin"),
 	})

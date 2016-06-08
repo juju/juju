@@ -359,7 +359,7 @@ func (s *modelManagerSuite) TestGrantMissingModelFails(c *gc.C) {
 	user := s.Factory.MakeModelUser(c, nil)
 	model := names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4")
 	err := s.grant(c, user.UserTag(), params.ModelReadAccess, model)
-	expectedErr := `model not found`
+	expectedErr := `.* model not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 

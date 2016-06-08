@@ -57,6 +57,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	dbModel, newSt, err := st.NewModel(ModelArgs{
+		Cloud:         model.Cloud(),
 		Config:        cfg,
 		Owner:         model.Owner(),
 		MigrationMode: MigrationModeImporting,

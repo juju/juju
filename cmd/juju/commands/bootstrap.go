@@ -519,9 +519,9 @@ to clean up the model.`[1:])
 	// We copy across any user supplied attributes to the hosted model config.
 	// But only if the attributes have not been removed from the controller
 	// model config as part of preparing the controller model.
-	controllerConfigAttrs := environ.Config().AllAttrs()
+	controllerModelConfigAttrs := environ.Config().AllAttrs()
 	for k, v := range userConfigAttrs {
-		if _, ok := controllerConfigAttrs[k]; ok {
+		if _, ok := controllerModelConfigAttrs[k]; ok {
 			hostedModelConfig[k] = v
 		}
 	}
@@ -531,6 +531,17 @@ to clean up the model.`[1:])
 	// inherited.
 	delete(hostedModelConfig, config.AuthKeysConfig)
 	delete(hostedModelConfig, config.AgentVersionKey)
+
+	// Based on the attribute names in clouds.yaml, create
+	// a map of config for all models on this cloud.
+	cloudConfigAttrs := make(map[string]interface{})
+	for attr, cloudAttrValue := range cloud.Config {
+		if val, ok := controllerModelConfigAttrs[attr]; ok && val != cloudAttrValue {
+			return errors.Errorf("cannot override cloud attribute %q", attr)
+		} else {
+			cloudConfigAttrs[attr] = cloudAttrValue
+		}
+	}
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
@@ -549,6 +560,8 @@ to clean up the model.`[1:])
 		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
+		Cloud:                c.Cloud,
+		CloudConfig:          cloudConfigAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})

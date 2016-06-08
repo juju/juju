@@ -33,16 +33,18 @@ func controllerConfig(cfg map[string]interface{}) map[string]interface{} {
 }
 
 // modelConfig returns the model config attributes that result when we
-// have a current controller config and want to save a new model config.
-// currentControllerCfg is not currently used - it will be when we support inheritance.
-func modelConfig(currentControllerCfg, cfg map[string]interface{}) map[string]interface{} {
+// take what is required for the model and remove any attributes that
+// are specifically controller related or are already present in the
+// shared cloud config.
+func modelConfig(sharedCloudCfg, cfg map[string]interface{}) map[string]interface{} {
 	modelCfg := make(map[string]interface{})
-	// The model config contains any attributes not controller only.
-	for attr, value := range cfg {
+	for attr, cfgValue := range cfg {
 		if controllerOnlyAttribute(attr) {
 			continue
 		}
-		modelCfg[attr] = value
+		if sharedValue, ok := sharedCloudCfg[attr]; !ok || sharedValue != cfgValue {
+			modelCfg[attr] = cfgValue
+		}
 	}
 	return modelCfg
 }
