@@ -278,6 +278,13 @@ class Status:
             return None
         for state, entries in states.items():
             if 'error' in state:
+                # sometimes the state may be hidden in juju status message
+                juju_status = dict(
+                    self.agent_items())[entries[0]].get('juju-status')
+                if juju_status:
+                    juju_status_msg = juju_status.get('message')
+                    if juju_status_msg:
+                        state = juju_status_msg
                 raise ErroredUnit(entries[0], state)
         return states
 
