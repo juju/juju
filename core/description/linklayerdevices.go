@@ -164,7 +164,7 @@ func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, e
 		ProviderID_:  valid["provider-id"].(string),
 		MachineID_:   valid["machineid"].(string),
 		Name_:        valid["name"].(string),
-		MTU_:         valid["mtu"].(uint),
+		MTU_:         uint(valid["mtu"].(int64)),
 		Type_:        valid["type"].(string),
 		MACAddress_:  valid["macaddress"].(string),
 		IsAutoStart_: valid["isautostart"].(bool),
