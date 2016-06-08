@@ -12,6 +12,7 @@ from time import sleep
 
 from deploy_stack import BootstrapManager
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     until_timeout,
@@ -76,7 +77,7 @@ def wait_for_model(client, model_name, timeout=60):
         if model_name in [m['name'] for m in models['models']]:
             return
         sleep(1)
-    raise AssertionError(
+    raise JujuAssertionError(
         'Model \'{}\' failed to appear after {} seconds'.format(
             model_name, timeout
         ))
@@ -86,7 +87,7 @@ def test_deployed_mongo_is_up(client):
     """Ensure the mongo service is running as expected."""
     try:
         output = client.get_juju_output(
-            'ssh', 'mongodb/0', 'mongo --eval "db.getMongo()"')
+            'run', 'mongodb/0', 'mongo --eval "db.getMongo()"')
         if 'connecting to: test' in output:
             return
     except CalledProcessError as e:
