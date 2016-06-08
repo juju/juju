@@ -1260,24 +1260,22 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		logger.Debugf("upgrades done, starting worker %q", name)
 
 		// Upgrades are done, start the worker.
-		worker, err := start()
+		w, err := start()
 		if err != nil {
 			return err
 		}
 		// Wait for worker to finish or for us to be stopped.
-		waitCh := make(chan error)
+		done := make(chan error, 1)
 		go func() {
-			waitCh <- worker.Wait()
+			done <- w.Wait()
 		}()
 		select {
-		case err := <-waitCh:
-			logger.Debugf("worker %q exited with %v", name, err)
-			return err
+		case err := <-done:
+			return errors.Annotatef(err, "worker %q exited", name)
 		case <-stop:
 			logger.Debugf("stopping so killing worker %q", name)
-			worker.Kill()
+			return worker.Stop(w)
 		}
-		return <-waitCh // Ensure worker has stopped before returning.
 	})
 }
 

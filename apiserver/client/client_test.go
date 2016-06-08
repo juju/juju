@@ -40,6 +40,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 )
 
 type serverSuite struct {
@@ -66,6 +67,9 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
 	s.State.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)

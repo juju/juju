@@ -498,7 +498,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.Watch()
-	defer w.Stop()
+	defer worker.Stop(w)
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -706,7 +706,7 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 		err = unit.Refresh()
 		c.Assert(err, jc.ErrorIsNil)
 		w := unit.Watch()
-		defer w.Stop()
+		defer worker.Stop(w)
 
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
@@ -739,7 +739,7 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		err := service.SetMinUnits(1)
 		c.Assert(err, jc.ErrorIsNil)
 		w := service.Watch()
-		defer w.Stop()
+		defer worker.Stop(w)
 
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
