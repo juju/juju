@@ -194,13 +194,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	uuid := args.Config.UUID()
-	newState, err := open(names.NewModelTag(uuid), st.mongoInfo, st.mongoDialOpts, st.policy)
+	session := st.session.Copy()
+	newSt, err := newState(names.NewModelTag(uuid), session, st.mongoInfo, st.policy)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
 	defer func() {
 		if err != nil {
-			newState.Close()
+			newSt.Close()
 		}
 	}()
 
@@ -208,11 +209,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
 	}
-	ops, err := newState.modelSetupOps(args.Config, args.Cloud, cloudCfg, owner, args.MigrationMode)
+	ops, err := newSt.modelSetupOps(args.Config, args.Cloud, cloudCfg, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
-	err = newState.runTransaction(ops)
+	err = newSt.runTransaction(ops)
 	if err == txn.ErrAborted {
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
@@ -238,17 +239,17 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newState.start(st.controllerTag)
+	err = newSt.start(st.controllerTag)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
 
-	newEnv, err := newState.Model()
+	newModel, err := newSt.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	return newEnv, newState, nil
+	return newModel, newSt, nil
 }
 
 // Tag returns a name identifying the model.

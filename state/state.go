@@ -75,7 +75,6 @@ type State struct {
 	modelTag      names.ModelTag
 	controllerTag names.ModelTag
 	mongoInfo     *mongo.MongoInfo
-	mongoDialOpts mongo.DialOpts
 	session       *mgo.Session
 	database      Database
 	policy        Policy
@@ -230,25 +229,36 @@ func (st *State) appendRemoveAllInCollectionOps(ops []txn.Op, name string) ([]tx
 
 // ForModel returns a connection to mongo for the specified model. The
 // connection uses the same credentials and policy as the existing connection.
-func (st *State) ForModel(tag names.ModelTag) (*State, error) {
-	newState, err := open(tag, st.mongoInfo, st.mongoDialOpts, st.policy)
+func (st *State) ForModel(model names.ModelTag) (*State, error) {
+	session := st.session.Copy()
+	newSt, err := newState(
+		model, session, st.mongoInfo, st.policy,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newState.start(st.controllerTag); err != nil {
-		if err2 := newState.Close(); err2 != nil {
-			logger.Errorf("cannot close state after failing to open: %v", err2)
-		}
+	if err := newSt.start(st.controllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newState, nil
+	return newSt, nil
 }
 
 // start makes a *State functional post-creation, by:
 //   * setting controllerTag, cloudName and leaseClientId
 //   * starting lease managers and watcher backends
 //   * creating cloud metadata storage
-func (st *State) start(controllerTag names.ModelTag) error {
+//
+// start will close the *State if it fails.
+func (st *State) start(controllerTag names.ModelTag) (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err2 := st.Close(); err2 != nil {
+			logger.Errorf("closing State for %s: %v", st.modelTag, err2)
+		}
+	}()
+
 	st.controllerTag = controllerTag
 
 	// Read the cloud name for this state's model.

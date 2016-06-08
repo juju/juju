@@ -37,13 +37,13 @@ func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 	}
 	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("error closing state for unreadable model %s: %v", tag.Id(), err)
+			logger.Errorf("closing State for %s: %v", tag, err)
 		}
 		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
-	// other *States should be created via ForEnviron.
+	// other *States should be created via ForModel.
 	if err := st.start(tag); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -80,9 +80,8 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 		tag = ssInfo.ModelTag
 	}
 
-	st, err := newState(tag, session, info, opts, policy)
+	st, err := newState(tag, session, info, policy)
 	if err != nil {
-		session.Close()
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -269,7 +268,17 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with no running workers or
 // controllerTag. You must start() the returned *State before it will
 // function correctly.
-func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, dialOpts mongo.DialOpts, policy Policy) (_ *State, resultErr error) {
+//
+// newState takes responsibility for the supplied *mgo.Session, and will
+// close it if it cannot be returned under the aegis of a *State.
+func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, err error) {
+
+	defer func() {
+		if err != nil {
+			session.Close()
+		}
+	}()
+
 	// Set up database.
 	rawDB := session.DB(jujuDB)
 	database, err := allCollections().Load(rawDB, modelTag.Id())
@@ -282,12 +291,11 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 
 	// Create State.
 	return &State{
-		modelTag:      modelTag,
-		mongoInfo:     mongoInfo,
-		mongoDialOpts: dialOpts,
-		session:       session,
-		database:      database,
-		policy:        policy,
+		modelTag:  modelTag,
+		mongoInfo: mongoInfo,
+		session:   session,
+		database:  database,
+		policy:    policy,
 	}, nil
 }
 
