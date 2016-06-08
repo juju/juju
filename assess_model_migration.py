@@ -12,6 +12,7 @@ from time import sleep
 
 from deploy_stack import BootstrapManager
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     until_timeout,
@@ -76,7 +77,7 @@ def wait_for_model(client, model_name, timeout=60):
         if model_name in [m['name'] for m in models['models']]:
             return
         sleep(1)
-    raise AssertionError(
+    raise JujuAssertionError(
         'Model \'{}\' failed to appear after {} seconds'.format(
             model_name, timeout
         ))
