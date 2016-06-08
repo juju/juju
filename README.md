@@ -20,13 +20,25 @@ tarball and package.
 Once juju is published to the test clouds, individual tests can be performed.
 Most tests accept an env name. The envs define the cloud and series to test.
 
+## Requirements for running tests
+You will need some python libraries in order to run the existing CI tests.
+Install the following
+
+sudo apt-get install python-launchpadlib python-yaml python-boto python-mock
+ python-jenkins python-novaclient python-pexpect python-winrm python-coverage
+
+In addition, if you wish to use azure, you will need to install pip, and the
+associated client library from pip for azure.
+
+sudo apt-get install python-pip
+pip install azure
 
 # Creating a New CI Test
 
 Test scripts will be run under many conditions to reproduce real cases.
 Most scripts cannot assume special knowledge of the substrate, region,
 bootstrap constraints, tear down, and log collection, etc.
-    
+
 If this is your first time, consider asking one of the QA team to pair-program
 on it with you.
 
