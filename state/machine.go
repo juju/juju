@@ -1243,8 +1243,8 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	if current.Origin != "" {
 		currentD = append(currentD, bson.D{{fieldName + ".origin", current.Origin}})
 	}
-	if current.SpaceName != "" {
-		currentD = append(currentD, bson.D{{fieldName + ".spacename", current.SpaceName}})
+	if current.NetworkName != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".networkname", current.NetworkName}})
 	}
 
 	assert := bson.D{{"$or", []bson.D{
