@@ -80,7 +80,8 @@ func (s *ListSuite) TestInit(c *gc.C) {
 	}
 }
 
-var simpleOutput = `
+func (s *ListSuite) TestRun(c *gc.C) {
+	simpleOutput := `
 kill            Kill the database.
 no-description  No description
 no-params       An action with no parameters.
@@ -88,7 +89,6 @@ snapshot        Take a snapshot of the database.
 
 `[1:]
 
-func (s *ListSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should           string
 		expectFullSchema bool
