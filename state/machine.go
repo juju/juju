@@ -1228,7 +1228,28 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	}
 	// Assert that the field is either missing (never been set) or is
 	// unchanged from its previous value.
-	assert := bson.D{{"$or", []bson.D{{{fieldName, current}}, {{fieldName, nil}}}}}
+
+	// Since using a struct in the assert also asserts ordering, and we know that mgo
+	// can change the ordering, we assert on the dotted values, effectively checking each
+	// of the attributes of the address.
+	currentD := []bson.D{
+		{{fieldName + ".value", current.Value}},
+		{{fieldName + ".addresstype", current.AddressType}},
+	}
+	// Since scope, origin, and space have omitempty, we don't add them if they are empty.
+	if current.Scope != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".networkscope", current.Scope}})
+	}
+	if current.Origin != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".origin", current.Origin}})
+	}
+	if current.NetworkName != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".networkname", current.NetworkName}})
+	}
+
+	assert := bson.D{{"$or", []bson.D{
+		{{"$and", currentD}},
+		{{fieldName, nil}}}}}
 
 	ops := []txn.Op{{
 		C:      machinesC,
