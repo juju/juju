@@ -444,6 +444,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/juju/*.log'
                 ' /var/lib/juju/containers/juju-*-lxc-*/'
                 ' /var/log/lxd/juju-*'
+                ' /var/log/lxd/lxd.log'
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
                 ),),
@@ -459,6 +460,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/juju/*.log',
                 '10.10.0.1:/var/lib/juju/containers/juju-*-lxc-*/',
                 '10.10.0.1:/var/log/lxd/juju-*',
+                '10.10.0.1:/var/log/lxd/lxd.log',
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
                 '/foo'),),
@@ -493,6 +495,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "10.10.0.1 'sudo chmod -Rf go+r /var/log/cloud-init*.log "
              "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
              "/var/log/lxd/juju-* "
+             "/var/log/lxd/lxd.log "
              "/var/log/syslog /var/log/mongodb/mongodb.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
