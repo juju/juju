@@ -4,16 +4,19 @@
 package modelcmd
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -43,9 +46,10 @@ type ModelAPI interface {
 // an API connection.
 type JujuCommandBase struct {
 	cmd.CommandBase
-	cmdContext *cmd.Context
-	apiContext *APIContext
-	modelApi   ModelAPI
+	cmdContext  *cmd.Context
+	apiContext  *APIContext
+	modelApi    ModelAPI
+	apiOpenFunc api.OpenFunc
 }
 
 // closeContext closes the command's API context
@@ -61,6 +65,11 @@ func (c *JujuCommandBase) closeContext() {
 // SetModelApi sets the api used to access model information.
 func (c *JujuCommandBase) SetModelApi(api ModelAPI) {
 	c.modelApi = api
+}
+
+// SetAPIOpen sets the function used for opening an API connection.
+func (c *JujuCommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
+	c.apiOpenFunc = apiOpen
 }
 
 func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName, accountName string) (ModelAPI, error) {
@@ -101,7 +110,10 @@ func (c *JujuCommandBase) NewAPIConnectionParams(
 	if err := c.initAPIContext(); err != nil {
 		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
-	return newAPIConnectionParams(store, controllerName, accountName, modelName, c.apiContext.BakeryClient)
+	return newAPIConnectionParams(
+		store, controllerName, accountName, modelName,
+		c.apiContext.BakeryClient, c.apiOpen,
+	)
 }
 
 // HTTPClient returns an http.Client that contains the loaded
@@ -183,6 +195,9 @@ func (c *JujuCommandBase) setCmdContext(ctx *cmd.Context) {
 // apiOpen establishes a connection to the API server using the
 // the give api.Info and api.DialOpts.
 func (c *JujuCommandBase) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+	if c.apiOpenFunc != nil {
+		return c.apiOpenFunc(info, opts)
+	}
 	return api.Open(info, opts)
 }
 
@@ -221,6 +236,7 @@ func newAPIConnectionParams(
 	accountName,
 	modelName string,
 	bakery *httpbakery.Client,
+	apiOpen api.OpenFunc,
 ) (juju.NewAPIConnectionParams, error) {
 	if controllerName == "" {
 		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
@@ -243,6 +259,33 @@ func newAPIConnectionParams(
 	}
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bakery
+
+	openAPI := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		conn, err := apiOpen(info, opts)
+		if err != nil {
+			userTag, ok := info.Tag.(names.UserTag)
+			if ok && userTag.IsLocal() && params.IsCodeLoginExpired(err) {
+				// This is a bit gross, but we don't seem to have
+				// a way of having an error with a cause that does
+				// not influence the error message. We want to keep
+				// the type/code so we don't lose the fact that the
+				// error was caused by an API login expiry.
+				return nil, &params.Error{
+					Code: params.CodeLoginExpired,
+					Message: fmt.Sprintf(`login expired
+
+Your login for the %q controller has expired.
+To log back in, run the following command:
+
+    juju login %v
+`, controllerName, userTag.Name()),
+				}
+			}
+			return nil, err
+		}
+		return conn, nil
+	}
+
 	return juju.NewAPIConnectionParams{
 		Store:           store,
 		ControllerName:  controllerName,
@@ -250,6 +293,7 @@ func newAPIConnectionParams(
 		AccountDetails:  accountDetails,
 		ModelUUID:       modelUUID,
 		DialOpts:        dialOpts,
+		OpenAPI:         openAPI,
 	}, nil
 }
 

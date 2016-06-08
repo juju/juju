@@ -89,6 +89,7 @@ func IsUpgradeInProgressError(err error) bool {
 var (
 	ErrBadId              = errors.New("id not found")
 	ErrBadCreds           = errors.New("invalid entity name or password")
+	ErrLoginExpired       = errors.New("login expired")
 	ErrPerm               = errors.New("permission denied")
 	ErrNotLoggedIn        = errors.New("not logged in")
 	ErrUnknownWatcher     = errors.New("unknown watcher id")
@@ -122,6 +123,7 @@ var singletonErrorCodes = map[error]string{
 	lease.ErrClaimDenied:         params.CodeLeaseClaimDenied,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
+	ErrLoginExpired:              params.CodeLoginExpired,
 	ErrPerm:                      params.CodeUnauthorized,
 	ErrNotLoggedIn:               params.CodeUnauthorized,
 	ErrUnknownWatcher:            params.CodeNotFound,

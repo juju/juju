@@ -82,6 +82,7 @@ of a model to grant access to that model with "juju grant".
 		AccountDetails:  accountDetails,
 		BootstrapConfig: noBootstrapConfig,
 		DialOpts:        api.DefaultDialOpts(),
+		OpenAPI:         api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)
