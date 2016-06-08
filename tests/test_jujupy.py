@@ -3007,7 +3007,8 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
-            frozenset(['address-allocation']), 'foo', 'name', None)
+            frozenset(
+                ['address-allocation', 'migration']), 'foo', 'name:name', None)
 
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -5118,7 +5119,8 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
-            frozenset(['address-allocation']), 'foo', 'name', None)
+            frozenset(
+                ['address-allocation', 'migration']), 'foo', 'name', None)
 
     def test_list_space(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
