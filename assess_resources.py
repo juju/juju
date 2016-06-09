@@ -23,10 +23,10 @@ __metaclass__ = type
 log = logging.getLogger("assess_resources")
 
 
-def _resource_info(name, fingerprint, size):
+def _resource_info(name, fingerprint, size, service_app_id):
     data = {}
     data['resourceid'] = "dummy-resource/{}".format(name)
-    data['serviceid'] = 'dummy-resource'
+    data[service_app_id] = 'dummy-resource'
     data['name'] = name
     data['type'] = 'file'
     data['description'] = '{} resource.'.format(name)
@@ -43,7 +43,12 @@ def verify_status(status, resource_id, name, fingerprint, size):
     resources = status['resources']
     for resource in resources:
         if resource['expected']['resourceid'] == resource_id:
-            expected_values = _resource_info(name, fingerprint, size)
+            if 'serviceid' in resource['unit']:
+                service_app_id = 'serviceid'
+            else:
+                service_app_id = 'applicationId'
+            expected_values = _resource_info(name, fingerprint,
+                                             size, service_app_id)
             if resource['expected'] != expected_values:
                 raise JujuAssertionError(
                     'Unexpected resource list values: {} Expected: {}'.format(
