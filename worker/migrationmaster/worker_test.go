@@ -111,12 +111,11 @@ func (s *Suite) triggerMigration(masterFacade *stubMasterFacade) {
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
-	sourceConn := &stubConnection{stub: s.stub}
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     sourceConn,
-		UploadBinaries: makeStubUploadBinaries(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  makeStubUploadBinaries(s.stub),
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -138,7 +137,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		apiOpenCallController,
 		importCall,
 		apiOpenCallModel,
-		{"UploadBinaries", []interface{}{sourceConn, []string{"charm0", "charm1"}}},
+		{"UploadBinaries", []interface{}{[]string{"charm0", "charm1"}, fakeCharmDownloader}},
 		connCloseCall, // for target model
 		connCloseCall, // for target controller
 		{"masterFacade.SetPhase", []interface{}{coremigration.VALIDATION}},
@@ -158,10 +157,10 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 
 	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	masterFacade.status.Phase = coremigration.SUCCESS
@@ -186,10 +185,10 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	masterFacade.status.Phase = coremigration.ABORTDONE
 	s.triggerMigration(masterFacade)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, worker)
@@ -203,10 +202,10 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	masterFacade.status.Phase = coremigration.DONE
 	s.triggerMigration(masterFacade)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -223,10 +222,10 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.watchErr = errors.New("boom")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
@@ -237,10 +236,10 @@ func (s *Suite) TestStatusError(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.statusErr = errors.New("splat")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -257,10 +256,10 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.statusErr = &params.Error{Code: params.CodeNotFound}
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -281,10 +280,10 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 	guard := newStubGuard(s.stub)
 	guard.unlockErr = errors.New("pow")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          guard,
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           guard,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -304,10 +303,10 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 	guard := newStubGuard(s.stub)
 	guard.lockdownErr = errors.New("biff")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          guard,
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           guard,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -326,10 +325,10 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.exportErr = errors.New("boom")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -356,10 +355,10 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connectionErr = errors.New("boom")
@@ -386,10 +385,10 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 func (s *Suite) TestImportFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade:         masterFacade,
-		Guard:          newStubGuard(s.stub),
-		SourceConn:     struct{ api.Connection }{},
-		UploadBinaries: nullUploadBinaries,
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connection.importErr = errors.New("boom")
@@ -545,6 +544,12 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 	return errors.New("unexpected API call")
 }
 
+func (c *stubConnection) Client() *api.Client {
+	// This is kinda crappy but the *Client doesn't have to be
+	// functional...
+	return new(api.Client)
+}
+
 func (c *stubConnection) Close() error {
 	c.stub.AddCall("Connection.Close")
 	return nil
@@ -552,11 +557,15 @@ func (c *stubConnection) Close() error {
 
 func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {
 	return func(config migration.UploadBinariesConfig) error {
-		stub.AddCall("UploadBinaries", config.Source, config.Charms)
+		stub.AddCall("UploadBinaries", config.Charms, config.CharmDownloader)
 		return nil
 	}
 }
 
-// nullUploadBinaries is a UploadBinaries variant which should never
-// get called.
-var nullUploadBinaries = makeStubUploadBinaries(nil)
+// nullUploadBinaries is a UploadBinaries variant which is intended to
+// not get called.
+func nullUploadBinaries(migration.UploadBinariesConfig) error {
+	panic("should not get called")
+}
+
+var fakeCharmDownloader = struct{ migration.CharmDownloader }{}

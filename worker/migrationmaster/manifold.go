@@ -58,10 +58,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		Facade:         facade,
-		Guard:          guard,
-		SourceConn:     apiConn,
-		UploadBinaries: migration.UploadBinaries,
+		Facade:          facade,
+		Guard:           guard,
+		UploadBinaries:  migration.UploadBinaries,
+		CharmDownloader: apiConn.Client(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

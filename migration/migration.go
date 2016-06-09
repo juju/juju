@@ -13,7 +13,6 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -133,48 +132,22 @@ type ToolsUploader interface {
 // UploadBinaries function needs to operate. To construct the config
 // with the default helper functions, use `NewUploadBinariesConfig`.
 type UploadBinariesConfig struct {
-	Source api.Connection
-	Target api.Connection
-
-	Charms             []string
-	GetCharmDownloader func(api.Connection) CharmDownloader
-	GetCharmUploader   func(api.Connection) CharmUploader
-
-	GetToolsUploader func(api.Connection) ToolsUploader
-}
-
-// NewUploadBinariesConfig constructs a `UploadBinariesConfig` with the default
-// functions to get the uploaders for the target api connection, and functions
-// used to get the charm data out of the database.
-func NewUploadBinariesConfig(source, target api.Connection, charms []string) UploadBinariesConfig {
-	return UploadBinariesConfig{
-		Source: source,
-		Target: target,
-
-		Charms:             charms,
-		GetCharmDownloader: getCharmDownloader,
-		GetCharmUploader:   getCharmUploader,
-
-		GetToolsUploader: getToolsUploader,
-	}
+	Charms          []string
+	CharmDownloader CharmDownloader
+	CharmUploader   CharmUploader
+	ToolsUploader   ToolsUploader
 }
 
 // Validate makes sure that all the config values are non-nil.
 func (c *UploadBinariesConfig) Validate() error {
-	if c.Source == nil {
-		return errors.NotValidf("missing Source")
+	if c.CharmDownloader == nil {
+		return errors.NotValidf("missing CharmDownloader")
 	}
-	if c.Target == nil {
-		return errors.NotValidf("missing Target")
+	if c.CharmUploader == nil {
+		return errors.NotValidf("missing CharmUploader")
 	}
-	if c.GetCharmDownloader == nil {
-		return errors.NotValidf("missing GetCharmDownloader")
-	}
-	if c.GetCharmUploader == nil {
-		return errors.NotValidf("missing GetCharmUploader")
-	}
-	if c.GetToolsUploader == nil {
-		return errors.NotValidf("missing GetToolsUploader")
+	if c.ToolsUploader == nil {
+		return errors.NotValidf("missing ToolsUploader")
 	}
 	return nil
 }
@@ -191,23 +164,6 @@ func UploadBinaries(config UploadBinariesConfig) error {
 	}
 
 	return nil
-}
-
-func getCharmDownloader(source api.Connection) CharmDownloader {
-	// Client is the wrong facade for a non-client to use but that's
-	// where the functionality already lives and I don't have time to
-	// fix the world.
-	return source.Client()
-}
-
-func getCharmUploader(target api.Connection) CharmUploader {
-	// Client is wrong. See above.
-	return target.Client()
-}
-
-func getToolsUploader(target api.Connection) ToolsUploader {
-	// Client is wrong. See above.
-	return target.Client()
 }
 
 func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err error) {
@@ -235,9 +191,6 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 }
 
 func uploadCharms(config UploadBinariesConfig) error {
-	downloader := config.GetCharmDownloader(config.Source)
-	uploader := config.GetCharmUploader(config.Target)
-
 	for _, charmUrl := range config.Charms {
 		logger.Debugf("send charm %s to target", charmUrl)
 
@@ -246,7 +199,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 			return errors.Annotate(err, "bad charm URL")
 		}
 
-		reader, err := downloader.OpenCharm(curl)
+		reader, err := config.CharmDownloader.OpenCharm(curl)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -258,7 +211,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 		}
 		defer cleanup()
 
-		if _, err := uploader.UploadCharm(curl, content); err != nil {
+		if _, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
 		}
 	}

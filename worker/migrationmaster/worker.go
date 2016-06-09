@@ -62,10 +62,9 @@ type Facade interface {
 type Config struct {
 	Facade Facade
 	Guard  fortress.Guard
-	// TODO(mjs) - this is not ideal. Figure out a better abstraction
-	// (will require changes to migration.UploadBinaries).
-	SourceConn     api.Connection
-	UploadBinaries func(migration.UploadBinariesConfig) error
+
+	UploadBinaries  func(migration.UploadBinariesConfig) error
+	CharmDownloader migration.CharmDownloader
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -76,11 +75,11 @@ func (config Config) Validate() error {
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
 	}
-	if config.SourceConn == nil {
-		return errors.NotValidf("nil SourceConn")
-	}
 	if config.UploadBinaries == nil {
 		return errors.NotValidf("nil UploadBinaries")
+	}
+	if config.CharmDownloader == nil {
+		return errors.NotValidf("nil CharmDownloader")
 	}
 	return nil
 }
@@ -166,7 +165,7 @@ func (w *Worker) run() error {
 			// A phase handler should only return an error if the
 			// migration master should exit. In the face of other
 			// errors the handler should log the problem and then
-			// return the appropriate error phases to transition to -
+			// return the appropriate error phase to transition to -
 			// i.e. ABORT or REAPFAILED)
 			return errors.Trace(err)
 		}
@@ -239,18 +238,22 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 		return coremigration.ABORT, nil
 	}
 
+	logger.Infof("opening API connection for target model")
 	targetModelConn, err := openAPIConnForModel(targetInfo, modelUUID)
 	if err != nil {
 		logger.Errorf("failed to open connection to target model: %v", err)
 		return coremigration.ABORT, nil
 	}
 	defer targetModelConn.Close()
+	targetModelClient := targetModelConn.Client()
 
-	err = w.config.UploadBinaries(migration.NewUploadBinariesConfig(
-		w.config.SourceConn,
-		targetModelConn,
-		serialized.Charms,
-	))
+	logger.Infof("uploading binaries into target model")
+	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
+		Charms:          serialized.Charms,
+		CharmDownloader: w.config.CharmDownloader,
+		CharmUploader:   targetModelClient,
+		ToolsUploader:   targetModelClient,
+	})
 	if err != nil {
 		logger.Errorf("failed migration binaries: %v", err)
 		return coremigration.ABORT, nil

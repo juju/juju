@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
@@ -106,12 +105,10 @@ func (s *ImportSuite) TestCharmMigration(c *gc.C) {
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{charms: make(map[string]string)}
 	config := migration.UploadBinariesConfig{
-		Source:             &fakeAPIConnection{},
-		Target:             &fakeAPIConnection{},
-		Charms:             []string{"local:trusty/magic", "cs:trusty/postgresql-42"},
-		GetCharmDownloader: func(api.Connection) migration.CharmDownloader { return downloader },
-		GetCharmUploader:   func(api.Connection) migration.CharmUploader { return uploader },
-		GetToolsUploader:   func(api.Connection) migration.ToolsUploader { return uploader },
+		Charms:          []string{"local:trusty/magic", "cs:trusty/postgresql-42"},
+		CharmDownloader: downloader,
+		CharmUploader:   uploader,
+		ToolsUploader:   uploader,
 	}
 	err := migration.UploadBinaries(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,10 +121,6 @@ func (s *ImportSuite) TestCharmMigration(c *gc.C) {
 		"local:trusty/magic":      "local:trusty/magic content",
 		"cs:trusty/postgresql-42": "cs:trusty/postgresql-42 content",
 	})
-}
-
-type fakeAPIConnection struct {
-	api.Connection
 }
 
 type fakeDownloader struct {
@@ -168,16 +161,6 @@ func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, e
 
 	f.charms[u.String()] = string(data)
 	return u, nil
-}
-
-type noOpUploader struct{}
-
-func (*noOpUploader) UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error) {
-	return nil, nil
-}
-
-func (*noOpUploader) UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error) {
-	return nil, nil
 }
 
 type ExportSuite struct {
