@@ -52,15 +52,15 @@ func (rec Record) Validate() error {
 	return nil
 }
 
-// SourceLocation holds all the information about the source code that
-// caused the record to be created.
+// SourceLocation identifies the line of source code that originated
+// a log record.
 type SourceLocation struct {
 	// Module is the source "module" (e.g. package) where the record
 	// originated. This is optional.
 	Module string
 
-	// Filename is the path to the source file. This is required only
-	// if Line is greater than 0.
+	// Filename is the base name of the source file. This is required
+	// only if Line is greater than 0.
 	Filename string
 
 	// Line is the line number in the source. It is optional. A negative
@@ -70,33 +70,46 @@ type SourceLocation struct {
 }
 
 // ParseLocation converts the given info into a SourceLocation. The
-// caller is responsible for validating the result.
-func ParseLocation(module, location string) (SourceLocation, error) {
-	loc, err := parseLocation(module, location)
+// expected format is "FILENAME" or "FILENAME:LINE". If the first format
+// is used then Line is set to -1. If provided, LINE must be a
+// non-negative integer.
+func ParseLocation(module, sourceLine string) (SourceLocation, error) {
+	filename, lineNo, err := parseSourceLine(sourceLine)
 	if err != nil {
-		return loc, errors.Annotate(err, "failed to parse location")
+		return SourceLocation{}, errors.Annotate(err, "failed to parse sourceLine")
+	}
+	loc := SourceLocation{
+		Module:   module,
+		Filename: filename,
+		Line:     lineNo,
 	}
 	return loc, nil
 }
 
-func parseLocation(module, location string) (SourceLocation, error) {
-	loc := SourceLocation{
-		Module:   module,
-		Filename: location,
+func parseSourceLine(sourceLine string) (filename string, line int, err error) {
+	filename, sep, lineNoStr := rPartition(sourceLine, ":")
+	if sep == "" {
+		return filename, -1, nil
 	}
-	if location != "" {
-		loc.Line = -1
-		pos := strings.LastIndex(location, ":")
-		if pos >= 0 {
-			loc.Filename = location[:pos]
-			lineno, err := strconv.Atoi(location[pos+1:])
-			if err != nil {
-				return SourceLocation{}, errors.Trace(err)
-			}
-			loc.Line = lineno
-		}
+	if lineNoStr == "" {
+		return "", -1, errors.New(`missing line number after ":"`)
 	}
-	return loc, nil
+	lineNo, err := strconv.Atoi(lineNoStr)
+	if err != nil {
+		return "", -1, errors.Annotate(err, "line number must be non-negative integer")
+	}
+	if lineNo < 0 {
+		return "", -1, errors.New("line number must be non-negative integer")
+	}
+	return filename, lineNo, nil
+}
+
+func rPartition(str, sep string) (remainder, used, part string) {
+	pos := strings.LastIndex(str, sep)
+	if pos < 0 {
+		return str, "", ""
+	}
+	return str[:pos], sep, str[pos+1:]
 }
 
 // String returns a string representation of the location.
@@ -110,13 +123,19 @@ func (loc SourceLocation) String() string {
 	return fmt.Sprintf("%s:%d", loc.Filename, loc.Line)
 }
 
+var zero SourceLocation
+
 // Validate ensures that the location is correct.
 func (loc SourceLocation) Validate() error {
-	// Module may be anything, so there's nothing to check.
+	if loc == zero {
+		return nil
+	}
+
+	// Module may be anything, so there's nothing to check there.
 
 	// Filename may be set with no line number set, but not the other
 	// way around.
-	if loc.Line > 0 && loc.Filename == "" {
+	if loc.Line >= 0 && loc.Filename == "" {
 		return errors.NewNotValid(nil, "Line set but Filename empty")
 	}
 

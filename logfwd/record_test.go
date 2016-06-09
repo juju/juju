@@ -82,6 +82,16 @@ func (s *LocationSuite) TestParseLocationTooLegitToQuit(c *gc.C) {
 	c.Check(loc, jc.DeepEquals, expected)
 }
 
+func (s *LocationSuite) TestParseLocationIsValid(c *gc.C) {
+	expected := validLocation
+	loc, err := logfwd.ParseLocation(expected.Module, expected.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = loc.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func (s *LocationSuite) TestParseLocationMissingFilename(c *gc.C) {
 	expected := validLocation
 	expected.Filename = ""
@@ -115,13 +125,13 @@ func (s *LocationSuite) TestParseLocationFilenameOnly(c *gc.C) {
 func (s *LocationSuite) TestParseLocationMissingLine(c *gc.C) {
 	_, err := logfwd.ParseLocation(validLocation.Module, "spam.go:")
 
-	c.Check(err, gc.ErrorMatches, `failed to parse location: strconv.ParseInt: parsing "": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `failed to parse sourceLine: missing line number after ":"`)
 }
 
 func (s *LocationSuite) TestParseLocationBogusLine(c *gc.C) {
 	_, err := logfwd.ParseLocation(validLocation.Module, "spam.go:xxx")
 
-	c.Check(err, gc.ErrorMatches, `failed to parse location: strconv.ParseInt: parsing "xxx": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `failed to parse sourceLine: line number must be non-negative integer: strconv.ParseInt: parsing "xxx": invalid syntax`)
 }
 
 func (s *LocationSuite) TestValidateValid(c *gc.C) {
