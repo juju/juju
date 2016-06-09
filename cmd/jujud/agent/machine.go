@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/cmd"
@@ -40,6 +41,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -1045,7 +1047,8 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	if err != nil {
 		return nil, err
 	}
-	w, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+
+	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert:        cert,
 		Key:         key,
 		Tag:         tag,
@@ -1053,11 +1056,29 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		LogDir:      logDir,
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
+		NewObserver: newObserverFn(clock.WallClock),
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}
-	return w, nil
+
+	return server, nil
+}
+
+func newObserverFn(
+	clock clock.Clock,
+) observer.ObserverFactory {
+	var connectionID int64
+	return observer.ObserverFactoryMultiplexer(
+		func() observer.Observer {
+			logger := loggo.GetLogger("juju.apiserver")
+			ctx := observer.RequestNotifierContext{
+				Clock:  clock,
+				Logger: logger,
+			}
+			return observer.NewRequestNotifier(ctx, atomic.AddInt64(&connectionID, 1))
+		},
+	)
 }
 
 // limitLogins is called by the API server for each login attempt.
