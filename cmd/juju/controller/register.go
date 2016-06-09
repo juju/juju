@@ -351,7 +351,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 }
 
 func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (string, error) {
-	password, err := c.readPassword("Enter password: ", stderr, stdin)
+	password, err := c.readPassword("Enter a new password: ", stderr, stdin)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
