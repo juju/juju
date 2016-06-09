@@ -352,7 +352,6 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
 		"owner":        schema.String(),
-		"cloud":        schema.String(),
 		"cloud-region": schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),

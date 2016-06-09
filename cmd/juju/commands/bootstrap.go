@@ -533,13 +533,11 @@ to clean up the model.`[1:])
 	delete(hostedModelConfig, config.AgentVersionKey)
 
 	// Based on the attribute names in clouds.yaml, create
-	// a map of config for all models on this cloud.
-	cloudConfigAttrs := make(map[string]interface{})
-	for attr, cloudAttrValue := range cloud.Config {
-		if val, ok := controllerModelConfigAttrs[attr]; ok && val != cloudAttrValue {
-			return errors.Errorf("cannot override cloud attribute %q", attr)
-		} else {
-			cloudConfigAttrs[attr] = cloudAttrValue
+	// a map of shared config for all models on this cloud.
+	sharedAttrs := make(map[string]interface{})
+	for k := range cloud.Config {
+		if v, ok := controllerModelConfigAttrs[k]; ok {
+			sharedAttrs[k] = v
 		}
 	}
 
@@ -562,7 +560,7 @@ to clean up the model.`[1:])
 		MetadataDir:          metadataDir,
 		Cloud:                c.Cloud,
 		CloudRegion:          region.Name,
-		CloudConfig:          cloudConfigAttrs,
+		CloudConfig:          sharedAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
