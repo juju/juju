@@ -44,7 +44,7 @@ func (s *RecordSuite) TestValidateBadOrigin(c *gc.C) {
 	err := rec.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Origin: invalid Name "...": bad user`)
+	c.Check(err, gc.ErrorMatches, `invalid Origin: invalid Name "...": bad user name`)
 }
 
 func (s *RecordSuite) TestValidateEmptyTimestamp(c *gc.C) {

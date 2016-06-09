@@ -94,7 +94,7 @@ func (s *OriginTypeSuite) TestValidateInvalid(c *gc.C) {
 	err := ot.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `unknown origin type`)
+	c.Check(err, gc.ErrorMatches, `unsupported origin type`)
 }
 
 func (s *OriginTypeSuite) TestValidateNameValid(c *gc.C) {
@@ -123,7 +123,7 @@ func (s *OriginTypeSuite) TestValidateNameInvalid(c *gc.C) {
 	}, {
 		ot:   logfwd.OriginTypeUser,
 		name: "...",
-		err:  `bad user`,
+		err:  `bad user name`,
 	}}
 	for _, test := range tests {
 		c.Logf("trying %q + %q", test.ot, test.name)
@@ -220,7 +220,7 @@ func (s *OriginSuite) TestValidateBadOriginType(c *gc.C) {
 	err := origin.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Type: unknown origin type`)
+	c.Check(err, gc.ErrorMatches, `invalid Type: unsupported origin type`)
 }
 
 func (s *OriginSuite) TestValidateEmptyName(c *gc.C) {
@@ -240,7 +240,7 @@ func (s *OriginSuite) TestValidateBadName(c *gc.C) {
 	err := origin.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Name "...": bad user`)
+	c.Check(err, gc.ErrorMatches, `invalid Name "...": bad user name`)
 }
 
 func (s *OriginSuite) TestValidateEmptyVersion(c *gc.C) {

@@ -14,7 +14,6 @@ const canonicalIANAid = "28978"
 
 // These are the recognized origin types.
 const (
-	originTypeInvalid OriginType = -1
 	OriginTypeUnknown OriginType = 0
 	OriginTypeUser               = iota
 )
@@ -24,7 +23,18 @@ var originTypes = map[OriginType]string{
 	OriginTypeUser:    names.UserTagKind,
 }
 
-// OriginType is the "enum" type for the different kinds of log record origin.
+// OriginType is the "enum" type for the different kinds of log record
+// origin.
+//
+// Go does not have native enum support, nor support for struct literal
+// constants.  Thus to use constants for the enum values we must
+// "typedef" a type that Go supports for constants (e.g. int). One
+// downside is that the underlying concrete value is exposed to type
+// conversion as well as the operators for the underlying type. It also
+// means that any value of the underlying type may be type converted to
+// the enum type, even though the enum type doesn't support the value.
+// Consequently the enum type must have a Validate() method to ensure
+// this did not happen.
 type OriginType int
 
 // ParseOriginType converts a string to an OriginType or fails if
@@ -35,6 +45,7 @@ func ParseOriginType(value string) (OriginType, error) {
 			return ot, nil
 		}
 	}
+	const originTypeInvalid OriginType = -1
 	return originTypeInvalid, errors.Errorf("unrecognized origin type %q", value)
 }
 
@@ -45,11 +56,11 @@ func (ot OriginType) String() string {
 
 // Validate ensures that the origin type is correct.
 func (ot OriginType) Validate() error {
-	// Ideally, only the (unavoidable) zero value would be invalid.
-	// However, typedef'ing int means that the use of int literals
-	// could result in invalid values other than the zero value.
+	// As noted above, typedef'ing int means that the use of int
+	// literals or explicit type conversion could result in unsupported
+	// "enum" values. Otherwise OriginType would not need this method.
 	if _, ok := originTypes[ot]; !ok {
-		return errors.NewNotValid(nil, "unknown origin type")
+		return errors.NewNotValid(nil, "unsupported origin type")
 	}
 	return nil
 }
@@ -64,7 +75,7 @@ func (ot OriginType) ValidateName(name string) error {
 		}
 	case OriginTypeUser:
 		if !names.IsValidUser(name) {
-			return errors.NewNotValid(nil, "bad user")
+			return errors.NewNotValid(nil, "bad user name")
 		}
 	}
 	return nil
