@@ -147,8 +147,8 @@ class TestStanzaWriter(TestCase):
             'size': 0,
             'md5': u'd41d8cd98f00b204e9800998ecf8427e',
             'sha256': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991'
-                      'b7852b855',
-          }
+                         'b7852b855',
+        }
         self.assertEqual([expected], output)
 
 

@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 from mock import patch
 import os
-import subprocess
 import sys
 import tarfile
 from unittest import TestCase

@@ -134,10 +134,10 @@ class StanzaWriter(FileStanzaWriter):
                           agent_stream=None):
         if revision_build is None:
             filename = '{}-{}-ubuntu-{}.json'.format(
-                    agent_stream, version, arch)
+                agent_stream, version, arch)
         else:
             filename = 'revision-build-{}-ubuntu-{}.json'.format(
-                    revision_build, arch)
+                revision_build, arch)
         releases = [
             (juju_series.get_version(name), name) for name
             in juju_series.get_living_names()]
