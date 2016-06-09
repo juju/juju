@@ -106,11 +106,12 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 // well as any modeluser entries in the ModelUser collection.
 func (st *State) RemoveUser(user names.UserTag) error {
 
-	modelUsers, userCloser := st.getRawCollection(modelUsersC)
-	defer userCloser()
-
 	name := strings.ToLower(user.Name())
 
+	_, err := st.User(user)
+	if errors.IsNotFound(err) {
+		return errors.NewUserNotFound(err, "user not found")
+	}
 	// This builds the transaction operations we want to try. It is rerun 3
 	// times by state.run.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -121,18 +122,27 @@ func (st *State) RemoveUser(user names.UserTag) error {
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
+		return ops, nil
+	}
+	err = st.run(buildTxn)
+	if err == jujutxn.ErrNoOperations {
+		return errors.NewUserNotFound(err, "user not found")
+	}
+
+	modelUsers, userCloser := st.getRawCollection(modelUsersC)
+	defer userCloser()
+
+	buildTxn = func(attempt int) ([]txn.Op, error) {
 		var modelUserIDs []struct {
 			ID string `bson:"_id"`
 		}
+		// TODO(redir): add doc about why _id.
 		err := modelUsers.Find(bson.D{
 			{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&modelUserIDs)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else {
-				return nil, errors.Trace(err)
-			}
+			return nil, errors.Trace(err)
 		}
+		var ops []txn.Op
 		for _, entry := range modelUserIDs {
 			ops = append(ops, txn.Op{
 				C:      modelUsersC,

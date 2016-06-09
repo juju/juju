@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"fmt"
 	"regexp"
 	"time"
 
@@ -138,33 +137,39 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(u, jc.DeepEquals, user)
 
-	// Remove the user
+	// Remove the user.
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
-	// Check again
+	// Check again.
 	_, err = s.State.User(names.NewUserTag(user.Name()))
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", user.Name()))
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
-	// Try removing again and check we failed as expected.
+	// Try removing a non-existent user and check we failed as expected.
 	err = s.State.RemoveUser(user.UserTag())
-	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", user.Name()))
+	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
 
 }
 
-func (s *UserSuite) TestRemoveUserwithModel(c *gc.C) {
+func (s *UserSuite) TestRemoveUserWithModel(c *gc.C) {
+	// Create a user.
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
+
+	// Create a ModelUser.
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
 		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Remove the user.
 	err = s.State.RemoveUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check the user is gone.
 	err = user.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
+	// Check that the ModelUser is gone.
 	_, err = s.State.ModelUser(modelUser.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
