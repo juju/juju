@@ -67,7 +67,8 @@ func InitializeState(
 	adminUser names.UserTag,
 	c agent.ConfigSetter,
 	cfg *config.Config,
-	cloud string,
+	cloudName string,
+	cloudRegion string,
 	cloudConfigAttrs map[string]interface{},
 	hostedModelConfigAttrs map[string]interface{},
 	machineCfg BootstrapMachineConfig,
@@ -95,7 +96,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(adminUser, info, cloud, cloudConfigAttrs, cfg, dialOpts, policy)
+	st, err := state.Initialize(adminUser, info, cloudName, cloudRegion, cloudConfigAttrs, cfg, dialOpts, policy)
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
 	}
@@ -135,9 +136,9 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
-		Cloud:  cloud,
-		Config: hostedModelConfig,
-		Owner:  adminUser,
+		CloudRegion: cloudRegion,
+		Config:      hostedModelConfig,
+		Owner:       adminUser,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")

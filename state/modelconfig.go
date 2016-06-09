@@ -16,11 +16,7 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-	cloudSettings, err := readSettings(st, cloudSettingsC, cloudGlobalKey(model.Cloud()))
+	cloudSettings, err := readSettings(st, controllersC, cloudSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,17 +71,6 @@ func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{},
 	for attr := range updateAttrs {
 		if controllerOnlyAttribute(attr) {
 			return nil, errors.Errorf("cannot set controller attribute %q on a model", attr)
-		}
-	}
-	//TODO(wallyworld) if/when cloud config becomes mutable, we must check for concurrent changes
-	// when writing config to ensure the validation we do here remains true
-	cloudConfig, err := st.CloudConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for attr := range updateAttrs {
-		if _, ok := cloudConfig[attr]; ok {
-			return nil, errors.Errorf("cannot set shared cloud attribute %q on a model", attr)
 		}
 	}
 	newConfig, err := oldConfig.Apply(updateAttrs)
@@ -150,6 +135,8 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	}
 
 	// Remove any attributes that are the same as what's in cloud config.
+	//TODO(wallyworld) if/when cloud config becomes mutable, we must check for concurrent changes
+	// when writing config to ensure the validation we do here remains true
 	cloudAttrs, err := st.CloudConfig()
 	if err != nil {
 		return errors.Trace(err)

@@ -60,8 +60,8 @@ type modelDoc struct {
 	ServerUUID    string        `bson:"server-uuid"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
 
-	// Cloud is the name of the cloud that the model is managed within.
-	Cloud string `bson:"cloud"`
+	// CloudRegion is the name of the cloud region to which the model is deployed.
+	CloudRegion string `bson:"cloud-region"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
@@ -140,8 +140,8 @@ func (st *State) AllModels() ([]*Model, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
-	// Cloud is the name of the cloud that the model is deployed to.
-	Cloud string
+	// CloudRegion is the name of the cloud region to which the model is deployed.
+	CloudRegion string
 
 	// Config is the model config.
 	Config *config.Config
@@ -155,9 +155,6 @@ type ModelArgs struct {
 
 // Validate validates the ModelArgs.
 func (m ModelArgs) Validate() error {
-	if m.Cloud == "" {
-		return errors.NotValidf("empty Cloud")
-	}
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
 	}
@@ -209,7 +206,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
 	}
-	ops, err := newSt.modelSetupOps(args.Config, args.Cloud, cloudCfg, owner, args.MigrationMode)
+	ops, err := newSt.modelSetupOps(args.Config, args.CloudRegion, cloudCfg, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -286,9 +283,9 @@ func (m *Model) Name() string {
 	return m.doc.Name
 }
 
-// Cloud returns the name of the cloud that the model is deployed to.
-func (m *Model) Cloud() string {
-	return m.doc.Cloud
+// CloudRegion returns the name of the cloud region to which the model is deployed.
+func (m *Model) CloudRegion() string {
+	return m.doc.CloudRegion
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -779,7 +776,7 @@ func ensureDestroyable(st *State) error {
 
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createModelOp(st *State, owner names.UserTag, name, uuid, server, cloud string, mode MigrationMode) txn.Op {
+func createModelOp(st *State, owner names.UserTag, name, uuid, server, cloudRegion string, mode MigrationMode) txn.Op {
 	doc := &modelDoc{
 		UUID:          uuid,
 		Name:          name,
@@ -787,7 +784,7 @@ func createModelOp(st *State, owner names.UserTag, name, uuid, server, cloud str
 		Owner:         owner.Canonical(),
 		ServerUUID:    server,
 		MigrationMode: mode,
-		Cloud:         cloud,
+		CloudRegion:   cloudRegion,
 	}
 	return txn.Op{
 		C:      modelsC,

@@ -561,6 +561,7 @@ to clean up the model.`[1:])
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
 		Cloud:                c.Cloud,
+		CloudRegion:          region.Name,
 		CloudConfig:          cloudConfigAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,

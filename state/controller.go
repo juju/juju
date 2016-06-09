@@ -9,8 +9,13 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// controllerSettingsGlobalKey is the key for the controller and its settings.
-const controllerSettingsGlobalKey = "controllerSettings"
+const (
+	// controllerSettingsGlobalKey is the key for the controller and its settings.
+	controllerSettingsGlobalKey = "controllerSettings"
+
+	// cloudSettingsGlobalKey is the key for cloud settings shared across models.
+	cloudSettingsGlobalKey = "cloudSettings"
+)
 
 func controllerOnlyAttribute(attr string) bool {
 	for _, a := range config.ControllerOnlyConfigAttributes {
@@ -52,6 +57,15 @@ func modelConfig(sharedCloudCfg, cfg map[string]interface{}) map[string]interfac
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (map[string]interface{}, error) {
 	settings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return settings.Map(), nil
+}
+
+// CloudConfig returns the config values shared across models.
+func (st *State) CloudConfig() (map[string]interface{}, error) {
+	settings, err := readSettings(st, controllersC, cloudSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

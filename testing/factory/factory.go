@@ -590,9 +590,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
-		Cloud:  "dummy",
-		Config: cfg,
-		Owner:  params.Owner.(names.UserTag),
+		CloudRegion: "some-region",
+		Config:      cfg,
+		Owner:       params.Owner.(names.UserTag),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
