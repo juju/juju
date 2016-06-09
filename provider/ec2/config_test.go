@@ -63,7 +63,8 @@ type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
+		"type":   "ec2",
+		"region": "us-east-1",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,10 +128,6 @@ func (t configTest) check(c *gc.C) {
 var configTests = []configTest{
 	{
 		config: attrs{},
-	}, {
-		// check that region defaults to us-east-1
-		config: attrs{},
-		region: "us-east-1",
 	}, {
 		config: attrs{
 			"region": "eu-west-1",

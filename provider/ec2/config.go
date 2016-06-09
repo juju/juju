@@ -59,7 +59,6 @@ var configFields = func() schema.Fields {
 var configDefaults = schema.Defaults{
 	"access-key":   "",
 	"secret-key":   "",
-	"region":       "us-east-1",
 	"vpc-id":       "",
 	"vpc-id-force": false,
 }
