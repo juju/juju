@@ -103,14 +103,15 @@ func (c *Client) SetPhase(phase migration.Phase) error {
 }
 
 // Export returns a serialized representation of the model associated
-// with the API connection.
-func (c *Client) Export() ([]byte, error) {
+// with the API connection. The charms used by the model are also
+// returned.
+func (c *Client) Export() (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 	err := c.caller.FacadeCall("Export", nil, &serialized)
 	if err != nil {
-		return nil, err
+		return params.SerializedModel{}, err
 	}
-	return serialized.Bytes, nil
+	return serialized, nil
 }
 
 // Reap removes the documents for the model associated with the API

@@ -15,7 +15,8 @@ import (
 	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -35,11 +36,12 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 var (
-	fakeSerializedModel = []byte("model")
-	modelTagString      = names.NewModelTag("model-uuid").String()
+	fakeModelBytes = []byte("model")
+	modelTag       = names.NewModelTag("model-uuid")
+	modelTagString = modelTag.String()
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
-	apiOpenCall = jujutesting.StubCall{
+	apiOpenCallController = jujutesting.StubCall{
 		"apiOpen",
 		[]interface{}{
 			&api.Info{
@@ -51,10 +53,23 @@ var (
 			api.DialOpts{},
 		},
 	}
+	apiOpenCallModel = jujutesting.StubCall{
+		"apiOpen",
+		[]interface{}{
+			&api.Info{
+				Addrs:    []string{"1.2.3.4:5"},
+				CACert:   "cert",
+				Tag:      names.NewUserTag("admin"),
+				Password: "secret",
+				ModelTag: modelTag,
+			},
+			api.DialOpts{},
+		},
+	}
 	importCall = jujutesting.StubCall{
 		"APICall:MigrationTarget.Import",
 		[]interface{}{
-			params.SerializedModel{Bytes: fakeSerializedModel},
+			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = jujutesting.StubCall{
@@ -96,9 +111,12 @@ func (s *Suite) triggerMigration(masterFacade *stubMasterFacade) {
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
+	sourceConn := &stubConnection{stub: s.stub}
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     sourceConn,
+		UploadBinaries: makeStubUploadBinaries(s.stub),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -113,22 +131,25 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.READONLY}},
-		{"masterFacade.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterFacade.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
-		apiOpenCall,
+		apiOpenCallController,
 		importCall,
-		connCloseCall,
-		{"masterFacade.SetPhase", []interface{}{migration.VALIDATION}},
-		apiOpenCall,
+		apiOpenCallModel,
+		{"UploadBinaries", []interface{}{sourceConn, []string{"charm0", "charm1"}}},
+		connCloseCall, // for target model
+		connCloseCall, // for target controller
+		{"masterFacade.SetPhase", []interface{}{coremigration.VALIDATION}},
+		apiOpenCallController,
 		activateCall,
 		connCloseCall,
-		{"masterFacade.SetPhase", []interface{}{migration.SUCCESS}},
-		{"masterFacade.SetPhase", []interface{}{migration.LOGTRANSFER}},
-		{"masterFacade.SetPhase", []interface{}{migration.REAP}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.SUCCESS}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
 		{"masterFacade.Reap", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.DONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.DONE}},
 	})
 }
 
@@ -137,11 +158,13 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 
 	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	masterFacade.status.Phase = migration.SUCCESS
+	masterFacade.status.Phase = coremigration.SUCCESS
 	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
@@ -151,20 +174,22 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.LOGTRANSFER}},
-		{"masterFacade.SetPhase", []interface{}{migration.REAP}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
 		{"masterFacade.Reap", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.DONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.DONE}},
 	})
 }
 
 func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
-	masterFacade.status.Phase = migration.ABORTDONE
+	masterFacade.status.Phase = coremigration.ABORTDONE
 	s.triggerMigration(masterFacade)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, worker)
@@ -175,11 +200,13 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 
 func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
-	masterFacade.status.Phase = migration.DONE
+	masterFacade.status.Phase = coremigration.DONE
 	s.triggerMigration(masterFacade)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -196,8 +223,10 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.watchErr = errors.New("boom")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
@@ -208,8 +237,10 @@ func (s *Suite) TestStatusError(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.statusErr = errors.New("splat")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -226,8 +257,10 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.statusErr = &params.Error{Code: params.CodeNotFound}
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -248,8 +281,10 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 	guard := newStubGuard(s.stub)
 	guard.unlockErr = errors.New("pow")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  guard,
+		Facade:         masterFacade,
+		Guard:          guard,
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -269,8 +304,10 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 	guard := newStubGuard(s.stub)
 	guard.lockdownErr = errors.New("biff")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  guard,
+		Facade:         masterFacade,
+		Guard:          guard,
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -289,8 +326,10 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	masterFacade.exportErr = errors.New("boom")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -302,23 +341,25 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.READONLY}},
-		{"masterFacade.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterFacade.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.ABORT}},
-		apiOpenCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
 		abortCall,
 		connCloseCall,
-		{"masterFacade.SetPhase", []interface{}{migration.ABORTDONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
 }
 
 func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connectionErr = errors.New("boom")
@@ -331,22 +372,24 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.READONLY}},
-		{"masterFacade.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterFacade.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
-		apiOpenCall,
-		{"masterFacade.SetPhase", []interface{}{migration.ABORT}},
-		apiOpenCall,
-		{"masterFacade.SetPhase", []interface{}{migration.ABORTDONE}},
+		apiOpenCallController,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
 }
 
 func (s *Suite) TestImportFailure(c *gc.C) {
 	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterFacade,
-		Guard:  newStubGuard(s.stub),
+		Facade:         masterFacade,
+		Guard:          newStubGuard(s.stub),
+		SourceConn:     struct{ api.Connection }{},
+		UploadBinaries: nullUploadBinaries,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connection.importErr = errors.New("boom")
@@ -359,18 +402,18 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		{"masterFacade.Watch", nil},
 		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterFacade.SetPhase", []interface{}{migration.READONLY}},
-		{"masterFacade.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterFacade.SetPhase", []interface{}{migration.IMPORT}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
 		{"masterFacade.Export", nil},
-		apiOpenCall,
+		apiOpenCallController,
 		importCall,
 		connCloseCall,
-		{"masterFacade.SetPhase", []interface{}{migration.ABORT}},
-		apiOpenCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
 		abortCall,
 		connCloseCall,
-		{"masterFacade.SetPhase", []interface{}{migration.ABORTDONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
 }
 
@@ -401,8 +444,8 @@ func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
 		status: masterapi.MigrationStatus{
 			ModelUUID: "model-uuid",
 			Attempt:   2,
-			Phase:     migration.QUIESCE,
-			TargetInfo: migration.TargetInfo{
+			Phase:     coremigration.QUIESCE,
+			TargetInfo: coremigration.TargetInfo{
 				ControllerTag: names.NewModelTag("controller-uuid"),
 				Addrs:         []string{"1.2.3.4:5"},
 				CACert:        "cert",
@@ -441,15 +484,18 @@ func (c *stubMasterFacade) GetMigrationStatus() (masterapi.MigrationStatus, erro
 	return c.status, nil
 }
 
-func (c *stubMasterFacade) Export() ([]byte, error) {
+func (c *stubMasterFacade) Export() (params.SerializedModel, error) {
 	c.stub.AddCall("masterFacade.Export")
 	if c.exportErr != nil {
-		return nil, c.exportErr
+		return params.SerializedModel{}, c.exportErr
 	}
-	return fakeSerializedModel, nil
+	return params.SerializedModel{
+		Bytes:  fakeModelBytes,
+		Charms: []string{"charm0", "charm1"},
+	}, nil
 }
 
-func (c *stubMasterFacade) SetPhase(phase migration.Phase) error {
+func (c *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
 	c.stub.AddCall("masterFacade.SetPhase", phase)
 	return nil
 }
@@ -503,3 +549,14 @@ func (c *stubConnection) Close() error {
 	c.stub.AddCall("Connection.Close")
 	return nil
 }
+
+func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {
+	return func(config migration.UploadBinariesConfig) error {
+		stub.AddCall("UploadBinaries", config.Source, config.Charms)
+		return nil
+	}
+}
+
+// nullUploadBinaries is a UploadBinaries variant which should never
+// get called.
+var nullUploadBinaries = makeStubUploadBinaries(nil)
