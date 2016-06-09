@@ -141,10 +141,10 @@ type OriginSuite struct {
 
 var _ = gc.Suite(&OriginSuite{})
 
-func (s *OriginSuite) TestEnterpriseID(c *gc.C) {
+func (s *OriginSuite) TestPrivateEnterpriseCode(c *gc.C) {
 	var origin logfwd.Origin
 
-	id := origin.EnterpriseID()
+	id := origin.PrivateEnterpriseCode()
 
 	c.Check(id, gc.Equals, "28978")
 }

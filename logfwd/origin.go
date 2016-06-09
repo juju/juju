@@ -79,10 +79,10 @@ type Origin struct {
 	JujuVersion    version.Number
 }
 
-// EnterpriseID returns the IANA-registered "SMI Network Management
-// Private Enterprise Code" to use for the log record.
+// PrivateEnterpriseCode returns the IANA-registered "SMI Network
+// Management Private Enterprise Code" to use for the log record.
 // (see https://tools.ietf.org/html/rfc5424#section-7.2.2)
-func (o Origin) EnterpriseID() string {
+func (o Origin) PrivateEnterpriseCode() string {
 	return canonicalIANAid
 }
 
