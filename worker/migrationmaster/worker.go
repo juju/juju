@@ -29,9 +29,6 @@ var (
 	// ErrDoneForNow indicates a temporary issue was encountered and
 	// that the worker should restart and retry.
 	ErrDoneForNow = errors.New("done for now")
-
-	// TODO(mjs) - this should be explicitly passed in via Config
-	apiOpen = api.Open
 )
 
 // Facade exposes controller functionality to a Worker.
@@ -60,9 +57,9 @@ type Facade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Facade Facade
-	Guard  fortress.Guard
-
+	Facade          Facade
+	Guard           fortress.Guard
+	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries  func(migration.UploadBinariesConfig) error
 	CharmDownloader migration.CharmDownloader
 }
@@ -74,6 +71,9 @@ func (config Config) Validate() error {
 	}
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
+	}
+	if config.APIOpen == nil {
+		return errors.NotValidf("nil APIOpen")
 	}
 	if config.UploadBinaries == nil {
 		return errors.NotValidf("nil UploadBinaries")
@@ -223,7 +223,7 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 	}
 
 	logger.Infof("opening API connection to target controller")
-	conn, err := openAPIConn(targetInfo)
+	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
 		logger.Errorf("failed to connect to target controller: %v", err)
 		return coremigration.ABORT, nil
@@ -239,7 +239,7 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 	}
 
 	logger.Infof("opening API connection for target model")
-	targetModelConn, err := openAPIConnForModel(targetInfo, modelUUID)
+	targetModelConn, err := w.openAPIConnForModel(targetInfo, modelUUID)
 	if err != nil {
 		logger.Errorf("failed to open connection to target model: %v", err)
 		return coremigration.ABORT, nil
@@ -266,15 +266,15 @@ func (w *Worker) doVALIDATION(targetInfo coremigration.TargetInfo, modelUUID str
 	// TODO(mjs) - Wait for all agents to report back.
 
 	// Once all agents have validated, activate the model.
-	err := activateModel(targetInfo, modelUUID)
+	err := w.activateModel(targetInfo, modelUUID)
 	if err != nil {
 		return coremigration.ABORT, nil
 	}
 	return coremigration.SUCCESS, nil
 }
 
-func activateModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
-	conn, err := openAPIConn(targetInfo)
+func (w *Worker) activateModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -307,7 +307,7 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	if err := removeImportedModel(targetInfo, modelUUID); err != nil {
+	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt.
 		logger.Errorf("failed to reverse model import: %v", err)
@@ -315,8 +315,8 @@ func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) 
 	return coremigration.ABORTDONE, nil
 }
 
-func removeImportedModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
-	conn, err := openAPIConn(targetInfo)
+func (w *Worker) removeImportedModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -364,11 +364,11 @@ func (w *Worker) waitForActiveMigration() (migrationmaster.MigrationStatus, erro
 	}
 }
 
-func openAPIConn(targetInfo coremigration.TargetInfo) (api.Connection, error) {
-	return openAPIConnForModel(targetInfo, "")
+func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connection, error) {
+	return w.openAPIConnForModel(targetInfo, "")
 }
 
-func openAPIConnForModel(targetInfo coremigration.TargetInfo, modelUUID string) (api.Connection, error) {
+func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelUUID string) (api.Connection, error) {
 	apiInfo := &api.Info{
 		Addrs:    targetInfo.Addrs,
 		CACert:   targetInfo.CACert,
@@ -379,7 +379,7 @@ func openAPIConnForModel(targetInfo coremigration.TargetInfo, modelUUID string) 
 	// Use zero DialOpts (no retries) because the worker must stay
 	// responsive to Kill requests. We don't want it to be blocked by
 	// a long set of retry attempts.
-	return apiOpen(apiInfo, api.DialOpts{})
+	return w.config.APIOpen(apiInfo, api.DialOpts{})
 }
 
 func modelHasMigrated(phase coremigration.Phase) bool {

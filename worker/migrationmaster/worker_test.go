@@ -93,7 +93,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{stub: s.stub}
 	s.connectionErr = nil
-	s.PatchValue(migrationmaster.ApiOpen, s.apiOpen)
 	s.PatchValue(migrationmaster.TempSuccessSleep, time.Millisecond)
 }
 
@@ -114,6 +113,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  makeStubUploadBinaries(s.stub),
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -159,6 +159,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -187,6 +188,7 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -204,6 +206,7 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -224,6 +227,7 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -238,6 +242,7 @@ func (s *Suite) TestStatusError(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -258,6 +263,7 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -282,6 +288,7 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           guard,
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -305,6 +312,7 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           guard,
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -327,6 +335,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -357,6 +366,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
@@ -387,6 +397,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 	worker, err := migrationmaster.New(migrationmaster.Config{
 		Facade:          masterFacade,
 		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
 	})
