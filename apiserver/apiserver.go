@@ -10,19 +10,19 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
-	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/internal/observers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -239,87 +239,6 @@ func (srv *Server) Kill() {
 // Wait implements worker.Worker.Wait.
 func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
-}
-
-type requestNotifier struct {
-	id    int64
-	start time.Time
-
-	mu   sync.Mutex
-	tag_ string
-
-	// count is incremented by calls to join, and deincremented
-	// by calls to leave.
-	count *int32
-}
-
-var globalCounter int64
-
-func newRequestNotifier(count *int32) *requestNotifier {
-	return &requestNotifier{
-		id:   atomic.AddInt64(&globalCounter, 1),
-		tag_: "<unknown>",
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		start: time.Now(),
-		count: count,
-	}
-}
-
-func (n *requestNotifier) login(tag string) {
-	n.mu.Lock()
-	n.tag_ = tag
-	n.mu.Unlock()
-}
-
-func (n *requestNotifier) tag() (tag string) {
-	n.mu.Lock()
-	tag = n.tag_
-	n.mu.Unlock()
-	return
-}
-
-func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
-	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if logger.IsTraceEnabled() {
-		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	} else {
-		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
-	}
-}
-
-func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
-	if req.Type == "Pinger" && req.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some responses.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if logger.IsTraceEnabled() {
-		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	} else {
-		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
-	}
-}
-
-func (n *requestNotifier) join(req *http.Request) {
-	active := atomic.AddInt32(n.count, 1)
-	logger.Infof("[%X] API connection from %s, active connections: %d", n.id, req.RemoteAddr, active)
-}
-
-func (n *requestNotifier) leave() {
-	active := atomic.AddInt32(n.count, -1)
-	logger.Infof("[%X] %s API connection terminated after %v, active connections: %d", n.id, n.tag(), time.Since(n.start), active)
-}
-
-func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
-}
-
-func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
 func (srv *Server) run() {
@@ -546,9 +465,9 @@ func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	reqNotifier := newRequestNotifier(&srv.connections)
-	reqNotifier.join(req)
-	defer reqNotifier.leave()
+	reqNotifier := observers.NewRequestNotifier(&srv.connections)
+	reqNotifier.Join(req)
+	defer reqNotifier.Leave()
 	wsServer := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			modelUUID := req.URL.Query().Get(":modeluuid")
@@ -561,7 +480,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, modelUUID string) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *observers.RequestNotifier, modelUUID string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
 		codec.SetLogging(true)
@@ -592,7 +511,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *observers.RequestNotifier, modelUUID string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.

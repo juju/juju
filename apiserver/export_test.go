@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/internal/observers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -119,7 +120,7 @@ func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 
 type preFacadeAdminApi struct{}
 
-func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *observers.RequestNotifier) interface{} {
 	return &preFacadeAdminApi{}
 }
 
@@ -137,7 +138,7 @@ func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 
 type failAdminApi struct{}
 
-func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *observers.RequestNotifier) interface{} {
 	return &failAdminApi{}
 }
 

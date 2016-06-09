@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/internal/observers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
 	"github.com/juju/juju/rpc"
@@ -22,14 +23,14 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *observers.RequestNotifier) interface{}
 
 // admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
 type admin struct {
 	srv         *Server
 	root        *apiHandler
-	reqNotifier *requestNotifier
+	reqNotifier *observers.RequestNotifier
 
 	mu       sync.Mutex
 	loggedIn bool
@@ -132,7 +133,7 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	a.root.entity = entity
 
 	if a.reqNotifier != nil {
-		a.reqNotifier.login(entity.Tag().String())
+		a.reqNotifier.Login(entity.Tag().String())
 	}
 
 	// We have authenticated the user; enable the appropriate API

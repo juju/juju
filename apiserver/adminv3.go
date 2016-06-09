@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/internal/observers"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -12,7 +13,7 @@ type adminApiV3 struct {
 	*admin
 }
 
-func newAdminApiV3(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newAdminApiV3(srv *Server, root *apiHandler, reqNotifier *observers.RequestNotifier) interface{} {
 	return &adminApiV3{
 		&admin{
 			srv:         srv,
