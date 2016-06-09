@@ -111,7 +111,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
-	settings, err := state.ReadSettings(s.State, state.ControllersC, state.CloudSettingsGlobalKey)
+	settings, err := state.ReadSettings(s.State, state.ControllersC, state.DefaultModelSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	settings.Set("apt-mirror", "http://mirror")
 	_, err = settings.Write()

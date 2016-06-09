@@ -16,7 +16,7 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSettings, err := readSettings(st, controllersC, cloudSettingsGlobalKey)
+	defaultModelSettings, err := readSettings(st, controllersC, defaultModelSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -29,7 +29,7 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	attrs := controllerSettings.Map()
 
 	// Merge in the cloud settings.
-	for k, v := range cloudSettings.Map() {
+	for k, v := range defaultModelSettings.Map() {
 		attrs[k] = v
 	}
 

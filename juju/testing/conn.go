@@ -290,7 +290,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		Cloud:       "dummy",
-		CloudRegion: "some-cloud",
+		CloudRegion: "some-region",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

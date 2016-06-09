@@ -383,7 +383,6 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
-	cloudSettingsC           = "cloudsettings"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"

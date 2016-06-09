@@ -178,7 +178,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloudName, cloudRegi
 			Insert: &hostedModelCountDoc{},
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
-		createSettingsOp(controllersC, cloudSettingsGlobalKey, cloudCfg),
+		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, cloudCfg),
 	}
 	ops = append(ops, modelOps...)
 

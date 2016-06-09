@@ -85,7 +85,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRejectsControllerConfig(c *gc.C)
 }
 
 func (s *ModelConfigSuite) TestModelConfigOverridesCloudValue(c *gc.C) {
-	sharedSettings, err := s.State.ReadSettings(state.ControllersC, state.CloudSettingsGlobalKey)
+	sharedSettings, err := s.State.ReadSettings(state.ControllersC, state.DefaultModelSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	sharedSettings.Set("apt-mirror", "http://mirror")
 	_, err = sharedSettings.Write()
@@ -104,7 +104,7 @@ func (s *ModelConfigSuite) TestModelConfigOverridesCloudValue(c *gc.C) {
 }
 
 func (s *ModelConfigSuite) TestModelConfigInheritsCloudValue(c *gc.C) {
-	sharedSettings, err := s.State.ReadSettings(state.ControllersC, state.CloudSettingsGlobalKey)
+	sharedSettings, err := s.State.ReadSettings(state.ControllersC, state.DefaultModelSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	sharedSettings.Set("apt-mirror", "http://mirror")
 	_, err = sharedSettings.Write()

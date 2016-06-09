@@ -61,7 +61,7 @@ type modelDoc struct {
 	MigrationMode MigrationMode `bson:"migration-mode"`
 
 	// CloudRegion is the name of the cloud region to which the model is deployed.
-	CloudRegion string `bson:"cloud-region"`
+	CloudRegion string `bson:"cloud-region,omitempty"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.

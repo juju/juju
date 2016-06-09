@@ -1319,7 +1319,7 @@ func (st *State) WatchForModelConfigChanges() NotifyWatcher {
 			controllerSettingsGlobalKey,
 		}, {
 			controllersC,
-			cloudSettingsGlobalKey,
+			defaultModelSettingsGlobalKey,
 		},
 	})
 }

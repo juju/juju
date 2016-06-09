@@ -41,21 +41,21 @@ const (
 )
 
 var (
-	BinarystorageNew       = &binarystorageNew
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	ControllerAvailable    = &controllerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
-	AddVolumeOps           = (*State).addVolumeOps
-	CombineMeterStatus     = combineMeterStatus
-	ApplicationGlobalKey   = applicationGlobalKey
-	ReadSettings           = readSettings
-	CloudSettingsGlobalKey = cloudSettingsGlobalKey
-	MergeBindings          = mergeBindings
-	UpgradeInProgressError = errUpgradeInProgress
+	BinarystorageNew              = &binarystorageNew
+	ImageStorageNewStorage        = &imageStorageNewStorage
+	MachineIdLessThan             = machineIdLessThan
+	ControllerAvailable           = &controllerAvailable
+	GetOrCreatePorts              = getOrCreatePorts
+	GetPorts                      = getPorts
+	NowToTheSecond                = nowToTheSecond
+	PickAddress                   = &pickAddress
+	AddVolumeOps                  = (*State).addVolumeOps
+	CombineMeterStatus            = combineMeterStatus
+	ApplicationGlobalKey          = applicationGlobalKey
+	ReadSettings                  = readSettings
+	DefaultModelSettingsGlobalKey = defaultModelSettingsGlobalKey
+	MergeBindings                 = mergeBindings
+	UpgradeInProgressError        = errUpgradeInProgress
 )
 
 type (

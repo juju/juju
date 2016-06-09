@@ -13,8 +13,8 @@ const (
 	// controllerSettingsGlobalKey is the key for the controller and its settings.
 	controllerSettingsGlobalKey = "controllerSettings"
 
-	// cloudSettingsGlobalKey is the key for cloud settings shared across models.
-	cloudSettingsGlobalKey = "cloudSettings"
+	// defaultModelSettingsGlobalKey is the key for default settings shared across models.
+	defaultModelSettingsGlobalKey = "defaultModelSettings"
 )
 
 func controllerOnlyAttribute(attr string) bool {
@@ -65,7 +65,7 @@ func (st *State) ControllerConfig() (map[string]interface{}, error) {
 
 // CloudConfig returns the config values shared across models.
 func (st *State) CloudConfig() (map[string]interface{}, error) {
-	settings, err := readSettings(st, controllersC, cloudSettingsGlobalKey)
+	settings, err := readSettings(st, controllersC, defaultModelSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
