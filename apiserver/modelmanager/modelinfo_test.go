@@ -84,7 +84,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		ControllerUUID: s.st.model.cfg.UUID(),
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
-		CloudRegion:    "mycloud",
+		CloudRegion:    "some-region",
 		DefaultSeries:  series.LatestLts(),
 		Life:           params.Dying,
 		Status: params.EntityStatus{
@@ -120,6 +120,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
+		{"CloudRegion", nil},
 	})
 }
 

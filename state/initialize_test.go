@@ -221,7 +221,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		badCloudAttrs := map[string]interface{}{badAttrName: "foo"}
 		owner := names.NewLocalUserTag("initialize-admin")
 
-		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", "dummy", "some-region", badCloudAttrs, good, mongotest.DialOpts(), state.Policy(nil))
+		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", "some-region", badCloudAttrs, good, mongotest.DialOpts(), state.Policy(nil))
 		c.Assert(err, gc.ErrorMatches, "cloud config cannot contain .*")
 	}
 }
