@@ -60,6 +60,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	worker, err := config.NewWorker(Config{
 		Facade:          facade,
 		Guard:           guard,
+		APIOpen:         api.Open,
 		UploadBinaries:  migration.UploadBinaries,
 		CharmDownloader: apiConn.Client(),
 	})
