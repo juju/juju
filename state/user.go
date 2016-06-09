@@ -112,8 +112,7 @@ func (st *State) RemoveUser(user names.UserTag) error {
 	if errors.IsNotFound(err) {
 		return errors.NewUserNotFound(err, "user not found")
 	}
-	// This builds the transaction operations we want to try. It is rerun 3
-	// times by state.run.
+	// This builds the transaction operations we want to try for the User.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 
 		ops := []txn.Op{{
@@ -125,18 +124,29 @@ func (st *State) RemoveUser(user names.UserTag) error {
 		return ops, nil
 	}
 	err = st.run(buildTxn)
+
+	// If there is no User then we return with a user not found error.
 	if err == jujutxn.ErrNoOperations {
 		return errors.NewUserNotFound(err, "user not found")
 	}
 
+	// Get a raw connection to the ModelUser collection.
 	modelUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
+	// Build the transaction for removing all ModelUsers for the user.
 	buildTxn = func(attempt int) ([]txn.Op, error) {
 		var modelUserIDs []struct {
 			ID string `bson:"_id"`
 		}
-		// TODO(redir): add doc about why _id.
+		// The `_id` is munged in the ModelUser collection because it is a
+		// *local* collection. Here we pierce the veil in the interest of speed
+		// and simplicity. Rather than building up the `_id` from the name and
+		// model UUID in a series of loops we simply return the _ids which we
+		// need to remove. This was left inside this function instead of
+		// creating an external helper to prevent confusion with the existing
+		// RemoveModelUser function which has a different purpose: namely
+		// unsharing a model.
 		err := modelUsers.Find(bson.D{
 			{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&modelUserIDs)
 		if err != nil {

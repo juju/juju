@@ -129,6 +129,11 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
+func (s *UserSuite) TestRemoveUserNonExistent(c *gc.C) {
+	err := s.State.RemoveUser(names.NewUserTag("harvey"))
+	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
+}
+
 func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
