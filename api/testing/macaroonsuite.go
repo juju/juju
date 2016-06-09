@@ -9,8 +9,8 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -60,6 +60,9 @@ type modelDoc struct {
 	ServerUUID    string        `bson:"server-uuid"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
 
+	// Cloud is the name of the cloud that the model is managed within.
+	Cloud string `bson:"cloud"`
+
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
@@ -74,7 +77,7 @@ type modelEntityRefsDoc struct {
 	Machines []string `bson:"machines"`
 
 	// Services contains the names of the services in the model.
-	Services []string `bson:"services"`
+	Services []string `bson:"applications"`
 }
 
 // ControllerModel returns the model that was bootstrapped.
@@ -101,15 +104,7 @@ func (st *State) ControllerModel() (*Model, error) {
 
 // Model returns the model entity.
 func (st *State) Model() (*Model, error) {
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	env := &Model{st: st}
-	uuid := st.modelTag.Id()
-	if err := env.refresh(models.FindId(uuid)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
+	return st.GetModel(st.modelTag)
 }
 
 // GetModel looks for the model identified by the uuid passed in.
@@ -117,11 +112,11 @@ func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
 	models, closer := st.getCollection(modelsC)
 	defer closer()
 
-	env := &Model{st: st}
-	if err := env.refresh(models.FindId(tag.Id())); err != nil {
+	model := &Model{st: st}
+	if err := model.refresh(models.FindId(tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return env, nil
+	return model, nil
 }
 
 // AllModels returns all the models in the system.
@@ -145,9 +140,36 @@ func (st *State) AllModels() ([]*Model, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
-	Config        *config.Config
-	Owner         names.UserTag
+	// Cloud is the name of the cloud that the model is deployed to.
+	Cloud string
+
+	// Config is the model config.
+	Config *config.Config
+
+	// Owner is the user that owns the model.
+	Owner names.UserTag
+
+	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
+}
+
+// Validate validates the ModelArgs.
+func (m ModelArgs) Validate() error {
+	if m.Cloud == "" {
+		return errors.NotValidf("empty Cloud")
+	}
+	if m.Config == nil {
+		return errors.NotValidf("nil Config")
+	}
+	if m.Owner == (names.UserTag{}) {
+		return errors.NotValidf("empty Owner")
+	}
+	switch m.MigrationMode {
+	case MigrationModeActive, MigrationModeImporting:
+	default:
+		return errors.NotValidf("initial migration mode %q", m.MigrationMode)
+	}
+	return nil
 }
 
 // NewModel creates a new model with its own UUID and
@@ -160,6 +182,10 @@ type ModelArgs struct {
 // models, perhaps for future use around cross model
 // relations.
 func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	owner := args.Owner
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
@@ -167,27 +193,27 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		}
 	}
 
-	ssEnv, err := st.ControllerModel()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not load controller model")
-	}
-
 	uuid := args.Config.UUID()
-	newState, err := st.ForModel(names.NewModelTag(uuid))
+	session := st.session.Copy()
+	newSt, err := newState(names.NewModelTag(uuid), session, st.mongoInfo, st.policy)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
 	defer func() {
 		if err != nil {
-			newState.Close()
+			newSt.Close()
 		}
 	}()
 
-	ops, err := newState.modelSetupOps(args.Config, uuid, ssEnv.UUID(), owner, args.MigrationMode)
+	cloudCfg, err := st.CloudConfig()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
+	}
+	ops, err := newSt.modelSetupOps(args.Config, args.Cloud, cloudCfg, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
-	err = newState.runTransaction(ops)
+	err = newSt.runTransaction(ops)
 	if err == txn.ErrAborted {
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
@@ -213,12 +239,17 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	newEnv, err := newState.Model()
+	err = newSt.start(st.controllerTag)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not start state for new model")
+	}
+
+	newModel, err := newSt.Model()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	return newEnv, newState, nil
+	return newModel, newSt, nil
 }
 
 // Tag returns a name identifying the model.
@@ -253,6 +284,11 @@ func (m *Model) ControllerUUID() string {
 // Name returns the human friendly name of the model.
 func (m *Model) Name() string {
 	return m.doc.Name
+}
+
+// Cloud returns the name of the cloud that the model is deployed to.
+func (m *Model) Cloud() string {
+	return m.doc.Cloud
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -525,7 +561,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 			Id: uuid,
 			Assert: bson.D{
 				{"machines", bson.D{{"$size", 0}}},
-				{"services", bson.D{{"$size", 0}}},
+				{"applications", bson.D{{"$size", 0}}},
 			},
 		})
 	}
@@ -677,20 +713,20 @@ func removeModelMachineRefOp(st *State, machineId string) txn.Op {
 	}
 }
 
-func addModelServiceRefOp(st *State, serviceName string) txn.Op {
+func addModelServiceRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$addToSet", bson.D{{"services", serviceName}}}},
+		Update: bson.D{{"$addToSet", bson.D{{"applications", applicationname}}}},
 	}
 }
 
-func removeModelServiceRefOp(st *State, serviceName string) txn.Op {
+func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
-		Update: bson.D{{"$pull", bson.D{{"services", serviceName}}}},
+		Update: bson.D{{"$pull", bson.D{{"applications", applicationname}}}},
 	}
 }
 
@@ -743,7 +779,7 @@ func ensureDestroyable(st *State) error {
 
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createModelOp(st *State, owner names.UserTag, name, uuid, server string, mode MigrationMode) txn.Op {
+func createModelOp(st *State, owner names.UserTag, name, uuid, server, cloud string, mode MigrationMode) txn.Op {
 	doc := &modelDoc{
 		UUID:          uuid,
 		Name:          name,
@@ -751,6 +787,7 @@ func createModelOp(st *State, owner names.UserTag, name, uuid, server string, mo
 		Owner:         owner.Canonical(),
 		ServerUUID:    server,
 		MigrationMode: mode,
+		Cloud:         cloud,
 	}
 	return txn.Op{
 		C:      modelsC,

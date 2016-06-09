@@ -22,8 +22,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/service"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/feature"
@@ -41,10 +41,10 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(service.NewDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
 }
 func setconfigHelpText() string {
-	return cmdtesting.HelpText(service.NewSetCommand(), "juju set-config")
+	return cmdtesting.HelpText(application.NewSetCommand(), "juju set-config")
 }
 
 func syncToolsHelpText() string {
@@ -159,9 +159,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "list-controllers"}, // global flags before
-		{"list-controllers", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "list-controllers", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "controllers"}, // global flags before
+		{"controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -368,18 +368,24 @@ var commandNames = []string{
 	"add-units",
 	"add-user",
 	"agree",
+	"agreements",
 	"allocate",
 	"autoload-credentials",
 	"backups",
 	"block",
+	"blocks",
 	"bootstrap",
+	"budgets",
 	"cached-images",
 	"change-user-password",
 	"charm",
+	"clouds",
 	"collect-metrics",
+	"controllers",
 	"create-backup",
 	"create-budget",
 	"create-storage-pool",
+	"credentials",
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",
@@ -387,7 +393,7 @@ var commandNames = []string{
 	"destroy-controller",
 	"destroy-model",
 	"destroy-relation",
-	"destroy-service",
+	"destroy-application",
 	"destroy-unit",
 	"disable-user",
 	"download-backup",
@@ -410,6 +416,7 @@ var commandNames = []string{
 	"list-agreements",
 	"list-all-blocks",
 	"list-backups",
+	"list-blocks",
 	"list-budgets",
 	"list-cached-images",
 	"list-clouds",
@@ -431,9 +438,12 @@ var commandNames = []string{
 	"logout",
 	"machine",
 	"machines",
+	"models",
+	"plans",
 	"publish",
 	"register",
 	"remove-all-blocks",
+	"remove-application", // alias for destroy-application
 	"remove-backup",
 	"remove-cached-images",
 	"remove-cloud",
@@ -441,7 +451,6 @@ var commandNames = []string{
 	"remove-machine",
 	"remove-machines",
 	"remove-relation", // alias for destroy-relation
-	"remove-service",  // alias for destroy-service
 	"remove-ssh-key",
 	"remove-ssh-keys",
 	"remove-unit", // alias for destroy-unit
@@ -464,6 +473,7 @@ var commandNames = []string{
 	"set-plan",
 	"ssh-key",
 	"ssh-keys",
+	"shares",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
@@ -482,6 +492,7 @@ var commandNames = []string{
 	"status",
 	"status-history",
 	"storage",
+	"storage-pools",
 	"subnets",
 	"switch",
 	"sync-tools",
@@ -494,6 +505,7 @@ var commandNames = []string{
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"users",
 	"version",
 }
 

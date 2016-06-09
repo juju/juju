@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -55,19 +55,19 @@ func (s *ModelSuite) TestModelDestroy(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelNonExistentLocalUser(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("non-existent@local")
 
-	_, _, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	_, _, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, gc.ErrorMatches, `cannot create model: user "non-existent" not found`)
 }
 
 func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 
 	// Create the first model.
-	_, st1, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	_, st1, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -79,7 +79,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 		"name": cfg.Name(),
 		"uuid": newUUID.String(),
 	})
-	_, _, err = s.State.NewModel(state.ModelArgs{Config: cfg2, Owner: owner})
+	_, _, err = s.State.NewModel(state.ModelArgs{Config: cfg2, Owner: owner, Cloud: "dummy"})
 	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Canonical())
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
@@ -98,7 +98,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should now be able to create the other model.
-	env2, st2, err := s.State.NewModel(state.ModelArgs{Config: cfg2, Owner: owner})
+	env2, st2, err := s.State.NewModel(state.ModelArgs{Config: cfg2, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st2.Close()
 	c.Assert(env2, gc.NotNil)
@@ -106,33 +106,33 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModel(c *gc.C) {
-	cfg, uuid := s.createTestEnvConfig(c)
+	cfg, uuid := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	model, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
 	modelTag := names.NewModelTag(uuid)
-	assertEnvMatches := func(env *state.Model) {
-		c.Assert(env.UUID(), gc.Equals, modelTag.Id())
-		c.Assert(env.Tag(), gc.Equals, modelTag)
-		c.Assert(env.ControllerTag(), gc.Equals, s.modelTag)
-		c.Assert(env.Owner(), gc.Equals, owner)
-		c.Assert(env.Name(), gc.Equals, "testing")
-		c.Assert(env.Life(), gc.Equals, state.Alive)
+	assertModelMatches := func(model *state.Model) {
+		c.Assert(model.UUID(), gc.Equals, modelTag.Id())
+		c.Assert(model.Tag(), gc.Equals, modelTag)
+		c.Assert(model.ControllerTag(), gc.Equals, s.modelTag)
+		c.Assert(model.Owner(), gc.Equals, owner)
+		c.Assert(model.Name(), gc.Equals, "testing")
+		c.Assert(model.Life(), gc.Equals, state.Alive)
 	}
-	assertEnvMatches(env)
+	assertModelMatches(model)
 
 	// Since the model tag for the State connection is different,
 	// asking for this model through FindEntity returns a not found error.
-	env, err = s.State.GetModel(modelTag)
+	model, err = s.State.GetModel(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	assertEnvMatches(env)
+	assertModelMatches(model)
 
-	env, err = st.Model()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	assertEnvMatches(env)
+	assertModelMatches(model)
 
 	_, err = s.State.FindEntity(modelTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -147,12 +147,13 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
 	env, st, err := s.State.NewModel(state.ModelArgs{
 		Config:        cfg,
 		Owner:         owner,
+		Cloud:         "dummy",
 		MigrationMode: state.MigrationModeImporting,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,10 +163,10 @@ func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
 }
 
 func (s *ModelSuite) TestSetMigrationMode(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 
-	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	env, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -187,11 +188,13 @@ func (s *ModelSuite) TestControllerModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestControllerModelAccessibleFromOtherModels(c *gc.C) {
-	cfg, _ := s.createTestEnvConfig(c)
+	cfg, _ := s.createTestModelConfig(c)
 	_, st, err := s.State.NewModel(state.ModelArgs{
 		Config: cfg,
 		Owner:  names.NewUserTag("test@remote"),
+		Cloud:  "dummy",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
 	env, err := st.ControllerModel()
@@ -233,13 +236,14 @@ func (s *ModelSuite) TestConfigForOtherEnv(c *gc.C) {
 	c.Assert(conf.UUID(), gc.Equals, otherEnv.UUID())
 }
 
-// createTestEnvConfig returns a new model config and its UUID for testing.
-func (s *ModelSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
+// createTestModelConfig returns a new model config and its UUID for testing.
+func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return testing.CustomModelConfig(c, testing.Attrs{
-		"name": "testing",
-		"uuid": uuid.String(),
+		"name":            "testing",
+		"uuid":            uuid.String(),
+		"controller-uuid": s.modelTag.Id(),
 	}), uuid.String()
 }
 
@@ -282,7 +286,7 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2).MakeService(c, nil)
+	factory.NewFactory(st2).MakeApplication(c, nil)
 
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,7 +311,7 @@ func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	factory.NewFactory(st2).MakeService(c, nil)
+	factory.NewFactory(st2).MakeApplication(c, nil)
 
 	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -350,7 +354,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllServices()
+		services, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
@@ -360,16 +364,16 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: otherEnv.Owner()})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Creator: otherEnv.Owner()})
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
-	args := state.AddServiceArgs{
+	args := state.AddApplicationArgs{
 		Name:  service.Name(),
 		Owner: service.GetOwnerTag(),
 		Charm: ch,
 	}
-	service, err = otherSt.AddService(args)
+	service, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerEnv, err := s.State.Model()
@@ -430,7 +434,7 @@ func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
 		// the controller from being destroyed.
 		st3 := s.Factory.MakeModel(c, nil)
 		defer st3.Close()
-		factory.NewFactory(st3).MakeService(c, nil)
+		factory.NewFactory(st3).MakeApplication(c, nil)
 	}).Check()
 
 	env, err := s.State.Model()
@@ -444,7 +448,7 @@ func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		st := s.Factory.MakeModel(c, nil)
 		defer st.Close()
-		factory.NewFactory(st).MakeService(c, nil)
+		factory.NewFactory(st).MakeApplication(c, nil)
 	}).Check()
 
 	env, err := s.State.Model()
@@ -478,7 +482,7 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a service to prevent the model from transitioning directly to Dead.
-	s.Factory.MakeService(c, nil)
+	s.Factory.MakeApplication(c, nil)
 
 	c.Assert(m.Destroy(), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
@@ -492,7 +496,7 @@ func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, st, func() {
-		factory.NewFactory(st).MakeService(c, nil)
+		factory.NewFactory(st).MakeApplication(c, nil)
 	}).Check()
 
 	c.Assert(m.Destroy(), jc.ErrorIsNil)
@@ -540,7 +544,7 @@ func (s *ModelSuite) assertDyingEnvironTransitionDyingToDead(c *gc.C, st *state.
 	// Add a service to prevent the model from transitioning directly to Dead.
 	// Add the service before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
-	svc := factory.NewFactory(st).MakeService(c, nil)
+	svc := factory.NewFactory(st).MakeApplication(c, nil)
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -576,15 +580,15 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeService(c, &factory.ServiceParams{Creator: env.Owner()})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Creator: env.Owner()})
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	args := state.AddServiceArgs{
+	args := state.AddApplicationArgs{
 		Name:  service.Name(),
 		Owner: service.GetOwnerTag(),
 		Charm: ch,
 	}
-	service, err = st.AddService(args)
+	service, err = st.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertEnv := func(life state.Life, expectedMachines, expectedServices int) {
@@ -595,7 +599,7 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllServices()
+		services, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
@@ -617,7 +621,7 @@ func (s *ModelSuite) TestProcessDyingControllerEnvironWithHostedEnvsNoOp(c *gc.C
 	// Add a non-empty model to the controller.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	factory.NewFactory(st).MakeService(c, nil)
+	factory.NewFactory(st).MakeApplication(c, nil)
 
 	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,10 +4,10 @@
 package state_test
 
 import (
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -65,11 +65,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", nil, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	modelTag := st.ModelTag()
 	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	c.Assert(state.CloudName(st), gc.Equals, "dummy")
 	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -110,18 +111,45 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag})
 }
 
+func (s *InitializeSuite) TestInitializeWithCloudConfig(c *gc.C) {
+	cfg := testing.ModelConfig(c)
+	uuid := cfg.UUID()
+	initial := cfg.AllAttrs()
+	cloudAttrs := map[string]interface{}{
+		"default-series": initial["default-series"],
+	}
+	owner := names.NewLocalUserTag("initialize-admin")
+	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", cloudAttrs, cfg, mongotest.DialOpts(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, gc.NotNil)
+	modelTag := st.ModelTag()
+	c.Assert(modelTag.Id(), gc.Equals, uuid)
+	err = st.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.openState(c, modelTag)
+
+	cloudCfg, err := s.State.CloudConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudCfg, jc.DeepEquals, cloudAttrs)
+
+	cfg, err = s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
+}
+
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
 
 	mgoInfo := statetesting.NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
-	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	st, err := state.Initialize(owner, mgoInfo, "dummy", nil, cfg, dialOpts, state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	st, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	st, err = state.Initialize(owner, mgoInfo, "dummy", nil, cfg, dialOpts, state.Policy(nil))
 	c.Check(err, gc.ErrorMatches, "already initialized")
 	if !c.Check(st, gc.IsNil) {
 		err = st.Close()
@@ -136,7 +164,7 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 	bad, err := good.Apply(badUpdateAttrs)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, mongotest.DialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", nil, bad, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateModelConfig.
@@ -150,7 +178,7 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, good.AllAttrs())
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
 }
 
 func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
@@ -162,7 +190,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, mongotest.DialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", nil, bad, mongotest.DialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	st := statetesting.Initialize(c, owner, good, nil)
@@ -176,5 +204,24 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, good.AllAttrs())
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
+}
+
+func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
+	badAttrNames := []string{
+		config.AdminSecretKey,
+		config.AgentVersionKey,
+	}
+	for _, attr := range config.ControllerOnlyConfigAttributes {
+		badAttrNames = append(badAttrNames, attr)
+	}
+	good := testing.ModelConfig(c)
+
+	for _, badAttrName := range badAttrNames {
+		badCloudAttrs := map[string]interface{}{badAttrName: "foo"}
+		owner := names.NewLocalUserTag("initialize-admin")
+
+		_, err := state.Initialize(owner, statetesting.NewMongoInfo(), "dummy", badCloudAttrs, good, mongotest.DialOpts(), state.Policy(nil))
+		c.Assert(err, gc.ErrorMatches, "cloud config cannot contain .*")
+	}
 }

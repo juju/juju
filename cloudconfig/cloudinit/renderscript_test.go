@@ -62,13 +62,13 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			vers.Series, "",
 		)
 		c.Assert(err, jc.ErrorIsNil)
-		icfg.InstanceId = "instance-id"
-		icfg.HostedModelConfig = map[string]interface{}{
+		icfg.Bootstrap.InstanceId = "instance-id"
+		icfg.Bootstrap.HostedModelConfig = map[string]interface{}{
 			"name": "hosted-model",
 		}
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, "", true, nil, nil)
+		icfg, err = instancecfg.NewInstanceConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}

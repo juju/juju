@@ -6,7 +6,6 @@ package testing
 import (
 	"os"
 
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
@@ -61,7 +61,8 @@ func FakeConfig() Attrs {
 // ModelConfig returns a default environment configuration suitable for
 // setting in the state.
 func ModelConfig(c *gc.C) *config.Config {
-	return CustomModelConfig(c, Attrs{"uuid": mustUUID()})
+	uuid := mustUUID()
+	return CustomModelConfig(c, Attrs{"uuid": uuid, "controller-uuid": uuid})
 }
 
 // mustUUID returns a stringified uuid or panics

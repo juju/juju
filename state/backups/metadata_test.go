@@ -30,6 +30,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		Machine:  "0",
 		Hostname: "myhost",
 		Version:  version.MustParse("1.21-alpha3"),
+		Series:   "trusty",
 	}
 	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
 
@@ -59,6 +60,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
 		`"Version":"1.21-alpha3",`+
+		`"Series":"trusty",`+
 		`"CACert":"ca-cert",`+
 		`"CAPrivateKey":"ca-private-key"`+
 		`}`+"\n")

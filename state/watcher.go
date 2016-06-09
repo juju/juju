@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
@@ -321,7 +321,7 @@ func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection s
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the model.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, servicesC, nil, isLocalID(st), nil)
+	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 
 // WatchStorageAttachments returns a StringsWatcher that notifies of
@@ -346,8 +346,8 @@ func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
 // lifecycles of units of s.
-func (s *Service) WatchUnits() StringsWatcher {
-	members := bson.D{{"service", s.doc.Name}}
+func (s *Application) WatchUnits() StringsWatcher {
+	members := bson.D{{"application", s.doc.Name}}
 	prefix := s.doc.Name + "/"
 	filter := func(unitDocID interface{}) bool {
 		unitName, err := s.st.strictLocalID(unitDocID.(string))
@@ -361,7 +361,7 @@ func (s *Service) WatchUnits() StringsWatcher {
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
-func (s *Service) WatchRelations() StringsWatcher {
+func (s *Application) WatchRelations() StringsWatcher {
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
 	filter := func(id interface{}) bool {
@@ -373,7 +373,7 @@ func (s *Service) WatchRelations() StringsWatcher {
 		return out
 	}
 
-	members := bson.D{{"endpoints.servicename", s.doc.Name}}
+	members := bson.D{{"endpoints.applicationname", s.doc.Name}}
 	return newLifecycleWatcher(s.st, relationsC, members, filter, nil)
 }
 
@@ -585,7 +585,7 @@ func (w *lifecycleWatcher) loop() error {
 
 // minUnitsWatcher notifies about MinUnits changes of the services requiring
 // a minimum number of units to be alive. The first event returned by the
-// watcher is the set of service names requiring a minimum number of units.
+// watcher is the set of application names requiring a minimum number of units.
 // Subsequent events are generated when a service increases MinUnits, or when
 // one or more units belonging to a service are destroyed.
 type minUnitsWatcher struct {
@@ -616,24 +616,24 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (set.Strings, error) {
-	serviceNames := make(set.Strings)
+	applicationnames := make(set.Strings)
 	var doc minUnitsDoc
 	newMinUnits, closer := w.st.getCollection(minUnitsC)
 	defer closer()
 
 	iter := newMinUnits.Find(nil).Iter()
 	for iter.Next(&doc) {
-		w.known[doc.ServiceName] = doc.Revno
-		serviceNames.Add(doc.ServiceName)
+		w.known[doc.ApplicationName] = doc.Revno
+		applicationnames.Add(doc.ApplicationName)
 	}
-	return serviceNames, iter.Close()
+	return applicationnames, iter.Close()
 }
 
-func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change) error {
-	serviceName := w.st.localID(change.Id.(string))
+func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Change) error {
+	applicationname := w.st.localID(change.Id.(string))
 	if change.Revno == -1 {
-		delete(w.known, serviceName)
-		serviceNames.Remove(serviceName)
+		delete(w.known, applicationname)
+		applicationnames.Remove(applicationname)
 		return nil
 	}
 	doc := minUnitsDoc{}
@@ -642,10 +642,10 @@ func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change)
 	if err := newMinUnits.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
-	revno, known := w.known[serviceName]
-	w.known[serviceName] = doc.Revno
+	revno, known := w.known[applicationname]
+	w.known[applicationname] = doc.Revno
 	if !known || doc.Revno > revno {
-		serviceNames.Add(serviceName)
+		applicationnames.Add(applicationname)
 	}
 	return nil
 }
@@ -654,7 +654,7 @@ func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
 	w.watcher.WatchCollectionWithFilter(minUnitsC, ch, isLocalID(w.st))
 	defer w.watcher.UnwatchCollection(minUnitsC, ch)
-	serviceNames, err := w.initial()
+	applicationnames, err := w.initial()
 	if err != nil {
 		return err
 	}
@@ -666,15 +666,15 @@ func (w *minUnitsWatcher) loop() (err error) {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case change := <-ch:
-			if err = w.merge(serviceNames, change); err != nil {
+			if err = w.merge(applicationnames, change); err != nil {
 				return err
 			}
-			if !serviceNames.IsEmpty() {
+			if !applicationnames.IsEmpty() {
 				out = w.out
 			}
-		case out <- serviceNames.Values():
+		case out <- applicationnames.Values():
 			out = nil
-			serviceNames = set.NewStrings()
+			applicationnames = set.NewStrings()
 		}
 	}
 }
@@ -941,7 +941,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
-	if err := readSettingsDocInto(w.st, key, &doc); err != nil {
+	if err := readSettingsDocInto(w.st, settingsC, key, &doc); err != nil {
 		return -1, err
 	}
 	setRelationUnitChangeVersion(changes, key, doc.Version)
@@ -1274,13 +1274,13 @@ func (m *Machine) Watch() NotifyWatcher {
 }
 
 // Watch returns a watcher for observing changes to a service.
-func (s *Service) Watch() NotifyWatcher {
-	return newEntityWatcher(s.st, servicesC, s.doc.DocID)
+func (s *Application) Watch() NotifyWatcher {
+	return newEntityWatcher(s.st, applicationsC, s.doc.DocID)
 }
 
 // WatchLeaderSettings returns a watcher for observing changed to a service's
 // leader settings.
-func (s *Service) WatchLeaderSettings() NotifyWatcher {
+func (s *Application) WatchLeaderSettings() NotifyWatcher {
 	docId := s.st.docID(leadershipSettingsKey(s.Name()))
 	return newEntityWatcher(s.st, settingsC, docId)
 }
@@ -1310,7 +1310,18 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (st *State) WatchForModelConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
+	return newDocWatcher(st, []docKey{
+		{
+			settingsC,
+			st.docID(modelGlobalKey),
+		}, {
+			controllersC,
+			controllerSettingsGlobalKey,
+		}, {
+			cloudSettingsC,
+			cloudGlobalKey(st.cloudName),
+		},
+	})
 }
 
 // WatchForUnitAssignment watches for new services that request units to be
@@ -1356,7 +1367,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settingsKey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
+	settingsKey := applicationSettingsKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 

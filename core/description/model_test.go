@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/testing"
@@ -48,10 +48,13 @@ func (*ModelSerializationSuite) TestUnknownVersion(c *gc.C) {
 }
 
 func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
-	model := NewModel(ModelArgs{Config: map[string]interface{}{
-		"name": "awesome",
-		"uuid": "some-uuid",
-	}})
+	model := NewModel(ModelArgs{
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		Cloud: "dummy",
+	})
 	model.UpdateConfig(map[string]interface{}{
 		"name": "something else",
 		"key":  "value",
@@ -91,7 +94,7 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 		DateCreated: time.Date(2015, 10, 9, 12, 34, 56, 0, time.UTC),
 	})
 	addMinimalMachine(initial, "0")
-	addMinimalService(initial)
+	addMinimalApplication(initial)
 	model := s.exportImport(c, initial)
 
 	c.Assert(model.Owner(), gc.Equals, args.Owner)
@@ -105,9 +108,9 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	machines := model.Machines()
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Id(), gc.Equals, "0")
-	services := model.Services()
-	c.Assert(services, gc.HasLen, 1)
-	c.Assert(services[0].Name(), gc.Equals, "ubuntu")
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+	c.Assert(applications[0].Name(), gc.Equals, "ubuntu")
 }
 
 func (s *ModelSerializationSuite) TestParsingOptionals(c *gc.C) {
@@ -142,8 +145,8 @@ func (s *ModelSerializationSuite) TestAnnotations(c *gc.C) {
 func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	initial.SetSequence("machine", 4)
-	initial.SetSequence("service-foo", 3)
-	initial.SetSequence("service-bar", 1)
+	initial.SetSequence("application-foo", 3)
+	initial.SetSequence("application-bar", 1)
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -151,9 +154,9 @@ func (s *ModelSerializationSuite) TestSequences(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Sequences(), jc.DeepEquals, map[string]int{
-		"machine":     4,
-		"service-foo": 3,
-		"service-bar": 1,
+		"machine":         4,
+		"application-foo": 3,
+		"application-bar": 1,
 	})
 }
 
@@ -181,7 +184,7 @@ func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {
 }
 
 func (*ModelSerializationSuite) TestModelValidationChecksMachines(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
 	model.AddMachine(MachineArgs{})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, "machine missing id not valid")
@@ -197,14 +200,14 @@ func (s *ModelSerializationSuite) addMachineToModel(model Model, id string) Mach
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksMachinesGood(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
 	s.addMachineToModel(model, "0")
 	err := model.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
 	machine := s.addMachineToModel(model, "0")
 	machine.AddOpenedPorts(OpenedPortsArgs{
 		OpenedPorts: []PortRangeArgs{
@@ -220,26 +223,26 @@ func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.
 	c.Assert(err.Error(), gc.Equals, "unknown unit names in open ports: [missing/0]")
 }
 
-func (*ModelSerializationSuite) TestModelValidationChecksServices(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	model.AddService(ServiceArgs{})
+func (*ModelSerializationSuite) TestModelValidationChecksApplications(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
+	model.AddApplication(ApplicationArgs{})
 	err := model.Validate()
-	c.Assert(err, gc.ErrorMatches, "service missing name not valid")
+	c.Assert(err, gc.ErrorMatches, "application missing name not valid")
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, numUnits int) Service {
-	service := model.AddService(ServiceArgs{
-		Tag:                names.NewServiceTag(name),
+func (s *ModelSerializationSuite) addApplicationToModel(model Model, name string, numUnits int) Application {
+	application := model.AddApplication(ApplicationArgs{
+		Tag:                names.NewApplicationTag(name),
 		Settings:           map[string]interface{}{},
 		LeadershipSettings: map[string]interface{}{},
 	})
-	service.SetStatus(minimalStatusArgs())
+	application.SetStatus(minimalStatusArgs())
 	for i := 0; i < numUnits; i++ {
 		// The index i is used as both the machine id and the unit id.
 		// A happy coincidence.
 		machine := s.addMachineToModel(model, fmt.Sprint(i))
-		unit := service.AddUnit(UnitArgs{
+		unit := application.AddUnit(UnitArgs{
 			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
 			Machine: machine.Tag(),
 		})
@@ -248,7 +251,7 @@ func (s *ModelSerializationSuite) addServiceToModel(model Model, name string, nu
 		unit.SetWorkloadStatus(minimalStatusArgs())
 	}
 
-	return service
+	return application
 }
 
 func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
@@ -256,9 +259,11 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		Owner: names.NewUserTag("owner"),
 		Config: map[string]interface{}{
 			"uuid": "some-uuid",
-		}})
-	s.addServiceToModel(model, "wordpress", 2)
-	s.addServiceToModel(model, "mysql", 1)
+		},
+		Cloud: "dummy",
+	})
+	s.addApplicationToModel(model, "wordpress", 2)
+	s.addApplicationToModel(model, "mysql", 1)
 
 	// Add a relation between wordpress and mysql.
 	rel := model.AddRelation(RelationArgs{
@@ -266,13 +271,13 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		Key: "special key",
 	})
 	wordpressEndpoint := rel.AddEndpoint(EndpointArgs{
-		ServiceName: "wordpress",
-		Name:        "db",
+		ApplicationName: "wordpress",
+		Name:            "db",
 		// Ignoring other aspects of endpoints.
 	})
 	mysqlEndpoint := rel.AddEndpoint(EndpointArgs{
-		ServiceName: "mysql",
-		Name:        "mysql",
+		ApplicationName: "mysql",
+		Name:            "mysql",
 		// Ignoring other aspects of endpoints.
 	})
 	return model, wordpressEndpoint, mysqlEndpoint

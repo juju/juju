@@ -49,8 +49,8 @@ func formatOneline(value interface{}, printf onelinePrintf) ([]byte, error) {
 		printf(&out, format, uName, u, level)
 	}
 
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Services)) {
-		svc := fs.Services[svcName]
+	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+		svc := fs.Applications[svcName]
 		for _, uName := range common.SortStringsNaturally(stringKeysFromMap(svc.Units)) {
 			unit := svc.Units[uName]
 			pprint(uName, unit, 0)

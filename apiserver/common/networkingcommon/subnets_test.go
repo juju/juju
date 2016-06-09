@@ -296,7 +296,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SubnetTag: "invalid",
 	}, {
 		// invalid subnet tag (another kind): same as above
-		SubnetTag: "service-bar",
+		SubnetTag: "application-bar",
 	}, {
 		// cached lookup by missing CIDR: not found error
 		SubnetTag: "subnet-1.2.3.0/24",
@@ -442,7 +442,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		{`given SpaceTag is invalid: "unit-foo" is not a valid unit tag`, nil},
 		{`given SpaceTag is invalid: "unit-foo-0" is not a valid space tag`, nil},
 		{`given SubnetTag is invalid: "invalid" is not a valid tag`, nil},
-		{`given SubnetTag is invalid: "service-bar" is not a valid subnet tag`, nil},
+		{`given SubnetTag is invalid: "application-bar" is not a valid subnet tag`, nil},
 		{`subnet with CIDR "1.2.3.0/24" not found`, params.IsCodeNotFound},
 		{
 			`multiple subnets with CIDR "10.10.0.0/24": ` +

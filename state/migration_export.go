@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/description"
@@ -44,9 +44,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	envConfig, found := export.settings[modelGlobalKey]
+	modelConfig, found := export.modelSettings[modelGlobalKey]
 	if !found {
-		return nil, errors.New("missing environ config")
+		return nil, errors.New("missing model config")
 	}
 
 	blocks, err := export.readBlocks()
@@ -55,8 +55,9 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Cloud:              dbModel.Cloud(),
 		Owner:              dbModel.Owner(),
-		Config:             envConfig.Settings,
+		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
@@ -78,7 +79,7 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.services(); err != nil {
+	if err := export.applications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.relations(); err != nil {
@@ -102,11 +103,11 @@ type exporter struct {
 
 	annotations   map[string]annotatorDoc
 	constraints   map[string]bson.M
-	settings      map[string]settingsDoc
+	modelSettings map[string]settingsDoc
 	status        map[string]bson.M
 	statusHistory map[string][]historicalStatusDoc
-	// Map of service name to units. Populated as part
-	// of the services export.
+	// Map of application name to units. Populated as part
+	// of the applications export.
 	units map[string][]*Unit
 }
 
@@ -374,12 +375,12 @@ func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInst
 	return inst
 }
 
-func (e *exporter) services() error {
-	services, err := e.st.AllServices()
+func (e *exporter) applications() error {
+	applications, err := e.st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	e.logger.Debugf("found %d services", len(services))
+	e.logger.Debugf("found %d applications", len(applications))
 
 	refcounts, err := e.readAllSettingsRefCounts()
 	if err != nil {
@@ -396,22 +397,22 @@ func (e *exporter) services() error {
 		return errors.Trace(err)
 	}
 
-	leaders, err := e.readServiceLeaders()
+	leaders, err := e.readApplicationLeaders()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, service := range services {
-		serviceUnits := e.units[service.Name()]
-		leader := leaders[service.Name()]
-		if err := e.addService(service, refcounts, serviceUnits, meterStatus, leader); err != nil {
+	for _, application := range applications {
+		applicationUnits := e.units[application.Name()]
+		leader := leaders[application.Name()]
+		if err := e.addApplication(application, refcounts, applicationUnits, meterStatus, leader); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (e *exporter) readServiceLeaders() (map[string]string, error) {
+func (e *exporter) readApplicationLeaders() (map[string]string, error) {
 	client, err := e.st.getLeadershipLeaseClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -424,55 +425,55 @@ func (e *exporter) readServiceLeaders() (map[string]string, error) {
 	return result, nil
 }
 
-func (e *exporter) addService(service *Service, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
-	settingsKey := service.settingsKey()
-	leadershipKey := leadershipSettingsKey(service.Name())
+func (e *exporter) addApplication(application *Application, refcounts map[string]int, units []*Unit, meterStatus map[string]*meterStatusDoc, leader string) error {
+	settingsKey := application.settingsKey()
+	leadershipKey := leadershipSettingsKey(application.Name())
 
-	serviceSettingsDoc, found := e.settings[settingsKey]
+	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings for service %q", service.Name())
+		return errors.Errorf("missing settings for application %q", application.Name())
 	}
 	refCount, found := refcounts[settingsKey]
 	if !found {
-		return errors.Errorf("missing settings refcount for service %q", service.Name())
+		return errors.Errorf("missing settings refcount for application %q", application.Name())
 	}
-	leadershipSettingsDoc, found := e.settings[leadershipKey]
+	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found {
-		return errors.Errorf("missing leadership settings for service %q", service.Name())
+		return errors.Errorf("missing leadership settings for application %q", application.Name())
 	}
 
-	args := description.ServiceArgs{
-		Tag:                  service.ServiceTag(),
-		Series:               service.doc.Series,
-		Subordinate:          service.doc.Subordinate,
-		CharmURL:             service.doc.CharmURL.String(),
-		Channel:              service.doc.Channel,
-		CharmModifiedVersion: service.doc.CharmModifiedVersion,
-		ForceCharm:           service.doc.ForceCharm,
-		Exposed:              service.doc.Exposed,
-		MinUnits:             service.doc.MinUnits,
-		Settings:             serviceSettingsDoc.Settings,
+	args := description.ApplicationArgs{
+		Tag:                  application.ApplicationTag(),
+		Series:               application.doc.Series,
+		Subordinate:          application.doc.Subordinate,
+		CharmURL:             application.doc.CharmURL.String(),
+		Channel:              application.doc.Channel,
+		CharmModifiedVersion: application.doc.CharmModifiedVersion,
+		ForceCharm:           application.doc.ForceCharm,
+		Exposed:              application.doc.Exposed,
+		MinUnits:             application.doc.MinUnits,
+		Settings:             applicationSettingsDoc.Settings,
 		SettingsRefCount:     refCount,
 		Leader:               leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
-		MetricsCredentials:   service.doc.MetricCredentials,
+		MetricsCredentials:   application.doc.MetricCredentials,
 	}
-	exService := e.model.AddService(args)
-	// Find the current service status.
-	globalKey := service.globalKey()
+	exApplication := e.model.AddApplication(args)
+	// Find the current application status.
+	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
-		return errors.Annotatef(err, "status for service %s", service.Name())
+		return errors.Annotatef(err, "status for application %s", application.Name())
 	}
-	exService.SetStatus(statusArgs)
-	exService.SetStatusHistory(e.statusHistoryArgs(globalKey))
-	exService.SetAnnotations(e.getAnnotations(globalKey))
+	exApplication.SetStatus(statusArgs)
+	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
+	exApplication.SetAnnotations(e.getAnnotations(globalKey))
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	exService.SetConstraints(constraintsArgs)
+	exApplication.SetConstraints(constraintsArgs)
 
 	for _, unit := range units {
 		agentKey := unit.globalAgentKey()
@@ -496,7 +497,7 @@ func (e *exporter) addService(service *Service, refcounts map[string]int, units 
 				args.Subordinates = append(args.Subordinates, names.NewUnitTag(subName))
 			}
 		}
-		exUnit := exService.AddUnit(args)
+		exUnit := exApplication.AddUnit(args)
 		// workload uses globalKey, agent uses globalAgentKey.
 		globalKey := unit.globalKey()
 		statusArgs, err := e.statusArgs(globalKey)
@@ -554,17 +555,17 @@ func (e *exporter) relations() error {
 		})
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
-				ServiceName: ep.ServiceName,
-				Name:        ep.Name,
-				Role:        string(ep.Role),
-				Interface:   ep.Interface,
-				Optional:    ep.Optional,
-				Limit:       ep.Limit,
-				Scope:       string(ep.Scope),
+				ApplicationName: ep.ApplicationName,
+				Name:            ep.Name,
+				Role:            string(ep.Role),
+				Interface:       ep.Interface,
+				Optional:        ep.Optional,
+				Limit:           ep.Limit,
+				Scope:           string(ep.Scope),
 			})
 			// We expect a relationScope and settings for each of the
-			// units of the specified service.
-			units := e.units[ep.ServiceName]
+			// units of the specified application.
+			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
 				if err != nil {
@@ -574,7 +575,7 @@ func (e *exporter) relations() error {
 				if !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
-				settingsDoc, found := e.settings[key]
+				settingsDoc, found := e.modelSettings[key]
 				if !found {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
@@ -615,8 +616,8 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	e.logger.Debugf("found %d unit docs", len(docs))
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
-		units := result[doc.Service]
-		result[doc.Service] = append(units, newUnit(e.st, &doc))
+		units := result[doc.Application]
+		result[doc.Application] = append(units, newUnit(e.st, &doc))
 	}
 	return result, nil
 }
@@ -718,10 +719,10 @@ func (e *exporter) readAllSettings() error {
 		return errors.Trace(err)
 	}
 
-	e.settings = make(map[string]settingsDoc)
+	e.modelSettings = make(map[string]settingsDoc)
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
-		e.settings[key] = doc
+		e.modelSettings[key] = doc
 	}
 	return nil
 }

@@ -3,7 +3,7 @@
 
 package storage
 
-import "github.com/juju/names"
+import "gopkg.in/juju/names.v2"
 
 // Filesystem identifies and describes a filesystem, either local or remote
 // (NFS, Ceph etc).

@@ -5,7 +5,7 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
@@ -85,7 +85,7 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string)
 	var results params.NotifyWatchResults
 	if err := lsa.facadeCaller(
 		"WatchLeadershipSettings",
-		params.Entities{[]params.Entity{{names.NewServiceTag(serviceId).String()}}},
+		params.Entities{[]params.Entity{{names.NewApplicationTag(serviceId).String()}}},
 		&results,
 	); err != nil {
 		return nil, errors.Annotate(err, "failed to call leadership api")
@@ -105,13 +105,13 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string)
 
 func (lsa *LeadershipSettingsAccessor) prepareMerge(serviceId string, settings map[string]string) params.MergeLeadershipSettingsParam {
 	return params.MergeLeadershipSettingsParam{
-		ServiceTag: names.NewServiceTag(serviceId).String(),
-		Settings:   settings,
+		ApplicationTag: names.NewApplicationTag(serviceId).String(),
+		Settings:       settings,
 	}
 }
 
 func (lsa *LeadershipSettingsAccessor) prepareRead(serviceId string) params.Entity {
-	return params.Entity{Tag: names.NewServiceTag(serviceId).String()}
+	return params.Entity{Tag: names.NewApplicationTag(serviceId).String()}
 }
 
 //

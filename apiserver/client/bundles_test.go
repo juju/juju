@@ -15,14 +15,14 @@ func (s *serverSuite) TestGetBundleChangesBundleContentError(c *gc.C) {
 		BundleDataYAML: ":",
 	}
 	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: YAML error: did not find expected key`)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
 	c.Assert(r, gc.DeepEquals, params.GetBundleChangesResults{})
 }
 
 func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
 	args := params.GetBundleChangesParams{
 		BundleDataYAML: `
-            services:
+            applications:
                 django:
                     charm: django
                     to: [1]
@@ -36,16 +36,16 @@ func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
-		`too many units specified in unit placement for service "django"`,
-		`invalid charm URL in service "haproxy": URL has invalid charm or bundle name: "42"`,
-		`negative number of units specified on service "haproxy"`,
+		`too many units specified in unit placement for application "django"`,
+		`invalid charm URL in application "haproxy": URL has invalid charm or bundle name: "42"`,
+		`negative number of units specified on application "haproxy"`,
 	})
 }
 
 func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
 	args := params.GetBundleChangesParams{
 		BundleDataYAML: `
-            services:
+            applications:
                 django:
                     charm: django
                     num_units: 1
@@ -56,14 +56,14 @@ func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
-		`invalid constraints "bad=wolf" in service "django": unknown constraint "bad"`,
+		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
 	})
 }
 
 func (s *serverSuite) TestGetBundleChangesBundleStorageError(c *gc.C) {
 	args := params.GetBundleChangesParams{
 		BundleDataYAML: `
-            services:
+            applications:
                 django:
                     charm: django
                     num_units: 1
@@ -75,14 +75,14 @@ func (s *serverSuite) TestGetBundleChangesBundleStorageError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
-		`invalid storage "bad" in service "django": cannot parse count: count must be greater than zero, got "0"`,
+		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
 	})
 }
 
 func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	args := params.GetBundleChangesParams{
 		BundleDataYAML: `
-            services:
+            applications:
                 django:
                     charm: django
                     options:
@@ -138,7 +138,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 func (s *serverSuite) TestGetBundleChangesBundleEndpointBindingsSuccess(c *gc.C) {
 	args := params.GetBundleChangesParams{
 		BundleDataYAML: `
-            services:
+            applications:
                 django:
                     charm: django
                     num_units: 1

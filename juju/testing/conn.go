@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -23,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -288,7 +288,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
+		Cloud: "dummy",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	getStater := environ.(GetStater)
@@ -598,24 +600,24 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return sch
 }
 
-func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch})
+func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch})
 }
 
-func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddServiceArgs) *state.Service {
+func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddApplicationArgs) *state.Application {
 	c.Assert(s.State, gc.NotNil)
 	args.Owner = s.AdminUserTag(c).String()
-	service, err := s.State.AddService(args)
+	service, err := s.State.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch, Storage: storage})
+func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Service {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddServiceArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {

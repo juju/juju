@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -112,10 +112,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
-		ops = append(ops, createSettingsOp(ruKey, settings))
+		ops = append(ops, createSettingsOp(settingsC, ruKey, settings))
 	} else {
 		var rop txn.Op
-		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)
+		rop, settingsChanged, err = replaceSettingsOp(ru.st, settingsC, ruKey, settings)
 		if err != nil {
 			return err
 		}
@@ -210,22 +210,22 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	if !ru.unit.IsPrincipal() || ru.endpoint.Scope != charm.ScopeContainer {
 		return nil, "", nil
 	}
-	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
+	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ApplicationName)
 	if err != nil {
 		return nil, "", err
 	}
 	if len(related) != 1 {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
-	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
-	selSubordinate := bson.D{{"service", serviceName}, {"principal", unitName}}
+	applicationname, unitName := related[0].ApplicationName, ru.unit.doc.Name
+	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
-		service, err := ru.st.Service(serviceName)
+		application, err := ru.st.Application(applicationname)
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := service.addUnitOps(unitName, nil)
+		_, ops, err := application.addUnitOps(unitName, nil)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err
@@ -378,7 +378,7 @@ func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	return readSettings(ru.st, ru.key())
+	return readSettings(ru.st, settingsC, ru.key())
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -397,7 +397,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	node, err := readSettings(ru.st, key)
+	node, err := readSettings(ru.st, settingsC, key)
 	if err != nil {
 		return nil, err
 	}

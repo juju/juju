@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -690,9 +690,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
 				}
-				svc, err := u.Service()
+				svc, err := u.Application()
 				if err != nil {
-					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Service)
+					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Application)
 				}
 				if u.Life() == Alive && svc.Life() == Alive {
 					canDie = false
@@ -1235,7 +1235,28 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	}
 	// Assert that the field is either missing (never been set) or is
 	// unchanged from its previous value.
-	assert := bson.D{{"$or", []bson.D{{{fieldName, current}}, {{fieldName, nil}}}}}
+
+	// Since using a struct in the assert also asserts ordering, and we know that mgo
+	// can change the ordering, we assert on the dotted values, effectively checking each
+	// of the attributes of the address.
+	currentD := []bson.D{
+		{{fieldName + ".value", current.Value}},
+		{{fieldName + ".addresstype", current.AddressType}},
+	}
+	// Since scope, origin, and space have omitempty, we don't add them if they are empty.
+	if current.Scope != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".networkscope", current.Scope}})
+	}
+	if current.Origin != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".origin", current.Origin}})
+	}
+	if current.SpaceName != "" {
+		currentD = append(currentD, bson.D{{fieldName + ".spacename", current.SpaceName}})
+	}
+
+	assert := bson.D{{"$or", []bson.D{
+		{{"$and", currentD}},
+		{{fieldName, nil}}}}}
 
 	ops := []txn.Op{{
 		C:      machinesC,

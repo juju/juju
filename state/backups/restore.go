@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -49,6 +49,27 @@ func getFilesystemRoot() string {
 	return string(os.PathSeparator)
 }
 
+// tagUserCredentials is a convenience function that extracts the
+// tag user and apipassword, required to access mongodb.
+func tagUserCredentials(conf agent.Config) (string, string, error) {
+	username := conf.Tag().String()
+	var password string
+	// TODO(perrito) we might need an accessor for the actual state password
+	// just in case it ever changes from the same as api password.
+	apiInfo, ok := conf.APIInfo()
+	if ok {
+		password = apiInfo.Password
+	} else {
+		// There seems to be no way to reach this inconsistence other than making a
+		// backup on a machine where these fields are corrupted and even so I find
+		// no reasonable way to reach this state, yet since APIInfo has it as a
+		// possibility I prefer to handle it, we cannot recover from this since
+		// it would mean that the agent.conf is corrupted.
+		return "", "", errors.New("cannot obtain password to access the controller")
+	}
+	return username, password, nil
+}
+
 // newDialInfo returns mgo.DialInfo with the given address using the minimal
 // possible setup.
 func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
@@ -70,20 +91,9 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 		dialInfo.Username = "admin"
 		dialInfo.Password = conf.OldPassword()
 	} else {
-		dialInfo.Username = conf.Tag().String()
-		// TODO(perrito) we might need an accessor for the actual state password
-		// just in case it ever changes from the same as api password.
-		apiInfo, ok := conf.APIInfo()
-		if ok {
-			dialInfo.Password = apiInfo.Password
-			logger.Infof("using API password to access controller.")
-		} else {
-			// There seems to be no way to reach this inconsistence other than making a
-			// backup on a machine where these fields are corrupted and even so I find
-			// no reasonable way to reach this state, yet since APIInfo has it as a
-			// possibility I prefer to handle it, we cannot recover from this since
-			// it would mean that the agent.conf is corrupted.
-			return nil, errors.New("cannot obtain password to access the controller")
+		dialInfo.Username, dialInfo.Password, err = tagUserCredentials(conf)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	return dialInfo, nil

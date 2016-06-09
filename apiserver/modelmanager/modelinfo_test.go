@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/modelmanager"
@@ -81,9 +81,10 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:           "testenv",
 		UUID:           s.st.model.cfg.UUID(),
-		ControllerUUID: coretesting.ModelTag.Id(),
+		ControllerUUID: s.st.model.cfg.UUID(),
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
+		Cloud:          "mycloud",
 		DefaultSeries:  series.LatestLts(),
 		Life:           params.Dying,
 		Status: params.EntityStatus{
@@ -119,6 +120,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
+		{"Cloud", nil},
 	})
 }
 
@@ -284,6 +286,12 @@ func (m *mockModel) Life() state.Life {
 func (m *mockModel) Status() (status.StatusInfo, error) {
 	m.MethodCall(m, "Status")
 	return m.status, m.NextErr()
+}
+
+func (m *mockModel) Cloud() string {
+	m.MethodCall(m, "Cloud")
+	m.PopNoErr()
+	return "mycloud"
 }
 
 func (m *mockModel) Users() ([]common.ModelUser, error) {

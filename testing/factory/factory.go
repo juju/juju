@@ -10,13 +10,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
@@ -85,8 +85,8 @@ type MachineParams struct {
 	Filesystems     []state.MachineFilesystemParams
 }
 
-// ServiceParams is used when specifying parameters for a new service.
-type ServiceParams struct {
+// ApplicationParams is used when specifying parameters for a new application.
+type ApplicationParams struct {
 	Name        string
 	Charm       *state.Charm
 	Creator     names.Tag
@@ -97,7 +97,7 @@ type ServiceParams struct {
 
 // UnitParams are used to create units.
 type UnitParams struct {
-	Service     *state.Service
+	Application *state.Application
 	Machine     *state.Machine
 	Password    string
 	SetCharmURL bool
@@ -376,12 +376,12 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	return charm
 }
 
-// MakeService creates a service with the specified parameters, substituting
+// MakeApplication creates an application with the specified parameters, substituting
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
-func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Service {
+func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *state.Application {
 	if params == nil {
-		params = &ServiceParams{}
+		params = &ApplicationParams{}
 	}
 	if params.Charm == nil {
 		params.Charm = factory.MakeCharm(c, nil)
@@ -394,7 +394,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(state.AddServiceArgs{
+	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:        params.Name,
 		Owner:       params.Creator.String(),
 		Charm:       params.Charm,
@@ -411,14 +411,14 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 			Data:    params.Status.Data,
 			Since:   &now,
 		}
-		err = service.SetStatus(s)
+		err = application.SetStatus(s)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	return service
+	return application
 }
 
-// MakeUnit creates a service unit with specified params, filling in
+// MakeUnit creates an application unit with specified params, filling in
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
@@ -426,7 +426,7 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	return unit
 }
 
-// MakeUnit creates a service unit with specified params, filling in sane
+// MakeUnit creates an application unit with specified params, filling in sane
 // defaults for missing values. If params is not specified, defaults are used.
 // The unit and its password are returned.
 func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (*state.Unit, string) {
@@ -436,8 +436,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	if params.Machine == nil {
 		params.Machine = factory.MakeMachine(c, nil)
 	}
-	if params.Service == nil {
-		params.Service = factory.MakeService(c, &ServiceParams{
+	if params.Application == nil {
+		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
 		})
 	}
@@ -446,7 +446,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Service.AddUnit()
+	unit, err := params.Application.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,13 +454,13 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	agentTools := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: params.Service.Series(),
+		Series: params.Application.Series(),
 	}
 	err = unit.SetAgentVersion(agentTools)
 	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
-		serviceCharmURL, _ := params.Service.CharmURL()
-		err = unit.SetCharmURL(serviceCharmURL)
+		applicationCharmURL, _ := params.Application.CharmURL()
+		err = unit.SetCharmURL(applicationCharmURL)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err = unit.SetPassword(params.Password)
@@ -491,8 +491,8 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 	}
 	if params.Unit == nil {
 		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-		meteredService := factory.MakeService(c, &ServiceParams{Charm: meteredCharm})
-		params.Unit = factory.MakeUnit(c, &UnitParams{Service: meteredService, SetCharmURL: true})
+		meteredApplication := factory.MakeApplication(c, &ApplicationParams{Charm: meteredCharm})
+		params.Unit = factory.MakeUnit(c, &UnitParams{Application: meteredApplication, SetCharmURL: true})
 	}
 	if params.Time == nil {
 		params.Time = &now
@@ -532,7 +532,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 		params = &RelationParams{}
 	}
 	if len(params.Endpoints) == 0 {
-		s1 := factory.MakeService(c, &ServiceParams{
+		s1 := factory.MakeApplication(c, &ApplicationParams{
 			Charm: factory.MakeCharm(c, &CharmParams{
 				Name: "mysql",
 			}),
@@ -540,7 +540,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 		e1, err := s1.Endpoint("server")
 		c.Assert(err, jc.ErrorIsNil)
 
-		s2 := factory.MakeService(c, &ServiceParams{
+		s2 := factory.MakeApplication(c, &ApplicationParams{
 			Charm: factory.MakeCharm(c, &CharmParams{
 				Name: "wordpress",
 			}),
@@ -590,6 +590,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
+		Cloud:  "dummy",
 		Config: cfg,
 		Owner:  params.Owner.(names.UserTag),
 	})

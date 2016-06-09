@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // ModelInfo contains information about a model.
@@ -18,6 +18,7 @@ type ModelInfo struct {
 	UUID           string                   `json:"model-uuid" yaml:"model-uuid"`
 	ControllerUUID string                   `json:"controller-uuid" yaml:"controller-uuid"`
 	Owner          string                   `json:"owner" yaml:"owner"`
+	Cloud          string                   `json:"cloud" yaml:"cloud"`
 	ProviderType   string                   `json:"type" yaml:"type"`
 	Life           string                   `json:"life" yaml:"life"`
 	Status         ModelStatus              `json:"status" yaml:"status"`
@@ -59,6 +60,7 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Owner:          tag.Id(),
 		Life:           string(info.Life),
 		Status:         status,
+		Cloud:          info.Cloud,
 		ProviderType:   info.ProviderType,
 		Users:          ModelUserInfoFromParams(info.Users, now),
 	}, nil

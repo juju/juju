@@ -12,9 +12,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -103,6 +103,7 @@ models:
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
+  cloud: dummy
   type: dummy
   life: alive
   status:
@@ -177,7 +178,7 @@ func (s *cmdControllerSuite) TestControllerDestroy(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"controller": true},
 	})
 	defer st.Close()
-	factory.NewFactory(st).MakeService(c, nil)
+	factory.NewFactory(st).MakeApplication(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})

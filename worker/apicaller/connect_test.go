@@ -6,14 +6,15 @@ package apicaller_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apicaller"
@@ -49,7 +50,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 
 	// to make the point that this code should be entity-agnostic,
 	// use an entity that doesn't correspond to an agent at all.
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -118,7 +119,7 @@ func checkModelTagUpdate(c *gc.C, errs ...error) *testing.Stub {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub: stub,
@@ -140,7 +141,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -169,7 +170,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -197,7 +198,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -219,7 +220,8 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 
 func (*ScaryConnectSuite) TestChangePasswordConfigError(c *gc.C) {
 	// "random" failure case
-	stub, err := checkChangePassword(c, nil, errors.New("zap"))
+	stub := createUnauthorisedStub(nil, errors.New("zap"))
+	err := checkChangePassword(c, stub)
 	c.Check(err, gc.ErrorMatches, "zap")
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
@@ -229,9 +231,8 @@ func (*ScaryConnectSuite) TestChangePasswordConfigError(c *gc.C) {
 
 func (*ScaryConnectSuite) TestChangePasswordRemoteError(c *gc.C) {
 	// "random" failure case
-	stub, err := checkChangePassword(c,
-		nil, nil, nil, nil, errors.New("pow"),
-	)
+	stub := createUnauthorisedStub(nil, nil, nil, nil, errors.New("pow"))
+	err := checkChangePassword(c, stub)
 	c.Check(err, gc.ErrorMatches, "pow")
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
@@ -244,9 +245,8 @@ func (*ScaryConnectSuite) TestChangePasswordRemoteError(c *gc.C) {
 
 func (*ScaryConnectSuite) TestChangePasswordRemoteDenied(c *gc.C) {
 	// permanent failure case
-	stub, err := checkChangePassword(c,
-		nil, nil, nil, nil, apiagent.ErrDenied,
-	)
+	stub := createUnauthorisedStub(nil, nil, nil, nil, apiagent.ErrDenied)
+	err := checkChangePassword(c, stub)
 	c.Check(err, gc.Equals, apicaller.ErrConnectImpossible)
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
@@ -257,9 +257,20 @@ func (*ScaryConnectSuite) TestChangePasswordRemoteDenied(c *gc.C) {
 	checkSaneChange(c, stub.Calls()[2:5])
 }
 
-func (*ScaryConnectSuite) TestChangePasswordSuccess(c *gc.C) {
-	// retry-please failure case
-	stub, err := checkChangePassword(c)
+func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterUnauthorisedError(c *gc.C) {
+	// This will try to login with old password if current one fails.
+	stub := createUnauthorisedStub()
+	s.assertChangePasswordSuccess(c, stub)
+}
+
+func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterBadCurrentPasswordError(c *gc.C) {
+	// This will try to login with old password if current one fails.
+	stub := createPasswordCheckStub(common.ErrBadCreds)
+	s.assertChangePasswordSuccess(c, stub)
+}
+
+func (*ScaryConnectSuite) assertChangePasswordSuccess(c *gc.C, stub *testing.Stub) {
+	err := checkChangePassword(c, stub)
 	c.Check(err, gc.Equals, apicaller.ErrChangedPassword)
 	stub.CheckCallNames(c,
 		"Life", "ChangeConfig",
@@ -270,14 +281,26 @@ func (*ScaryConnectSuite) TestChangePasswordSuccess(c *gc.C) {
 	checkSaneChange(c, stub.Calls()[2:5])
 }
 
-func checkChangePassword(c *gc.C, errs ...error) (*testing.Stub, error) {
-	// We prepend the unauth/success pair that triggers password
-	// change, and consume them in apiOpen below...
-	errUnauth := &params.Error{Code: params.CodeUnauthorized}
-	allErrs := append([]error{errUnauth, nil}, errs...)
+func createUnauthorisedStub(errs ...error) *testing.Stub {
+	return createPasswordCheckStub(&params.Error{Code: params.CodeUnauthorized}, errs...)
+}
+
+func createPasswordCheckStub(currentPwdLoginErr error, errs ...error) *testing.Stub {
+	allErrs := append([]error{currentPwdLoginErr, nil}, errs...)
 
 	stub := &testing.Stub{}
 	stub.SetErrors(allErrs...)
+	return stub
+}
+
+func checkChangePassword(c *gc.C, stub *testing.Stub) error {
+	// We prepend the unauth/success pair that triggers password
+	// change, and consume them in apiOpen below...
+	//errUnauth := &params.Error{Code: params.CodeUnauthorized}
+	//allErrs := append([]error{errUnauth, nil}, errs...)
+	//
+	//stub := &testing.Stub{}
+	//stub.SetErrors(allErrs...)
 	expectConn := &mockConn{stub: stub}
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
 		// ...but we *don't* record the calls themselves; they
@@ -289,7 +312,7 @@ func checkChangePassword(c *gc.C, errs ...error) (*testing.Stub, error) {
 		return expectConn, nil
 	}
 
-	entity := names.NewServiceTag("omg")
+	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
 		return apicaller.ScaryConnect(&mockAgent{
 			stub:   stub,
@@ -300,7 +323,7 @@ func checkChangePassword(c *gc.C, errs ...error) (*testing.Stub, error) {
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
 	c.Check(conn, gc.IsNil)
-	return stub, err
+	return err
 }
 
 func checkSaneChange(c *gc.C, calls []testing.StubCall) {
@@ -324,6 +347,6 @@ func checkSaneChange(c *gc.C, calls []testing.StubCall) {
 	})
 	c.Check(remoteSet, jc.DeepEquals, testing.StubCall{
 		FuncName: "SetPassword",
-		Args:     []interface{}{names.NewServiceTag("omg"), chosePassword},
+		Args:     []interface{}{names.NewApplicationTag("omg"), chosePassword},
 	})
 }

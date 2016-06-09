@@ -8,10 +8,10 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -290,7 +290,7 @@ func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserT
 		"name": name,
 		"uuid": uuid.String(),
 	})
-	model, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner})
+	model, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	return model

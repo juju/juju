@@ -35,11 +35,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// service / unit
 		leasesC,
-		servicesC,
+		applicationsC,
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
 
-		// settings reference counts are only used for services
+		// settings reference counts are only used for applications
 		settingsrefsC,
 
 		// relation
@@ -52,6 +52,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		// This is controller global and each cloud will have
+		// its own settings.
+		cloudSettingsC,
 		// This is controller global, and related to the system state of the
 		// embedded GUI.
 		guimetadataC,
@@ -183,6 +186,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 
 		"MigrationMode",
 		"Owner",
+		"Cloud",
 		"LatestAvailableTools",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
@@ -297,7 +301,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"TxnRevno",
 		// UnitCount is handled by the number of units for the exported service.
 		"UnitCount",
-		// RelationCount is handled by the number of times the service name
+		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
 	)
@@ -313,7 +317,7 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"MinUnits",
 		"MetricCredentials",
 	)
-	s.AssertExportedFields(c, serviceDoc{}, migrated.Union(ignored))
+	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestSettingsRefsDocFields(c *gc.C) {
@@ -335,8 +339,8 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
-		// Service is implicit in the migration structure through containment.
-		"Service",
+		// Application is implicit in the migration structure through containment.
+		"Application",
 		// Series, CharmURL, and Channel also come from the service.
 		"Series",
 		"CharmURL",
@@ -411,7 +415,7 @@ func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
 	)
 	s.AssertExportedFields(c, relationDoc{}, fields)
 	// We also need to check the Endpoint and nested charm.Relation field.
-	endpointFields := set.NewStrings("ServiceName", "Relation")
+	endpointFields := set.NewStrings("ApplicationName", "Relation")
 	s.AssertExportedFields(c, Endpoint{}, endpointFields)
 	charmRelationFields := set.NewStrings(
 		"Name",

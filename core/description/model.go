@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,6 +24,7 @@ type ModelArgs struct {
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
 	Blocks             map[string]string
+	Cloud              string
 }
 
 // NewModel returns a Model based on the args specified.
@@ -35,10 +36,11 @@ func NewModel(args ModelArgs) Model {
 		LatestToolsVersion_: args.LatestToolsVersion,
 		Sequences_:          make(map[string]int),
 		Blocks_:             args.Blocks,
+		Cloud_:              args.Cloud,
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
-	m.setServices(nil)
+	m.setApplications(nil)
 	m.setRelations(nil)
 	return m
 }
@@ -75,16 +77,18 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Users_     users     `yaml:"users"`
-	Machines_  machines  `yaml:"machines"`
-	Services_  services  `yaml:"services"`
-	Relations_ relations `yaml:"relations"`
+	Users_        users        `yaml:"users"`
+	Machines_     machines     `yaml:"machines"`
+	Applications_ applications `yaml:"applications"`
+	Relations_    relations    `yaml:"relations"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
+
+	Cloud_ string `yaml:"cloud"`
 
 	// TODO:
 	// Spaces
@@ -182,35 +186,35 @@ func (m *model) setMachines(machineList []*machine) {
 	}
 }
 
-// Services implements Model.
-func (m *model) Services() []Service {
-	var result []Service
-	for _, service := range m.Services_.Services_ {
-		result = append(result, service)
+// Applications implements Model.
+func (m *model) Applications() []Application {
+	var result []Application
+	for _, application := range m.Applications_.Applications_ {
+		result = append(result, application)
 	}
 	return result
 }
 
-func (m *model) service(name string) *service {
-	for _, service := range m.Services_.Services_ {
-		if service.Name() == name {
-			return service
+func (m *model) application(name string) *application {
+	for _, application := range m.Applications_.Applications_ {
+		if application.Name() == name {
+			return application
 		}
 	}
 	return nil
 }
 
-// AddService implements Model.
-func (m *model) AddService(args ServiceArgs) Service {
-	service := newService(args)
-	m.Services_.Services_ = append(m.Services_.Services_, service)
-	return service
+// AddApplication implements Model.
+func (m *model) AddApplication(args ApplicationArgs) Application {
+	application := newApplication(args)
+	m.Applications_.Applications_ = append(m.Applications_.Applications_, application)
+	return application
 }
 
-func (m *model) setServices(serviceList []*service) {
-	m.Services_ = services{
-		Version:   1,
-		Services_: serviceList,
+func (m *model) setApplications(applicationList []*application) {
+	m.Applications_ = applications{
+		Version:       1,
+		Applications_: applicationList,
 	}
 }
 
@@ -260,11 +264,21 @@ func (m *model) SetConstraints(args ConstraintsArgs) {
 	m.Constraints_ = newConstraints(args)
 }
 
+// Cloud implements Model.
+func (m *model) Cloud() string {
+	return m.Cloud_
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
 	if m.Owner_ == "" {
 		return errors.NotValidf("missing model owner")
+	}
+
+	// A model must have a cloud.
+	if m.Cloud_ == "" {
+		return errors.NotValidf("missing cloud name")
 	}
 
 	unitsWithOpenPorts := set.NewStrings()
@@ -279,14 +293,14 @@ func (m *model) Validate() error {
 		}
 	}
 	allUnits := set.NewStrings()
-	for _, service := range m.Services_.Services_ {
-		if err := service.Validate(); err != nil {
+	for _, application := range m.Applications_.Applications_ {
+		if err := application.Validate(); err != nil {
 			return errors.Trace(err)
 		}
-		allUnits = allUnits.Union(service.unitNames())
+		allUnits = allUnits.Union(application.unitNames())
 	}
 	// Make sure that all the unit names specified in machine opened ports
-	// exist as units of services.
+	// exist as units of applications.
 	unknownUnitsWithPorts := unitsWithOpenPorts.Difference(allUnits)
 	if len(unknownUnitsWithPorts) > 0 {
 		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
@@ -296,22 +310,22 @@ func (m *model) Validate() error {
 }
 
 // validateRelations makes sure that for each endpoint in each relation there
-// are settings for all units of that service for that endpoint.
+// are settings for all units of that application for that endpoint.
 func (m *model) validateRelations() error {
 	for _, relation := range m.Relations_.Relations_ {
 		for _, ep := range relation.Endpoints_.Endpoints_ {
-			// Check service exists.
-			service := m.service(ep.ServiceName())
-			if service == nil {
-				return errors.Errorf("unknown service %q for relation id %d", ep.ServiceName(), relation.Id())
+			// Check application exists.
+			application := m.application(ep.ApplicationName())
+			if application == nil {
+				return errors.Errorf("unknown application %q for relation id %d", ep.ApplicationName(), relation.Id())
 			}
 			// Check that all units have settings.
-			serviceUnits := service.unitNames()
+			applicationUnits := application.unitNames()
 			epUnits := ep.unitNames()
-			if missingSettings := serviceUnits.Difference(epUnits); len(missingSettings) > 0 {
+			if missingSettings := applicationUnits.Difference(epUnits); len(missingSettings) > 0 {
 				return errors.Errorf("missing relation settings for units %s in relation %d", missingSettings.SortedValues(), relation.Id())
 			}
-			if extraSettings := epUnits.Difference(serviceUnits); len(extraSettings) > 0 {
+			if extraSettings := epUnits.Difference(applicationUnits); len(extraSettings) > 0 {
 				return errors.Errorf("settings for unknown units %s in relation %d", extraSettings.SortedValues(), relation.Id())
 			}
 		}
@@ -346,12 +360,13 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
 		"owner":        schema.String(),
+		"cloud":        schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
 		"blocks":       schema.StringMap(schema.String()),
 		"users":        schema.StringMap(schema.Any()),
 		"machines":     schema.StringMap(schema.Any()),
-		"services":     schema.StringMap(schema.Any()),
+		"applications": schema.StringMap(schema.Any()),
 		"relations":    schema.StringMap(schema.Any()),
 		"sequences":    schema.StringMap(schema.Int()),
 	}
@@ -378,6 +393,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		Config_:    valid["config"].(map[string]interface{}),
 		Sequences_: make(map[string]int),
 		Blocks_:    convertToStringMap(valid["blocks"]),
+		Cloud_:     valid["cloud"].(string),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})
@@ -415,12 +431,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setMachines(machines)
 
-	serviceMap := valid["services"].(map[string]interface{})
-	services, err := importServices(serviceMap)
+	applicationMap := valid["applications"].(map[string]interface{})
+	applications, err := importApplications(applicationMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "services")
+		return nil, errors.Annotate(err, "applications")
 	}
-	result.setServices(services)
+	result.setApplications(applications)
 
 	relationMap := valid["relations"].(map[string]interface{})
 	relations, err := importRelations(relationMap)

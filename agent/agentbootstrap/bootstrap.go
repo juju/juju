@@ -6,9 +6,9 @@ package agentbootstrap
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -67,6 +67,8 @@ func InitializeState(
 	adminUser names.UserTag,
 	c agent.ConfigSetter,
 	cfg *config.Config,
+	cloud string,
+	cloudConfigAttrs map[string]interface{},
 	hostedModelConfigAttrs map[string]interface{},
 	machineCfg BootstrapMachineConfig,
 	dialOpts mongo.DialOpts,
@@ -93,7 +95,7 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(adminUser, info, cfg, dialOpts, policy)
+	st, err := state.Initialize(adminUser, info, cloud, cloudConfigAttrs, cfg, dialOpts, policy)
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
 	}
@@ -133,6 +135,7 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
+		Cloud:  cloud,
 		Config: hostedModelConfig,
 		Owner:  adminUser,
 	})

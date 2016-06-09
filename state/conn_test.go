@@ -4,10 +4,10 @@
 package state_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
@@ -47,7 +47,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.machines = jujuDB.C("machines")
 	cs.instanceData = jujuDB.C("instanceData")
 	cs.relations = jujuDB.C("relations")
-	cs.services = jujuDB.C("services")
+	cs.services = jujuDB.C("applications")
 	cs.units = jujuDB.C("units")
 	cs.controllers = jujuDB.C("controllers")
 
@@ -58,15 +58,15 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
+func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
 	return state.AddTestingService(c, s.State, name, ch, s.Owner)
 }
 
-func (s *ConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
+func (s *ConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
 	return state.AddTestingServiceWithStorage(c, s.State, name, ch, s.Owner, storage)
 }
 
-func (s *ConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Service {
+func (s *ConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
 	return state.AddTestingServiceWithBindings(c, s.State, name, ch, s.Owner, bindings)
 }
 
@@ -107,7 +107,7 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 		"uuid": utils.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
-	_, otherState, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: otherOwner})
+	_, otherState, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: otherOwner, Cloud: "dummy"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { otherState.Close() })

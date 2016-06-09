@@ -5,8 +5,8 @@ package operation
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"

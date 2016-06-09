@@ -21,7 +21,7 @@ type ListAPI interface {
 	io.Closer
 }
 
-// ListCommand implements the list-payloads command.
+// ListCommand implements the payloads command.
 type ListCommand struct {
 	modelcmd.ModelCommandBase
 	out      cmd.Output
@@ -59,10 +59,11 @@ will be checked against the following info in Juju:
 
 func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-payloads",
+		Name:    "payloads",
 		Args:    "[pattern ...]",
 		Purpose: "display status information about known payloads",
 		Doc:     listDoc,
+		Aliases: []string{"list-payloads"},
 	}
 }
 
@@ -97,7 +98,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
 
-	// Note that we do not worry about c.CompatVersion for list-payloads...
+	// Note that we do not worry about c.CompatVersion for payloads...
 	formatter := newListFormatter(payloads)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)

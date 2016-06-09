@@ -30,12 +30,10 @@ import (
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -283,9 +281,6 @@ func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	manager := s.makeManager(c, modelUUID)
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Config = envConfig
 	instance := containertesting.CreateContainerWithMachineAndNetworkAndStorageConfig(
 		c, manager, instanceConfig, networkConfig, storageConfig,
 	)

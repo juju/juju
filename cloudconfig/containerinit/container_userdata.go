@@ -10,11 +10,11 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -58,90 +58,123 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 	return userDataFilename, nil
 }
 
-// networkConfigTemplate defines how to render /etc/network/interfaces
-// file for a container with one or more NICs.
-const networkConfigTemplate = `
-# loopback interface
-auto lo
-iface lo inet loopback{{define "static"}}
-{{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
-auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet manual{{if gt (len .DNSServers) 0}}
-    dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}{{if gt (len .DNSSearch) 0}}
-    dns-search {{.DNSSearch}}{{end}}
-    pre-up ip address add {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
-    up ip route replace {{.GatewayAddress.Value}} dev {{.InterfaceName}}
-    up ip route replace default via {{.GatewayAddress.Value}}
-    down ip route del default via {{.GatewayAddress.Value}} &> /dev/null || true
-    down ip route del {{.GatewayAddress.Value}} dev {{.InterfaceName}} &> /dev/null || true
-    post-down ip address del {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
-{{end}}{{define "dhcp"}}
-{{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
-auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet dhcp
-{{end}}{{range $nic := . }}{{if eq $nic.ConfigType "static"}}
-{{template "static" $nic}}{{else}}{{template "dhcp" $nic}}{{end}}{{end}}`
+var networkInterfacesFile = "/etc/network/interfaces"
 
-// multiBridgeNetworkConfigTemplate defines how to render /etc/network/interfaces
-// file for a multi-NIC container.
-const multiBridgeNetworkConfigTemplate = `
-auto lo
-iface lo inet loopback
-{{range $nic := .}}{{template "single" $nic}}{{end}}
-{{define "single"}}{{if not .NoAutoStart}}
-auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet manual{{if .DNSServers}}
-  dns-nameservers{{range $srv := .DNSServers}} {{$srv.Value}}{{end}}{{end}}{{if .DNSSearchDomains}}
-  dns-search{{range $dom := .DNSSearchDomains}} {{$dom}}{{end}}{{end}}
-  pre-up ip address add {{.CIDRAddress}} dev {{.InterfaceName}} || true
-  up ip route replace {{.CIDR}} dev {{.InterfaceName}} || true
-  down ip route del {{.CIDR}} dev {{.InterfaceName}} || true
-  post-down address del {{.CIDRAddress}} dev {{.InterfaceName}} || true{{if .GatewayAddress.Value}}
-  up ip route replace default via {{.GatewayAddress.Value}} || true
-  down ip route del default via {{.GatewayAddress.Value}} || true{{end}}
-{{end}}`
-
-var networkInterfacesFile = "/etc/network/interfaces.d/00-juju.cfg"
-
-// GenerateNetworkConfig renders a network config for one or more
-// network interfaces, using the given non-nil networkConfig
-// containing a non-empty Interfaces field.
+// GenerateNetworkConfig renders a network config for one or more network
+// interfaces, using the given non-nil networkConfig containing a non-empty
+// Interfaces field.
 func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
-		// Don't generate networking config.
 		logger.Tracef("no network config to generate")
 		return "", nil
 	}
 	logger.Debugf("generating network config from %#v", *networkConfig)
 
-	// Copy the InterfaceInfo before modifying the original.
-	interfacesCopy := make([]network.InterfaceInfo, len(networkConfig.Interfaces))
-	copy(interfacesCopy, networkConfig.Interfaces)
-	for i, info := range interfacesCopy {
-		if info.MACAddress != "" {
-			info.MACAddress = ""
+	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
+
+	var output bytes.Buffer
+	gatewayWritten := false
+	for _, name := range prepared.InterfaceNames {
+		output.WriteString("\n")
+		if name == "lo" {
+			output.WriteString("auto ")
+			autoStarted := strings.Join(prepared.AutoStarted, " ")
+			output.WriteString(autoStarted + "\n\n")
+			output.WriteString("iface lo inet loopback\n")
+
+			dnsServers := strings.Join(prepared.DNSServers, " ")
+			if dnsServers != "" {
+				output.WriteString("  dns-nameservers ")
+				output.WriteString(dnsServers + "\n")
+			}
+
+			dnsSearchDomains := strings.Join(prepared.DNSSearchDomains, " ")
+			if dnsSearchDomains != "" {
+				output.WriteString("  dns-search ")
+				output.WriteString(dnsSearchDomains + "\n")
+			}
+			continue
 		}
-		if info.InterfaceName != "eth0" {
-			info.GatewayAddress = network.Address{}
+
+		address, hasAddress := prepared.NameToAddress[name]
+		if !hasAddress {
+			output.WriteString("iface " + name + " inet manual\n")
+			continue
 		}
-		interfacesCopy[i] = info
+
+		output.WriteString("iface " + name + " inet static\n")
+		output.WriteString("  address " + address + "\n")
+		if !gatewayWritten && prepared.GatewayAddress != "" {
+			output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
+			gatewayWritten = true // write it only once
+		}
 	}
 
-	// Render the config first.
-	tmpl, err := template.New("config").Parse(multiBridgeNetworkConfigTemplate)
-	if err != nil {
-		return "", errors.Annotate(err, "cannot parse network config template")
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, interfacesCopy); err != nil {
-		return "", errors.Annotate(err, "cannot render network config")
-	}
-
-	generatedConfig := buf.String()
-	logger.Debugf("generated network config from %#v\nusing%#v:\n%s", interfacesCopy, networkConfig.Interfaces, generatedConfig)
+	generatedConfig := output.String()
+	logger.Debugf("generated network config:\n%s", generatedConfig)
 
 	return generatedConfig, nil
+}
+
+// PreparedConfig holds all the necessary information to render a persistent
+// network config to a file.
+type PreparedConfig struct {
+	InterfaceNames   []string
+	AutoStarted      []string
+	DNSServers       []string
+	DNSSearchDomains []string
+	NameToAddress    map[string]string
+	GatewayAddress   string
+}
+
+// PrepareNetworkConfigFromInterfaces collects the necessary information to
+// render a persistent network config from the given slice of
+// network.InterfaceInfo. The result always includes the loopback interface.
+func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
+	dnsServers := set.NewStrings()
+	dnsSearchDomains := set.NewStrings()
+	gatewayAddress := ""
+	namesInOrder := make([]string, 1, len(interfaces)+1)
+	nameToAddress := make(map[string]string)
+
+	// Always include the loopback.
+	namesInOrder[0] = "lo"
+	autoStarted := set.NewStrings("lo")
+
+	for _, info := range interfaces {
+		if !info.NoAutoStart {
+			autoStarted.Add(info.InterfaceName)
+		}
+
+		if cidr := info.CIDRAddress(); cidr != "" {
+			nameToAddress[info.InterfaceName] = cidr
+		}
+
+		for _, dns := range info.DNSServers {
+			dnsServers.Add(dns.Value)
+		}
+
+		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
+
+		if info.InterfaceName == "eth0" && gatewayAddress == "" {
+			// Only set gateway once for the primary NIC.
+			gatewayAddress = info.GatewayAddress.Value
+		}
+
+		namesInOrder = append(namesInOrder, info.InterfaceName)
+	}
+
+	prepared := &PreparedConfig{
+		InterfaceNames:   namesInOrder,
+		NameToAddress:    nameToAddress,
+		AutoStarted:      autoStarted.SortedValues(),
+		DNSServers:       dnsServers.SortedValues(),
+		DNSSearchDomains: dnsSearchDomains.SortedValues(),
+		GatewayAddress:   gatewayAddress,
+	}
+
+	logger.Debugf("prepared network config for rendering: %+v", prepared)
+	return prepared
 }
 
 // newCloudInitConfigWithNetworks creates a cloud-init config which

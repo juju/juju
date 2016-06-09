@@ -73,7 +73,7 @@ func (registerSuite) TestRun(c *gc.C) {
 		ID:     "id",
 		Status: payload.StateRunning,
 		Labels: []string{"tag1", "tag 2"},
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	})
 	// TODO (natefinch): we need to do something with the labels
 }

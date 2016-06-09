@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
 	"launchpad.net/gnuflag"
 
@@ -39,10 +39,11 @@ type runCommand struct {
 
 const runDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
-Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
-
-Params are validated according to the charm for the unit's service.  The 
-valid params can be seen using "juju action defined <service> --schema".
+The Action ID is returned for use with 'juju show-action-output <ID>' or
+'juju show-action-status <ID>'.
+ 
+Params are validated according to the charm for the unit's application.  The 
+valid params can be seen using "juju action defined <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
 may be specified by a key.key.key...=value format (see examples below.)
 

@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -17,21 +16,19 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	goyaml "gopkg.in/yaml.v2"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -44,7 +41,6 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -55,23 +51,17 @@ var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
 	agentInitializeState = agentbootstrap.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
-	newStateStorage      = storage.NewStorage
 	minSocketTimeout     = 1 * time.Minute
 	logger               = loggo.GetLogger("juju.cmd.jujud")
 )
+
+const adminUserName = "admin"
 
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentcmd.AgentConf
-	ControllerModelConfig map[string]interface{}
-	HostedModelConfig     map[string]interface{}
-	BootstrapConstraints  constraints.Value
-	ModelConstraints      constraints.Value
-	Hardware              instance.HardwareCharacteristics
-	InstanceId            string
-	AdminUsername         string
-	ImageMetadataDir      string
+	BootstrapParamsFile string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -92,39 +82,31 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 // SetFlags adds the flags for this command to the passed gnuflag.FlagSet.
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.AgentConf.AddFlags(f)
-	yamlBase64Var(f, &c.ControllerModelConfig, "model-config", "", "controller model configuration (yaml, base64 encoded)")
-	yamlBase64Var(f, &c.HostedModelConfig, "hosted-model-config", "", "initial hosted model configuration (yaml, base64 encoded)")
-	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "bootstrap machine constraints (space-separated strings)")
-	f.Var(constraints.ConstraintsValue{Target: &c.ModelConstraints}, "constraints", "initial constraints (space-separated strings)")
-	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
-	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
-	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
-	f.StringVar(&c.ImageMetadataDir, "image-metadata", "", "custom image metadata source dir")
 }
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
-	if len(c.ControllerModelConfig) == 0 {
-		return cmdutil.RequiredError("model-config")
+	if len(args) == 0 {
+		return errors.New("bootstrap-params file must be specified")
 	}
-	if len(c.HostedModelConfig) == 0 {
-		return cmdutil.RequiredError("hosted-model-config")
+	if err := cmd.CheckEmpty(args[1:]); err != nil {
+		return err
 	}
-	if c.InstanceId == "" {
-		return cmdutil.RequiredError("instance-id")
-	}
-	if !names.IsValidUser(c.AdminUsername) {
-		return errors.Errorf("%q is not a valid username", c.AdminUsername)
-	}
-	return c.AgentConf.CheckArgs(args)
+	c.BootstrapParamsFile = args[0]
+	return c.AgentConf.CheckArgs(args[1:])
 }
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
-	envCfg, err := config.New(config.NoDefaults, c.ControllerModelConfig)
+	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "reading bootstrap params file")
 	}
+	var args instancecfg.StateInitializationParams
+	if err := args.Unmarshal(bootstrapParamsData); err != nil {
+		return errors.Trace(err)
+	}
+
 	err = c.ReadConfig("machine-0")
 	if err != nil {
 		return err
@@ -144,7 +126,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
-	env, err := environs.New(envCfg)
+	env, err := environs.New(args.ControllerModelConfig)
 	if err != nil {
 		return err
 	}
@@ -152,11 +134,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
-	desiredVersion, ok := envCfg.AgentVersion()
+	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
 	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
-		stream := envtools.PreferredStream(&desiredVersion, envCfg.Development(), envCfg.AgentStream())
+		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
 		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
 		filter := tools.Filter{
 			Number: desiredVersion,
@@ -178,8 +160,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	instanceId := instance.Id(c.InstanceId)
-	instances, err := env.Instances([]instance.Id{instanceId})
+	instances, err := env.Instances([]instance.Id{args.InstanceId})
 	if err != nil {
 		return err
 	}
@@ -202,7 +183,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to generate system key")
 	}
-	authorizedKeys := config.ConcatAuthKeys(envCfg.AuthorizedKeys(), publicKey)
+	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
 	newConfigAttrs[config.AuthKeysConfig] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
@@ -237,7 +218,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
-	envCfg, err = env.Config().Apply(newConfigAttrs)
+	controllerModelCfg, err := env.Config().Apply(newConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
 	}
@@ -250,7 +231,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// Set a longer socket timeout than usual, as the machine
 		// will be starting up and disk I/O slower than usual. This
 		// has been known to cause timeouts in queries.
-		timeouts := envCfg.BootstrapSSHOpts()
+		timeouts := controllerModelCfg.BootstrapSSHOpts()
 		dialOpts.SocketTimeout = timeouts.Timeout
 		if dialOpts.SocketTimeout < minSocketTimeout {
 			dialOpts.SocketTimeout = minSocketTimeout
@@ -259,18 +240,26 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
 
-		adminTag := names.NewLocalUserTag(c.AdminUsername)
+		var hardware instance.HardwareCharacteristics
+		if args.HardwareCharacteristics != nil {
+			hardware = *args.HardwareCharacteristics
+		}
+
+		adminTag := names.NewLocalUserTag(adminUserName)
 		st, m, stateErr = agentInitializeState(
 			adminTag,
 			agentConfig,
-			envCfg, c.HostedModelConfig,
+			controllerModelCfg,
+			args.ControllerCloud,
+			args.CloudConfig,
+			args.HostedModelConfig,
 			agentbootstrap.BootstrapMachineConfig{
 				Addresses:            addrs,
-				BootstrapConstraints: c.BootstrapConstraints,
-				ModelConstraints:     c.ModelConstraints,
+				BootstrapConstraints: args.BootstrapMachineConstraints,
+				ModelConstraints:     args.ModelConstraints,
 				Jobs:                 jobs,
-				InstanceId:           instanceId,
-				Characteristics:      c.Hardware,
+				InstanceId:           args.InstanceId,
+				Characteristics:      hardware,
 				SharedSecret:         sharedSecret,
 			},
 			dialOpts,
@@ -297,13 +286,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Add custom image metadata to environment storage.
-	if c.ImageMetadataDir != "" {
-		if err := c.saveCustomImageMetadata(st, env); err != nil {
-			return err
-		}
-
-		stor := newStateStorage(st.ModelUUID(), st.MongoSession())
-		if err := c.storeCustomImageMetadata(stor); err != nil {
+	if len(args.CustomImageMetadata) > 0 {
+		if err := c.saveCustomImageMetadata(st, args.CustomImageMetadata); err != nil {
 			return err
 		}
 	}
@@ -465,66 +449,13 @@ func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Envi
 	return nil
 }
 
-// storeCustomImageMetadata reads the custom image metadata from disk,
-// and stores the files in environment storage with the same relative
-// paths.
-func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error {
-	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
-	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.Mode().IsRegular() {
-			return nil
-		}
-		relpath, err := filepath.Rel(c.ImageMetadataDir, abspath)
-		if err != nil {
-			return err
-		}
-		f, err := os.Open(abspath)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		relpath = filepath.ToSlash(relpath)
-		logger.Debugf("storing %q in model storage (%d bytes)", relpath, info.Size())
-		return stor.Put(relpath, f, info.Size())
-	})
-}
-
 // Override for testing.
 var seriesFromVersion = series.VersionSeries
 
-// saveCustomImageMetadata reads the custom image metadata from disk,
-// and saves it in controller.
-func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, env environs.Environ) error {
-	logger.Debugf("saving custom image metadata from %q", c.ImageMetadataDir)
-	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(c.ImageMetadataDir))
-	publicKey, _ := simplestreams.UserPublicSigningKey()
-	datasource := simplestreams.NewURLSignedDataSource("custom", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
-	return storeImageMetadataFromFiles(st, env, datasource)
-}
-
-// storeImageMetadataFromFiles puts image metadata found in sources into state.
-// Declared as var to facilitate tests.
-var storeImageMetadataFromFiles = func(st *state.State, env environs.Environ, source simplestreams.DataSource) error {
-	// Read the image metadata, as we'll want to upload it to the environment.
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
-	if inst, ok := env.(simplestreams.HasRegion); ok {
-		// If we can determine current region,
-		// we want only metadata specific to this region.
-		cloud, err := inst.Region()
-		if err != nil {
-			return err
-		}
-		imageConstraint.CloudSpec = cloud
-	}
-
-	existingMetadata, info, err := imagemetadata.Fetch([]simplestreams.DataSource{source}, imageConstraint)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Annotate(err, "cannot read image metadata")
-	}
-	return storeImageMetadataInState(st, info.Source, source.Priority(), existingMetadata)
+// saveCustomImageMetadata stores the custom image metadata to the database,
+func (c *BootstrapCommand) saveCustomImageMetadata(st *state.State, imageMetadata []*imagemetadata.ImageMetadata) error {
+	logger.Debugf("saving custom image metadata")
+	return storeImageMetadataInState(st, "custom", simplestreams.CUSTOM_CLOUD_DATA, imageMetadata)
 }
 
 // storeImageMetadataInState writes image metadata into state store.
@@ -557,25 +488,4 @@ func storeImageMetadataInState(st *state.State, source string, priority int, exi
 		return errors.Annotatef(err, "cannot cache image metadata")
 	}
 	return nil
-}
-
-// yamlBase64Value implements gnuflag.Value on a map[string]interface{}.
-type yamlBase64Value map[string]interface{}
-
-// Set decodes the base64 value into yaml then expands that into a map.
-func (v *yamlBase64Value) Set(value string) error {
-	decoded, err := base64.StdEncoding.DecodeString(value)
-	if err != nil {
-		return err
-	}
-	return goyaml.Unmarshal(decoded, v)
-}
-
-func (v *yamlBase64Value) String() string {
-	return fmt.Sprintf("%v", *v)
-}
-
-// yamlBase64Var sets up a gnuflag flag analogous to the FlagSet.*Var methods.
-func yamlBase64Var(fs *gnuflag.FlagSet, target *map[string]interface{}, name string, value string, usage string) {
-	fs.Var((*yamlBase64Value)(target), name, usage)
 }

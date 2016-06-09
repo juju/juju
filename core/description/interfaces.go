@@ -6,8 +6,8 @@ package description
 import (
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // HasAnnotations defines the common methods for setting and
@@ -36,6 +36,7 @@ type Model interface {
 	HasAnnotations
 	HasConstraints
 
+	Cloud() string
 	Tag() names.ModelTag
 	Owner() names.UserTag
 	Config() map[string]interface{}
@@ -54,8 +55,8 @@ type Model interface {
 	Machines() []Machine
 	AddMachine(MachineArgs) Machine
 
-	Services() []Service
-	AddService(ServiceArgs) Service
+	Applications() []Application
+	AddApplication(ApplicationArgs) Application
 
 	Relations() []Relation
 	AddRelation(RelationArgs) Relation
@@ -193,7 +194,7 @@ type Constraints interface {
 	Tags() []string
 }
 
-// Status represents an agent, service, or workload status.
+// Status represents an agent, application, or workload status.
 type Status interface {
 	Value() string
 	Message() string
@@ -201,13 +202,13 @@ type Status interface {
 	Updated() time.Time
 }
 
-// Service represents a deployed charm in a model.
-type Service interface {
+// Application represents a deployed charm in a model.
+type Application interface {
 	HasAnnotations
 	HasConstraints
 	HasStatusHistory
 
-	Tag() names.ServiceTag
+	Tag() names.ApplicationTag
 	Name() string
 	Series() string
 	Subordinate() bool
@@ -235,7 +236,7 @@ type Service interface {
 	Validate() error
 }
 
-// Unit represents an instance of a service in a model.
+// Unit represents an instance of an application in a model.
 type Unit interface {
 	HasAnnotations
 	HasConstraints
@@ -272,8 +273,8 @@ type Unit interface {
 	Validate() error
 }
 
-// Relation represents a relationship between two services,
-// or a peer relation between different instances of a service.
+// Relation represents a relationship between two applications,
+// or a peer relation between different instances of an application.
 type Relation interface {
 	Id() int
 	Key() string
@@ -283,12 +284,12 @@ type Relation interface {
 }
 
 // Endpoint represents one end of a relation. A named endpoint provided
-// by the charm that is deployed for the service.
+// by the charm that is deployed for the application.
 type Endpoint interface {
-	ServiceName() string
+	ApplicationName() string
 	Name() string
 	// Role, Interface, Optional, Limit, and Scope should all be available
-	// through the Charm associated with the Service. There is no real need
+	// through the Charm associated with the Application. There is no real need
 	// for this information to be denormalised like this. However, for now,
 	// since the import may well take place before the charms have been loaded
 	// into the model, we'll send this information over.

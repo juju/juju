@@ -43,6 +43,7 @@ type ModelInfo struct {
 	ControllerUUID string `json:"ServerUUID"`
 	ProviderType   string `json:"ProviderType"`
 	DefaultSeries  string `json:"DefaultSeries"`
+	Cloud          string `json:"Cloud"`
 
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"OwnerTag"`

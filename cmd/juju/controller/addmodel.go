@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -43,17 +43,20 @@ type addModelCommand struct {
 const addModelHelpDoc = `
 Adding a model is typically done in order to run a specific workload. The
 model is of the same cloud type as the controller and resides within that
-controller. By default, the controller is the current controller.
-The credentials used to add the model are the ones used to create any
-future resources within the model (` + "`juju deploy`, `juju add-unit`" + `).
+controller. By default, the controller is the current controller. The
+credentials used to add the model are the ones used to create any future
+resources within the model (` + "`juju deploy`, `juju add-unit`" + `).
+
 Model names can be duplicated across controllers but must be unique for
-any given controller.
+any given controller. Model names may only contain lowercase letters,
+digits and hyphens, and may not start with a hyphen.
+
 The necessary configuration must be available, either via the controller
 configuration (known to Juju upon its creation), command line arguments,
 or configuration file (--config). For 'ec2' and 'openstack' cloud types,
-the access and secret keys need to be provided.
-If the same configuration values are passed by both command line arguments
-and the --config option, the former take priority.
+the access and secret keys need to be provided. If the same configuration
+values are passed by both command line arguments and the --config option,
+the former take priority.
 
 Examples:
 
@@ -82,6 +85,10 @@ func (c *addModelCommand) Init(args []string) error {
 		return errors.New("model name is required")
 	}
 	c.Name, args = args[0], args[1:]
+
+	if !names.IsValidModelName(c.Name) {
+		return errors.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", c.Name)
+	}
 
 	if c.Owner != "" && !names.IsValidUser(c.Owner) {
 		return errors.Errorf("%q is not a valid user", c.Owner)

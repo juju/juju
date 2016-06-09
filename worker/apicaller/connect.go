@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -108,8 +109,9 @@ func connectFallback(
 	// passwords if necessary; and update info, and remember
 	// which password we used.
 	if !didFallback {
+		logger.Debugf("connecting with current password")
 		tryConnect()
-		if params.IsCodeUnauthorized(err) {
+		if params.IsCodeUnauthorized(err) || errors.Cause(err) == common.ErrBadCreds {
 			didFallback = true
 
 		}
@@ -147,8 +149,10 @@ func connectFallback(
 	// At this point we've run out of reasons to retry connecting,
 	// and just go with whatever error we last saw (if any).
 	if err != nil {
+		logger.Debugf("failed to connect")
 		return nil, false, errors.Trace(err)
 	}
+	logger.Debugf("connected")
 	return conn, didFallback, nil
 }
 

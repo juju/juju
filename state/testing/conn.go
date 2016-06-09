@@ -4,10 +4,10 @@
 package testing
 
 import (
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -26,7 +26,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	mgoInfo := NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 
-	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
+	st, err := state.Initialize(owner, mgoInfo, "dummy", nil, cfg, dialOpts, policy)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

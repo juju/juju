@@ -264,8 +264,7 @@ type bootstrapConfigGetter struct {
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
-	controllerName, err := ResolveControllerName(g.ClientStore, controllerName)
-	if err != nil {
+	if _, err := g.ClientStore.ControllerByName(controllerName); err != nil {
 		return nil, errors.Annotate(err, "resolving controller name")
 	}
 	bootstrapConfig, err := g.BootstrapConfigForController(controllerName)

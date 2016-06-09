@@ -3,7 +3,7 @@
 
 package storage
 
-import "github.com/juju/names"
+import "gopkg.in/juju/names.v2"
 
 // StorageKind defines the type of the datastore: whether it
 // is a raw block device, or a filesystem.

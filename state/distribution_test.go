@@ -18,7 +18,7 @@ import (
 type InstanceDistributorSuite struct {
 	ConnSuite
 	distributor mockInstanceDistributor
-	wordpress   *state.Service
+	wordpress   *state.Application
 	machines    []*state.Machine
 }
 

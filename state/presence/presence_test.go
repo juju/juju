@@ -9,16 +9,17 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -92,9 +93,17 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 	c.Assert(alive, gc.Equals, alive)
 }
 
+// assertStopped stops a worker and waits until it reports stopped.
+// Use this method in favor of defer w.Stop() because you _must_ ensure
+// that the worker has stopped, and thus is no longer using its mgo
+// session before TearDownTest shuts down the connection.
+func assertStopped(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), gc.IsNil)
+}
+
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	defer w.Stop()
+	defer assertStopped(c, w)
 
 	c.Assert(errors.Cause(w.Err()), gc.Equals, tomb.ErrStillAlive)
 	select {
@@ -118,15 +127,16 @@ func (s *PresenceSuite) TestAliveError(c *gc.C) {
 	alive, err := w.Alive("a")
 	c.Assert(err, gc.ErrorMatches, ".*: watcher is dying")
 	c.Assert(alive, jc.IsFalse)
+	w.Wait()
 }
 
 func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	pa := presence.NewPinger(s.presence, s.modelTag, "a")
 	pb := presence.NewPinger(s.presence, s.modelTag, "b")
-	defer w.Stop()
-	defer pa.Stop()
-	defer pb.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, pa)
+	defer assertStopped(c, pb)
 
 	assertAlive(c, w, "a", false)
 	assertAlive(c, w, "b", false)
@@ -194,7 +204,7 @@ func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	assertChange(c, cha, presence.Change{"a", false})
 	assertChange(c, chb, presence.Change{"b", false})
 
-	c.Assert(w.Stop(), gc.IsNil)
+	assertStopped(c, w)
 }
 
 func (s *PresenceSuite) TestScale(c *gc.C) {
@@ -220,7 +230,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 
 	c.Logf("Checking who's still alive...")
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	defer w.Stop()
+	defer assertStopped(c, w)
 	w.Sync()
 	ch := make(chan presence.Change)
 	for i := 0; i < N; i++ {
@@ -237,8 +247,8 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 func (s *PresenceSuite) TestExpiry(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer w.Stop()
-	defer p.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, p)
 
 	ch := make(chan presence.Change)
 	w.Watch("a", ch)
@@ -270,8 +280,8 @@ func (s *PresenceSuite) TestWatchPeriod(c *gc.C) {
 
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer w.Stop()
-	defer p.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, p)
 
 	ch := make(chan presence.Change)
 	w.Watch("a", ch)
@@ -288,7 +298,8 @@ func (s *PresenceSuite) TestWatchPeriod(c *gc.C) {
 
 func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	ch := make(chan presence.Change)
+	defer assertStopped(c, w)
+	ch := make(chan presence.Change, 100)
 	for i := 0; i < 100; i++ {
 		key := strconv.Itoa(i)
 		c.Logf("Adding %q", key)
@@ -315,7 +326,7 @@ func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
 	p := presence.NewPinger(s.presence, s.modelTag, "a")
 	c.Assert(p.Start(), gc.IsNil)
-	defer p.Stop()
+	defer assertStopped(c, p)
 
 	done := make(chan bool)
 	go func() {
@@ -339,7 +350,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
 			w := presence.NewWatcher(s.presence, s.modelTag)
 			w.Sync()
 			alive, err := w.Alive("a")
-			c.Check(w.Stop(), gc.IsNil)
+			assertStopped(c, w)
 			if !c.Check(err, jc.ErrorIsNil) || !c.Check(alive, jc.IsTrue) {
 				break
 			}
@@ -369,9 +380,9 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	p1 := presence.NewPinger(s.presence, s.modelTag, "a")
 	p2 := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer w.Stop()
-	defer p1.Stop()
-	defer p2.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, p1)
+	defer assertStopped(c, p2)
 
 	// Start p1 and let it go on.
 	c.Assert(p1.Start(), gc.IsNil)
@@ -399,8 +410,8 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 func (s *PresenceSuite) TestStartSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer w.Stop()
-	defer p.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, p)
 
 	ch := make(chan presence.Change)
 	w.Watch("a", ch)
@@ -428,8 +439,8 @@ func (s *PresenceSuite) TestStartSync(c *gc.C) {
 func (s *PresenceSuite) TestSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer w.Stop()
-	defer p.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, p)
 
 	ch := make(chan presence.Change)
 	w.Watch("a", ch)
@@ -467,8 +478,8 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer w.Stop()
-	defer p.Stop()
+	defer assertStopped(c, w)
+	defer assertStopped(c, p)
 
 	ch := make(chan presence.Change)
 	w.Watch("a", ch)
@@ -493,12 +504,12 @@ func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
 func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	key := "a"
 	w1, p1, ch1 := s.setup(c, key)
-	defer w1.Stop()
-	defer p1.Stop()
+	defer assertStopped(c, w1)
+	defer assertStopped(c, p1)
 
 	w2, p2, ch2 := s.setup(c, key)
-	defer w2.Stop()
-	defer p2.Stop()
+	defer assertStopped(c, w2)
+	defer assertStopped(c, p2)
 
 	c.Assert(p1.Start(), gc.IsNil)
 	w1.StartSync()

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api/metricsdebug"
@@ -16,13 +16,13 @@ import (
 )
 
 const setMeterStatusDoc = `
-Set meter status on the given service or unit. This command is used to test the meter-status-changed hook for charms in development.
+Set meter status on the given application or unit. This command is used to test the meter-status-changed hook for charms in development.
 Examples:
   juju set-meter-status myapp RED # Set Red meter status on all units of myapp
   juju set-meter-status myapp/0 AMBER --info "my message" # Set AMBER meter status with "my message" as info on unit myapp/0
 `
 
-// SetMeterStatusCommand sets the meter status on a service or unit. Useful for charm authors.
+// SetMeterStatusCommand sets the meter status on an application or unit. Useful for charm authors.
 type SetMeterStatusCommand struct {
 	modelcmd.ModelCommandBase
 	Tag        names.Tag
@@ -39,8 +39,8 @@ func New() cmd.Command {
 func (c *SetMeterStatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-meter-status",
-		Args:    "[service or unit] status",
-		Purpose: "sets the meter status on a service or unit",
+		Args:    "[application or unit] status",
+		Purpose: "sets the meter status on an application or unit",
 		Doc:     setMeterStatusDoc,
 	}
 }
@@ -48,14 +48,14 @@ func (c *SetMeterStatusCommand) Info() *cmd.Info {
 // Init reads and verifies the cli arguments for the SetMeterStatusCommand
 func (c *SetMeterStatusCommand) Init(args []string) error {
 	if len(args) != 2 {
-		return errors.New("you need to specify an entity (service or unit) and a status")
+		return errors.New("you need to specify an entity (application or unit) and a status")
 	}
 	if names.IsValidUnit(args[0]) {
 		c.Tag = names.NewUnitTag(args[0])
-	} else if names.IsValidService(args[0]) {
-		c.Tag = names.NewServiceTag(args[0])
+	} else if names.IsValidApplication(args[0]) {
+		c.Tag = names.NewApplicationTag(args[0])
 	} else {
-		return errors.Errorf("%q is not a valid unit or service", args[0])
+		return errors.Errorf("%q is not a valid unit or application", args[0])
 	}
 	c.Status = args[1]
 

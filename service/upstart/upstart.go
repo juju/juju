@@ -162,7 +162,7 @@ func (s *Service) Validate() error {
 	return nil
 }
 
-// render returns the upstart configuration for the service as a slice of bytes.
+// render returns the upstart configuration for the application as a slice of bytes.
 func (s *Service) render() ([]byte, error) {
 	if err := s.Validate(); err != nil {
 		return nil, err

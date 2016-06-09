@@ -47,7 +47,7 @@ func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 }
 
 // ListResources calls the ListResources API server method with
-// the given service names.
+// the given application names.
 func (c Client) ListResources(services []string) ([]resource.ServiceResources, error) {
 	args, err := api.NewListResourcesArgs(services)
 	if err != nil {
@@ -104,10 +104,10 @@ func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) err
 
 // AddPendingResourcesArgs holds the arguments to AddPendingResources().
 type AddPendingResourcesArgs struct {
-	// ServiceID identifies the service being deployed.
-	ServiceID string
+	// ApplicationID identifies the application being deployed.
+	ApplicationID string
 
-	// CharmID identifies the service's charm.
+	// CharmID identifies the application's charm.
 	CharmID charmstore.CharmID
 
 	// CharmStoreMacaroon is the macaroon to use for the charm when
@@ -122,7 +122,7 @@ type AddPendingResourcesArgs struct {
 // AddPendingResources sends the provided resource info up to Juju
 // without making it available yet.
 func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []string, err error) {
-	apiArgs, err := api.NewAddPendingResourcesArgs(args.ServiceID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
+	apiArgs, err := api.NewAddPendingResourcesArgs(args.ApplicationID, args.CharmID, args.CharmStoreMacaroon, args.Resources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -151,11 +151,11 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) (pendingIDs []
 
 // AddPendingResource sends the provided resource blob up to Juju
 // without making it available yet. For example, AddPendingResource()
-// is used before the service is deployed.
-func (c Client) AddPendingResource(serviceID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
+// is used before the application is deployed.
+func (c Client) AddPendingResource(applicationID string, res charmresource.Resource, filename string, reader io.ReadSeeker) (pendingID string, err error) {
 	ids, err := c.AddPendingResources(AddPendingResourcesArgs{
-		ServiceID: serviceID,
-		Resources: []charmresource.Resource{res},
+		ApplicationID: applicationID,
+		Resources:     []charmresource.Resource{res},
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -163,7 +163,7 @@ func (c Client) AddPendingResource(serviceID string, res charmresource.Resource,
 	pendingID = ids[0]
 
 	if reader != nil {
-		uReq, err := api.NewUploadRequest(serviceID, res.Name, filename, reader)
+		uReq, err := api.NewUploadRequest(applicationID, res.Name, filename, reader)
 		if err != nil {
 			return "", errors.Trace(err)
 		}

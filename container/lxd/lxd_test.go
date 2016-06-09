@@ -12,12 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
@@ -70,9 +69,6 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Config = envConfig
 	storageConfig := &container.StorageConfig{}
 	networkConfig := container.BridgeNetworkConfig("nic42", 4321, nil)
 
@@ -80,6 +76,7 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	_, _, err = manager.CreateContainer(
 		instanceConfig,
+		constraints.Value{},
 		"xenial",
 		networkConfig,
 		storageConfig,

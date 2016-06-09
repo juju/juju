@@ -54,36 +54,36 @@ func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclienttesting.
 
 const testControllersYaml = `
 controllers:
-  local.aws-test:
+  aws-test:
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
-  local.mallards:
+  mallards:
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     region: mallards1
-  local.mark-test-prodstack:
+  mark-test-prodstack:
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
-current-controller: local.mallards
+current-controller: mallards
 `
 
 const testModelsYaml = `
 controllers:
-  local.aws-test:
+  aws-test:
     accounts:
       admin@local:
         models:
           admin:
             uuid: ghi
         current-model: admin
-  local.mallards:
+  mallards:
     accounts:
       admin@local:
         models:
@@ -96,17 +96,17 @@ controllers:
 
 const testAccountsYaml = `
 controllers:
-  local.aws-test:
+  aws-test:
     accounts:
       admin@local:
         user: admin@local
         password: hun+er2
-  local.mark-test-prodstack:
+  mark-test-prodstack:
     accounts:
       admin@local:
         user: admin@local
         password: hunter2
-  local.mallards:
+  mallards:
     accounts:
       admin@local:
         user: admin@local

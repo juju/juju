@@ -4,7 +4,7 @@
 package modelmanager
 
 import (
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
@@ -35,6 +35,7 @@ type Model interface {
 	Life() state.Life
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
+	Cloud() string
 	Users() ([]common.ModelUser, error)
 }
 

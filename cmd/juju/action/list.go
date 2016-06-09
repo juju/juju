@@ -4,12 +4,17 @@
 package action
 
 import (
+	"bytes"
+	"fmt"
+	"text/tabwriter"
+
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -20,13 +25,13 @@ func NewListCommand() cmd.Command {
 // listCommand lists actions defined by the charm of a given service.
 type listCommand struct {
 	ActionCommandBase
-	serviceTag names.ServiceTag
-	fullSchema bool
-	out        cmd.Output
+	applicationTag names.ApplicationTag
+	fullSchema     bool
+	out            cmd.Output
 }
 
 const listDoc = `
-List the actions available to run on the target service, with a short
+List the actions available to run on the target application, with a short
 description.  To show the full schema for the actions, use --schema.
 
 For more information, see also the 'run-ation' command, which executes actions.
@@ -40,11 +45,11 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-actions",
-		Args:    "<service name>",
+		Name:    "actions",
+		Args:    "<application name>",
 		Purpose: "list actions defined for a service",
 		Doc:     listDoc,
-		Aliases: []string{"actions"},
+		Aliases: []string{"list-actions"},
 	}
 }
 
@@ -52,13 +57,13 @@ func (c *listCommand) Info() *cmd.Info {
 func (c *listCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no service name specified")
+		return errors.New("no application name specified")
 	case 1:
 		svcName := args[0]
-		if !names.IsValidService(svcName) {
-			return errors.Errorf("invalid service name %q", svcName)
+		if !names.IsValidApplication(svcName) {
+			return errors.Errorf("invalid application name %q", svcName)
 		}
-		c.serviceTag = names.NewServiceTag(svcName)
+		c.applicationTag = names.NewApplicationTag(svcName)
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -74,14 +79,14 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	actions, err := api.ServiceCharmActions(params.Entity{c.serviceTag.String()})
+	actions, err := api.ApplicationCharmActions(params.Entity{c.applicationTag.String()})
 	if err != nil {
 		return err
 	}
 
 	output := actions.ActionSpecs
 	if len(output) == 0 {
-		return c.out.Write(ctx, "No actions defined for "+c.serviceTag.Id())
+		return c.out.Write(ctx, "No actions defined for "+c.applicationTag.Id())
 	}
 
 	if c.fullSchema {
@@ -94,11 +99,33 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 
 	shortOutput := make(map[string]string)
+	var sortedNames []string
 	for name, action := range actions.ActionSpecs {
 		shortOutput[name] = action.Description
 		if shortOutput[name] == "" {
 			shortOutput[name] = "No description"
 		}
+		sortedNames = append(sortedNames, name)
 	}
-	return c.out.Write(ctx, shortOutput)
+	sortedNames = common.SortStringsNaturally(sortedNames)
+	return c.printTabular(ctx, shortOutput, sortedNames)
+}
+
+// printTabular prints the list of actions in tabular format
+func (c *listCommand) printTabular(ctx *cmd.Context, actions map[string]string, sortedNames []string) error {
+	var out bytes.Buffer
+	const (
+		// To format things into columns.
+		minwidth = 0
+		tabwidth = 2
+		padding  = 2
+		padchar  = ' '
+		flags    = 0
+	)
+	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	for _, name := range sortedNames {
+		fmt.Fprintf(tw, "%s\t%s\n", name, actions[name])
+	}
+	tw.Flush()
+	return c.out.Write(ctx, string(out.Bytes()))
 }

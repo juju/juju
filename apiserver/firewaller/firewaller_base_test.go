@@ -24,7 +24,7 @@ type firewallerBaseSuite struct {
 	testing.JujuConnSuite
 
 	machines []*state.Machine
-	service  *state.Service
+	service  *state.Application
 	charm    *state.Charm
 	units    []*state.Unit
 
@@ -110,7 +110,7 @@ func (s *firewallerBaseSuite) testLife(
 			{Life: "alive"},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-			{Error: apiservertesting.NotFoundError(`service "bar"`)},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -233,7 +233,7 @@ func (s *firewallerBaseSuite) testWatch(
 				{NotifyWatcherId: "2"},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-				{Error: apiservertesting.NotFoundError(`service "bar"`)},
+				{Error: apiservertesting.NotFoundError(`application "bar"`)},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
@@ -247,7 +247,7 @@ func (s *firewallerBaseSuite) testWatch(
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.NotFoundError(`service "bar"`)},
+				{Error: apiservertesting.NotFoundError(`application "bar"`)},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
@@ -342,14 +342,14 @@ func (s *firewallerBaseSuite) testGetExposed(
 			{Result: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`service "bar"`)},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
-	// Now reset the exposed flag for the service and check again.
+	// Now reset the exposed flag for the application and check again.
 	err = s.service.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -421,7 +421,7 @@ func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Li
 var commonFakeEntities = []params.Entity{
 	{Tag: "machine-42"},
 	{Tag: "unit-foo-0"},
-	{Tag: "service-bar"},
+	{Tag: "application-bar"},
 	{Tag: "user-foo"},
 	{Tag: "foo-bar"},
 	{Tag: ""},

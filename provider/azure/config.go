@@ -10,8 +10,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/schema"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
 )

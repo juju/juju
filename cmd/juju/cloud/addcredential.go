@@ -59,7 +59,7 @@ Examples:
     juju add-credential aws -f ~/credentials.yaml
 
 See also: 
-    list-credentials
+    credentials
     remove-credential
     set-default-credential
     autoload-credentials`

@@ -105,8 +105,8 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		return nil, err
 	}
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
-		icfg.InstanceId = BootstrapInstanceId
-		icfg.HardwareCharacteristics = &hc
+		icfg.Bootstrap.InstanceId = BootstrapInstanceId
+		icfg.Bootstrap.HardwareCharacteristics = &hc
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}

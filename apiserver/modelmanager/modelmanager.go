@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/txn"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -208,6 +208,11 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
+	// TODO(axw) the user should specify a cloud, region and
+	// credential when creating the model. For now we just
+	// assume they're the same as in the controller model.
+	cloud := controllerModel.Cloud()
+
 	newConfig, err := mm.newModelConfig(args, controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
@@ -215,7 +220,11 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := mm.state.NewModel(state.ModelArgs{Config: newConfig, Owner: ownerTag})
+	model, st, err := mm.state.NewModel(state.ModelArgs{
+		Cloud:  cloud,
+		Config: newConfig,
+		Owner:  ownerTag,
+	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
@@ -323,6 +332,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 			Status:         common.EntityStatusFromState(status),
 			ProviderType:   cfg.Type(),
 			DefaultSeries:  config.PreferredSeries(cfg),
+			Cloud:          model.Cloud(),
 		}
 
 		authorizedOwner := m.authCheck(owner) == nil

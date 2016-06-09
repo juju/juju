@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -359,7 +359,7 @@ func (s *modelManagerSuite) TestGrantMissingModelFails(c *gc.C) {
 	user := s.Factory.MakeModelUser(c, nil)
 	model := names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4")
 	err := s.grant(c, user.UserTag(), params.ModelReadAccess, model)
-	expectedErr := `model not found`
+	expectedErr := `.* model not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
@@ -538,7 +538,7 @@ func (s *modelManagerSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 		tag:      "unit-foo/0",
 		validTag: true,
 	}, {
-		tag:      "service-foo",
+		tag:      "application-foo",
 		validTag: true,
 	}, {
 		tag:      "relation-wordpress:db mysql:db",

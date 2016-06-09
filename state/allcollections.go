@@ -30,7 +30,7 @@ var (
 //
 //  * local (in opposition to global; and for want of a better term): these
 //    hold information relevant *within* specific models (machines,
-//    services, relations, settings, bookkeeping, etc) and should generally be
+//    applications, relations, settings, bookkeeping, etc) and should generally be
 //    read via an modelStateCollection, and written via a multiModelRunner. This is
 //    the most common form of collection, and the above access should usually
 //    be automatic via Database.Collection and Database.Runner.
@@ -76,6 +76,10 @@ func allCollections() collectionSchema {
 		// This collection holds the details of the controllers hosting, well,
 		// everything in state.
 		controllersC: {global: true},
+
+		// This collection holds any model settings common to all models on
+		// a given cloud.
+		cloudSettingsC: {global: true},
 
 		// This collection is used to track progress when restoring a
 		// controller from backup.
@@ -199,7 +203,7 @@ func allCollections() collectionSchema {
 		sequenceC: {},
 
 		// This collection holds lease data. It's currently only used to
-		// implement service leadership, but is namespaced and available
+		// implement application leadership, but is namespaced and available
 		// for use by other clients in future.
 		leasesC: {
 			indexes: []mgo.Index{{
@@ -211,12 +215,12 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// These collections hold information associated with services.
-		charmsC:   {},
-		servicesC: {},
+		// These collections hold information associated with applications.
+		charmsC:       {},
+		applicationsC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "service"},
+				Key: []string{"model-uuid", "application"},
 			}, {
 				Key: []string{"model-uuid", "principal"},
 			}, {
@@ -237,7 +241,7 @@ func allCollections() collectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
 			}, {
-				Key: []string{"model-uuid", "endpoints.servicename"},
+				Key: []string{"model-uuid", "endpoints.applicationname"},
 			}},
 		},
 		relationScopesC: {},
@@ -342,7 +346,7 @@ func allCollections() collectionSchema {
 		annotationsC: {},
 
 		// This collection in particular holds an astounding number of
-		// different sorts of data: service config settings by charm version,
+		// different sorts of data: application config settings by charm version,
 		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
@@ -383,6 +387,7 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudSettingsC           = "cloudsettings"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
@@ -413,7 +418,7 @@ const (
 	relationsC               = "relations"
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
-	servicesC                = "services"
+	applicationsC            = "applications"
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"

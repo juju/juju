@@ -6,12 +6,12 @@ package provisioner_test
 import (
 	"runtime"
 
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -76,9 +76,8 @@ func (s *lxdBrokerSuite) SetUpTest(c *gc.C) {
 
 func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.InstanceConfig {
 	machineNonce := "fake-nonce"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, "released", "quantal", true, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
@@ -129,12 +128,13 @@ type fakeContainerManager struct {
 }
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
 	series string,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback container.StatusCallback,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	m.MethodCall(m, "CreateContainer", instanceConfig, series, network, storage, callback)
+	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
 	return nil, nil, m.NextErr()
 }
 

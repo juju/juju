@@ -7,8 +7,8 @@ package api
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -22,7 +22,7 @@ func Resource2API(res resource.Resource) Resource {
 		CharmResource: CharmResource2API(res.Resource),
 		ID:            res.ID,
 		PendingID:     res.PendingID,
-		ServiceID:     res.ServiceID,
+		ApplicationID: res.ApplicationID,
 		Username:      res.Username,
 		Timestamp:     res.Timestamp,
 	}
@@ -129,12 +129,12 @@ func API2Resource(apiRes Resource) (resource.Resource, error) {
 	}
 
 	res = resource.Resource{
-		Resource:  charmRes,
-		ID:        apiRes.ID,
-		PendingID: apiRes.PendingID,
-		ServiceID: apiRes.ServiceID,
-		Username:  apiRes.Username,
-		Timestamp: apiRes.Timestamp,
+		Resource:      charmRes,
+		ID:            apiRes.ID,
+		PendingID:     apiRes.PendingID,
+		ApplicationID: apiRes.ApplicationID,
+		Username:      apiRes.Username,
+		Timestamp:     apiRes.Timestamp,
 	}
 
 	if err := res.Validate(); err != nil {
