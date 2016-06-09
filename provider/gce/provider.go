@@ -52,6 +52,17 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
 	}
+	// Ensure cloud info is in config.
+	var err error
+	cfg, err = cfg.Apply(map[string]interface{}{
+		cfgRegion: args.CloudRegion,
+		// TODO (anastasiamac 2016-06-09) at some stage will need to
+		//  also add endpoint and storage endpoint.
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return p.PrepareForCreateEnvironment(cfg)
 }
 
