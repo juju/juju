@@ -183,7 +183,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 
 		"MigrationMode",
 		"Owner",
-		"Cloud",
+		"CloudRegion",
 		"LatestAvailableTools",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
