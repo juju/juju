@@ -2378,6 +2378,7 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
+		CloudName:        "dummy",
 		ModelTag:         s.modelTag,
 		MachineIds:       []string{"0"},
 		VotingMachineIds: []string{"0"},
@@ -2396,6 +2397,7 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	info, err = s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
+		CloudName:        "dummy",
 		ModelTag:         s.modelTag,
 		MachineIds:       []string{"0", "1", "2"},
 		VotingMachineIds: []string{"0", "1", "2"},
@@ -3372,6 +3374,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, startWatch
 func (s *StateSuite) TestControllerInfo(c *gc.C) {
 	ids, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids.CloudName, gc.Equals, "dummy")
 	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
 	c.Assert(ids.MachineIds, gc.HasLen, 0)
 	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
@@ -3382,7 +3385,8 @@ func (s *StateSuite) TestControllerInfo(c *gc.C) {
 
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	expected := &state.ControllerInfo{
-		ModelTag: s.modelTag,
+		CloudName: "dummy",
+		ModelTag:  s.modelTag,
 	}
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4149,7 +4153,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, authInfo, "dummy", nil, cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(owner, authInfo, "dummy", "some-region", nil, cfg, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

@@ -195,6 +195,10 @@ type StateInitializationParams struct {
 	// bootstrapped in.
 	ControllerCloud string
 
+	// ControllerCloudRegion is the name of the cloud region that Juju will be
+	// bootstrapped in.
+	ControllerCloudRegion string
+
 	// CloudConfig is a set of config attributes to be shared by all
 	// models hosted by this controller on the same cloud.
 	CloudConfig map[string]interface{}
@@ -227,6 +231,7 @@ type stateInitializationParamsInternal struct {
 	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
 	CustomImageMetadataJSON     string                            `yaml:"custom-image-metadata,omitempty"`
 	ControllerCloud             string                            `yaml:"controller-cloud"`
+	ControllerCloudRegion       string                            `yaml:"controller-cloud-region"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -245,6 +250,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
 		p.ControllerCloud,
+		p.ControllerCloudRegion,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -274,6 +280,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		ModelConstraints:            internal.ModelConstraints,
 		CustomImageMetadata:         imageMetadata,
 		ControllerCloud:             internal.ControllerCloud,
+		ControllerCloudRegion:       internal.ControllerCloudRegion,
 	}
 	return nil
 }

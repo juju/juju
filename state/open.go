@@ -105,7 +105,7 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloud string, cloudCfg map[string]interface{}, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
+func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloudName, cloudRegion string, cloudCfg map[string]interface{}, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
 	uuid := cfg.UUID()
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
@@ -137,7 +137,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloud string, cloudC
 
 	logger.Infof("initializing controller model %s", uuid)
 
-	modelOps, err := st.modelSetupOps(cfg, cloud, cloudCfg, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(cfg, cloudRegion, cloudCfg, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -155,6 +155,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloud string, cloudC
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &controllersDoc{
+				CloudName: cloudName,
 				ModelUUID: st.ModelUUID(),
 			},
 		},
@@ -177,7 +178,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloud string, cloudC
 			Insert: &hostedModelCountDoc{},
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
-		createSettingsOp(cloudSettingsC, cloudGlobalKey(cloud), cloudCfg),
+		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, cloudCfg),
 	}
 	ops = append(ops, modelOps...)
 
@@ -191,7 +192,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloud string, cloudC
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(cfg *config.Config, cloud string, cloudCfg map[string]interface{}, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+func (st *State) modelSetupOps(cfg *config.Config, cloudRegion string, cloudCfg map[string]interface{}, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkCloudConfig(cloudCfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -228,7 +229,7 @@ func (st *State) modelSetupOps(cfg *config.Config, cloud string, cloudCfg map[st
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
-		createModelOp(st, owner, cfg.Name(), modelUUID, controllerUUID, cloud, mode),
+		createModelOp(st, owner, cfg.Name(), modelUUID, controllerUUID, cloudRegion, mode),
 		createUniqueOwnerModelNameOp(owner, cfg.Name()),
 		modelUserOp,
 	)

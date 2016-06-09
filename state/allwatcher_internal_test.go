@@ -55,7 +55,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(ModelArgs{Config: cfg, Owner: s.owner, Cloud: "dummy"})
+	_, st, err := s.state.NewModel(ModelArgs{Config: cfg, Owner: s.owner, CloudRegion: "some-region"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st

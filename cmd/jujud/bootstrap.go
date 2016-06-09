@@ -216,7 +216,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	controllerModelCfg, err := env.Config().Apply(newConfigAttrs)
 	if err != nil {
@@ -251,6 +250,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			agentConfig,
 			controllerModelCfg,
 			args.ControllerCloud,
+			args.ControllerCloudRegion,
 			args.CloudConfig,
 			args.HostedModelConfig,
 			agentbootstrap.BootstrapMachineConfig{
@@ -343,10 +343,14 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 	peerHostPort := net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort))
 
-	return initiateMongoServer(peergrouper.InitiateMongoParams{
+	if err := initiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
-	})
+	}); err != nil {
+		return err
+	}
+	logger.Infof("started mongo")
+	return nil
 }
 
 // populateDefaultStoragePools creates the default storage pools.

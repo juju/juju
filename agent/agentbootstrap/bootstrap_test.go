@@ -141,13 +141,13 @@ LXC_BRIDGE="ignored"`[1:])
 		"name": "hosted",
 		"uuid": hostedModelUUID,
 	}
-	sharedModelConfigAttrs := map[string]interface{}{
+	cloudConfigAttrs := map[string]interface{}{
 		"apt-mirror": "http://mirror",
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, m, err := agentbootstrap.InitializeState(
-		adminUser, cfg, modelCfg, "dummy", sharedModelConfigAttrs, hostedModelConfigAttrs, mcfg,
+		adminUser, cfg, modelCfg, "dummy", "some-region", cloudConfigAttrs, hostedModelConfigAttrs, mcfg,
 		mongotest.DialOpts(), environs.NewStatePolicy(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +191,7 @@ LXC_BRIDGE="ignored"`[1:])
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.Cloud(), gc.Equals, "dummy")
+	c.Assert(hostedModel.CloudRegion(), gc.Equals, "some-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
@@ -263,7 +263,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	_, _, err = agentbootstrap.InitializeState(adminUser, cfg,
-		nil, "dummy", nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongotest.DialOpts(), environs.NewStatePolicy())
+		nil, "dummy", "some-region", nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongotest.DialOpts(), environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -310,14 +310,14 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, _, err := agentbootstrap.InitializeState(
-		adminUser, cfg, modelCfg, "dummy", nil, hostedModelConfigAttrs, mcfg,
+		adminUser, cfg, modelCfg, "dummy", "some-region", nil, hostedModelConfigAttrs, mcfg,
 		mongotest.DialOpts(), state.Policy(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
 	st, _, err = agentbootstrap.InitializeState(adminUser, cfg, modelCfg,
-		"dummy", nil, nil, mcfg, mongotest.DialOpts(), environs.NewStatePolicy())
+		"dummy", "some-region", nil, nil, mcfg, mongotest.DialOpts(), environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

@@ -290,7 +290,7 @@ func (s *ModelUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserT
 		"name": name,
 		"uuid": uuid.String(),
 	})
-	model, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, Cloud: "dummy"})
+	model, st, err := s.State.NewModel(state.ModelArgs{Config: cfg, Owner: owner, CloudRegion: "some-region"})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	return model

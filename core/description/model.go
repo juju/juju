@@ -7,15 +7,12 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 )
-
-var logger = loggo.GetLogger("juju.state.migration")
 
 // ModelArgs represent the bare minimum information that is needed
 // to represent a model.
@@ -24,7 +21,7 @@ type ModelArgs struct {
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
 	Blocks             map[string]string
-	Cloud              string
+	CloudRegion        string
 }
 
 // NewModel returns a Model based on the args specified.
@@ -36,7 +33,7 @@ func NewModel(args ModelArgs) Model {
 		LatestToolsVersion_: args.LatestToolsVersion,
 		Sequences_:          make(map[string]int),
 		Blocks_:             args.Blocks,
-		Cloud_:              args.Cloud,
+		CloudRegion_:        args.CloudRegion,
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -88,7 +85,7 @@ type model struct {
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
-	Cloud_ string `yaml:"cloud"`
+	CloudRegion_ string `yaml:"cloud-region"`
 
 	// TODO:
 	// Spaces
@@ -264,9 +261,9 @@ func (m *model) SetConstraints(args ConstraintsArgs) {
 	m.Constraints_ = newConstraints(args)
 }
 
-// Cloud implements Model.
-func (m *model) Cloud() string {
-	return m.Cloud_
+// CloudRegion implements Model.
+func (m *model) CloudRegion() string {
+	return m.CloudRegion_
 }
 
 // Validate implements Model.
@@ -274,11 +271,6 @@ func (m *model) Validate() error {
 	// A model needs an owner.
 	if m.Owner_ == "" {
 		return errors.NotValidf("missing model owner")
-	}
-
-	// A model must have a cloud.
-	if m.Cloud_ == "" {
-		return errors.NotValidf("missing cloud name")
 	}
 
 	unitsWithOpenPorts := set.NewStrings()
@@ -360,7 +352,7 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
 		"owner":        schema.String(),
-		"cloud":        schema.String(),
+		"cloud-region": schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
 		"blocks":       schema.StringMap(schema.String()),
@@ -374,6 +366,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	defaults := schema.Defaults{
 		"latest-tools": schema.Omit,
 		"blocks":       schema.Omit,
+		"cloud-region": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -388,12 +381,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// contains fields of the right type.
 
 	result := &model{
-		Version:    1,
-		Owner_:     valid["owner"].(string),
-		Config_:    valid["config"].(map[string]interface{}),
-		Sequences_: make(map[string]int),
-		Blocks_:    convertToStringMap(valid["blocks"]),
-		Cloud_:     valid["cloud"].(string),
+		Version:      1,
+		Owner_:       valid["owner"].(string),
+		Config_:      valid["config"].(map[string]interface{}),
+		Sequences_:   make(map[string]int),
+		Blocks_:      convertToStringMap(valid["blocks"]),
+		CloudRegion_: valid["cloud-region"].(string),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})
@@ -415,6 +408,10 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 			return nil, errors.Trace(err)
 		}
 		result.LatestToolsVersion_ = num
+	}
+
+	if region, ok := valid["cloud-region"]; ok {
+		result.CloudRegion_ = region.(string)
 	}
 
 	userMap := valid["users"].(map[string]interface{})

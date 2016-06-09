@@ -261,19 +261,6 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 
 	st.controllerTag = controllerTag
 
-	// Read the cloud name for this state's model.
-	// We'll use it later when starting watchers.
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-	var doc modelDoc
-	if err := models.FindId(st.ModelUUID()).Select(bson.D{{"cloud", 1}}).One(&doc); err != nil {
-		if err == mgo.ErrNotFound {
-			return errors.NotFoundf("model")
-		}
-		return errors.Trace(err)
-	}
-	st.cloudName = doc.Cloud
-
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
@@ -1746,6 +1733,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 
 type controllersDoc struct {
 	Id               string `bson:"_id"`
+	CloudName        string `bson:"cloud"`
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
@@ -1756,6 +1744,9 @@ type controllersDoc struct {
 // ControllerInfo holds information about currently
 // configured controller machines.
 type ControllerInfo struct {
+	// CloudName is the name of the cloud to which this controller is deployed.
+	CloudName string
+
 	// ModelTag identifies the initial model. Only the initial
 	// model is able to have machines that manage state. The initial
 	// model is the model that is created when bootstrapping.
@@ -1812,6 +1803,7 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
 	return &ControllerInfo{
+		CloudName:        doc.CloudName,
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,

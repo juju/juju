@@ -49,7 +49,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	dialopts := mongotest.DialOpts()
-	st, err := Initialize(s.owner, info, "dummy", nil, testing.ModelConfig(c), dialopts, nil)
+	st, err := Initialize(s.owner, info, "dummy", "some-region", nil, testing.ModelConfig(c), dialopts, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	s.AddCleanup(func(*gc.C) { s.state.Close() })

@@ -84,7 +84,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		ControllerUUID: s.st.model.cfg.UUID(),
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
-		Cloud:          "mycloud",
+		CloudRegion:    "some-region",
 		DefaultSeries:  series.LatestLts(),
 		Life:           params.Dying,
 		Status: params.EntityStatus{
@@ -120,7 +120,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
-		{"Cloud", nil},
+		{"CloudRegion", nil},
 	})
 }
 
@@ -288,10 +288,10 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
-func (m *mockModel) Cloud() string {
-	m.MethodCall(m, "Cloud")
+func (m *mockModel) CloudRegion() string {
+	m.MethodCall(m, "CloudRegion")
 	m.PopNoErr()
-	return "mycloud"
+	return "some-region"
 }
 
 func (m *mockModel) Users() ([]common.ModelUser, error) {
