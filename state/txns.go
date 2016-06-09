@@ -10,44 +10,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// readTxnRevno is a convenience method delegating to the state's Database.
-func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, error) {
-	collection, closer := st.database.GetCollection(collectionName)
-	defer closer()
-	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
-	var result struct {
-		TxnRevno int64 `bson:"txn-revno"`
-	}
-	err := query.One(&result)
-	return result.TxnRevno, errors.Trace(err)
-}
-
-// runTransaction is a convenience method delegating to the state's Database.
-func (st *State) runTransaction(ops []txn.Op) error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	return runner.RunTransaction(ops)
-}
-
-// runRawTransaction is a convenience method that will run a single
-// transaction using a "raw" transaction runner that won't perform
-// model filtering.
-func (st *State) runRawTransaction(ops []txn.Op) error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	if multiRunner, ok := runner.(*multiModelRunner); ok {
-		runner = multiRunner.rawRunner
-	}
-	return runner.RunTransaction(ops)
-}
-
-// run is a convenience method delegating to the state's Database.
-func (st *State) run(transactions jujutxn.TransactionSource) error {
-	runner, closer := st.database.TransactionRunner()
-	defer closer()
-	return runner.Run(transactions)
-}
-
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
 	runner, closer := st.database.TransactionRunner()

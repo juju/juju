@@ -5,6 +5,10 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
 )
@@ -37,18 +41,44 @@ func isLocalID(st modelBackend) func(interface{}) bool {
 	}
 }
 
+// Passive is intended to hold the backing functionality necessary for
+// "most" of state: the stuff that's reading or writing the database.
+//
+// At the moment it has very few methods; we intend to thread it through
+// state step by step, moving simple methods from State (which holds all
+// the active, difficult bits like watchers and lease managers) with the
+// intent of eventually isolating those into a separate session-hungry
+// type that can be restricted to 1-per-controller; leaving the Passive-
+// only parts easier to manage on a per-connection? per-request? basis.
+type Passive struct {
+	modelUUID string
+	database  Database
+}
+
+// ModelTag() returns the model tag for the model controlled by
+// this state instance.
+func (st *Passive) ModelTag() names.ModelTag {
+	return names.NewModelTag(st.modelUUID)
+}
+
+// ModelUUID returns the model UUID for the model
+// controlled by this state instance.
+func (st *Passive) ModelUUID() string {
+	return st.modelUUID
+}
+
 // docID generates a globally unique id value
 // where the model uuid is prefixed to the
 // localID.
-func (st *State) docID(localID string) string {
-	return ensureModelUUID(st.ModelUUID(), localID)
+func (st *Passive) docID(localID string) string {
+	return ensureModelUUID(st.modelUUID, localID)
 }
 
 // localID returns the local id value by stripping
 // off the model uuid prefix if it is there.
-func (st *State) localID(ID string) string {
+func (st *Passive) localID(ID string) string {
 	modelUUID, localID, ok := splitDocID(ID)
-	if !ok || modelUUID != st.ModelUUID() {
+	if !ok || modelUUID != st.modelUUID {
 		return ID
 	}
 	return localID
@@ -59,9 +89,9 @@ func (st *State) localID(ID string) string {
 //
 // If there is no prefix matching the State's model, an error is
 // returned.
-func (st *State) strictLocalID(ID string) (string, error) {
+func (st *Passive) strictLocalID(ID string) (string, error) {
 	modelUUID, localID, ok := splitDocID(ID)
-	if !ok || modelUUID != st.ModelUUID() {
+	if !ok || modelUUID != st.modelUUID {
 		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
 	return localID, nil
@@ -74,6 +104,44 @@ func (st *State) strictLocalID(ID string) (string, error) {
 // If the collection stores documents for multiple models, the
 // returned collection will automatically perform model
 // filtering where possible. See modelStateCollection below.
-func (st *State) getCollection(name string) (mongo.Collection, func()) {
+func (st *Passive) getCollection(name string) (mongo.Collection, func()) {
 	return st.database.GetCollection(name)
+}
+
+// readTxnRevno is a convenience method delegating to the state's Database.
+func (st *Passive) readTxnRevno(collectionName string, id interface{}) (int64, error) {
+	collection, closer := st.database.GetCollection(collectionName)
+	defer closer()
+	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
+	var result struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}
+	err := query.One(&result)
+	return result.TxnRevno, errors.Trace(err)
+}
+
+// runTransaction is a convenience method delegating to the state's Database.
+func (st *Passive) runTransaction(ops []txn.Op) error {
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
+}
+
+// runRawTransaction is a convenience method that will run a single
+// transaction using a "raw" transaction runner that won't perform
+// model filtering.
+func (st *Passive) runRawTransaction(ops []txn.Op) error {
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	if multiRunner, ok := runner.(*multiModelRunner); ok {
+		runner = multiRunner.rawRunner
+	}
+	return runner.RunTransaction(ops)
+}
+
+// run is a convenience method delegating to the state's Database.
+func (st *Passive) run(transactions jujutxn.TransactionSource) error {
+	runner, closer := st.database.TransactionRunner()
+	defer closer()
+	return runner.Run(transactions)
 }

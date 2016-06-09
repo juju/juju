@@ -105,7 +105,7 @@ func (st *State) Model() (*Model, error) {
 	defer closer()
 
 	model := &Model{st: st}
-	uuid := st.modelTag.Id()
+	uuid := st.ModelUUID()
 	if err := model.refresh(models.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -838,7 +838,7 @@ func (m *Model) assertActiveOp() txn.Op {
 // find a way to guarantee that every Model is associated with the
 // appropriate State. The current work-around is too easy to get wrong.
 func (m *Model) getState() (*State, func(), error) {
-	if m.st.modelTag == m.ModelTag() {
+	if m.st.ModelTag() == m.ModelTag() {
 		return m.st, func() {}, nil
 	}
 	st, err := m.st.ForModel(m.ModelTag())

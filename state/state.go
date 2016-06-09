@@ -72,12 +72,12 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	modelTag      names.ModelTag
+	Passive
+
 	controllerTag names.ModelTag
 	mongoInfo     *mongo.MongoInfo
 	mongoDialOpts mongo.DialOpts
 	session       *mgo.Session
-	database      Database
 	policy        Policy
 
 	// leaseClientId is used by the lease infrastructure to
@@ -127,7 +127,7 @@ type StateServingInfo struct {
 // IsController returns true if this state instance has the bootstrap
 // model UUID.
 func (st *State) IsController() bool {
-	return st.modelTag == st.controllerTag
+	return st.ModelTag() == st.controllerTag
 }
 
 // RemoveAllModelDocs removes all documents from multi-model
@@ -287,7 +287,7 @@ func (st *State) start(controllerTag names.ModelTag) error {
 		&environMongo{st},
 	)
 
-	logger.Infof("started state for %s successfully", st.modelTag)
+	logger.Infof("started state for %s successfully", st.ModelTag())
 	return nil
 }
 
@@ -317,18 +317,6 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 		return nil, errors.Annotatef(err, "cannot create singular lease client")
 	}
 	return client, nil
-}
-
-// ModelTag() returns the model tag for the model controlled by
-// this state instance.
-func (st *State) ModelTag() names.ModelTag {
-	return st.modelTag
-}
-
-// ModelUUID returns the model UUID for the model
-// controlled by this state instance.
-func (st *State) ModelUUID() string {
-	return st.modelTag.Id()
 }
 
 // userModelNameIndex returns a string to be used as a usermodelnameC unique index.

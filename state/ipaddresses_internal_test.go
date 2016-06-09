@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // ipAddressesInternalSuite contains black-box tests for IP addresses'
@@ -28,31 +27,13 @@ func (s *ipAddressesInternalSuite) TestNewIPAddressCreatesAddress(c *gc.C) {
 	c.Assert(result.doc, jc.DeepEquals, ipAddressDoc{})
 }
 
-func (s *ipAddressesInternalSuite) TestDocIDIncludesModelUUID(c *gc.C) {
-	const localDocID = "foo"
-	globalDocID := coretesting.ModelTag.Id() + ":" + localDocID
-
-	result := s.newIPAddressWithDummyState(ipAddressDoc{DocID: localDocID})
-	c.Assert(result.DocID(), gc.Equals, globalDocID)
-
-	result = s.newIPAddressWithDummyState(ipAddressDoc{DocID: globalDocID})
-	c.Assert(result.DocID(), gc.Equals, globalDocID)
-}
-
-func (s *ipAddressesInternalSuite) newIPAddressWithDummyState(doc ipAddressDoc) *Address {
-	// We only need the model UUID set for localID() and docID() to work.
-	// The rest is tested in ipAddressesStateSuite.
-	dummyState := &State{modelTag: coretesting.ModelTag}
-	return newIPAddress(dummyState, doc)
-}
-
 func (s *ipAddressesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *gc.C) {
-	result := s.newIPAddressWithDummyState(ipAddressDoc{})
+	result := newIPAddress(nil, ipAddressDoc{})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(""))
 }
 
 func (s *ipAddressesInternalSuite) TestProviderID(c *gc.C) {
-	result := s.newIPAddressWithDummyState(ipAddressDoc{ProviderID: "foo"})
+	result := newIPAddress(nil, ipAddressDoc{ProviderID: "foo"})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id("foo"))
 }
 
@@ -79,10 +60,10 @@ func (s *ipAddressesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
 		DeviceName: "br-eth1.250",
 		Value:      "fc00:1234::/64",
 	}
-	address := s.newIPAddressWithDummyState(doc)
+	address := newIPAddress(nil, doc)
 	c.Check(address.globalKey(), gc.Equals, "m#99#d#br-eth1.250#ip#fc00:1234::/64")
 
-	address = s.newIPAddressWithDummyState(ipAddressDoc{})
+	address = newIPAddress(nil, ipAddressDoc{})
 	c.Check(address.globalKey(), gc.Equals, "")
 }
 
@@ -93,12 +74,12 @@ func (s *ipAddressesInternalSuite) TestStringIncludesConfigMethodAndValue(c *gc.
 		MachineID:    "42",
 		DeviceName:   "eno1",
 	}
-	result := s.newIPAddressWithDummyState(doc)
+	result := newIPAddress(nil, doc)
 	expectedString := `manual address "0.1.2.3" of device "eno1" on machine "42"`
 
 	c.Assert(result.String(), gc.Equals, expectedString)
 
-	result = s.newIPAddressWithDummyState(ipAddressDoc{})
+	result = newIPAddress(nil, ipAddressDoc{})
 	c.Assert(result.String(), gc.Equals, ` address "" of device "" on machine ""`)
 }
 
@@ -113,7 +94,7 @@ func (s *ipAddressesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C) {
 		DNSSearchDomains: []string{"example.com", "example.org"},
 		GatewayAddress:   "10.20.30.1",
 	}
-	result := s.newIPAddressWithDummyState(doc)
+	result := newIPAddress(nil, doc)
 
 	c.Check(result.DeviceName(), gc.Equals, "eth0")
 	c.Check(result.MachineID(), gc.Equals, "42")

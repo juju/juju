@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // linkLayerDevicesInternalSuite contains black-box tests for link-layer network
@@ -31,38 +30,20 @@ func (s *linkLayerDevicesInternalSuite) TestNewLinkLayerDeviceCreatesLinkLayerDe
 	c.Assert(result.doc, jc.DeepEquals, linkLayerDeviceDoc{})
 }
 
-func (s *linkLayerDevicesInternalSuite) TestDocIDIncludesModelUUID(c *gc.C) {
-	const localDocID = "foo"
-	globalDocID := coretesting.ModelTag.Id() + ":" + localDocID
-
-	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{DocID: localDocID})
-	c.Assert(result.DocID(), gc.Equals, globalDocID)
-
-	result = s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{DocID: globalDocID})
-	c.Assert(result.DocID(), gc.Equals, globalDocID)
-}
-
-func (s *linkLayerDevicesInternalSuite) newLinkLayerDeviceWithDummyState(doc linkLayerDeviceDoc) *LinkLayerDevice {
-	// We only need the model UUID set for localID() and docID() to work.
-	// The rest is tested in linkLayerDevicesStateSuite.
-	dummyState := &State{modelTag: coretesting.ModelTag}
-	return newLinkLayerDevice(dummyState, doc)
-}
-
 func (s *linkLayerDevicesInternalSuite) TestProviderIDIsEmptyWhenNotSet(c *gc.C) {
-	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
+	result := newLinkLayerDevice(nil, linkLayerDeviceDoc{})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(""))
 }
 
 func (s *linkLayerDevicesInternalSuite) TestProviderIDDoesNotIncludeModelUUIDWhenSet(c *gc.C) {
 	const localProviderID = "foo"
-	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{ProviderID: localProviderID})
+	result := newLinkLayerDevice(nil, linkLayerDeviceDoc{ProviderID: localProviderID})
 	c.Assert(result.ProviderID(), gc.Equals, network.Id(localProviderID))
 
 }
 
 func (s *linkLayerDevicesInternalSuite) TestParentDeviceReturnsNoErrorWhenParentNameNotSet(c *gc.C) {
-	result := s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
+	result := newLinkLayerDevice(nil, linkLayerDeviceDoc{})
 	parent, err := result.ParentDevice()
 	c.Check(parent, gc.IsNil)
 	c.Check(err, jc.ErrorIsNil)
@@ -81,10 +62,10 @@ func (s *linkLayerDevicesInternalSuite) TestGlobalKeyMethod(c *gc.C) {
 		MachineID: "42",
 		Name:      "foo",
 	}
-	config := s.newLinkLayerDeviceWithDummyState(doc)
+	config := newLinkLayerDevice(nil, doc)
 	c.Check(config.globalKey(), gc.Equals, "m#42#d#foo")
 
-	config = s.newLinkLayerDeviceWithDummyState(linkLayerDeviceDoc{})
+	config = newLinkLayerDevice(nil, linkLayerDeviceDoc{})
 	c.Check(config.globalKey(), gc.Equals, "")
 }
 
@@ -134,7 +115,7 @@ func (s *linkLayerDevicesInternalSuite) TestStringIncludesTypeNameAndMachineID(c
 		Name:      "foo",
 		Type:      BondDevice,
 	}
-	result := s.newLinkLayerDeviceWithDummyState(doc)
+	result := newLinkLayerDevice(nil, doc)
 	expectedString := `bond device "foo" on machine "42"`
 
 	c.Assert(result.String(), gc.Equals, expectedString)
@@ -151,7 +132,7 @@ func (s *linkLayerDevicesInternalSuite) TestRemainingSimpleGetterMethods(c *gc.C
 		IsUp:        true,
 		ParentName:  "br-bond0",
 	}
-	result := s.newLinkLayerDeviceWithDummyState(doc)
+	result := newLinkLayerDevice(nil, doc)
 
 	c.Check(result.Name(), gc.Equals, "bond0")
 	c.Check(result.MachineID(), gc.Equals, "99")

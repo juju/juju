@@ -210,7 +210,7 @@ func (s *linkLayerDevicesStateSuite) assertMachineSetLinkLayerDevicesSucceedsAnd
 	c.Assert(result, gc.NotNil)
 
 	s.checkSetDeviceMatchesArgs(c, result, args)
-	s.checkSetDeviceMatchesMachineIDAndModelUUID(c, result, s.machine.Id(), modelUUID)
+	c.Check(result.MachineID(), gc.Equals, s.machine.Id())
 	return result
 }
 
@@ -223,12 +223,6 @@ func (s *linkLayerDevicesStateSuite) checkSetDeviceMatchesArgs(c *gc.C, setDevic
 	c.Check(setDevice.IsAutoStart(), gc.Equals, args.IsAutoStart)
 	c.Check(setDevice.IsUp(), gc.Equals, args.IsUp)
 	c.Check(setDevice.ParentName(), gc.Equals, args.ParentName)
-}
-
-func (s *linkLayerDevicesStateSuite) checkSetDeviceMatchesMachineIDAndModelUUID(c *gc.C, setDevice *state.LinkLayerDevice, machineID, modelUUID string) {
-	globalKey := fmt.Sprintf("m#%s#d#%s", machineID, setDevice.Name())
-	c.Check(setDevice.DocID(), gc.Equals, modelUUID+":"+globalKey)
-	c.Check(setDevice.MachineID(), gc.Equals, machineID)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoProviderIDSuccess(c *gc.C) {
@@ -357,12 +351,11 @@ func (s *linkLayerDevicesStateSuite) setMultipleDevicesSucceedsAndCheckAllAdded(
 	c.Assert(err, jc.ErrorIsNil)
 
 	var results []*state.LinkLayerDevice
-	machineID, modelUUID := s.machine.Id(), s.State.ModelUUID()
 	for _, args := range allArgs {
 		device, err := s.machine.LinkLayerDevice(args.Name)
 		c.Check(err, jc.ErrorIsNil)
 		s.checkSetDeviceMatchesArgs(c, device, args)
-		s.checkSetDeviceMatchesMachineIDAndModelUUID(c, device, machineID, modelUUID)
+		c.Check(device.MachineID(), gc.Equals, s.machine.Id())
 		results = append(results, device)
 	}
 	return results
@@ -651,7 +644,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdatesExistingDocs(
 		} else {
 			s.checkSetDeviceMatchesArgs(c, device, updateArgs[1])
 		}
-		s.checkSetDeviceMatchesMachineIDAndModelUUID(c, device, s.machine.Id(), s.State.ModelUUID())
+		c.Check(device.MachineID(), gc.Equals, s.machine.Id())
 	}
 }
 

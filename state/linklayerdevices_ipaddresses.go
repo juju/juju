@@ -100,9 +100,9 @@ func newIPAddress(st *State, doc ipAddressDoc) *Address {
 	return &Address{st: st, doc: doc}
 }
 
-// DocID returns the globally unique ID of the IP address, including the model
+// docID returns the globally unique ID of the IP address, including the model
 // UUID as prefix.
-func (addr *Address) DocID() string {
+func (addr *Address) docID() string {
 	return addr.st.docID(addr.doc.DocID)
 }
 

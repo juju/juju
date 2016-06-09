@@ -100,9 +100,9 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 	return &LinkLayerDevice{st: st, doc: doc}
 }
 
-// DocID returns the globally unique ID of the link-layer device, including the
+// docID returns the globally unique ID of the link-layer device, including the
 // model UUID as prefix.
-func (dev *LinkLayerDevice) DocID() string {
+func (dev *LinkLayerDevice) docID() string {
 	return dev.st.docID(dev.doc.DocID)
 }
 
@@ -221,7 +221,7 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 				return nil, err
 			}
 		}
-		ops, err := removeLinkLayerDeviceOps(dev.st, dev.DocID(), dev.parentDocID())
+		ops, err := removeLinkLayerDeviceOps(dev.st, dev.docID(), dev.parentDocID())
 		if err != nil {
 			return nil, err
 		}

@@ -1060,6 +1060,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	}
 	units[3], err = s3.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(byName(units[3])) // necessary for index shenanigans below
 	c.Assert(sortedUnitNames(units[3]), jc.DeepEquals, []string{"s3/0", "s3/1", "s3/2"})
 
 	assignments := []struct {
@@ -1103,6 +1104,12 @@ func sortedUnitNames(units []*state.Unit) []string {
 	sort.Strings(names)
 	return names
 }
+
+type byName []*state.Unit
+
+func (s byName) Len() int           { return len(s) }
+func (s byName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s byName) Less(i, j int) bool { return s[i].Name() < s[j].Name() }
 
 func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Application, *state.Unit) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)

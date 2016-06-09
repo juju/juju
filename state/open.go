@@ -273,8 +273,9 @@ func isUnauthorized(err error) bool {
 // function correctly.
 func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, dialOpts mongo.DialOpts, policy Policy) (_ *State, resultErr error) {
 	// Set up database.
+	modelUUID := modelTag.Id()
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(rawDB, modelTag.Id())
+	database, err := allCollections().Load(rawDB, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -284,11 +285,13 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 
 	// Create State.
 	return &State{
-		modelTag:      modelTag,
+		Passive: Passive{
+			modelUUID: modelUUID,
+			database:  database,
+		},
 		mongoInfo:     mongoInfo,
 		mongoDialOpts: dialOpts,
 		session:       session,
-		database:      database,
 		policy:        policy,
 	}, nil
 }
