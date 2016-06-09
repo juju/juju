@@ -163,25 +163,20 @@ func (catacomb *Catacomb) Add(w worker.Worker) error {
 // error encountered by the worker; and (2) kill the worker when the
 // catacomb starts dying.
 func (catacomb *Catacomb) add(w worker.Worker) {
-
-	// The coordination via stopped is not reliably observable, and hence not
-	// tested, but it's yucky to leave the second goroutine running when we
-	// don't need to.
-	stopped := make(chan struct{})
-	catacomb.wg.Add(1)
+	// We must wait for _both_ goroutines to exit in
+	// arbitrary order depending on the order of the worker
+	// and the catacomb shutting down.
+	catacomb.wg.Add(2)
 	go func() {
 		defer catacomb.wg.Done()
-		defer close(stopped)
 		if err := w.Wait(); err != nil {
 			catacomb.Kill(err)
 		}
 	}()
 	go func() {
-		select {
-		case <-stopped:
-		case <-catacomb.tomb.Dying():
-			w.Kill()
-		}
+		defer catacomb.wg.Done()
+		<-catacomb.tomb.Dying()
+		worker.Stop(w)
 	}()
 }
 
