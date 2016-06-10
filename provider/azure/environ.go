@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -286,6 +287,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 	env.config = ecfg
+	env.apiPort_ = controller.ControllerConfig(ecfg.AllAttrs()).APIPort()
 
 	// Initialise clients.
 	env.compute = compute.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)

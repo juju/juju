@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider/registry"
@@ -405,7 +404,7 @@ func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *conf
 		return nil, nil, nil, errors.Annotate(err, "could not get model config")
 	}
 
-	env, err := utils.GetEnviron(p.st, environs.New)
+	env, err := environs.GetEnviron(p.st, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "could not get model")
 	}

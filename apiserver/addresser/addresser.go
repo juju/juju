@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -52,7 +51,7 @@ func NewAddresserAPI(
 // getNetworkingEnviron checks if the environment implements NetworkingEnviron
 // and also if it supports IP address allocation.
 func (api *AddresserAPI) getNetworkingEnviron() (environs.NetworkingEnviron, bool, error) {
-	env, err := utils.GetEnviron(api.st, environs.New)
+	env, err := environs.GetEnviron(api.st, environs.New)
 	if err != nil {
 		return nil, false, errors.Annotate(err, "validating model config")
 	}

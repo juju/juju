@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/utils"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
@@ -440,7 +439,7 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 // environs.Networking, an error satisfying errors.IsNotSupported() will be
 // returned.
 func networkingEnviron(api NetworkBacking) (environs.NetworkingEnviron, error) {
-	env, err := utils.GetEnviron(api, environs.New)
+	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
 	}
@@ -513,7 +512,7 @@ func updateZones(api NetworkBacking) ([]providercommon.AvailabilityZone, error) 
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
 func zonedEnviron(api NetworkBacking) (providercommon.ZonedEnviron, error) {
-	env, err := utils.GetEnviron(api, environs.New)
+	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
 	}

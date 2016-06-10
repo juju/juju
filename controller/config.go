@@ -6,15 +6,22 @@ package controller
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/juju/osenv"
 )
+
+var logger = loggo.GetLogger("juju.controller")
 
 const (
 	// ApiPort is the port used for api connections.
@@ -26,6 +33,7 @@ const (
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
 
+	// CAPrivateKey is the key for the controller's CA certificate private key.
 	CAPrivateKey = "ca-private-key"
 
 	// ControllerUUIDKey is the key for the controller UUID attribute.
@@ -146,9 +154,69 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
+// maybeReadAttrFromFile sets defined[attr] to:
+//
+// 1) The content of the file defined[attr+"-path"], if that's set
+// 2) The value of defined[attr] if it is already set.
+// 3) The content of defaultPath if it exists and defined[attr] is unset
+// 4) Preserves the content of defined[attr], otherwise
+//
+// The defined[attr+"-path"] key is always deleted.
+func maybeReadAttrFromFile(c Config, attr, defaultPath string) error {
+	if !osenv.IsJujuXDGDataHomeSet() {
+		logger.Debugf("JUJU_DATA not set, not attempting to read file %q", defaultPath)
+		return nil
+	}
+	pathAttr := attr + "-path"
+	path, _ := c[pathAttr].(string)
+	delete(c, pathAttr)
+	hasPath := path != ""
+	if !hasPath {
+		// No path and attribute is already set; leave it be.
+		if s, _ := c[attr].(string); s != "" {
+			return nil
+		}
+		path = defaultPath
+	}
+	path, err := utils.NormalizePath(path)
+	if err != nil {
+		return err
+	}
+	if !filepath.IsAbs(path) {
+		path = osenv.JujuXDGDataHomePath(path)
+	}
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) && !hasPath {
+			// If the default path isn't found, it's
+			// not an error.
+			return nil
+		}
+		return err
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("file %q is empty", path)
+	}
+	c[attr] = string(data)
+	return nil
+}
+
+// FillInDefaults adds any default config attributes.
+func (c Config) FillInDefaults(name string) error {
+	err := maybeReadAttrFromFile(c, CACertKey, name+"-cert.pem")
+	if err != nil {
+		return err
+	}
+	err = maybeReadAttrFromFile(c, CAPrivateKey, name+"-private-key.pem")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Validate ensures that config is a valid configuration.
-func Validate(cfg Config) error {
-	if v, ok := cfg[IdentityURL].(string); ok {
+func Validate(c Config) error {
+	if v, ok := c[IdentityURL].(string); ok {
 		u, err := url.Parse(v)
 		if err != nil {
 			return fmt.Errorf("invalid identity URL: %v", err)
@@ -159,22 +227,22 @@ func Validate(cfg Config) error {
 
 	}
 
-	if v, ok := cfg[IdentityPublicKey].(string); ok {
+	if v, ok := c[IdentityPublicKey].(string); ok {
 		var key bakery.PublicKey
 		if err := key.UnmarshalText([]byte(v)); err != nil {
 			return fmt.Errorf("invalid identity public key: %v", err)
 		}
 	}
 
-	caCert, caCertOK := cfg.CACert()
-	caKey, caKeyOK := cfg.CAPrivateKey()
+	caCert, caCertOK := c.CACert()
+	caKey, caKeyOK := c.CAPrivateKey()
 	if caCertOK || caKeyOK {
 		if err := verifyKeyPair(caCert, caKey); err != nil {
 			return errors.Annotate(err, "bad CA certificate/key in configuration")
 		}
 	}
 
-	if uuid := cfg.ControllerUUID(); !utils.IsValidUUIDString(uuid) {
+	if uuid := c.ControllerUUID(); !utils.IsValidUUIDString(uuid) {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 

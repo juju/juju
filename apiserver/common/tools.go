@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/state/utils"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -46,7 +45,7 @@ type ToolsStorageGetter interface {
 // facades.
 type ToolsGetter struct {
 	entityFinder       state.EntityFinder
-	configGetter       utils.ConfigGetter
+	configGetter       environs.ControllerConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
@@ -54,7 +53,7 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c utils.ConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
+func NewToolsGetter(f state.EntityFinder, c environs.ControllerConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
 	return &ToolsGetter{f, c, s, t, getCanRead}
 }
 
@@ -192,14 +191,14 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
-	configGetter       utils.ConfigGetter
+	configGetter       environs.ControllerConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c utils.ConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
+func NewToolsFinder(c environs.ControllerConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
 	return &ToolsFinder{c, s, t}
 }
 
@@ -254,7 +253,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	env, err := utils.GetEnviron(f.configGetter, environs.New)
+	env, err := environs.GetEnviron(f.configGetter, environs.New)
 	if err != nil {
 		return nil, err
 	}

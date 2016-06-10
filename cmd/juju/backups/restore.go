@@ -145,13 +145,12 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
 
 	// We may have previous controller metadata. We need to update that so it
 	// will contain the new CA Cert and UUID required to connect to the newly
 	// bootstrapped controller API.
 	details := jujuclient.ControllerDetails{
-		ControllerUUID: controllerCfg.ControllerUUID(),
+		ControllerUUID: cfg.ControllerUUID(),
 		CACert:         meta.CACert,
 	}
 	err = store.UpdateController(controllerName, details)

@@ -185,9 +185,8 @@ func prepare(
 	delete(details.Config, controller.ControllerUUIDKey)
 	delete(details.Config, config.UUIDKey)
 
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
 	details.CACert = caCert
-	details.ControllerUUID = controllerCfg.ControllerUUID()
+	details.ControllerUUID = cfg.ControllerUUID()
 	details.User = AdminUser
 	details.Password = adminSecret
 	details.ModelUUID = cfg.UUID()

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/tools"
 )
 
@@ -101,8 +100,8 @@ func controllerValues(config controller.Config) map[string]interface{} {
 	return result
 }
 
-func updateConfigFromProvider(model description.Model, getter utils.ConfigGetter, controllerConfig *config.Config) error {
-	provider, err := utils.GetEnviron(getter, environs.New)
+func updateConfigFromProvider(model description.Model, getter environs.ControllerConfigGetter, controllerConfig *config.Config) error {
+	provider, err := environs.GetEnviron(getter, environs.New)
 	if err != nil {
 		return errors.Trace(err)
 	}

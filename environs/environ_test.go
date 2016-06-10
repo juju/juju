@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils_test
+package environs_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/utils"
 )
 
 type environSuite struct {
@@ -19,7 +18,7 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
-	env, err := utils.GetEnviron(s.State, environs.New)
+	env, err := environs.GetEnviron(s.State, environs.New)
 	c.Assert(err, jc.ErrorIsNil)
 	config, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)

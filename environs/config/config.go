@@ -5,9 +5,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -393,15 +391,7 @@ func (c *Config) fillInDefaults() error {
 	if name == "" {
 		return fmt.Errorf("empty name in model configuration")
 	}
-	err := maybeReadAttrFromFile(c.defined, controller.CACertKey, name+"-cert.pem")
-	if err != nil {
-		return err
-	}
-	err = maybeReadAttrFromFile(c.defined, "ca-private-key", name+"-private-key.pem")
-	if err != nil {
-		return err
-	}
-	return nil
+	return controller.Config(c.defined).FillInDefaults(name)
 }
 
 func (c *Config) fillInStringDefault(attr string) {
@@ -545,53 +535,6 @@ func isEmpty(val interface{}) bool {
 		return len(val) == 0
 	}
 	panic(fmt.Errorf("unexpected type %T in configuration", val))
-}
-
-// maybeReadAttrFromFile sets defined[attr] to:
-//
-// 1) The content of the file defined[attr+"-path"], if that's set
-// 2) The value of defined[attr] if it is already set.
-// 3) The content of defaultPath if it exists and defined[attr] is unset
-// 4) Preserves the content of defined[attr], otherwise
-//
-// The defined[attr+"-path"] key is always deleted.
-func maybeReadAttrFromFile(defined map[string]interface{}, attr, defaultPath string) error {
-	if !osenv.IsJujuXDGDataHomeSet() {
-		logger.Debugf("JUJU_DATA not set, not attempting to read file %q", defaultPath)
-		return nil
-	}
-	pathAttr := attr + "-path"
-	path, _ := defined[pathAttr].(string)
-	delete(defined, pathAttr)
-	hasPath := path != ""
-	if !hasPath {
-		// No path and attribute is already set; leave it be.
-		if s, _ := defined[attr].(string); s != "" {
-			return nil
-		}
-		path = defaultPath
-	}
-	path, err := utils.NormalizePath(path)
-	if err != nil {
-		return err
-	}
-	if !filepath.IsAbs(path) {
-		path = osenv.JujuXDGDataHomePath(path)
-	}
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) && !hasPath {
-			// If the default path isn't found, it's
-			// not an error.
-			return nil
-		}
-		return err
-	}
-	if len(data) == 0 {
-		return fmt.Errorf("file %q is empty", path)
-	}
-	defined[attr] = string(data)
-	return nil
 }
 
 // asString is a private helper method to keep the ugly string casting
@@ -782,6 +725,7 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 
 // AdminSecret returns the administrator password.
 // It's empty if the password has not been set.
+// TODO(wallyworld) - remove this, it is a bootstrap parameter only
 func (c *Config) AdminSecret() string {
 	if s, ok := c.defined[AdminSecretKey]; ok && s != "" {
 		return s.(string)

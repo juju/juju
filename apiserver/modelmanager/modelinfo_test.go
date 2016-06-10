@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -195,7 +195,7 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 type mockState struct {
 	gitjujutesting.Stub
 
-	utils.ConfigGetter
+	environs.ControllerConfigGetter
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
 

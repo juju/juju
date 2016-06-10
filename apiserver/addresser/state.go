@@ -4,10 +4,10 @@
 package addresser
 
 import (
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 )
 
 // StateIPAddress defines the needed methods of state.IPAddress
@@ -28,7 +28,7 @@ type StateIPAddress interface {
 // StateInterface defines the needed methods of state.State
 // for the work of the Addresser API.
 type StateInterface interface {
-	utils.ConfigGetter
+	environs.ControllerConfigGetter
 
 	// DeadIPAddresses retrieves all dead IP addresses.
 	DeadIPAddresses() ([]StateIPAddress, error)

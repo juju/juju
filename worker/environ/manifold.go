@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -17,7 +16,7 @@ import (
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
 	APICallerName  string
-	NewEnvironFunc utils.NewEnvironFunc
+	NewEnvironFunc environs.NewEnvironFunc
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as

@@ -1,29 +1,28 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package environs
 
 import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
 
-// ConfigGetter exposes a controller and model configuration to its clients.
-type ConfigGetter interface {
-	ModelConfig() (*config.Config, error)
+// ControllerConfigGetter exposes a controller and model configuration to its clients.
+type ControllerConfigGetter interface {
 	ControllerConfig() (controller.Config, error)
+	ModelConfig() (*config.Config, error)
 }
 
 // NewEnvironFunc is the type of a function that, given a model config,
 // returns an Environ. This will typically be environs.New.
-type NewEnvironFunc func(*config.Config) (environs.Environ, error)
+type NewEnvironFunc func(*config.Config) (Environ, error)
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
-func GetEnviron(st ConfigGetter, newEnviron NewEnvironFunc) (environs.Environ, error) {
+func GetEnviron(st ControllerConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
 	envcfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -34,7 +33,10 @@ func GetEnviron(st ConfigGetter, newEnviron NewEnvironFunc) (environs.Environ, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	envcfg, err = envcfg.Apply(controllerCfg)
+	envcfg, err = envcfg.Apply(map[string]interface{}{
+		controller.ApiPort:           controllerCfg.APIPort(),
+		controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

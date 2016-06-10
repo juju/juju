@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 )
 
 // BackingSubnet defines the methods supported by a Subnet entity
@@ -367,7 +366,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 // environs.NetworkingEnviron using the given configGetter. Returns an error
 // satisfying errors.IsNotSupported() if the model config does not support
 // networking features.
-func NetworkingEnvironFromModelConfig(configGetter utils.ConfigGetter) (environs.NetworkingEnviron, error) {
+func NetworkingEnvironFromModelConfig(configGetter environs.ControllerConfigGetter) (environs.NetworkingEnviron, error) {
 	modelConfig, err := configGetter.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
@@ -375,7 +374,7 @@ func NetworkingEnvironFromModelConfig(configGetter utils.ConfigGetter) (environs
 	if modelConfig.Type() == "dummy" {
 		return nil, errors.NotSupportedf("dummy provider network config")
 	}
-	env, err := utils.GetEnviron(configGetter, environs.New)
+	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}

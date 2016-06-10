@@ -741,11 +741,11 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
 	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
-		return errors.New("model configuration has no ca-cert")
+		return errors.New("controller configuration has no ca-cert")
 	}
 	caPrivateKey, hasCAPrivateKey := controllerCfg.CAPrivateKey()
 	if !hasCAPrivateKey {
-		return errors.New("model configuration has no ca-private-key")
+		return errors.New("controller configuration has no ca-private-key")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {

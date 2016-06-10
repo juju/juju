@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -27,9 +26,14 @@ var (
 	findTools = tools.FindTools
 )
 
+type stateInterface interface {
+	ModelGetter
+	environs.ControllerConfigGetter
+}
+
 // AgentToolsAPI implements the API used by the machine model worker.
 type AgentToolsAPI struct {
-	st         EnvironGetter
+	st         stateInterface
 	authorizer common.Authorizer
 	// tools lookup
 	findTools        toolsFinder
@@ -46,9 +50,8 @@ func NewAgentToolsAPI(st *state.State, resources *common.Resources, authorizer c
 	}, nil
 }
 
-// EnvironGetter represents a struct that can provide a state.Environment.
-type EnvironGetter interface {
-	utils.ConfigGetter
+// ModelGetter represents a struct that can provide a state.Model.
+type ModelGetter interface {
 	Model() (*state.Model, error)
 }
 
@@ -57,13 +60,13 @@ type envVersionUpdater func(*state.Model, version.Number) error
 
 var newEnvirons = environs.New
 
-func checkToolsAvailability(getter EnvironGetter, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
+func checkToolsAvailability(getter environs.ControllerConfigGetter, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
 	currentVersion, ok := modelCfg.AgentVersion()
 	if !ok || currentVersion == version.Zero {
 		return version.Zero, nil
 	}
 
-	env, err := utils.GetEnviron(getter, newEnvirons)
+	env, err := environs.GetEnviron(getter, newEnvirons)
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "cannot make model")
 	}
@@ -95,7 +98,7 @@ func envVersionUpdate(env *state.Model, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver)
 }
 
-func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVersionUpdater) error {
+func updateToolsAvailability(st stateInterface, finder toolsFinder, update envVersionUpdater) error {
 	model, err := st.Model()
 	if err != nil {
 		return errors.Annotate(err, "cannot get model")

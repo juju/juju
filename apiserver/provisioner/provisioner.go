@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
 )
@@ -257,7 +256,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	}
 
 	// Create an environment to verify networking support.
-	env, err := utils.GetEnviron(p.st, environs.New)
+	env, err := environs.GetEnviron(p.st, environs.New)
 	if err != nil {
 		return result, err
 	}

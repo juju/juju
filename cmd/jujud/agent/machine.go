@@ -59,7 +59,6 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	stateutils "github.com/juju/juju/state/utils"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -659,7 +658,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
-		env, err := stateutils.GetEnviron(apiagent.NewState(apiConn), newEnvirons)
+		env, err := environs.GetEnviron(apiagent.NewState(apiConn), newEnvirons)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting environ")
 		}

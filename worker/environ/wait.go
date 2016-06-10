@@ -8,7 +8,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/watcher"
 )
 
@@ -33,8 +32,8 @@ var ErrWaitAborted = errors.New("environ wait aborted")
 // whether this func succeeds or fails.
 func WaitForEnviron(
 	w watcher.NotifyWatcher,
-	getter utils.ConfigGetter,
-	newEnviron utils.NewEnvironFunc,
+	getter environs.ControllerConfigGetter,
+	newEnviron environs.NewEnvironFunc,
 	abort <-chan struct{},
 ) (environs.Environ, error) {
 	for {
@@ -45,7 +44,7 @@ func WaitForEnviron(
 			if !ok {
 				return nil, errors.New("environ config watch closed")
 			}
-			environ, err := utils.GetEnviron(getter, newEnviron)
+			environ, err := environs.GetEnviron(getter, newEnviron)
 			if err == nil {
 				return environ, nil
 			}
