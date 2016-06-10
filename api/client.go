@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -358,10 +359,15 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 
 // UploadCharm sends the content to the API server using an HTTP post.
 func (c *Client) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
-	endpoint := "/charms?series=" + curl.Series
+	args := url.Values{}
+	args.Add("series", curl.Series)
+	args.Add("schema", curl.Schema)
+	args.Add("revision", strconv.Itoa(curl.Revision))
+	apiURI := url.URL{Path: "/charms", RawQuery: args.Encode()}
+
 	contentType := "application/zip"
 	var resp params.CharmsResponse
-	if err := c.httpPost(content, endpoint, contentType, &resp); err != nil {
+	if err := c.httpPost(content, apiURI.String(), contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 

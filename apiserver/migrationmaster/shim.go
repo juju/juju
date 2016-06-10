@@ -5,7 +5,6 @@ package migrationmaster
 
 import (
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
 
@@ -16,5 +15,5 @@ func newAPIForRegistration(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
-	return NewAPI(st, resources, authorizer, migration.ExportModel)
+	return NewAPI(st, resources, authorizer)
 }

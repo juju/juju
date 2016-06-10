@@ -5,7 +5,9 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
@@ -43,21 +45,24 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var apiCaller base.APICaller
-	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+	var apiConn api.Connection
+	if err := context.Get(config.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var guard fortress.Guard
 	if err := context.Get(config.FortressName, &guard); err != nil {
 		return nil, errors.Trace(err)
 	}
-	facade, err := config.NewFacade(apiCaller)
+	facade, err := config.NewFacade(apiConn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		Facade: facade,
-		Guard:  guard,
+		Facade:          facade,
+		Guard:           guard,
+		APIOpen:         api.Open,
+		UploadBinaries:  migration.UploadBinaries,
+		CharmDownloader: apiConn.Client(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -46,9 +46,24 @@ type SetMigrationPhaseArgs struct {
 	Phase string `json:"phase"`
 }
 
-// SerializedModel wraps a buffer contain a serialised Juju model.
+// SerializedModel wraps a buffer contain a serialised Juju model. It
+// also contains lists of the charms and tools used in the model.
 type SerializedModel struct {
-	Bytes []byte `json:"bytes"`
+	Bytes  []byte                 `json:"bytes"`
+	Charms []string               `json:"charms"`
+	Tools  []SerializedModelTools `json:"tools"`
+}
+
+// SerializedModelTools holds the version and URI for a given tools
+// version.
+type SerializedModelTools struct {
+	Version string `json:"version"`
+
+	// URI holds the URI were a client can download the tools
+	// (e.g. "/tools/1.2.3-xenial-amd64"). It will need to prefixed
+	// with the API server scheme, address and model prefix before it
+	// can be used.
+	URI string `json:"uri"`
 }
 
 // ModelArgs wraps a simple model tag.

@@ -51,7 +51,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := s.client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST https://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(err, gc.ErrorMatches, `POST https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
 
@@ -76,5 +76,5 @@ func (s *clientMacaroonSuite) TestAddLocalCharmUnauthorized(c *gc.C) {
 	)
 	// Upload an archive with its original revision.
 	_, err := s.client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST https://.*/model/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: invalid entity name or password`)
+	c.Assert(err, gc.ErrorMatches, `POST https://.+: invalid entity name or password`)
 }

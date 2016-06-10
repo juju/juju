@@ -5,6 +5,8 @@ package migrationmaster_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/migration"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/testing"
@@ -35,10 +37,31 @@ func (*ValidateSuite) TestMissingFacade(c *gc.C) {
 	checkNotValid(c, config, "nil Facade not valid")
 }
 
+func (*ValidateSuite) TestMissingAPIOpen(c *gc.C) {
+	config := validConfig()
+	config.APIOpen = nil
+	checkNotValid(c, config, "nil APIOpen not valid")
+}
+
+func (*ValidateSuite) TestMissingUploadBinaries(c *gc.C) {
+	config := validConfig()
+	config.UploadBinaries = nil
+	checkNotValid(c, config, "nil UploadBinaries not valid")
+}
+
+func (*ValidateSuite) TestMissingCharmDownloader(c *gc.C) {
+	config := validConfig()
+	config.CharmDownloader = nil
+	checkNotValid(c, config, "nil CharmDownloader not valid")
+}
+
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
-		Guard:  struct{ fortress.Guard }{},
-		Facade: struct{ migrationmaster.Facade }{},
+		Guard:           struct{ fortress.Guard }{},
+		Facade:          struct{ migrationmaster.Facade }{},
+		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		UploadBinaries:  func(migration.UploadBinariesConfig) error { return nil },
+		CharmDownloader: struct{ migration.CharmDownloader }{},
 	}
 }
 
