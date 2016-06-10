@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
@@ -359,6 +360,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListControllersCommand())
 	r.Register(controller.NewListBlocksCommand())
 	r.Register(controller.NewRegisterCommand())
+	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewShowControllerCommand())
 

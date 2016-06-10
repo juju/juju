@@ -488,6 +488,7 @@ var commandNames = []string{
 	"unexpose",
 	"update-allocation",
 	"upload-backup",
+	"unregister",
 	"unset-model-config",
 	"update-clouds",
 	"upgrade-charm",
