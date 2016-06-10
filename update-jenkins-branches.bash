@@ -15,7 +15,7 @@ SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
     cloud-health-slave.vapour.ws certification-slave.vapour.ws \
     charm-bundle-slave.vapour.ws osx-slave.vapour.ws \
-    s390x-slave.vapour.ws"
+    s390x-slave.vapour.ws feature-slave.vapour.ws release-slave.vapour.ws"
 WIN_SLAVES="win-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
