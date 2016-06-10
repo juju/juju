@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -118,8 +117,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 
 	modelCfg := env.Config()
-	controllerCfg := controller.ControllerConfig(modelCfg.AllAttrs())
-	instanceConfig.Tags = instancecfg.InstanceTags(modelCfg.UUID(), controllerCfg.ControllerUUID(), modelCfg, instanceConfig.Jobs)
+	instanceConfig.Tags = instancecfg.InstanceTags(modelCfg.UUID(), modelCfg.ControllerUUID(), modelCfg, instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
