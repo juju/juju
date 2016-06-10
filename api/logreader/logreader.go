@@ -1,85 +1,83 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package logreader implements the API for
-// retrieving log messages from the API server.
 package logreader
 
 import (
-	"fmt"
-	"net/url"
-	"time"
+	"io"
 
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/version"
 )
 
-// API provides access to the LogsReader API.
-type API struct {
-	connector base.StreamConnector
+// JSONReadCloser provides the functionality to send JSON-serialized
+// values over a streaming connection.
+type JSONReadCloser interface {
+	io.Closer
+
+	// ReadJSON decodes the next JDON value from the connection and
+	// sets the value at the provided pointer to that newly decoded one.
+	ReadJSON(interface{}) error
 }
 
-// NewAPI creates a new client-side logsender client.
-func NewAPI(api base.APICaller) *API {
-	return &API{
-		connector: api,
-	}
-}
-
-// LogsReader supports reading log messages transmitted by the server.
-// The caller is responsible for closing the reader.
-func (api *API) LogsReader(start time.Time) (*LogsReader, error) {
-	attrs := url.Values{
-		"format": []string{"json"},
-		"all":    []string{"true"},
-	}
-	if !start.IsZero() {
-		attrs.Set("start", fmt.Sprint(start.Unix()))
-	}
-
-	conn, err := api.connector.ConnectStream("/log", attrs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot connect to /log")
-	}
-	return newLogsReader(conn), nil
-}
-
-type LogsReader struct {
+// LogRecordReader is a worker that provides log records it gets over
+// a streaming connection. After getting each record, it converts them
+// from params.LogRecord to logfwd.Record. These are then available
+// through the reader's channel.
+type LogRecordReader struct {
 	tomb tomb.Tomb
 
-	conn base.Stream
+	conn JSONReadCloser
 	out  chan logfwd.Record
 }
 
-func newLogsReader(conn base.Stream) *LogsReader {
+// OpenLogRecordReader opens a stream to the API's /log endpoint and
+// returns a reader that wraps that stream.
+func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig) (*LogRecordReader, error) {
+	cfg.Format = params.StreamFormatJSON
+	stream, err := common.OpenStream(conn, cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	lrr := NewLogRecordReader(stream)
+	return lrr, nil
+}
+
+// NewLogRecordReader starts a new reader and returns it. The provided
+// connection is the one from which the reader will stream log records.
+//
+// Note that the caller is responsible for stopping the reader, e.g. by
+// passing it to worker.Kill().
+func NewLogRecordReader(conn JSONReadCloser) *LogRecordReader {
 	out := make(chan logfwd.Record)
-	w := &LogsReader{
+	lrr := &LogRecordReader{
 		conn: conn,
 		out:  out,
 	}
 	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		defer w.conn.Close()
-		w.tomb.Kill(w.loop())
+		defer lrr.tomb.Done()
+		defer close(lrr.out)
+		defer lrr.conn.Close()
+		lrr.tomb.Kill(lrr.loop())
 	}()
-	return w
+	return lrr
 }
 
-// ReadLogs returns a channel that can be used to receive log records.
-func (r *LogsReader) ReadLogs() <-chan logfwd.Record {
-	return r.out
+// Channel returns a channel that can be used to receive log records.
+func (lrr *LogRecordReader) Channel() <-chan logfwd.Record {
+	return lrr.out
 }
 
-func (r *LogsReader) loop() error {
+func (lrr *LogRecordReader) loop() error {
 	for {
 		var apiRecord params.LogRecord
-		err := r.conn.ReadJSON(&apiRecord)
+		err := lrr.conn.ReadJSON(&apiRecord)
 		if err != nil {
 			return err
 		}
@@ -90,21 +88,21 @@ func (r *LogsReader) loop() error {
 		}
 
 		select {
-		case <-r.tomb.Dying():
+		case <-lrr.tomb.Dying():
 			return tomb.ErrDying
-		case r.out <- record:
+		case lrr.out <- record:
 		}
 	}
 }
 
 // Kill implements Worker.Kill()
-func (r *LogsReader) Kill() {
-	r.tomb.Kill(nil)
+func (lrr *LogRecordReader) Kill() {
+	lrr.tomb.Kill(nil)
 }
 
 // Wait implements Worker.Wait()
-func (r *LogsReader) Wait() error {
-	return r.tomb.Wait()
+func (lrr *LogRecordReader) Wait() error {
+	return lrr.tomb.Wait()
 }
 
 func api2record(apiRec params.LogRecord) (logfwd.Record, error) {

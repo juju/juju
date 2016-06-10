@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type LogsReaderSuite struct {
+type LogRecordReaderSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&LogsReaderSuite{})
+var _ = gc.Suite(&LogRecordReaderSuite{})
 
-func (s *LogsReaderSuite) TestLogReader(c *gc.C) {
+func (s *LogRecordReaderSuite) TestLogRecordReader(c *gc.C) {
 	ts := time.Now()
 	apiRec := params.LogRecord{
 		ControllerUUID: "9f484882-2f18-4fd2-967d-db9663db7bea",
@@ -44,16 +44,15 @@ func (s *LogsReaderSuite) TestLogReader(c *gc.C) {
 	stream.ReturnReadJSON = apiRec
 	conn := &mockConnector{stub: stub}
 	conn.ReturnConnectStream = stream
-	a := logreader.NewAPI(conn)
-	r, err := a.LogsReader(time.Time{})
+	var cfg params.LogStreamConfig
+	r, err := logreader.OpenLogRecordReader(conn, cfg)
 	c.Assert(err, gc.IsNil)
 
-	channel := r.ReadLogs()
+	channel := r.Channel()
 	c.Assert(channel, gc.NotNil)
 
 	stub.CheckCall(c, 0, "ConnectStream", `/log`, url.Values{
 		"format": []string{"json"},
-		"all":    []string{"true"},
 	})
 	select {
 	case logRecord := <-channel:
@@ -82,32 +81,31 @@ func (s *LogsReaderSuite) TestLogReader(c *gc.C) {
 	stub.CheckCallNames(c, "ConnectStream", "ReadJSON", "ReadJSON", "Close")
 }
 
-func (s *LogsReaderSuite) TestNewAPIReadLogError(c *gc.C) {
+func (s *LogRecordReaderSuite) TestNewAPIReadLogError(c *gc.C) {
 	stub := &testing.Stub{}
 	conn := &mockConnector{stub: stub}
 	failure := errors.New("foo")
 	stub.SetErrors(failure)
-	a := logreader.NewAPI(conn)
+	var cfg params.LogStreamConfig
 
-	_, err := a.LogsReader(time.Time{})
+	_, err := logreader.OpenLogRecordReader(conn, cfg)
 
 	stub.CheckCallNames(c, "ConnectStream")
 	c.Check(err, gc.ErrorMatches, "cannot connect to /log: foo")
 }
 
-func (s *LogsReaderSuite) TestNewAPIWriteError(c *gc.C) {
+func (s *LogRecordReaderSuite) TestNewAPIWriteError(c *gc.C) {
 	stub := &testing.Stub{}
 	stream := mockStream{stub: stub}
 	conn := &mockConnector{stub: stub}
 	conn.ReturnConnectStream = stream
 	failure := errors.New("an error")
 	stub.SetErrors(nil, failure)
-	a := logreader.NewAPI(conn)
-
-	r, err := a.LogsReader(time.Time{})
+	var cfg params.LogStreamConfig
+	r, err := logreader.OpenLogRecordReader(conn, cfg)
 	c.Assert(err, gc.IsNil)
 
-	channel := r.ReadLogs()
+	channel := r.Channel()
 	c.Assert(channel, gc.NotNil)
 
 	select {

@@ -4,11 +4,11 @@
 package logreader_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *stdtesting.T) {
+func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
