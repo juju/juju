@@ -103,8 +103,6 @@ func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*co
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"region":   args.CloudRegion,
 		"endpoint": args.CloudEndpoint,
-		// TODO (anastasiamac 2016-06-09) at some stage, may need to
-		// add storage endpoint.
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
