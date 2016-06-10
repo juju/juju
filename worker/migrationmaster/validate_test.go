@@ -55,6 +55,12 @@ func (*ValidateSuite) TestMissingCharmDownloader(c *gc.C) {
 	checkNotValid(c, config, "nil CharmDownloader not valid")
 }
 
+func (*ValidateSuite) TestMissingToolsDownloader(c *gc.C) {
+	config := validConfig()
+	config.ToolsDownloader = nil
+	checkNotValid(c, config, "nil ToolsDownloader not valid")
+}
+
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
 		Guard:           struct{ fortress.Guard }{},
@@ -62,6 +68,7 @@ func validConfig() migrationmaster.Config {
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		UploadBinaries:  func(migration.UploadBinariesConfig) error { return nil },
 		CharmDownloader: struct{ migration.CharmDownloader }{},
+		ToolsDownloader: struct{ migration.ToolsDownloader }{},
 	}
 }
 
