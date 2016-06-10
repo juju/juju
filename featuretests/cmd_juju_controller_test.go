@@ -167,6 +167,7 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 		ModelUUID:       modelDetails.ModelUUID,
 		BootstrapConfig: noBootstrapConfig,
 		DialOpts:        api.DefaultDialOpts(),
+		OpenAPI:         api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	api.Close()

@@ -59,6 +59,7 @@ func (e Error) GoString() string {
 const (
 	CodeNotFound                  = "not found"
 	CodeUnauthorized              = "unauthorized access"
+	CodeLoginExpired              = "login expired"
 	CodeCannotEnterScope          = "cannot enter scope"
 	CodeCannotEnterScopeYet       = "cannot enter scope yet"
 	CodeExcessiveContention       = "excessive contention"
@@ -111,6 +112,10 @@ func IsCodeNotFound(err error) bool {
 
 func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
+}
+
+func IsCodeLoginExpired(err error) bool {
+	return ErrCode(err) == CodeLoginExpired
 }
 
 // IsCodeNotFoundOrCodeUnauthorized is used in API clients which,

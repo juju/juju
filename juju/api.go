@@ -39,8 +39,6 @@ type apiStateCachedInfo struct {
 
 var errAborted = fmt.Errorf("aborted")
 
-var defaultAPIOpen = api.Open
-
 // NewAPIConnectionParams contains the parameters for creating a new Juju API
 // connection.
 type NewAPIConnectionParams struct {
@@ -50,6 +48,9 @@ type NewAPIConnectionParams struct {
 	// Store is the jujuclient.ClientStore from which the controller's
 	// details will be fetched, and updated on address changes.
 	Store jujuclient.ClientStore
+
+	// OpenAPI is the function that will be used to open API connections.
+	OpenAPI api.OpenFunc
 
 	// DialOpts contains the options used to dial the API connection.
 	DialOpts api.DialOpts
@@ -73,16 +74,6 @@ type NewAPIConnectionParams struct {
 // with specified account credentials, optionally scoped to the specified model
 // name.
 func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
-	st, err := newAPIFromStore(args, defaultAPIOpen)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
-}
-
-// newAPIFromStore implements the bulk of NewAPIConnection but is separate for
-// testing purposes.
-func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Connection, error) {
 
 	controllerDetails, err := args.Store.ControllerByName(args.ControllerName)
 	if err != nil {
@@ -107,20 +98,29 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 		if errorImportance(err0) < errorImportance(err1) {
 			err0, err1 = err1, err0
 		}
-		logger.Errorf("discarding API open error: %v", err1)
+		logger.Debugf("discarding API open error: %v", err1)
 		return err0
 	}
 	try := parallel.NewTry(0, chooseError)
 
 	var delay time.Duration
+	abortAPIConfigConnect := make(chan struct{})
 	if len(controllerDetails.APIEndpoints) > 0 {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			return apiInfoConnect(
+			closer, err := apiInfoConnect(
 				controllerDetails,
 				args.AccountDetails,
-				args.ModelUUID, apiOpen,
+				args.ModelUUID, args.OpenAPI,
 				stop, args.DialOpts,
 			)
+			if err != nil && isAPIError(err) {
+				// It's an API error rather than a
+				// connection error, so trying to
+				// connect with bootstrap config is
+				// not going to help.
+				close(abortAPIConfigConnect)
+			}
+			return closer, err
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
@@ -138,8 +138,9 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			cfg, err := apiConfigConnect(
 				cfg, args.AccountDetails,
-				args.ModelUUID, apiOpen,
-				stop, delay, args.DialOpts,
+				args.ModelUUID, args.OpenAPI,
+				stop, abortAPIConfigConnect, delay,
+				args.DialOpts,
 			)
 			if err != nil && errors.Cause(err) != errAborted {
 				// Errors are swallowed by parallel.Try, so we
@@ -176,6 +177,17 @@ func newAPIFromStore(args NewAPIConnectionParams, apiOpen api.OpenFunc) (api.Con
 	return st, nil
 }
 
+func isAPIError(err error) bool {
+	if ierr, ok := err.(*infoConnectError); ok {
+		err = ierr.error
+	}
+	type errorCoder interface {
+		ErrorCode() string
+	}
+	_, ok := errors.Cause(err).(errorCoder)
+	return ok
+}
+
 func errorImportance(err error) int {
 	if err == nil {
 		return 0
@@ -184,14 +196,19 @@ func errorImportance(err error) int {
 		// An error from an actual connection attempt
 		// is more interesting than the fact that there's
 		// no environment info available.
-		return 2
+		return 3
+	}
+	if err == errAborted {
+		// A request to abort is less important than any other
+		// error.
+		return 1
 	}
 	if _, ok := err.(*infoConnectError); ok {
 		// A connection to a potentially stale cached address
 		// is less important than a connection from fresh info.
-		return 1
+		return 2
 	}
-	return 3
+	return 4
 }
 
 type infoConnectError struct {
@@ -216,9 +233,7 @@ func apiInfoConnect(
 	}
 	st, err := commonConnect(apiOpen, apiInfo, account, modelUUID, dialOpts)
 	if err != nil {
-		return nil, &infoConnectError{errors.Annotate(
-			err, "connecting with cached addresses",
-		)}
+		return nil, &infoConnectError{errors.Trace(err)}
 	}
 	return st, nil
 }
@@ -234,6 +249,7 @@ func apiConfigConnect(
 	modelUUID string,
 	apiOpen api.OpenFunc,
 	stop <-chan struct{},
+	abort <-chan struct{},
 	delay time.Duration,
 	dialOpts api.DialOpts,
 ) (api.Connection, error) {
@@ -241,6 +257,8 @@ func apiConfigConnect(
 	case <-time.After(delay):
 		// TODO(fwereade): 2016-03-17 lp:1558657
 	case <-stop:
+		return nil, errAborted
+	case <-abort:
 		return nil, errAborted
 	}
 	environ, err := environs.New(cfg)

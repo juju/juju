@@ -167,6 +167,35 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	// no check for checker function, can't compare functions
 }
 
+func (s *userAuthenticatorSuite) TestMacaroonUserLoginExpired(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bobbrown",
+	})
+	clock := coretesting.NewClock(time.Now())
+
+	m := &macaroon.Macaroon{}
+	err := m.AddFirstPartyCaveat(
+		checkers.TimeBeforeCaveat(clock.Now().Add(-time.Second)).Condition,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	macaroons := []macaroon.Slice{{m}}
+	service := mockBakeryService{}
+	service.SetErrors(errors.New("auth failed"))
+
+	// User login
+	authenticator := &authentication.UserAuthenticator{
+		Service: &service,
+		Clock:   clock,
+	}
+	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+		Credentials: "",
+		Nonce:       "",
+		Macaroons:   macaroons,
+	})
+	c.Assert(err, gc.Equals, common.ErrLoginExpired)
+}
+
 func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := coretesting.NewClock(time.Time{})

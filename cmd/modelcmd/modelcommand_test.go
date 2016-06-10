@@ -248,7 +248,7 @@ func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
 
 	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "connecting with cached addresses: cannot get discharge.*")
+	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*")
 }
 
 func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
@@ -258,5 +258,5 @@ func (s *macaroonLoginSuite) TestsUnknownUserLogin(c *gc.C) {
 
 	cmd := modelcmd.NewModelCommandBase(s.store, s.controllerName, s.accountName, s.modelName)
 	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "connecting with cached addresses: invalid entity name or password \\(unauthorized access\\)")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
 }
