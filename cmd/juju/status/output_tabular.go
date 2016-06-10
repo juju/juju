@@ -79,7 +79,7 @@ func (r *relationFormatter) get(k string) *statusRelation {
 func printHelper(tw *tabwriter.Writer) func(...interface{}) {
 	return func(values ...interface{}) {
 		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
+			fmt.Fprintf(tw, "%v\t", v)
 		}
 		fmt.Fprintln(tw)
 	}
@@ -120,21 +120,28 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
-	outputHeaders("APP", "STATUS", "EXPOSED", "CHARM")
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
-		svc := fs.Applications[svcName]
-		for un, u := range svc.Units {
+	outputHeaders("APP", "STATUS", "EXPOSED", "ORIGIN", "CHARM", "REV", "OS")
+	for _, appName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+		app := fs.Applications[appName]
+		p(appName,
+			app.StatusInfo.Current,
+			fmt.Sprintf("%t", app.Exposed),
+			app.CharmOrigin,
+			app.CharmName,
+			app.CharmRev,
+			app.OS)
+
+		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
 				metering = true
 			}
 		}
 
-		subs := set.NewStrings(svc.SubordinateTo...)
-		p(svcName, svc.StatusInfo.Current, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
-		for relType, relatedUnits := range svc.Relations {
+		subs := set.NewStrings(app.SubordinateTo...)
+		for relType, relatedUnits := range app.Relations {
 			for _, related := range relatedUnits {
-				relations.add(related, svcName, relType, subs.Contains(related))
+				relations.add(related, appName, relType, subs.Contains(related))
 			}
 		}
 
