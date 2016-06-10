@@ -56,9 +56,9 @@ func (*suite) TestBootstrapConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := cfg.AllAttrs()
-	expect["admin-secret"] = ""
-	expect["ca-private-key"] = ""
-	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
+	delete(expect, "ca-private-key")
+	delete(expect, "admin-secret")
+	c.Assert(cfg1.AllAttrs(), jc.DeepEquals, expect)
 }
 
 type dummyProvider struct {

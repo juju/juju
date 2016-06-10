@@ -77,7 +77,7 @@ func (st *State) Addresses() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.ModelConfig()
+	config, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +93,7 @@ func (st *State) APIAddressesFromMachines() ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := st.ModelConfig()
+	config, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

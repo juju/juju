@@ -18,6 +18,7 @@ import (
 func FilesystemParams(
 	f state.Filesystem,
 	storageInstance state.StorageInstance,
+	modelUUID, controllerUUID string,
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 ) (params.FilesystemParams, error) {
@@ -36,7 +37,7 @@ func FilesystemParams(
 		size = filesystemInfo.Size
 	}
 
-	filesystemTags, err := storageTags(storageInstance, environConfig)
+	filesystemTags, err := storageTags(storageInstance, modelUUID, controllerUUID, environConfig)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}

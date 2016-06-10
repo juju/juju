@@ -285,11 +285,11 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
-	environConfig, err := f.state.ModelConfig()
+	modelConfig, err := f.state.ModelConfig()
 	if err != nil {
 		return err
 	}
-	ctx.proxySettings = environConfig.ProxySettings()
+	ctx.proxySettings = modelConfig.ProxySettings()
 
 	// Calling these last, because there's a potential race: they're not guaranteed
 	// to be set in time to be needed for a hook. If they're not, we just leave them

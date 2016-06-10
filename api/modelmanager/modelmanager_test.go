@@ -34,20 +34,10 @@ func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	result, err := modelManager.ConfigSkeleton("", "")
 	c.Assert(err, jc.ErrorIsNil)
-
-	// The apiPort changes every test run as the dummy provider
-	// looks for a random open port.
-	apiPort := s.Environ.Config().APIPort()
-
-	// Numbers coming over the api are floats, not ints.
 	c.Assert(result, jc.DeepEquals, params.ModelConfig{
 		"type":            "dummy",
 		"controller-uuid": coretesting.ModelTag.Id(),
-		"ca-cert":         coretesting.CACert,
-		"state-port":      float64(1234),
-		"api-port":        float64(apiPort),
 	})
-
 }
 
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {

@@ -138,7 +138,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 
-	envCfg, err := p.st.ModelConfig()
+	modelCfg, err := p.st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
@@ -156,7 +156,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		retryWatcher,
 		p.broker,
 		auth,
-		envCfg.ImageStream(),
+		modelCfg.ImageStream(),
 		secureServerConnection,
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)

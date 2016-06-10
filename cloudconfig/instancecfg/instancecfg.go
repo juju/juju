@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
@@ -737,9 +738,14 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
-	caCert, hasCACert := cfg.CACert()
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
 		return errors.New("model configuration has no ca-cert")
+	}
+	caPrivateKey, hasCAPrivateKey := controllerCfg.CAPrivateKey()
+	if !hasCAPrivateKey {
+		return errors.New("model configuration has no ca-private-key")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {
@@ -758,17 +764,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	// Initially, generate a controller certificate with no host IP
 	// addresses in the SAN field. Once the controller is up and the
 	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := cfg.GenerateControllerCertAndKey(nil)
+	cert, key, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
-	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
-	if !hasCAPrivateKey {
-		return errors.New("model configuration has no ca-private-key")
-	}
 	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
-		StatePort:    cfg.StatePort(),
-		APIPort:      cfg.APIPort(),
+		StatePort:    controllerCfg.StatePort(),
+		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
 		CAPrivateKey: caPrivateKey,
@@ -782,11 +784,11 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
-func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
+func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
 	instanceTags := tags.ResourceTags(
-		names.NewModelTag(cfg.UUID()),
-		names.NewModelTag(cfg.ControllerUUID()),
-		cfg,
+		names.NewModelTag(modelUUID),
+		names.NewModelTag(controllerUUID),
+		tagger,
 	)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuIsController] = "true"

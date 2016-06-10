@@ -23,6 +23,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	stateutils "github.com/juju/juju/state/utils"
 	"github.com/juju/juju/tools"
 )
 
@@ -119,11 +120,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 // in simplestreams and GETting it, caching the result in tools storage before returning
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarystorage.Storage, st *state.State) (io.ReadCloser, error) {
-	envcfg, err := st.ModelConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(envcfg)
+	env, err := stateutils.GetEnviron(st, environs.New)
 	if err != nil {
 		return nil, err
 	}

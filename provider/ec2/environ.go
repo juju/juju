@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -62,6 +63,9 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name string
+
+	// apiPort is the API port of the host controller
+	apiPort_ int
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
@@ -120,10 +124,17 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
+	e.apiPort_ = controller.ControllerConfig(ecfg.AllAttrs()).APIPort()
 	e.ec2Unlocked = ec2Client
 	e.s3Unlocked = s3Client
 
 	return nil
+}
+
+func (e *environ) apiPort() int {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	return e.apiPort_
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -486,8 +497,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
-	cfg := e.Config()
-	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, e.apiPort())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -594,6 +604,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
+		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
 			names.NewModelTag(cfg.ControllerUUID()),

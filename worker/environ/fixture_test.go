@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
@@ -57,6 +58,20 @@ func (context *runContext) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return config.New(config.NoDefaults, context.config)
+}
+
+// ControllerConfig is part of the environ.ConfigObserver interface.
+func (context *runContext) ControllerConfig() (controller.Config, error) {
+	context.mu.Lock()
+	defer context.mu.Unlock()
+	context.stub.AddCall("ControllerConfig")
+	if err := context.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		controller.CACertKey:    coretesting.CACert,
+		controller.CAPrivateKey: coretesting.CAKey,
+	}, nil
 }
 
 // KillNotify kills the watcher returned from WatchForModelConfigChanges with

@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/environs/config"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -90,9 +90,11 @@ func (s *CertUpdaterSuite) StateServingInfo() (params.StateServingInfo, bool) {
 
 type mockConfigGetter struct{}
 
-func (g *mockConfigGetter) ModelConfig() (*config.Config, error) {
-	return config.New(config.NoDefaults, coretesting.FakeConfig())
-
+func (g *mockConfigGetter) ControllerConfig() (jujucontroller.Config, error) {
+	return map[string]interface{}{
+		jujucontroller.CACertKey:    coretesting.CACert,
+		jujucontroller.CAPrivateKey: coretesting.CAKey,
+	}, nil
 }
 
 type mockAPIHostGetter struct{}

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -201,6 +202,9 @@ type Environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name string
+
+	// apiPort is the API port of the host controller
+	apiPort_ int
 
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
@@ -703,6 +707,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
+	e.apiPort_ = controller.ControllerConfig(ecfg.AllAttrs()).APIPort()
 
 	client, err := authClient(ecfg)
 	if err != nil {
@@ -711,6 +716,12 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	e.client = client
 	e.novaUnlocked = nova.New(e.client)
 	return nil
+}
+
+func (e *Environ) apiPort() int {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	return e.apiPort_
 }
 
 func identityClientVersion(authURL string) (int, error) {
@@ -963,9 +974,8 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	cfg := e.Config()
 	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
+	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, e.apiPort())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}

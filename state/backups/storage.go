@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	jujutxn "github.com/juju/txn"
@@ -539,6 +540,9 @@ type DB interface {
 
 	// ModelConfig is the config of the model being backedup.
 	ModelConfig() (*config.Config, error)
+
+	// ControllerConfig is the config of the controller being backedup.
+	ControllerConfig() (controller.Config, error)
 
 	// StateServingInfo is the secrets of the controller.
 	StateServingInfo() (state.StateServingInfo, error)

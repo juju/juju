@@ -212,12 +212,20 @@ type ConfigSettingsResults struct {
 	Results []ConfigSettingsResult
 }
 
-// ModelConfig holds an model configuration.
+// ModelConfig holds a model configuration.
 type ModelConfig map[string]interface{}
 
-// ModelConfigResult holds model configuration or an error.
+// ControllerConfig holds a controller configuration.
+type ControllerConfig map[string]interface{}
+
+// ModelConfigResult holds model configuration.
 type ModelConfigResult struct {
 	Config ModelConfig
+}
+
+// ControllerConfigResult holds controller configuration.
+type ControllerConfigResult struct {
+	Config ControllerConfig
 }
 
 // RelationUnit holds a relation and a unit tag.

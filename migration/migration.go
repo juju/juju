@@ -16,12 +16,14 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/tools"
 )
 
@@ -59,19 +61,23 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 		return nil, nil, errors.Trace(err)
 	}
 
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	model.UpdateConfig(controllerValues(controllerConfig))
+
 	controllerModel, err := st.ControllerModel()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	controllerConfig, err := controllerModel.Config()
+	controllerModelConfig, err := controllerModel.Config()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	model.UpdateConfig(controllerValues(controllerConfig))
-
-	if err := updateConfigFromProvider(model, controllerConfig); err != nil {
+	if err := updateConfigFromProvider(model, st, controllerModelConfig); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -82,7 +88,7 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 	return dbModel, dbState, nil
 }
 
-func controllerValues(config *config.Config) map[string]interface{} {
+func controllerValues(config controller.Config) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	result["state-port"] = config.StatePort()
@@ -95,13 +101,8 @@ func controllerValues(config *config.Config) map[string]interface{} {
 	return result
 }
 
-func updateConfigFromProvider(model description.Model, controllerConfig *config.Config) error {
-	newConfig, err := config.New(config.NoDefaults, model.Config())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	provider, err := environs.New(newConfig)
+func updateConfigFromProvider(model description.Model, getter utils.ConfigGetter, controllerConfig *config.Config) error {
+	provider, err := utils.GetEnviron(getter, environs.New)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -243,11 +244,18 @@ func apiConfigConnect(
 	case <-stop:
 		return nil, errAborted
 	}
+	controllerCfg := controller.Config(cfg.AllAttrs())
+	caCert, hasCert := controllerCfg.CACert()
+	if !hasCert {
+		return nil, errors.New("config has no CACert")
+	}
+	apiPort := controllerCfg.APIPort()
+
 	environ, err := environs.New(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing environ")
 	}
-	apiInfo, err := environs.APIInfo(environ)
+	apiInfo, err := environs.APIInfo(cfg.UUID(), caCert, apiPort, environ)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API info")
 	}

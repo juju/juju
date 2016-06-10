@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/utils"
 )
 
@@ -23,7 +22,7 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) TestAvailabilityZone(c *gc.C) {
 	env := fakeZonedEnv{Environ: s.Environ}
 	env.instZones = []string{"a_zone"}
-	s.PatchValue(utils.PatchedGetEnvironment, func(st *state.State) (environs.Environ, error) {
+	s.PatchValue(utils.PatchedGetEnvironment, func(utils.ConfigGetter, utils.NewEnvironFunc) (environs.Environ, error) {
 		return &env, nil
 	})
 

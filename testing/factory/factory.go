@@ -579,6 +579,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	// as the initial model, or things will break elsewhere.
 	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	controllerCfg, err := factory.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -586,8 +588,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"name":       params.Name,
 		"uuid":       uuid.String(),
 		"type":       currentCfg.Type(),
-		"state-port": currentCfg.StatePort(),
-		"api-port":   currentCfg.APIPort(),
+		"state-port": controllerCfg.StatePort(),
+		"api-port":   controllerCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
 		CloudRegion: "some-region",

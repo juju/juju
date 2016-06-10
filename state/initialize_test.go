@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
@@ -212,7 +213,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		config.AdminSecretKey,
 		config.AgentVersionKey,
 	}
-	for _, attr := range config.ControllerOnlyConfigAttributes {
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
 		badAttrNames = append(badAttrNames, attr)
 	}
 	good := testing.ModelConfig(c)

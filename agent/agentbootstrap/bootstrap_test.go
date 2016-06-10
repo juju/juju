@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -168,6 +169,18 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
+	// Check controller config
+	controllerCfg, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
+		"controller-uuid": testing.ModelTag.Id(),
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  testing.CAKey,
+		"state-port":      1234,
+		// Dummy provider uses a random port, which is added to cfg used to create environment.
+		"api-port": controller.Config(modelCfg.AllAttrs()).APIPort(),
+	})
+
 	// Check that controller model configuration has been added, and
 	// model constraints set.
 	newModelCfg, err := st.ModelConfig()
@@ -175,7 +188,15 @@ LXC_BRIDGE="ignored"`[1:])
 	// Add in the cloud attributes.
 	expectedAttrs := modelCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
-	c.Assert(newModelCfg.AllAttrs(), gc.DeepEquals, expectedAttrs)
+	// Remove controller attributes
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
+		if attr == controller.ControllerUUIDKey {
+			continue
+		}
+		delete(expectedAttrs, attr)
+	}
+	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
+
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)

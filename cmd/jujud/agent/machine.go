@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	stateutils "github.com/juju/juju/state/utils"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -645,11 +646,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	modelConfig, err := apiagent.NewState(apiConn).ModelConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read model config: %v", err)
-	}
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -663,7 +659,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
-		env, err := newEnvirons(modelConfig)
+		env, err := stateutils.GetEnviron(apiagent.NewState(apiConn), newEnvirons)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting environ")
 		}

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -144,12 +145,13 @@ func (c *restoreCommand) getEnviron(controllerName string, meta *params.BackupsM
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
 
 	// We may have previous controller metadata. We need to update that so it
 	// will contain the new CA Cert and UUID required to connect to the newly
 	// bootstrapped controller API.
 	details := jujuclient.ControllerDetails{
-		ControllerUUID: cfg.ControllerUUID(),
+		ControllerUUID: controllerCfg.ControllerUUID(),
 		CACert:         meta.CACert,
 	}
 	err = store.UpdateController(controllerName, details)
@@ -239,7 +241,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), env)
+	controllerCfg := controller.ControllerConfig(env.Config().AllAttrs())
+	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), controllerCfg.APIPort(), env)
 	if err != nil {
 		return errors.Trace(err)
 	}

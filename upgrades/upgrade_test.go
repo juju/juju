@@ -669,16 +669,14 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		// TODO(axw) change to 2.0 when we update version
-		"1.26.0",
+		"1.26-placeholder1",
 	})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		// TODO(axw) change to 2.0 when we update version
-		"1.26.0",
+		"1.26-placeholder1",
 	})
 }
 
@@ -687,7 +685,7 @@ func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
 	for _, utv := range ops {
 		vers := utv.TargetVersion()
 		// Upgrade steps should only be targeted at final versions (not alpha/beta).
-		c.Check(vers.Tag, gc.Equals, "")
+		c.Check(vers.Tag, gc.Equals, "placeholder")
 		versions = append(versions, vers.String())
 	}
 	return versions

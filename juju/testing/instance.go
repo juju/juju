@@ -172,7 +172,8 @@ func StartInstanceWithParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	instanceConfig.Tags = instancecfg.InstanceTags(env.Config(), nil)
+	cfg := env.Config()
+	instanceConfig.Tags = instancecfg.InstanceTags(cfg.UUID(), cfg.ControllerUUID(), cfg, nil)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)

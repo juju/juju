@@ -1201,7 +1201,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			env, err := st.Model()
+			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "model is added if it's in backing but not in Store",
@@ -1211,38 +1211,38 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:  env.UUID(),
-						Name:       env.Name(),
+						ModelUUID:  model.UUID(),
+						Name:       model.Name(),
 						Life:       multiwatcher.Life("alive"),
-						Owner:      env.Owner().Id(),
-						ServerUUID: env.ControllerUUID(),
+						Owner:      model.Owner().Id(),
+						ServerUUID: model.ControllerUUID(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			env, err := st.Model()
+			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:  env.UUID(),
+						ModelUUID:  model.UUID(),
 						Name:       "",
 						Life:       multiwatcher.Life("alive"),
-						Owner:      env.Owner().Id(),
-						ServerUUID: env.ControllerUUID(),
+						Owner:      model.Owner().Id(),
+						ServerUUID: model.ControllerUUID(),
 					},
 				},
 				change: watcher.Change{
 					C:  "models",
-					Id: env.UUID(),
+					Id: model.UUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:  env.UUID(),
-						Name:       env.Name(),
+						ModelUUID:  model.UUID(),
+						Name:       model.Name(),
 						Life:       multiwatcher.Life("alive"),
-						Owner:      env.Owner().Id(),
-						ServerUUID: env.ControllerUUID(),
+						Owner:      model.Owner().Id(),
+						ServerUUID: model.ControllerUUID(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {

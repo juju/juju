@@ -148,16 +148,9 @@ func (s *modelManagerSuite) TestConfigSkeleton(c *gc.C) {
 	skeleton, err := s.modelmanager.ConfigSkeleton(params.ModelSkeletonConfigArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The apiPort changes every test run as the dummy provider
-	// looks for a random open port.
-	apiPort := s.Environ.Config().APIPort()
-
 	c.Assert(skeleton.Config, jc.DeepEquals, params.ModelConfig{
 		"type":            "dummy",
 		"controller-uuid": coretesting.ModelTag.Id(),
-		"ca-cert":         coretesting.CACert,
-		"state-port":      1234,
-		"api-port":        apiPort,
 	})
 }
 
@@ -188,19 +181,6 @@ func (s *modelManagerSuite) TestCreateModelBadConfig(c *gc.C) {
 			key:      "type",
 			value:    "fake",
 			errMatch: `failed to create config: specified type "fake" does not match controller "dummy"`,
-		}, {
-			key:      "ca-cert",
-			value:    coretesting.OtherCACert,
-			errMatch: `failed to create config: (?s)specified ca-cert ".*" does not match controller ".*"`,
-		}, {
-			key:      "state-port",
-			value:    9876,
-			errMatch: `failed to create config: specified state-port "9876" does not match controller "1234"`,
-		}, {
-			// The api-port is dynamic, but always in user-space, so > 1024.
-			key:      "api-port",
-			value:    123,
-			errMatch: `failed to create config: specified api-port "123" does not match controller ".*"`,
 		},
 	} {
 		c.Logf("%d: %s", i, test.key)

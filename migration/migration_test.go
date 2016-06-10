@@ -20,8 +20,10 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
@@ -81,11 +83,8 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
 	// and name so we can import it nicely.
 	model.UpdateConfig(map[string]interface{}{
-		"name":       "new-model",
-		"uuid":       utils.MustNewUUID().String(),
-		"state-port": 12345,
-		"api-port":   54321,
-		"ca-cert":    "not really a cert",
+		"name": "new-model",
+		"uuid": utils.MustNewUUID().String(),
 	})
 
 	bytes, err := description.Serialize(model)
@@ -98,11 +97,6 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	dbConfig, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := dbConfig.AllAttrs()
-	c.Assert(attrs["state-port"], gc.Equals, controllerConfig.StatePort())
-	c.Assert(attrs["api-port"], gc.Equals, controllerConfig.APIPort())
-	cacert, ok := controllerConfig.CACert()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(attrs["ca-cert"], gc.Equals, cacert)
 	c.Assert(attrs["controller-uuid"], gc.Equals, controllerConfig.UUID())
 }
 
@@ -341,18 +335,36 @@ type InternalSuite struct {
 var _ = gc.Suite(&InternalSuite{})
 
 func (s *InternalSuite) TestControllerValues(c *gc.C) {
-	config := testing.ModelConfig(c)
+	config := controller.ControllerConfig(testing.FakeConfig())
 	fields := migration.ControllerValues(config)
 	c.Assert(fields, jc.DeepEquals, map[string]interface{}{
-		"controller-uuid": config.UUID(),
+		"controller-uuid": config.ControllerUUID(),
 		"state-port":      19034,
 		"api-port":        17777,
 		"ca-cert":         testing.CACert,
 	})
 }
 
+type stateGetter struct {
+	cfg *config.Config
+}
+
+func (e *stateGetter) Model() (*state.Model, error) {
+	return &state.Model{}, nil
+}
+
+func (s *stateGetter) ModelConfig() (*config.Config, error) {
+	return s.cfg, nil
+}
+
+func (s *stateGetter) ControllerConfig() (controller.Config, error) {
+	return controller.Config{}, nil
+}
+
 func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {
-	controllerConfig := testing.ModelConfig(c)
+	controllerModelConfig := testing.CustomModelConfig(c, testing.Attrs{
+		"type": "dummy",
+	})
 	configAttrs := testing.FakeConfig()
 	configAttrs["type"] = "dummy"
 	// Fake the "state-id" so the provider thinks it is prepared already.
@@ -366,11 +378,11 @@ func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {
 		Config: configAttrs,
 	})
 
-	err := migration.UpdateConfigFromProvider(model, controllerConfig)
+	err := migration.UpdateConfigFromProvider(model, &stateGetter{controllerModelConfig}, controllerModelConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelConfig := model.Config()
-	c.Assert(modelConfig["controller-uuid"], gc.Equals, controllerConfig.UUID())
+	c.Assert(modelConfig["controller-uuid"], gc.Equals, controllerModelConfig.UUID())
 }
 
 type CharmInternalSuite struct {

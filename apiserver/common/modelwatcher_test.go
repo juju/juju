@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -37,6 +38,14 @@ type fakeModelAccessor struct {
 
 func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
+}
+
+func (*fakeModelAccessor) ControllerConfig() (controller.Config, error) {
+	return map[string]interface{}{
+		controller.ControllerUUIDKey: testing.ModelTag.Id(),
+		controller.CACertKey:         testing.CACert,
+		controller.CAPrivateKey:      testing.CAKey,
+	}, nil
 }
 
 func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {

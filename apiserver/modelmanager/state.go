@@ -9,12 +9,13 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/status"
 )
 
 type Backend interface {
+	utils.ConfigGetter
 	common.APIHostPortsGetter
-	common.ModelConfigGetter
 	common.ToolsStorageGetter
 
 	ModelUUID() string

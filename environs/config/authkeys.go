@@ -5,7 +5,6 @@ package config
 
 import (
 	"bytes"
-	"crypto/tls"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,8 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/ssh"
-
-	"github.com/juju/juju/cert"
 )
 
 const (
@@ -77,18 +74,6 @@ func ReadAuthorizedKeys(path string) (string, error) {
 		return "", firstError
 	}
 	return string(keyData), nil
-}
-
-// verifyKeyPair verifies that the certificate and key parse correctly.
-// The key is optional - if it is provided, we also check that the key
-// matches the certificate.
-func verifyKeyPair(certb, key string) error {
-	if key != "" {
-		_, err := tls.X509KeyPair([]byte(certb), []byte(key))
-		return err
-	}
-	_, err := cert.ParseCert(certb)
-	return err
 }
 
 // ConcatAuthKeys concatenates the two sets of authorised keys, interposing

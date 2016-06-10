@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -24,19 +25,16 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Callers still expect ModelConfig to contain all of the controller
-	// settings attributes.
-	attrs := controllerSettings.Map()
+	attrs := defaultModelSettings.Map()
 
-	// Merge in the cloud settings.
-	for k, v := range defaultModelSettings.Map() {
-		attrs[k] = v
-	}
-
-	// Finally, any model specific settings are added.
+	// Merge in model specific settings are added.
 	for k, v := range modelSettings.Map() {
 		attrs[k] = v
 	}
+
+	// We also need to add controller UUID.
+	attrs[controller.ControllerUUIDKey] = controllerSettings.Map()[controller.ControllerUUIDKey]
+
 	return config.New(config.NoDefaults, attrs)
 }
 
@@ -59,7 +57,7 @@ func checkCloudConfig(attrs map[string]interface{}) error {
 	if _, ok := attrs[config.AgentVersionKey]; ok {
 		return errors.Errorf("cloud config cannot contain agent-version")
 	}
-	for _, attrName := range config.ControllerOnlyConfigAttributes {
+	for _, attrName := range controller.ControllerOnlyConfigAttributes {
 		if _, ok := attrs[attrName]; ok {
 			return errors.Errorf("cloud config cannot contain controller attribute %q", attrName)
 		}

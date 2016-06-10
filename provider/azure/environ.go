@@ -57,6 +57,9 @@ type azureEnviron struct {
 	// envName is the name of the environment.
 	envName string
 
+	// apiPort is the API port of the host controller
+	apiPort_ int
+
 	mu            sync.Mutex
 	config        *azureModelConfig
 	instanceTypes map[string]instances.InstanceType
@@ -263,6 +266,12 @@ func (env *azureEnviron) Config() *config.Config {
 	return env.config.Config
 }
 
+func (env *azureEnviron) apiPort() int {
+	env.mu.Lock()
+	defer env.mu.Unlock()
+	return env.apiPort_
+}
+
 // SetConfig is specified in the Environ interface.
 func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	env.mu.Lock()
@@ -407,7 +416,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		names.NewModelTag(env.config.Config.ControllerUUID()),
 		env.config,
 	)
-	apiPort := env.config.APIPort()
+	apiPort := env.apiPort()
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	availabilitySetClient := compute.AvailabilitySetsClient{env.compute}
 	networkClient := env.network

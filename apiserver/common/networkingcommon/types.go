@@ -16,11 +16,13 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/utils"
 )
 
 // BackingSubnet defines the methods supported by a Subnet entity
@@ -116,6 +118,9 @@ type BackingSpace interface {
 type NetworkBacking interface {
 	// ModelConfig returns the current environment config.
 	ModelConfig() (*config.Config, error)
+
+	// ControllerConfig returns the current controller config.
+	ControllerConfig() (controller.Config, error)
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
@@ -358,16 +363,11 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 	return devicesArgs, devicesAddrs
 }
 
-// ModelConfigGetter is used to get the current model configuration.
-type ModelConfigGetter interface {
-	ModelConfig() (*config.Config, error)
-}
-
 // NetworkingEnvironFromModelConfig constructs and returns
 // environs.NetworkingEnviron using the given configGetter. Returns an error
 // satisfying errors.IsNotSupported() if the model config does not support
 // networking features.
-func NetworkingEnvironFromModelConfig(configGetter ModelConfigGetter) (environs.NetworkingEnviron, error) {
+func NetworkingEnvironFromModelConfig(configGetter utils.ConfigGetter) (environs.NetworkingEnviron, error) {
 	modelConfig, err := configGetter.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
@@ -375,11 +375,11 @@ func NetworkingEnvironFromModelConfig(configGetter ModelConfigGetter) (environs.
 	if modelConfig.Type() == "dummy" {
 		return nil, errors.NotSupportedf("dummy provider network config")
 	}
-	model, err := environs.New(modelConfig)
+	env, err := utils.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}
-	netEnviron, supported := environs.SupportsNetworking(model)
+	netEnviron, supported := environs.SupportsNetworking(env)
 	if !supported {
 		// " not supported" will be appended to the message below.
 		return nil, errors.NotSupportedf("model %q networking", modelConfig.Name())

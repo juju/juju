@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/addresser"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -90,6 +91,15 @@ func (mst *mockState) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return mst.config, nil
+}
+
+// ControllerConfig implements StateInterface.
+func (*mockState) ControllerConfig() (controller.Config, error) {
+	return map[string]interface{}{
+		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
+		controller.CACertKey:         coretesting.CACert,
+		controller.CAPrivateKey:      coretesting.CAKey,
+	}, nil
 }
 
 // setConfig updates the environ config stored internally. Triggers a

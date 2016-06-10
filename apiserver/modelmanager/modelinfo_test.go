@@ -17,8 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/utils"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -81,7 +83,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:           "testenv",
 		UUID:           s.st.model.cfg.UUID(),
-		ControllerUUID: s.st.model.cfg.UUID(),
+		ControllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OwnerTag:       "user-bob@local",
 		ProviderType:   "someprovider",
 		CloudRegion:    "some-region",
@@ -112,6 +114,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"ModelUUID", nil},
 		{"ForModel", []interface{}{names.NewModelTag(s.st.model.cfg.UUID())}},
 		{"Model", nil},
+		{"ControllerConfig", nil},
 		{"Close", nil},
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
@@ -192,8 +195,8 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 type mockState struct {
 	gitjujutesting.Stub
 
+	utils.ConfigGetter
 	common.APIHostPortsGetter
-	common.ModelConfigGetter
 	common.ToolsStorageGetter
 
 	uuid  string
@@ -235,6 +238,15 @@ func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) 
 func (st *mockState) Model() (modelmanager.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
+}
+
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	st.MethodCall(st, "ControllerConfig")
+	return map[string]interface{}{
+		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
+		controller.CACertKey:         coretesting.CACert,
+		controller.CAPrivateKey:      coretesting.CAKey,
+	}, st.NextErr()
 }
 
 func (st *mockState) Close() error {

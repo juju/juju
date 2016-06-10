@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -693,25 +694,25 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	envConfig, err := s.State.ModelConfig()
+	cfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.0:%d", envConfig.StatePort()),
-		fmt.Sprintf("10.0.0.2:%d", envConfig.StatePort()),
-		fmt.Sprintf("10.0.0.3:%d", envConfig.StatePort()),
+		fmt.Sprintf("10.0.0.0:%d", cfg.StatePort()),
+		fmt.Sprintf("10.0.0.2:%d", cfg.StatePort()),
+		fmt.Sprintf("10.0.0.3:%d", cfg.StatePort()),
 	})
 
 	addrs, err = s.State.APIAddressesFromMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 3)
 	c.Assert(addrs, jc.SameContents, []string{
-		fmt.Sprintf("10.0.0.0:%d", envConfig.APIPort()),
-		fmt.Sprintf("10.0.0.2:%d", envConfig.APIPort()),
-		fmt.Sprintf("10.0.0.3:%d", envConfig.APIPort()),
+		fmt.Sprintf("10.0.0.0:%d", cfg.APIPort()),
+		fmt.Sprintf("10.0.0.2:%d", cfg.APIPort()),
+		fmt.Sprintf("10.0.0.3:%d", cfg.APIPort()),
 	})
 }
 
@@ -3195,7 +3196,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	for _, attr := range config.ControllerOnlyConfigAttributes {
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
 		delete(attrs, attr)
 	}
 	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)

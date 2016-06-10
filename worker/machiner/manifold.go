@@ -42,12 +42,12 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	//
 	// (With their own facades.)
 	agentFacade := apiagent.NewState(apiCaller)
-	envConfig, err := agentFacade.ModelConfig()
+	modelConfig, err := agentFacade.ModelConfig()
 	if err != nil {
 		return nil, errors.Errorf("cannot read environment config: %v", err)
 	}
 
-	ignoreMachineAddresses, _ := envConfig.IgnoreMachineAddresses()
+	ignoreMachineAddresses, _ := modelConfig.IgnoreMachineAddresses()
 	// Containers only have machine addresses, so we can't ignore them.
 	tag := currentConfig.Tag()
 	if names.IsContainerMachine(tag.Id()) {

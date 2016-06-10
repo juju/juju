@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/utils"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -47,6 +48,7 @@ func NewAgentToolsAPI(st *state.State, resources *common.Resources, authorizer c
 
 // EnvironGetter represents a struct that can provide a state.Environment.
 type EnvironGetter interface {
+	utils.ConfigGetter
 	Model() (*state.Model, error)
 }
 
@@ -55,13 +57,13 @@ type envVersionUpdater func(*state.Model, version.Number) error
 
 var newEnvirons = environs.New
 
-func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Number, error) {
-	currentVersion, ok := cfg.AgentVersion()
+func checkToolsAvailability(getter EnvironGetter, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
+	currentVersion, ok := modelCfg.AgentVersion()
 	if !ok || currentVersion == version.Zero {
 		return version.Zero, nil
 	}
 
-	env, err := newEnvirons(cfg)
+	env, err := utils.GetEnviron(getter, newEnvirons)
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "cannot make model")
 	}
@@ -71,7 +73,7 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 	// We'll try the released stream first, then fall back to the current configured stream
 	// if no released tools are found.
 	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, tools.ReleasedStream, coretools.Filter{})
-	preferredStream := tools.PreferredStream(&currentVersion, cfg.Development(), cfg.AgentStream())
+	preferredStream := tools.PreferredStream(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())
 	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
 		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
 	}
@@ -84,7 +86,7 @@ func checkToolsAvailability(cfg *config.Config, finder toolsFinder) (version.Num
 	return newest, nil
 }
 
-var envConfig = func(e *state.Model) (*config.Config, error) {
+var modelConfig = func(e *state.Model) (*config.Config, error) {
 	return e.Config()
 }
 
@@ -94,15 +96,15 @@ func envVersionUpdate(env *state.Model, ver version.Number) error {
 }
 
 func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVersionUpdater) error {
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return errors.Annotate(err, "cannot get model")
 	}
-	cfg, err := envConfig(env)
+	cfg, err := modelConfig(model)
 	if err != nil {
 		return errors.Annotate(err, "cannot get config")
 	}
-	ver, err := checkToolsAvailability(cfg, finder)
+	ver, err := checkToolsAvailability(st, cfg, finder)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// No newer tools, so exit silently.
@@ -114,7 +116,7 @@ func updateToolsAvailability(st EnvironGetter, finder toolsFinder, update envVer
 		logger.Debugf("tools lookup returned version Zero, this should only happen during bootstrap.")
 		return nil
 	}
-	return update(env, ver)
+	return update(model, ver)
 }
 
 // UpdateToolsAvailable invokes a lookup and further update in environ

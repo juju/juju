@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -80,6 +81,7 @@ func (c ModelConfigCreator) NewModelConfig(
 			}
 		}
 	}
+	attrs[controller.ControllerUUIDKey] = baseAttrs[controller.ControllerUUIDKey]
 
 	// Generate a new UUID for the model as necessary,
 	// and finalize the new config.
@@ -95,7 +97,13 @@ func (c ModelConfigCreator) NewModelConfig(
 		return nil, errors.Trace(err)
 	}
 	attrs = cfg.AllAttrs()
-
+	// Strip out all controller values except uuid before checking validity.
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
+		if attr == controller.ControllerUUIDKey {
+			continue
+		}
+		delete(attrs, attr)
+	}
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
@@ -174,7 +182,6 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	var fields []string
-	fields = append(fields, config.ControllerOnlyConfigAttributes...)
 	// For now, all models in a controller must be of the same type.
 	fields = append(fields, config.TypeKey)
 	fields = append(fields, provider.RestrictedConfigAttributes()...)

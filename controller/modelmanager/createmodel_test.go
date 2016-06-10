@@ -181,10 +181,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelBadConfig(c *gc.C) {
 		value:    "dummy",
 		errMatch: `specified type "dummy" does not match controller "fake"`,
 	}, {
-		key:      "state-port",
-		value:    9876,
-		errMatch: `specified state-port "9876" does not match controller "19034"`,
-	}, {
 		key:      "restricted",
 		value:    51,
 		errMatch: `specified restricted "51" does not match controller "area51"`,
@@ -285,35 +281,35 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 	}{{
 		provider: "azure",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
+			"type",
 			"location", "endpoint", "storage-endpoint",
 		},
 	}, {
 		provider: "dummy",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
+			"type",
 		},
 	}, {
 		provider: "joyent",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key", "sdc-url",
+			"type", "sdc-url",
 		},
 	}, {
 		provider: "maas",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
+			"type",
 			"maas-server",
 		},
 	}, {
 		provider: "openstack",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
+			"type",
 			"region", "auth-url", "auth-mode",
 		},
 	}, {
 		provider: "ec2",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "identity-url", "identity-public-key",
+			"type",
 			"region", "vpc-id-force",
 		},
 	}} {

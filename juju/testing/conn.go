@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -145,7 +146,8 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	apiInfo, err := environs.APIInfo(s.Environ)
+	controllerCfg := controller.ControllerConfig(s.Environ.Config().AllAttrs())
+	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
@@ -301,7 +303,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo, err := environs.APIInfo(environ)
+	controllerCfg := controller.ControllerConfig(environ.Config().AllAttrs())
+	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = environ.Config().AdminSecret()

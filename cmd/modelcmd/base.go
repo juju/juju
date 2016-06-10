@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
@@ -308,9 +309,9 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bootstrapConfig.Config[config.CACertKey] = controllerDetails.CACert
 	bootstrapConfig.Config[config.UUIDKey] = controllerDetails.ControllerUUID
-	bootstrapConfig.Config[config.ControllerUUIDKey] = controllerDetails.ControllerUUID
+	bootstrapConfig.Config[controller.CACertKey] = controllerDetails.CACert
+	bootstrapConfig.Config[controller.ControllerUUIDKey] = controllerDetails.ControllerUUID
 
 	cfg, err := config.New(config.UseDefaults, bootstrapConfig.Config)
 	if err != nil {

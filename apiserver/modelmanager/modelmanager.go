@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/permission"
@@ -112,11 +113,11 @@ func (mm *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (
 		return result, errors.NotValidf("region value %q", args.Region)
 	}
 
-	controllerEnv, err := mm.state.ControllerModel()
+	controllerModel, err := mm.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	config, err := mm.configSkeleton(controllerEnv, args.Provider)
+	config, err := mm.configSkeleton(controllerModel, args.Provider)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -141,6 +142,8 @@ func (mm *ModelManagerAPI) configSkeleton(source ConfigSource, requestedProvider
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Also add the controller UUID.
+	fields = append(fields, controller.ControllerUUIDKey)
 
 	var result = make(map[string]interface{})
 	for _, field := range fields {
@@ -313,6 +316,10 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, err
 		}
+		controllerCfg, err := st.ControllerConfig()
+		if err != nil {
+			return params.ModelInfo{}, err
+		}
 		users, err := model.Users()
 		if err != nil {
 			return params.ModelInfo{}, err
@@ -326,7 +333,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		info := params.ModelInfo{
 			Name:           cfg.Name(),
 			UUID:           cfg.UUID(),
-			ControllerUUID: cfg.ControllerUUID(),
+			ControllerUUID: controllerCfg.ControllerUUID(),
 			OwnerTag:       owner.String(),
 			Life:           params.Life(model.Life().String()),
 			Status:         common.EntityStatusFromState(status),

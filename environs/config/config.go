@@ -6,7 +6,6 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,9 +21,8 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 
-	"github.com/juju/juju/cert"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -111,20 +109,8 @@ const (
 	// AgentVersionKey is the key for the model's Juju agent version.
 	AgentVersionKey = "agent-version"
 
-	// ApiPort is the port used for api connections.
-	ApiPort = "api-port"
-
-	// StatePort is the port used for mongo connections.
-	StatePort = "state-port"
-
-	// CACertKey is the key for the controller's CA certificate attribute.
-	CACertKey = "ca-cert"
-
 	// UUIDKey is the key for the model UUID attribute.
 	UUIDKey = "uuid"
-
-	// ControllerUUIDKey is the key for the controller UUID attribute.
-	ControllerUUIDKey = "controller-uuid"
 
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
@@ -162,19 +148,6 @@ const (
 	// NumaControlPolicyKey stores the value for this setting
 	SetNumaControlPolicyKey = "set-numa-control-policy"
 
-	// BlockKeyPrefix is the prefix used for environment variables that block commands
-	// TODO(anastasiamac 2015-02-27) remove it and all related post 1.24 as obsolete
-	BlockKeyPrefix = "block-"
-
-	// PreventDestroyEnvironmentKey stores the value for this setting
-	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-model"
-
-	// PreventRemoveObjectKey stores the value for this setting
-	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
-
-	// PreventAllChangesKey stores the value for this setting
-	PreventAllChangesKey = BlockKeyPrefix + "all-changes"
-
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -197,12 +170,6 @@ const (
 	// is primarily for enabling Juju to work cleanly in a closed network.
 	CloudImageBaseURL = "cloudimg-base-url"
 
-	// IdentityURL sets the url of the identity manager.
-	IdentityURL = "identity-url"
-
-	// IdentityPublicKey sets the public key of the identity manager.
-	IdentityPublicKey = "identity-public-key"
-
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
 	AutomaticallyRetryHooks = "automatically-retry-hooks"
@@ -211,38 +178,11 @@ const (
 	// Deprecated Settings Attributes
 	//
 
-	// Deprecated by provisioner-harvest-mode
-	// ProvisionerSafeModeKey stores the key for this setting.
-	ProvisionerSafeModeKey = "provisioner-safe-mode"
-
-	// Deprecated by agent-stream
-	// ToolsStreamKey stores the key for this setting.
-	ToolsStreamKey = "tools-stream"
-
-	// Deprecated by agent-metadata-url
-	// ToolsMetadataURLKey stores the key for this setting.
-	ToolsMetadataURLKey = "tools-metadata-url"
-
-	// Deprecated by use-clone
-	// LxcUseClone stores the key for this setting.
-	LxcUseClone = "lxc-use-clone"
-
 	// IgnoreMachineAddresses, when true, will cause the
 	// machine worker not to discover any machine addresses
 	// on start up.
 	IgnoreMachineAddresses = "ignore-machine-addresses"
 )
-
-// ControllerOnlyConfigAttributes are attributes which are only relevant
-// for a controller, never a model.
-var ControllerOnlyConfigAttributes = []string{
-	ApiPort,
-	StatePort,
-	CACertKey,
-	ControllerUUIDKey,
-	IdentityURL,
-	IdentityPublicKey,
-}
 
 // ParseHarvestMode parses description of harvesting method and
 // returns the representation.
@@ -453,7 +393,7 @@ func (c *Config) fillInDefaults() error {
 	if name == "" {
 		return fmt.Errorf("empty name in model configuration")
 	}
-	err := maybeReadAttrFromFile(c.defined, CACertKey, name+"-cert.pem")
+	err := maybeReadAttrFromFile(c.defined, controller.CACertKey, name+"-cert.pem")
 	if err != nil {
 		return err
 	}
@@ -479,65 +419,7 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 	for k, v := range attrs {
 		processedAttrs[k] = v
 	}
-	// The tools url has changed so ensure that both old and new values are in the config so that
-	// upgrades work. "agent-metadata-url" is the old attribute name.
-	if oldToolsURL, ok := attrs[ToolsMetadataURLKey]; ok && oldToolsURL.(string) != "" {
-		if newTools, ok := attrs[AgentMetadataURLKey]; !ok || newTools.(string) == "" {
-			// Ensure the new attribute name "agent-metadata-url" is set.
-			processedAttrs[AgentMetadataURLKey] = oldToolsURL
-		}
-		// Even if the user has edited their environment yaml to remove the deprecated tools-metadata-url value,
-		// we still want it in the config for upgrades.
-		processedAttrs[ToolsMetadataURLKey] = processedAttrs[AgentMetadataURLKey]
-	}
-
-	// Copy across lxc-use-clone to lxc-clone.
-	if lxcUseClone, ok := attrs[LxcUseClone]; ok {
-		_, newValSpecified := attrs[LxcClone]
-		// Ensure the new attribute name "lxc-clone" is set.
-		if !newValSpecified {
-			processedAttrs[LxcClone] = lxcUseClone
-		}
-	}
-
-	// Update the provider type from null to manual.
-	if attrs[TypeKey] == "null" {
-		processedAttrs[TypeKey] = "manual"
-	}
-
-	if _, ok := attrs[ProvisionerHarvestModeKey]; !ok {
-		if safeMode, ok := attrs[ProvisionerSafeModeKey].(bool); ok {
-
-			var harvestModeDescr string
-			if safeMode {
-				harvestModeDescr = HarvestDestroyed.String()
-			} else {
-				harvestModeDescr = HarvestAll.String()
-			}
-
-			processedAttrs[ProvisionerHarvestModeKey] = harvestModeDescr
-
-			logger.Infof(
-				`Based on your "%s" setting, configuring "%s" to "%s".`,
-				ProvisionerSafeModeKey,
-				ProvisionerHarvestModeKey,
-				harvestModeDescr,
-			)
-		}
-	}
-
-	// Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
-	if _, ok := attrs[AgentStreamKey]; !ok {
-		if toolsKey, ok := attrs[ToolsStreamKey]; ok {
-			processedAttrs[AgentStreamKey] = toolsKey
-			logger.Infof(
-				`Based on your "%s" setting, configuring "%s" to "%s".`,
-				ToolsStreamKey,
-				AgentStreamKey,
-				toolsKey,
-			)
-		}
-	}
+	// No deprecated attributes at the moment.
 	return processedAttrs
 }
 
@@ -564,6 +446,10 @@ func (e *InvalidConfigValueError) Error() string {
 // it holds the previous environment configuration for consideration when
 // validating changes.
 func Validate(cfg, old *Config) error {
+	// First validate the controller portion.
+	if err := controller.Validate(controller.ControllerConfig(cfg.AllAttrs())); err != nil {
+		return err
+	}
 	// Check that we don't have any disallowed fields.
 	for _, attr := range allowedWithDefaultsOnly {
 		if _, ok := cfg.defined[attr]; ok {
@@ -607,38 +493,8 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if v, ok := cfg.defined[IdentityURL].(string); ok {
-		u, err := url.Parse(v)
-		if err != nil {
-			return fmt.Errorf("invalid identity URL: %v", err)
-		}
-		if u.Scheme != "https" {
-			return fmt.Errorf("URL needs to be https")
-		}
-
-	}
-
-	if v, ok := cfg.defined[IdentityPublicKey].(string); ok {
-		var key bakery.PublicKey
-		if err := key.UnmarshalText([]byte(v)); err != nil {
-			return fmt.Errorf("invalid identity public key: %v", err)
-		}
-	}
-
-	caCert, caCertOK := cfg.CACert()
-	caKey, caKeyOK := cfg.CAPrivateKey()
-	if caCertOK || caKeyOK {
-		if err := verifyKeyPair(caCert, caKey); err != nil {
-			return errors.Annotate(err, "bad CA certificate/key in configuration")
-		}
-	}
-
 	if uuid := cfg.UUID(); !utils.IsValidUUIDString(uuid) {
 		return errors.Errorf("uuid: expected UUID, got string(%q)", uuid)
-	}
-
-	if uuid := cfg.ControllerUUID(); !utils.IsValidUUIDString(uuid) {
-		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
 	// Ensure the resource tags have the expected k=v format.
@@ -648,7 +504,8 @@ func Validate(cfg, old *Config) error {
 
 	// Check the immutable config values.  These can't change
 	if old != nil {
-		for _, attr := range immutableAttributes {
+		allImmutableAttributes := append(immutableAttributes, controller.ControllerOnlyConfigAttributes...)
+		for _, attr := range allImmutableAttributes {
 			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
 				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 			}
@@ -782,8 +639,10 @@ func (c *Config) UUID() string {
 }
 
 // ControllerUUID returns the uuid for the model's controller.
+// Even though this is a controller attribute, we always ensure
+// we also populate it here as environs currently rely on it.
 func (c *Config) ControllerUUID() string {
-	return c.mustString(ControllerUUIDKey)
+	return controller.ControllerConfig(c.defined).ControllerUUID()
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -802,52 +661,12 @@ func (c *Config) DefaultSeries() (string, bool) {
 	}
 }
 
-// StatePort returns the controller port for the environment.
-func (c *Config) StatePort() int {
-	return c.mustInt(StatePort)
-}
-
-// APIPort returns the API server port for the environment.
-func (c *Config) APIPort() int {
-	return c.mustInt(ApiPort)
-}
-
 // NumaCtlPreference returns if numactl is preferred.
 func (c *Config) NumaCtlPreference() bool {
 	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
 		return numa.(bool)
 	}
 	return DefaultNumaControlPolicy
-}
-
-// PreventDestroyEnvironment returns if destroy-model
-// should be blocked from proceeding, thus preventing the operation.
-func (c *Config) PreventDestroyEnvironment() bool {
-	if attrValue, ok := c.defined[PreventDestroyEnvironmentKey]; ok {
-		return attrValue.(bool)
-	}
-	return DefaultPreventDestroyEnvironment
-}
-
-// PreventRemoveObject returns if remove-object
-// should be blocked from proceeding, thus preventing the operation.
-// Object in this context is a juju artifact: either a machine,
-// a service, a unit or a relation.
-func (c *Config) PreventRemoveObject() bool {
-	if attrValue, ok := c.defined[PreventRemoveObjectKey]; ok {
-		return attrValue.(bool)
-	}
-	return DefaultPreventRemoveObject
-}
-
-// PreventAllChanges returns if all-changes
-// should be blocked from proceeding, thus preventing the operation.
-// Changes in this context are any alterations to current environment.
-func (c *Config) PreventAllChanges() bool {
-	if attrValue, ok := c.defined[PreventAllChangesKey]; ok {
-		return attrValue.(bool)
-	}
-	return DefaultPreventAllChanges
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -959,24 +778,6 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 		opts.AddressesDelay = time.Duration(v) * time.Second
 	}
 	return opts
-}
-
-// CACert returns the certificate of the CA that signed the controller
-// certificate, in PEM format, and whether the setting is available.
-func (c *Config) CACert() (string, bool) {
-	if s, ok := c.defined[CACertKey]; ok {
-		return s.(string), true
-	}
-	return "", false
-}
-
-// CAPrivateKey returns the private key of the CA that signed the state
-// server certificate, in PEM format, and whether the setting is available.
-func (c *Config) CAPrivateKey() (key string, ok bool) {
-	if s, ok := c.defined["ca-private-key"]; ok && s != "" {
-		return s.(string), true
-	}
-	return "", false
 }
 
 // AdminSecret returns the administrator password.
@@ -1241,30 +1042,13 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	return New(NoDefaults, defined)
 }
 
-// IdentityURL returns the url of the identity manager.
-func (c *Config) IdentityURL() string {
-	return c.asString(IdentityURL)
-}
-
-// IdentityPublicKey returns the public key of the identity manager.
-func (c *Config) IdentityPublicKey() *bakery.PublicKey {
-	key := c.asString(IdentityPublicKey)
-	if key == "" {
-		return nil
-	}
-	var pubKey bakery.PublicKey
-	err := pubKey.UnmarshalText([]byte(key))
-	if err != nil {
-		// We check if the key string can be unmarshalled into a PublicKey in the
-		// Validate function, so we really do not expect this to fail.
-		panic(err)
-	}
-	return &pubKey
-}
-
 // fields holds the validation schema fields derived from configSchema.
 var fields = func() schema.Fields {
-	fs, _, err := configSchema.ValidationSchema()
+	combinedSchema, err := Schema(nil)
+	if err != nil {
+		panic(err)
+	}
+	fs, _, err := combinedSchema.ValidationSchema()
 	if err != nil {
 		panic(err)
 	}
@@ -1280,8 +1064,12 @@ var fields = func() schema.Fields {
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
+	controller.CACertKey:         schema.Omit,
+	controller.ApiPort:           schema.Omit,
+	controller.StatePort:         schema.Omit,
+	controller.IdentityURL:       schema.Omit,
+	controller.IdentityPublicKey: schema.Omit,
 	AgentVersionKey:              schema.Omit,
-	CACertKey:                    schema.Omit,
 	"authorized-keys":            schema.Omit,
 	"authorized-keys-path":       schema.Omit,
 	"ca-cert-path":               schema.Omit,
@@ -1305,8 +1093,6 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
-	IdentityURL:                  schema.Omit,
-	IdentityPublicKey:            schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
@@ -1319,38 +1105,17 @@ var alwaysOptional = schema.Defaults{
 	// Environ providers will specify their own defaults.
 	StorageDefaultBlockSourceKey: schema.Omit,
 
-	// Deprecated fields, retain for backwards compatibility.
-	ToolsMetadataURLKey:          "",
-	LxcUseClone:                  schema.Omit,
-	ProvisionerSafeModeKey:       schema.Omit,
-	ToolsStreamKey:               schema.Omit,
-	PreventDestroyEnvironmentKey: schema.Omit,
-	PreventRemoveObjectKey:       schema.Omit,
-	PreventAllChangesKey:         schema.Omit,
-
-	// For backward compatibility reasons, the following
-	// attributes default to empty strings rather than being
-	// omitted.
-	// TODO(rog) remove this support when we can
-	// remove upgrade compatibility with versions prior to 1.14.
-	AdminSecretKey:       "", // TODO(rog) omit
-	"ca-private-key":     "", // TODO(rog) omit
-	"image-metadata-url": "", // TODO(rog) omit
-	AgentMetadataURLKey:  "", // TODO(rog) omit
-
-	"default-series": "",
-
-	// For backward compatibility only - default ports were
-	// not filled out in previous versions of the configuration.
-	StatePort: DefaultStatePort,
-	ApiPort:   DefaultAPIPort,
-	// Previously image-stream could be set to an empty value
-	"image-stream":             "",
-	"test-mode":                false,
-	"proxy-ssh":                false,
-	"lxc-clone-aufs":           false,
+	"proxy-ssh":                schema.Omit,
 	"enable-os-refresh-update": schema.Omit,
 	"enable-os-upgrade":        schema.Omit,
+	"image-stream":             schema.Omit,
+	"image-metadata-url":       schema.Omit,
+	AdminSecretKey:             schema.Omit,
+	AgentMetadataURLKey:        schema.Omit,
+	"ca-private-key":           schema.Omit,
+	"default-series":           "",
+	"test-mode":                false,
+	"lxc-clone-aufs":           false,
 }
 
 func allowEmpty(attr string) bool {
@@ -1367,8 +1132,6 @@ func allDefaults() schema.Defaults {
 		"firewall-mode":              FwInstance,
 		"development":                false,
 		"ssl-hostname-verification":  true,
-		StatePort:                    DefaultStatePort,
-		ApiPort:                      DefaultAPIPort,
 		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
 		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
@@ -1377,6 +1140,8 @@ func allDefaults() schema.Defaults {
 		IgnoreMachineAddresses:       false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 		AutomaticallyRetryHooks:      true,
+		controller.StatePort:         DefaultStatePort,
+		controller.ApiPort:           DefaultAPIPort,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1409,18 +1174,13 @@ var immutableAttributes = []string{
 	NameKey,
 	TypeKey,
 	UUIDKey,
-	ControllerUUIDKey,
 	"firewall-mode",
-	StatePort,
-	ApiPort,
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
 	LxcClone,
 	LXCDefaultMTU,
 	"lxc-clone-aufs",
-	IdentityURL,
-	IdentityPublicKey,
 }
 
 var (
@@ -1455,20 +1215,6 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 		}
 	}
 	return result, nil
-}
-
-// GenerateControllerCertAndKey makes sure that the config has a CACert and
-// CAPrivateKey, generates and returns new certificate and key.
-func (cfg *Config) GenerateControllerCertAndKey(hostAddresses []string) (string, string, error) {
-	caCert, hasCACert := cfg.CACert()
-	if !hasCACert {
-		return "", "", errors.New("model configuration has no ca-cert")
-	}
-	caKey, hasCAKey := cfg.CAPrivateKey()
-	if !hasCAKey {
-		return "", "", errors.New("model configuration has no ca-private-key")
-	}
-	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.
@@ -1536,7 +1282,13 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 // package.
 func Schema(extra environschema.Fields) (environschema.Fields, error) {
 	fields := make(environschema.Fields)
+	for name, field := range controller.ConfigSchema {
+		fields[name] = field
+	}
 	for name, field := range configSchema {
+		if _, ok := fields[name]; ok {
+			return nil, errors.Errorf("config field %q clashes with controller config", name)
+		}
 		fields[name] = field
 	}
 	for name, field := range extra {
@@ -1580,12 +1332,6 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
-	ApiPort: {
-		Description: "The TCP port for the API servers to listen on",
-		Type:        environschema.Tint,
-		Group:       environschema.EnvironGroup,
-		Immutable:   true,
-	},
 	AptFtpProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT FTP proxy for the model",
@@ -1620,21 +1366,6 @@ var configSchema = environschema.Fields{
 		Description: "Path to file containing SSH authorized keys",
 		Type:        environschema.Tstring,
 	},
-	PreventAllChangesKey: {
-		Description: `Whether all changes to the model will be prevented`,
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
-	PreventDestroyEnvironmentKey: {
-		Description: `Whether the model will be prevented from destruction`,
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
-	PreventRemoveObjectKey: {
-		Description: `Whether remove operations (machine, service, unit or relation) will be prevented`,
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
 	"bootstrap-addresses-delay": {
 		Description: "The amount of time between refreshing the addresses in seconds. Not too frequent as we refresh addresses from the provider each time.",
 		Type:        environschema.Tint,
@@ -1652,24 +1383,6 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tint,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
-	},
-	CACertKey: {
-		Description: `The certificate of the CA that signed the controller certificate, in PEM format`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	"ca-cert-path": {
-		Description: "Path to file containing CA certificate",
-		Type:        environschema.Tstring,
-	},
-	"ca-private-key": {
-		Description: `The private key of the CA that signed the controller certificate, in PEM format`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	"ca-private-key-path": {
-		Description: "Path to file containing CA private key",
-		Type:        environschema.Tstring,
 	},
 	CloudImageBaseURL: {
 		Description: "A URL to use instead of the default 'https://cloud-images.ubuntu.com/query' that the 'ubuntu-cloudimg-query' executable uses to find container images. This is primarily for enabling Juju to work cleanly in a closed network.",
@@ -1774,10 +1487,6 @@ global or per instance security groups.`,
 		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
-	LxcUseClone: {
-		Description: `Whether the LXC provisioner should create a template and use cloning to speed up container provisioning. (deprecated by lxc-clone)`,
-		Type:        environschema.Tbool,
-	},
 	NameKey: {
 		Description: "The name of the current model",
 		Type:        environschema.Tstring,
@@ -1795,11 +1504,6 @@ global or per instance security groups.`,
 		Description: "What to do with unknown machines. See https://jujucharms.com/docs/stable/config-general#juju-lifecycle-and-harvesting (default destroyed)",
 		Type:        environschema.Tstring,
 		Values:      []interface{}{"all", "none", "unknown", "destroyed"},
-		Group:       environschema.EnvironGroup,
-	},
-	ProvisionerSafeModeKey: {
-		Description: `Whether to run the provisioner in "destroyed" harvest mode (deprecated, superceded by provisioner-harvest-mode)`,
-		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	"proxy-ssh": {
@@ -1833,28 +1537,12 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	StatePort: {
-		Description: "Port for the API server to listen on.",
-		Type:        environschema.Tint,
-		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
 	"test-mode": {
 		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
 data of the store. (default false)`,
 		Type:  environschema.Tbool,
 		Group: environschema.EnvironGroup,
-	},
-	ToolsMetadataURLKey: {
-		Description: `deprecated, superceded by agent-metadata-url`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	ToolsStreamKey: {
-		Description: `deprecated, superceded by agent-stream`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
 	},
 	TypeKey: {
 		Description: "Type of model, e.g. local, ec2",
@@ -1865,24 +1553,6 @@ data of the store. (default false)`,
 	},
 	UUIDKey: {
 		Description: "The UUID of the model",
-		Type:        environschema.Tstring,
-		Group:       environschema.JujuGroup,
-		Immutable:   true,
-	},
-	ControllerUUIDKey: {
-		Description: "The UUID of the model's controller",
-		Type:        environschema.Tstring,
-		Group:       environschema.JujuGroup,
-		Immutable:   true,
-	},
-	IdentityURL: {
-		Description: "IdentityURL specifies the URL of the identity manager",
-		Type:        environschema.Tstring,
-		Group:       environschema.JujuGroup,
-		Immutable:   true,
-	},
-	IdentityPublicKey: {
-		Description: "Public key of the identity manager. If this is omitted, the public key will be fetched from the IdentityURL.",
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,

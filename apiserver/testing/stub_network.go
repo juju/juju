@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -426,6 +427,14 @@ func (sb *StubBacking) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return sb.EnvConfig, nil
+}
+
+func (sb *StubBacking) ControllerConfig() (controller.Config, error) {
+	sb.MethodCall(sb, "ControllerConfig")
+	if err := sb.NextErr(); err != nil {
+		return nil, err
+	}
+	return controller.ControllerConfig(sb.EnvConfig.AllAttrs()), nil
 }
 
 func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {

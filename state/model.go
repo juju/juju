@@ -206,7 +206,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
 	}
-	ops, err := newSt.modelSetupOps(args.Config, args.CloudRegion, cloudCfg, owner, args.MigrationMode)
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not read controller config for new model")
+	}
+	ops, err := newSt.modelSetupOps(args.Config, controllerCfg.ControllerUUID(), args.CloudRegion, cloudCfg, owner, args.MigrationMode)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}

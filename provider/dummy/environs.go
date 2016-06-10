@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -680,7 +681,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if password == "" {
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	if _, ok := e.Config().CACert(); !ok {
+	if _, ok := controller.ControllerConfig(e.Config().AllAttrs()).CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in model configuration")
 	}
 
@@ -894,9 +895,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 
 	if args.InstanceConfig.MachineNonce == "" {
 		return nil, errors.New("cannot start instance: missing machine nonce")
-	}
-	if _, ok := e.Config().CACert(); !ok {
-		return nil, errors.New("no CA certificate in model configuration")
 	}
 	if args.InstanceConfig.Controller != nil {
 		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {

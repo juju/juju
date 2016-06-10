@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -109,7 +110,8 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloudName, cloudRegi
 	uuid := cfg.UUID()
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
-	controllerUUID := cfg.ControllerUUID()
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	controllerUUID := controllerCfg.ControllerUUID()
 	if controllerUUID != uuid {
 		return nil, errors.Errorf("when initialising state, model and controller UUIDs must be equal, got %v and %v", uuid, controllerUUID)
 	}
@@ -137,7 +139,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloudName, cloudRegi
 
 	logger.Infof("initializing controller model %s", uuid)
 
-	modelOps, err := st.modelSetupOps(cfg, cloudRegion, cloudCfg, owner, MigrationModeActive)
+	modelOps, err := st.modelSetupOps(cfg, controllerUUID, cloudRegion, cloudCfg, owner, MigrationModeActive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -145,8 +147,6 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloudName, cloudRegi
 	if err != nil {
 		return nil, err
 	}
-	// Extract just the controller config.
-	controllerCfg := controllerConfig(cfg.AllAttrs())
 
 	ops := []txn.Op{
 		createInitialUserOp(st, owner, info.Password, salt),
@@ -192,7 +192,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cloudName, cloudRegi
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(cfg *config.Config, cloudRegion string, cloudCfg map[string]interface{}, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
+func (st *State) modelSetupOps(cfg *config.Config, controllerUUID, cloudRegion string, cloudCfg map[string]interface{}, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
 	if err := checkCloudConfig(cloudCfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -201,7 +201,6 @@ func (st *State) modelSetupOps(cfg *config.Config, cloudRegion string, cloudCfg 
 	}
 
 	modelUUID := cfg.UUID()
-	controllerUUID := cfg.ControllerUUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
 		// TODO(fwereade): 2016-03-17 lp:1558657

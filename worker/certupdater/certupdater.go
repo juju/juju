@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher/legacy"
@@ -30,7 +30,7 @@ type CertificateUpdater struct {
 	addressWatcher  AddressWatcher
 	getter          StateServingInfoGetter
 	setter          StateServingInfoSetter
-	configGetter    ModelConfigGetter
+	configGetter    ControllerConfigGetter
 	hostPortsGetter APIHostPortsGetter
 	addresses       []network.Address
 }
@@ -42,10 +42,10 @@ type AddressWatcher interface {
 	Addresses() (addresses []network.Address)
 }
 
-// ModelConfigGetter is an interface that is provided to NewCertificateUpdater
-// which can be used to get environment config.
-type ModelConfigGetter interface {
-	ModelConfig() (*config.Config, error)
+// ControllerConfigGetter is an interface that is provided to NewCertificateUpdater
+// which can be used to get the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig() (controller.Config, error)
 }
 
 // StateServingInfoGetter is an interface that is provided to NewCertificateUpdater
@@ -68,7 +68,7 @@ type APIHostPortsGetter interface {
 // machine addresses and then generates a new controller certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter ModelConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
+	configGetter ControllerConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
 ) worker.Worker {
 	return legacy.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher:  addressWatcher,
@@ -129,14 +129,10 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 		logger.Errorf("no CA cert private key, cannot regenerate server certificate")
 		return nil
 	}
-	// Grab the env config and update a copy with ca cert private key.
-	envConfig, err := c.configGetter.ModelConfig()
+
+	cfg, err := c.configGetter.ControllerConfig()
 	if err != nil {
-		return errors.Annotate(err, "cannot read model config")
-	}
-	envConfig, err = envConfig.Apply(map[string]interface{}{"ca-private-key": caPrivateKey})
-	if err != nil {
-		return errors.Annotate(err, "cannot add CA private key to model config")
+		return errors.Annotate(err, "cannot read controller config")
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -161,7 +157,11 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 	}
 
 	// Generate a new controller certificate with the machine addresses in the SAN value.
-	newCert, newKey, err := envConfig.GenerateControllerCertAndKey(newServerAddrs)
+	caCert, hasCACert := cfg.CACert()
+	if !hasCACert {
+		return errors.New("configuration has no ca-cert")
+	}
+	newCert, newKey, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, newServerAddrs)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}

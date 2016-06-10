@@ -116,11 +116,11 @@ func NewMetadataState(db DB, machine, series string) (*Metadata, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get server secrets")
 	}
-	cfg, err := db.ModelConfig()
+	controllerCfg, err := db.ControllerConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not get model config")
+		return nil, errors.Annotate(err, "could not get controller config")
 	}
-	meta.CACert, _ = cfg.CACert()
+	meta.CACert, _ = controllerCfg.CACert()
 	meta.CAPrivateKey = si.CAPrivateKey
 	return meta, nil
 }
