@@ -66,9 +66,17 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		InterfaceName: "eth2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
+	}, {
+		InterfaceName: "eth3",
+		ConfigType:    network.ConfigDHCP,
+		NoAutoStart:   false,
+	}, {
+		InterfaceName: "eth4",
+		ConfigType:    network.ConfigManual,
+		NoAutoStart:   true,
 	}}
 	s.expectedNetConfig = `
-auto eth0 eth1 lo
+auto eth0 eth1 eth3 lo
 
 iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
@@ -81,20 +89,23 @@ iface eth0 inet static
 iface eth1 inet static
   address 0.1.2.4/24
 
-iface eth2 inet manual
+iface eth2 inet dhcp
+
+iface eth3 inet dhcp
+
+iface eth4 inet manual
 `
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	// No config or no interfaces - no error, but also noting to generate.
 	data, err := containerinit.GenerateNetworkConfig(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.Equals, "")
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.Equals, "")
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
@@ -118,7 +129,7 @@ bootcmd:
 - install -D -m 644 /dev/null '%[1]s'
 - |-
   printf '%%s\n' '
-  auto eth0 eth1 lo
+  auto eth0 eth1 eth3 lo
 
   iface lo inet loopback
     dns-nameservers ns1.invalid ns2.invalid
@@ -131,7 +142,11 @@ bootcmd:
   iface eth1 inet static
     address 0.1.2.4/24
 
-  iface eth2 inet manual
+  iface eth2 inet dhcp
+
+  iface eth3 inet dhcp
+
+  iface eth4 inet manual
   ' > '%[1]s'
 runcmd:
 - ifup -a || true
@@ -142,9 +157,8 @@ runcmd:
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	expected := "#cloud-config\n{}\n"
-	assertUserData(c, cloudConf, expected)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(cloudConf, gc.IsNil)
 }
 
 func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
@@ -152,10 +166,8 @@ func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	// No need to test the exact contents here, as they are already
-	// tested separately.
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.IsNil)
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {

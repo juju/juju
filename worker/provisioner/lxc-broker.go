@@ -644,18 +644,20 @@ func prepareOrGetContainerInterfaceInfo(
 
 	log.Debugf("address allocation feature flag not enabled; using multi-bridge networking for container %q", machineID)
 
-	// In case we're running on MAAS 1.8+ with devices support, we'll still
-	// call PrepareContainerInterfaceInfo(), but we'll ignore a NotSupported
-	// error if we get it (which means we're not using MAAS 1.8+).
 	containerTag := names.NewMachineTag(machineID)
 	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
 	if err != nil && errors.IsNotSupported(err) {
-		log.Warningf("new container %q not registered as device: not running on MAAS 1.8+", machineID)
-		return nil, nil
+		log.Warningf("%v (using fallback config)", err)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
+
+	// Use the fallback network config as a last resort.
+	if len(preparedInfo) == 0 {
+		log.Infof("using fallback network config for container %q", machineID)
+		preparedInfo = container.FallbackInterfaceInfo()
+	}
 
 	dnsServersFound := false
 	for _, info := range preparedInfo {

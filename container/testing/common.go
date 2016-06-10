@@ -72,11 +72,10 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	storageConfig *container.StorageConfig,
 ) instance.Instance {
 
-	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
-		name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
-		c.Assert(err, jc.ErrorIsNil)
-		EnsureLXCRootFSEtcNetwork(c, name)
-	}
+	name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	EnsureLXCRootFSEtcNetwork(c, name)
+
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,6 +114,10 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 
 	network := container.BridgeNetworkConfig("nic42", 0, nil)
 	storage := &container.StorageConfig{}
+
+	name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	EnsureLXCRootFSEtcNetwork(c, name)
 
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", network, storage, callback)
