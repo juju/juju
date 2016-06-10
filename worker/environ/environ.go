@@ -14,7 +14,7 @@ import (
 // ConfigObserver exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
 type ConfigObserver interface {
-	environs.ControllerConfigGetter
+	environs.EnvironConfigGetter
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 }
 

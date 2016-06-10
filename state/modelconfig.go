@@ -27,7 +27,7 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	}
 	attrs := defaultModelSettings.Map()
 
-	// Merge in model specific settings are added.
+	// Merge in model specific settings.
 	for k, v := range modelSettings.Map() {
 		attrs[k] = v
 	}

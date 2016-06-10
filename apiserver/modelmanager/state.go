@@ -14,7 +14,7 @@ import (
 )
 
 type Backend interface {
-	environs.ControllerConfigGetter
+	environs.EnvironConfigGetter
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
 

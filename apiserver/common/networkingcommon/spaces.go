@@ -15,7 +15,7 @@ import (
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(backing environs.ControllerConfigGetter) error {
+func SupportsSpaces(backing environs.EnvironConfigGetter) error {
 	config, err := backing.ModelConfig()
 	if err != nil {
 		return errors.Annotate(err, "getting model config")

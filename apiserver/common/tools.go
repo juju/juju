@@ -45,7 +45,7 @@ type ToolsStorageGetter interface {
 // facades.
 type ToolsGetter struct {
 	entityFinder       state.EntityFinder
-	configGetter       environs.ControllerConfigGetter
+	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
@@ -53,7 +53,7 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c environs.ControllerConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
+func NewToolsGetter(f state.EntityFinder, c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
 	return &ToolsGetter{f, c, s, t, getCanRead}
 }
 
@@ -191,14 +191,14 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
-	configGetter       environs.ControllerConfigGetter
+	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c environs.ControllerConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
+func NewToolsFinder(c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
 	return &ToolsFinder{c, s, t}
 }
 

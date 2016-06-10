@@ -28,7 +28,7 @@ var (
 
 type stateInterface interface {
 	ModelGetter
-	environs.ControllerConfigGetter
+	environs.EnvironConfigGetter
 }
 
 // AgentToolsAPI implements the API used by the machine model worker.
@@ -60,7 +60,7 @@ type envVersionUpdater func(*state.Model, version.Number) error
 
 var newEnvirons = environs.New
 
-func checkToolsAvailability(getter environs.ControllerConfigGetter, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
+func checkToolsAvailability(getter environs.EnvironConfigGetter, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
 	currentVersion, ok := modelCfg.AgentVersion()
 	if !ok || currentVersion == version.Zero {
 		return version.Zero, nil

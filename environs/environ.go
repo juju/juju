@@ -10,8 +10,10 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// ControllerConfigGetter exposes a controller and model configuration to its clients.
-type ControllerConfigGetter interface {
+// EnvironConfigGetter exposes a controller and model configuration to its clients.
+// TODO(wallyworld) - we want to avoid the need to get controller config in future
+// since the controller uuid and api port can be added to StartInstanceParams.
+type EnvironConfigGetter interface {
 	ControllerConfig() (controller.Config, error)
 	ModelConfig() (*config.Config, error)
 }
@@ -22,7 +24,7 @@ type NewEnvironFunc func(*config.Config) (Environ, error)
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
-func GetEnviron(st ControllerConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
+func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
 	envcfg, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -195,7 +195,7 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr strin
 type mockState struct {
 	gitjujutesting.Stub
 
-	environs.ControllerConfigGetter
+	environs.EnvironConfigGetter
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
 

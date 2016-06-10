@@ -32,7 +32,7 @@ var ErrWaitAborted = errors.New("environ wait aborted")
 // whether this func succeeds or fails.
 func WaitForEnviron(
 	w watcher.NotifyWatcher,
-	getter environs.ControllerConfigGetter,
+	getter environs.EnvironConfigGetter,
 	newEnviron environs.NewEnvironFunc,
 	abort <-chan struct{},
 ) (environs.Environ, error) {

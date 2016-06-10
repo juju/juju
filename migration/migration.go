@@ -100,7 +100,7 @@ func controllerValues(config controller.Config) map[string]interface{} {
 	return result
 }
 
-func updateConfigFromProvider(model description.Model, getter environs.ControllerConfigGetter, controllerConfig *config.Config) error {
+func updateConfigFromProvider(model description.Model, getter environs.EnvironConfigGetter, controllerConfig *config.Config) error {
 	provider, err := environs.GetEnviron(getter, environs.New)
 	if err != nil {
 		return errors.Trace(err)
