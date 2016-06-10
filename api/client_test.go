@@ -234,6 +234,28 @@ func testMinVer(client *api.Client, t minverTest, c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestOpenURIFound(c *gc.C) {
+	// Use tools download to test OpenURI
+	const toolsVersion = "2.0.0-xenial-ppc64"
+	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
+
+	client := s.APIState.Client()
+	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer reader.Close()
+
+	// The fake tools content will be the version number.
+	content, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, toolsVersion)
+}
+
+func (s *clientSuite) TestOpenURIError(c *gc.C) {
+	client := s.APIState.Client()
+	_, err := client.OpenURI("/tools/foobar", nil)
+	c.Assert(err, gc.ErrorMatches, ".+error parsing version.+")
+}
+
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 	client := s.APIState.Client()
 	curl, ch := addLocalCharm(c, client, "dummy")
