@@ -5790,7 +5790,7 @@ class TestStatus(FakeHomeTestCase):
                                      '1 is in state any-error'):
             status.check_agents_started('env1')
 
-    def do_check_agents_started_failure(self, failure):
+    def do_check_agents_started_agent_state_info_failure(self, failure):
         status = Status({
             'machines': {'0': {
                 'agent-state-info': failure}},
@@ -5804,17 +5804,58 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(e.unit_name, '0')
         self.assertEqual(e.state, failure)
 
-    def test_check_agents_cannot_set_up_groups(self):
-        self.do_check_agents_started_failure('cannot set up groups foobar')
+    def do_check_agents_started_juju_status_failure(self, failure):
+        status = Status({
+            'machines': {
+                '0': {
+                    'juju-status': {
+                        'current': 'error',
+                        'message': failure}
+                     },
+                }
+            }, '')
+        with self.assertRaises(ErroredUnit) as e_cxt:
+            status.check_agents_started()
+        e = e_cxt.exception
+        # if message is blank, the failure should reflect the state instead
+        if not failure:
+            failure = 'error'
+        self.assertEqual(
+            str(e), '0 is in state {}'.format(failure))
+        self.assertEqual(e.unit_name, '0')
+        self.assertEqual(e.state, failure)
 
-    def test_check_agents_error(self):
-        self.do_check_agents_started_failure('error executing "lxc-start"')
+    def do_check_agents_started_info_and_status_failure(self, failure):
+        status = Status({
+            'machines': {
+                '0': {
+                    'agent-state-info': failure,
+                    'juju-status': {
+                        'current': 'error',
+                        'message': failure}
+                     },
+                }
+            }, '')
+        with self.assertRaises(ErroredUnit) as e_cxt:
+            status.check_agents_started()
+        e = e_cxt.exception
+        self.assertEqual(
+            str(e), '0 is in state {}'.format(failure))
+        self.assertEqual(e.unit_name, '0')
+        self.assertEqual(e.state, failure)
 
-    def test_check_agents_cannot_run_instances(self):
-        self.do_check_agents_started_failure('cannot run instances')
+    def test_check_agents_started_read_juju_status_error(self):
+        failures = ['no "centos7" images in us-east-1 with arches [amd64]',
+                    'sending new instance request: GCE operation ' +
+                    '"operation-143" failed', '']
+        for failure in failures:
+            self.do_check_agents_started_juju_status_failure(failure)
 
-    def test_check_agents_cannot_run_instance(self):
-        self.do_check_agents_started_failure('cannot run instance')
+    def test_check_agents_started_read_agent_state_info_error(self):
+        failures = ['cannot set up groups foobar', 'cannot run instance',
+                    'cannot run instances', 'error executing "lxc-start"']
+        for failure in failures:
+            self.do_check_agents_started_agent_state_info_failure(failure)
 
     def test_check_agents_started_agent_info_error(self):
         # Sometimes the error is indicated in a special 'agent-state-info'

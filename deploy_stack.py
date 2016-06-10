@@ -306,6 +306,7 @@ def copy_remote_logs(remote, directory):
             # TODO(gz): Also capture kvm container logs?
             '/var/lib/juju/containers/juju-*-lxc-*/',
             '/var/log/lxd/juju-*',
+            '/var/log/lxd/lxd.log',
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
         ]
