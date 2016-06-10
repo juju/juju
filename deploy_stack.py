@@ -634,6 +634,54 @@ class BootstrapManager:
                 raise
 
     @contextmanager
+    def existing_bootstrap_context(self, machines, omit_config=None):
+        """ Context for bootstrapping a state server that shares the
+        environment with an existing bootstrap environment.
+
+        Using this context makes it possible to boot multiple simultaneous
+        environments that share a JUJU_HOME.
+
+        """
+        bootstrap_host = self.known_hosts.get('0')
+        kwargs = dict(
+            series=self.series, bootstrap_host=bootstrap_host,
+            agent_url=self.agent_url, agent_stream=self.agent_stream,
+            region=self.region)
+        if omit_config is not None:
+            for key in omit_config:
+                kwargs.pop(key.replace('-', '_'), None)
+        update_env(self.client.env, self.temp_env_name, **kwargs)
+        ssh_machines = list(machines)
+        if bootstrap_host is not None:
+            ssh_machines.append(bootstrap_host)
+        for machine in ssh_machines:
+            logging.info('Waiting for port 22 on %s' % machine)
+            wait_for_port(machine, 22, timeout=120)
+
+        try:
+            try:
+                yield
+            # If an exception is raised that indicates an error, log it
+            # before tearing down so that the error is closely tied to
+            # the failed operation.
+            except Exception as e:
+                logging.exception(e)
+                if getattr(e, 'output', None):
+                    print_now('\n')
+                    print_now(e.output)
+                raise LoggedException(e)
+        except:
+            # If run from a windows machine may not have ssh to get
+            # logs
+            if self.bootstrap_host is not None and _can_run_ssh():
+                remote = remote_from_address(self.bootstrap_host,
+                                             series=self.series)
+                copy_remote_logs(remote, self.log_dir)
+                archive_logs(self.log_dir)
+            self.tear_down()
+            raise
+
+    @contextmanager
     def runtime_context(self, addable_machines):
         """Context for running non-bootstrap operations.
 
@@ -748,6 +796,20 @@ class BootstrapManager:
                     self.client.list_models()
                     for m_client in self.client.iter_model_clients():
                         m_client.show_status()
+                    yield machines
+        except LoggedException:
+            sys.exit(1)
+
+    @contextmanager
+    def existing_booted_context(self, upload_tools):
+        try:
+            with self.top_context() as machines:
+                # Existing does less things as there is no pre-cleanup needed.
+                with self.existing_bootstrap_context(
+                        machines, omit_config=self.client.bootstrap_replaces):
+                    self.client.bootstrap(
+                        upload_tools, bootstrap_series=self.series)
+                with self.runtime_context(machines):
                     yield machines
         except LoggedException:
             sys.exit(1)

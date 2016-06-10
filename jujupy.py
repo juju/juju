@@ -571,10 +571,10 @@ class EnvJujuClient:
 
     # What feature flags have existed that CI used.
     known_feature_flags = frozenset([
-        'actions', 'jes', 'address-allocation', 'cloudsigma'])
+        'actions', 'jes', 'address-allocation', 'cloudsigma', 'migration'])
 
     # What feature flags are used by this version of the juju client.
-    used_feature_flags = frozenset(['address-allocation'])
+    used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
 
@@ -709,7 +709,9 @@ class EnvJujuClient:
         elif self.env is None or not include_e:
             return None
         else:
-            return self.model_name
+            return '{controller}:{model}'.format(
+                controller=self.env.controller.name,
+                model=self.model_name)
 
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
@@ -1859,6 +1861,14 @@ class EnvJujuClient1X(EnvJujuClient2A1):
     destroy_model_command = 'destroy-environment'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
+
+    def _cmd_model(self, include_e, admin):
+        if admin:
+            return self.get_admin_model_name()
+        elif self.env is None or not include_e:
+            return None
+        else:
+            return self.model_name
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
