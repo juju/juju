@@ -249,7 +249,9 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 		delete(fw.machineds, tag)
 		return errors.Trace(err)
 	}
-	return nil
+
+	// register the machined with the firewaller's catacomb.
+	return fw.catacomb.Add(machined)
 }
 
 // startUnit creates a new data value for tracking details of the unit
