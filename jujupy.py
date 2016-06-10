@@ -1085,7 +1085,7 @@ class EnvJujuClient:
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
-        """deployer, using sudo if necessary."""
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
@@ -1583,7 +1583,7 @@ class EnvJujuClient2B8(EnvJujuClient):
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
-        """deployer, using sudo if necessary."""
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
@@ -1954,6 +1954,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
