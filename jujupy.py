@@ -1094,7 +1094,7 @@ class EnvJujuClient:
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
-        """deployer, using sudo if necessary."""
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
@@ -1104,7 +1104,7 @@ class EnvJujuClient:
         )
         if name:
             args += (name,)
-        e_arg = ('-e', 'local.{}:{}'.format(
+        e_arg = ('-e', '{}:{}'.format(
             self.env.controller.name, self.env.environment))
         args = e_arg + args
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
@@ -1590,6 +1590,23 @@ class EnvJujuClient2B8(EnvJujuClient):
             *commands)
         return json.loads(responses)
 
+    def deployer(self, bundle_template, name=None, deploy_delay=10,
+                 timeout=3600):
+        """Deploy a bundle using deployer."""
+        bundle = self.format_bundle(bundle_template)
+        args = (
+            '--debug',
+            '--deploy-delay', str(deploy_delay),
+            '--timeout', str(timeout),
+            '--config', bundle,
+        )
+        if name:
+            args += (name,)
+        e_arg = ('-e', 'local.{}:{}'.format(
+            self.env.controller.name, self.env.environment))
+        args = e_arg + args
+        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
+
 
 class EnvJujuClient2B7(EnvJujuClient2B8):
 
@@ -1954,6 +1971,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
