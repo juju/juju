@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 
 import argparse
+import copy
 import json
 import logging
 import sys
@@ -59,84 +60,63 @@ storage_pool_details = {
                 }}
 }
 
-storage_list_expected = \
-    {"storage":
-        {
-            "data/0":
-                {
-                    "kind": "filesystem",
-                    "attachments":
-                        {
-                            "units":
-                                {
-                                    "dummy-storage-fs/0":
-                                        {"location": "/srv/data"}}}}}}
+storage_list_expected = {
+    "storage":
+        {"data/0":
+            {
+                "kind": "filesystem",
+                "attachments":
+                    {
+                        "units":
+                            {
+                                "dummy-storage-fs/0":
+                                    {"location": "/srv/data"}}}}}}
 
-storage_list_expected_2 = storage_list_expected
-storage_list_expected_2["storage"]["disks/1"] =\
-    {
-        "kind": "block",
-        "attachments":
-            {
-                "units":
+storage_list_expected_2 = copy.deepcopy(storage_list_expected)
+storage_list_expected_2["storage"]["disks/1"] = {
+    "kind": "block",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-lp/0":
                     {
-                        "dummy-storage-lp/0":
-                            {"location": ""}}}}
-storage_list_expected_3 = storage_list_expected_2
-storage_list_expected_3["storage"]["disks/2"] =\
-    {
-        "kind": "block",
-        "attachments":
-            {
-                "units":
+                        "location": ""}}}}
+storage_list_expected_3 = copy.deepcopy(storage_list_expected_2)
+storage_list_expected_3["storage"]["disks/2"] = {
+    "kind": "block",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-lp/0":
                     {
-                        "dummy-storage-lp/0":
-                            {"location": ""}}}}
-storage_list_expected_4 = storage_list_expected_3
-storage_list_expected_4["storage"]["data/3"] =\
-    {
-        "kind": "filesystem",
-        "attachments":
-            {
-                "units":
+                        "location": ""}}}}
+storage_list_expected_4 = copy.deepcopy(storage_list_expected_3)
+storage_list_expected_4["storage"]["data/3"] = {
+    "kind": "filesystem",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-tp/0":
                     {
-                        "dummy-storage-tp/0":
-                            {"location": "/srv/data"}}}}
+                        "location": "/srv/data"}}}}
 
 
 def storage_list(client):
     """Return the storage list."""
-    return json.loads(client.get_juju_output(
+    list_storage = json.loads(client.get_juju_output(
         'list-storage', '--format', 'json'))
-
-
-def assert_storage_lists_equal(storage_list_derived, storage_list_expected):
-    """Check if two storage lists are equal as requested."""
-    equal = True
-    storage_d = storage_list_derived["storage"]
-    storage_e = storage_list_expected["storage"]
-    derived_keys = storage_d.keys().sort()
-    expected_keys = storage_e.keys().sort()
-    if derived_keys != expected_keys:
-        equal = False
-    else:
-        for key, value in storage_d.iteritems():
-            if value["kind"] != storage_e[key]["kind"]:
-                equal = False
-                break
-            expected_unit = storage_e[key]["attachments"]["units"]
-            if value["attachments"]["units"].keys() != expected_unit.keys():
-                equal = False
-                break
-            expected_charm = expected_unit.keys()[0]
-            if value["kind"] == "filesystem":
-                location_expected = expected_unit[expected_charm]["location"]
-                location_derived =\
-                    value["attachments"]["units"][expected_charm]["location"]
-                if location_derived != location_expected:
-                    equal = False
-                    break
-    return equal
+    for instance in list_storage["storage"].keys():
+        try:
+            list_storage["storage"][instance].pop("status")
+            list_storage["storage"][instance].pop("persistent")
+            attachments = list_storage["storage"][instance]["attachments"]
+            unit = attachments["units"].keys()[0]
+            attachments["units"][unit].pop("machine")
+            if instance.startswith("disks"):
+                attachments["units"][unit]["location"] = ""
+        except Exception:
+            pass
+    return list_storage
 
 
 def storage_pool_list(client):
@@ -167,7 +147,9 @@ def assess_create_pool(client):
 
 def assess_add_storage(client, unit, storage_type, amount="1"):
     """Test adding storage instances to service.
-    Only type 'disk' is able to add instances"""
+
+    Only type 'disk' is able to add instances.
+    """
     client.juju('add-storage', (unit, storage_type + "=" + amount))
 
 
@@ -219,27 +201,23 @@ def assess_storage(client, charm_series):
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
     storage_list_derived = storage_list(client)
-    if not assert_storage_lists_equal(storage_list_derived,
-                                      storage_list_expected):
+    if storage_list_derived != storage_list_expected:
         raise JujuAssertionError(storage_list_derived)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
     storage_list_derived = storage_list(client)
-    if not assert_storage_lists_equal(storage_list_derived,
-                                      storage_list_expected_2):
+    if storage_list_derived != storage_list_expected_2:
         raise JujuAssertionError(storage_list_derived)
     assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
     storage_list_derived = storage_list(client)
-    if not assert_storage_lists_equal(storage_list_derived,
-                                      storage_list_expected_3):
+    if storage_list_derived != storage_list_expected_3:
         raise JujuAssertionError(storage_list_derived)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
     storage_list_derived = storage_list(client)
-    if not assert_storage_lists_equal(storage_list_derived,
-                                      storage_list_expected_4):
+    if storage_list_derived != storage_list_expected_4:
         raise JujuAssertionError(storage_list_derived)
-    # storage with provider 'ebs' is still under observation
+    # storage with provider 'ebs' is only available under 'aws'
     # assess_deploy_storage(client, charm_series,
     #                       'dummy-storage-eb', 'filesystem', 'ebs')
 
