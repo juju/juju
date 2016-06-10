@@ -77,6 +77,8 @@ See also:
     change-user-password`
 
 // Info implements Command.Info
+// `register` may seem generic, but is seen as simple and without potential
+// naming collisions in any current or planned features.
 func (c *registerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
