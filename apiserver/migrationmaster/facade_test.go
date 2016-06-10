@@ -11,6 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,7 +22,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type Suite struct {
@@ -39,8 +40,9 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.model = description.NewModel(description.ModelArgs{
+		Config:             map[string]interface{}{"uuid": modelUUID},
 		Owner:              names.NewUserTag("admin"),
-		LatestToolsVersion: version.Current,
+		LatestToolsVersion: jujuversion.Current,
 	})
 	s.backend = &stubBackend{
 		migration: new(stubMigration),
@@ -138,6 +140,11 @@ func (s *Suite) TestExport(c *gc.C) {
 		Tag:      names.NewServiceTag("foo"),
 		CharmURL: "cs:foo-0",
 	})
+	const tools = "2.0.0-xenial-amd64"
+	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
+	m.SetTools(description.AgentToolsArgs{
+		Version: version.MustParseBinary(tools),
+	})
 	api := s.mustMakeAPI(c)
 
 	serialized, err := api.Export()
@@ -146,8 +153,11 @@ func (s *Suite) TestExport(c *gc.C) {
 	// We don't want to tie this test the serialisation output (that's
 	// tested elsewhere). Just check that at least one thing we expect
 	// is in the serialised output.
-	c.Assert(string(serialized.Bytes), jc.Contains, version.Current.String())
+	c.Assert(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
 	c.Assert(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
+	c.Assert(serialized.Tools, gc.DeepEquals, []params.SerializedModelTools{
+		{tools, "/tools/" + tools},
+	})
 }
 
 func (s *Suite) TestReap(c *gc.C) {

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -133,6 +134,7 @@ func (api *API) Export() (params.SerializedModel, error) {
 	}
 	serialized.Bytes = bytes
 	serialized.Charms = getUsedCharms(model)
+	serialized.Tools = getUsedTools(model)
 	return serialized, nil
 }
 
@@ -148,4 +150,38 @@ func getUsedCharms(model description.Model) []string {
 		result.Add(service.CharmURL())
 	}
 	return result.Values()
+}
+
+func getUsedTools(model description.Model) []params.SerializedModelTools {
+	// Iterate through the model for all tools, and make a map of them.
+	usedVersions := make(map[version.Binary]bool)
+	// It is most likely that the preconditions will limit the number of
+	// tools versions in use, but that is not relied on here.
+	for _, machine := range model.Machines() {
+		addToolsVersionForMachine(machine, usedVersions)
+	}
+
+	for _, service := range model.Services() {
+		for _, unit := range service.Units() {
+			tools := unit.Tools()
+			usedVersions[tools.Version()] = true
+		}
+	}
+
+	out := make([]params.SerializedModelTools, 0, len(usedVersions))
+	for v := range usedVersions {
+		out = append(out, params.SerializedModelTools{
+			Version: v.String(),
+			URI:     common.ToolsURL("", v),
+		})
+	}
+	return out
+}
+
+func addToolsVersionForMachine(machine description.Machine, usedVersions map[version.Binary]bool) {
+	tools := machine.Tools()
+	usedVersions[tools.Version()] = true
+	for _, container := range machine.Containers() {
+		addToolsVersionForMachine(container, usedVersions)
+	}
 }
