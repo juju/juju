@@ -1272,7 +1272,10 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 			Dirty:       true,
 			Constraints: *unitCons,
 		}
-		return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		if data.machineId != "" {
+			return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		}
+		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
 		// If a placement directive is to be used, do that here.
 		template := MachineTemplate{

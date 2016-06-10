@@ -25,6 +25,7 @@ func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Appl
 		Charm: charm, NumUnits: 2,
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	units, err := svc.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 2)
@@ -70,4 +71,33 @@ func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 	assignments, err := s.State.AllUnitAssignments()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(assignments, gc.HasLen, 0)
+}
+
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMachine(c *gc.C) {
+	// Enables juju deploy <charm> --to lxd
+	// https://bugs.launchpad.net/juju-core/+bug/1590960
+	charm := s.AddTestingCharm(c, "dummy")
+	placement := instance.Placement{Scope: "lxd"}
+	svc, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: "dummy", Owner: s.Owner.String(),
+		Charm: charm, NumUnits: 1,
+		Placement: []*instance.Placement{&placement},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	units, err := svc.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+
+	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	parentId, isContainer := machine.ParentId()
+	c.Assert(isContainer, jc.IsTrue)
+	_, err = s.State.Machine(parentId)
+	c.Assert(err, jc.ErrorIsNil)
 }
