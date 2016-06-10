@@ -361,6 +361,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditingC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -374,6 +379,7 @@ const (
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
 	assignUnitC              = "assignUnits"
+	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
