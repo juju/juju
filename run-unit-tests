@@ -13,7 +13,7 @@ FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
 ROBUST="false"
-REVISION_BUILD=${revision_build:-}
+REVISION_BUILD="none"
 USE_PPA=""
 INSTALL_DEPS=""
 USE_TMPFS="false"
@@ -66,6 +66,12 @@ while [[ "${1-}" != "" ]]; do
     esac
     shift
 done
+
+
+if [[ $IS_LOCAL == "false" && $REVISION_BUILD == "none" ]]; then
+    echo "You must use either the --local or --revision-build option."
+    exit 1
+fi
 
 
 if [[ $IS_LOCAL == "false" ]]; then
