@@ -6,6 +6,7 @@ package migration
 import (
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 
 	"github.com/juju/errors"
@@ -122,6 +123,12 @@ type CharmUploader interface {
 	UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error)
 }
 
+// ToolsDownloader defines a single method that is used to download
+// tools from the source controller in a migration.
+type ToolsDownloader interface {
+	OpenURI(string, url.Values) (io.ReadCloser, error)
+}
+
 // ToolsUploader defines a single method that is used to upload tools
 // to the target controller in a migration.
 type ToolsUploader interface {
@@ -135,6 +142,9 @@ type UploadBinariesConfig struct {
 	Charms          []string
 	CharmDownloader CharmDownloader
 	CharmUploader   CharmUploader
+
+	Tools           map[version.Binary]string
+	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
 }
 
@@ -145,6 +155,9 @@ func (c *UploadBinariesConfig) Validate() error {
 	}
 	if c.CharmUploader == nil {
 		return errors.NotValidf("missing CharmUploader")
+	}
+	if c.ToolsDownloader == nil {
+		return errors.NotValidf("missing ToolsDownloader")
 	}
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
@@ -158,11 +171,12 @@ func UploadBinaries(config UploadBinariesConfig) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-
 	if err := uploadCharms(config); err != nil {
 		return errors.Trace(err)
 	}
-
+	if err := uploadTools(config); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -192,7 +206,7 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 
 func uploadCharms(config UploadBinariesConfig) error {
 	for _, charmUrl := range config.Charms {
-		logger.Debugf("send charm %s to target", charmUrl)
+		logger.Debugf("sending charm %s to target", charmUrl)
 
 		curl, err := charm.ParseURL(charmUrl)
 		if err != nil {
@@ -213,6 +227,29 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 		if _, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
+		}
+	}
+	return nil
+}
+
+func uploadTools(config UploadBinariesConfig) error {
+	for v, uri := range config.Tools {
+		logger.Debugf("sending tools to target: %s", v)
+
+		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
+		if err != nil {
+			return errors.Annotate(err, "cannot open charm")
+		}
+		defer reader.Close()
+
+		content, cleanup, err := streamThroughTempFile(reader)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer cleanup()
+
+		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
+			return errors.Annotate(err, "cannot upload tools")
 		}
 	}
 	return nil

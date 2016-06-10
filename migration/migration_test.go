@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -101,13 +102,23 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	c.Assert(attrs["controller-uuid"], gc.Equals, controllerConfig.UUID())
 }
 
-func (s *ImportSuite) TestCharmMigration(c *gc.C) {
+func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	downloader := &fakeDownloader{}
-	uploader := &fakeUploader{charms: make(map[string]string)}
+	uploader := &fakeUploader{
+		charms: make(map[string]string),
+		tools:  make(map[version.Binary]string),
+	}
+
+	toolsMap := map[version.Binary]string{
+		version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+		version.MustParseBinary("2.0.0-xenial-amd64"): "/tools/1",
+	}
 	config := migration.UploadBinariesConfig{
 		Charms:          []string{"local:trusty/magic", "cs:trusty/postgresql-42"},
 		CharmDownloader: downloader,
 		CharmUploader:   uploader,
+		Tools:           toolsMap,
+		ToolsDownloader: downloader,
 		ToolsUploader:   uploader,
 	}
 	err := migration.UploadBinaries(config)
@@ -121,10 +132,16 @@ func (s *ImportSuite) TestCharmMigration(c *gc.C) {
 		"local:trusty/magic":      "local:trusty/magic content",
 		"cs:trusty/postgresql-42": "cs:trusty/postgresql-42 content",
 	})
+	c.Assert(downloader.uris, jc.SameContents, []string{
+		"/tools/0",
+		"/tools/1",
+	})
+	c.Assert(uploader.tools, jc.DeepEquals, toolsMap)
 }
 
 type fakeDownloader struct {
 	charms []string
+	uris   []string
 }
 
 func (d *fakeDownloader) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
@@ -132,6 +149,15 @@ func (d *fakeDownloader) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
 	d.charms = append(d.charms, urlStr)
 	// Return the charm URL string as the fake charm content
 	return ioutil.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
+}
+
+func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
+	if query != nil {
+		panic("query should be empty")
+	}
+	d.uris = append(d.uris, uri)
+	// Return the URI string as fake content
+	return ioutil.NopCloser(bytes.NewReader([]byte(uri))), nil
 }
 
 type fakeUploader struct {
@@ -144,13 +170,8 @@ func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary, _ ...strin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	f.tools[v] = string(data)
-
-	uploaded := &tools.Tools{
-		Version: v,
-	}
-	return tools.List{uploaded}, nil
+	return tools.List{&tools.Tools{Version: v}}, nil
 }
 
 func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
