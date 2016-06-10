@@ -160,7 +160,10 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
-	ModelName: "admin",
+	Model: params.ModelStatusInfo{
+		Name:    "admin",
+		Version: "1.2.3",
+	},
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
@@ -377,6 +380,9 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
+	err = s.State.UpdateModelConfig(map[string]interface{}{
+		config.AgentVersionKey: "1.2.3"}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)

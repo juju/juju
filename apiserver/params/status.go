@@ -16,86 +16,92 @@ import (
 
 // StatusParams holds parameters for the Status call.
 type StatusParams struct {
-	Patterns []string
+	Patterns []string `json:"patterns"`
 }
 
 // TODO(ericsnow) Add FullStatusResult.
 
 // FullStatus holds information about the status of a juju model.
 type FullStatus struct {
-	ModelName        string
-	AvailableVersion string
-	Machines         map[string]MachineStatus
-	Applications     map[string]ApplicationStatus
-	Relations        []RelationStatus
+	Model        ModelStatusInfo              `json:"model"`
+	Machines     map[string]MachineStatus     `json:"machines"`
+	Applications map[string]ApplicationStatus `json:"applications"`
+	Relations    []RelationStatus             `json:"relations"`
+}
+
+// ModelStatusInfo holds status information about the model itself.
+type ModelStatusInfo struct {
+	Name             string `json:"name"`
+	Version          string `json:"version"`
+	AvailableVersion string `json:"available-version"`
 }
 
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
-	AgentStatus    DetailedStatus
-	InstanceStatus DetailedStatus
+	AgentStatus    DetailedStatus `json:"agent-status"`
+	InstanceStatus DetailedStatus `json:"instance-status"`
 
-	DNSName    string
-	InstanceId instance.Id
-	Series     string
-	Id         string
-	Containers map[string]MachineStatus
-	Hardware   string
-	Jobs       []multiwatcher.MachineJob
-	HasVote    bool
-	WantsVote  bool
+	DNSName    string                    `json:"dns-name"`
+	InstanceId instance.Id               `json:"instance-id"`
+	Series     string                    `json:"series"`
+	Id         string                    `json:"id"`
+	Containers map[string]MachineStatus  `json:"containers"`
+	Hardware   string                    `json:"hardware"`
+	Jobs       []multiwatcher.MachineJob `json:"jobs"`
+	HasVote    bool                      `json:"has-vote"`
+	WantsVote  bool                      `json:"wants-vote"`
 }
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err           error
-	Charm         string
-	Exposed       bool
-	Life          string
-	Relations     map[string][]string
-	CanUpgradeTo  string
-	SubordinateTo []string
-	Units         map[string]UnitStatus
-	MeterStatuses map[string]MeterStatus
-	Status        DetailedStatus
+	Err           error                  `json:"err,omitempty"`
+	Charm         string                 `json:"charm"` // series isn't always defined in the charm now
+	Exposed       bool                   `json:"exposed"`
+	Life          string                 `json:"life"`
+	Relations     map[string][]string    `json:"relations"`
+	CanUpgradeTo  string                 `json:"can-upgrade-to"`
+	SubordinateTo []string               `json:"subordinate-to"`
+	Units         map[string]UnitStatus  `json:"units"`
+	MeterStatuses map[string]MeterStatus `json:"meter-statuses"`
+	Status        DetailedStatus         `json:"status"`
 }
 
 // MeterStatus represents the meter status of a unit.
 type MeterStatus struct {
-	Color   string
-	Message string
+	Color   string `json:"color"`
+	Message string `json:"message"`
 }
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
 	// AgentStatus holds the status for a unit's agent.
-	AgentStatus DetailedStatus
+	AgentStatus DetailedStatus `json:"agent-status"`
 
 	// WorkloadStatus holds the status for a unit's workload
-	WorkloadStatus DetailedStatus
+	WorkloadStatus DetailedStatus `json:"workload-status"`
 
-	Machine       string
-	OpenedPorts   []string
-	PublicAddress string
-	Charm         string
-	Subordinates  map[string]UnitStatus
+	Machine       string                `json:"machine"`
+	OpenedPorts   []string              `json:"opened-ports"`
+	PublicAddress string                `json:"public-address"`
+	Charm         string                `json:"charm"`
+	Subordinates  map[string]UnitStatus `json:"subordinates"`
 }
 
 // RelationStatus holds status info about a relation.
 type RelationStatus struct {
-	Id        int
-	Key       string
-	Interface string
-	Scope     charm.RelationScope
-	Endpoints []EndpointStatus
+	Id        int                 `json:"id"`
+	Key       string              `json:"key"`
+	Interface string              `json:"interface"`
+	Scope     charm.RelationScope `json:"scope"`
+	Endpoints []EndpointStatus    `json:"endpoints"`
 }
 
 // EndpointStatus holds status info about a single endpoint
 type EndpointStatus struct {
-	ApplicationName string
-	Name            string
-	Role            charm.RelationRole
-	Subordinate     bool
+	ApplicationName string             `json:"application"`
+	Name            string             `json:"name"`
+	Role            charm.RelationRole `json:"role"`
+	Subordinate     bool               `json:"subordinate"`
 }
 
 // TODO(ericsnow) Eliminate the String method.
@@ -106,87 +112,87 @@ func (epStatus *EndpointStatus) String() string {
 
 // DetailedStatus holds status info about a machine or unit agent.
 type DetailedStatus struct {
-	Status  string                 `json:"Status"`
-	Info    string                 `json:"Info"`
-	Data    map[string]interface{} `json:"Data"`
-	Since   *time.Time             `json:"Since"`
-	Kind    string                 `json:"Kind"`
-	Version string                 `json:"Version"`
-	Life    string                 `json:"Life"`
-	Err     error                  `json:"Err"`
+	Status  string                 `json:"status"`
+	Info    string                 `json:"info"`
+	Data    map[string]interface{} `json:"data"`
+	Since   *time.Time             `json:"since"`
+	Kind    string                 `json:"kind"`
+	Version string                 `json:"version"`
+	Life    string                 `json:"life"`
+	Err     error                  `json:"err,omitempty"`
 }
 
 // History holds many DetailedStatus,
 type History struct {
-	Statuses []DetailedStatus `json:"Statuses"`
-	Error    *Error           `json:"Error,omitempty"`
+	Statuses []DetailedStatus `json:"statuses"`
+	Error    *Error           `json:"error,omitempty"`
 }
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
 type StatusHistoryFilter struct {
-	Size  int            `json:"Size"`
-	Date  *time.Time     `json:"Date"`
-	Delta *time.Duration `json:"Delta"`
+	Size  int            `json:"size"`
+	Date  *time.Time     `json:"date"`
+	Delta *time.Duration `json:"delta"`
 }
 
 // StatusHistoryRequest holds the parameters to filter a status history query.
 type StatusHistoryRequest struct {
-	Kind   string              `json:"HistoryKind"`
-	Size   int                 `json:"Size"`
-	Filter StatusHistoryFilter `json:"Filter"`
-	Tag    string              `json:"Tag"`
+	Kind   string              `json:"historyKind"`
+	Size   int                 `json:"size"`
+	Filter StatusHistoryFilter `json:"filter"`
+	Tag    string              `json:"tag"`
 }
 
 // StatusHistoryRequests holds a slice of StatusHistoryArgs
 type StatusHistoryRequests struct {
-	Requests []StatusHistoryRequest `json:"Requests"`
+	Requests []StatusHistoryRequest `json:"requests"`
 }
 
 // StatusHistoryResult holds a slice of statuses.
 type StatusHistoryResult struct {
-	History History `json:"History"`
-	Error   *Error  `json:"Error,omitempty"`
+	History History `json:"history"`
+	Error   *Error  `json:"error,omitempty"`
 }
 
 // StatusHistoryResults holds a slice of StatusHistoryResult.
 type StatusHistoryResults struct {
-	Results []StatusHistoryResult `json:"Results"`
+	Results []StatusHistoryResult `json:"results"`
 }
 
 // StatusHistoryPruneArgs holds arguments for status history
 // prunning process.
 type StatusHistoryPruneArgs struct {
-	MaxHistoryTime time.Duration `json:"MaxHistoryTime"`
-	MaxHistoryMB   int           `json:"MaxHistoryMB"`
+	MaxHistoryTime time.Duration `json:"max-history-time"`
+	MaxHistoryMB   int           `json:"max-history-mb"`
 }
 
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
-	Error  *Error
-	Id     string
-	Life   Life
-	Status string
-	Info   string
-	Data   map[string]interface{}
-	Since  *time.Time
+	Error  *Error                 `json:"error,omitempty"`
+	Id     string                 `json:"id"`
+	Life   Life                   `json:"life"`
+	Status string                 `json:"status"`
+	Info   string                 `json:"info"`
+	Data   map[string]interface{} `json:"data"`
+	Since  *time.Time             `json:"since"`
 }
 
 // StatusResults holds multiple status results.
 type StatusResults struct {
-	Results []StatusResult
+	Results []StatusResult `json:"results"`
 }
 
 // ApplicationStatusResult holds results for an application Full Status
 type ApplicationStatusResult struct {
-	Application StatusResult
-	Units       map[string]StatusResult
-	Error       *Error
+	Application StatusResult            `json:"application"`
+	Units       map[string]StatusResult `json:"units"`
+	Error       *Error                  `json:"error,omitempty"`
 }
 
 // ApplicationStatusResults holds multiple StatusResult.
 type ApplicationStatusResults struct {
-	Results []ApplicationStatusResult
+	Results []ApplicationStatusResult `json:"results"`
 }
 
 // Life describes the lifecycle state of an entity ("alive", "dying" or "dead").

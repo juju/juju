@@ -210,15 +210,19 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
 	defaultSeries.Add(series.HostSeries())
+	agentVersion, set := conf.AgentVersion()
+	if !set {
+		agentVersion = jujuversion.Current
+	}
 	for _, s := range defaultSeries.Values() {
 		versions = append(versions, version.Binary{
-			Number: jujuversion.Current,
+			Number: agentVersion,
 			Arch:   arch.HostArch(),
 			Series: s,
 		})
 		if arch.HostArch() != "amd64" {
 			versions = append(versions, version.Binary{
-				Number: jujuversion.Current,
+				Number: agentVersion,
 				Arch:   "amd64",
 				Series: s,
 			})

@@ -33,14 +33,13 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	coreversion "github.com/juju/juju/version"
 )
 
-func nextVersion() version.Number {
-	ver := jujuversion.Current
-	ver.Patch++
-	return ver
-}
+var (
+	currentVersion = version.Number{Major: 1, Minor: 2, Patch: 3}
+	nextVersion    = version.Number{Major: 1, Minor: 2, Patch: 4}
+)
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
@@ -55,6 +54,18 @@ type StatusSuite struct {
 }
 
 var _ = gc.Suite(&StatusSuite{})
+
+func (s *StatusSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&coreversion.Current, currentVersion)
+}
+
+func (s *StatusSuite) SetUpTest(c *gc.C) {
+	s.ConfigAttrs = map[string]interface{}{
+		"agent-version": currentVersion.String(),
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
 
 type M map[string]interface{}
 
@@ -314,7 +325,12 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -342,7 +358,12 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -368,7 +389,12 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 				},
@@ -380,7 +406,12 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"dns-name":    "admin-0.dns",
@@ -415,7 +446,12 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -445,7 +481,12 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has no dns-name",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -472,7 +513,12 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -496,7 +542,12 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"instance-id": "i-missing",
@@ -531,7 +582,12 @@ var statusTests = []testCase{
 		expect{
 			"no applications exposed yet",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 				},
@@ -547,7 +603,12 @@ var statusTests = []testCase{
 		expect{
 			"one exposed application",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 				},
@@ -570,7 +631,12 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -602,7 +668,12 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -678,7 +749,12 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -786,7 +862,12 @@ var statusTests = []testCase{
 			"scope status on dummy-application/0 unit",
 			[]string{"dummy-application/0"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"1": machine1,
 				},
@@ -820,7 +901,12 @@ var statusTests = []testCase{
 			"scope status on exposed-application application",
 			[]string{"exposed-application"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"2": machine2,
 				},
@@ -859,7 +945,12 @@ var statusTests = []testCase{
 			"scope status on application pattern",
 			[]string{"d*-application"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"1": machine1,
 				},
@@ -893,7 +984,12 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-application/*"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"2": machine2,
 				},
@@ -932,7 +1028,12 @@ var statusTests = []testCase{
 			"scope status on combination of application and unit patterns",
 			[]string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1020,7 +1121,12 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1113,7 +1219,12 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error when the agent is down",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1187,7 +1298,12 @@ var statusTests = []testCase{
 		expect{
 			"application shows life==dying",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1245,7 +1361,12 @@ var statusTests = []testCase{
 		expect{
 			"unit shows that agent is lost",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1345,7 +1466,12 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1499,7 +1625,12 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1610,7 +1741,12 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1715,7 +1851,12 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1819,7 +1960,12 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"1": machine1,
 				},
@@ -1916,7 +2062,12 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -1965,7 +2116,12 @@ var statusTests = []testCase{
 			"machines with nested containers 2",
 			[]string{"mysql/1"},
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"1": M{
 						"juju-status": M{
@@ -2045,7 +2201,12 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2101,7 +2262,12 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2156,7 +2322,12 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2212,7 +2383,12 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2300,7 +2476,12 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"model": "admin",
+				"model": M{
+					"name":       "admin",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"version":    "1.2.3",
+				},
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2396,9 +2577,12 @@ var statusTests = []testCase{
 		expect{
 			"upgrade availability should be shown in model-status",
 			M{
-				"model": "admin",
-				"model-status": M{
-					"upgrade-available": nextVersion().String(),
+				"model": M{
+					"name":              "admin",
+					"controller":        "kontroll",
+					"cloud":             "dummy",
+					"version":           "1.2.3",
+					"upgrade-available": "1.2.4",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2959,7 +3143,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion())
+	err = env.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3195,42 +3379,35 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	code, stdout, stderr := runStatus(c, args...)
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
-	const expected = `
-[Model]           
-UPGRADE-AVAILABLE 
-%s
+	expected := `
+MODEL  CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE  
+admin  kontroll    dummy  1.2.3    1.2.4              
 
-[Applications] 
-NAME           STATUS      EXPOSED CHARM                  
-logging                    true    cs:quantal/logging-1   
-mysql          maintenance true    cs:quantal/mysql-1     
-wordpress      active      true    cs:quantal/wordpress-3 
+APP        STATUS       EXPOSED  CHARM                   
+logging                 true     cs:quantal/logging-1    
+mysql      maintenance  true     cs:quantal/mysql-1      
+wordpress  active       true     cs:quantal/wordpress-3  
 
-[Relations]  
-APPLICATION1 APPLICATION2 RELATION          TYPE        
-logging      mysql        juju-info         regular     
-logging      wordpress    logging-dir       regular     
-mysql        logging      info              subordinate 
-mysql        wordpress    db                regular     
-wordpress    logging      logging-directory subordinate 
+RELATION           PROVIDES   CONSUMES   TYPE         
+juju-info          logging    mysql      regular      
+logging-dir        logging    wordpress  regular      
+info               mysql      logging    subordinate  
+db                 mysql      wordpress  regular      
+logging-directory  wordpress  logging    subordinate  
 
-[Units]     
-ID          WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        
-mysql/0     maintenance     idle        1.2.3   2             admin-2.dns    installing all the things      
-  logging/1 error           idle                              admin-2.dns    somehow lost in all those logs 
-wordpress/0 active          idle        1.2.3   1             admin-1.dns                                   
-  logging/0 active          idle                              admin-1.dns                                   
+UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE                         
+mysql/0      maintenance  idle   2               admin-2.dns     installing all the things       
+  logging/1  error        idle                   admin-2.dns     somehow lost in all those logs  
+wordpress/0  active       idle   1               admin-1.dns                                     
+  logging/0  active       idle                   admin-1.dns                                     
 
-[Machines] 
-ID         STATE   DNS         INS-ID  SERIES  AZ         
-0          started admin-0.dns admin-0 quantal us-east-1a 
-1          started admin-1.dns admin-1 quantal            
-2          started admin-2.dns admin-2 quantal            
+MACHINE  STATE    DNS          INS-ID   SERIES   AZ          
+0        started  admin-0.dns  admin-0  quantal  us-east-1a  
+1        started  admin-1.dns  admin-1  quantal              
+2        started  admin-2.dns  admin-2  quantal              
 
-`
-	nextVersionStr := nextVersion().String()
-	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersionStr+spaces))
+`[1:]
+	c.Assert(string(stdout), gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
@@ -3269,17 +3446,17 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-[Applications] 
-NAME           STATUS EXPOSED CHARM 
-foo                   false         
+MODEL  CONTROLLER  CLOUD  VERSION  
+                                   
 
-[Units] 
-ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           
-foo/0   maintenance     executing                                        (config-changed) doing some work  
-foo/1   maintenance     executing                                        (backup database) doing some work 
+APP  STATUS  EXPOSED  CHARM  
+foo          false           
 
-[Machines] 
-ID         STATE DNS INS-ID SERIES AZ 
+UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE                            
+foo/0  maintenance  executing                                  (config-changed) doing some work   
+foo/1  maintenance  executing                                  (backup database) doing some work  
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
 `[1:])
 }
 
@@ -3335,22 +3512,21 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-[Applications] 
-NAME           STATUS EXPOSED CHARM 
-foo                   false         
+MODEL  CONTROLLER  CLOUD  VERSION  
+                                   
 
-[Units] 
-ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE 
-foo/0                                                                            
-foo/1                                                                            
+APP  STATUS  EXPOSED  CHARM  
+foo          false           
 
-[Metering] 
-ID         STATUS  MESSAGE                     
-foo/0      strange warning: stable strangelets 
-foo/1      up      things are looking up       
+UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE  
+foo/0                                                            
+foo/1                                                            
 
-[Machines] 
-ID         STATE DNS INS-ID SERIES AZ 
+METER  STATUS   MESSAGE                      
+foo/0  strange  warning: stable strangelets  
+foo/1  up       things are looking up        
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
 `[1:])
 }
 
@@ -3496,7 +3672,11 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	c.Assert(string(stderr), gc.Equals, "")
 	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
 	const expected = "" +
-		"model: admin\n" +
+		"model:\n" +
+		"  name: admin\n" +
+		"  controller: kontroll\n" +
+		"  cloud: dummy\n" +
+		"  version: 1.2.3\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -3784,7 +3964,12 @@ var statusTimeTest = test(
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
-			"model": "admin",
+			"model": M{
+				"name":       "admin",
+				"controller": "kontroll",
+				"cloud":      "dummy",
+				"version":    "1.2.3",
+			},
 			"machines": M{
 				"0": machine0,
 				"1": machine1,

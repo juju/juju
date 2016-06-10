@@ -12,6 +12,7 @@ import (
 
 type statusFormatter struct {
 	status    *params.FullStatus
+	model     modelStatus
 	relations map[int]params.RelationStatus
 	isoTime   bool
 }
@@ -19,8 +20,13 @@ type statusFormatter struct {
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+	return newStatusFormatter(status, modelStatus{}, isoTime)
+}
+
+func newStatusFormatter(status *params.FullStatus, model modelStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
+		model:     model,
 		relations: make(map[int]params.RelationStatus),
 		isoTime:   isoTime,
 	}
@@ -34,17 +40,14 @@ func (sf *statusFormatter) format() formattedStatus {
 	if sf.status == nil {
 		return formattedStatus{}
 	}
+	model := sf.model
+	model.Version = sf.status.Model.Version
+	model.AvailableVersion = sf.status.Model.AvailableVersion
 	out := formattedStatus{
-		Model:        sf.status.ModelName,
+		Model:        model,
 		Machines:     make(map[string]machineStatus),
 		Applications: make(map[string]applicationStatus),
 	}
-	if sf.status.AvailableVersion != "" {
-		out.ModelStatus = &modelStatus{
-			AvailableVersion: sf.status.AvailableVersion,
-		}
-	}
-
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
 	}
@@ -60,7 +63,7 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 		return formattedMachineStatus{}
 	}
 	out := formattedMachineStatus{
-		Model:    sf.status.ModelName,
+		Model:    sf.status.Model.Name,
 		Machines: make(map[string]machineStatus),
 	}
 	for k, m := range sf.status.Machines {
