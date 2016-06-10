@@ -111,17 +111,15 @@ def _clean_dir(maybe_dir):
         contents = os.listdir(maybe_dir)
     except OSError as e:
         if e.errno == errno.ENOENT:
-            warnings.warn("Creating logging directory %s" % maybe_dir)
+            warnings.warn("Not a directory %s" % (maybe_dir,))
             try:
                 os.makedirs(maybe_dir)
+                warnings.warn("Created logging directory %s" % maybe_dir)
             except OSError as e:
-                if e.errno == errno.EEXIST:
-                    warnings.warn("Failed to create logging directory: " +
-                                  maybe_dir +
-                                  ". Please specify empty folder or try again")
+                warnings.warn("Failed to create logging directory: " +
+                              maybe_dir +
+                              ". Please specify empty folder or try again")
                 raise
-        else:
-            raise
     else:
         if contents and contents != ["empty"]:
             warnings.warn("Directory %r has existing contents." % (maybe_dir,))
