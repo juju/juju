@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import socket
+from tempfile import mkdtemp
 from time import time
 import warnings
 
@@ -433,19 +434,43 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_warn_on_nonexistent_directory_creation(self):
         with warnings.catch_warnings(record=True) as warned:
-            with temp_dir() as log_dir:
-                os.rmdir(log_dir)
+            log_dir = mkdtemp()
+            os.rmdir(log_dir)
+            cmd_line = ['local', '/foo/juju', log_dir, 'testtest']
+            parser = add_basic_testing_arguments(ArgumentParser())
+            parser.parse_args(cmd_line)
+            self.assertEqual(len(warned), 2)
+            self.assertRegexpMatches(
+                str(warned[0].message),
+                r"Not a directory " + log_dir)
+            self.assertRegexpMatches(
+                str(warned[1].message),
+                r"Created logging directory " + log_dir)
+            self.assertEqual("", self.log_stream.getvalue())
+
+    def test_warn_on_nonexistent_directory_creation_failure(self):
+        with warnings.catch_warnings(record=True) as warned:
+            log_dir = mkdtemp()
+            os.rmdir(log_dir)
+            with patch('utility.os.makedirs', side_effect=OSError):
                 cmd_line = ['local', '/foo/juju', log_dir, 'testtest']
                 parser = add_basic_testing_arguments(ArgumentParser())
-                parser.parse_args(cmd_line)
+                try:
+                    parser.parse_args(cmd_line)
+                except OSError:
+                    # we catch our thrown OSError
+                    pass
+                else:
+                    self.fail('No exception thrown after' +
+                              ' directory creation failure')
                 self.assertEqual(len(warned), 2)
                 self.assertRegexpMatches(
                     str(warned[0].message),
                     r"Not a directory " + log_dir)
                 self.assertRegexpMatches(
                     str(warned[1].message),
-                    r"Created logging directory " + log_dir)
-                self.assertEqual("", self.log_stream.getvalue())
+                    r"Failed to create logging directory: " + log_dir +
+                    ". Please specify empty folder or try again")
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
