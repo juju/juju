@@ -11,8 +11,7 @@ import (
 )
 
 type formattedStatus struct {
-	Model        string                       `json:"model"`
-	ModelStatus  *modelStatus                 `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	Model        modelStatus                  `json:"model"`
 	Machines     map[string]machineStatus     `json:"machines"`
 	Applications map[string]applicationStatus `json:"applications"`
 }
@@ -27,6 +26,10 @@ type errorStatus struct {
 }
 
 type modelStatus struct {
+	Name             string `json:"name"`
+	Controller       string `json:"controller"`
+	Cloud            string `json:"cloud"`
+	Version          string `json:"version"`
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 

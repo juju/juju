@@ -39,7 +39,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.ModelName, gc.Equals, "admin")
+	c.Check(status.Model.Name, gc.Equals, "admin")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]

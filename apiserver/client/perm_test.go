@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type permSuite struct {
@@ -434,7 +433,8 @@ func opClientSetEnvironAgentVersion(c *gc.C, st api.Connection, mst *state.State
 	if err != nil {
 		return func() {}, err
 	}
-	err = st.Client().SetModelAgentVersion(jujuversion.Current)
+	ver := version.Number{Major: 1, Minor: 2, Patch: 3}
+	err = st.Client().SetModelAgentVersion(ver)
 	if err != nil {
 		return func() {}, err
 	}

@@ -6,6 +6,7 @@ package status
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strings"
@@ -75,6 +76,20 @@ func (r *relationFormatter) get(k string) *statusRelation {
 	return r.relations[k]
 }
 
+func printHelper(tw *tabwriter.Writer) func(...interface{}) {
+	return func(values ...interface{}) {
+		for _, v := range values {
+			fmt.Fprintf(tw, "%s\t", v)
+		}
+		fmt.Fprintln(tw)
+	}
+}
+
+func getTabWriter(out io.Writer) *tabwriter.Writer {
+	padding := 2
+	return tabwriter.NewWriter(out, 0, 1, padding, ' ', 0)
+}
+
 // FormatTabular returns a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
@@ -85,29 +100,27 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	}
 	var out bytes.Buffer
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
-		}
-		fmt.Fprintln(tw)
+	tw := getTabWriter(&out)
+	p := printHelper(tw)
+	outputHeaders := func(values ...interface{}) {
+		p()
+		p(values...)
 	}
 
-	if envStatus := fs.ModelStatus; envStatus != nil {
-		p("[Model]")
-		if envStatus.AvailableVersion != "" {
-			p("UPGRADE-AVAILABLE")
-			p(envStatus.AvailableVersion)
-		}
-		p()
-		tw.Flush()
+	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD", "VERSION"}
+	values := []interface{}{fs.Model.Name, fs.Model.Controller, fs.Model.Cloud, fs.Model.Version}
+	if fs.Model.AvailableVersion != "" {
+		header = append(header, "UPGRADE-AVAILABLE")
+		values = append(values, fs.Model.AvailableVersion)
 	}
+	// The first set of headers don't use outputHeaders because it adds the blank line.
+	p(header...)
+	p(values...)
 
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
-	p("[Applications]")
-	p("NAME\tSTATUS\tEXPOSED\tCHARM")
+	outputHeaders("APP", "STATUS", "EXPOSED", "CHARM")
 	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		svc := fs.Applications[svcName]
 		for un, u := range svc.Units {
@@ -127,17 +140,14 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	}
 	if relations.len() > 0 {
-		p()
-		p("[Relations]")
-		p("APPLICATION1\tAPPLICATION2\tRELATION\tTYPE")
+		outputHeaders("RELATION", "PROVIDES", "CONSUMES", "TYPE")
 		for _, k := range relations.sorted() {
 			r := relations.get(k)
 			if r != nil {
-				p(r.application1, r.application2, r.relation, r.relationType())
+				p(r.relation, r.application1, r.application2, r.relationType())
 			}
 		}
 	}
-	tw.Flush()
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
@@ -149,7 +159,6 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			indent("", level*2, name),
 			u.WorkloadStatusInfo.Current,
 			u.JujuStatusInfo.Current,
-			u.JujuStatusInfo.Version,
 			u.Machine,
 			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
@@ -157,21 +166,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		)
 	}
 
-	header := []string{"ID", "WORKLOAD-STATUS", "JUJU-STATUS", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
-
-	p("\n[Units]")
-	p(strings.Join(header, "\t"))
+	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE")
 	for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
 		const indentationLevel = 1
 		recurseUnits(u, indentationLevel, pUnit)
 	}
-	tw.Flush()
 
 	if metering {
-		p("\n[Metering]")
-		p("ID\tSTATUS\tMESSAGE")
+		outputHeaders("METER", "STATUS", "MESSAGE")
 		for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
@@ -180,10 +184,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		}
 	}
 
-	p("\n[Machines]")
-	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(fs.Machines)) {
-		m := fs.Machines[name]
+	var pMachine func(machineStatus)
+	pMachine = func(m machineStatus) {
 		// We want to display availability zone so extract from hardware info".
 		hw, err := instance.ParseHardware(m.Hardware)
 		if err != nil {
@@ -194,9 +196,39 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			az = *hw.AvailabilityZone
 		}
 		p(m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
+		for _, name := range common.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
+			pMachine(m.Containers[name])
+		}
 	}
+
+	p()
+	printMachines(tw, fs.Machines)
 	tw.Flush()
 	return out.Bytes(), nil
+}
+
+func printMachines(tw *tabwriter.Writer, machines map[string]machineStatus) {
+	p := printHelper(tw)
+	p("MACHINE", "STATE", "DNS", "INS-ID", "SERIES", "AZ")
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(machines)) {
+		printMachine(p, machines[name], "")
+	}
+}
+
+func printMachine(p func(...interface{}), m machineStatus, prefix string) {
+	// We want to display availability zone so extract from hardware info".
+	hw, err := instance.ParseHardware(m.Hardware)
+	if err != nil {
+		logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
+	}
+	az := ""
+	if hw.AvailabilityZone != nil {
+		az = *hw.AvailabilityZone
+	}
+	p(prefix+m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
+	for _, name := range common.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
+		printMachine(p, m.Containers[name], prefix+"  ")
+	}
 }
 
 // FormatMachineTabular returns a tabular summary of machine
@@ -207,29 +239,9 @@ func FormatMachineTabular(value interface{}) ([]byte, error) {
 	}
 	var out bytes.Buffer
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
-		}
-		fmt.Fprintln(tw)
-	}
+	tw := getTabWriter(&out)
 
-	p("\n[Machines]")
-	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(fs.Machines)) {
-		m := fs.Machines[name]
-		// We want to display availability zone so extract from hardware info".
-		hw, err := instance.ParseHardware(m.Hardware)
-		if err != nil {
-			logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
-		}
-		az := ""
-		if hw.AvailabilityZone != nil {
-			az = *hw.AvailabilityZone
-		}
-		p(m.Id, m.JujuStatus.Current, m.DNSName, m.InstanceId, m.Series, az)
-	}
+	printMachines(tw, fs.Machines)
 	tw.Flush()
 
 	return out.Bytes(), nil

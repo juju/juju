@@ -264,12 +264,19 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine mongo information")
 	}
+	modelVersion := ""
+	if v, ok := cfg.AgentVersion(); ok {
+		modelVersion = v.String()
+	}
 	return params.FullStatus{
-		ModelName:        cfg.Name(),
-		AvailableVersion: newToolsVersion,
-		Machines:         processMachines(context.machines),
-		Applications:     context.processServices(),
-		Relations:        context.processRelations(),
+		Model: params.ModelStatusInfo{
+			Name:             cfg.Name(),
+			Version:          modelVersion,
+			AvailableVersion: newToolsVersion,
+		},
+		Machines:     processMachines(context.machines),
+		Applications: context.processServices(),
+		Relations:    context.processRelations(),
 	}, nil
 }
 
