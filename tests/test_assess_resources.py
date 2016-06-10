@@ -1,10 +1,14 @@
+from contextlib import nested
 import logging
 from argparse import Namespace
 from mock import Mock, patch, call
 import StringIO
+from tempfile import NamedTemporaryFile
+from textwrap import dedent
 
 from assess_resources import (
     assess_resources,
+    get_charmstore_details,
     large_assess,
     parse_args,
     push_resource,
@@ -21,11 +25,19 @@ from utility import JujuAssertionError
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
+        args = parse_args(
+            ["an-env",
+             "/bin/juju",
+             "/tmp/logs",
+             "an-env-mod",
+             "/usr/bin/charm",
+             "credentials_file"])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual("/tmp/logs", args.logs)
         self.assertEqual("an-env-mod", args.temp_env_name)
+        self.assertEqual("/usr/bin/charm", args.charm_bin)
+        self.assertEqual("credentials_file", args.credentials_file)
         self.assertEqual(False, args.debug)
 
     def test_help(self):
@@ -40,20 +52,28 @@ class TestParseArgs(TestCase):
 class TestMain(TestCase):
 
     def test_main(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        argv = [
+            "an-env",
+            "/bin/juju",
+            "/tmp/logs",
+            "an-env-mod",
+            "/usr/bin/charm",
+            "/tmp/credentials_file",
+            "--verbose",
+            ]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_resources.configure_logging",
-                   autospec=True) as mock_cl:
-            with patch("assess_resources.BootstrapManager.booted_context",
-                       autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
-                               return_value=client) as mock_c:
-                        with patch("assess_resources.assess_resources",
-                                   autospec=True) as mock_assess:
-                            main(argv)
+        with nested(
+            patch("assess_resources.configure_logging", autospec=True),
+            patch("assess_resources.BootstrapManager.booted_context",
+                  autospec=True),
+            patch("jujupy.SimpleEnvironment.from_config", return_value=env),
+            patch("jujupy.EnvJujuClient.by_version", return_value=client),
+            patch("assess_resources.assess_resources", autospec=True),
+            patch("assess_resources.assess_charmstore_resources",
+                  autospec=True),
+        ) as (mock_cl, mock_bc, mock_e, mock_c, mock_assess, mock_cs_assess):
+            main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
@@ -204,13 +224,38 @@ class TestAssessResources(TestCase):
         self.assertEqual(mock_pr.mock_calls, calls)
 
 
+class TestCharmstoreDetails(TestCase):
+
+    def test_raises_when_no_details_found(self):
+        with NamedTemporaryFile() as tmp_file:
+            self.assertRaises(
+                ValueError, get_charmstore_details, tmp_file.name)
+
+    def test_creates_CharstoreDetails_object(self):
+        cred_details = dedent("""\
+        export STORE_CREDENTIALS="username@canonical.com:securepassword"
+        export STORE_ADMIN="admin:messy-Travis"
+        export STORE_URL="https://www.jujugui.org
+        """)
+        with NamedTemporaryFile() as tmp_file:
+            tmp_file.write(cred_details)
+            tmp_file.seek(0)
+
+            results = get_charmstore_details(tmp_file.name)
+        self.assertEqual(results.email, 'username@canonical.com')
+        self.assertEqual(results.username, 'username')
+        self.assertEqual(results.password, 'securepassword')
+        self.assertEqual(results.api_url, 'https://www.jujugui.org')
+
+
 def make_args():
     return Namespace(
         agent_stream=None, agent_timeout=1800, agent_url=None,
         bootstrap_host=None, debug=False, env='an-env', juju_bin='/bin/juju',
         keep_env=False, large_test_enabled=False, logs='/tmp/logs', machine=[],
         region=None, resource_timeout=1800, series=None,
-        temp_env_name='an-env-mod', upload_tools=False, verbose=10)
+        temp_env_name='an-env-mod', upload_tools=False, verbose=10,
+        credentials_file='/tmp/credentials_file', charm_bin='/usr/bin/charm')
 
 
 def make_resource_list():
