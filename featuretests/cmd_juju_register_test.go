@@ -61,7 +61,7 @@ Please send this command to bob:
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
 Please set a name for this controller: 
-Enter password: 
+Enter a new password: 
 Confirm password: 
 
 Welcome, bob. You are now logged into "bob-controller".

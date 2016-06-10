@@ -136,7 +136,7 @@ func (s *RegisterSuite) TestRegister(c *gc.C) {
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 Please set a name for this controller: 
-Enter password: 
+Enter a new password: 
 Confirm password: 
 
 Welcome, bob. You are now logged into "controller-name".
@@ -184,7 +184,7 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 	stderr := testing.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 Please set a name for this controller: 
-Enter password: 
+Enter a new password: 
 Confirm password: 
 
 Welcome, bob. You are now logged into "controller-name".
