@@ -149,13 +149,16 @@ func (s *debugLogDBIntSuite) TestJSONFormat(c *gc.C) {
 		return tailer, nil
 	})
 
+	var args debugLogParams
+	args.Format = "json"
+	args.AllModels = true
 	stop := make(chan struct{})
-	done := s.runRequest(&debugLogParams{format: "json", allModels: true}, stop)
+	done := s.runRequest(&args, stop)
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.
-		`{"e":"","t":"2015-06-19T15:34:37Z","m":"some.where","l":"code.go:42","v":3,"x":"stuff happened"}`,
-		`{"e":"","t":"2015-06-19T15:36:40Z","m":"else.where","l":"go.go:22","v":5,"x":"whoops"}`,
+		`{"c":"","o":"","t":"2015-06-19T15:34:37Z","m":"some.where","l":"code.go:42","v":3,"x":"stuff happened"}`,
+		`{"c":"","o":"","t":"2015-06-19T15:36:40Z","m":"else.where","l":"go.go:22","v":5,"x":"whoops"}`,
 	})
 
 	// Check the request stops when requested.

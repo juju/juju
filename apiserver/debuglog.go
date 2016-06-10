@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -148,9 +147,11 @@ func (s *debugLogSocketImpl) sendError(err error) {
 	})
 }
 
+// TODO(ericsnow) Fold everything below into params.LogStreamConfig.
+
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
-	start         time.Time
+	params.LogStreamConfig
 	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
@@ -160,20 +161,15 @@ type debugLogParams struct {
 	excludeEntity []string
 	includeModule []string
 	excludeModule []string
-	format        string
-	allModels     bool
 }
 
 func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
-	params := new(debugLogParams)
-
-	if value := queryMap.Get("startTime"); value != "" {
-		unix, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return nil, errors.Errorf("startTime value %q is not a valid number", value)
-		}
-		// 1 second granularity is good enough.
-		params.start = time.Unix(int64(unix), 0)
+	cfg, err := params.GetLogStreamConfig(queryMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	params := &debugLogParams{
+		LogStreamConfig: cfg,
 	}
 
 	if value := queryMap.Get("maxLines"); value != "" {
@@ -198,18 +194,6 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
-	}
-
-	if value := queryMap.Get("all"); value != "" {
-		allModels, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, errors.Errorf("all value %q is not a valid boolean", value)
-		}
-		params.allModels = allModels
-	}
-
-	if value := queryMap.Get("format"); value != "" {
-		params.format = value
 	}
 
 	if value := queryMap.Get("backlog"); value != "" {

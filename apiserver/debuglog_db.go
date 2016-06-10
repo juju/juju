@@ -44,7 +44,7 @@ func handleDebugLogDBRequest(
 				return errors.Annotate(tailer.Err(), "tailer stopped")
 			}
 
-			if reqParams.format == "json" {
+			if reqParams.Format == params.StreamFormatJSON {
 				err = socket.WriteJSON(params.LogRecord{
 					ControllerUUID: rec.ControllerUUID,
 					ModelUUID:      rec.ModelUUID,
@@ -74,7 +74,7 @@ func handleDebugLogDBRequest(
 
 func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	params := &state.LogTailerParams{
-		StartTime:     reqParams.start,
+		StartTime:     reqParams.StartTime,
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		InitialLines:  int(reqParams.backlog),
@@ -82,7 +82,7 @@ func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,
 		ExcludeModule: reqParams.excludeModule,
-		AllModels:     reqParams.allModels,
+		AllModels:     reqParams.AllModels,
 	}
 	if reqParams.fromTheStart {
 		params.InitialLines = 0
