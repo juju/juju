@@ -592,6 +592,29 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	c.Assert(barb.PasswordValid("new-password"), jc.IsFalse)
 }
 
+func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
+	tag := "not-a-tag"
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: tag}}})
+	c.Assert(len(got.Results), gc.Equals, 1)
+	c.Assert(err, gc.Equals, nil)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: "\"not-a-tag\" is not a valid tag",
+	})
+}
+
+func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
+	tag := names.NewUserTag("harvey").String() // "user-harvey"
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{{Tag: tag}}})
+	c.Assert(len(got.Results), gc.Equals, 1)
+	c.Assert(err, gc.Equals, nil)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: "user \"harvey\" not found",
+		Code:    "not found",
+	})
+}
+
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
@@ -601,23 +624,31 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ui.Results, gc.HasLen, 1)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ui.Results, gc.HasLen, 1)
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove the user
-	err = s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(got.Results), gc.Equals, 1)
+	var paramErr *params.Error
+	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check if deleted.
 	err = jjam.Refresh()
 	c.Assert(err, gc.ErrorMatches, expectedError)
 
 	// Try again and verify we get the expected error.
-	err = s.usermanager.RemoveUser(params.Entities{
+	got, err = s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(err, gc.ErrorMatches, expectedError)
+	c.Check(len(got.Results), gc.Equals, 1)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: expectedError,
+		Code:    "not found",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
@@ -640,14 +671,17 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ui.Results, gc.HasLen, 1)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ui.Results, gc.HasLen, 1)
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
-	// Remove jjam as the chuck and fail.
-	err = usermanager.RemoveUser(params.Entities{
+	// Remove jjam as chuck and fail.
+	got, err := usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(len(got.Results), gc.Equals, 1)
+	var paramErr *params.Error
+	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	// Make sure jjam is still around.
 	err = jjam.Refresh()
@@ -671,13 +705,16 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ui.Results, gc.HasLen, 1)
+	c.Check(ui.Results, gc.HasLen, 1)
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove the user as the user
-	err = usermanager.RemoveUser(params.Entities{
+	got, err := usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
-	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(len(got.Results), gc.Equals, 1)
+	var paramErr *params.Error
+	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	// Check if deleted.
 	err = jjam.Refresh()
@@ -686,22 +723,81 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 
 func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 
-	expectedError := fmt.Sprintf("user %q not found", "admin")
+	expectedError := "cannot remove controller owner \"admin\""
 
 	// Remove admin as admin.
-	err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
-
-	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(got.Results), gc.Equals, 1)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: expectedError,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Try again to see if we succeeded.
-	err = s.usermanager.RemoveUser(params.Entities{
+	got, err = s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
-	c.Check(err, gc.ErrorMatches, expectedError)
+	c.Check(len(got.Results), gc.Equals, 1)
+	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
+		Message: expectedError,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	// OK so admin can delete the last user? This seems wrong.
-	// TODO(redir): Find out if this is defensible.
 	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(ui.Results, gc.HasLen, 0)
+	c.Assert(ui.Results, gc.HasLen, 1)
+
+}
+
+func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
+	// Create users.
+	jjam := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "jimmyjam",
+	})
+	alice := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "alice",
+	})
+	bob := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bob",
+	})
+
+	// Get a handle on the current model.
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	users, err := model.Users()
+
+	// Make sure the users exist.
+	var userNames []string
+	for _, u := range users {
+		userNames = append(userNames, u.UserTag().Name())
+	}
+	c.Assert(userNames, jc.SameContents, []string{"admin", jjam.Name(), alice.Name(), bob.Name()})
+
+	// Remove 2 users.
+	got, err := s.usermanager.RemoveUser(params.Entities{
+		Entities: []params.Entity{
+			{Tag: jjam.Tag().String()},
+			{Tag: alice.Tag().String()},
+		}})
+	c.Check(len(got.Results), gc.Equals, 2)
+	var paramErr *params.Error
+	c.Check(got.Results[0].Error, jc.DeepEquals, paramErr)
+	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure modelusers were removed from model
+	users, err = model.Users()
+	c.Check(err, jc.ErrorIsNil)
+	userNames = []string{}
+	for _, u := range users {
+		userNames = append(userNames, u.UserTag().Name())
+	}
+	c.Assert(userNames, jc.SameContents, []string{"admin", bob.Name()})
+
+	// Also make sure users were removed.
+	err = jjam.Refresh()
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", jjam.Name()))
+	err = alice.Refresh()
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", alice.Name()))
+
 }

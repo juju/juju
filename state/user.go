@@ -110,7 +110,7 @@ func (st *State) RemoveUser(user names.UserTag) error {
 
 	_, err := st.User(user)
 	if errors.IsNotFound(err) {
-		return errors.NewUserNotFound(err, "user not found")
+		return errors.Trace(err)
 	}
 	// This builds the transaction operations we want to try for the User.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -123,6 +123,9 @@ func (st *State) RemoveUser(user names.UserTag) error {
 		}}
 		return ops, nil
 	}
+	// We remove the user first so that new modelusers cannot be added while we
+	// delete them next. We also do it seperately so that we don't have
+	// assertion issues if we try to remove a non-existent user.
 	err = st.run(buildTxn)
 
 	// If there is no User then we return with a user not found error.

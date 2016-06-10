@@ -131,7 +131,7 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 
 func (s *UserSuite) TestRemoveUserNonExistent(c *gc.C) {
 	err := s.State.RemoveUser(names.NewUserTag("harvey"))
-	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *UserSuite) TestRemoveUser(c *gc.C) {
@@ -152,7 +152,7 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 
 	// Try removing a non-existent user and check we failed as expected.
 	err = s.State.RemoveUser(user.UserTag())
-	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
 }
 
