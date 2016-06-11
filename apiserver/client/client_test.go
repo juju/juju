@@ -885,21 +885,6 @@ func (s *serverSuite) TestBlockChangesClientModelSet(c *gc.C) {
 	s.assertModelSetBlocked(c, args, "TestBlockChangesClientModelSet")
 }
 
-func (s *serverSuite) TestClientModelSetDeprecated(c *gc.C) {
-	envConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	url := envConfig.AllAttrs()["agent-metadata-url"]
-	c.Assert(url, gc.Equals, "")
-
-	args := params.ModelSet{
-		Config: map[string]interface{}{"tools-metadata-url": "value"},
-	}
-	err = s.client.ModelSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValue(c, "agent-metadata-url", "value")
-	s.assertEnvValue(c, "tools-metadata-url", "value")
-}
-
 func (s *serverSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
 	args := params.ModelSet{
 		map[string]interface{}{"agent-version": "9.9.9"},

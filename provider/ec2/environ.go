@@ -486,8 +486,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
-	cfg := e.Config()
-	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
+	var apiPort int
+	if args.InstanceConfig.Bootstrap != nil {
+		apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
+	} else {
+		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	}
+	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -594,6 +599,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	// Tag the machine's root EBS volume, if it has one.
 	if inst.Instance.RootDeviceType == "ebs" {
+		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
 			names.NewModelTag(cfg.ControllerUUID()),

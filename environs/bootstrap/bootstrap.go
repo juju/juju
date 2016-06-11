@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -120,10 +121,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// we'll be here to catch this problem early.
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
-	if _, hasCACert := cfg.CACert(); !hasCACert {
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	if _, hasCACert := controllerCfg.CACert(); !hasCACert {
 		return errors.Errorf("model configuration has no ca-cert")
 	}
-	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
+	if _, hasCAKey := controllerCfg.CAPrivateKey(); !hasCAKey {
 		return errors.Errorf("model configuration has no ca-private-key")
 	}
 

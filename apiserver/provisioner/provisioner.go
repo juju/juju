@@ -256,7 +256,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	}
 
 	// Create an environment to verify networking support.
-	env, err := environs.New(config)
+	env, err := environs.GetEnviron(p.st, environs.New)
 	if err != nil {
 		return result, err
 	}

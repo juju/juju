@@ -7,14 +7,15 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
 
 type Backend interface {
+	environs.EnvironConfigGetter
 	common.APIHostPortsGetter
-	common.ModelConfigGetter
 	common.ToolsStorageGetter
 
 	ModelUUID() string

@@ -38,6 +38,8 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 	p, err := storagecommon.VolumeParams(
 		&fakeVolume{tag: tag, params: volumeParams, info: info},
 		nil, // StorageInstance
+		testing.ModelTag.Id(),
+		testing.ModelTag.Id(),
 		testing.CustomModelConfig(c, testing.Attrs{
 			"resource-tags": "a=b c=",
 		}),
@@ -66,6 +68,8 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 			Pool: "loop", Size: 1024,
 		}},
 		&fakeStorageInstance{tag: storageTag, owner: unitTag},
+		testing.ModelTag.Id(),
+		testing.ModelTag.Id(),
 		testing.CustomModelConfig(c, nil),
 		&fakePoolManager{},
 	)

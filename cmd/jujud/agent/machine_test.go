@@ -1018,7 +1018,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(c *gc.C) {
 	started := newSignal()
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		started.trigger()
@@ -1036,7 +1036,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(
 
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonController(c *gc.C) {
 	started := newSignal()
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		started.trigger()
@@ -1084,7 +1084,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	// Disable the certificate work so it doesn't update the certificate.
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ModelConfigGetter,
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		return worker.NewNoOpWorker()

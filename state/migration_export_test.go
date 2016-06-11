@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
@@ -130,9 +130,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
 
 	// Remove all controller and cloud config before comparison.
-	for _, attr := range config.ControllerOnlyConfigAttributes {
-		delete(modelAttrs, attr)
-	}
+	controller.RemoveControllerAttributes(modelAttrs)
 	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)

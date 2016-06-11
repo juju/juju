@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
@@ -77,7 +78,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
+	controller.RemoveControllerAttributes(initial)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
 	// Check that the model has been created.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +137,8 @@ func (s *InitializeSuite) TestInitializeWithCloudConfig(c *gc.C) {
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
+	controller.RemoveControllerAttributes(initial)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, initial)
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
@@ -177,8 +180,10 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
+	goodAttrs := good.AllAttrs()
+	controller.RemoveControllerAttributes(goodAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
 }
 
 func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
@@ -204,7 +209,10 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, good.AllAttrs())
+	goodAttrs := good.AllAttrs()
+	controller.RemoveControllerAttributes(goodAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
 }
 
 func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
@@ -212,7 +220,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		config.AdminSecretKey,
 		config.AgentVersionKey,
 	}
-	for _, attr := range config.ControllerOnlyConfigAttributes {
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
 		badAttrNames = append(badAttrNames, attr)
 	}
 	good := testing.ModelConfig(c)

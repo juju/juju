@@ -434,12 +434,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("opening state")
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 
-	env, err := st.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	owner := env.Owner()
+	owner := model.Owner()
 
 	c.Logf("opening API connection")
-	apiInfo, err := environs.APIInfo(t.Env)
+	controllerCfg, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	caCert, _ := controllerCfg.CACert()
+	apiInfo, err := environs.APIInfo(model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = owner
 	apiInfo.Password = t.Env.Config().AdminSecret()

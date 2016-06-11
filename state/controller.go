@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/config"
+	jujucontroller "github.com/juju/juju/controller"
 )
 
 const (
@@ -18,23 +18,16 @@ const (
 )
 
 func controllerOnlyAttribute(attr string) bool {
-	for _, a := range config.ControllerOnlyConfigAttributes {
+	for _, a := range jujucontroller.ControllerOnlyConfigAttributes {
+		// TODO(wallyworld) - we don't want to add controller uuid to models long term
+		if a == jujucontroller.ControllerUUIDKey {
+			return false
+		}
 		if attr == a {
 			return true
 		}
 	}
 	return false
-}
-
-// controllerConfig returns the controller config attributes from cfg.
-func controllerConfig(cfg map[string]interface{}) map[string]interface{} {
-	controllerCfg := make(map[string]interface{})
-	for _, attr := range config.ControllerOnlyConfigAttributes {
-		if val, ok := cfg[attr]; ok {
-			controllerCfg[attr] = val
-		}
-	}
-	return controllerCfg
 }
 
 // modelConfig returns the model config attributes that result when we
@@ -55,7 +48,7 @@ func modelConfig(sharedCloudCfg, cfg map[string]interface{}) map[string]interfac
 }
 
 // ControllerConfig returns the config values for the controller.
-func (st *State) ControllerConfig() (map[string]interface{}, error) {
+func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	settings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
