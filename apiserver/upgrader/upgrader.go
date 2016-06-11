@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -28,7 +29,7 @@ func init() {
 // returned depends on who is calling.
 // Both of them conform to the exact Upgrader API, so the actual calls that are
 // available do not depend on who is currently connected.
-func upgraderFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (Upgrader, error) {
+func upgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
 	// The type of upgrader we return depends on who is asking.
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the api/upgrader package since there
@@ -61,15 +62,15 @@ type UpgraderAPI struct {
 	*common.ToolsSetter
 
 	st         *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm

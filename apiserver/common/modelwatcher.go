@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -14,8 +15,8 @@ import (
 // facades - WatchForModelConfigChanges and ModelConfig.
 type ModelWatcher struct {
 	st         state.ModelAccessor
-	resources  *Resources
-	authorizer Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewModelWatcher returns a new ModelWatcher. Active watchers
@@ -24,7 +25,7 @@ type ModelWatcher struct {
 // determine current permissions.
 // Right now, environment tags are not used, so both created AuthFuncs
 // are called with "" for tag, which means "the current environment".
-func NewModelWatcher(st state.ModelAccessor, resources *Resources, authorizer Authorizer) *ModelWatcher {
+func NewModelWatcher(st state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) *ModelWatcher {
 	return &ModelWatcher{
 		st:         st,
 		resources:  resources,

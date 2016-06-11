@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -17,14 +18,14 @@ import (
 // StorageAPI provides access to the Storage API facade.
 type StorageAPI struct {
 	st         storageStateInterface
-	resources  *common.Resources
+	resources  facade.Resources
 	accessUnit common.GetAuthFunc
 }
 
 // newStorageAPI creates a new server-side Storage API facade.
 func newStorageAPI(
 	st storageStateInterface,
-	resources *common.Resources,
+	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
 

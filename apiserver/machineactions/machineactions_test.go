@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/machineactions"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -84,13 +85,13 @@ func entities(tags ...string) params.Entities {
 	return entities
 }
 
-// agentAuth implements common.Authorizer for use in the tests.
+// agentAuth implements facade.Authorizer for use in the tests.
 type agentAuth struct {
-	common.Authorizer
+	facade.Authorizer
 	machine bool
 }
 
-// AuthMachineAgent is part of the common.Authorizer interface.
+// AuthMachineAgent is part of the facade.Authorizer interface.
 func (auth agentAuth) AuthMachineAgent() bool {
 	return auth.machine
 }

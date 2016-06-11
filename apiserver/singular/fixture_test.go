@@ -9,23 +9,23 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
 )
 
 // mockAuth represents a machine which may or may not be an environ manager.
 type mockAuth struct {
-	common.Authorizer
+	facade.Authorizer
 	nonManager bool
 }
 
-// AuthModelManager is part of the common.Authorizer interface.
+// AuthModelManager is part of the facade.Authorizer interface.
 func (mock mockAuth) AuthModelManager() bool {
 	return !mock.nonManager
 }
 
-// GetAuthTag is part of the common.Authorizer interface.
+// GetAuthTag is part of the facade.Authorizer interface.
 func (mockAuth) GetAuthTag() names.Tag {
 	return names.NewMachineTag("123")
 }

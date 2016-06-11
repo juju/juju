@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
@@ -62,11 +63,14 @@ func init() {
 
 // NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
-func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+func NewAllWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
 	watcher, ok := resources.Get(id).(*state.Multiwatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
@@ -85,7 +89,7 @@ func NewAllWatcher(st *state.State, resources *common.Resources, auth common.Aut
 type SrvAllWatcher struct {
 	watcher   *state.Multiwatcher
 	id        string
-	resources *common.Resources
+	resources facade.Resources
 }
 
 func (aw *SrvAllWatcher) Next() (params.AllWatcherNextResults, error) {
@@ -104,14 +108,18 @@ func (w *SrvAllWatcher) Stop() error {
 type srvNotifyWatcher struct {
 	watcher   state.NotifyWatcher
 	id        string
-	resources *common.Resources
+	resources facade.Resources
 }
 
-func isAgent(auth common.Authorizer) bool {
+func isAgent(auth facade.Authorizer) bool {
 	return auth.AuthMachineAgent() || auth.AuthUnitAgent()
 }
 
-func newNotifyWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
@@ -152,10 +160,14 @@ func (w *srvNotifyWatcher) Stop() error {
 type srvStringsWatcher struct {
 	watcher   state.StringsWatcher
 	id        string
-	resources *common.Resources
+	resources facade.Resources
 }
 
-func newStringsWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+func newStringsWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
@@ -197,10 +209,14 @@ func (w *srvStringsWatcher) Stop() error {
 type srvRelationUnitsWatcher struct {
 	watcher   state.RelationUnitsWatcher
 	id        string
-	resources *common.Resources
+	resources facade.Resources
 }
 
-func newRelationUnitsWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
@@ -246,27 +262,26 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 type srvMachineStorageIdsWatcher struct {
 	watcher   state.StringsWatcher
 	id        string
-	resources *common.Resources
+	resources facade.Resources
 	parser    func([]string) ([]params.MachineStorageId, error)
 }
 
-func newVolumeAttachmentsWatcher(
-	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
-	id string,
-) (interface{}, error) {
+func newVolumeAttachmentsWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+	st := context.State()
+
 	return newMachineStorageIdsWatcher(
 		st, resources, auth, id, storagecommon.ParseVolumeAttachmentIds,
 	)
 }
 
-func newFilesystemAttachmentsWatcher(
-	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
-	id string,
-) (interface{}, error) {
+func newFilesystemAttachmentsWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+	st := context.State()
 	return newMachineStorageIdsWatcher(
 		st, resources, auth, id, storagecommon.ParseFilesystemAttachmentIds,
 	)
@@ -274,11 +289,11 @@ func newFilesystemAttachmentsWatcher(
 
 func newMachineStorageIdsWatcher(
 	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
+	resources facade.Resources,
+	auth facade.Authorizer,
 	id string,
 	parser func([]string) ([]params.MachineStorageId, error),
-) (interface{}, error) {
+) (facade.Facade, error) {
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
@@ -332,13 +347,16 @@ type EntitiesWatcher interface {
 // sending the changes as a list of strings, which could be transformed
 // from state entity ids to their corresponding entity tags.
 type srvEntitiesWatcher struct {
-	st        *state.State
-	resources *common.Resources
+	resources facade.Resources
 	id        string
 	watcher   EntitiesWatcher
 }
 
-func newEntitiesWatcher(st *state.State, resources *common.Resources, auth common.Authorizer, id string) (interface{}, error) {
+func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
 	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
@@ -347,7 +365,6 @@ func newEntitiesWatcher(st *state.State, resources *common.Resources, auth commo
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvEntitiesWatcher{
-		st:        st,
 		resources: resources,
 		id:        id,
 		watcher:   watcher,
@@ -391,12 +408,12 @@ type migrationBackend interface {
 	ControllerConfig() (controller.Config, error)
 }
 
-func newMigrationStatusWatcher(
-	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
-	id string,
-) (interface{}, error) {
+func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+	st := context.State()
+
 	if !(auth.AuthMachineAgent() || auth.AuthUnitAgent()) {
 		return nil, common.ErrPerm
 	}
@@ -415,7 +432,7 @@ func newMigrationStatusWatcher(
 type srvMigrationStatusWatcher struct {
 	watcher   state.NotifyWatcher
 	id        string
-	resources *common.Resources
+	resources facade.Resources
 	st        migrationBackend
 }
 

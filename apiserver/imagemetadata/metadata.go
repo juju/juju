@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,14 +32,14 @@ func init() {
 // for loud image metadata manipulations.
 type API struct {
 	metadata   metadataAcess
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // createAPI returns a new image metadata API facade.
 func createAPI(
 	st metadataAcess,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
@@ -53,8 +54,8 @@ func createAPI(
 // NewAPI returns a new cloud image metadata API facade.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	return createAPI(getState(st), resources, authorizer)
 }

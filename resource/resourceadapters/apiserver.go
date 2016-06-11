@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/resource"
 	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
@@ -19,7 +20,7 @@ import (
 
 // NewPublicFacade provides the public API facade for resources. It is
 // passed into common.RegisterStandardFacade.
-func NewPublicFacade(st *corestate.State, _ *common.Resources, authorizer common.Authorizer) (*server.Facade, error) {
+func NewPublicFacade(st *corestate.State, _ facade.Resources, authorizer facade.Authorizer) (*server.Facade, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
