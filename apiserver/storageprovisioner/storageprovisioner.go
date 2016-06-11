@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -33,8 +34,8 @@ type StorageProvisionerAPI struct {
 
 	st                       provisionerState
 	settings                 poolmanager.SettingsManager
-	resources                *common.Resources
-	authorizer               common.Authorizer
+	resources                facade.Resources
+	authorizer               facade.Authorizer
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -51,7 +52,7 @@ var getSettingsManager = func(st *state.State) poolmanager.SettingsManager {
 }
 
 // NewStorageProvisionerAPI creates a new server-side StorageProvisionerAPI facade.
-func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*StorageProvisionerAPI, error) {
+func NewStorageProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

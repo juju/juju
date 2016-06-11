@@ -12,6 +12,7 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -44,7 +45,7 @@ type API struct {
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(backend Backend, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
+func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
@@ -81,7 +82,7 @@ func NewAPI(backend Backend, resources *common.Resources, authorizer common.Auth
 	return &b, nil
 }
 
-func extractResourceValue(resources *common.Resources, key string) (string, error) {
+func extractResourceValue(resources facade.Resources, key string) (string, error) {
 	res := resources.Get(key)
 	strRes, ok := res.(common.StringResource)
 	if !ok {

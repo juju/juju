@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -51,13 +52,13 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 
 	st          *state.State
-	resources   *common.Resources
-	authorizer  common.Authorizer
+	resources   facade.Resources
+	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}

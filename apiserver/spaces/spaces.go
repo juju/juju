@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -25,19 +26,19 @@ type API interface {
 // spacesAPI implements the API interface.
 type spacesAPI struct {
 	backing    networkingcommon.NetworkBacking
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewAPI creates a new Space API server-side facade with a
 // state.State backing.
-func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (API, error) {
+func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (API, error) {
 	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
 // the given Backing.
-func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (API, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

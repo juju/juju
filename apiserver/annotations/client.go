@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -30,14 +31,14 @@ type Annotations interface {
 // implementation of the api end point.
 type API struct {
 	access     annotationAccess
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // NewAPI returns a new charm annotator API facade.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

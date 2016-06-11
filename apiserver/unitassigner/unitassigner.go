@@ -5,6 +5,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -28,12 +29,12 @@ type statusSetter interface {
 // API implements the functionality for assigning units to machines.
 type API struct {
 	st           assignerState
-	res          *common.Resources
+	res          facade.Resources
 	statusSetter statusSetter
 }
 
 // New returns a new unitAssigner api instance.
-func New(st *state.State, res *common.Resources, _ common.Authorizer) (*API, error) {
+func New(st *state.State, res facade.Resources, _ facade.Authorizer) (*API, error) {
 	setter := common.NewStatusSetter(&common.UnitAgentFinder{st}, common.AuthAlways())
 	return &API{
 		st:           st,

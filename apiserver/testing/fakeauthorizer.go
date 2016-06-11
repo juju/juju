@@ -7,7 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// FakeAuthorizer implements the common.Authorizer interface.
+// FakeAuthorizer implements the facade.Authorizer interface.
 type FakeAuthorizer struct {
 	Tag            names.Tag
 	EnvironManager bool

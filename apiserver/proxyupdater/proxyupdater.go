@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -28,12 +29,12 @@ type Backend interface {
 
 type ProxyUpdaterAPI struct {
 	backend    Backend
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewAPIWithBacking creates a new server-side API facade with the given Backing.
-func NewAPIWithBacking(st Backend, resources *common.Resources, authorizer common.Authorizer) (*ProxyUpdaterAPI, error) {
+func NewAPIWithBacking(st Backend, resources facade.Resources, authorizer facade.Authorizer) (*ProxyUpdaterAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent()) {
 		return &ProxyUpdaterAPI{}, common.ErrPerm
 	}

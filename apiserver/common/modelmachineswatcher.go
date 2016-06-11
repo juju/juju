@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -15,14 +16,14 @@ import (
 // method for use by various facades.
 type ModelMachinesWatcher struct {
 	st         state.ModelMachinesWatcher
-	resources  *Resources
-	authorizer Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewModelMachinesWatcher returns a new ModelMachinesWatcher. The
 // GetAuthFunc will be used on each invocation of WatchUnits to
 // determine current permissions.
-func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources *Resources, authorizer Authorizer) *ModelMachinesWatcher {
+func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Resources, authorizer facade.Authorizer) *ModelMachinesWatcher {
 	return &ModelMachinesWatcher{
 		st:         st,
 		resources:  resources,

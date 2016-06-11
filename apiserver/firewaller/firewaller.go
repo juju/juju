@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -29,8 +30,8 @@ type FirewallerAPI struct {
 	*common.InstanceIdGetter
 
 	st            *state.State
-	resources     *common.Resources
-	authorizer    common.Authorizer
+	resources     facade.Resources
+	authorizer    facade.Authorizer
 	accessUnit    common.GetAuthFunc
 	accessService common.GetAuthFunc
 	accessMachine common.GetAuthFunc
@@ -40,8 +41,8 @@ type FirewallerAPI struct {
 // NewFirewallerAPI creates a new server-side FirewallerAPI facade.
 func NewFirewallerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthModelManager() {
 		// Firewaller must run as environment manager.

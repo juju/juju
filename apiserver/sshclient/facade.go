@@ -7,6 +7,7 @@ package sshclient
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
@@ -21,7 +22,7 @@ type Facade struct {
 }
 
 // New returns a new API facade for the sshclient worker.
-func New(backend Backend, _ *common.Resources, authorizer common.Authorizer) (*Facade, error) {
+func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}

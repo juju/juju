@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
@@ -29,14 +30,14 @@ var (
 // AgentToolsAPI implements the API used by the machine model worker.
 type AgentToolsAPI struct {
 	st         EnvironGetter
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 	// tools lookup
 	findTools        toolsFinder
 	envVersionUpdate envVersionUpdater
 }
 
 // NewAgentToolsAPI creates a new instance of the Model API.
-func NewAgentToolsAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*AgentToolsAPI, error) {
+func NewAgentToolsAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*AgentToolsAPI, error) {
 	return &AgentToolsAPI{
 		st:               st,
 		authorizer:       authorizer,

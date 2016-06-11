@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -25,15 +26,15 @@ var logger = loggo.GetLogger("juju.apiserver.addresser")
 // AddresserAPI provides access to the Addresser API facade.
 type AddresserAPI struct {
 	st         StateInterface
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewAddresserAPI creates a new server-side Addresser API facade.
 func NewAddresserAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*AddresserAPI, error) {
 	isModelManager := authorizer.AuthModelManager()
 	if !isModelManager {
