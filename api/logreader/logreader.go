@@ -108,9 +108,8 @@ func (lrr *LogRecordReader) Wait() error {
 func api2record(apiRec params.LogRecord) (logfwd.Record, error) {
 	rec := logfwd.Record{
 		Origin: logfwd.Origin{
-			ControllerUUID: apiRec.ControllerUUID,
-			ModelUUID:      apiRec.ModelUUID,
-			JujuVersion:    version.Current,
+			ModelUUID:   apiRec.ModelUUID,
+			JujuVersion: version.Current,
 		},
 		Timestamp: apiRec.Time,
 		Level:     apiRec.Level,

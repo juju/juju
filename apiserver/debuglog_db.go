@@ -45,16 +45,17 @@ func handleDebugLogDBRequest(
 			}
 
 			if reqParams.Format == params.StreamFormatJSON {
-				err = socket.WriteJSON(params.LogRecord{
-					ControllerUUID: rec.ControllerUUID,
-					ModelUUID:      rec.ModelUUID,
-					Time:           rec.Time,
-					Module:         rec.Module,
-					Location:       rec.Location,
-					Level:          rec.Level,
-					Message:        rec.Message,
-				})
-				if err != nil {
+				apiRec := params.LogRecord{
+					Time:     rec.Time,
+					Module:   rec.Module,
+					Location: rec.Location,
+					Level:    rec.Level,
+					Message:  rec.Message,
+				}
+				if reqParams.AllModels {
+					apiRec.ModelUUID = rec.ModelUUID
+				}
+				if err := socket.WriteJSON(apiRec); err != nil {
 					return errors.Trace(err)
 				}
 			} else {

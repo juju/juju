@@ -203,9 +203,8 @@ type LogTailer interface {
 // LogTailer.
 type LogRecord struct {
 	// origin fields
-	ControllerUUID string
-	ModelUUID      string
-	Entity         string
+	ModelUUID string
+	Entity    string
 
 	// universal fields
 	Time time.Time
@@ -254,9 +253,6 @@ var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 type LogTailerState interface {
 	ModelSessioner
 
-	// ControllerUUID returns the model UUID for the controller model.
-	ControllerUUID() string
-
 	// IsController indicates whether or not the model is the admin model.
 	IsController() bool
 }
@@ -270,13 +266,12 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		controllerUUID: st.ControllerUUID(),
-		modelUUID:      st.ModelUUID(),
-		session:        session,
-		logsColl:       session.DB(logsDB).C(logsC).With(session),
-		params:         params,
-		logCh:          make(chan *LogRecord),
-		recentIds:      newRecentIdTracker(maxRecentLogIds),
+		modelUUID: st.ModelUUID(),
+		session:   session,
+		logsColl:  session.DB(logsDB).C(logsC).With(session),
+		params:    params,
+		logCh:     make(chan *LogRecord),
+		recentIds: newRecentIdTracker(maxRecentLogIds),
 	}
 	go func() {
 		err := t.loop()
@@ -289,15 +284,14 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 }
 
 type logTailer struct {
-	tomb           tomb.Tomb
-	controllerUUID string
-	modelUUID      string
-	session        *mgo.Session
-	logsColl       *mgo.Collection
-	params         *LogTailerParams
-	logCh          chan *LogRecord
-	lastTime       time.Time
-	recentIds      *recentIdTracker
+	tomb      tomb.Tomb
+	modelUUID string
+	session   *mgo.Session
+	logsColl  *mgo.Collection
+	params    *LogTailerParams
+	logCh     chan *LogRecord
+	lastTime  time.Time
+	recentIds *recentIdTracker
 }
 
 // Logs implements the LogTailer interface.
@@ -363,7 +357,7 @@ func (t *logTailer) processCollection() error {
 		select {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
-		case t.logCh <- logDocToRecord(doc, t.controllerUUID):
+		case t.logCh <- logDocToRecord(doc):
 			t.lastTime = doc.Time
 			t.recentIds.Add(doc.Id)
 		}
@@ -419,7 +413,7 @@ func (t *logTailer) tailOplog() error {
 			select {
 			case <-t.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
-			case t.logCh <- logDocToRecord(doc, t.controllerUUID):
+			case t.logCh <- logDocToRecord(doc):
 			}
 		}
 	}
@@ -525,11 +519,10 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(doc *logDoc, controllerUUID string) *LogRecord {
+func logDocToRecord(doc *logDoc) *LogRecord {
 	return &LogRecord{
-		ControllerUUID: controllerUUID,
-		ModelUUID:      doc.ModelUUID,
-		Entity:         doc.Entity,
+		ModelUUID: doc.ModelUUID,
+		Entity:    doc.Entity,
 
 		Time:    doc.Time,
 		Message: doc.Message,

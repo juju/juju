@@ -129,12 +129,13 @@ func (s *debugLogDBIntSuite) TestJSONFormat(c *gc.C) {
 	// Set up a fake log tailer with a 2 log records ready to send.
 	tailer := newFakeLogTailer()
 	tailer.logsCh <- &state.LogRecord{
-		Time:     time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
-		Entity:   "machine-99",
-		Module:   "some.where",
-		Location: "code.go:42",
-		Level:    loggo.INFO,
-		Message:  "stuff happened",
+		ModelUUID: "deadbeef-...",
+		Time:      time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
+		Entity:    "machine-99",
+		Module:    "some.where",
+		Location:  "code.go:42",
+		Level:     loggo.INFO,
+		Message:   "stuff happened",
 	}
 	tailer.logsCh <- &state.LogRecord{
 		Time:     time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
@@ -157,8 +158,8 @@ func (s *debugLogDBIntSuite) TestJSONFormat(c *gc.C) {
 
 	s.assertOutput(c, []string{
 		"ok", // sendOk() call needs to happen first.
-		`{"c":"","o":"","t":"2015-06-19T15:34:37Z","m":"some.where","l":"code.go:42","v":3,"x":"stuff happened"}`,
-		`{"c":"","o":"","t":"2015-06-19T15:36:40Z","m":"else.where","l":"go.go:22","v":5,"x":"whoops"}`,
+		`{"o":"deadbeef-...","t":"2015-06-19T15:34:37Z","m":"some.where","l":"code.go:42","v":3,"x":"stuff happened"}`,
+		`{"t":"2015-06-19T15:36:40Z","m":"else.where","l":"go.go:22","v":5,"x":"whoops"}`,
 	})
 
 	// Check the request stops when requested.

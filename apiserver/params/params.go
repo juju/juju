@@ -756,13 +756,12 @@ type RebootActionResult struct {
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
 type LogRecord struct {
-	ControllerUUID string      `json:"c"`
-	ModelUUID      string      `json:"o"`
-	Time           time.Time   `json:"t"`
-	Module         string      `json:"m"`
-	Location       string      `json:"l"`
-	Level          loggo.Level `json:"v"`
-	Message        string      `json:"x"`
+	ModelUUID string      `json:"o",omitempty`
+	Time      time.Time   `json:"t"`
+	Module    string      `json:"m"`
+	Location  string      `json:"l"`
+	Level     loggo.Level `json:"v"`
+	Message   string      `json:"x"`
 }
 
 // GetBundleChangesParams holds parameters for making GetBundleChanges calls.
