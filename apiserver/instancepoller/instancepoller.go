@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -28,8 +29,8 @@ type InstancePollerAPI struct {
 	*common.StatusGetter
 
 	st            StateInterface
-	resources     *common.Resources
-	authorizer    common.Authorizer
+	resources     facade.Resources
+	authorizer    facade.Authorizer
 	accessMachine common.GetAuthFunc
 	clock         clock.Clock
 }
@@ -37,8 +38,8 @@ type InstancePollerAPI struct {
 // newInstancePollerAPI wraps NewInstancePollerAPI for RegisterStandardFacade.
 func newInstancePollerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*InstancePollerAPI, error) {
 	return NewInstancePollerAPI(st, resources, authorizer, clock.WallClock)
 }
@@ -47,8 +48,8 @@ func newInstancePollerAPI(
 // facade.
 func NewInstancePollerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 	clock clock.Clock,
 ) (*InstancePollerAPI, error) {
 

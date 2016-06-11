@@ -6,21 +6,21 @@ package migrationflag_test
 import (
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
-// agentAuth implements common.Authorizer for use in the tests.
+// agentAuth implements facade.Authorizer for use in the tests.
 type agentAuth struct {
-	common.Authorizer
+	facade.Authorizer
 	machine bool
 	unit    bool
 }
 
-// AuthMachineAgent is part of the common.Authorizer interface.
+// AuthMachineAgent is part of the facade.Authorizer interface.
 func (auth agentAuth) AuthMachineAgent() bool {
 	return auth.machine
 }

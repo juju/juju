@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -46,8 +47,8 @@ var _ MetricsManager = (*MetricsManagerAPI)(nil)
 // NewMetricsManagerAPI creates a new API endpoint for calling metrics manager functions.
 func NewMetricsManagerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MetricsManagerAPI, error) {
 	if !(authorizer.AuthMachineAgent() && authorizer.AuthModelManager()) {
 		return nil, common.ErrPerm

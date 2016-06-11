@@ -10,6 +10,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
 
@@ -20,7 +21,7 @@ func init() {
 // NewPinger returns an object that can be pinged by calling its Ping method.
 // If this method is not called frequently enough, the connection will be
 // dropped.
-func NewPinger(st *state.State, resources *common.Resources, authorizer common.Authorizer) (Pinger, error) {
+func NewPinger(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (Pinger, error) {
 	pingTimeout, ok := resources.Get("pingTimeout").(*pingTimeout)
 	if !ok {
 		return nullPinger{}, nil

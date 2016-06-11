@@ -3,11 +3,12 @@
 
 package common
 
+import "github.com/juju/juju/apiserver/facade"
+
 var (
 	MachineJobFromParams    = machineJobFromParams
 	ValidateNewFacade       = validateNewFacade
 	WrapNewFacade           = wrapNewFacade
-	NilFacadeRecord         = facadeRecord{}
 	EnvtoolsFindTools       = &envtoolsFindTools
 	SendMetrics             = &sendMetrics
 	MockableDestroyMachines = destroyMachines
@@ -22,12 +23,6 @@ type Patcher interface {
 // a clean slate to work from, and will not accidentally overrite/mutate the
 // real facade registry.
 func SanitizeFacades(patcher Patcher) {
-	emptyFacades := &FacadeRegistry{}
+	emptyFacades := &facade.Registry{}
 	patcher.PatchValue(&Facades, emptyFacades)
-}
-
-type Versions versions
-
-func DescriptionFromVersions(name string, vers Versions) FacadeDescription {
-	return descriptionFromVersions(name, versions(vers))
 }

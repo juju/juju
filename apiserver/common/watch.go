@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -20,14 +21,14 @@ import (
 // various facades.
 type AgentEntityWatcher struct {
 	st          state.EntityFinder
-	resources   *Resources
+	resources   facade.Resources
 	getCanWatch GetAuthFunc
 }
 
 // NewAgentEntityWatcher returns a new AgentEntityWatcher. The
 // GetAuthFunc will be used on each invocation of Watch to determine
 // current permissions.
-func NewAgentEntityWatcher(st state.EntityFinder, resources *Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
+func NewAgentEntityWatcher(st state.EntityFinder, resources facade.Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
 	return &AgentEntityWatcher{
 		st:          st,
 		resources:   resources,

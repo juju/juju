@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
@@ -24,13 +25,13 @@ type Backend interface {
 // Facade lets clients watch and get models' migration phases.
 type Facade struct {
 	backend   Backend
-	resources *common.Resources
+	resources facade.Resources
 }
 
 // New creates a Facade backed by backend and resources. If auth
 // doesn't identity the client as a machine agent or a unit agent,
 // it will return common.ErrPerm.
-func New(backend Backend, resources *common.Resources, auth common.Authorizer) (*Facade, error) {
+func New(backend Backend, resources facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}

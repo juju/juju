@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
 
@@ -20,7 +21,7 @@ func init() {
 }
 
 // newFacade wraps the supplied *state.State for the use of the Facade.
-func newFacade(st *state.State, res *common.Resources, auth common.Authorizer) (*Facade, error) {
+func newFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	return NewFacade(backendShim{st}, res, auth)
 }
 

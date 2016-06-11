@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -29,7 +29,7 @@ type SSHMachine interface {
 }
 
 // newFacade wraps New to express the supplied *state.State as a Backend.
-func newFacade(st *state.State, res *common.Resources, auth common.Authorizer) (*Facade, error) {
+func newFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	return New(&backend{st}, res, auth)
 }
 

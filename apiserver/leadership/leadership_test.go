@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
 	coreleadership "github.com/juju/juju/core/leadership"
@@ -55,7 +55,7 @@ func (m *stubClaimer) BlockUntilLeadershipReleased(serviceId string) error {
 }
 
 type stubAuthorizer struct {
-	common.Authorizer
+	facade.Authorizer
 	tag names.Tag
 }
 
@@ -80,7 +80,7 @@ func checkDurationEquals(c *gc.C, actual, expect time.Duration) {
 }
 
 func newLeadershipService(
-	c *gc.C, claimer coreleadership.Claimer, authorizer common.Authorizer,
+	c *gc.C, claimer coreleadership.Claimer, authorizer facade.Authorizer,
 ) leadership.LeadershipService {
 	if authorizer == nil {
 		authorizer = stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}

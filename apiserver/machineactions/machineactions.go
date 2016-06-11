@@ -8,6 +8,7 @@ package machineactions
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"gopkg.in/juju/names.v2"
@@ -24,15 +25,15 @@ type Backend interface {
 // implementation of the api end point.
 type Facade struct {
 	backend       Backend
-	resources     *common.Resources
+	resources     facade.Resources
 	accessMachine common.AuthFunc
 }
 
 // NewFacade creates a new server-side machineactions API end point.
 func NewFacade(
 	backend Backend,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*Facade, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm

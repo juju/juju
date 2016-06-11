@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/migration"
@@ -39,7 +40,11 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 func (s *watcherSuite) getFacade(c *gc.C, name string, version int, id string) interface{} {
 	factory, err := common.Facades.GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
-	facade, err := factory(nil, s.resources, s.authorizer, id)
+	facade, err := factory(facadetest.Context{
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        id,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
@@ -122,7 +127,11 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(nil, s.resources, s.authorizer, id)
+	_, err = factory(facadetest.Context{
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        id,
+	})
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 

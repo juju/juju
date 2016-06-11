@@ -6,6 +6,7 @@ package backups
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
 
@@ -31,6 +32,6 @@ func (s *stateShim) MachineSeries(id string) (string, error) {
 	return m.Series(), nil
 }
 
-func newAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
+func newAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	return NewAPI(&stateShim{st}, resources, authorizer)
 }

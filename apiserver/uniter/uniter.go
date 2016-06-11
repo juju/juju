@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/meterstatus"
 	"github.com/juju/juju/apiserver/params"
@@ -43,8 +44,8 @@ type UniterAPIV3 struct {
 	meterstatus.MeterStatus
 
 	st            *state.State
-	auth          common.Authorizer
-	resources     *common.Resources
+	auth          facade.Authorizer
+	resources     facade.Resources
 	accessUnit    common.GetAuthFunc
 	accessService common.GetAuthFunc
 	unit          *state.Unit
@@ -53,7 +54,7 @@ type UniterAPIV3 struct {
 }
 
 // NewUniterAPIV4 creates a new instance of the Uniter API, version 3.
-func NewUniterAPIV4(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV3, error) {
+func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV3, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
@@ -1434,8 +1435,8 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 
 func leadershipSettingsAccessorFactory(
 	st *state.State,
-	resources *common.Resources,
-	auth common.Authorizer,
+	resources facade.Resources,
+	auth facade.Authorizer,
 ) *leadershipapiserver.LeadershipSettingsAccessor {
 	registerWatcher := func(serviceId string) (string, error) {
 		service, err := st.Application(serviceId)

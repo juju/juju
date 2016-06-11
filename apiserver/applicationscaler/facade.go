@@ -6,6 +6,7 @@ package applicationscaler
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -27,11 +28,11 @@ type Backend interface {
 // Facade allows model-manager clients to watch and rescale services.
 type Facade struct {
 	backend   Backend
-	resources *common.Resources
+	resources facade.Resources
 }
 
 // NewFacade creates a new authorized Facade.
-func NewFacade(backend Backend, res *common.Resources, auth common.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthModelManager() {
 		return nil, common.ErrPerm
 	}

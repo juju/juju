@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -22,7 +23,7 @@ func init() {
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st         stateInterface
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 	check      *common.BlockChecker
 }
 
@@ -33,8 +34,8 @@ var getState = func(st *state.State) stateInterface {
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MachineManagerAPI, error) {
 
 	if !authorizer.AuthClient() {

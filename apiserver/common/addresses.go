@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -23,13 +24,13 @@ type AddressAndCertGetter interface {
 
 // APIAddresser implements the APIAddresses method
 type APIAddresser struct {
-	resources *Resources
+	resources facade.Resources
 	getter    AddressAndCertGetter
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddresser {
+func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *APIAddresser {
 	return &APIAddresser{
 		getter:    getter,
 		resources: resources,

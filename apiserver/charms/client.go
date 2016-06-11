@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -33,14 +34,14 @@ type Charms interface {
 // implementation of the api end point.
 type API struct {
 	access     charmsAccess
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // NewAPI returns a new charms API facade.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

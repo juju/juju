@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -28,7 +29,7 @@ func init() {
 // implementation of the api end point.
 type UserManagerAPI struct {
 	state                    *state.State
-	authorizer               common.Authorizer
+	authorizer               facade.Authorizer
 	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
 	check                    *common.BlockChecker
 	apiUser                  names.UserTag
@@ -37,8 +38,8 @@ type UserManagerAPI struct {
 
 func NewUserManagerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*UserManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

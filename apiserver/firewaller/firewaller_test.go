@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -46,7 +46,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
-	constructor := func(st *state.State, res *common.Resources, auth common.Authorizer) error {
+	constructor := func(st *state.State, res facade.Resources, auth facade.Authorizer) error {
 		_, err := firewaller.NewFirewallerAPI(st, res, auth)
 		return err
 	}

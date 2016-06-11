@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -21,15 +22,15 @@ func init() {
 // master worker when communicating with the target controller.
 type API struct {
 	state      *state.State
-	authorizer common.Authorizer
-	resources  *common.Resources
+	authorizer facade.Authorizer
+	resources  facade.Resources
 }
 
 // NewAPI returns a new API.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if err := checkAuth(authorizer, st); err != nil {
 		return nil, errors.Trace(err)
@@ -41,7 +42,7 @@ func NewAPI(
 	}, nil
 }
 
-func checkAuth(authorizer common.Authorizer, st *state.State) error {
+func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 	if !authorizer.AuthClient() {
 		return errors.Trace(common.ErrPerm)
 	}

@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -23,10 +24,10 @@ type RebootAPI struct {
 	*common.RebootRequester
 	*common.RebootFlagClearer
 
-	auth      common.Authorizer
+	auth      facade.Authorizer
 	st        *state.State
 	machine   *state.Machine
-	resources *common.Resources
+	resources facade.Resources
 }
 
 func init() {
@@ -34,7 +35,7 @@ func init() {
 }
 
 // NewRebootAPI creates a new server-side RebootAPI facade.
-func NewRebootAPI(st *state.State, resources *common.Resources, auth common.Authorizer) (*RebootAPI, error) {
+func NewRebootAPI(st *state.State, resources facade.Resources, auth facade.Authorizer) (*RebootAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

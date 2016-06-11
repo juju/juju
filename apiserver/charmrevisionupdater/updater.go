@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
@@ -28,8 +29,8 @@ type CharmRevisionUpdater interface {
 // implementation of the api end point.
 type CharmRevisionUpdaterAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
@@ -37,8 +38,8 @@ var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 // NewCharmRevisionUpdaterAPI creates a new server-side charmrevisionupdater API end point.
 func NewCharmRevisionUpdaterAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -63,7 +64,11 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	factory, err := common.Facades.GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := factory(s.State, s.resources, s.authorizer, "")
+	api, err := factory(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
 }

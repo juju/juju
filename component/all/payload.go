@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
@@ -46,7 +47,7 @@ func (c payloads) registerForClient() error {
 	return nil
 }
 
-func (payloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
+func (payloads) newPublicFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*server.PublicAPI, error) {
 	up, err := st.EnvPayloads()
 	if err != nil {
 		return nil, errors.Trace(err)

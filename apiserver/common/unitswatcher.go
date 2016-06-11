@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -16,14 +17,14 @@ import (
 // various facades.
 type UnitsWatcher struct {
 	st          state.EntityFinder
-	resources   *Resources
+	resources   facade.Resources
 	getCanWatch GetAuthFunc
 }
 
 // NewUnitsWatcher returns a new UnitsWatcher. The GetAuthFunc will be
 // used on each invocation of WatchUnits to determine current
 // permissions.
-func NewUnitsWatcher(st state.EntityFinder, resources *Resources, getCanWatch GetAuthFunc) *UnitsWatcher {
+func NewUnitsWatcher(st state.EntityFinder, resources facade.Resources, getCanWatch GetAuthFunc) *UnitsWatcher {
 	return &UnitsWatcher{
 		st:          st,
 		resources:   resources,

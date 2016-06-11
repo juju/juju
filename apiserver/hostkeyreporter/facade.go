@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -29,7 +30,7 @@ type Facade struct {
 }
 
 // New returns a new API facade for the hostkeyreporter worker.
-func New(backend Backend, _ *common.Resources, authorizer common.Authorizer) (*Facade, error) {
+func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
 	return &Facade{
 		backend: backend,
 		getCanModify: func() (common.AuthFunc, error) {

@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -52,8 +53,8 @@ var _ MetricsDebug = (*MetricsDebugAPI)(nil)
 // NewMetricsDebugAPI creates a new API endpoint for calling metrics debug functions.
 func NewMetricsDebugAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MetricsDebugAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

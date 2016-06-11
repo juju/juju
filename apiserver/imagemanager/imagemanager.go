@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
@@ -29,8 +30,8 @@ type ImageManager interface {
 // implementation of the api end point.
 type ImageManagerAPI struct {
 	state      stateInterface
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 	check      *common.BlockChecker
 }
 
@@ -41,7 +42,7 @@ var getState = func(st *state.State) stateInterface {
 }
 
 // NewImageManagerAPI creates a new server-side imagemanager API end point.
-func NewImageManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ImageManagerAPI, error) {
+func NewImageManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ImageManagerAPI, error) {
 	// Only clients can access the image manager service.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

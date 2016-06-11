@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/controller"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -194,7 +195,12 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	watcherId, err := s.controller.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
+	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+		ID_:        watcherId.AllWatcherId,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
 	defer func() {

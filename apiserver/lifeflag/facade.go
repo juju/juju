@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
 
@@ -15,7 +16,7 @@ type Backend interface {
 	state.EntityFinder
 }
 
-func NewFacade(backend Backend, resources *common.Resources, authorizer common.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
 	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}

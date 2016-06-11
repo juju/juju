@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -28,8 +29,8 @@ type KeyUpdater interface {
 // implementation of the api end point.
 type KeyUpdaterAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 	getCanRead common.GetAuthFunc
 }
 
@@ -38,8 +39,8 @@ var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
 // NewKeyUpdaterAPI creates a new server-side keyupdater API end point.
 func NewKeyUpdaterAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*KeyUpdaterAPI, error) {
 	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {

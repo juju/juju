@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
@@ -23,16 +24,16 @@ func init() {
 // master worker.
 type API struct {
 	backend    Backend
-	authorizer common.Authorizer
-	resources  *common.Resources
+	authorizer facade.Authorizer
+	resources  facade.Resources
 }
 
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm

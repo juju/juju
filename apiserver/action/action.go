@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -19,13 +20,13 @@ func init() {
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 	check      *common.BlockChecker
 }
 
 // NewActionAPI returns an initialized ActionAPI
-func NewActionAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ActionAPI, error) {
+func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -38,8 +39,8 @@ type KeyManager interface {
 // implementation of the api end point.
 type KeyManagerAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 	canRead    func(string) bool
 	canWrite   func(string) bool
 	check      *common.BlockChecker
@@ -48,7 +49,7 @@ type KeyManagerAPI struct {
 var _ KeyManager = (*KeyManagerAPI)(nil)
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
-func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*KeyManagerAPI, error) {
+func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients and environment managers can access the key manager service.
 	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
