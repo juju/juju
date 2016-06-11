@@ -112,7 +112,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
-		Level:    loggo.INFO,
+		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +122,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
-		Level:    loggo.ERROR,
+		Level:    loggo.ERROR.String(),
 		Message:  "oh noes",
 	})
 	c.Assert(err, jc.ErrorIsNil)

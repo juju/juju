@@ -756,12 +756,21 @@ type RebootActionResult struct {
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
 type LogRecord struct {
-	ModelUUID string      `json:"o",omitempty`
-	Time      time.Time   `json:"t"`
-	Module    string      `json:"m"`
-	Location  string      `json:"l"`
-	Level     loggo.Level `json:"v"`
-	Message   string      `json:"x"`
+	ModelUUID string    `json:"o",omitempty`
+	Time      time.Time `json:"t"`
+	Module    string    `json:"m"`
+	Location  string    `json:"l"`
+	Level     string    `json:"v"`
+	Message   string    `json:"x"`
+}
+
+// LoggoLevel converts the level string to a loggo.Level.
+func (rec LogRecord) LoggoLevel() loggo.Level {
+	level, ok := loggo.ParseLevel(rec.Level)
+	if !ok {
+		return loggo.UNSPECIFIED
+	}
+	return level
 }
 
 // GetBundleChangesParams holds parameters for making GetBundleChanges calls.

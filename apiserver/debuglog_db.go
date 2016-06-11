@@ -49,7 +49,7 @@ func handleDebugLogDBRequest(
 					Time:     rec.Time,
 					Module:   rec.Module,
 					Location: rec.Location,
-					Level:    rec.Level,
+					Level:    rec.Level.String(),
 					Message:  rec.Message,
 				}
 				if reqParams.AllModels {

@@ -112,7 +112,7 @@ func api2record(apiRec params.LogRecord) (logfwd.Record, error) {
 			JujuVersion: version.Current,
 		},
 		Timestamp: apiRec.Time,
-		Level:     apiRec.Level,
+		Level:     apiRec.LoggoLevel(),
 		Message:   apiRec.Message,
 	}
 
