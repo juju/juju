@@ -447,6 +447,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/lxd/lxd.log'
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
+                ' /etc/network/interfaces'
                 ),),
             cc_mock.call_args_list[0][0])
         self.assertEqual(
@@ -463,6 +464,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/lxd/lxd.log',
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
+                '10.10.0.1:/etc/network/interfaces',
                 '/foo'),),
             cc_mock.call_args_list[1][0])
 
@@ -496,7 +498,8 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
              "/var/log/lxd/juju-* "
              "/var/log/lxd/lxd.log "
-             "/var/log/syslog /var/log/mongodb/mongodb.log'",
+             "/var/log/syslog /var/log/mongodb/mongodb.log "
+             "/etc/network/interfaces'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',

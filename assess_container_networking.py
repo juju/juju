@@ -221,7 +221,7 @@ def assess_network_traffic(client, targets):
     :param targets: machine IDs of machines to test
     :return: None;
     """
-    log.info('Waiting for the bootstrap machine agent to start.')
+    log.info('Assessing network traffic.')
     status = client.wait_for_started().status
     source = targets[0]
     dests = targets[1:]
@@ -236,6 +236,7 @@ def assess_network_traffic(client, targets):
     address = status['machines'][host]['containers'][source]['dns-name']
 
     for dest in dests:
+        log.info('Assessing network traffic for {}.'.format(dest))
         msg = get_random_string()
         ssh(client, source, 'rm nc_listen.out; bash ./listen.sh')
         ssh(client, dest,
@@ -243,6 +244,7 @@ def assess_network_traffic(client, targets):
         result = ssh(client, source, 'more nc_listen.out')
         if result.rstrip() != msg:
             raise ValueError("Wrong or missing message: %r" % result.rstrip())
+        log.info('SUCCESS.')
 
 
 def private_address(client, host):
@@ -258,11 +260,13 @@ def assess_address_range(client, targets):
     :param targets: machine IDs of machines to test
     :return: None; raises ValueError on failure
     """
+    log.info('Assessing address range.')
     status = client.wait_for_started().status
 
     host_subnet_cache = {}
 
     for target in targets:
+        log.info('Assessing address range for {}.'.format(target))
         host = target.split('/')[0]
 
         if host in host_subnet_cache:
@@ -278,6 +282,7 @@ def assess_address_range(client, targets):
             raise ValueError(
                 '{} ({}) not on the same subnet as {} ({})'.format(
                     target, subnet, host, host_subnet))
+        log.info('SUCCESS.')
 
 
 def assess_internet_connection(client, targets):
@@ -286,8 +291,9 @@ def assess_internet_connection(client, targets):
     :param targets: machine IDs of machines to test
     :return: None; raises ValueError on failure
     """
-
+    log.info('Assessing internet connection.')
     for target in targets:
+        log.info("Assessing internet connection for {}".format(target))
         routes = ssh(client, target, 'ip route show')
 
         d = re.search(r'^default\s+via\s+([\d\.]+)\s+', routes, re.MULTILINE)
@@ -298,6 +304,7 @@ def assess_internet_connection(client, targets):
                 raise ValueError('%s unable to ping default route' % target)
         else:
             raise ValueError("Default route not found")
+        log.info("SUCCESS")
 
 
 def _assessment_iteration(client, containers):
@@ -350,18 +357,22 @@ def assess_container_networking(client, types):
     :param types: Container types to test
     :return: None
     """
+    log.info("Setting up test.")
     hosts, containers = make_machines(client, types)
     status = client.wait_for_started().status
+    log.info("Setup complete.")
+    log.info("Test started.")
 
     _assess_container_networking(client, types, hosts, containers)
 
     # Reboot all hosts apart from machine 0 because we use machine 0 to jump
     # through for some hosts.
+    log.info("Instrumenting reboot of all machines.")
     for host in hosts[1:]:
-        ssh(client, host, 'sudo reboot')
+        ssh(client, host, 'sudo shutdown -r')
 
     # Finally reboot machine 0
-    ssh(client, hosts[0], 'sudo reboot')
+    ssh(client, hosts[0], 'sudo shutdown -r')
 
     # Wait for the state server to shut down. This prevents us from calling
     # wait_for_started before machine 0 has shut down, which can cause us
@@ -375,8 +386,10 @@ def assess_container_networking(client, types):
     for host in hosts:
         hostname = status['machines'][host]['dns-name']
         wait_for_port(hostname, 22, timeout=240)
+    log.info("Reboot complete and all hosts ready for retest.")
 
     _assess_container_networking(client, types, hosts, containers)
+    log.info("PASS")
 
 
 class _CleanedContext:
