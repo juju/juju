@@ -378,7 +378,7 @@ def assess_container_networking(client, types):
     # wait_for_started before machine 0 has shut down, which can cause us
     # to think that we have finished rebooting before we actually have.
     hostname = status['machines'][hosts[0]]['dns-name']
-    wait_for_port(hostname, 22, closed=True)
+    wait_for_port(hostname, 22, closed=True, timeout=120)
 
     client.wait_for_started()
 
