@@ -103,6 +103,29 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
+func (s *usermanagerSuite) TestDeleteUser(c *gc.C) {
+	tag, _, err := s.usermanager.AddUser("jjam", "Jimmy Jam", "password", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the user exists.
+	user, err := s.State.User(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.Name(), gc.Equals, "jjam")
+	c.Assert(user.DisplayName(), gc.Equals, "Jimmy Jam")
+
+	// Delete the user.
+	err = s.usermanager.DeleteUser(tag.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert that the user is gone.
+	_, err = s.State.User(tag)
+	c.Assert(err, jc.Satisfies, errors.IsUserNotFound)
+
+	err = user.Refresh()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(user.IsDeleted(), jc.IsTrue)
+}
+
 func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 

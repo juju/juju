@@ -112,6 +112,12 @@ func (c *Client) EnableUser(username string) error {
 	return c.userCall(username, "EnableUser")
 }
 
+// DeleteUser deletes a user. That is it pernanently removes the user, while
+// retaineing the record of the user.
+func (c *Client) DeleteUser(username string) error {
+	return c.userCall(username, "DeleteUser")
+}
+
 // IncludeDisabled is a type alias to avoid bare true/false values
 // in calls to the client method.
 type IncludeDisabled bool

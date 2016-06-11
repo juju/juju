@@ -389,6 +389,7 @@ var commandNames = []string{
 	"debug-hooks",
 	"debug-log",
 	"debug-metrics",
+	"delete-user",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
