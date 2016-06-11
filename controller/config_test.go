@@ -43,7 +43,7 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 		caCert    string
 		caKey     string
 		sanValues []string
-	}{{}, {
+	}{{
 		caCert: testing.CACert,
 		caKey:  testing.CAKey,
 	}, {

@@ -99,6 +99,7 @@ func (*mockState) ControllerConfig() (controller.Config, error) {
 		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
 		controller.CACertKey:         coretesting.CACert,
 		controller.CAPrivateKey:      coretesting.CAKey,
+		controller.ApiPort:           4321,
 	}, nil
 }
 

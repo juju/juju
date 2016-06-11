@@ -30,7 +30,7 @@ import (
 func FakeStateInfo(machineId string) *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{"0.1.2.3:1234"},
+			Addrs:  []string{"0.1.2.3:17777"},
 			CACert: testing.CACert,
 		},
 		Tag:      names.NewMachineTag(machineId),
@@ -43,7 +43,7 @@ func FakeStateInfo(machineId string) *mongo.MongoInfo {
 // of the machine to be started.
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
+		Addrs:    []string{"0.1.2.3:17777"},
 		Tag:      names.NewMachineTag(machineId),
 		Password: "unimportant",
 		CACert:   testing.CACert,

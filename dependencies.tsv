@@ -54,7 +54,7 @@ gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:
 gopkg.in/goose.v1	git	495e6fa2ab89bc5ed2c8e1bbcbc4c9e4a3c97d37	2016-03-17T17:25:46Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
-gopkg.in/juju/charm.v6-unstable	git	503191ddf2590b15db9669c424660ed612d0a30a	2016-05-27T01:46:20Z
+gopkg.in/juju/charm.v6-unstable	git	8796be6021c9ecb20630950498ec515f7dd24575	2016-06-09T14:28:26Z
 gopkg.in/juju/charmrepo.v2-unstable	git	6e6733987fb03100f30e494cc1134351fe4a593b	2016-05-30T23:07:41Z
 gopkg.in/juju/charmstore.v5-unstable	git	2cb9f80553dddaae8c5e2161ea45f4be5d9afc00	2016-05-27T11:46:22Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z

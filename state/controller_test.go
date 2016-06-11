@@ -30,13 +30,15 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
-		if !optional(controllerAttr) {
+		if !optional(controllerAttr) && controllerAttr != controller.CAPrivateKey {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(v, gc.Not(gc.Equals), "")
 		}
 
+		// TODO(wallyworld) - we want to remove controller uuid from model config
+		// but it needs to be there for now
 		_, ok = modelSettings.Get(controllerAttr)
-		c.Assert(ok, jc.IsFalse)
+		c.Assert(ok, gc.Equals, controllerAttr == controller.ControllerUUIDKey)
 	}
 }
 

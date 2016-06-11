@@ -71,6 +71,18 @@ func ControllerConfig(cfg map[string]interface{}) Config {
 	return controllerCfg
 }
 
+// RemoveControllerAttributes removes any controller attributes from attrs.
+func RemoveControllerAttributes(attrs map[string]interface{}) {
+	for _, attr := range ControllerOnlyConfigAttributes {
+		// TODO(wallyworld) - we need to keep controller uuid in model config for now
+		// but want to remove it
+		if attr == ControllerUUIDKey {
+			continue
+		}
+		delete(attrs, attr)
+	}
+}
+
 // mustInt returns the named attribute as an integer, panicking if
 // it is not found or is zero. Zero values should have been
 // diagnosed at Validate time.

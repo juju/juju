@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -39,7 +38,6 @@ import (
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -57,9 +55,6 @@ type azureEnviron struct {
 
 	// envName is the name of the environment.
 	envName string
-
-	// apiPort is the API port of the host controller
-	apiPort_ int
 
 	mu            sync.Mutex
 	config        *azureModelConfig
@@ -267,12 +262,6 @@ func (env *azureEnviron) Config() *config.Config {
 	return env.config.Config
 }
 
-func (env *azureEnviron) apiPort() int {
-	env.mu.Lock()
-	defer env.mu.Unlock()
-	return env.apiPort_
-}
-
 // SetConfig is specified in the Environ interface.
 func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	env.mu.Lock()
@@ -287,7 +276,6 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 	env.config = ecfg
-	env.apiPort_ = controller.ControllerConfig(ecfg.AllAttrs()).APIPort()
 
 	// Initialise clients.
 	env.compute = compute.NewWithBaseURI(ecfg.endpoint, env.config.subscriptionId)
@@ -418,7 +406,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		names.NewModelTag(env.config.Config.ControllerUUID()),
 		env.config,
 	)
-	apiPort := env.apiPort()
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	availabilitySetClient := compute.AvailabilitySetsClient{env.compute}
 	networkClient := env.network
@@ -489,8 +476,8 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If the machine will run a controller, then we need to open the
 	// API port for it.
 	var apiPortPtr *int
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		apiPortPtr = &apiPort
+	if args.InstanceConfig.Bootstrap != nil {
+		apiPortPtr = &args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
 	}
 
 	vm, err := createVirtualMachine(

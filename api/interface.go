@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/utils/set"
 )
 
 // Info encapsulates information about a server holding juju state and
@@ -71,10 +72,27 @@ type Info struct {
 	Nonce string `yaml:",omitempty"`
 }
 
+// Ports returns the unique ports for the api addresses.
+func (info *Info) Ports() []int {
+	ports := set.NewInts()
+	hostPorts, err := network.ParseHostPorts(info.Addrs...)
+	if err != nil {
+		// Addresses have already been validated.
+		panic(err)
+	}
+	for _, hp := range hostPorts {
+		ports.Add(hp.Port)
+	}
+	return ports.Values()
+}
+
 // Validate validates the API info.
 func (info *Info) Validate() error {
 	if len(info.Addrs) == 0 {
 		return errors.NotValidf("missing addresses")
+	}
+	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
+		return errors.NotValidf("host addresses")
 	}
 	if info.CACert == "" {
 		return errors.NotValidf("missing CA certificate")

@@ -36,7 +36,12 @@ func (s *configGetter) ModelConfig() (*config.Config, error) {
 }
 
 func (s *configGetter) ControllerConfig() (controller.Config, error) {
-	return controller.Config{}, nil
+	return map[string]interface{}{
+		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
+		controller.CACertKey:         coretesting.CACert,
+		controller.CAPrivateKey:      coretesting.CAKey,
+		controller.ApiPort:           4321,
+	}, nil
 }
 
 func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {

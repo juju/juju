@@ -1008,16 +1008,22 @@ var fields = func() schema.Fields {
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	controller.CACertKey:         schema.Omit,
-	controller.ApiPort:           schema.Omit,
-	controller.StatePort:         schema.Omit,
-	controller.IdentityURL:       schema.Omit,
-	controller.IdentityPublicKey: schema.Omit,
+	// The following attributes are for the controller config
+	// but are included here because we currently parse model
+	// and controller config together.
+	controller.CACertKey:              schema.Omit,
+	controller.CAPrivateKey:           schema.Omit,
+	controller.ApiPort:                schema.Omit,
+	controller.StatePort:              schema.Omit,
+	controller.IdentityURL:            schema.Omit,
+	controller.IdentityPublicKey:      schema.Omit,
+	controller.CACertKey + "-path":    schema.Omit,
+	controller.CAPrivateKey + "-path": schema.Omit,
+
+	// Model config attributes
 	AgentVersionKey:              schema.Omit,
 	"authorized-keys":            schema.Omit,
 	"authorized-keys-path":       schema.Omit,
-	"ca-cert-path":               schema.Omit,
-	"ca-private-key-path":        schema.Omit,
 	"logging-config":             schema.Omit,
 	ProvisionerHarvestModeKey:    schema.Omit,
 	"bootstrap-timeout":          schema.Omit,
@@ -1056,7 +1062,6 @@ var alwaysOptional = schema.Defaults{
 	"image-metadata-url":       schema.Omit,
 	AdminSecretKey:             schema.Omit,
 	AgentMetadataURLKey:        schema.Omit,
-	"ca-private-key":           schema.Omit,
 	"default-series":           "",
 	"test-mode":                false,
 	"lxc-clone-aufs":           false,

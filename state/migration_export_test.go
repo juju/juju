@@ -130,9 +130,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
 
 	// Remove all controller and cloud config before comparison.
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		delete(modelAttrs, attr)
-	}
+	controller.RemoveControllerAttributes(modelAttrs)
 	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)

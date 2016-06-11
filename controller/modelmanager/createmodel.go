@@ -98,12 +98,7 @@ func (c ModelConfigCreator) NewModelConfig(
 	}
 	attrs = cfg.AllAttrs()
 	// Strip out all controller values except uuid before checking validity.
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		if attr == controller.ControllerUUIDKey {
-			continue
-		}
-		delete(attrs, attr)
-	}
+	controller.RemoveControllerAttributes(attrs)
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.

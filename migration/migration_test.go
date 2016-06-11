@@ -334,17 +334,6 @@ type InternalSuite struct {
 
 var _ = gc.Suite(&InternalSuite{})
 
-func (s *InternalSuite) TestControllerValues(c *gc.C) {
-	config := controller.ControllerConfig(testing.FakeConfig())
-	fields := migration.ControllerValues(config)
-	c.Assert(fields, jc.DeepEquals, map[string]interface{}{
-		"controller-uuid": config.ControllerUUID(),
-		"state-port":      19034,
-		"api-port":        17777,
-		"ca-cert":         testing.CACert,
-	})
-}
-
 type stateGetter struct {
 	cfg *config.Config
 }
@@ -358,7 +347,12 @@ func (s *stateGetter) ModelConfig() (*config.Config, error) {
 }
 
 func (s *stateGetter) ControllerConfig() (controller.Config, error) {
-	return controller.Config{}, nil
+	return map[string]interface{}{
+		controller.ControllerUUIDKey: testing.ModelTag.Id(),
+		controller.CACertKey:         testing.CACert,
+		controller.CAPrivateKey:      testing.CAKey,
+		controller.ApiPort:           4321,
+	}, nil
 }
 
 func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {

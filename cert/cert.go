@@ -140,34 +140,29 @@ func NewServer(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string)
 	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
 }
 
-// NewClient generates a certificate/key pair suitable for client authentication.
-func NewClient(caCertPEM, caKeyPEM string, expiry time.Time) (certPEM, keyPEM string, err error) {
-	return newLeaf(caCertPEM, caKeyPEM, expiry, nil, []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth})
-}
-
 // newLeaf generates a certificate/key pair suitable for use by a leaf node.
 func newLeaf(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string, extKeyUsage []x509.ExtKeyUsage) (certPEM, keyPEM string, err error) {
 	tlsCert, err := tls.X509KeyPair([]byte(caCertPEM), []byte(caKeyPEM))
 	if err != nil {
-		return "", "", err
+		return "", "", errors.Trace(err)
 	}
 	if len(tlsCert.Certificate) != 1 {
 		return "", "", fmt.Errorf("more than one certificate for CA")
 	}
 	caCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
-		return "", "", err
+		return "", "", errors.Trace(err)
 	}
 	if !caCert.BasicConstraintsValid || !caCert.IsCA {
-		return "", "", fmt.Errorf("CA certificate is not a valid CA")
+		return "", "", errors.Errorf("CA certificate is not a valid CA")
 	}
 	caKey, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
-		return "", "", fmt.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
+		return "", "", errors.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
 	}
 	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
 	if err != nil {
-		return "", "", fmt.Errorf("cannot generate key: %v", err)
+		return "", "", errors.Errorf("cannot generate key: %v", err)
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()

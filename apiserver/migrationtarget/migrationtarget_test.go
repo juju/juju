@@ -186,9 +186,8 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 
 	newUUID := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
-		"name":    "some-model",
-		"uuid":    newUUID,
-		"ca-cert": "not really a cert",
+		"name": "some-model",
+		"uuid": newUUID,
 	})
 
 	bytes, err := description.Serialize(model)

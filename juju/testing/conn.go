@@ -331,8 +331,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		Cert:         testing.ServerCert,
 		CAPrivateKey: testing.CAKey,
 		SharedSecret: "really, really secret",
-		APIPort:      4321,
-		StatePort:    1234,
+		APIPort:      controllerCfg.APIPort(),
+		StatePort:    controllerCfg.StatePort(),
 	}
 	s.State.SetStateServingInfo(servingInfo)
 }

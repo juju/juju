@@ -19,6 +19,10 @@ const (
 
 func controllerOnlyAttribute(attr string) bool {
 	for _, a := range jujucontroller.ControllerOnlyConfigAttributes {
+		// TODO(wallyworld) - we don't want to add controller uuid to models long term
+		if a == jujucontroller.ControllerUUIDKey {
+			return false
+		}
 		if attr == a {
 			return true
 		}

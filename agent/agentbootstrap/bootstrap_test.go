@@ -188,13 +188,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Add in the cloud attributes.
 	expectedAttrs := modelCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
-	// Remove controller attributes
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		if attr == controller.ControllerUUIDKey {
-			continue
-		}
-		delete(expectedAttrs, attr)
-	}
+	controller.RemoveControllerAttributes(expectedAttrs)
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()

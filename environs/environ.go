@@ -36,7 +36,6 @@ func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, err
 		return nil, errors.Trace(err)
 	}
 	envcfg, err = envcfg.Apply(map[string]interface{}{
-		controller.ApiPort:           controllerCfg.APIPort(),
 		controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
 	})
 	if err != nil {

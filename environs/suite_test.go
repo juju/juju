@@ -4,11 +4,11 @@
 package environs_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/juju/testing"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
+func TestPackage(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
 }

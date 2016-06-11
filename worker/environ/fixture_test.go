@@ -69,8 +69,10 @@ func (context *runContext) ControllerConfig() (controller.Config, error) {
 		return nil, err
 	}
 	return map[string]interface{}{
-		controller.CACertKey:    coretesting.CACert,
-		controller.CAPrivateKey: coretesting.CAKey,
+		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
+		controller.CACertKey:         coretesting.CACert,
+		controller.CAPrivateKey:      coretesting.CAKey,
+		controller.ApiPort:           4321,
 	}, nil
 }
 

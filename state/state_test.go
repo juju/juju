@@ -3196,9 +3196,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		delete(attrs, attr)
-	}
+	controller.RemoveControllerAttributes(attrs)
 	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
 }
 

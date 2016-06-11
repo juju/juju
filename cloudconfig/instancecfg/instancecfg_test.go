@@ -49,7 +49,7 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 }
 
 func testInstanceTags(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJob, expectTags map[string]string) {
-	tags := instancecfg.InstanceTags(cfg, jobs)
+	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ModelTag.Id(), cfg, jobs)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }
 
