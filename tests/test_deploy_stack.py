@@ -448,8 +448,19 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
                 ' /etc/network/interfaces'
+                ' /home/ubuntu/ifconfig.log'
                 ),),
             cc_mock.call_args_list[0][0])
+        self.assertEqual(
+            (get_timeout_prefix(120) + (
+                'ssh',
+                '-o', 'User ubuntu',
+                '-o', 'UserKnownHostsFile /dev/null',
+                '-o', 'StrictHostKeyChecking no',
+                '-o', 'PasswordAuthentication no',
+                '10.10.0.1',
+                'ifconfig > /home/ubuntu/ifconfig.log'),),
+            cc_mock.call_args_list[1][0])
         self.assertEqual(
             (get_timeout_prefix(120) + (
                 'scp', '-rC',
@@ -465,8 +476,9 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
                 '10.10.0.1:/etc/network/interfaces',
+                '10.10.0.1:/home/ubuntu/ifconfig.log',
                 '/foo'),),
-            cc_mock.call_args_list[1][0])
+            cc_mock.call_args_list[2][0])
 
     def test_copy_remote_logs_windows(self):
         remote = remote_from_address('10.10.0.1', series="win2012hvr2")
@@ -499,7 +511,8 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/lxd/juju-* "
              "/var/log/lxd/lxd.log "
              "/var/log/syslog /var/log/mongodb/mongodb.log "
-             "/etc/network/interfaces'",
+             "/etc/network/interfaces "
+             "/home/ubuntu/ifconfig.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
              'WARNING Could not retrieve some or all logs:',
