@@ -369,10 +369,10 @@ def assess_container_networking(client, types):
     # through for some hosts.
     log.info("Instrumenting reboot of all machines.")
     for host in hosts[1:]:
-        ssh(client, host, 'sudo shutdown -r +1')
+        ssh(client, host, 'sudo shutdown -r')
 
     # Finally reboot machine 0
-    ssh(client, hosts[0], 'sudo shutdown -r +1')
+    ssh(client, hosts[0], 'sudo shutdown -r')
 
     # Wait for the state server to shut down. This prevents us from calling
     # wait_for_started before machine 0 has shut down, which can cause us
