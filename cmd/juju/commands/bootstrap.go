@@ -157,7 +157,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	if featureflag.Enabled(feature.ImageMetadata) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
-	f.BoolVar(&c.UploadTools, "upload-tools", false, "Upload local version of tools before bootstrapping")
+	f.BoolVar(&c.UploadTools, "upload-tools", false, "Upload local version of tools before bootstrapping;\n     for development use only")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
