@@ -5,6 +5,7 @@ package migration_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -100,6 +101,27 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(attrs["ca-cert"], gc.Equals, cacert)
 	c.Assert(attrs["controller-uuid"], gc.Equals, controllerConfig.UUID())
+}
+
+func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
+	type T migration.UploadBinariesConfig // alias for brevity
+
+	check := func(modify func(*T), missing string) {
+		config := T{
+			CharmDownloader: struct{ migration.CharmDownloader }{},
+			CharmUploader:   struct{ migration.CharmUploader }{},
+			ToolsDownloader: struct{ migration.ToolsDownloader }{},
+			ToolsUploader:   struct{ migration.ToolsUploader }{},
+		}
+		modify(&config)
+		realConfig := migration.UploadBinariesConfig(config)
+		c.Check(realConfig.Validate(), gc.ErrorMatches, fmt.Sprintf("missing %s not valid", missing))
+	}
+
+	check(func(c *T) { c.CharmDownloader = nil }, "CharmDownloader")
+	check(func(c *T) { c.CharmUploader = nil }, "CharmUploader")
+	check(func(c *T) { c.ToolsDownloader = nil }, "ToolsDownloader")
+	check(func(c *T) { c.ToolsUploader = nil }, "ToolsUploader")
 }
 
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
