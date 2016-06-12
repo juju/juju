@@ -17,7 +17,12 @@ import os
 import socket
 import sys
 
-from azure.storage import BlobService
+from azure.storage.blob import (
+    BlobBlock,
+    BlockBlobService,
+    ContentSettings,
+    Include,
+    )
 
 
 mimetypes.init()
@@ -69,11 +74,13 @@ def list_sync_files(prefix, blob_service):
     """Return the SyncFile info about files under the specified prefix."""
     files = []
     for blob in blob_service.list_blobs(
-            JUJU_DIST, prefix=prefix, include='metadata'):
+            JUJU_DIST, prefix=prefix, include=Include.METADATA):
         sync_file = SyncFile(
-            path=blob.name, md5content=blob.properties.content_md5,
+            path=blob.name,
+            md5content=blob.properties.content_settings.content_md5,
             size=blob.properties.content_length,
-            mimetype=blob.properties.content_type, local_path='')
+            mimetype=blob.properties.content_settings.content_type,
+            local_path='')
         files.append(sync_file)
     return sorted(files, key=attrgetter('path'))
 
@@ -123,7 +130,6 @@ def publish_local_file(blob_service, sync_file):
     the azure restrictions. The blocks are then assembled into a blob
     with the md5 content (base64 encoded digest).
     """
-    blob_service.put_blob(JUJU_DIST, sync_file.path, '', 'BlockBlob')
     block_ids = []
     index = 0
     with open(sync_file.local_path, 'rb') as local_file:
@@ -135,7 +141,7 @@ def publish_local_file(blob_service, sync_file):
                     try:
                         blob_service.put_block(
                             JUJU_DIST, sync_file.path, data, block_id)
-                        block_ids.append(block_id)
+                        block_ids.append(BlobBlock(id=block_id))
                         index += 1
                         break
                     except socket.error as e:
@@ -147,10 +153,12 @@ def publish_local_file(blob_service, sync_file):
                 break
     for i in range(0, 3):
         try:
+            content_settings = ContentSettings(
+                content_type=sync_file.mimetype,
+                content_md5=sync_file.md5content)
             blob_service.put_block_list(
                 JUJU_DIST, sync_file.path, block_ids,
-                x_ms_blob_content_type=sync_file.mimetype,
-                x_ms_blob_content_md5=sync_file.md5content)
+                content_settings=content_settings)
             break
         except socket.error as e:
             if e.errno not in (socket.errno.ECONNREFUSED,
@@ -242,7 +250,8 @@ def main():
     """Execute the commands from the command line."""
     parser = get_option_parser()
     args = parser.parse_args()
-    blob_service = BlobService()
+    blob_service = BlockBlobService(
+        account_name=args.account_name, account_key=args.account_key)
     if args.command == SYNC:
         return sync_files(blob_service, args.prefix, args.local_dir, args)
     if args.purpose not in PURPOSES:
@@ -264,12 +273,20 @@ def add_mutation_args(parser, dr_help):
     parser.add_argument("-d", "--dry-run", action="store_true",
                         default=False, help=dr_help)
     parser.add_argument('-v', '--verbose', action="store_true",
-                        default=False, help='Increse verbosity.')
+                        default=False, help='Increase verbosity.')
 
 
 def get_option_parser():
     """Return the option parser for this program."""
-    parser = ArgumentParser("Manage objects in Azure blob storage")
+    parser = ArgumentParser(description="Manage objects in Azure blob storage")
+    parser.add_argument(
+        '--account-name',
+        default=os.environ.get('AZURE_STORAGE_ACCOUNT', None),
+        help="The azure storage account, or env AZURE_STORAGE_ACCOUNT.")
+    parser.add_argument(
+        '--account-key',
+        default=os.environ.get('AZURE_STORAGE_ACCESS_KEY', None),
+        help="The azure storage account, or env AZURE_STORAGE_ACCESS_KEY.")
     subparsers = parser.add_subparsers(help='sub-command help', dest='command')
     for command in (LIST, PUBLISH, DELETE):
         subparser = subparsers.add_parser(command, help='Command to run')
