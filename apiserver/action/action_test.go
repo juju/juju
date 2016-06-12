@@ -71,12 +71,10 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Charm: factory.MakeCharm(c, &jujuFactory.CharmParams{
 			Name: "dummy",
 		}),
-		Creator: s.AdminUserTag(c),
 	})
 	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
-		Name:    "wordpress",
-		Charm:   s.charm,
-		Creator: s.AdminUserTag(c),
+		Name:  "wordpress",
+		Charm: s.charm,
 	})
 	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
@@ -91,9 +89,8 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Name: "mysql",
 	})
 	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
-		Name:    "mysql",
-		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c),
+		Name:  "mysql",
+		Charm: mysqlCharm,
 	})
 	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",

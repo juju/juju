@@ -1191,28 +1191,6 @@ func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "application-name" not found`)
 }
 
-func (s *serviceSuite) TestServiceDeployApplicationOwner(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.applicationApi.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
-			ApplicationName: "application",
-			NumUnits:        3,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-
-	application, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.GetOwnerTag(), gc.Equals, s.authorizer.GetAuthTag().String())
-}
-
 func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{

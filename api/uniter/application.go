@@ -140,31 +140,6 @@ func (s *Application) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
-// OwnerTag returns the service's owner user tag.
-func (s *Application) OwnerTag() (names.UserTag, error) {
-	return s.ApplicationOwnerTag()
-}
-
-func (s *Application) ApplicationOwnerTag() (names.UserTag, error) {
-	var invalidTag names.UserTag
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag.String()}},
-	}
-	err := s.st.facade.FacadeCall("ApplicationOwner", args, &results)
-	if err != nil {
-		return invalidTag, err
-	}
-	if len(results.Results) != 1 {
-		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return invalidTag, result.Error
-	}
-	return names.ParseUserTag(result.Result)
-}
-
 // SetStatus sets the status of the service if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Application) SetStatus(unitName string, serviceStatus status.Status, info string, data map[string]interface{}) error {

@@ -369,7 +369,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch})
+	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,7 +387,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Owner: "user-test-admin@local", Charm: ch})
+	storageFilesystem, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -403,7 +403,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storage})
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addService(storage)
@@ -435,7 +435,7 @@ func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, 
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: cons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -507,7 +507,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storageCons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -517,7 +517,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
-		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),

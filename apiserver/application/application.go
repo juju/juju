@@ -92,9 +92,8 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 	if err := api.check.ChangeAllowed(); err != nil {
 		return result, errors.Trace(err)
 	}
-	owner := api.authorizer.GetAuthTag().String()
 	for i, arg := range args.Applications {
-		err := deployApplication(api.state, owner, arg)
+		err := deployApplication(api.state, arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -103,7 +102,7 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 // deployApplication fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new application facade.
-func deployApplication(st *state.State, owner string, args params.ApplicationDeploy) error {
+func deployApplication(st *state.State, args params.ApplicationDeploy) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return errors.Trace(err)
@@ -160,10 +159,8 @@ func deployApplication(st *state.State, owner string, args params.ApplicationDep
 
 	_, err = jjj.DeployApplication(st,
 		jjj.DeployApplicationParams{
-			ApplicationName: args.ApplicationName,
-			Series:          args.Series,
-			// TODO(dfc) ApplicationOwner should be a tag
-			ApplicationOwner: owner,
+			ApplicationName:  args.ApplicationName,
+			Series:           args.Series,
 			Charm:            ch,
 			Channel:          channel,
 			NumUnits:         args.NumUnits,

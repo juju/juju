@@ -89,7 +89,6 @@ type MachineParams struct {
 type ApplicationParams struct {
 	Name        string
 	Charm       *state.Charm
-	Creator     names.Tag
 	Status      *status.StatusInfo
 	Settings    map[string]interface{}
 	Constraints constraints.Value
@@ -389,14 +388,8 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
 	}
-	if params.Creator == nil {
-		creator := factory.MakeUser(c, nil)
-		params.Creator = creator.Tag()
-	}
-	_ = params.Creator.(names.UserTag)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:        params.Name,
-		Owner:       params.Creator.String(),
 		Charm:       params.Charm,
 		Settings:    charm.Settings(params.Settings),
 		Constraints: params.Constraints,

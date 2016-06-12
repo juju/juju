@@ -712,30 +712,6 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
-	// Ensure that SetPassword works for machines even when the env
-	// UUID upgrade migrations haven't run yet.
-	type oldMachineDoc struct {
-		Id     string `bson:"_id"`
-		Series string
-	}
-	s.machines.Insert(&oldMachineDoc{"99", "quantal"})
-
-	m, err := s.State.Machine("99")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Set the password and make sure it sticks.
-	c.Assert(m.PasswordValid(goodPassword), jc.IsFalse)
-	err = m.SetPassword(goodPassword)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
-
-	// Check a newly-fetched entity has the same password.
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
-}
-
 func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	alive, err := s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)

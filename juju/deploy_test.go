@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 func Test(t *stdtesting.T) {
@@ -64,20 +63,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertCharm(c, service, s.charm.URL())
 	s.assertSettings(c, service, charm.Settings{})
 	s.assertConstraints(c, service, constraints.Value{})
-	c.Assert(service.GetOwnerTag(), gc.Equals, s.AdminUserTag(c).String())
 	s.assertMachines(c, service, constraints.Value{})
-}
-
-func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-	service, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
-			ApplicationName:  "bobwithowner",
-			Charm:            s.charm,
-			ApplicationOwner: "user-foobar",
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
 func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {

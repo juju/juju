@@ -155,35 +155,6 @@ func (u *UniterAPIV3) AllMachinePorts(args params.Entities) (params.MachinePorts
 	return result, nil
 }
 
-// ApplicationOwner returns the owner user for each given service tag.
-func (u *UniterAPIV3) ApplicationOwner(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessService()
-	if err != nil {
-		return params.StringResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseApplicationTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		service, err := u.getService(tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		result.Results[i].Result = service.GetOwnerTag()
-	}
-	return result, nil
-}
-
 // AssignedMachine returns the machine tag for each given unit tag, or
 // an error satisfying params.IsCodeNotAssigned when a unit has no
 // assigned machine.

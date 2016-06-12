@@ -2774,7 +2774,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch})
+	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)

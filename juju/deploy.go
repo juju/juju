@@ -19,14 +19,13 @@ import (
 // DeployApplicationParams contains the arguments required to deploy the referenced
 // charm.
 type DeployApplicationParams struct {
-	ApplicationName  string
-	Series           string
-	ApplicationOwner string
-	Charm            *state.Charm
-	Channel          csparams.Channel
-	ConfigSettings   charm.Settings
-	Constraints      constraints.Value
-	NumUnits         int
+	ApplicationName string
+	Series          string
+	Charm           *state.Charm
+	Channel         csparams.Channel
+	ConfigSettings  charm.Settings
+	Constraints     constraints.Value
+	NumUnits        int
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement        []*instance.Placement
@@ -55,13 +54,6 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*s
 			return nil, fmt.Errorf("subordinate application must be deployed without constraints")
 		}
 	}
-	if args.ApplicationOwner == "" {
-		env, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		args.ApplicationOwner = env.Owner().String()
-	}
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
@@ -70,7 +62,6 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (*s
 	asa := state.AddApplicationArgs{
 		Name:             args.ApplicationName,
 		Series:           args.Series,
-		Owner:            args.ApplicationOwner,
 		Charm:            args.Charm,
 		Channel:          args.Channel,
 		Storage:          stateStorageConstraints(args.Storage),
