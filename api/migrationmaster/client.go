@@ -6,6 +6,7 @@ package migrationmaster
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -102,16 +103,40 @@ func (c *Client) SetPhase(phase migration.Phase) error {
 	return c.caller.FacadeCall("SetPhase", args, nil)
 }
 
+// SerializedModel wraps a buffer contain a serialised Juju model as
+// well as containing metadata about the charms and tools used by the
+// model.
+type SerializedModel struct {
+	Bytes  []byte
+	Charms []string
+	Tools  map[version.Binary]string // version -> tools URI
+}
+
 // Export returns a serialized representation of the model associated
 // with the API connection. The charms used by the model are also
 // returned.
-func (c *Client) Export() (params.SerializedModel, error) {
+func (c *Client) Export() (SerializedModel, error) {
 	var serialized params.SerializedModel
 	err := c.caller.FacadeCall("Export", nil, &serialized)
 	if err != nil {
-		return params.SerializedModel{}, err
+		return SerializedModel{}, err
 	}
-	return serialized, nil
+
+	// Convert tools info to output map.
+	tools := make(map[version.Binary]string)
+	for _, toolsInfo := range serialized.Tools {
+		v, err := version.ParseBinary(toolsInfo.Version)
+		if err != nil {
+			return SerializedModel{}, errors.Annotate(err, "error parsing tools version")
+		}
+		tools[v] = toolsInfo.URI
+	}
+
+	return SerializedModel{
+		Bytes:  serialized.Bytes,
+		Charms: serialized.Charms,
+		Tools:  tools,
+	}, nil
 }
 
 // Reap removes the documents for the model associated with the API

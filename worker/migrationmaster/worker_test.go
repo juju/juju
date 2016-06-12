@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -116,6 +117,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  makeStubUploadBinaries(s.stub),
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -137,7 +139,14 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		apiOpenCallController,
 		importCall,
 		apiOpenCallModel,
-		{"UploadBinaries", []interface{}{[]string{"charm0", "charm1"}, fakeCharmDownloader}},
+		{"UploadBinaries", []interface{}{
+			[]string{"charm0", "charm1"},
+			fakeCharmDownloader,
+			map[version.Binary]string{
+				version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+			},
+			fakeToolsDownloader,
+		}},
 		connCloseCall, // for target model
 		connCloseCall, // for target controller
 		{"masterFacade.SetPhase", []interface{}{coremigration.VALIDATION}},
@@ -162,6 +171,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	masterFacade.status.Phase = coremigration.SUCCESS
@@ -191,6 +201,7 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, worker)
@@ -209,6 +220,7 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -230,6 +242,7 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
@@ -245,6 +258,7 @@ func (s *Suite) TestStatusError(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -266,6 +280,7 @@ func (s *Suite) TestStatusNotFound(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -291,6 +306,7 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -315,6 +331,7 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -338,6 +355,7 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.triggerMigration(masterFacade)
@@ -369,6 +387,7 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connectionErr = errors.New("boom")
@@ -400,6 +419,7 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 		APIOpen:         s.apiOpen,
 		UploadBinaries:  nullUploadBinaries,
 		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connection.importErr = errors.New("boom")
@@ -494,14 +514,17 @@ func (c *stubMasterFacade) GetMigrationStatus() (masterapi.MigrationStatus, erro
 	return c.status, nil
 }
 
-func (c *stubMasterFacade) Export() (params.SerializedModel, error) {
+func (c *stubMasterFacade) Export() (masterapi.SerializedModel, error) {
 	c.stub.AddCall("masterFacade.Export")
 	if c.exportErr != nil {
-		return params.SerializedModel{}, c.exportErr
+		return masterapi.SerializedModel{}, c.exportErr
 	}
-	return params.SerializedModel{
+	return masterapi.SerializedModel{
 		Bytes:  fakeModelBytes,
 		Charms: []string{"charm0", "charm1"},
+		Tools: map[version.Binary]string{
+			version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+		},
 	}, nil
 }
 
@@ -568,7 +591,13 @@ func (c *stubConnection) Close() error {
 
 func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {
 	return func(config migration.UploadBinariesConfig) error {
-		stub.AddCall("UploadBinaries", config.Charms, config.CharmDownloader)
+		stub.AddCall(
+			"UploadBinaries",
+			config.Charms,
+			config.CharmDownloader,
+			config.Tools,
+			config.ToolsDownloader,
+		)
 		return nil
 	}
 }
@@ -580,3 +609,5 @@ func nullUploadBinaries(migration.UploadBinariesConfig) error {
 }
 
 var fakeCharmDownloader = struct{ migration.CharmDownloader }{}
+
+var fakeToolsDownloader = struct{ migration.ToolsDownloader }{}
