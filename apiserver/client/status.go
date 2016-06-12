@@ -275,7 +275,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			AvailableVersion: newToolsVersion,
 		},
 		Machines:     processMachines(context.machines),
-		Applications: context.processServices(),
+		Applications: context.processApplications(),
 		Relations:    context.processRelations(),
 	}, nil
 }
@@ -564,18 +564,19 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processServices() map[string]params.ApplicationStatus {
+func (context *statusContext) processApplications() map[string]params.ApplicationStatus {
 	servicesMap := make(map[string]params.ApplicationStatus)
 	for _, s := range context.services {
-		servicesMap[s.Name()] = context.processService(s)
+		servicesMap[s.Name()] = context.processApplication(s)
 	}
 	return servicesMap
 }
 
-func (context *statusContext) processService(service *state.Application) params.ApplicationStatus {
+func (context *statusContext) processApplication(service *state.Application) params.ApplicationStatus {
 	serviceCharmURL, _ := service.CharmURL()
 	var processedStatus = params.ApplicationStatus{
 		Charm:   serviceCharmURL.String(),
+		Series:  service.Series(),
 		Exposed: service.IsExposed(),
 		Life:    processLife(service),
 	}
