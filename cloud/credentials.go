@@ -43,6 +43,9 @@ func (c Credential) AuthType() AuthType {
 }
 
 func copyStringMap(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
 	out := make(map[string]string)
 	for k, v := range in {
 		out[k] = v
@@ -344,6 +347,9 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	delete(mapv, "auth-type")
 	for k, v := range mapv {
 		attrs[k] = v.(string)
+	}
+	if len(attrs) == 0 {
+		attrs = nil
 	}
 	return Credential{authType: AuthType(authType), attributes: attrs}, nil
 }

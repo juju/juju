@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
@@ -62,15 +63,29 @@ type BootstrapParams struct {
 	// initial bootstrap machine.
 	BootstrapImage string
 
-	// Cloud is the name of the cloud that Juju will be bootstrapped in.
-	Cloud string
+	// CloudName is the name of the cloud that Juju will be bootstrapped in.
+	CloudName string
 
-	// Cloud is the name of the cloud region that Juju will be bootstrapped in.
+	// Cloud contains the properties of the cloud that Juju will be
+	// bootstrapped in.
+	Cloud cloud.Cloud
+
+	// CloudRegion is the name of the cloud region that Juju will be bootstrapped in.
 	CloudRegion string
 
-	// CloudConfig is the set of config attributes to be shared
-	// across all models on the same cloud.
-	CloudConfig map[string]interface{}
+	// CloudCredentialName is the name of the cloud credential that Juju will be
+	// bootstrapped with. This may be empty, for clouds that do not require
+	// credentials.
+	CloudCredentialName string
+
+	// CloudCredential contains the cloud credential that Juju will be
+	// bootstrapped with. This may be nil, for clouds that do not require
+	// credentialis.
+	CloudCredential *cloud.Credential
+
+	// ModelConfigDefaults is the set of config attributes to be shared
+	// across all models in the same controller.
+	ModelConfigDefaults map[string]interface{}
 
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
@@ -275,9 +290,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Trace(err)
 	}
 	instanceConfig.Bootstrap.CustomImageMetadata = customImageMetadata
+	instanceConfig.Bootstrap.ControllerCloudName = args.CloudName
 	instanceConfig.Bootstrap.ControllerCloud = args.Cloud
 	instanceConfig.Bootstrap.ControllerCloudRegion = args.CloudRegion
-	instanceConfig.Bootstrap.CloudConfig = args.CloudConfig
+	instanceConfig.Bootstrap.ModelConfigDefaults = args.ModelConfigDefaults
 	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)

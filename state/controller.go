@@ -56,8 +56,8 @@ func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	return settings.Map(), nil
 }
 
-// CloudConfig returns the config values shared across models.
-func (st *State) CloudConfig() (map[string]interface{}, error) {
+// ModelConfigDefaults returns the config values shared across models.
+func (st *State) ModelConfigDefaults() (map[string]interface{}, error) {
 	settings, err := readSettings(st, controllersC, defaultModelSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -109,15 +111,6 @@ LXC_BRIDGE="ignored"`[1:])
 		"10.0.3.4", // lxc bridge address filtered (-"-).
 		"10.0.3.3", // not a lxc bridge address
 	)
-	mcfg := agentbootstrap.BootstrapMachineConfig{
-		Addresses:            initialAddrs,
-		BootstrapConstraints: expectBootstrapConstraints,
-		ModelConstraints:     expectModelConstraints,
-		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
-		InstanceId:           "i-bootstrap",
-		Characteristics:      expectHW,
-		SharedSecret:         "abc123",
-	}
 	filteredAddrs := network.NewAddresses(
 		"zeroonetwothree",
 		"0.1.2.3",
@@ -142,14 +135,31 @@ LXC_BRIDGE="ignored"`[1:])
 		"name": "hosted",
 		"uuid": hostedModelUUID,
 	}
-	cloudConfigAttrs := map[string]interface{}{
+	modelConfigDefaults := map[string]interface{}{
 		"apt-mirror": "http://mirror",
+	}
+
+	args := agentbootstrap.InitializeStateParams{
+		StateInitializationParams: instancecfg.StateInitializationParams{
+			BootstrapMachineConstraints:             expectBootstrapConstraints,
+			BootstrapMachineInstanceId:              "i-bootstrap",
+			BootstrapMachineHardwareCharacteristics: &expectHW,
+			ControllerCloud:                         cloud.Cloud{Type: "dummy"},
+			ControllerCloudName:                     "dummy",
+			ControllerCloudRegion:                   "some-region",
+			ControllerModelConfig:                   modelCfg,
+			ModelConstraints:                        expectModelConstraints,
+			ModelConfigDefaults:                     modelConfigDefaults,
+			HostedModelConfig:                       hostedModelConfigAttrs,
+		},
+		BootstrapMachineAddresses: initialAddrs,
+		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		SharedSecret:              "abc123",
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, m, err := agentbootstrap.InitializeState(
-		adminUser, cfg, modelCfg, "dummy", "some-region", cloudConfigAttrs, hostedModelConfigAttrs, mcfg,
-		mongotest.DialOpts(), environs.NewStatePolicy(),
+		adminUser, cfg, args, mongotest.DialOpts(), environs.NewStatePolicy(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -276,9 +286,10 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, jc.IsFalse)
 
+	args := agentbootstrap.InitializeStateParams{}
+
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, _, err = agentbootstrap.InitializeState(adminUser, cfg,
-		nil, "dummy", "some-region", nil, nil, agentbootstrap.BootstrapMachineConfig{}, mongotest.DialOpts(), environs.NewStatePolicy())
+	_, _, err = agentbootstrap.InitializeState(adminUser, cfg, args, mongotest.DialOpts(), environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -305,13 +316,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		SharedSecret:   "baz",
 		SystemIdentity: "qux",
 	})
-	expectHW := instance.MustParseHardware("mem=2048M")
-	mcfg := agentbootstrap.BootstrapMachineConfig{
-		BootstrapConstraints: constraints.MustParse("mem=1024M"),
-		Jobs:                 []multiwatcher.MachineJob{multiwatcher.JobManageModel},
-		InstanceId:           "i-bootstrap",
-		Characteristics:      expectHW,
-	}
 	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
 	})
@@ -323,16 +327,29 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		"uuid": utils.MustNewUUID().String(),
 	}
 
+	args := agentbootstrap.InitializeStateParams{
+		StateInitializationParams: instancecfg.StateInitializationParams{
+			BootstrapMachineInstanceId: "i-bootstrap",
+			ControllerCloud:            cloud.Cloud{Type: "dummy"},
+			ControllerCloudName:        "dummy",
+			ControllerCloudRegion:      "some-region",
+			ControllerModelConfig:      modelCfg,
+			HostedModelConfig:          hostedModelConfigAttrs,
+		},
+		BootstrapMachineJobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		SharedSecret:         "abc123",
+	}
+
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, _, err := agentbootstrap.InitializeState(
-		adminUser, cfg, modelCfg, "dummy", "some-region", nil, hostedModelConfigAttrs, mcfg,
-		mongotest.DialOpts(), state.Policy(nil),
+		adminUser, cfg, args, mongotest.DialOpts(), state.Policy(nil),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
-	st, _, err = agentbootstrap.InitializeState(adminUser, cfg, modelCfg,
-		"dummy", "some-region", nil, nil, mcfg, mongotest.DialOpts(), environs.NewStatePolicy())
+	st, _, err = agentbootstrap.InitializeState(
+		adminUser, cfg, args, mongotest.DialOpts(), state.Policy(nil),
+	)
 	if err == nil {
 		st.Close()
 	}

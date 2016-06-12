@@ -52,6 +52,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		// Cloud credentials aren't migrated. They must exist in the
+		// target controller already.
+		cloudCredentialsC,
 		// This is controller global, and related to the system state of the
 		// embedded GUI.
 		guimetadataC,
@@ -182,6 +185,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"MigrationMode",
 		"Owner",
 		"CloudRegion",
+		"CloudCredential",
 		"LatestAvailableTools",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)

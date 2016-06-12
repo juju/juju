@@ -724,9 +724,18 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// the password in the info structure is empty, so the admin
 		// user is constructed with an empty password here.
 		// It is set just below.
-		st, err := state.Initialize(
-			names.NewUserTag("admin@local"), info, "dummy", "some-region", nil, cfg,
-			mongotest.DialOpts(), estate.statePolicy)
+		st, err := state.Initialize(state.InitializeParams{
+			ControllerModelArgs: state.ModelArgs{
+				Owner:       names.NewUserTag("admin@local"),
+				CloudRegion: "some-region",
+				Config:      cfg,
+			},
+			CloudName:     "dummy",
+			Cloud:         cloud.Cloud{Type: "dummy"},
+			MongoInfo:     info,
+			MongoDialOpts: mongotest.DialOpts(),
+			Policy:        estate.statePolicy,
+		})
 		if err != nil {
 			panic(err)
 		}
