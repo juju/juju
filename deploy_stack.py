@@ -328,7 +328,6 @@ def copy_remote_logs(remote, directory):
         try:
             remote.run('ifconfig > /home/ubuntu/ifconfig.log')
         except subprocess.CalledProcessError as e:
-            # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not capture ifconfig state:")
             logging.warning(e.output)
 

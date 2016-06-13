@@ -221,8 +221,8 @@ def assess_network_traffic(client, targets):
     :param targets: machine IDs of machines to test
     :return: None;
     """
-    log.info('Assessing network traffic.')
     status = client.wait_for_started().status
+    log.info('Assessing network traffic.')
     source = targets[0]
     dests = targets[1:]
 

@@ -502,7 +502,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
         with patch('subprocess.check_output', side_effect=remote_op) as co:
             with patch('deploy_stack.wait_for_port', autospec=True):
                 copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
-        self.assertEqual(2, co.call_count)
+        self.assertEqual(3, co.call_count)
         self.assertEqual(
             ["DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
              "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
@@ -510,13 +510,19 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
              "/var/log/lxd/juju-* "
              "/var/log/lxd/lxd.log "
-             "/var/log/syslog /var/log/mongodb/mongodb.log "
+             "/var/log/syslog "
+             "/var/log/mongodb/mongodb.log "
              "/etc/network/interfaces "
              "/home/ubuntu/ifconfig.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
-             'WARNING Could not retrieve some or all logs:',
-             'WARNING CalledProcessError()'],
+             "DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
+             "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
+             "10.10.0.1 'ifconfig > /home/ubuntu/ifconfig.log'",
+             'WARNING Could not capture ifconfig state:',
+             'WARNING None', 'WARNING Could not retrieve some or all logs:',
+             'WARNING CalledProcessError()',
+             ],
             self.log_stream.getvalue().splitlines())
 
     def test_get_machines_for_logs(self):
