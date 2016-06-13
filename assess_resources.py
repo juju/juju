@@ -166,7 +166,8 @@ def get_charmstore_details(credentials_file):
                 email_address, password = creds.split(':', 1)
                 details['email_address'] = email_address
                 details['password'] = password
-                details['username'] = email_address.split('@', 1)[0]
+                raw_username = email_address.split('@', 1)[0]
+                details['username'] = raw_username.replace('.', '-')
             elif 'STORE_URL' in line:
                 details['api_url'] = split_line_details(line)
 
@@ -194,7 +195,8 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
         charm_id = 'juju-qa-veebers-testing'
         # Only available for juju 2.x
         charm_path = local_charm_path('dummy-resource', '2.x')
-        charm_url = 'cs:{username}/{id}'.format(
+        # I think perhaps there is a better way in which to get the url
+        charm_url = 'cs:~{username}/{id}-0'.format(
             username=cs_details.username, id=charm_id)
 
         # Ensure we can publish a charm with a resource
@@ -218,8 +220,9 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
         # Ensure we can attach a resource independently of pushing a charm.
         with NamedTemporaryFile(suffix='.txt') as temp_bar_resource:
             temp_bar = temp_bar_resource.name
-            attach_resource_to_charm(
-                charm_command, temp_bar, charm_id, resource_name='bar')
+            output = attach_resource_to_charm(
+                charm_command, temp_bar, charm_url, resource_name='bar')
+            log.info(output)
 
             expected_resource_details = {'foo': 0, 'bar': 0}
             check_resource_uploaded(
@@ -235,11 +238,12 @@ def push_charm_with_resource(
     half_meg = 1024 * 512
     fill_dummy_file(temp_file, half_meg)
 
-    charm_command.run(
+    output = charm_command.run(
         'push',
         charm_path,
         charm_id,
         '--resource', '{}={}'.format(resource_name, temp_file))
+    log.info(output)
 
 
 def attach_resource_to_charm(
@@ -281,7 +285,8 @@ def check_resource_uploaded_revno(
         'Failed to find named resource \'{}\' in output'.format(resource_name))
 
 
-def check_resource_uploaded_contents(charm_command, charm_url, resource_name):
+def check_resource_uploaded_contents(
+        charm_command, charm_url, resource_name, src_file):
     # Pull the the charm to a temp file and compare the contents of the pulled
     # resource and those that were pushed.
     # This isn't working as expected so following this up.
@@ -320,9 +325,9 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    # bs_manager = BootstrapManager.from_args(args)
-    # with bs_manager.booted_context(args.upload_tools):
-    #     assess_resources(bs_manager.client, args)
+    bs_manager = BootstrapManager.from_args(args)
+    with bs_manager.booted_context(args.upload_tools):
+        assess_resources(bs_manager.client, args)
 
     assess_charmstore_resources(args)
     return 0

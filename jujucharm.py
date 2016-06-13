@@ -114,8 +114,6 @@ class CharmCommand:
         try:
             self.login(user_email, password)
             yield
-        except:
-            log.error('about logging int')
         finally:
             try:
                 self.logout()
@@ -152,9 +150,9 @@ class CharmCommand:
                 raise AssertionError(
                     'Failed to log user in to {}'.format(
                         self.api_url))
-        except pexpect.TIMEOUT:
+        except (pexpect.TIMEOUT, pexpect.EOF) as e:
             raise AssertionError(
-                'Failed to log user in. Session timed out')
+                'Failed to log user in: {}'.format(e))
 
     def logout(self):
         log.debug('Logging out.')
@@ -162,10 +160,11 @@ class CharmCommand:
 
     def run(self, sub_command, *arguments):
         try:
-            return subprocess.check_output(
+            output = subprocess.check_output(
                 [self.charm_bin, sub_command] + list(arguments),
                 env=self._get_env(),
                 stderr=subprocess.STDOUT)
+            return output
         except subprocess.CalledProcessError as e:
             log.error(e.output)
             raise
