@@ -108,13 +108,6 @@ type SubnetInfo struct {
 	// http://en.wikipedia.org/wiki/IEEE_802.1Q.
 	VLANTag int
 
-	// AllocatableIPLow and AllocatableIPHigh describe the allocatable
-	// portion of the subnet. The provider will only permit allocation
-	// between these limits. If they are empty then none of the subnet is
-	// allocatable.
-	AllocatableIPLow  net.IP
-	AllocatableIPHigh net.IP
-
 	// AvailabilityZones describes which availability zone(s) this
 	// subnet is in. It can be empty if the provider does not support
 	// availability zones.
