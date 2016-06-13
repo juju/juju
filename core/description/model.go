@@ -22,6 +22,7 @@ type ModelArgs struct {
 	LatestToolsVersion version.Number
 	Blocks             map[string]string
 	CloudRegion        string
+	CloudCredential    string
 }
 
 // NewModel returns a Model based on the args specified.
@@ -34,6 +35,7 @@ func NewModel(args ModelArgs) Model {
 		Sequences_:          make(map[string]int),
 		Blocks_:             args.Blocks,
 		CloudRegion_:        args.CloudRegion,
+		CloudCredential_:    args.CloudCredential,
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -85,7 +87,8 @@ type model struct {
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
-	CloudRegion_ string `yaml:"cloud-region"`
+	CloudRegion_     string `yaml:"cloud-region,omitempty"`
+	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
 
 	// TODO:
 	// Spaces
@@ -266,6 +269,11 @@ func (m *model) CloudRegion() string {
 	return m.CloudRegion_
 }
 
+// CloudCredential implements Model.
+func (m *model) CloudCredential() string {
+	return m.CloudCredential_
+}
+
 // Validate implements Model.
 func (m *model) Validate() error {
 	// A model needs an owner.
@@ -381,12 +389,11 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// contains fields of the right type.
 
 	result := &model{
-		Version:      1,
-		Owner_:       valid["owner"].(string),
-		Config_:      valid["config"].(map[string]interface{}),
-		Sequences_:   make(map[string]int),
-		Blocks_:      convertToStringMap(valid["blocks"]),
-		CloudRegion_: valid["cloud-region"].(string),
+		Version:    1,
+		Owner_:     valid["owner"].(string),
+		Config_:    valid["config"].(map[string]interface{}),
+		Sequences_: make(map[string]int),
+		Blocks_:    convertToStringMap(valid["blocks"]),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})
@@ -412,6 +419,10 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 
 	if region, ok := valid["cloud-region"]; ok {
 		result.CloudRegion_ = region.(string)
+	}
+
+	if credential, ok := valid["cloud-credential"]; ok {
+		result.CloudCredential_ = credential.(string)
 	}
 
 	userMap := valid["users"].(map[string]interface{})

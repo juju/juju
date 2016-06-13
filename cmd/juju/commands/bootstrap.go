@@ -559,9 +559,12 @@ to clean up the model.`[1:])
 		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
-		Cloud:                c.Cloud,
+		Cloud:                *cloud,
+		CloudName:            c.Cloud,
 		CloudRegion:          region.Name,
-		CloudConfig:          sharedAttrs,
+		CloudCredential:      credential,
+		CloudCredentialName:  credentialName,
+		ModelConfigDefaults:  sharedAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
@@ -605,6 +608,7 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 			cloud.Endpoint,
 			cloud.StorageEndpoint,
 		}
+		cloud.Regions = []jujucloud.Region{region}
 		return region, nil
 	}
 	if regionName == "" {

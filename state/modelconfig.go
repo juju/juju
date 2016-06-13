@@ -49,17 +49,17 @@ func checkModelConfig(cfg *config.Config) error {
 	return nil
 }
 
-// checkCloudConfig returns an error if the shared config is definitely invalid.
-func checkCloudConfig(attrs map[string]interface{}) error {
+// checkModelConfigDefaults returns an error if the shared config is definitely invalid.
+func checkModelConfigDefaults(attrs map[string]interface{}) error {
 	if _, ok := attrs[config.AdminSecretKey]; ok {
-		return errors.Errorf("cloud config cannot contain admin-secret")
+		return errors.Errorf("config defaults cannot contain admin-secret")
 	}
 	if _, ok := attrs[config.AgentVersionKey]; ok {
-		return errors.Errorf("cloud config cannot contain agent-version")
+		return errors.Errorf("config defaults cannot contain agent-version")
 	}
 	for _, attrName := range controller.ControllerOnlyConfigAttributes {
 		if _, ok := attrs[attrName]; ok {
-			return errors.Errorf("cloud config cannot contain controller attribute %q", attrName)
+			return errors.Errorf("config defaults cannot contain controller attribute %q", attrName)
 		}
 	}
 	return nil
@@ -133,13 +133,14 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	}
 
 	// Remove any attributes that are the same as what's in cloud config.
-	//TODO(wallyworld) if/when cloud config becomes mutable, we must check for concurrent changes
-	// when writing config to ensure the validation we do here remains true
-	cloudAttrs, err := st.CloudConfig()
+	// TODO(wallyworld) if/when cloud config becomes mutable, we must check
+	// for concurrent changes when writing config to ensure the validation
+	// we do here remains true
+	defaultAttrs, err := st.ModelConfigDefaults()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for attr, sharedValue := range cloudAttrs {
+	for attr, sharedValue := range defaultAttrs {
 		if newValue, ok := validAttrs[attr]; ok && newValue == sharedValue {
 			delete(validAttrs, attr)
 			modelSettings.Delete(attr)

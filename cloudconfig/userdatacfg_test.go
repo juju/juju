@@ -227,7 +227,7 @@ func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	}
 	cfg.Bootstrap = &instancecfg.BootstrapConfig{
 		StateInitializationParams: instancecfg.StateInitializationParams{
-			InstanceId:                  "i-bootstrap",
+			BootstrapMachineInstanceId:  "i-bootstrap",
 			BootstrapMachineConstraints: bootstrapConstraints,
 			ModelConstraints:            envConstraints,
 		},
@@ -1014,8 +1014,8 @@ var verifyTests = []struct {
 	{"missing machine agent service name", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"invalid bootstrap configuration: missing instance-id", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap.InstanceId = ""
+	{"invalid bootstrap configuration: missing bootstrap machine instance ID", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.BootstrapMachineInstanceId = ""
 	}},
 }
 
@@ -1030,9 +1030,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		return instancecfg.InstanceConfig{
 			Bootstrap: &instancecfg.BootstrapConfig{
 				StateInitializationParams: instancecfg.StateInitializationParams{
-					InstanceId:            "i-bootstrap",
-					ControllerModelConfig: minimalModelConfig(c),
-					HostedModelConfig:     map[string]interface{}{"name": "hosted-model"},
+					BootstrapMachineInstanceId: "i-bootstrap",
+					ControllerModelConfig:      minimalModelConfig(c),
+					HostedModelConfig:          map[string]interface{}{"name": "hosted-model"},
 				},
 				StateServingInfo: stateServingInfo,
 			},

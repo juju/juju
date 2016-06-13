@@ -62,7 +62,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			vers.Series, "",
 		)
 		c.Assert(err, jc.ErrorIsNil)
-		icfg.Bootstrap.InstanceId = "instance-id"
+		icfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
 		icfg.Bootstrap.HostedModelConfig = map[string]interface{}{
 			"name": "hosted-model",
 		}

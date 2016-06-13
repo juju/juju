@@ -202,32 +202,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	// the first region for the cloud as its default region.
 	clouds := make(map[string]Cloud)
 	for name, cloud := range metadata.Clouds {
-		var regions []Region
-		if len(cloud.Regions.Map) > 0 {
-			for _, item := range cloud.Regions.Slice {
-				name := fmt.Sprint(item.Key)
-				r := cloud.Regions.Map[name]
-				if r == nil {
-					// r will be nil if none of the fields in
-					// the YAML are set.
-					regions = append(regions, Region{Name: name})
-				} else {
-					regions = append(regions, Region{
-						name, r.Endpoint, r.StorageEndpoint,
-					})
-				}
-			}
-		}
-		meta := Cloud{
-			Type:            cloud.Type,
-			AuthTypes:       cloud.AuthTypes,
-			Endpoint:        cloud.Endpoint,
-			StorageEndpoint: cloud.StorageEndpoint,
-			Regions:         regions,
-			Config:          cloud.Config,
-		}
-		meta.denormaliseMetadata()
-		clouds[name] = meta
+		clouds[name] = cloudFromInternal(cloud)
 	}
 	return clouds, nil
 }
@@ -261,26 +236,73 @@ func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
 func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
 	clouds := cloudSet{make(map[string]*cloud)}
 	for name, metadata := range cloudsMap {
-		var regions regions
-		for _, r := range metadata.Regions {
-			regions.Slice = append(regions.Slice, yaml.MapItem{
-				r.Name, region{r.Endpoint, r.StorageEndpoint},
-			})
-		}
-		clouds.Clouds[name] = &cloud{
-			Type:            metadata.Type,
-			AuthTypes:       metadata.AuthTypes,
-			Endpoint:        metadata.Endpoint,
-			StorageEndpoint: metadata.StorageEndpoint,
-			Regions:         regions,
-			Config:          metadata.Config,
-		}
+		clouds.Clouds[name] = cloudToInternal(metadata)
 	}
 	data, err := yaml.Marshal(clouds)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot marshal cloud metadata")
 	}
 	return data, nil
+}
+
+// MarshalCloud marshals a Cloud to an opaque byte array.
+func MarshalCloud(cloud Cloud) ([]byte, error) {
+	return yaml.Marshal(cloudToInternal(cloud))
+}
+
+// UnmarshalCloud unmarshals a Cloud from a byte array produced by MarshalCloud.
+func UnmarshalCloud(in []byte) (Cloud, error) {
+	var internal cloud
+	if err := yaml.Unmarshal(in, &internal); err != nil {
+		return Cloud{}, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
+	}
+	return cloudFromInternal(&internal), nil
+}
+
+func cloudToInternal(in Cloud) *cloud {
+	var regions regions
+	for _, r := range in.Regions {
+		regions.Slice = append(regions.Slice, yaml.MapItem{
+			r.Name, region{r.Endpoint, r.StorageEndpoint},
+		})
+	}
+	return &cloud{
+		Type:            in.Type,
+		AuthTypes:       in.AuthTypes,
+		Endpoint:        in.Endpoint,
+		StorageEndpoint: in.StorageEndpoint,
+		Regions:         regions,
+		Config:          in.Config,
+	}
+}
+
+func cloudFromInternal(in *cloud) Cloud {
+	var regions []Region
+	if len(in.Regions.Map) > 0 {
+		for _, item := range in.Regions.Slice {
+			name := fmt.Sprint(item.Key)
+			r := in.Regions.Map[name]
+			if r == nil {
+				// r will be nil if none of the fields in
+				// the YAML are set.
+				regions = append(regions, Region{Name: name})
+			} else {
+				regions = append(regions, Region{
+					name, r.Endpoint, r.StorageEndpoint,
+				})
+			}
+		}
+	}
+	meta := Cloud{
+		Type:            in.Type,
+		AuthTypes:       in.AuthTypes,
+		Endpoint:        in.Endpoint,
+		StorageEndpoint: in.StorageEndpoint,
+		Regions:         regions,
+		Config:          in.Config,
+	}
+	meta.denormaliseMetadata()
+	return meta
 }
 
 // MarshalYAML implements the yaml.Marshaler interface.

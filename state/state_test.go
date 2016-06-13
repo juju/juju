@@ -26,6 +26,7 @@ import (
 	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -4116,7 +4117,17 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
-	st, err := state.Initialize(owner, authInfo, "dummy", "some-region", nil, cfg, mongotest.DialOpts(), nil)
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:       owner,
+			CloudRegion: "some-region",
+			Config:      cfg,
+		},
+		CloudName:     "dummy",
+		Cloud:         cloud.Cloud{Type: "dummy"},
+		MongoInfo:     authInfo,
+		MongoDialOpts: mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
