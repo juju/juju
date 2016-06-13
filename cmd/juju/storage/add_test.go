@@ -47,47 +47,61 @@ func (s *addSuite) SetUpTest(c *gc.C) {
 type tstData struct {
 	args        []string
 	expectedErr string
+	visibleErr  string
 }
 
 var errorTsts = []tstData{
-	{nil, ".*add-storage requires a unit and a storage directive.*"},
-	{[]string{"tst/123"}, ".*add-storage requires a unit and a storage directive.*"},
-	{[]string{"tst/123", "data="}, `.*storage constraints require at least one.*`},
-	{[]string{"tst/123", "data=-676"}, `.*count must be greater than zero, got "-676".*`},
-	{[]string{"tst/123", "data=676", "data=676"}, `.*storage "data" specified more than once.*`},
+	{
+		args:        nil,
+		expectedErr: "add-storage requires a unit and a storage directive",
+		visibleErr:  "add-storage requires a unit and a storage directive",
+	},
+	{
+		args:        []string{"tst/123"},
+		expectedErr: "add-storage requires a unit and a storage directive",
+		visibleErr:  "add-storage requires a unit and a storage directive",
+	},
+	{
+		args:        []string{"tst/123", "data="},
+		expectedErr: `storage constraints require at least one field to be specified`,
+		visibleErr:  `cannot parse constraints for storage "data": storage constraints require at least one field to be specified`,
+	},
+	{
+		args:        []string{"tst/123", "data=-676"},
+		expectedErr: `count must be greater than zero, got "-676"`,
+		visibleErr:  `cannot parse constraints for storage "data": cannot parse count: count must be greater than zero, got "-676"`,
+	},
+	{
+		args:        []string{"tst/123", "data=676", "data=676"},
+		expectedErr: `storage "data" specified more than once`,
+		visibleErr:  `storage "data" specified more than once`,
+	},
 }
 
 func (s *addSuite) TestAddArgs(c *gc.C) {
 	for i, t := range errorTsts {
 		c.Logf("test %d for %q", i, t.args)
 		s.args = t.args
-		s.assertAddErrorOutput(c, t.expectedErr)
+		s.assertAddErrorOutput(c, t.expectedErr, "", visibleErrorMessage(t.visibleErr))
 	}
-}
-
-func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string) {
-	_, err := s.runAdd(c, s.args...)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
-}
-
-func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewAddCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
 	s.args = []string{"tst-123", "data=676"}
-	s.assertAddErrorOutput(c, `.*unit name "tst-123" not valid.*`)
+
+	expectedErr := `unit name "tst-123" not valid`
+	s.assertAddErrorOutput(c, expectedErr, "", visibleErrorMessage(expectedErr))
 }
 
-var successTsts = []tstData{
-	{[]string{"tst/123", "data=676"}, ""},
-	{[]string{"tst/123", "data"}, ``},
+var validArgs = [][]string{
+	[]string{"tst/123", "data=676"},
+	[]string{"tst/123", "data"},
 }
 
 func (s *addSuite) TestAddSuccess(c *gc.C) {
-	for i, t := range successTsts {
-		c.Logf("test %d for %q", i, t.args)
-		s.args = t.args
+	for i, args := range validArgs {
+		c.Logf("test %d for %q", i, args)
+		s.args = args
 		s.assertAddOutput(c, "added \"data\"\n", "")
 	}
 }
@@ -97,12 +111,12 @@ func (s *addSuite) TestAddOperationAborted(c *gc.C) {
 	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
 		return nil, errors.New("aborted")
 	}
-	s.assertAddErrorOutput(c, ".*aborted.*")
+	s.assertAddErrorOutput(c, ".*aborted.*", "", "")
 }
 
 func (s *addSuite) TestAddFailure(c *gc.C) {
 	s.args = []string{"tst/123", "err=676"}
-	s.assertAddOutput(c, "", "failed to add \"err\": test failure\n")
+	s.assertAddErrorOutput(c, "cmd: error out silently", "", "failed to add \"err\": test failure\n")
 }
 
 func (s *addSuite) TestAddMixOrderPreserved(c *gc.C) {
@@ -114,10 +128,10 @@ failed to add "err": test failure
 `[1:]
 
 	s.args = []string{"tst/123", "a=676", "err=676"}
-	s.assertAddOutput(c, expectedOut, expectedErr)
+	s.assertAddErrorOutput(c, "cmd: error out silently", expectedOut, expectedErr)
 
 	s.args = []string{"tst/123", "err=676", "a=676"}
-	s.assertAddOutput(c, expectedOut, expectedErr)
+	s.assertAddErrorOutput(c, "cmd: error out silently", expectedOut, expectedErr)
 }
 
 func (s *addSuite) TestAddMixConciseErrors(c *gc.C) {
@@ -144,7 +158,7 @@ failed to add "storage42": storage "storage42" not found
 		return result, nil
 	}
 
-	s.assertAddOutput(c, expectedOut, expectedErr)
+	s.assertAddErrorOutput(c, "cmd: error out silently", expectedOut, expectedErr)
 }
 
 func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
@@ -162,15 +176,33 @@ func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
 	s.assertAddOutput(c, "", fmt.Sprintf("%v\n", expectedErr))
 }
 
-func (s *addSuite) assertAddOutput(c *gc.C, expectedValid, expectedErr string) {
+func (s *addSuite) assertAddOutput(c *gc.C, expectedOut, expectedErr string) {
 	context, err := s.runAdd(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.assertExpectedOutput(c, context, expectedOut, expectedErr)
+}
+
+func (s *addSuite) assertAddErrorOutput(c *gc.C, expected string, expectedOut, expectedErr string) {
+	context, err := s.runAdd(c, s.args...)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, expected)
+	s.assertExpectedOutput(c, context, expectedOut, expectedErr)
+}
+
+func (s *addSuite) assertExpectedOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
 	obtainedErr := testing.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 
 	obtainedValid := testing.Stdout(context)
-	c.Assert(obtainedValid, gc.Equals, expectedValid)
+	c.Assert(obtainedValid, gc.Equals, expectedOut)
+}
+
+func (s *addSuite) runAdd(c *gc.C, args ...string) (*cmd.Context, error) {
+	return testing.RunCommand(c, storage.NewAddCommandForTest(s.mockAPI, s.store), args...)
+}
+
+func visibleErrorMessage(errMsg string) string {
+	return fmt.Sprintf("error: %v\n", errMsg)
 }
 
 type mockAddAPI struct {

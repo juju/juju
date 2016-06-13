@@ -154,6 +154,5 @@ func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), gc.Matches, "sanity not found")
-
-	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
+	c.Assert(failures.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }

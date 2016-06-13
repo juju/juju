@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -136,12 +137,12 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	var failures []string
 	// If there was a unit-related error, then all storages will get the same error.
 	// We want to collapse these - no need to repeat the same things ad nauseam.
-	allFailures := make(map[string]bool)
+	allFailures := set.NewStrings()
 	for i, one := range results {
 		us := storages[i]
 		if one.Error != nil {
 			failures = append(failures, fmt.Sprintf(fail, us.StorageName, one.Error))
-			allFailures[one.Error.Error()] = true
+			allFailures.Add(one.Error.Error())
 			continue
 		}
 		added = append(added, fmt.Sprintf(success, us.StorageName))
@@ -164,6 +165,7 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if len(failures) > 0 {
 		fmt.Fprintln(ctx.Stderr, strings.Join(failures, newline))
+		return cmd.ErrSilent
 	}
 	return nil
 }
