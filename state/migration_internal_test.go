@@ -609,6 +609,7 @@ func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
 		"ModelUUID",
 	)
 	migrated := set.NewStrings(
+		"DocID",
 		"MachineID",
 		"ProviderID",
 		"Name",

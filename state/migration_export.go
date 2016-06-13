@@ -678,6 +678,7 @@ func (e *exporter) linklayerdevices() error {
 			IsAutoStart: device.IsAutoStart(),
 			IsUp:        device.IsUp(),
 			ParentName:  device.ParentName(),
+			LocalID:     e.st.localID(device.DocID()),
 		})
 	}
 	return nil

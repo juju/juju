@@ -871,6 +871,7 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 	providerID := device.ProviderID()
 	newDoc := &linkLayerDeviceDoc{
 		ModelUUID:   i.st.ModelUUID(),
+		DocID:       i.st.docID(device.LocalID()),
 		MachineID:   device.MachineID(),
 		ProviderID:  providerID,
 		Name:        device.Name(),
