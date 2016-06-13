@@ -13,47 +13,9 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// AllocateAddress implements environs.Environ.
-func (env *environ) AllocateAddress(instID instance.Id, subnetID network.Id, addr *network.Address, _, _ string) error {
-	return env.changeAddress(instID, subnetID, *addr, true)
-}
-
-// ReleaseAddress implements environs.Environ.
-func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address, _, _ string) error {
-	return env.changeAddress(instID, netID, addr, false)
-}
-
-func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr network.Address, add bool) error {
-	instances, err := env.Instances([]instance.Id{instID})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	inst := instances[0].(*environInstance)
-	_, client, err := inst.getInstanceConfigurator()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	interfaceName := "eth0"
-	if string(netID) == env.ecfg.externalNetwork() {
-		interfaceName = "eth1"
-	}
-	if add {
-		err = client.AddIpAddress(interfaceName, addr.Value)
-	} else {
-		err = client.ReleaseIpAddress(addr.Value)
-	}
-
-	return errors.Trace(err)
-}
-
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
 	return false, errors.NotSupportedf("spaces")
-}
-
-// SupportsAddressAllocation is specified on environs.Networking.
-func (env *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	return false, errors.NotSupportedf("address allocation")
 }
 
 // Subnets implements environs.Environ.
