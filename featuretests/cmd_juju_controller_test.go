@@ -319,5 +319,5 @@ func (s *cmdControllerSuite) TestGetControllerConfigYAML(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfgYaml, err := yaml.Marshal(controllerCfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Matches, string(cfgYaml))
+	c.Assert(testing.Stdout(context), gc.Equals, string(cfgYaml))
 }
