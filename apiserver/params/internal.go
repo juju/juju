@@ -19,75 +19,75 @@ import (
 // MachineContainersParams holds the arguments for making a SetSupportedContainers
 // API call.
 type MachineContainersParams struct {
-	Params []MachineContainers
+	Params []MachineContainers `json:"params"`
 }
 
 // MachineContainers holds the arguments for making an SetSupportedContainers call
 // on a given machine.
 type MachineContainers struct {
-	MachineTag     string
-	ContainerTypes []instance.ContainerType
+	MachineTag     string                   `json:"machine-tag"`
+	ContainerTypes []instance.ContainerType `json:"container-types"`
 }
 
 // WatchContainer identifies a single container type within a machine.
 type WatchContainer struct {
-	MachineTag    string
-	ContainerType string
+	MachineTag    string `json:"machine-tag"`
+	ContainerType string `json:"container-type"`
 }
 
 // WatchContainers holds the arguments for making a WatchContainers
 // API call.
 type WatchContainers struct {
-	Params []WatchContainer
+	Params []WatchContainer `json:"params"`
 }
 
 // CharmURL identifies a single charm URL.
 type CharmURL struct {
-	URL string
+	URL string `json:"url"`
 }
 
 // CharmURLs identifies multiple charm URLs.
 type CharmURLs struct {
-	URLs []CharmURL
+	URLs []CharmURL `json:"urls"`
 }
 
 // StringsResult holds the result of an API call that returns a slice
 // of strings or an error.
 type StringsResult struct {
-	Error  *Error
-	Result []string
+	Error  *Error   `json:"error,omitempty"`
+	Result []string `json:"result"`
 }
 
 // StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {
-	Results []StringsResult
+	Results []StringsResult `json:"results"`
 }
 
 // StringResult holds a string or an error.
 type StringResult struct {
-	Error  *Error
-	Result string
+	Error  *Error `json:"error,omitempty"`
+	Result string `json:"result"`
 }
 
 // StringResults holds the bulk operation result of an API call
 // that returns a string or an error.
 type StringResults struct {
-	Results []StringResult
+	Results []StringResult `json:"results"`
 }
 
 // ModelResult holds the result of an API call returning a name and UUID
 // for a model.
 type ModelResult struct {
-	Error *Error
-	Name  string
-	UUID  string
+	Error *Error `json:"error,omitempty"`
+	Name  string `json:"name"`
+	UUID  string `json:"uuid"`
 }
 
 // ModelSkeletonConfigArgs wraps the args for modelmanager.SkeletonConfig.
 type ModelSkeletonConfigArgs struct {
-	Provider string
-	Region   string
+	Provider string `json:"provider"`
+	Region   string `json:"region"`
 }
 
 // ModelCreateArgs holds the arguments that are necessary to create
@@ -96,90 +96,90 @@ type ModelCreateArgs struct {
 	// OwnerTag represents the user that will own the new model.
 	// The OwnerTag must be a valid user tag.  If the user tag represents
 	// a local user, that user must exist.
-	OwnerTag string
+	OwnerTag string `json:"owner-tag"`
 
 	// Account holds the provider specific account details necessary to
 	// interact with the provider to create, list and destroy machines.
-	Account map[string]interface{}
+	Account map[string]interface{} `json:"account"`
 
 	// Config defines the model config, which includes the name of the
 	// model.  An model UUID is allocated by the API server during
 	// the creation of the model.
-	Config map[string]interface{}
+	Config map[string]interface{} `json:"config"`
 }
 
 // Model holds the result of an API call returning a name and UUID
 // for a model and the tag of the server in which it is running.
 type Model struct {
-	Name     string `json:"Name"`
-	UUID     string `json:"UUID"`
-	OwnerTag string `json:"OwnerTag"`
+	Name     string `json:"name"`
+	UUID     string `json:"uuid"`
+	OwnerTag string `json:"owner-tag"`
 }
 
 // UserModel holds information about a model and the last
 // time the model was accessed for a particular user.
 type UserModel struct {
-	Model
-	LastConnection *time.Time
+	Model          `json:"model"`
+	LastConnection *time.Time `json:"last-connection"`
 }
 
 // UserModelList holds information about a list of models
 // for a particular user.
 type UserModelList struct {
-	UserModels []UserModel
+	UserModels []UserModel `json:"user-models"`
 }
 
 // ResolvedModeResult holds a resolved mode or an error.
 type ResolvedModeResult struct {
-	Error *Error
-	Mode  ResolvedMode
+	Error *Error       `json:"error,omitempty"`
+	Mode  ResolvedMode `json:"mode"`
 }
 
 // ResolvedModeResults holds the bulk operation result of an API call
 // that returns a resolved mode or an error.
 type ResolvedModeResults struct {
-	Results []ResolvedModeResult
+	Results []ResolvedModeResult `json:"results"`
 }
 
 // StringBoolResult holds the result of an API call that returns a
 // string and a boolean.
 type StringBoolResult struct {
-	Error  *Error
-	Result string
-	Ok     bool
+	Error  *Error `json:"error,omitempty"`
+	Result string `json:"result"`
+	Ok     bool   `json:"ok"`
 }
 
 // StringBoolResults holds multiple results with a string and a bool
 // each.
 type StringBoolResults struct {
-	Results []StringBoolResult
+	Results []StringBoolResult `json:"results"`
 }
 
 // BoolResult holds the result of an API call that returns a
 // a boolean or an error.
 type BoolResult struct {
-	Error  *Error
-	Result bool
+	Error  *Error `json:"error,omitempty"`
+	Result bool   `json:"result"`
 }
 
 // BoolResults holds multiple results with BoolResult each.
 type BoolResults struct {
-	Results []BoolResult
+	Results []BoolResult `json:"results"`
 }
 
 // IntResults holds multiple results with an int in each.
 type IntResults struct {
 	// Results holds a list of results for calls that return an int or error.
-	Results []IntResult
+	Results []IntResult `json:"results"`
 }
 
 // IntResult holds the result of an API call that returns a
 // int or an error.
 type IntResult struct {
 	// Error holds the error (if any) of this call.
-	Error *Error
+	Error *Error `json:"error,omitempty"`
 	// Result holds the integer result of the call (if Error is nil).
-	Result int
+	Result int `json:"result"`
 }
 
 // Settings holds relation settings names and values.
@@ -187,14 +187,14 @@ type Settings map[string]string
 
 // SettingsResult holds a relation settings map or an error.
 type SettingsResult struct {
-	Error    *Error
-	Settings Settings
+	Error    *Error   `json:"error,omitempty"`
+	Settings Settings `json:"settings"`
 }
 
 // SettingsResults holds the result of an API calls that
 // returns settings for multiple relations.
 type SettingsResults struct {
-	Results []SettingsResult
+	Results []SettingsResult `json:"results"`
 }
 
 // ConfigSettings holds unit, application or cham configuration settings
@@ -203,13 +203,13 @@ type ConfigSettings map[string]interface{}
 
 // ConfigSettingsResult holds a configuration map or an error.
 type ConfigSettingsResult struct {
-	Error    *Error
-	Settings ConfigSettings
+	Error    *Error         `json:"error,omitempty"`
+	Settings ConfigSettings `json:"settings"`
 }
 
 // ConfigSettingsResults holds multiple configuration maps or errors.
 type ConfigSettingsResults struct {
-	Results []ConfigSettingsResult
+	Results []ConfigSettingsResult `json:"results"`
 }
 
 // ModelConfig holds a model configuration.
@@ -220,131 +220,131 @@ type ControllerConfig map[string]interface{}
 
 // ModelConfigResult holds model configuration.
 type ModelConfigResult struct {
-	Config ModelConfig
+	Config ModelConfig `json:"config"`
 }
 
 // ControllerConfigResult holds controller configuration.
 type ControllerConfigResult struct {
-	Config ControllerConfig
+	Config ControllerConfig `json:"config"`
 }
 
 // RelationUnit holds a relation and a unit tag.
 type RelationUnit struct {
-	Relation string
-	Unit     string
+	Relation string `json:"relation"`
+	Unit     string `json:"unit"`
 }
 
 // RelationUnits holds the parameters for API calls expecting a pair
 // of relation and unit tags.
 type RelationUnits struct {
-	RelationUnits []RelationUnit
+	RelationUnits []RelationUnit `json:"relation-units"`
 }
 
 // RelationIds holds multiple relation ids.
 type RelationIds struct {
-	RelationIds []int
+	RelationIds []int `json:"relation-ids"`
 }
 
 // RelationUnitPair holds a relation tag, a local and remote unit tags.
 type RelationUnitPair struct {
-	Relation   string
-	LocalUnit  string
-	RemoteUnit string
+	Relation   string `json:"relation"`
+	LocalUnit  string `json:"local-unit"`
+	RemoteUnit string `json:"remote-unit"`
 }
 
 // RelationUnitPairs holds the parameters for API calls expecting
 // multiple sets of a relation tag, a local and remote unit tags.
 type RelationUnitPairs struct {
-	RelationUnitPairs []RelationUnitPair
+	RelationUnitPairs []RelationUnitPair `json:"relation-unit-pairs"`
 }
 
 // RelationUnitSettings holds a relation tag, a unit tag and local
 // unit settings.
 type RelationUnitSettings struct {
-	Relation string
-	Unit     string
-	Settings Settings
+	Relation string   `json:"relation"`
+	Unit     string   `json:"unit"`
+	Settings Settings `json:"settings"`
 }
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
 // or WriteSettings API calls.
 type RelationUnitsSettings struct {
-	RelationUnits []RelationUnitSettings
+	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }
 
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
-	Error    *Error
-	Life     Life
-	Id       int
-	Key      string
-	Endpoint multiwatcher.Endpoint
+	Error    *Error                `json:"error,omitempty"`
+	Life     Life                  `json:"life"`
+	Id       int                   `json:"id"`
+	Key      string                `json:"key"`
+	Endpoint multiwatcher.Endpoint `json:"endpoint"`
 }
 
 // RelationResults holds the result of an API call that returns
 // information about multiple relations.
 type RelationResults struct {
-	Results []RelationResult
+	Results []RelationResult `json:"results"`
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
 type EntityCharmURL struct {
-	Tag      string
-	CharmURL string
+	Tag      string `json:"tag"`
+	CharmURL string `json:"charm-url"`
 }
 
 // EntitiesCharmURL holds the parameters for making a SetCharmURL API
 // call.
 type EntitiesCharmURL struct {
-	Entities []EntityCharmURL
+	Entities []EntityCharmURL `json:"entities"`
 }
 
 // BytesResult holds the result of an API call that returns a slice
 // of bytes.
 type BytesResult struct {
-	Result []byte
+	Result []byte `json:"result"`
 }
 
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {
-	Life  Life
-	Error *Error
+	Life  Life   `json:"life"`
+	Error *Error `json:"error,omitempty"`
 }
 
 // LifeResults holds the life or error status of multiple entities.
 type LifeResults struct {
-	Results []LifeResult
+	Results []LifeResult `json:"results"`
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a nonce, and
 // network config.
 type InstanceInfo struct {
-	Tag             string
-	InstanceId      instance.Id
-	Nonce           string
-	Characteristics *instance.HardwareCharacteristics
-	Volumes         []Volume
+	Tag             string                            `json:"tag"`
+	InstanceId      instance.Id                       `json:"instance-id"`
+	Nonce           string                            `json:"nonce"`
+	Characteristics *instance.HardwareCharacteristics `json:"characteristics"`
+	Volumes         []Volume                          `json:"volumes"`
 	// VolumeAttachments is a mapping from volume tag to
 	// volume attachment info.
-	VolumeAttachments map[string]VolumeAttachmentInfo
+	VolumeAttachments map[string]VolumeAttachmentInfo `json:"volume-attachments"`
 
-	NetworkConfig []NetworkConfig
+	NetworkConfig []NetworkConfig `json:"network-config"`
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
 // call for multiple machines.
 type InstancesInfo struct {
-	Machines []InstanceInfo
+	Machines []InstanceInfo `json:"machines"`
 }
 
 // EntityStatus holds the status of an entity.
 type EntityStatus struct {
-	Status status.Status
-	Info   string
-	Data   map[string]interface{}
-	Since  *time.Time
+	Status status.Status          `json:"status"`
+	Info   string                 `json:"info"`
+	Data   map[string]interface{} `json:"data,omitempty"`
+	Since  *time.Time             `json:"since"`
 }
 
 // EntityStatusArgs holds parameters for setting the status of a single entity.
@@ -357,123 +357,123 @@ type EntityStatusArgs struct {
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
 type SetStatus struct {
-	Entities []EntityStatusArgs
+	Entities []EntityStatusArgs `json:"entities"`
 }
 
 // ConstraintsResult holds machine constraints or an error.
 type ConstraintsResult struct {
-	Error       *Error
+	Error       *Error `json:"error,omitempty"`
 	Constraints constraints.Value
 }
 
 // ConstraintsResults holds multiple constraints results.
 type ConstraintsResults struct {
-	Results []ConstraintsResult
+	Results []ConstraintsResult `json:"results"`
 }
 
 // AgentGetEntitiesResults holds the results of a
 // agent.API.GetEntities call.
 type AgentGetEntitiesResults struct {
-	Entities []AgentGetEntitiesResult
+	Entities []AgentGetEntitiesResult `json:"entities"`
 }
 
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          Life
-	Jobs          []multiwatcher.MachineJob
-	ContainerType instance.ContainerType
-	Error         *Error
+	Life          Life                      `json:"life"`
+	Jobs          []multiwatcher.MachineJob `json:"jobs"`
+	ContainerType instance.ContainerType    `json:"container-type"`
+	Error         *Error                    `json:"error,omitempty"`
 }
 
 // VersionResult holds the version and possibly error for a given
 // DesiredVersion() API call.
 type VersionResult struct {
-	Version *version.Number
-	Error   *Error
+	Version *version.Number `json:"version,omitempty"`
+	Error   *Error          `json:"error,omitempty"`
 }
 
 // VersionResults is a list of versions for the requested entities.
 type VersionResults struct {
-	Results []VersionResult
+	Results []VersionResult `json:"results"`
 }
 
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
-	ToolsList                      tools.List
-	DisableSSLHostnameVerification bool
-	Error                          *Error
+	ToolsList                      tools.List `json:"tools"`
+	DisableSSLHostnameVerification bool       `json:"disable-ssl-hostname-verification"`
+	Error                          *Error     `json:"error,omitempty"`
 }
 
 // ToolsResults is a list of tools for various requested agents.
 type ToolsResults struct {
-	Results []ToolsResult
+	Results []ToolsResult `json:"results"`
 }
 
 // Version holds a specific binary version.
 type Version struct {
-	Version version.Binary
+	Version version.Binary `json:"version"`
 }
 
 // EntityVersion specifies the tools version to be set for an entity
 // with the given tag.
 // version.Binary directly.
 type EntityVersion struct {
-	Tag   string
-	Tools *Version
+	Tag   string   `json:"tag"`
+	Tools *Version `json:"tools"`
 }
 
 // EntitiesVersion specifies what tools are being run for
 // multiple entities.
 type EntitiesVersion struct {
-	AgentTools []EntityVersion
+	AgentTools []EntityVersion `json:"agent-tools"`
 }
 
 // NotifyWatchResult holds a NotifyWatcher id and an error (if any).
 type NotifyWatchResult struct {
 	NotifyWatcherId string
-	Error           *Error
+	Error           *Error `json:"error,omitempty"`
 }
 
 // NotifyWatchResults holds the results for any API call which ends up
 // returning a list of NotifyWatchers
 type NotifyWatchResults struct {
-	Results []NotifyWatchResult
+	Results []NotifyWatchResult `json:"results"`
 }
 
 // StringsWatchResult holds a StringsWatcher id, changes and an error
 // (if any).
 type StringsWatchResult struct {
-	StringsWatcherId string
-	Changes          []string
-	Error            *Error
+	StringsWatcherId string   `json:"watcher-id"`
+	Changes          []string `json:"changes"`
+	Error            *Error   `json:"error,omitempty"`
 }
 
 // StringsWatchResults holds the results for any API call which ends up
 // returning a list of StringsWatchers.
 type StringsWatchResults struct {
-	Results []StringsWatchResult
+	Results []StringsWatchResult `json:"results"`
 }
 
 // EntitiesWatchResult holds a EntitiesWatcher id, changes and an error
 // (if any).
 type EntitiesWatchResult struct {
 	// Note legacy serialization tag.
-	EntitiesWatcherId string   `json:"EntityWatcherId"`
-	Changes           []string `json:"Changes"`
-	Error             *Error   `json:"Error"`
+	EntitiesWatcherId string   `json:"watcher-id"`
+	Changes           []string `json:"changes"`
+	Error             *Error   `json:"error,omitempty"`
 }
 
 // EntitiesWatchResults holds the results for any API call which ends up
 // returning a list of EntitiesWatchers.
 type EntitiesWatchResults struct {
-	Results []EntitiesWatchResult `json:"Results"`
+	Results []EntitiesWatchResult `json:"results"`
 }
 
 // UnitSettings specifies the version of some unit's settings in some relation.
 type UnitSettings struct {
-	Version int64 `json:"Version"`
+	Version int64 `json:"version"`
 }
 
 // RelationUnitsChange describes the membership and settings of; or changes to;
@@ -482,175 +482,176 @@ type RelationUnitsChange struct {
 
 	// Changed holds a set of units that are known to be in scope, and the
 	// latest known settings version for each.
-	Changed map[string]UnitSettings `json:"Changed"`
+	Changed map[string]UnitSettings `json:"changed"`
 
 	// Departed holds a set of units that have previously been reported to
 	// be in scope, but which no longer are.
-	Departed []string `json:"Departed"`
+	Departed []string `json:"departed"`
 }
 
 // RelationUnitsWatchResult holds a RelationUnitsWatcher id, baseline state
 // (in the Changes field), and an error (if any).
 type RelationUnitsWatchResult struct {
-	RelationUnitsWatcherId string              `json:"RelationUnitsWatcherId"`
-	Changes                RelationUnitsChange `json:"Changes"`
-	Error                  *Error              `json:"Error"`
+	RelationUnitsWatcherId string              `json:"watcher-id"`
+	Changes                RelationUnitsChange `json:"changes"`
+	Error                  *Error              `json:"error,omitempty"`
 }
 
 // RelationUnitsWatchResults holds the results for any API call which ends up
 // returning a list of RelationUnitsWatchers.
 type RelationUnitsWatchResults struct {
-	Results []RelationUnitsWatchResult
+	Results []RelationUnitsWatchResult `json:"results"`
 }
 
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
 // changes and an error (if any).
 type MachineStorageIdsWatchResult struct {
-	MachineStorageIdsWatcherId string
-	Changes                    []MachineStorageId
-	Error                      *Error
+	MachineStorageIdsWatcherId string             `json:"watcher-id"`
+	Changes                    []MachineStorageId `json:"changes"`
+	Error                      *Error             `json:"error,omitempty"`
 }
 
 // MachineStorageIdsWatchResults holds the results for any API call which ends
 // up returning a list of MachineStorageIdsWatchers.
 type MachineStorageIdsWatchResults struct {
-	Results []MachineStorageIdsWatchResult
+	Results []MachineStorageIdsWatchResult `json:"results"`
 }
 
 // CharmsResponse is the server response to charm upload or GET requests.
 type CharmsResponse struct {
-	Error string `json:",omitempty"`
+	Error string `json:"error,omitempty"`
 
 	// ErrorCode holds the code associated with the error.
 	// Ideally, Error would hold an Error object and the
 	// code would be in that, but for backward compatibility,
 	// we cannot do that.
-	ErrorCode string `json:",omitempty"`
+	ErrorCode string `json:"error-code,omitempty"`
 
 	// ErrorInfo holds extra information associated with the error.
 	// Like ErrorCode, this should really be in an Error object.
-	ErrorInfo *ErrorInfo
+	ErrorInfo *ErrorInfo `json:"error-info,omitempty"`
 
-	CharmURL string   `json:",omitempty"`
-	Files    []string `json:",omitempty"`
+	CharmURL string   `json:"charm-url,omitempty"`
+	Files    []string `json:"files,omitempty"`
 }
 
 // RunParams is used to provide the parameters to the Run method.
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands     string
-	Timeout      time.Duration
-	Machines     []string
-	Applications []string
-	Units        []string
+	Commands     string        `json:"comands"`
+	Timeout      time.Duration `json:"timeout"`
+	Machines     []string      `json:"machines"`
+	Applications []string      `json:"applications"`
+	Units        []string      `json:"units"`
 }
 
 // RunResult contains the result from an individual run call on a machine.
 // UnitId is populated if the command was run inside the unit context.
 type RunResult struct {
-	exec.ExecResponse
-	MachineId string
-	UnitId    string
-	Error     string
+	exec.ExecResponse `json:"exec-response"`
+	// FIXME: should be tags not id strings
+	MachineId string `json:"machine-id"`
+	UnitId    string `json:"unit-id"`
+	Error     string `json:"error"`
 }
 
 // RunResults is used to return the slice of results.  API server side calls
 // need to return single structure values.
 type RunResults struct {
-	Results []RunResult
+	Results []RunResult `json:"results"`
 }
 
 // AgentVersionResult is used to return the current version number of the
 // agent running the API server.
 type AgentVersionResult struct {
-	Version version.Number
+	Version version.Number `json:"version"`
 }
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints      constraints.Value
-	Series           string
-	Placement        string
-	Jobs             []multiwatcher.MachineJob
-	Volumes          []VolumeParams
-	Tags             map[string]string
-	SubnetsToZones   map[string][]string
-	ImageMetadata    []CloudImageMetadata
-	EndpointBindings map[string]string
+	Constraints      constraints.Value         `json:"constraints"`
+	Series           string                    `json:"series"`
+	Placement        string                    `json:"placement"`
+	Jobs             []multiwatcher.MachineJob `json:"jobs"`
+	Volumes          []VolumeParams            `json:"volumes"`
+	Tags             map[string]string         `json:"tags"`
+	SubnetsToZones   map[string][]string       `json:"subnets-to-zones"`
+	ImageMetadata    []CloudImageMetadata      `json:"image-metadata"`
+	EndpointBindings map[string]string         `json:"endpoint-bindings"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
 type ProvisioningInfoResult struct {
-	Error  *Error
-	Result *ProvisioningInfo
+	Error  *Error            `json:"error,omitempty"`
+	Result *ProvisioningInfo `json:"result"`
 }
 
 // ProvisioningInfoResults holds multiple machine provisioning info results.
 type ProvisioningInfoResults struct {
-	Results []ProvisioningInfoResult
+	Results []ProvisioningInfoResult `json:"results"`
 }
 
 // Metric holds a single metric.
 type Metric struct {
-	Key   string
-	Value string
-	Time  time.Time
+	Key   string    `json:"key"`
+	Value string    `json:"value"`
+	Time  time.Time `json:"time"`
 }
 
 // MetricsParam contains the metrics for a single unit.
 type MetricsParam struct {
-	Tag     string
-	Metrics []Metric
+	Tag     string   `json:"tag"`
+	Metrics []Metric `json:"metrics"`
 }
 
 // MetricsParams contains the metrics for multiple units.
 type MetricsParams struct {
-	Metrics []MetricsParam
+	Metrics []MetricsParam `json:"metrics"`
 }
 
 // MetricBatch is a list of metrics with metadata.
 type MetricBatch struct {
-	UUID     string
-	CharmURL string
-	Created  time.Time
-	Metrics  []Metric
+	UUID     string    `json:"uuid"`
+	CharmURL string    `json:"charm-url"`
+	Created  time.Time `json:"created"`
+	Metrics  []Metric  `json:"metrics"`
 }
 
 // MetricBatchParam contains a single metric batch.
 type MetricBatchParam struct {
-	Tag   string
-	Batch MetricBatch
+	Tag   string      `json:"tag"`
+	Batch MetricBatch `json:"batch"`
 }
 
 // MetricBatchParams contains multiple metric batches.
 type MetricBatchParams struct {
-	Batches []MetricBatchParam
+	Batches []MetricBatchParam `json:"batches"`
 }
 
 // MeterStatusResult holds unit meter status or error.
 type MeterStatusResult struct {
-	Code  string
-	Info  string
-	Error *Error
+	Code  string `json:"code"`
+	Info  string `json:"info"`
+	Error *Error `json:"error,omitempty"`
 }
 
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
-	Results []MeterStatusResult
+	Results []MeterStatusResult `json:"results"`
 }
 
 // SingularClaim represents a request for exclusive model administration access
 // on the part of some controller.
 type SingularClaim struct {
-	ModelTag      string        `json:"ModelTag"`
-	ControllerTag string        `json:"ControllerTag"`
-	Duration      time.Duration `json:"Duration"`
+	ModelTag      string        `json:"model-tag"`
+	ControllerTag string        `json:"controller-tag"`
+	Duration      time.Duration `json:"duration"`
 }
 
 // SingularClaims holds any number of SingularClaim~s.
 type SingularClaims struct {
-	Claims []SingularClaim `json:"Claims"`
+	Claims []SingularClaim `json:"claims"`
 }
 
 // GUIArchiveVersion holds information on a specific GUI archive version.

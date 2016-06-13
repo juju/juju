@@ -94,8 +94,8 @@ func (c *Client) RemoveBlocks() error {
 // WatchAllModels returns an AllWatcher, from which you can request
 // the Next collection of Deltas (for all models).
 func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
-	info := new(api.WatchAll)
-	if err := c.facade.FacadeCall("WatchAllModels", nil, info); err != nil {
+	var info params.AllWatcherId
+	if err := c.facade.FacadeCall("WatchAllModels", nil, &info); err != nil {
 		return nil, err
 	}
 	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil

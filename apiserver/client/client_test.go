@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
@@ -623,6 +624,7 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientWatchAll(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)
