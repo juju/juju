@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -162,6 +163,10 @@ func (b *fakeMigrationBackend) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
+	return nil, nil
+}
+
+func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
 	return nil, nil
 }
 

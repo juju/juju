@@ -153,6 +153,13 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 
 // shortcuts for expected output.
 var (
+	model = M{
+		"name":       "admin",
+		"controller": "kontroll",
+		"cloud":      "dummy",
+		"version":    "1.2.3",
+	}
+
 	machine0 = M{
 		"juju-status": M{
 			"current": "started",
@@ -281,23 +288,35 @@ var (
 		"series":   "quantal",
 		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
-	unexposedService = M{
+	unexposedService = dummyCharm(M{
 		"application-status": M{
 			"current": "unknown",
 			"message": "Waiting for agent initialization to finish",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"charm":   "cs:quantal/dummy-1",
-		"exposed": false,
-	}
-	exposedService = M{
+	})
+	exposedService = dummyCharm(M{
 		"application-status": M{
 			"current": "unknown",
 			"message": "Waiting for agent initialization to finish",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"charm":   "cs:quantal/dummy-1",
 		"exposed": true,
+	})
+	loggingCharm = M{
+		"charm":              "cs:quantal/logging-1",
+		"charm-origin":       "jujucharms",
+		"charm-name":         "logging",
+		"charm-rev":          1,
+		"series":             "quantal",
+		"os":                 "ubuntu",
+		"exposed":            true,
+		"application-status": M{},
+		"relations": M{
+			"logging-directory": L{"wordpress"},
+			"info":              L{"mysql"},
+		},
+		"subordinate-to": L{"mysql", "wordpress"},
 	}
 )
 
@@ -325,12 +344,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -358,12 +372,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -389,12 +398,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
@@ -406,12 +410,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"dns-name":    "admin-0.dns",
@@ -446,12 +445,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -481,12 +475,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has no dns-name",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -513,12 +502,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -542,12 +526,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"instance-id": "i-missing",
@@ -582,12 +561,7 @@ var statusTests = []testCase{
 		expect{
 			"no applications exposed yet",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
@@ -603,12 +577,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed application",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
@@ -631,12 +600,7 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -668,20 +632,14 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -706,10 +664,8 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					}),
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -728,7 +684,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -749,12 +705,7 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -804,8 +755,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -830,10 +780,8 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					}),
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -852,7 +800,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -862,19 +810,12 @@ var statusTests = []testCase{
 			"scope status on dummy-application/0 unit",
 			[]string{"dummy-application/0"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"1": machine1,
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -893,7 +834,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -901,18 +842,12 @@ var statusTests = []testCase{
 			"scope status on exposed-application application",
 			[]string{"exposed-application"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"2": machine2,
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -937,7 +872,7 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -945,19 +880,12 @@ var statusTests = []testCase{
 			"scope status on application pattern",
 			[]string{"d*-application"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"1": machine1,
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -976,7 +904,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -984,18 +912,12 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-application/*"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"2": machine2,
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -1020,7 +942,7 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1028,20 +950,13 @@ var statusTests = []testCase{
 			"scope status on combination of application and unit patterns",
 			[]string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1060,9 +975,8 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					}),
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -1087,7 +1001,7 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1121,20 +1035,13 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": false,
+					"wordpress": wordpressCharm(M{
 						"relations": M{
 							"db": L{"mysql"},
 						},
@@ -1158,10 +1065,8 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": false,
+					}),
+					"mysql": mysqlCharm(M{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
@@ -1185,7 +1090,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1219,20 +1124,13 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error when the agent is down",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": false,
+					"wordpress": wordpressCharm(M{
 						"relations": M{
 							"db": L{"mysql"},
 						},
@@ -1256,10 +1154,8 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": false,
+					}),
+					"mysql": mysqlCharm(M{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
@@ -1283,7 +1179,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1298,12 +1194,7 @@ var statusTests = []testCase{
 		expect{
 			"application shows life==dying",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1320,10 +1211,8 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
-						"life":    "dying",
+					"dummy-application": dummyCharm(M{
+						"life": "dying",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -1343,7 +1232,7 @@ var statusTests = []testCase{
 								},
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1361,12 +1250,7 @@ var statusTests = []testCase{
 		expect{
 			"unit shows that agent is lost",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1384,9 +1268,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1406,7 +1288,7 @@ var statusTests = []testCase{
 								},
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1466,12 +1348,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1480,8 +1357,7 @@ var statusTests = []testCase{
 					"4": machine4,
 				},
 				"applications": M{
-					"project": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"project": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1505,9 +1381,8 @@ var statusTests = []testCase{
 							"db":    L{"mysql"},
 							"cache": L{"varnish"},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					}),
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1530,10 +1405,15 @@ var statusTests = []testCase{
 						"relations": M{
 							"server": L{"private", "project"},
 						},
-					},
+					}),
 					"varnish": M{
-						"charm":   "cs:quantal/varnish-1",
-						"exposed": true,
+						"charm":        "cs:quantal/varnish-1",
+						"charm-origin": "jujucharms",
+						"charm-name":   "varnish",
+						"charm-rev":    1,
+						"series":       "quantal",
+						"os":           "ubuntu",
+						"exposed":      true,
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -1558,8 +1438,7 @@ var statusTests = []testCase{
 							"webcache": L{"project"},
 						},
 					},
-					"private": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"private": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "unknown",
@@ -1584,7 +1463,7 @@ var statusTests = []testCase{
 						"relations": M{
 							"db": L{"mysql"},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1625,12 +1504,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1639,8 +1513,13 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"riak": M{
-						"charm":   "cs:quantal/riak-7",
-						"exposed": true,
+						"charm":        "cs:quantal/riak-7",
+						"charm-origin": "jujucharms",
+						"charm-name":   "riak",
+						"charm-rev":    7,
+						"series":       "quantal",
+						"os":           "ubuntu",
+						"exposed":      true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1741,20 +1620,14 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"wordpress": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1791,9 +1664,8 @@ var statusTests = []testCase{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					}),
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1831,17 +1703,8 @@ var statusTests = []testCase{
 							"server":    L{"wordpress"},
 							"juju-info": L{"logging"},
 						},
-					},
-					"logging": M{
-						"charm":              "cs:quantal/logging-1",
-						"exposed":            true,
-						"application-status": M{},
-						"relations": M{
-							"logging-directory": L{"wordpress"},
-							"info":              L{"mysql"},
-						},
-						"subordinate-to": L{"mysql", "wordpress"},
-					},
+					}),
+					"logging": loggingCharm,
 				},
 			},
 		},
@@ -1851,19 +1714,13 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"wordpress": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1900,9 +1757,8 @@ var statusTests = []testCase{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					}),
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1940,17 +1796,8 @@ var statusTests = []testCase{
 							"server":    L{"wordpress"},
 							"juju-info": L{"logging"},
 						},
-					},
-					"logging": M{
-						"charm":              "cs:quantal/logging-1",
-						"exposed":            true,
-						"application-status": M{},
-						"relations": M{
-							"logging-directory": L{"wordpress"},
-							"info":              L{"mysql"},
-						},
-						"subordinate-to": L{"mysql", "wordpress"},
-					},
+					}),
+					"logging": loggingCharm,
 				},
 			},
 		},
@@ -1960,18 +1807,12 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"1": machine1,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"wordpress": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -2008,17 +1849,8 @@ var statusTests = []testCase{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
-					},
-					"logging": M{
-						"charm":              "cs:quantal/logging-1",
-						"exposed":            true,
-						"application-status": M{},
-						"relations": M{
-							"logging-directory": L{"wordpress"},
-							"info":              L{"mysql"},
-						},
-						"subordinate-to": L{"mysql", "wordpress"},
-					},
+					}),
+					"logging": loggingCharm,
 				},
 			},
 		},
@@ -2062,19 +1894,13 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -2106,7 +1932,7 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2116,12 +1942,7 @@ var statusTests = []testCase{
 			"machines with nested containers 2",
 			[]string{"mysql/1"},
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"1": M{
 						"juju-status": M{
@@ -2156,8 +1977,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -2177,7 +1997,7 @@ var statusTests = []testCase{
 								"public-address": "admin-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2201,19 +2021,13 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
 						"application-status": M{
@@ -2236,7 +2050,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2262,20 +2076,16 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
-						"exposed": true,
+					"mysql": mysqlCharm(M{
+						"charm":        "local:quantal/mysql-1",
+						"charm-origin": "local",
+						"exposed":      true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2295,7 +2105,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2322,19 +2132,15 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
+					"mysql": mysqlCharm(M{
 						"charm":          "cs:quantal/mysql-2",
+						"charm-rev":      2,
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
 						"application-status": M{
@@ -2356,7 +2162,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2383,20 +2189,16 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
-						"exposed": true,
+					"mysql": mysqlCharm(M{
+						"charm":        "local:quantal/mysql-1",
+						"charm-origin": "local",
+						"exposed":      true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2416,7 +2218,7 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2476,12 +2278,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"model": M{
-					"name":       "admin",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"version":    "1.2.3",
-				},
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2490,8 +2287,7 @@ var statusTests = []testCase{
 					"4": machine4,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -2511,11 +2307,9 @@ var statusTests = []testCase{
 								"public-address": "admin-1.dns",
 							},
 						},
-					},
+					}),
 
-					"servicewithmeterstatus": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": false,
+					"servicewithmeterstatus": mysqlCharm(M{
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2566,7 +2360,7 @@ var statusTests = []testCase{
 								"public-address": "admin-4.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2589,6 +2383,54 @@ var statusTests = []testCase{
 			},
 		},
 	),
+}
+
+func mysqlCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/mysql-1",
+		"charm-origin": "jujucharms",
+		"charm-name":   "mysql",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func dummyCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/dummy-1",
+		"charm-origin": "jujucharms",
+		"charm-name":   "dummy",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func wordpressCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/wordpress-3",
+		"charm-origin": "jujucharms",
+		"charm-name":   "wordpress",
+		"charm-rev":    3,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
@@ -2774,7 +2616,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch})
+	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
@@ -3383,10 +3225,10 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 MODEL  CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE  
 admin  kontroll    dummy  1.2.3    1.2.4              
 
-APP        STATUS       EXPOSED  CHARM                   
-logging                 true     cs:quantal/logging-1    
-mysql      maintenance  true     cs:quantal/mysql-1      
-wordpress  active       true     cs:quantal/wordpress-3  
+APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS      
+logging                 true     jujucharms  logging    1    ubuntu  
+mysql      maintenance  true     jujucharms  mysql      1    ubuntu  
+wordpress  active       true     jujucharms  wordpress  3    ubuntu  
 
 RELATION           PROVIDES   CONSUMES   TYPE         
 juju-info          logging    mysql      regular      
@@ -3449,8 +3291,8 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 MODEL  CONTROLLER  CLOUD  VERSION  
                                    
 
-APP  STATUS  EXPOSED  CHARM  
-foo          false           
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
+foo          false                   0        
 
 UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE                            
 foo/0  maintenance  executing                                  (config-changed) doing some work   
@@ -3515,8 +3357,8 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 MODEL  CONTROLLER  CLOUD  VERSION  
                                    
 
-APP  STATUS  EXPOSED  CHARM  
-foo          false           
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
+foo          false                   0        
 
 UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE  
 foo/0                                                            
@@ -3975,9 +3817,7 @@ var statusTimeTest = test(
 				"1": machine1,
 			},
 			"applications": M{
-				"dummy-application": M{
-					"charm":   "cs:quantal/dummy-1",
-					"exposed": false,
+				"dummy-application": dummyCharm(M{
 					"application-status": M{
 						"current": "unknown",
 						"message": "Waiting for agent initialization to finish",
@@ -3998,7 +3838,7 @@ var statusTimeTest = test(
 							"public-address": "admin-1.dns",
 						},
 					},
-				},
+				}),
 			},
 		},
 	},

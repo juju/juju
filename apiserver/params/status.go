@@ -55,7 +55,8 @@ type MachineStatus struct {
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
 	Err           error                  `json:"err,omitempty"`
-	Charm         string                 `json:"charm"` // series isn't always defined in the charm now
+	Charm         string                 `json:"charm"`
+	Series        string                 `json:"series"`
 	Exposed       bool                   `json:"exposed"`
 	Life          string                 `json:"life"`
 	Relations     map[string][]string    `json:"relations"`

@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -397,61 +396,6 @@ func (s *UpgradeSuite) TestAllProvisionedControllersReady(c *gc.C) {
 	assertReady(true)
 
 	s.provision(c, serverIdC)
-	assertReady(false)
-
-	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
-	c.Assert(err, jc.ErrorIsNil)
-	assertReady(true)
-}
-
-func (s *UpgradeSuite) TestAllProvisionedControllersReadyWithPreModelUUIDSchema(c *gc.C) {
-	serverIdB, serverIdC := s.addControllers(c)
-
-	machines, closer := state.GetRawCollection(s.State, state.MachinesC)
-	defer closer()
-	instanceData, closer := state.GetRawCollection(s.State, state.InstanceDataC)
-	defer closer()
-
-	// Add minimal machine and instanceData docs for the controllers
-	// that look how these documents did before the model UUID
-	// migration.
-	_, err := instanceData.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = machines.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addLegacyMachine := func(machineId string) {
-		err := machines.Insert(bson.M{"_id": machineId})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	addLegacyMachine(s.serverIdA)
-	addLegacyMachine(serverIdB)
-	addLegacyMachine(serverIdC)
-
-	legacyProvision := func(machineId string) {
-		err := instanceData.Insert(bson.M{"_id": machineId})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	legacyProvision(s.serverIdA)
-	legacyProvision(serverIdB)
-
-	v111 := vers("1.1.1")
-	v123 := vers("1.2.3")
-	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertReady := func(expect bool) {
-		ok, err := info.AllProvisionedControllersReady()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(ok, gc.Equals, expect)
-	}
-	assertReady(false)
-
-	info, err = s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
-	c.Assert(err, jc.ErrorIsNil)
-	assertReady(true)
-
-	legacyProvision(serverIdC)
 	assertReady(false)
 
 	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -369,10 +370,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
-		"type":                   cloud.Type,
-		"name":                   environs.ControllerModelName,
-		config.UUIDKey:           controllerUUID.String(),
-		config.ControllerUUIDKey: controllerUUID.String(),
+		"type":                       cloud.Type,
+		"name":                       environs.ControllerModelName,
+		config.UUIDKey:               controllerUUID.String(),
+		controller.ControllerUUIDKey: controllerUUID.String(),
 	}
 	for k, v := range cloud.Config {
 		configAttrs[k] = v
@@ -558,9 +559,12 @@ to clean up the model.`[1:])
 		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
-		Cloud:                c.Cloud,
+		Cloud:                *cloud,
+		CloudName:            c.Cloud,
 		CloudRegion:          region.Name,
-		CloudConfig:          sharedAttrs,
+		CloudCredential:      credential,
+		CloudCredentialName:  credentialName,
+		ModelConfigDefaults:  sharedAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
@@ -572,7 +576,8 @@ to clean up the model.`[1:])
 		return errors.Trace(err)
 	}
 
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, environ)
+	controllerCfg := controller.ControllerConfig(controllerModelConfigAttrs)
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerCfg.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -603,6 +608,7 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 			cloud.Endpoint,
 			cloud.StorageEndpoint,
 		}
+		cloud.Regions = []jujucloud.Region{region}
 		return region, nil
 	}
 	if regionName == "" {

@@ -378,16 +378,11 @@ func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id s
 	if svc.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
-	env, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	info := &multiwatcher.ApplicationInfo{
 		ModelUUID:   st.ModelUUID(),
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
-		OwnerTag:    svc.fixOwnerTag(env),
 		Life:        multiwatcher.Life(svc.Life.String()),
 		MinUnits:    svc.MinUnits,
 		Subordinate: svc.Subordinate,
@@ -467,15 +462,6 @@ func (svc *backingApplication) removed(store *multiwatcherStore, modelUUID, id s
 		Id:        id,
 	})
 	return nil
-}
-
-// SCHEMACHANGE
-// TODO(mattyw) remove when schema upgrades are possible
-func (svc *backingApplication) fixOwnerTag(env *Model) string {
-	if svc.OwnerTag != "" {
-		return svc.OwnerTag
-	}
-	return env.Owner().String()
 }
 
 func (svc *backingApplication) mongoId() string {

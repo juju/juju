@@ -327,7 +327,6 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	modelUsers, userCloser := st.getRawCollection(modelUsersC)
 	defer userCloser()
 
-	// TODO: consider adding an index to the modelUsers collection on the username.
 	var userSlice []modelUserDoc
 	err := modelUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"model-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {

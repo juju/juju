@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -310,4 +311,13 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 
 func noBootstrapConfig(controllerName string) (*config.Config, error) {
 	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+}
+
+func (s *cmdControllerSuite) TestGetControllerConfigYAML(c *gc.C) {
+	context := s.run(c, "get-controller-config", "--format=yaml")
+	controllerCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgYaml, err := yaml.Marshal(controllerCfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, string(cfgYaml))
 }

@@ -107,17 +107,17 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.macaroonAuth.
 func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
-	envCfg, err := st.ModelConfig()
+	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
 	}
-	idURL := envCfg.IdentityURL()
+	idURL := controllerCfg.IdentityURL()
 	if idURL == "" {
 		return nil, errMacaroonAuthNotConfigured
 	}
 	// The identity server has been configured,
 	// so configure the bakery service appropriately.
-	idPK := envCfg.IdentityPublicKey()
+	idPK := controllerCfg.IdentityPublicKey()
 	if idPK == nil {
 		// No public key supplied - retrieve it from the identity manager.
 		idPK, err = httpbakery.PublicKeyForLocation(http.DefaultClient, idURL)

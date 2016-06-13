@@ -13,11 +13,13 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/instancepoller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // mockState implements StateInterface and allows inspection of called
@@ -69,6 +71,24 @@ func (m *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
 	w := NewMockConfigWatcher(m.NextErr())
 	m.configWatchers = append(m.configWatchers, w)
 	return w
+}
+
+// ControllerConfig implements StateInterface.
+func (m *mockState) ControllerConfig() (controller.Config, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.MethodCall(m, "ControllerConfig")
+
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
+		controller.CACertKey:         coretesting.CACert,
+		controller.CAPrivateKey:      coretesting.CAKey,
+		controller.ApiPort:           4321,
+	}, nil
 }
 
 // ModelConfig implements StateInterface.

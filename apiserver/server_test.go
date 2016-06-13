@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -335,7 +335,7 @@ var _ = gc.Suite(&macaroonServerSuite{})
 func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil, noCheck)
 	s.ConfigAttrs = map[string]interface{}{
-		config.IdentityURL: s.discharger.Location(),
+		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
 }
@@ -385,8 +385,8 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
 	s.ConfigAttrs = map[string]interface{}{
-		config.IdentityURL:       s.discharger.Location(),
-		config.IdentityPublicKey: wrongKey.Public.String(),
+		controller.IdentityURL:       s.discharger.Location(),
+		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
 }

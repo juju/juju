@@ -102,7 +102,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		WantsVote:               false,
 	})
 
-	wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 	err = wordpress.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetMinUnits(units)
@@ -115,7 +115,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
-		OwnerTag:    s.owner.String(),
 		Life:        multiwatcher.Life("alive"),
 		MinUnits:    units,
 		Constraints: constraints.MustParse("mem=100M"),
@@ -136,12 +135,11 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Annotations: pairs,
 	})
 
-	logging := AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
+	logging := AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID:   modelUUID,
 		Name:        "logging",
 		CharmURL:    serviceCharmURL(logging).String(),
-		OwnerTag:    s.owner.String(),
 		Life:        multiwatcher.Life("alive"),
 		Config:      charm.Settings{},
 		Subordinate: true,
@@ -456,7 +454,7 @@ func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			action, err := st.EnqueueAction(u.Tag(), "vacuumdb", map[string]interface{}{})
@@ -559,7 +557,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test model.
-	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	u, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.state.AddMachine("quantal", JobHostUnits)
@@ -654,7 +652,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 func (s *allWatcherStateSuite) TestSettings(c *gc.C) {
 	defer s.Reset(c)
 	// Init the test model.
-	svc := AddTestingService(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"), s.owner)
+	svc := AddTestingService(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
 	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
 	// 1st scenario part: set settings and signal change.
@@ -834,7 +832,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 
-	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	wu, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m2)
@@ -900,7 +898,6 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: s.state.ModelUUID(),
 			Name:      "wordpress",
 			CharmURL:  "local:quantal/quantal-wordpress-3",
-			OwnerTag:  s.owner.String(),
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
@@ -947,12 +944,12 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "applications",
 			triggerEvent: func(st *State) {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			},
 		}, {
 			about: "units",
 			setUpState: func(st *State) {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			},
 			triggerEvent: func(st *State) {
 				svc, err := st.Application("wordpress")
@@ -964,8 +961,8 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "relations",
 			setUpState: func(st *State) {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
-				AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"), s.owner)
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
 			},
 			triggerEvent: func(st *State) {
 				eps, err := st.InferEndpoints("mysql", "wordpress")
@@ -1012,7 +1009,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "constraints",
 			setUpState: func(st *State) {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			},
 			triggerEvent: func(st *State) {
 				svc, err := st.Application("wordpress")
@@ -1025,7 +1022,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 		}, {
 			about: "settings",
 			setUpState: func(st *State) {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			},
 			triggerEvent: func(st *State) {
 				svc, err := st.Application("wordpress")
@@ -1201,7 +1198,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			env, err := st.Model()
+			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "model is added if it's in backing but not in Store",
@@ -1211,42 +1208,42 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:  env.UUID(),
-						Name:       env.Name(),
+						ModelUUID:  model.UUID(),
+						Name:       model.Name(),
 						Life:       multiwatcher.Life("alive"),
-						Owner:      env.Owner().Id(),
-						ServerUUID: env.ControllerUUID(),
+						Owner:      model.Owner().Id(),
+						ServerUUID: model.ControllerUUID(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			env, err := st.Model()
+			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:  env.UUID(),
+						ModelUUID:  model.UUID(),
 						Name:       "",
 						Life:       multiwatcher.Life("alive"),
-						Owner:      env.Owner().Id(),
-						ServerUUID: env.ControllerUUID(),
+						Owner:      model.Owner().Id(),
+						ServerUUID: model.ControllerUUID(),
 					},
 				},
 				change: watcher.Change{
 					C:  "models",
-					Id: env.UUID(),
+					Id: model.UUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:  env.UUID(),
-						Name:       env.Name(),
+						ModelUUID:  model.UUID(),
+						Name:       model.Name(),
 						Life:       multiwatcher.Life("alive"),
-						Owner:      env.Owner().Id(),
-						ServerUUID: env.ControllerUUID(),
+						Owner:      model.Owner().Id(),
+						ServerUUID: model.ControllerUUID(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1486,7 +1483,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m11.Id(), gc.Equals, "1")
 
-	wordpress := AddTestingService(c, st1, "wordpress", AddTestingCharm(c, st1, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, st1, "wordpress", AddTestingCharm(c, st1, "wordpress"))
 	wu, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m11)
@@ -1555,7 +1552,6 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st1.ModelUUID(),
 			Name:      "wordpress",
 			CharmURL:  "local:quantal/quantal-wordpress-3",
-			OwnerTag:  s.owner.String(),
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
@@ -1928,8 +1924,8 @@ func testChangeRelations(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
-			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), owner)
+			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
 			eps, err := st.InferEndpoints("logging", "wordpress")
 			c.Assert(err, jc.ErrorIsNil)
 			_, err = st.AddRelation(eps...)
@@ -1981,7 +1977,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			err := wordpress.SetExposed()
 			c.Assert(err, jc.ErrorIsNil)
 			err = wordpress.SetMinUnits(42)
@@ -1999,7 +1995,6 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 						Name:      "wordpress",
 						Exposed:   true,
 						CharmURL:  "local:quantal/quantal-wordpress-3",
-						OwnerTag:  owner.String(),
 						Life:      multiwatcher.Life("alive"),
 						MinUnits:  42,
 						Config:    charm.Settings{},
@@ -2011,7 +2006,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
 
 			return changeTestCase{
@@ -2034,14 +2029,13 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress",
 						CharmURL:    "local:quantal/quantal-wordpress-3",
-						OwnerTag:    owner.String(),
 						Life:        multiwatcher.Life("alive"),
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
 
 			return changeTestCase{
@@ -2063,7 +2057,6 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 						ModelUUID: st.ModelUUID(),
 						Name:      "wordpress",
 						CharmURL:  "local:quantal/quantal-wordpress-3",
-						OwnerTag:  owner.String(),
 						Life:      multiwatcher.Life("alive"),
 						Config:    charm.Settings{"blog-title": "boring"},
 					}}}
@@ -2096,7 +2089,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"), owner)
+			svc := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
 			setServiceConfigAttr(c, svc, "username", "foo")
 			setServiceConfigAttr(c, svc, "outlook", "foo@bar")
 
@@ -2120,7 +2113,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"), owner)
+			svc := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
 			setServiceConfigAttr(c, svc, "username", "foo")
 			setServiceConfigAttr(c, svc, "outlook", "foo@bar")
 			setServiceConfigAttr(c, svc, "username", nil)
@@ -2150,7 +2143,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 				c, st, "dummy",
 				"config.yaml", dottedConfig,
 				"quantal", 1)
-			svc := AddTestingService(c, st, "dummy-application", testCharm, owner)
+			svc := AddTestingService(c, st, "dummy-application", testCharm)
 			setServiceConfigAttr(c, svc, "key.dotted", "foo")
 
 			return changeTestCase{
@@ -2174,7 +2167,7 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"), owner)
+			svc := AddTestingService(c, st, "dummy-application", AddTestingCharm(c, st, "dummy"))
 			setServiceConfigAttr(c, svc, "username", "foo")
 
 			return changeTestCase{
@@ -2246,7 +2239,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 				}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			err := svc.SetConstraints(constraints.MustParse("mem=4G arch=amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -2298,7 +2291,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2359,7 +2352,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2415,7 +2408,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2455,7 +2448,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2503,7 +2496,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -2604,7 +2597,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
@@ -2657,7 +2650,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
@@ -2717,7 +2710,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
@@ -2777,7 +2770,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
@@ -2867,7 +2860,7 @@ const (
 
 func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
 	initEnv := func(c *gc.C, st *State, flag initFlag) {
-		wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), owner)
+		wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 		u, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		m, err := st.AddMachine("quantal", JobHostUnits)

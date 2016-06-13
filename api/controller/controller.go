@@ -5,15 +5,12 @@ package controller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.controller")
 
 // Client provides methods that the Juju client command uses to interact
 // with the Juju controller.
@@ -58,6 +55,14 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 func (c *Client) ModelConfig() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall("ModelConfig", nil, &result)
+	return result.Config, err
+}
+
+// ControllerConfig returns settings for the
+// controller itself.
+func (c *Client) ControllerConfig() (map[string]interface{}, error) {
+	result := params.ControllerConfigResult{}
+	err := c.facade.FacadeCall("ControllerConfig", nil, &result)
 	return result.Config, err
 }
 

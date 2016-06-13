@@ -16,7 +16,7 @@ import (
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
 	APICallerName  string
-	NewEnvironFunc NewEnvironFunc
+	NewEnvironFunc environs.NewEnvironFunc
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as

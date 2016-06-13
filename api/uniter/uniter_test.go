@@ -76,10 +76,8 @@ func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName st
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
 
-	owner := s.AdminUserTag(c).String()
 	service, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:             serviceName,
-		Owner:            owner,
 		Charm:            charm,
 		EndpointBindings: bindings,
 	})

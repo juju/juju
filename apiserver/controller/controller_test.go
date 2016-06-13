@@ -162,9 +162,36 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
 	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := controller.ModelConfig()
+	cfg, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "admin")
+	c.Assert(cfg.Config["name"], gc.Equals, "admin")
+}
+
+func (s *controllerSuite) TestControllerConfig(c *gc.C) {
+	cfg, err := s.controller.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgFromDB, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
+	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
+	c.Assert(cfg.Config["api-port"], gc.Equals, cfgFromDB.APIPort())
+}
+
+func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "test"})
+	defer st.Close()
+
+	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
+	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := controller.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgFromDB, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
+	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
+	c.Assert(cfg.Config["api-port"], gc.Equals, cfgFromDB.APIPort())
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {

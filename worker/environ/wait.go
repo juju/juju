@@ -32,8 +32,8 @@ var ErrWaitAborted = errors.New("environ wait aborted")
 // whether this func succeeds or fails.
 func WaitForEnviron(
 	w watcher.NotifyWatcher,
-	getter ConfigGetter,
-	newEnviron NewEnvironFunc,
+	getter environs.EnvironConfigGetter,
+	newEnviron environs.NewEnvironFunc,
 	abort <-chan struct{},
 ) (environs.Environ, error) {
 	for {
@@ -44,11 +44,14 @@ func WaitForEnviron(
 			if !ok {
 				return nil, errors.New("environ config watch closed")
 			}
-			config, err := getter.ModelConfig()
-			if err != nil {
+			// First check the model config is valid as we want to exit with
+			// an error if we have received a config but it is not valid.
+			// This distinguishes from the case where environ construction fails
+			// because no config has been received yet.
+			if _, err := getter.ModelConfig(); err != nil {
 				return nil, errors.Annotate(err, "cannot read environ config")
 			}
-			environ, err := newEnviron(config)
+			environ, err := environs.GetEnviron(getter, newEnviron)
 			if err == nil {
 				return environ, nil
 			}

@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/agent/agentbootstrap"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -378,12 +379,12 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instid, gc.Equals, s.bootstrapParams.InstanceId)
+	c.Assert(instid, gc.Equals, s.bootstrapParams.BootstrapMachineInstanceId)
 
 	stateHw, err := machines[0].HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateHw, gc.NotNil)
-	c.Assert(stateHw, gc.DeepEquals, s.bootstrapParams.HardwareCharacteristics)
+	c.Assert(stateHw, gc.DeepEquals, s.bootstrapParams.BootstrapMachineHardwareCharacteristics)
 
 	cons, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -612,12 +613,12 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ *config.Config, cloud, region string, cloudConfig, hostedModelConfig map[string]interface{}, _ agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, args agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(hostedModelConfig, jc.DeepEquals, map[string]interface{}{
+		c.Assert(args.HostedModelConfig, jc.DeepEquals, map[string]interface{}{
 			"name": "hosted-model",
 			"uuid": s.hostedModelUUID,
 		})
@@ -633,7 +634,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ *config.Config, cloud, region string, cloudConfig, hostedModelConfig map[string]interface{}, _ agentbootstrap.BootstrapMachineConfig, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, _ agentbootstrap.InitializeStateParams, dialOpts mongo.DialOpts, _ state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -835,15 +836,16 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	s.hostedModelUUID = utils.MustNewUUID().String()
 
 	var args instancecfg.StateInitializationParams
-	args.InstanceId = inst.Id()
+	args.BootstrapMachineInstanceId = inst.Id()
 	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	args.HardwareCharacteristics = &hw
+	args.BootstrapMachineHardwareCharacteristics = &hw
 	args.HostedModelConfig = map[string]interface{}{
 		"name": "hosted-model",
 		"uuid": s.hostedModelUUID,
 	}
-	args.ControllerCloud = "dummy"
+	args.ControllerCloudName = "dummy"
+	args.ControllerCloud = cloud.Cloud{Type: "dummy"}
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -149,20 +150,21 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := "lisboan-pork"
-	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
+	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 		ModelTag: testing.ModelTag,
 	})
-	c.Check(icfg.Controller.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
+	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
-	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
-	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
+	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
 	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
 
-	oldAttrs["ca-private-key"] = ""
-	oldAttrs["admin-secret"] = ""
-	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), gc.DeepEquals, oldAttrs)
+	delete(oldAttrs, "admin-secret")
+	delete(oldAttrs, "ca-private-key")
+	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), jc.DeepEquals, oldAttrs)
 	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
 	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
@@ -234,13 +236,14 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
+		controllerCfg := controller.ControllerConfig(envConfig.AllAttrs())
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
 				ControllerModelConfig: envConfig,
 			},
 			StateServingInfo: params.StateServingInfo{
-				StatePort:    envConfig.StatePort(),
-				APIPort:      envConfig.APIPort(),
+				StatePort:    controllerCfg.StatePort(),
+				APIPort:      controllerCfg.APIPort(),
 				Cert:         testing.ServerCert,
 				PrivateKey:   testing.ServerKey,
 				CAPrivateKey: testing.CAKey,

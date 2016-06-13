@@ -122,12 +122,6 @@ func (s *serviceSuite) TestCharmModifiedVersion(c *gc.C) {
 	c.Assert(ver, gc.Equals, s.wordpressService.CharmModifiedVersion())
 }
 
-func (s *serviceSuite) TestOwnerTag(c *gc.C) {
-	tag, err := s.apiService.OwnerTag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, s.AdminUserTag(c))
-}
-
 func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()

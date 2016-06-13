@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -30,6 +31,7 @@ type Backend interface {
 	MongoSession() *mgo.Session
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
+	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (state.StateServingInfo, error)
 	RestoreInfo() *state.RestoreInfo
 }

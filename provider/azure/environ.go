@@ -38,7 +38,6 @@ import (
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -407,7 +406,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		names.NewModelTag(env.config.Config.ControllerUUID()),
 		env.config,
 	)
-	apiPort := env.config.APIPort()
 	vmClient := compute.VirtualMachinesClient{env.compute}
 	availabilitySetClient := compute.AvailabilitySetsClient{env.compute}
 	networkClient := env.network
@@ -478,8 +476,8 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If the machine will run a controller, then we need to open the
 	// API port for it.
 	var apiPortPtr *int
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		apiPortPtr = &apiPort
+	if args.InstanceConfig.Bootstrap != nil {
+		apiPortPtr = &args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
 	}
 
 	vm, err := createVirtualMachine(

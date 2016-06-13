@@ -364,13 +364,12 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Creator: otherEnv.Owner()})
+	service := s.Factory.MakeApplication(c, nil)
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := state.AddApplicationArgs{
 		Name:  service.Name(),
-		Owner: service.GetOwnerTag(),
 		Charm: ch,
 	}
 	service, err = otherSt.AddApplication(args)
@@ -580,12 +579,11 @@ func (s *ModelSuite) TestProcessDyingEnvironWithMachinesAndServicesNoOp(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Creator: env.Owner()})
+	service := s.Factory.MakeApplication(c, nil)
 	ch, _, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.AddApplicationArgs{
 		Name:  service.Name(),
-		Owner: service.GetOwnerTag(),
 		Charm: ch,
 	}
 	service, err = st.AddApplication(args)

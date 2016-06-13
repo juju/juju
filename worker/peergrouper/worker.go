@@ -109,7 +109,7 @@ type pgWorker struct {
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
 func New(st *state.State) (worker.Worker, error) {
-	cfg, err := st.ModelConfig()
+	cfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, err
 	}

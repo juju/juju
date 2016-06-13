@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -26,7 +27,18 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	mgoInfo := NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 
-	st, err := state.Initialize(owner, mgoInfo, "dummy", "some-region", nil, cfg, dialOpts, policy)
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			CloudRegion: "some-region",
+			Config:      cfg,
+			Owner:       owner,
+		},
+		CloudName:     "dummy",
+		Cloud:         cloud.Cloud{Type: "dummy"},
+		MongoInfo:     mgoInfo,
+		MongoDialOpts: dialOpts,
+		Policy:        policy,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

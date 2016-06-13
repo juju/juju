@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -387,7 +388,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 type migrationBackend interface {
 	GetModelMigration() (state.ModelMigration, error)
 	APIHostPorts() ([][]network.HostPort, error)
-	ControllerModel() (*state.Model, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 func newMigrationStatusWatcher(
@@ -498,17 +499,12 @@ func (w *srvMigrationStatusWatcher) Stop() error {
 // This is a shim to avoid the need to use a working State into the
 // unit tests. It is tested as part of the client side API tests.
 var getControllerCACert = func(st migrationBackend) (string, error) {
-	model, err := st.ControllerModel()
+	cfg, err := st.ControllerConfig()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	config, err := model.Config()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	cacert, ok := config.CACert()
+	cacert, ok := cfg.CACert()
 	if !ok {
 		return "", errors.New("missing CA cert for controller model")
 	}

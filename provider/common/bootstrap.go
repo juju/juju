@@ -115,7 +115,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	instanceConfig.Tags = instancecfg.InstanceTags(env.Config(), instanceConfig.Jobs)
+
+	modelCfg := env.Config()
+	instanceConfig.Tags = instancecfg.InstanceTags(modelCfg.UUID(), modelCfg.ControllerUUID(), modelCfg, instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
@@ -149,8 +151,8 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
-		icfg.Bootstrap.InstanceId = result.Instance.Id()
-		icfg.Bootstrap.HardwareCharacteristics = result.Hardware
+		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		envConfig := env.Config()
 		if result.Config != nil {
 			updated, err := envConfig.Apply(result.Config.UnknownAttrs())

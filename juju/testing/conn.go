@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -145,7 +146,8 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	apiInfo, err := environs.APIInfo(s.Environ)
+	controllerCfg := controller.ControllerConfig(s.Environ.Config().AllAttrs())
+	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
@@ -293,7 +295,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		Cloud:       "dummy",
+		CloudName:   "dummy",
+		Cloud:       cloud.Cloud{Type: "dummy"},
 		CloudRegion: "some-region",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +308,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo, err := environs.APIInfo(environ)
+	controllerCfg := controller.ControllerConfig(environ.Config().AllAttrs())
+	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = environ.Config().AdminSecret()
@@ -332,8 +336,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		Cert:         testing.ServerCert,
 		CAPrivateKey: testing.CAKey,
 		SharedSecret: "really, really secret",
-		APIPort:      4321,
-		StatePort:    1234,
+		APIPort:      controllerCfg.APIPort(),
+		StatePort:    controllerCfg.StatePort(),
 	}
 	s.State.SetStateServingInfo(servingInfo)
 }
@@ -606,23 +610,22 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch})
-}
-
-func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddApplicationArgs) *state.Application {
-	c.Assert(s.State, gc.NotNil)
-	args.Owner = s.AdminUserTag(c).String()
-	service, err := s.State.AddApplication(args)
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
-	return service
+	return app
+
 }
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
 }
 
 func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {

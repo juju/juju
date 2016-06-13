@@ -117,8 +117,7 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string) {
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
-	owner := s.jcSuite.AdminUserTag(c)
-	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{Name: serviceName, Owner: owner.String(), Charm: ch})
+	_, err := s.jcSuite.State.AddApplication(state.AddApplicationArgs{Name: serviceName, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

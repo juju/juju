@@ -59,9 +59,8 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 		Name: "mysql",
 	})
 	s.mysql = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
-		Name:    "mysql",
-		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c),
+		Name:  "mysql",
+		Charm: mysqlCharm,
 	})
 	s.mysqlUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.mysql,

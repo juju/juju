@@ -128,10 +128,6 @@ func allCollections() collectionSchema {
 		// one model.
 		usersC: {
 			global: true,
-			indexes: []mgo.Index{{
-				// TODO(thumper): schema change to remove this index.
-				Key: []string{"name"},
-			}},
 		},
 
 		// This collection holds the last time the user connected to the API server.
@@ -146,18 +142,20 @@ func allCollections() collectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
+		// This collection holds users' cloud credentials.
+		cloudCredentialsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"owner"},
+			}},
+		},
+
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
 		metricsC: {global: true},
 
 		// This collection holds persistent state for the metrics manager.
 		metricsManagerC: {global: true},
-
-		// This collection holds lease data, which is per-model, but is
-		// not itself multi-model-aware; happily it will imminently be
-		// deprecated in favour of the non-global leasesC below.
-		// TODO(fwereade): drop leaseC entirely so can't use wrong const.
-		leaseC: {global: true},
 
 		// This collection was deprecated before multi-model support
 		// was implemented.
@@ -383,6 +381,7 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
@@ -392,7 +391,6 @@ const (
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
 	legacyipaddressesC       = "ipaddresses"
-	leaseC                   = "lease"
 	leasesC                  = "leases"
 	machinesC                = "machines"
 	meterStatusC             = "meterStatus"

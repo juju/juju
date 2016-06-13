@@ -346,15 +346,12 @@ func (s *factorySuite) TestMakeApplicationNil(c *gc.C) {
 
 func (s *factorySuite) TestMakeApplication(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "bill"}).Tag()
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm:   charm,
-		Creator: creator,
+		Charm: charm,
 	})
 	c.Assert(application, gc.NotNil)
 
 	c.Assert(application.Name(), gc.Equals, "wordpress")
-	c.Assert(application.GetOwnerTag(), gc.Equals, creator.String())
 	curl, _ := application.CharmURL()
 	c.Assert(curl, gc.DeepEquals, charm.URL())
 
@@ -364,20 +361,6 @@ func (s *factorySuite) TestMakeApplication(c *gc.C) {
 	c.Assert(saved.Name(), gc.Equals, application.Name())
 	c.Assert(saved.Tag(), gc.Equals, application.Tag())
 	c.Assert(saved.Life(), gc.Equals, application.Life())
-}
-
-func (s *factorySuite) TestMakeApplicationInvalidCreator(c *gc.C) {
-	applicationName := "mysql"
-	invalidFunc := func() {
-		s.Factory.MakeApplication(c, &factory.ApplicationParams{
-			Name:    applicationName,
-			Creator: names.NewMachineTag("0"),
-		})
-	}
-	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.Application(applicationName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(saved, gc.IsNil)
 }
 
 func (s *factorySuite) TestMakeUnitNil(c *gc.C) {

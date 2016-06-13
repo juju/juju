@@ -49,7 +49,6 @@ type applicationDoc struct {
 	RelationCount        int        `bson:"relationcount"`
 	Exposed              bool       `bson:"exposed"`
 	MinUnits             int        `bson:"minunits"`
-	OwnerTag             string     `bson:"ownertag"`
 	TxnRevno             int64      `bson:"txn-revno"`
 	MetricCredentials    []byte     `bson:"metric-credentials"`
 }
@@ -1032,18 +1031,6 @@ func (s *Application) unitStorageOps(unitName string, cons map[string]StorageCon
 		return nil, -1, errors.Trace(err)
 	}
 	return ops, numStorageAttachments, nil
-}
-
-// SCHEMACHANGE
-// TODO(mattyw) remove when schema upgrades are possible
-func (s *Application) GetOwnerTag() string {
-	owner := s.doc.OwnerTag
-	if owner == "" {
-		// We know that if there was no owner, it was created with an early
-		// version of juju, and that admin was the only user.
-		owner = names.NewUserTag("admin").String()
-	}
-	return owner
 }
 
 // AddUnit adds a new principal unit to the service.
