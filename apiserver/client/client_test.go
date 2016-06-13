@@ -41,10 +41,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type Killer interface {
-	Kill() error
-}
-
 type serverSuite struct {
 	baseSuite
 	client *client.Client
