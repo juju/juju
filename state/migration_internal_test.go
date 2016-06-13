@@ -604,6 +604,24 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
 }
 
+func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"MachineID",
+		"ProviderID",
+		"Name",
+		"MTU",
+		"Type",
+		"MACAddress",
+		"IsAutoStart",
+		"IsUp",
+		"ParentName",
+	)
+	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
+}
+
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
 	expected := getExportedFields(doc)
 	unknown := expected.Difference(fields)
