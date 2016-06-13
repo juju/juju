@@ -10,6 +10,10 @@ from assess_storage import (
     assess_storage,
     parse_args,
     main,
+    storage_list_expected,
+    storage_list_expected_2,
+    storage_list_expected_3,
+    storage_list_expected_4,
     storage_pool_details,
 )
 from tests import (
@@ -69,7 +73,11 @@ class TestAssess(TestCase):
         mock_client.series = 'trusty'
         mock_client.version = '1.25'
         mock_client.get_juju_output.side_effect = [
-            json.dumps(storage_pool_details)
+            json.dumps(storage_pool_details),
+            json.dumps(storage_list_expected),
+            json.dumps(storage_list_expected_2),
+            json.dumps(storage_list_expected_3),
+            json.dumps(storage_list_expected_4)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -83,11 +91,7 @@ class TestAssess(TestCase):
                 call('create-storage-pool',
                      ('tempy', 'tmpfs', 'size=1G')),
                 call('add-storage',
-                     ('dummy-storage-fs/0', 'data=1')),
-                call('add-storage',
-                     ('dummy-storage-lp/0', 'disks=1')),
-                call('add-storage',
-                     ('dummy-storage-tp/0', 'data=1'))],
+                     ('dummy-storage-lp/0', 'disks=1'))],
             mock_client.juju.mock_calls)
         self.assertEqual(
             [
