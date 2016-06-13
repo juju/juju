@@ -30,6 +30,7 @@ type Controller interface {
 	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
 	ModelConfig() (params.ModelConfigResults, error)
+	ControllerConfig() (params.ControllerConfigResult, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
@@ -184,17 +185,28 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 
-	controllerEnv, err := s.state.ControllerModel()
+	controllerModel, err := s.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	config, err := controllerEnv.Config()
+	config, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	result.Config = config.AllAttrs()
+	return result, nil
+}
+
+// ControllerConfig returns the controller's configuration.
+func (s *ControllerAPI) ControllerConfig() (params.ControllerConfigResult, error) {
+	result := params.ControllerConfigResult{}
+	config, err := s.state.ControllerConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = params.ControllerConfig(config)
 	return result, nil
 }
 

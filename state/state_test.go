@@ -2550,8 +2550,8 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 	// Initially we get one change notification
 	wc.AssertOneChange()
 
-	// Updating a controller setting value triggers the watcher.
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
+	// Updating shared model settings triggers the watcher.
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "defaultModelSettings")
 	c.Assert(err, jc.ErrorIsNil)
 	controllerSettings.Set("apt-mirror", "http://mirror")
 	_, err = controllerSettings.Write()

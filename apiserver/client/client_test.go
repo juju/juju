@@ -41,10 +41,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type Killer interface {
-	Kill() error
-}
-
 type serverSuite struct {
 	baseSuite
 	client *client.Client
@@ -172,9 +168,9 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
@@ -223,9 +219,9 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
@@ -483,10 +479,6 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 func assertRemoved(c *gc.C, entity state.Living) {
 	err := entity.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func assertKill(c *gc.C, killer Killer) {
-	c.Assert(killer.Kill(), gc.IsNil)
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
@@ -825,32 +817,32 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 }
 
 func (s *serverSuite) TestClientModelGet(c *gc.C) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, gc.DeepEquals, envConfig.AllAttrs())
+	c.Assert(result.Config, gc.DeepEquals, modelConfig.AllAttrs())
 }
 
 func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	value, found := envConfig.AllAttrs()[key]
+	value, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, expected)
 }
 
 func (s *serverSuite) assertEnvValueMissing(c *gc.C, key string) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()[key]
+	_, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)
 }
 
 func (s *serverSuite) TestClientModelSet(c *gc.C) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()["some-key"]
+	_, found := modelConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsFalse)
 
 	params := params.ModelSet{

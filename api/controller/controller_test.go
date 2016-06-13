@@ -65,9 +65,20 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
-	env, err := sysManager.ModelConfig()
+	cfg, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["name"], gc.Equals, "admin")
+	c.Assert(cfg["name"], gc.Equals, "admin")
+}
+
+func (s *controllerSuite) TestControllerConfig(c *gc.C) {
+	sysManager := s.OpenAPI(c)
+	cfg, err := sysManager.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgFromDB, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
+	c.Assert(int(cfg["state-port"].(float64)), gc.Equals, cfgFromDB.StatePort())
+	c.Assert(int(cfg["api-port"].(float64)), gc.Equals, cfgFromDB.APIPort())
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {
@@ -89,7 +100,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	results, err := sysManager.ListBlockedModels()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
-		params.ModelBlockInfo{
+		{
 			Name:     "admin",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
