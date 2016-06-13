@@ -1400,7 +1400,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual({
             'name': 'bar',
             'default-series': 'wacky',
-            'tools-metadata-url': 'url',
+            'agent-metadata-url': 'url',
             'type': 'foo',
             'region': 'bar',
             'test-mode': True,
