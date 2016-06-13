@@ -830,6 +830,9 @@ class EnvJujuClient:
 
     def make_model_config(self):
         config_dict = make_safe_config(self)
+        agent_metadata_url = config_dict.pop('tools-metadata-url', None)
+        if agent_metadata_url is not None:
+            config_dict.setdefault('agent-metadata-url', agent_metadata_url)
         # Strip unneeded variables.
         return dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',

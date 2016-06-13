@@ -1255,11 +1255,22 @@ class TestEnvJujuClient(ClientTest):
             full)
         gamn_mock.assert_called_once_with()
 
+    def test_make_model_config_prefers_agent_metadata_url(self):
+        env = JujuData('qux', {
+            'agent-metadata-url': 'foo',
+            'tools-metadata-url': 'bar',
+            'type': 'baz',
+            })
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        self.assertEqual({
+            'agent-metadata-url': 'foo',
+            'test-mode': True,
+            }, client.make_model_config())
+
     def test__bootstrap_config(self):
         env = JujuData('foo', {
             'access-key': 'foo',
             'admin-secret': 'foo',
-            'agent-metadata-url': 'frank',
             'agent-stream': 'foo',
             'application-id': 'foo',
             'application-password': 'foo',
@@ -1306,7 +1317,7 @@ class TestEnvJujuClient(ClientTest):
         with client._bootstrap_config() as config_filename:
             with open(config_filename) as f:
                 self.assertEqual({
-                    'agent-metadata-url': 'frank',
+                    'agent-metadata-url': 'steve',
                     'agent-stream': 'foo',
                     'authorized-keys': 'foo',
                     'availability-sets-enabled': 'foo',
@@ -1319,7 +1330,6 @@ class TestEnvJujuClient(ClientTest):
                     'image-metadata-url': 'foo',
                     'prefer-ipv6': 'foo',
                     'test-mode': True,
-                    'tools-metadata-url': 'steve',
                     }, yaml.safe_load(f))
 
     def test_get_cloud_region(self):
