@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -24,11 +25,11 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	envtesting "github.com/juju/juju/environs/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
@@ -64,22 +65,11 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the assigned machine, new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Config, *tools.Tools) {
-	jujutesting.AddControllerMachine(c, s.State)
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(initialUnitPassword)
-	c.Assert(err, jc.ErrorIsNil)
-	// Assign the unit to a machine.
-	err = unit.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, id)
-	err = machine.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
-	c.Assert(err, jc.ErrorIsNil)
+	machine := s.Factory.MakeMachine(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Machine:  machine,
+		Password: initialUnitPassword,
+	})
 	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword)
 	return machine, unit, conf, tools
 }
@@ -402,4 +392,24 @@ func (s *UnitSuite) TestChangeConfig(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for config changed signal")
 	}
+}
+
+func (s *UnitSuite) TestWorkers(c *gc.C) {
+	tracker := NewEngineTracker()
+	instrumented := TrackUnits(c, tracker, unitManifolds)
+	s.PatchValue(&unitManifolds, instrumented)
+
+	_, unit, _, _ := s.primeAgent(c)
+	ctx := cmdtesting.Context(c)
+	a := NewUnitAgent(ctx, nil)
+	s.InitAgent(c, a, "--unit-name", unit.Name())
+
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	id := a.Tag().String()
+	checkNotMigrating := EngineMatchFunc(c, tracker, append(
+		alwaysUnitWorkers, notMigratingUnitWorkers...,
+	))
+	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
 }

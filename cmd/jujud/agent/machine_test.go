@@ -36,6 +36,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/core/migration"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
@@ -1251,12 +1252,31 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
+func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
+	tracker := NewEngineTracker()
+	instrumented := TrackMachines(c, tracker, machineManifolds)
+	s.PatchValue(&machineManifolds, instrumented)
+
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for it to stabilise, running as normal.
+	id := a.Tag().String()
+	checkNotMigrating := EngineMatchFunc(c, tracker, append(
+		alwaysMachineWorkers, notMigratingMachineWorkers...,
+	))
+	WaitMatch(c, checkNotMigrating, id, s.BackingState.StartSync)
+}
+
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	uuid := s.BackingState.ModelUUID()
 	timeout := time.After(coretesting.LongWait)
@@ -1279,12 +1299,13 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 func (s *MachineSuite) TestAddressAllocationModelWorkers(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 
-	tracker := newModelTracker(c)
+	tracker := NewEngineTracker()
 	almostAllWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	check := modelMatchFunc(c, tracker, append(
+	check := EngineMatchFunc(c, tracker, append(
 		almostAllWorkers, "address-cleaner",
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	uuid := s.BackingState.ModelUUID()
 	timeout := time.After(coretesting.LongWait)
@@ -1305,16 +1326,58 @@ func (s *MachineSuite) TestAddressAllocationModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, append(
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
 	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	st, closer := s.setUpNewModel(c)
 	defer closer()
 	uuid := st.ModelUUID()
 	timeout := time.After(ReallyLongWait)
+
+	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
+		for {
+			if check(uuid) {
+				break
+			}
+			select {
+			case <-time.After(coretesting.ShortWait):
+				s.BackingState.StartSync()
+			case <-timeout:
+				c.Fatalf("timed out waiting for workers")
+			}
+		}
+	})
+}
+
+func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, append(
+		alwaysModelWorkers, migratingModelWorkers...,
+	))
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
+
+	st, closer := s.setUpNewModel(c)
+	defer closer()
+	uuid := st.ModelUUID()
+	timeout := time.After(ReallyLongWait)
+
+	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	_, err := st.CreateModelMigration(state.ModelMigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: targetControllerTag,
+			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("user"),
+			Password:      "password",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
 		for {
@@ -1344,8 +1407,6 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 
 		err = model.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
-
-		// Wait for the model to go away.
 		for {
 			select {
 			case <-watch.Changes():
@@ -1376,9 +1437,10 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
-	tracker := newModelTracker(c)
-	check := modelMatchFunc(c, tracker, alwaysModelWorkers)
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
+	tracker := NewEngineTracker()
+	check := EngineMatchFunc(c, tracker, alwaysModelWorkers)
+	instrumented := TrackModels(c, tracker, modelManifolds)
+	s.PatchValue(&modelManifolds, instrumented)
 
 	timeout := time.After(coretesting.LongWait)
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {

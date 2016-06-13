@@ -121,9 +121,7 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 
 	switch status.Phase {
 	case migration.QUIESCE:
-		// TODO(mjs) - once Will's stable mode work comes
-		// together this worker will only start up when a
-		// migration is active. Here the minion should report
+		// TODO(mjs) -- here the minion should report
 		// to the controller that it is running so that the
 		// migration can progress to READONLY.
 	case migration.VALIDATION:
@@ -135,9 +133,10 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 			return errors.Trace(err)
 		}
 	case migration.ABORT:
-		// TODO(mjs) - exit here once Will's stable mode work
-		// comes together. The minion is done if these phases
-		// are reached.
+		// TODO(mjs/fwereade) - do we need this? or can we
+		// assume we'll see it end up as NONE again, unlocking
+		// the fortress for everything else? Or should we do
+		// that here?
 	default:
 		// The minion doesn't need to do anything for other
 		// migration phases.
