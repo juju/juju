@@ -667,10 +667,6 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		return params.ErrorResults{}, nil
 	}
 
-	serverErr := func(err error) params.ErrorResult {
-		return params.ErrorResult{Error: common.ServerError(err)}
-	}
-
 	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
 		s := state.StorageConstraints{Pool: p.Pool}
 		if p.Size != nil {
@@ -686,13 +682,13 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 	for i, one := range args.Storages {
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			result[i] = serverErr(errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
+			result[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
 		}
 
 		err = a.storage.AddStorageForUnit(u, one.StorageName, paramsToState(one.Constraints))
 		if err != nil {
-			result[i] = serverErr(err)
+			result[i] = params.ErrorResult{Error: common.ServerError(err)}
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
