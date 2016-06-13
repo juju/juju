@@ -79,8 +79,9 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "dummy", Owner: s.Owner.String(),
-		Charm: charm, NumUnits: 1,
+		Name:      "dummy",
+		Charm:     charm,
+		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 	})
 	c.Assert(err, jc.ErrorIsNil)
