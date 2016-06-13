@@ -125,8 +125,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// This is marked as deprecated, and should probably be removed.
 		actionresultsC,
 
-		// This is recreated whilst migrating other network entities.
+		// These are recreated whilst migrating other network entities.
 		providerIDsC,
+		linkLayerDevicesRefsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -151,9 +152,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		storageConstraintsC,
 		volumesC,
 		volumeAttachmentsC,
-
-		// network
-		linkLayerDevicesRefsC,
 
 		// actions
 		actionsC,

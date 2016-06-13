@@ -23,6 +23,12 @@ type linklayerdevice struct {
 	IsAutoStart_ bool   `yaml:"isautostart"`
 	IsUp_        bool   `yaml:"isup"`
 	ParentName_  string `yaml:"parentname"`
+	LocalID_     string `yaml:"localid"`
+}
+
+// LocalID implements LinkLayerDevice.
+func (i *linklayerdevice) LocalID() string {
+	return i.LocalID_
 }
 
 // ProviderID implements LinkLayerDevice.
@@ -82,6 +88,7 @@ type LinkLayerDeviceArgs struct {
 	IsAutoStart bool
 	IsUp        bool
 	ParentName  string
+	LocalID     string
 }
 
 func newLinkLayerDevice(args LinkLayerDeviceArgs) *linklayerdevice {
@@ -95,6 +102,7 @@ func newLinkLayerDevice(args LinkLayerDeviceArgs) *linklayerdevice {
 		IsAutoStart_: args.IsAutoStart,
 		IsUp_:        args.IsUp,
 		ParentName_:  args.ParentName,
+		LocalID_:     args.LocalID,
 	}
 }
 
@@ -148,6 +156,7 @@ func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, e
 		"isautostart": schema.Bool(),
 		"isup":        schema.Bool(),
 		"parentname":  schema.String(),
+		"localid":     schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -170,5 +179,6 @@ func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, e
 		IsAutoStart_: valid["isautostart"].(bool),
 		IsUp_:        valid["isup"].(bool),
 		ParentName_:  valid["parentname"].(string),
+		LocalID_:     valid["localid"].(string),
 	}, nil
 }
