@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
@@ -239,9 +238,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateCleanerName: ifNotDead(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		addressCleanerName: ifNotDead(addresser.Manifold(addresser.ManifoldConfig{
-			APICallerName: apiCallerName,
-		})),
 		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
 			APICallerName:  apiCallerName,
 			MaxHistoryTime: config.StatusHistoryPrunerMaxHistoryTime,
@@ -317,6 +313,5 @@ const (
 	charmRevisionUpdaterName = "charm-revision-updater"
 	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
-	addressCleanerName       = "address-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
 )

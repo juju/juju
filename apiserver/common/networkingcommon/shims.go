@@ -146,11 +146,6 @@ func (s *stateShim) AllSubnets() ([]BackingSubnet, error) {
 	return subnets, nil
 }
 
-type availZoneShim struct{}
-
-func (availZoneShim) Name() string    { return "not-set" }
-func (availZoneShim) Available() bool { return true }
-
 func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
 	// TODO(dimitern): Fix this to get them from state when available!
 	return nil, nil
