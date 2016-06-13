@@ -173,7 +173,7 @@ func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
 		return result, nil
 	}
 
-	s.assertAddOutput(c, "", fmt.Sprintf("%v\n", expectedErr))
+	s.assertAddErrorOutput(c, "cmd: error out silently", "", fmt.Sprintf("%v\n", expectedErr))
 }
 
 func (s *addSuite) assertAddOutput(c *gc.C, expectedOut, expectedErr string) {

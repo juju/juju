@@ -148,20 +148,18 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 		added = append(added, fmt.Sprintf(success, us.StorageName))
 	}
 
-	if len(failures) == len(storages) {
-		// If we managed to collapse, then display these instead of the whole list.
-		if len(allFailures) < len(storages) {
-			for one, set := range allFailures {
-				if set {
-					fmt.Fprintln(ctx.Stderr, one)
-				}
-			}
-			return nil
-		}
-	}
-
 	if len(added) > 0 {
 		fmt.Fprintln(ctx.Stdout, strings.Join(added, newline))
+	}
+
+	if len(failures) == len(storages) {
+		// If we managed to collapse, then display these instead of the whole list.
+		if len(allFailures) < len(failures) {
+			for one, _ := range allFailures {
+				fmt.Fprintln(ctx.Stderr, one)
+			}
+			return cmd.ErrSilent
+		}
 	}
 	if len(failures) > 0 {
 		fmt.Fprintln(ctx.Stderr, strings.Join(failures, newline))
