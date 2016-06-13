@@ -855,23 +855,58 @@ func (i *importer) spaces() error {
 }
 
 func (i *importer) linklayerdevices() error {
-	i.logger.Debugf("importing ip devices")
+	i.logger.Debugf("importing linklayerdevices")
+	childCount := make(map[string]int)
 	for _, device := range i.model.LinkLayerDevices() {
 		err := i.addLinkLayerDevice(device)
 		if err != nil {
 			i.logger.Errorf("error importing ip device %v: %s", device, err)
 			return errors.Trace(err)
 		}
+		childCount[device.LocalID()] = 0
 	}
-	i.logger.Debugf("importing ip devices succeeded")
+	// Loop a second time so we can ensure that all devices have had their
+	// parent created.
+	ops := []txn.Op{}
+	for _, device := range i.model.LinkLayerDevices() {
+		if device.ParentName() == "" {
+			continue
+		}
+		parentDocID, err := i.parentDocIDFromDevice(device)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, incrementDeviceNumChildrenOp(parentDocID))
+
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing linklayerdevices succeeded")
 	return nil
+}
+
+func (i *importer) parentDocIDFromDevice(device description.LinkLayerDevice) (string, error) {
+	hostMachineID, parentName, err := parseLinkLayerDeviceParentNameAsGlobalKey(device.ParentName())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if parentName == "" {
+		// ParentName is not a global key, but on the same machine.
+		return linkLayerDeviceGlobalKey(device.MachineID(), device.ParentName()), nil
+
+	}
+	// doc.ParentName is a global key, on a different host machine.
+	return i.st.docID(linkLayerDeviceGlobalKey(hostMachineID, parentName)), nil
 }
 
 func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error {
 	providerID := device.ProviderID()
+	modelUUID := i.st.ModelUUID()
+	linkLayerDeviceDocID := i.st.docID(device.LocalID())
 	newDoc := &linkLayerDeviceDoc{
-		ModelUUID:   i.st.ModelUUID(),
-		DocID:       i.st.docID(device.LocalID()),
+		ModelUUID:   modelUUID,
+		DocID:       linkLayerDeviceDocID,
 		MachineID:   device.MachineID(),
 		ProviderID:  providerID,
 		Name:        device.Name(),
@@ -887,7 +922,9 @@ func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error 
 		C:      linkLayerDevicesC,
 		Id:     newDoc.DocID,
 		Insert: newDoc,
-	}}
+	},
+		insertLinkLayerDevicesRefsOp(modelUUID, linkLayerDeviceDocID),
+	}
 	if providerID != "" {
 		id := network.Id(providerID)
 		ops = append(ops, i.st.networkEntityGlobalKeyOp("linklayerdevice", id))
