@@ -129,6 +129,14 @@ func NewListBlocksCommandForTest(api listBlocksAPI, apierr error, store jujuclie
 	return modelcmd.WrapController(c)
 }
 
+// NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
+// the api provided as specified.
+func NewGetConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &getConfigCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c)
+}
+
 type CtrData ctrData
 type ModelData modelData
 

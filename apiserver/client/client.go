@@ -395,7 +395,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 // get-model-config CLI command.
 func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	// Get the existing environment config from the state.
+	// Get the existing model config from the state.
 	config, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return result, err

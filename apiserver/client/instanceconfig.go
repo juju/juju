@@ -22,7 +22,7 @@ import (
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
-	environConfig, err := st.ModelConfig()
+	modelConfig, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
 	}
@@ -43,7 +43,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 
 	// Find the appropriate tools information.
-	agentVersion, ok := environConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
@@ -97,7 +97,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "getting state serving info")
 	}
 	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, environConfig.ImageStream(), machine.Series(),
+	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, modelConfig.ImageStream(), machine.Series(),
 		secureServerConnection, apiInfo,
 	)
 	if err != nil {
@@ -109,7 +109,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if err := icfg.SetTools(toolsList); err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
+	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "finishing instance config")
 	}
