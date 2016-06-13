@@ -309,6 +309,8 @@ def copy_remote_logs(remote, directory):
             '/var/log/lxd/lxd.log',
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
+            '/etc/network/interfaces',
+            '/home/ubuntu/ifconfig.log',
         ]
 
         try:
@@ -322,6 +324,11 @@ def copy_remote_logs(remote, directory):
         except subprocess.CalledProcessError as e:
             # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not allow access to the juju logs:")
+            logging.warning(e.output)
+        try:
+            remote.run('ifconfig > /home/ubuntu/ifconfig.log')
+        except subprocess.CalledProcessError as e:
+            logging.warning("Could not capture ifconfig state:")
             logging.warning(e.output)
 
     try:
