@@ -134,7 +134,7 @@ failed to add "err": test failure
 	s.assertAddErrorOutput(c, "cmd: error out silently", expectedOut, expectedErr)
 }
 
-func (s *addSuite) TestAddMixConciseErrors(c *gc.C) {
+func (s *addSuite) TestAddAllDistinctErrors(c *gc.C) {
 	expectedOut := `
 added "storage0"
 added "storage1"
@@ -153,6 +153,53 @@ failed to add "storage42": storage "storage42" not found
 			}
 			if one.StorageName == "storage42" {
 				result[i].Error = common.ServerError(fmt.Errorf(`storage "storage42" not found`))
+			}
+		}
+		return result, nil
+	}
+
+	s.assertAddErrorOutput(c, "cmd: error out silently", expectedOut, expectedErr)
+}
+
+func (s *addSuite) TestAddStorageOnlyDistinctErrors(c *gc.C) {
+	expectedOut := `
+added "storage0"
+`[1:]
+	expectedErr := `
+failed to add "storage2": storage "storage2" not found
+failed to add "storage42": storage "storage42" not found
+`[1:]
+
+	s.args = []string{"tst/123", "storage0=ebs", "storage2=barf", "storage42=loop"}
+	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+		result := make([]params.ErrorResult, len(storages))
+		for i, one := range storages {
+			if one.StorageName == "storage42" || one.StorageName == "storage2" {
+				result[i].Error = common.ServerError(fmt.Errorf(`storage "%v" not found`, one.StorageName))
+			}
+		}
+		return result, nil
+	}
+
+	s.assertAddErrorOutput(c, "cmd: error out silently", expectedOut, expectedErr)
+}
+
+func (s *addSuite) TestAddStorageMixDistinctAndNonDistinctErrors(c *gc.C) {
+	expectedOut := ``
+	expectedErr := `
+storage "storage0" not found
+some unit error
+`[1:]
+
+	unitErr := `some unit error`
+	s.args = []string{"tst/123", "storage0=ebs", "storage2=barf", "storage42=loop"}
+	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+		result := make([]params.ErrorResult, len(storages))
+		for i, one := range storages {
+			if one.StorageName == "storage42" || one.StorageName == "storage2" {
+				result[i].Error = common.ServerError(errors.New(unitErr))
+			} else {
+				result[i].Error = common.ServerError(fmt.Errorf(`storage "%v" not found`, one.StorageName))
 			}
 		}
 		return result, nil
