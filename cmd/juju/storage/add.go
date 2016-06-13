@@ -137,12 +137,12 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	var failures []string
 	// If there was a unit-related error, then all storages will get the same error.
 	// We want to collapse these - no need to repeat the same things ad nauseam.
-	allFailures := set.NewStrings()
+	collapsedFailures := set.NewStrings()
 	for i, one := range results {
 		us := storages[i]
 		if one.Error != nil {
 			failures = append(failures, fmt.Sprintf(fail, us.StorageName, one.Error))
-			allFailures.Add(one.Error.Error())
+			collapsedFailures.Add(one.Error.Error())
 			continue
 		}
 		added = append(added, fmt.Sprintf(success, us.StorageName))
@@ -154,8 +154,8 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 
 	if len(failures) == len(storages) {
 		// If we managed to collapse, then display these instead of the whole list.
-		if len(allFailures) < len(failures) {
-			for one, _ := range allFailures {
+		if len(collapsedFailures) < len(failures) {
+			for one, _ := range collapsedFailures {
 				fmt.Fprintln(ctx.Stderr, one)
 			}
 			return cmd.ErrSilent
