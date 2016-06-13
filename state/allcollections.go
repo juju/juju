@@ -121,8 +121,12 @@ func allCollections() collectionSchema {
 
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
-		// one model migration document exists per environment.
+		// one model migration document exists per model.
 		migrationsActiveC: {global: true},
+
+		// This collection tracks migration progress reports from the
+		// migration minions.
+		migrationsMinionSyncC: {global: true},
 
 		// This collection holds user information that's not specific to any
 		// one model.
@@ -399,9 +403,10 @@ const (
 	metricsC                 = "metrics"
 	metricsManagerC          = "metricsmanager"
 	minUnitsC                = "minunits"
-	migrationsStatusC        = "migrations.status"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"
+	migrationsMinionSyncC    = "migrations.minionsync"
+	migrationsStatusC        = "migrations.status"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
