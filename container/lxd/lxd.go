@@ -262,9 +262,6 @@ func networkDevices(networkConfig *container.NetworkConfig) (lxdclient.Devices, 
 			}
 			parentDevice := v.ParentInterfaceName
 			if parentDevice == "" {
-				// This happens on AWS when the
-				// address-allocation feature flag is
-				// enabled.
 				parentDevice = networkConfig.Device
 			}
 			device, err := nicDevice(v.InterfaceName, parentDevice, v.MACAddress, v.MTU)

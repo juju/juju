@@ -18,10 +18,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -241,76 +238,4 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	} else {
 		c.Assert(out["bootcmd"], gc.IsNil)
 	}
-}
-
-func (s *UserDataSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart, "trusty")
-	c.Assert(err, jc.ErrorIsNil)
-
-	filename := "/etc/init/juju-template-restart.conf"
-	script := `
-description "juju shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  /bin/cat > /etc/network/interfaces << EOC
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
-  /sbin/shutdown -h now
-end script
-
-post-stop script
-  rm /etc/init/juju-template-restart.conf
-end script
-`[1:]
-	c.Check(cmds, gc.HasLen, 1)
-	testing.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
-}
-
-func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd, "vivid")
-	c.Assert(err, jc.ErrorIsNil)
-
-	test := systemdtesting.WriteConfTest{
-		Service: "juju-template-restart",
-		DataDir: "/var/lib/juju",
-		Expected: `
-[Unit]
-Description=juju shutdown job
-After=syslog.target
-After=network.target
-After=systemd-user-sessions.service
-After=cloud-config.target
-
-[Service]
-ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
-ExecStopPost=/bin/systemctl disable juju-template-restart.service
-
-[Install]
-WantedBy=multi-user.target
-`[1:],
-		Script: `
-/bin/cat > /etc/network/interfaces << EOC
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
-  /sbin/shutdown -h now`[1:],
-	}
-	test.CheckInstallAndStartCommands(c, commands)
 }
