@@ -4,7 +4,6 @@
 package migrationminion_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -59,14 +58,6 @@ func (s *Suite) TestAuthNotAgent(c *gc.C) {
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
-func (s *Suite) TestWatchError(c *gc.C) {
-	s.backend.watchError = errors.New("boom")
-	api := s.mustMakeAPI(c)
-	_, err := api.Watch()
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-}
-
 func (s *Suite) TestWatch(c *gc.C) {
 	api := s.mustMakeAPI(c)
 	result, err := api.Watch()
@@ -86,12 +77,8 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationminion.API {
 
 type stubBackend struct {
 	migrationminion.Backend
-	watchError error
 }
 
-func (b *stubBackend) WatchMigrationStatus() (state.NotifyWatcher, error) {
-	if b.watchError != nil {
-		return nil, b.watchError
-	}
-	return apiservertesting.NewFakeNotifyWatcher(), nil
+func (b *stubBackend) WatchMigrationStatus() state.NotifyWatcher {
+	return apiservertesting.NewFakeNotifyWatcher()
 }

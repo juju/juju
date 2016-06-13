@@ -8,7 +8,7 @@ import "github.com/juju/juju/state"
 // Backend defines the state functionality required by the
 // MigrationMinion facade.
 type Backend interface {
-	WatchMigrationStatus() (state.NotifyWatcher, error)
+	WatchMigrationStatus() state.NotifyWatcher
 }
 
 var getBackend = func(st *state.State) Backend {

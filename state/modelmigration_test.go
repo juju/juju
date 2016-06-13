@@ -529,14 +529,14 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatusPreexisting(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	_, wc2 := s.createStatusWatcher(c, s.State2)
-	wc2.AssertOneChange()
+	wc2.AssertOneChange() // initial event
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
 	_, wc3 := s.createStatusWatcher(c, State3)
-	wc3.AssertOneChange()
+	wc3.AssertOneChange() // initial event
 
 	// Create a migration for 2.
 	mig, err := s.State2.CreateModelMigration(s.stdSpec)
@@ -663,8 +663,7 @@ func (s *ModelMigrationSuite) TestMinionReportWithInactiveMigration(c *gc.C) {
 func (s *ModelMigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
-	w, err := st.WatchMigrationStatus()
-	c.Assert(err, jc.ErrorIsNil)
+	w := st.WatchMigrationStatus()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, st, w)
 }

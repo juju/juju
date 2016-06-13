@@ -1691,58 +1691,9 @@ func (w *machineAddressesWatcher) loop() error {
 	}
 }
 
-// cleanupWatcher notifies of changes in the cleanups collection.
-type cleanupWatcher struct {
-	commonWatcher
-	out chan struct{}
-}
-
-var _ Watcher = (*cleanupWatcher)(nil)
-
 // WatchCleanups starts and returns a CleanupWatcher.
 func (st *State) WatchCleanups() NotifyWatcher {
-	return newCleanupWatcher(st)
-}
-
-func newCleanupWatcher(st *State) NotifyWatcher {
-	w := &cleanupWatcher{
-		commonWatcher: newCommonWatcher(st),
-		out:           make(chan struct{}),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// Changes returns the event channel for w.
-func (w *cleanupWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-func (w *cleanupWatcher) loop() (err error) {
-	in := make(chan watcher.Change)
-	w.watcher.WatchCollectionWithFilter(cleanupsC, in, isLocalID(w.st))
-	defer w.watcher.UnwatchCollection(cleanupsC, in)
-
-	out := w.out
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case ch := <-in:
-			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
-				return tomb.ErrDying
-			}
-			out = w.out
-		case out <- struct{}{}:
-			out = nil
-		}
-	}
+	return newNotifyCollWatcher(st, cleanupsC, isLocalID(st))
 }
 
 // actionStatusWatcher is a StringsWatcher that filters notifications
@@ -1949,10 +1900,6 @@ type collectionWatcher struct {
 	source chan watcher.Change
 	sink   chan []string
 }
-
-// ensure collectionWatcher is a StringsWatcher
-// TODO(dfc) this needs to move to a test
-var _ StringsWatcher = (*collectionWatcher)(nil)
 
 // colWCfg contains the parameters for watching a collection.
 type colWCfg struct {
@@ -2375,69 +2322,21 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 // WatchForRebootEvent returns a notify watcher that will trigger an event
 // when the reboot flag is set on our machine agent, our parent machine agent
 // or grandparent machine agent
-func (m *Machine) WatchForRebootEvent() (NotifyWatcher, error) {
+func (m *Machine) WatchForRebootEvent() NotifyWatcher {
 	machineIds := m.machinesToCareAboutRebootsFor()
 	machines := set.NewStrings(machineIds...)
-	return newRebootWatcher(m.st, machines), nil
-}
 
-type rebootWatcher struct {
-	commonWatcher
-	machines set.Strings
-	out      chan struct{}
-}
-
-func newRebootWatcher(st *State, machines set.Strings) NotifyWatcher {
-	w := &rebootWatcher{
-		commonWatcher: newCommonWatcher(st),
-		machines:      machines,
-		out:           make(chan struct{}),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-// Changes returns the event channel for the rebootWatcher.
-func (w *rebootWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-func (w *rebootWatcher) loop() error {
-	in := make(chan watcher.Change)
 	filter := func(key interface{}) bool {
 		if id, ok := key.(string); ok {
-			if id, err := w.st.strictLocalID(id); err == nil {
-				return w.machines.Contains(id)
+			if id, err := m.st.strictLocalID(id); err == nil {
+				return machines.Contains(id)
 			} else {
 				return false
 			}
 		}
-		w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
 		return false
 	}
-	w.watcher.WatchCollectionWithFilter(rebootC, in, filter)
-	defer w.watcher.UnwatchCollection(rebootC, in)
-	out := w.out
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case ch := <-in:
-			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
-				return tomb.ErrDying
-			}
-			out = w.out
-		case out <- struct{}{}:
-			out = nil
-
-		}
-	}
+	return newNotifyCollWatcher(m.st, rebootC, filter)
 }
 
 // blockDevicesWatcher notifies about changes to all block devices
@@ -2578,20 +2477,35 @@ func (w *migrationActiveWatcher) loop() error {
 //
 // Note that this watcher does not produce an initial event if there's
 // never been a migration attempt for the model.
-func (st *State) WatchMigrationStatus() (NotifyWatcher, error) {
-	return newMigrationStatusWatcher(st), nil
+func (st *State) WatchMigrationStatus() NotifyWatcher {
+	// Watch the entire migrationsStatusC collection for migration
+	// status updates related to the State's model. This is more
+	// efficient and simpler than tracking the current active
+	// migration (and changing watchers when one migration finishes
+	// and another starts.
+	//
+	// This approach is safe because there are strong guarantees that
+	// there will only be one active migration per model. The watcher
+	// will only see changes for one migration status document at a
+	// time for the model.
+	return newNotifyCollWatcher(st, migrationsStatusC, isLocalID(st))
 }
 
-type migrationStatusWatcher struct {
+// notifyCollWatcher implements NotifyWatcher, triggering when a
+// change is seen in a specific collection matching the provided
+// filter function.
+type notifyCollWatcher struct {
 	commonWatcher
 	collName string
+	filter   func(interface{}) bool
 	sink     chan struct{}
 }
 
-func newMigrationStatusWatcher(st *State) NotifyWatcher {
-	w := &migrationStatusWatcher{
+func newNotifyCollWatcher(st *State, collName string, filter func(interface{}) bool) NotifyWatcher {
+	w := &notifyCollWatcher{
 		commonWatcher: newCommonWatcher(st),
-		collName:      migrationsStatusC,
+		collName:      collName,
+		filter:        filter,
 		sink:          make(chan struct{}),
 	}
 	go func() {
@@ -2603,24 +2517,14 @@ func newMigrationStatusWatcher(st *State) NotifyWatcher {
 }
 
 // Changes returns the event channel for this watcher.
-func (w *migrationStatusWatcher) Changes() <-chan struct{} {
+func (w *notifyCollWatcher) Changes() <-chan struct{} {
 	return w.sink
 }
 
-func (w *migrationStatusWatcher) loop() error {
+func (w *notifyCollWatcher) loop() error {
 	in := make(chan watcher.Change)
 
-	// Watch the entire migrationsStatusC collection for migration
-	// status updates related to the State's model. This is more
-	// efficient and simpler than tracking the current active
-	// migration (and changing watchers when one migration finishes
-	// and another starts.
-	//
-	// This approach is safe because there are strong guarantees that
-	// there will only be one active migration per model. The watcher
-	// will only see changes for one migration status document at a
-	// time for the model.
-	w.watcher.WatchCollectionWithFilter(w.collName, in, isLocalID(w.st))
+	w.watcher.WatchCollectionWithFilter(w.collName, in, w.filter)
 	defer w.watcher.UnwatchCollection(w.collName, in)
 
 	out := w.sink // out set so that initial event is sent.
@@ -2631,9 +2535,6 @@ func (w *migrationStatusWatcher) loop() error {
 		case <-w.watcher.Dead():
 			return stateWatcherDeadError(w.watcher.Err())
 		case change := <-in:
-			if change.Revno == -1 {
-				return errors.New("model migration status disappeared (shouldn't happen)")
-			}
 			if _, ok := collect(change, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
