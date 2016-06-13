@@ -21,6 +21,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -548,6 +549,32 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 1)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	credential := cloud.NewCredential(cloud.EmptyAuthType, map[string]string{"what": "ever"})
+	args := bootstrap.BootstrapParams{
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions:   []cloud.Region{{Name: "region-name"}},
+		},
+		CloudName:           "cloud-name",
+		CloudRegion:         "region-name",
+		CloudCredentialName: "credential-name",
+		CloudCredential:     &credential,
+	}
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.instanceConfig, gc.NotNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloud, jc.DeepEquals, args.Cloud)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudName, jc.DeepEquals, args.CloudName)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudRegion, jc.DeepEquals, args.CloudRegion)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredential, jc.DeepEquals, args.CloudCredential)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerCloudCredentialName, jc.DeepEquals, args.CloudCredentialName)
 }
 
 func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {

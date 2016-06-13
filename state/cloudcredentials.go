@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -69,4 +70,36 @@ func (st *State) CloudCredentials(user names.UserTag) (map[string]cloud.Credenti
 		return nil, errors.Annotatef(err, "cannot get cloud credentials for %q", user.Canonical())
 	}
 	return credentials, nil
+}
+
+// validateCloudCredentials checks that the supplied cloud credentials are
+// valid for use with the controller's cloud, and returns a set of txn.Ops
+// to assert the same in a transaction.
+func validateCloudCredentials(cloud cloud.Cloud, credentials map[string]cloud.Credential) ([]txn.Op, error) {
+	requiredAuthTypes := make(set.Strings)
+	for name, credential := range credentials {
+		var found bool
+		for _, authType := range cloud.AuthTypes {
+			if credential.AuthType() == authType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, errors.NewNotValid(nil, fmt.Sprintf(
+				"credential %q with auth-type %q is not supported (expected one of %q)",
+				name, credential.AuthType(), cloud.AuthTypes,
+			))
+		}
+		requiredAuthTypes.Add(string(credential.AuthType()))
+	}
+	ops := make([]txn.Op, len(requiredAuthTypes))
+	for i, authType := range requiredAuthTypes.SortedValues() {
+		ops[i] = txn.Op{
+			C:      controllersC,
+			Id:     controllerCloudKey,
+			Assert: bson.D{{"auth-types", authType}},
+		}
+	}
+	return ops, nil
 }

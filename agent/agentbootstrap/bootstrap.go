@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/instance"
@@ -79,16 +80,23 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
+	cloudCredentials := make(map[string]cloud.Credential)
+	if args.ControllerCloudCredential != nil {
+		cloudCredentials[args.ControllerCloudCredentialName] = *args.ControllerCloudCredential
+	}
+
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       adminUser,
-			Config:      args.ControllerModelConfig,
-			CloudRegion: args.ControllerCloudRegion,
-			Constraints: args.ModelConstraints,
+			Owner:           adminUser,
+			Config:          args.ControllerModelConfig,
+			Constraints:     args.ModelConstraints,
+			CloudRegion:     args.ControllerCloudRegion,
+			CloudCredential: args.ControllerCloudCredentialName,
 		},
 		CloudName:           args.ControllerCloudName,
 		Cloud:               args.ControllerCloud,
+		CloudCredentials:    cloudCredentials,
 		ModelConfigDefaults: args.ModelConfigDefaults,
 		MongoInfo:           info,
 		MongoDialOpts:       dialOpts,

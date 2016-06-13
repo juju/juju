@@ -83,9 +83,8 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		"uuid": s.modelUUID,
 	})
 	_, s.st, err = s.State.NewModel(state.ModelArgs{
-		CloudRegion: "dummy",
-		Config:      cfg,
-		Owner:       names.NewLocalUserTag("test-admin"),
+		Config: cfg,
+		Owner:  names.NewLocalUserTag("test-admin"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {

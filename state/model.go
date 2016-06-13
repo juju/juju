@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -199,15 +200,32 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO(axw) check that args.CloudRegion exists in the cloud definition.
-	// If there is no CloudRegion specified, ensure that the cloud does not
-	// specify any regions.
+	// Ensure that the cloud region is valid, or if one is not specified,
+	// that the cloud does not support regions.
+	controllerCloud, err := st.Cloud()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
-	// TODO(axw) check that args.CloudCredential refers to a valid credential
-	// for the model owner. If args.CloudCredential is empty, then make sure
-	// the cloud supports AuthTypeEmpty.
-
+	// Ensure that the cloud credential is valid, or if one is not
+	// specified, that the cloud supports the "empty" authentication
+	// type.
 	owner := args.Owner
+	cloudCredentials, err := st.CloudCredentials(owner)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	assertCloudCredentialOp, err := validateCloudCredential(
+		controllerCloud, cloudCredentials, args.CloudCredential, owner,
+	)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
 			return nil, nil, errors.Annotate(err, "cannot create model")
@@ -231,10 +249,16 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
 	}
-	ops, err := newSt.modelSetupOps(args, configDefaults)
+	modelOps, err := newSt.modelSetupOps(args, configDefaults)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
+
+	prereqOps := []txn.Op{
+		assertCloudRegionOp,
+		assertCloudCredentialOp,
+	}
+	ops := append(prereqOps, modelOps...)
 	err = newSt.runTransaction(ops)
 	if err == txn.ErrAborted {
 
@@ -272,6 +296,73 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	return newModel, newSt, nil
+}
+
+// validateCloudRegion validates the given region name against the
+// provided Cloud definition, and returns a txn.Op to include in a
+// transaction to assert the same.
+func validateCloudRegion(controllerCloud cloud.Cloud, regionName string) (txn.Op, error) {
+	// Ensure that the cloud region is valid, or if one is not specified,
+	// that the cloud does not support regions.
+	assertCloudRegionOp := txn.Op{
+		C:  controllersC,
+		Id: controllerCloudKey,
+	}
+	if regionName != "" {
+		region, err := cloud.RegionByName(controllerCloud.Regions, regionName)
+		if err != nil {
+			return txn.Op{}, errors.Trace(err)
+		}
+		assertCloudRegionOp.Assert = bson.D{
+			{"regions." + region.Name, bson.D{{"$exists", true}}},
+		}
+	} else {
+		if len(controllerCloud.Regions) > 0 {
+			return txn.Op{}, errors.NotValidf("missing CloudRegion")
+		}
+		assertCloudRegionOp.Assert = bson.D{
+			{"regions", bson.D{{"$exists", false}}},
+		}
+	}
+	return assertCloudRegionOp, nil
+}
+
+// validateCloudCredential validates the given cloud credential
+// name against the provided cloud definition and credentials,
+// and returns a txn.Op to include in a transaction to assert the
+// same.
+func validateCloudCredential(
+	controllerCloud cloud.Cloud,
+	cloudCredentials map[string]cloud.Credential,
+	cloudCredentialName string,
+	cloudCredentialOwner names.UserTag,
+) (txn.Op, error) {
+	if cloudCredentialName != "" {
+		if _, ok := cloudCredentials[cloudCredentialName]; !ok {
+			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredentialName)
+		}
+		return txn.Op{
+			C:      cloudCredentialsC,
+			Id:     cloudCredentialDocID(cloudCredentialOwner, cloudCredentialName),
+			Assert: txn.DocExists,
+		}, nil
+	}
+	var hasEmptyAuth bool
+	for _, authType := range controllerCloud.AuthTypes {
+		if authType != cloud.EmptyAuthType {
+			continue
+		}
+		hasEmptyAuth = true
+		break
+	}
+	if !hasEmptyAuth {
+		return txn.Op{}, errors.NotValidf("missing CloudCredential")
+	}
+	return txn.Op{
+		C:      controllersC,
+		Id:     controllerCloudKey,
+		Assert: bson.D{{"auth-types", string(cloud.EmptyAuthType)}},
+	}, nil
 }
 
 // Tag returns a name identifying the model.

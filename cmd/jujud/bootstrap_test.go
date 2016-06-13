@@ -845,7 +845,10 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		"uuid": s.hostedModelUUID,
 	}
 	args.ControllerCloudName = "dummy"
-	args.ControllerCloud = cloud.Cloud{Type: "dummy"}
+	args.ControllerCloud = cloud.Cloud{
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+	}
 	s.bootstrapParams = args
 	s.writeBootstrapParamsFile(c)
 }

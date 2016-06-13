@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -118,15 +117,11 @@ type MetricParams struct {
 }
 
 type ModelParams struct {
-	Name        string
-	Owner       names.Tag
-	ConfigAttrs testing.Attrs
-
-	// If Prepare is true, the environment will be "prepared for bootstrap".
-	Prepare       bool
-	Credential    *cloud.Credential
-	CloudEndpoint string
-	CloudRegion   string
+	Name            string
+	Owner           names.Tag
+	ConfigAttrs     testing.Attrs
+	CloudRegion     string
+	CloudCredential string
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -585,9 +580,10 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"api-port":   controllerCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
-		CloudRegion: "some-region",
-		Config:      cfg,
-		Owner:       params.Owner.(names.UserTag),
+		CloudRegion:     params.CloudRegion,
+		CloudCredential: params.CloudCredential,
+		Config:          cfg,
+		Owner:           params.Owner.(names.UserTag),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st

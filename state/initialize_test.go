@@ -90,8 +90,14 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			CloudRegion:     "some-region",
 			CloudCredential: "some-credential",
 		},
-		CloudName:        "dummy",
-		Cloud:            cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type: "dummy",
+			AuthTypes: []cloud.AuthType{
+				cloud.EmptyAuthType, cloud.UserPassAuthType,
+			},
+			Regions: []cloud.Region{{Name: "some-region"}},
+		},
 		CloudCredentials: cloudCredentialsIn,
 		MongoInfo:        statetesting.NewMongoInfo(),
 		MongoDialOpts:    mongotest.DialOpts(),
@@ -150,6 +156,31 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(cloudCredentials, jc.DeepEquals, cloudCredentialsIn)
 }
 
+func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
+	owner := names.NewLocalUserTag("initialize-admin")
+	_, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:  owner,
+			Config: testing.ModelConfig(c),
+		},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type: "dummy",
+			AuthTypes: []cloud.AuthType{
+				cloud.AccessKeyAuthType, cloud.OAuth1AuthType,
+			},
+		},
+		CloudCredentials: map[string]cloud.Credential{
+			"borken": cloud.NewCredential(cloud.UserPassAuthType, nil),
+		},
+		MongoInfo:     statetesting.NewMongoInfo(),
+		MongoDialOpts: mongotest.DialOpts(),
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`validating initialization args: validating cloud credentials: credential "borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
+	)
+}
+
 func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
@@ -160,12 +191,14 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       owner,
-			CloudRegion: "some-region",
-			Config:      cfg,
+			Owner:  owner,
+			Config: cfg,
 		},
-		CloudName:           "dummy",
-		Cloud:               cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		ModelConfigDefaults: modelConfigDefaultsIn,
 		MongoInfo:           statetesting.NewMongoInfo(),
 		MongoDialOpts:       mongotest.DialOpts(),
@@ -197,12 +230,14 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	dialOpts := mongotest.DialOpts()
 	args := state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       owner,
-			CloudRegion: "some-region",
-			Config:      cfg,
+			Owner:  owner,
+			Config: cfg,
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
 	}
@@ -228,12 +263,14 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 
 	args := state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       owner,
-			CloudRegion: "some-region",
-			Config:      bad,
+			Owner:  owner,
+			Config: bad,
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     statetesting.NewMongoInfo(),
 		MongoDialOpts: mongotest.DialOpts(),
 	}
@@ -269,12 +306,14 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 
 	args := state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       owner,
-			CloudRegion: "some-region",
-			Config:      bad,
+			Owner:  owner,
+			Config: bad,
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     statetesting.NewMongoInfo(),
 		MongoDialOpts: mongotest.DialOpts(),
 	}
@@ -310,12 +349,14 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 
 	args := state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       names.NewLocalUserTag("initialize-admin"),
-			CloudRegion: "some-region",
-			Config:      testing.ModelConfig(c),
+			Owner:  names.NewLocalUserTag("initialize-admin"),
+			Config: testing.ModelConfig(c),
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     statetesting.NewMongoInfo(),
 		MongoDialOpts: mongotest.DialOpts(),
 	}
