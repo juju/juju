@@ -121,7 +121,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		jobs = []multiwatcher.MachineJob{
 			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
-			multiwatcher.JobManageNetworking,
 		}
 	}
 

@@ -32,7 +32,6 @@ func TestPackage(t *testing.T) {
 func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
 	c.Assert(AnyJobNeedsState(), jc.IsFalse)
 	c.Assert(AnyJobNeedsState(JobHostUnits), jc.IsFalse)
-	c.Assert(AnyJobNeedsState(JobManageNetworking), jc.IsFalse)
 	c.Assert(AnyJobNeedsState(JobManageModel), jc.IsTrue)
 	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageModel), jc.IsTrue)
 }

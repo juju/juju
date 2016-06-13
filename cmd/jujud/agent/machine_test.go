@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -310,8 +309,7 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		Series: "quantal", // to match the charm created below
 	}
 	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	// Prime agent with manage networking in additon to manage model to ensure the former is ignored.
-	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobManageNetworking)
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
 
@@ -968,10 +966,6 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForHostUnits(c *g
 	s.checkMetadataWorkerNotRun(c, state.JobHostUnits, "can host units")
 }
 
-func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForManageNetworking(c *gc.C) {
-	s.checkMetadataWorkerNotRun(c, state.JobManageNetworking, "can manage networking")
-}
-
 func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForNonSimpleStreamDependentProviders(c *gc.C) {
 	s.checkMetadataWorkerNotRun(c, state.JobManageModel, "has provider which doesn't depend on simple streams")
 }
@@ -1251,34 +1245,6 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	tracker := newModelTracker(c)
 	check := modelMatchFunc(c, tracker, append(
 		alwaysModelWorkers, aliveModelWorkers...,
-	))
-	s.PatchValue(&modelManifolds, tracker.Manifolds)
-
-	uuid := s.BackingState.ModelUUID()
-	timeout := time.After(coretesting.LongWait)
-
-	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, _ *state.State) {
-		for {
-			if check(uuid) {
-				break
-			}
-			select {
-			case <-time.After(coretesting.ShortWait):
-				s.BackingState.StartSync()
-			case <-timeout:
-				c.Fatalf("timed out waiting for workers")
-			}
-		}
-	})
-}
-
-func (s *MachineSuite) TestAddressAllocationModelWorkers(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-
-	tracker := newModelTracker(c)
-	almostAllWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	check := modelMatchFunc(c, tracker, append(
-		almostAllWorkers, "address-cleaner",
 	))
 	s.PatchValue(&modelManifolds, tracker.Manifolds)
 
