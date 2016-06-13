@@ -177,8 +177,9 @@ the following in the provider configuration:
 
 Examples:
    juju deploy mysql --to 23       (deploy to machine 23)
-   juju deploy mysql --to 24/lxc/3 (deploy to lxc container 3 on host machine 24)
-   juju deploy mysql --to lxc:25   (deploy to a new lxc container on host machine 25)
+   juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on host machine 24)
+   juju deploy mysql --to lxd:25   (deploy to a new lxd container on host machine 25)
+   juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
 
    juju deploy mysql -n 5 --constraints mem=8G
    (deploy 5 instances of mysql with at least 8 GB of RAM each)
