@@ -74,7 +74,8 @@ func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMachine(c *gc.C) {
-	// Enables juju deploy <charm> --to lxd
+	// Enables juju deploy <charm> --to <container-type>
+	// It creates a new machine with a new container of that type.
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
