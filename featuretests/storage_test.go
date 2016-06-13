@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
@@ -453,11 +454,9 @@ MACHINE  UNIT             STORAGE  ID   PROVIDER-ID  DEVICE  SIZE  STATE    MESS
 	c.Assert(stdout, gc.Equals, expected)
 }
 
-func runAddToUnit(c *gc.C, args ...string) *cmd.Context {
+func runAddToUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmdArgs := append([]string{"add-storage"}, args...)
-	context, err := runJujuCommand(c, cmdArgs...)
-	c.Assert(err, jc.ErrorIsNil)
-	return context
+	return runJujuCommand(c, cmdArgs...)
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
@@ -468,7 +467,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
 
-	context := runAddToUnit(c, u, "allecto=1")
+	context, err := runAddToUnit(c, u, "allecto=1")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "added \"allecto\"\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
@@ -493,13 +493,15 @@ func (s *cmdStorageSuite) assertStorageExist(c *gc.C,
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitUnitDoesntExist(c *gc.C) {
-	context := runAddToUnit(c, "fluffyunit/0", "allecto=1")
+	context, err := runAddToUnit(c, "fluffyunit/0", "allecto=1")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, "failed to add \"allecto\": unit \"fluffyunit/0\" not found\n")
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitCollapseUnitErrors(c *gc.C) {
-	context := runAddToUnit(c, "fluffyunit/0", "allecto=1", "trial=1")
+	context, err := runAddToUnit(c, "fluffyunit/0", "allecto=1", "trial=1")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, "unit \"fluffyunit/0\" not found\n")
 }
@@ -520,7 +522,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
 
-	context := runAddToUnit(c, u, "nonstorage=1")
+	context, err := runAddToUnit(c, u, "nonstorage=1")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, "failed to add \"nonstorage\": charm storage \"nonstorage\" not found\n")
 
@@ -553,7 +556,8 @@ storage-filesystem/0 data/0          pending
 `[1:])
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
-	context = runAddToUnit(c, u, "data=ebs,1G")
+	context, err = runAddToUnit(c, u, "data=ebs,1G")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "added \"data\"\n")
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 
