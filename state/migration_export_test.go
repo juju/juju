@@ -377,10 +377,8 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	// Need to remove owner from application.
-	ignored := s.Owner
-	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), ignored)
-	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"), ignored)
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)

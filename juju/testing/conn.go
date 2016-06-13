@@ -609,23 +609,22 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch})
-}
-
-func (s *JujuConnSuite) AddOwnedTestingServiceWithArgs(c *gc.C, args state.AddApplicationArgs) *state.Application {
-	c.Assert(s.State, gc.NotNil)
-	args.Owner = s.AdminUserTag(c).String()
-	service, err := s.State.AddApplication(args)
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
-	return service
+	return app
+
 }
 
 func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
 }
 
 func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return s.AddOwnedTestingServiceWithArgs(c, state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+	c.Assert(err, jc.ErrorIsNil)
+	return app
 }
 
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {

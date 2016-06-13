@@ -21,8 +21,7 @@ var _ = gc.Suite(&UnitAssignmentSuite{})
 func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name: "dummy", Owner: s.Owner.String(),
-		Charm: charm, NumUnits: 2,
+		Name: "dummy", Charm: charm, NumUnits: 2,
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
 	})
 	units, err := svc.AllUnits()

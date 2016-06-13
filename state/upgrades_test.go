@@ -490,14 +490,14 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Ap
 		"server": "db",
 	}
 	services := []*Application{
-		AddTestingService(c, s.state, "wp-no-bindings", charms[0], ownerTag),
-		AddTestingService(c, s.state, "ms-no-bindings", charms[1], ownerTag),
+		AddTestingService(c, s.state, "wp-no-bindings", charms[0]),
+		AddTestingService(c, s.state, "ms-no-bindings", charms[1]),
 
-		AddTestingService(c, s.state, "wp-default-bindings", charms[0], ownerTag),
-		AddTestingService(c, s.state, "ms-default-bindings", charms[1], ownerTag),
+		AddTestingService(c, s.state, "wp-default-bindings", charms[0]),
+		AddTestingService(c, s.state, "ms-default-bindings", charms[1]),
 
-		AddTestingServiceWithBindings(c, s.state, "wp-given-bindings", charms[0], ownerTag, wpBindings),
-		AddTestingServiceWithBindings(c, s.state, "ms-given-bindings", charms[1], ownerTag, msBindings),
+		AddTestingServiceWithBindings(c, s.state, "wp-given-bindings", charms[0], wpBindings),
+		AddTestingServiceWithBindings(c, s.state, "ms-given-bindings", charms[1], msBindings),
 	}
 
 	// Drop the added endpoint bindings doc directly for the first two services.

@@ -693,26 +693,15 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.getRawCollection(machinesC)
+	machinesCollection, closer := st.getCollection(machinesC)
 	defer closer()
 
 	var err error
 	mdoc := &machineDoc{}
-	for _, tryId := range []string{st.docID(id), id} {
-		err = machinesCollection.FindId(tryId).One(mdoc)
-		if err != mgo.ErrNotFound {
-			break
-		}
-	}
+	err = machinesCollection.FindId(id).One(mdoc)
+
 	switch err {
 	case nil:
-		// This is required to allow loading of machines before the
-		// model UUID migration has been applied to the machines
-		// collection. Without this, a machine agent can't come up to
-		// run the database migration.
-		if mdoc.Id == "" {
-			mdoc.Id = mdoc.DocID
-		}
 		return mdoc, nil
 	case mgo.ErrNotFound:
 		return nil, errors.NotFoundf("machine %s", id)
@@ -859,7 +848,6 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 type AddApplicationArgs struct {
 	Name             string
 	Series           string
-	Owner            string
 	Charm            *Charm
 	Channel          csparams.Channel
 	Storage          map[string]StorageConstraints
@@ -876,10 +864,6 @@ type AddApplicationArgs struct {
 // they will be created automatically.
 func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
-	ownerTag, err := names.ParseUserTag(args.Owner)
-	if err != nil {
-		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)
-	}
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")
@@ -898,9 +882,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Errorf("application already exists")
 	}
 	if err := checkModelActive(st); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if _, err := st.ModelUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if args.Storage == nil {
@@ -1005,7 +986,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      args.Owner,
 	}
 
 	svc := newApplication(st, svcDoc)

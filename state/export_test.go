@@ -138,28 +138,27 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Application {
-	return addTestingService(c, st, "", name, ch, owner, nil, nil)
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Application {
+	return addTestingService(c, st, "", name, ch, nil, nil)
 }
 
-func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag) *Application {
-	return addTestingService(c, st, series, name, ch, owner, nil, nil)
+func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+	return addTestingService(c, st, series, name, ch, nil, nil)
 }
 
-func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Application {
-	return addTestingService(c, st, "", name, ch, owner, nil, storage)
+func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	return addTestingService(c, st, "", name, ch, nil, storage)
 }
 
-func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, bindings map[string]string) *Application {
-	return addTestingService(c, st, "", name, ch, owner, bindings, nil)
+func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingService(c, st, "", name, ch, bindings, nil)
 }
 
-func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag, bindings map[string]string, storage map[string]StorageConstraints) *Application {
+func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
 	service, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
 		Series:           series,
-		Owner:            owner.String(),
 		Charm:            ch,
 		EndpointBindings: bindings,
 		Storage:          storage,
@@ -213,18 +212,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 	}}
 	err := st.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// SCHEMACHANGE
-// This method is used to reset the ownertag attribute
-func SetApplicationOwnerTag(s *Application, ownerTag string) {
-	s.doc.OwnerTag = ownerTag
-}
-
-// SCHEMACHANGE
-// Get the owner directly
-func GetApplicationOwnerTag(s *Application) string {
-	return s.doc.OwnerTag
 }
 
 func SetPasswordHash(e Authenticator, passwordHash string) error {
