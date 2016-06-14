@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ var (
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker = mongoupgrader.New
-	reportOpenedState     = func(io.Closer) {}
+	reportOpenedState     = func(*state.State) {}
 )
 
 // Variable to override in tests, default is true
