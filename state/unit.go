@@ -89,7 +89,8 @@ type unitDoc struct {
 	Resolved               ResolvedMode
 	Tools                  *tools.Tools `bson:",omitempty"`
 	Life                   Life
-	TxnRevno               int64 `bson:"txn-revno"`
+	WorkloadVersion        string `bson:"workload-version"`
+	TxnRevno               int64  `bson:"txn-revno"`
 	PasswordHash           string
 }
 
@@ -178,6 +179,27 @@ func (u *Unit) globalKey() string {
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
+}
+
+// WorkloadVersion returns the version of the running workload set by
+// the charm (eg, the version of postgresql that is running, as
+// opposed to the version of the postgresql charm).
+func (u *Unit) WorkloadVersion() string {
+	return u.doc.WorkloadVersion
+}
+
+func (u *Unit) SetWorkloadVersion(version string) error {
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"workload-version", version}}}},
+	}}
+	if err := u.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set workload version for unit %q to %v: %v", u, version, onAbort(err, errNotAlive))
+	}
+	u.doc.WorkloadVersion = version
+	return nil
 }
 
 // AgentTools returns the tools that the agent is currently running.
