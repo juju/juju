@@ -353,7 +353,7 @@ func (mig *modelMigration) MinionReport(tag names.Tag, phase migration.Phase, su
 	if err != nil {
 		return errors.Trace(err)
 	}
-	docID := fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
+	docID := mig.minionReportId(phase, globalKey)
 	doc := modelMigMinionSyncDoc{
 		Id:          docID,
 		MigrationId: mig.Id(),
@@ -402,9 +402,9 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 
 	coll, closer := mig.st.getCollection(migrationsMinionSyncC)
 	defer closer()
-	query := coll.Find(bson.M{
-		"_id": bson.M{"$regex": "^" + mig.Id() + ":" + phase.String() + ":.+"},
-	})
+	query := coll.Find(bson.M{"_id": bson.M{
+		"$regex": "^" + mig.minionReportId(phase, ".+"),
+	}})
 	query = query.Select(bson.M{
 		"entity-key": 1,
 		"success":    1,
@@ -443,6 +443,10 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 		Failed:    failed.Values(),
 		Unknown:   unknown.Values(),
 	}, nil
+}
+
+func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey string) string {
+	return fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
 }
 
 func (mig *modelMigration) getAllAgents() (set.Tags, error) {
