@@ -464,8 +464,8 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	if !names.IsValidModelName(cfg.mustString(NameKey)) {
-		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", NameKey)
+	if modelName := cfg.mustString(NameKey); !names.IsValidModelName(modelName) {
+		return fmt.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", modelName)
 	}
 
 	// Check that the agent version parses ok if set explicitly; otherwise leave
