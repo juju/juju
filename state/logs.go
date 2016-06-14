@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -133,6 +134,7 @@ type logDoc struct {
 	Time      time.Time     `bson:"t"`
 	ModelUUID string        `bson:"e"`
 	Entity    string        `bson:"n"` // e.g. "machine-0"
+	Version   string        `bson:"r"`
 	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
 	Location  string        `bson:"l"` // "filename:lineno"
 	Level     loggo.Level   `bson:"v"`
@@ -143,16 +145,18 @@ type DbLogger struct {
 	logsColl  *mgo.Collection
 	modelUUID string
 	entity    string
+	version   string
 }
 
 // NewDbLogger returns a DbLogger instance which is used to write logs
 // to the database.
-func NewDbLogger(st ModelSessioner, entity names.Tag) *DbLogger {
+func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
 		modelUUID: st.ModelUUID(),
 		entity:    entity.String(),
+		version:   ver.String(),
 	}
 }
 
@@ -163,6 +167,7 @@ func (logger *DbLogger) Log(t time.Time, module string, location string, level l
 		Time:      t,
 		ModelUUID: logger.modelUUID,
 		Entity:    logger.entity,
+		Version:   logger.version,
 		Module:    module,
 		Location:  location,
 		Level:     level,
@@ -205,6 +210,7 @@ type LogRecord struct {
 	// origin fields
 	ModelUUID string
 	Entity    string
+	Version   version.Number
 
 	// universal fields
 	Time time.Time
@@ -354,10 +360,14 @@ func (t *logTailer) processCollection() error {
 	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
+		rec, err := logDocToRecord(doc)
+		if err != nil {
+			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+		}
 		select {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
-		case t.logCh <- logDocToRecord(doc):
+		case t.logCh <- rec:
 			t.lastTime = doc.Time
 			t.recentIds.Add(doc.Id)
 		}
@@ -410,10 +420,14 @@ func (t *logTailer) tailOplog() error {
 				}
 				continue
 			}
+			rec, err := logDocToRecord(doc)
+			if err != nil {
+				return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+			}
 			select {
 			case <-t.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
-			case t.logCh <- logDocToRecord(doc):
+			case t.logCh <- rec:
 			}
 		}
 	}
@@ -519,10 +533,19 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(doc *logDoc) *LogRecord {
-	return &LogRecord{
+func logDocToRecord(doc *logDoc) (*LogRecord, error) {
+	var ver version.Number
+	if doc.Version != "" {
+		parsed, err := version.Parse(doc.Version)
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid version %q", doc.Version)
+		}
+		ver = parsed
+	}
+	rec := &LogRecord{
 		ModelUUID: doc.ModelUUID,
 		Entity:    doc.Entity,
+		Version:   ver,
 
 		Time:    doc.Time,
 		Message: doc.Message,
@@ -531,6 +554,7 @@ func logDocToRecord(doc *logDoc) *LogRecord {
 		Module:   doc.Module,
 		Location: doc.Location,
 	}
+	return rec, nil
 }
 
 // PruneLogs removes old log documents in order to control the size of

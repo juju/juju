@@ -16,6 +16,7 @@ import (
 // the server.
 type LogStreamRecord struct {
 	ModelUUID string    `json:"id"`
+	Version   string    `json:"ver"`
 	Timestamp time.Time `json:"ts"`
 	Module    string    `json:"mod"`
 	Location  string    `json:"lo"`

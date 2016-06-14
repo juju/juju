@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type LogsSuite struct {
@@ -82,7 +83,7 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 }
 
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
-	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"), version.Current)
 	defer logger.Close()
 	t0 := time.Now().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
 	logger.Log(t0, "some.where", "foo.go:99", loggo.INFO, "all is well")
@@ -112,7 +113,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"), version.Current)
 	defer dbLogger.Close()
 	log := func(t time.Time, msg string) {
 		err := dbLogger.Log(t, "module", "loc", loggo.INFO, msg)
@@ -188,7 +189,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 }
 
 func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, count int) {
-	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"))
+	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"), version.Current)
 	defer dbLogger.Close()
 	for i := 0; i < count; i++ {
 		ts := endTime.Add(-time.Duration(i) * time.Second)

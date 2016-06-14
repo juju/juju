@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -71,8 +72,14 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			tag := entity.Tag()
 
+			ver, err := versionFromReq(req)
+			if err != nil {
+				h.sendError(socket, req, err)
+				return
+			}
+
 			filePrefix := st.ModelUUID() + " " + tag.String() + ":"
-			dbLogger := state.NewDbLogger(st, tag)
+			dbLogger := state.NewDbLogger(st, tag, ver)
 			defer dbLogger.Close()
 
 			// If we get to here, no more errors to report, so we report a nil
@@ -103,6 +110,18 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 	server.ServeHTTP(w, req)
+}
+
+func versionFromReq(req *http.Request) (version.Number, error) {
+	verStr := req.URL.Query().Get("jujuclientversion")
+	if verStr == "" {
+		return version.Zero, errors.New(`missing "jujuclientversion" in URL query`)
+	}
+	ver, err := version.Parse(verStr)
+	if err != nil {
+		return version.Zero, errors.Annotatef(err, "invalid jujuclientversion %q", verStr)
+	}
+	return ver, nil
 }
 
 func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRecord {

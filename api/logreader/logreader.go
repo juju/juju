@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/version"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common/stream"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/version"
 )
 
 // JSONReadCloser provides the functionality to send JSON-serialized
@@ -113,11 +113,16 @@ func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Re
 		Origin: logfwd.Origin{
 			ControllerUUID: controllerUUID,
 			ModelUUID:      apiRec.ModelUUID,
-			JujuVersion:    version.Current,
 		},
 		Timestamp: apiRec.Timestamp,
 		Message:   apiRec.Message,
 	}
+
+	ver, err := version.Parse(apiRec.Version)
+	if err != nil {
+		return rec, errors.Annotatef(err, "invalid version %q", apiRec.Version)
+	}
+	rec.Origin.JujuVersion = ver
 
 	loc, err := logfwd.ParseLocation(apiRec.Module, apiRec.Location)
 	if err != nil {
