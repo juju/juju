@@ -364,28 +364,29 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo/bar",
 		}),
-		err: fmt.Sprintf(modelNameErr, "name"),
+		err: fmt.Sprintf(modelNameErr, "foo/bar"),
 	}, {
 		about:       "Bad name, no backslash",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo\\bar",
 		}),
-		err: fmt.Sprintf(modelNameErr, "name"),
+		// Double escape to keep the safe quote in the format string happy
+		err: fmt.Sprintf(modelNameErr, "foo\\\\bar"),
 	}, {
 		about:       "Bad name, no space",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo bar",
 		}),
-		err: fmt.Sprintf(modelNameErr, "name"),
+		err: fmt.Sprintf(modelNameErr, "foo bar"),
 	}, {
 		about:       "Bad name, no capital",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "fooBar",
 		}),
-		err: fmt.Sprintf(modelNameErr, "name"),
+		err: fmt.Sprintf(modelNameErr, "fooBar"),
 	}, {
 		about:       "Empty name",
 		useDefaults: config.UseDefaults,
