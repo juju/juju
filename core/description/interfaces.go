@@ -327,7 +327,7 @@ type Space interface {
 	ProviderID() string
 }
 
-// LinkLayerDevice represents an IP device.
+// LinkLayerDevice represents a link layer device.
 type LinkLayerDevice interface {
 	Name() string
 	MTU() uint
