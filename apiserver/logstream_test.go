@@ -84,7 +84,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	for _, rec := range tailer.logs {
 		expected = append(expected, params.LogStreamRecord{
 			ModelUUID: rec.ModelUUID,
-			Time:      rec.Time,
+			Timestamp: rec.Time,
 			Module:    rec.Module,
 			Location:  rec.Location,
 			Level:     rec.Level.String(),

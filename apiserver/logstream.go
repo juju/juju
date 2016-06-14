@@ -159,16 +159,7 @@ func (als *apiLogStream) sendInitial(initial error) {
 }
 
 func (als *apiLogStream) sendRecord(rec *state.LogRecord) error {
-	apiRec := params.LogStreamRecord{
-		Time:     rec.Time,
-		Module:   rec.Module,
-		Location: rec.Location,
-		Level:    rec.Level.String(),
-		Message:  rec.Message,
-	}
-	if als.sendModelUUID {
-		apiRec.ModelUUID = rec.ModelUUID
-	}
+	apiRec := als.rec2api(rec)
 	if err := als.send(apiRec); err != nil {
 		return errors.Trace(err)
 	}
@@ -177,4 +168,18 @@ func (als *apiLogStream) sendRecord(rec *state.LogRecord) error {
 
 func (als *apiLogStream) send(rec params.LogStreamRecord) error {
 	return als.codec.Send(als.conn, rec)
+}
+
+func (als *apiLogStream) rec2api(rec *state.LogRecord) params.LogStreamRecord {
+	apiRec := params.LogStreamRecord{
+		Timestamp: rec.Time,
+		Module:    rec.Module,
+		Location:  rec.Location,
+		Level:     rec.Level.String(),
+		Message:   rec.Message,
+	}
+	if als.sendModelUUID {
+		apiRec.ModelUUID = rec.ModelUUID
+	}
+	return apiRec
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
@@ -106,6 +107,7 @@ func (lrr *LogRecordReader) Wait() error {
 	return lrr.tomb.Wait()
 }
 
+// See the counterpart in apiserver/logstream.go.
 func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
 	rec := logfwd.Record{
 		Origin: logfwd.Origin{
@@ -113,8 +115,7 @@ func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Re
 			ModelUUID:      apiRec.ModelUUID,
 			JujuVersion:    version.Current,
 		},
-		Timestamp: apiRec.Time,
-		Level:     apiRec.LoggoLevel(),
+		Timestamp: apiRec.Timestamp,
 		Message:   apiRec.Message,
 	}
 
@@ -123,6 +124,12 @@ func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Re
 		return rec, errors.Trace(err)
 	}
 	rec.Location = loc
+
+	level, ok := loggo.ParseLevel(apiRec.Level)
+	if !ok {
+		return rec, errors.Errorf("unrecognized log level %q", apiRec.Level)
+	}
+	rec.Level = level
 
 	if err := rec.Validate(); err != nil {
 		return rec, errors.Trace(err)

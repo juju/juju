@@ -10,30 +10,17 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 )
 
 // LogStreamRecord describes a single log record being streamed from
 // the server.
-//
-// Single character field names are used for serialisation to keep the
-// size down. These messages are going to be sent a lot.
 type LogStreamRecord struct {
-	ModelUUID string    `json:"o"`
-	Time      time.Time `json:"t"`
-	Module    string    `json:"m"`
-	Location  string    `json:"l"`
-	Level     string    `json:"v"`
-	Message   string    `json:"x"`
-}
-
-// LoggoLevel converts the level string to a loggo.Level.
-func (rec LogStreamRecord) LoggoLevel() loggo.Level {
-	level, ok := loggo.ParseLevel(rec.Level)
-	if !ok {
-		return loggo.UNSPECIFIED
-	}
-	return level
+	ModelUUID string    `json:"id"`
+	Timestamp time.Time `json:"ts"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"lo"`
+	Level     string    `json:"lv"`
+	Message   string    `json:"msg"`
 }
 
 // TODO(ericsnow) At some point it would make sense to merge this code

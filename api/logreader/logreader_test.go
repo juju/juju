@@ -33,7 +33,7 @@ func (s *LogRecordReaderSuite) TestLogRecordReader(c *gc.C) {
 	ts := time.Now()
 	apiRec := params.LogStreamRecord{
 		ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
-		Time:      ts,
+		Timestamp: ts,
 		Module:    "api.logreader.test",
 		Location:  "test.go:42",
 		Level:     loggo.INFO.String(),
