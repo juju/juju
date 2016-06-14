@@ -95,20 +95,20 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 2)
 
-	c.Assert(docs[0]["t"], gc.Equals, t0)
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
 	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
-	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
+	c.Assert(docs[0]["v"], gc.Equals, "INFO")
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"], gc.Equals, t1)
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
 	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
-	c.Assert(docs[1]["v"], gc.Equals, int(loggo.ERROR))
+	c.Assert(docs[1]["v"], gc.Equals, "ERROR")
 	c.Assert(docs[1]["x"], gc.Equals, "oh noes")
 }
 
@@ -181,7 +181,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 		var doc bson.M
 		err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(doc["t"].(time.Time), gc.Equals, now)
+		c.Assert(doc["t"], gc.Equals, now.UnixNano())
 	}
 	assertLatestTs(s0)
 	assertLatestTs(s1)

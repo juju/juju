@@ -131,13 +131,14 @@ func (logger *DbLoggerLastSent) Get() (time.Time, error) {
 // for increased precision.
 type logDoc struct {
 	Id        bson.ObjectId `bson:"_id"`
-	Time      time.Time     `bson:"t"`
+	Time      int64         `bson:"t"` // unix nano UTC
+	Timezone  int           `bson:"z"`
 	ModelUUID string        `bson:"e"`
 	Entity    string        `bson:"n"` // e.g. "machine-0"
 	Version   string        `bson:"r"`
 	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
 	Location  string        `bson:"l"` // "filename:lineno"
-	Level     loggo.Level   `bson:"v"`
+	Level     string        `bson:"v"`
 	Message   string        `bson:"x"`
 }
 
@@ -162,15 +163,17 @@ func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLog
 
 // Log writes a log message to the database.
 func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	_, zone := t.Zone()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t,
+		Time:      t.UnixNano(),
+		Timezone:  zone,
 		ModelUUID: logger.modelUUID,
 		Entity:    logger.entity,
 		Version:   logger.version,
 		Module:    module,
 		Location:  location,
-		Level:     level,
+		Level:     level.String(),
 		Message:   msg,
 	})
 }
@@ -368,7 +371,7 @@ func (t *logTailer) processCollection() error {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case t.logCh <- rec:
-			t.lastTime = doc.Time
+			t.lastTime = rec.Time
 			t.recentIds.Add(doc.Id)
 		}
 	}
@@ -435,7 +438,7 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"t", bson.M{"$gte": params.StartTime}},
+		{"t", bson.M{"$gte": params.StartTime.UnixNano()}},
 	}
 	if !params.AllModels {
 		sel = append(sel, bson.DocElem{"e", t.modelUUID})
@@ -542,15 +545,21 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 		}
 		ver = parsed
 	}
+
+	level, ok := loggo.ParseLevel(doc.Level)
+	if !ok {
+		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
+	}
+
 	rec := &LogRecord{
 		ModelUUID: doc.ModelUUID,
 		Entity:    doc.Entity,
 		Version:   ver,
 
-		Time:    doc.Time,
+		Time:    time.Unix(0, doc.Time).In(time.FixedZone("", doc.Timezone)),
 		Message: doc.Message,
 
-		Level:    doc.Level,
+		Level:    level,
 		Module:   doc.Module,
 		Location: doc.Location,
 	}
@@ -577,7 +586,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 	for _, modelUUID := range modelUUIDs {
 		removeInfo, err := logsColl.RemoveAll(bson.M{
 			"e": modelUUID,
-			"t": bson.M{"$lt": minLogTime},
+			"t": bson.M{"$lt": minLogTime.UnixNano()},
 		})
 		if err != nil {
 			return errors.Annotate(err, "failed to prune logs by time")
@@ -618,7 +627,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 		if err != nil {
 			return errors.Annotate(err, "log pruning timestamp query failed")
 		}
-		thresholdTs := doc["t"].(time.Time)
+		thresholdTs := doc["t"]
 
 		// Remove old records.
 		removeInfo, err := logsColl.RemoveAll(bson.M{
