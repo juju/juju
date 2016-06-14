@@ -856,14 +856,12 @@ func (i *importer) spaces() error {
 
 func (i *importer) linklayerdevices() error {
 	i.logger.Debugf("importing linklayerdevices")
-	childCount := make(map[string]int)
 	for _, device := range i.model.LinkLayerDevices() {
 		err := i.addLinkLayerDevice(device)
 		if err != nil {
 			i.logger.Errorf("error importing ip device %v: %s", device, err)
 			return errors.Trace(err)
 		}
-		childCount[device.LocalID()] = 0
 	}
 	// Loop a second time so we can ensure that all devices have had their
 	// parent created.
@@ -902,7 +900,8 @@ func (i *importer) parentDocIDFromDevice(device description.LinkLayerDevice) (st
 func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error {
 	providerID := device.ProviderID()
 	modelUUID := i.st.ModelUUID()
-	linkLayerDeviceDocID := i.st.docID(device.LocalID())
+	localID := linkLayerDeviceGlobalKey(device.MachineID(), device.Name())
+	linkLayerDeviceDocID := i.st.docID(localID)
 	newDoc := &linkLayerDeviceDoc{
 		ModelUUID:   modelUUID,
 		DocID:       linkLayerDeviceDocID,

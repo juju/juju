@@ -38,7 +38,6 @@ func (s *LinkLayerDeviceSerializationSuite) TestNewLinkLayerDevice(c *gc.C) {
 		IsAutoStart: true,
 		IsUp:        true,
 		ParentName:  "bam",
-		LocalID:     "boo",
 	}
 	device := newLinkLayerDevice(args)
 	c.Assert(device.ProviderID(), gc.Equals, args.ProviderID)
@@ -50,7 +49,6 @@ func (s *LinkLayerDeviceSerializationSuite) TestNewLinkLayerDevice(c *gc.C) {
 	c.Assert(device.IsAutoStart(), gc.Equals, args.IsAutoStart)
 	c.Assert(device.IsUp(), gc.Equals, args.IsUp)
 	c.Assert(device.ParentName(), gc.Equals, args.ParentName)
-	c.Assert(device.LocalID(), gc.Equals, args.LocalID)
 }
 
 func (s *LinkLayerDeviceSerializationSuite) TestParsingSerializedData(c *gc.C) {
@@ -67,7 +65,6 @@ func (s *LinkLayerDeviceSerializationSuite) TestParsingSerializedData(c *gc.C) {
 				IsAutoStart: true,
 				IsUp:        true,
 				ParentName:  "bam",
-				LocalID:     "boo",
 			}),
 			newLinkLayerDevice(LinkLayerDeviceArgs{Name: "weeee"}),
 		},

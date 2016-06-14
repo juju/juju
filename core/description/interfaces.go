@@ -338,7 +338,6 @@ type LinkLayerDevice interface {
 	IsAutoStart() bool
 	IsUp() bool
 	ParentName() string
-	LocalID() string
 }
 
 // Subnet represents a network subnet.

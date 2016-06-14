@@ -607,9 +607,9 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
+		"DocID",
 	)
 	migrated := set.NewStrings(
-		"DocID",
 		"MachineID",
 		"ProviderID",
 		"Name",
