@@ -651,9 +651,9 @@ func checkTargetController(st *State, targetControllerTag names.ModelTag) error 
 	return nil
 }
 
-// GetModelMigration returns the most recent ModelMigration for a
+// LatestModelMigration returns the most recent ModelMigration for a
 // model (if any).
-func (st *State) GetModelMigration() (ModelMigration, error) {
+func (st *State) LatestModelMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
@@ -666,7 +666,7 @@ func (st *State) GetModelMigration() (ModelMigration, error) {
 }
 
 // ModelMigration retrieves a specific ModelMigration by its
-// id. See also GetModelMigration.
+// id. See also LatestModelMigration.
 func (st *State) ModelMigration(id string) (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()

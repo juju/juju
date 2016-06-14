@@ -14,6 +14,6 @@ type Backend interface {
 	migration.StateExporter
 
 	WatchForModelMigration() state.NotifyWatcher
-	GetModelMigration() (state.ModelMigration, error)
+	LatestModelMigration() (state.ModelMigration, error)
 	RemoveExportingModelDocs() error
 }

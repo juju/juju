@@ -65,7 +65,7 @@ func (api *API) Watch() params.NotifyWatchResult {
 func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 	empty := params.FullMigrationStatus{}
 
-	mig, err := api.backend.GetModelMigration()
+	mig, err := api.backend.LatestModelMigration()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving model migration")
 	}
@@ -105,7 +105,7 @@ func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.
 func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
-	mig, err := api.backend.GetModelMigration()
+	mig, err := api.backend.LatestModelMigration()
 	if err != nil {
 		return errors.Annotate(err, "could not get migration")
 	}

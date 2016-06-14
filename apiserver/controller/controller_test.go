@@ -315,7 +315,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(result.Id, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
-		mig, err := st.GetModelMigration()
+		mig, err := st.LatestModelMigration()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())

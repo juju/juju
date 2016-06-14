@@ -203,8 +203,8 @@ func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {
-	b.stub.AddCall("GetModelMigration")
+func (b *stubBackend) LatestModelMigration() (state.ModelMigration, error) {
+	b.stub.AddCall("LatestModelMigration")
 	if b.getErr != nil {
 		return nil, b.getErr
 	}
