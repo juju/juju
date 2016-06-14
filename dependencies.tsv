@@ -2,10 +2,10 @@ github.com/Azure/azure-sdk-for-go	git	3b480eaaf6b4236d43a3c06cba969da6f53c8b66	2
 github.com/ajstarks/svgo	git	89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518	2014-10-04T21:11:59Z
 github.com/altoros/gosigma	git	31228935eec685587914528585da4eb9b073c76d	2015-04-08T14:52:32Z
 github.com/bmizerany/pat	git	c068ca2f0aacee5ac3681d68e4d0a003b7d1fd2c	2016-02-17T10:32:42Z
-github.com/coreos/go-systemd	git	2d21675230a81a503f4363f4aa3490af06d52bb8	2015-01-26T19:09:17Z
+github.com/coreos/go-systemd	git	7b2428fec40033549c68f54e26e89e7ca9a9ce31	2016-02-02T21:14:25Z
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
 github.com/gabriel-samfira/sys	git	9ddc60d56b511544223adecea68da1e4f2153beb	2015-06-08T13:21:19Z
-github.com/godbus/dbus	git	88765d85c0fdadcd98a54e30694fa4e4f5b51133	2015-01-22T18:02:51Z
+github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
 github.com/gorilla/websocket	git	13e4d0621caa4d77fd9aa470ef6d7ab63d1a5e41	2015-09-23T22:29:30Z
 github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-04T20:39:58Z
 github.com/joyent/gocommon	git	ade826b8b54e81a779ccb29d358a45ba24b7809c	2016-03-20T19:31:33Z
