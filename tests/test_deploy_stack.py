@@ -447,8 +447,20 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/lxd/lxd.log'
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
+                ' /etc/network/interfaces'
+                ' /home/ubuntu/ifconfig.log'
                 ),),
             cc_mock.call_args_list[0][0])
+        self.assertEqual(
+            (get_timeout_prefix(120) + (
+                'ssh',
+                '-o', 'User ubuntu',
+                '-o', 'UserKnownHostsFile /dev/null',
+                '-o', 'StrictHostKeyChecking no',
+                '-o', 'PasswordAuthentication no',
+                '10.10.0.1',
+                'ifconfig > /home/ubuntu/ifconfig.log'),),
+            cc_mock.call_args_list[1][0])
         self.assertEqual(
             (get_timeout_prefix(120) + (
                 'scp', '-rC',
@@ -463,8 +475,10 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/lxd/lxd.log',
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
+                '10.10.0.1:/etc/network/interfaces',
+                '10.10.0.1:/home/ubuntu/ifconfig.log',
                 '/foo'),),
-            cc_mock.call_args_list[1][0])
+            cc_mock.call_args_list[2][0])
 
     def test_copy_remote_logs_windows(self):
         remote = remote_from_address('10.10.0.1', series="win2012hvr2")
@@ -488,7 +502,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
         with patch('subprocess.check_output', side_effect=remote_op) as co:
             with patch('deploy_stack.wait_for_port', autospec=True):
                 copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
-        self.assertEqual(2, co.call_count)
+        self.assertEqual(3, co.call_count)
         self.assertEqual(
             ["DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
              "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
@@ -496,11 +510,19 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
              "/var/log/lxd/juju-* "
              "/var/log/lxd/lxd.log "
-             "/var/log/syslog /var/log/mongodb/mongodb.log'",
+             "/var/log/syslog "
+             "/var/log/mongodb/mongodb.log "
+             "/etc/network/interfaces "
+             "/home/ubuntu/ifconfig.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
-             'WARNING Could not retrieve some or all logs:',
-             'WARNING CalledProcessError()'],
+             "DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
+             "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
+             "10.10.0.1 'ifconfig > /home/ubuntu/ifconfig.log'",
+             'WARNING Could not capture ifconfig state:',
+             'WARNING None', 'WARNING Could not retrieve some or all logs:',
+             'WARNING CalledProcessError()',
+             ],
             self.log_stream.getvalue().splitlines())
 
     def test_get_machines_for_logs(self):
@@ -633,7 +655,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
                     deploy_dummy_stack(client, 'centos')
         assert_juju_call(self, cc_mock, client,
                          ('juju', '--show-log', 'set-model-constraints', '-m',
-                          'foo', 'tags=MAAS_NIC_1'), 0)
+                          'foo:foo', 'tags=MAAS_NIC_1'), 0)
 
     def test_assess_juju_relations(self):
         env = JujuData('foo', {'type': 'nonlocal'})
@@ -647,8 +669,8 @@ class TestDeployDummyStack(FakeHomeTestCase):
                                autospec=True) as ct_mock:
                         assess_juju_relations(client)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set-config', '-m', 'foo', 'dummy-source',
-            'token=fake-token'), 0)
+            'juju', '--show-log', 'set-config', '-m', 'foo:foo',
+            'dummy-source', 'token=fake-token'), 0)
         ct_mock.assert_called_once_with(client, 'fake-token')
 
     def test_deploy_dummy_stack_centos(self):
@@ -701,16 +723,16 @@ class TestDeployDummyStack(FakeHomeTestCase):
                         with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
                             deploy_dummy_stack(client, 'bar-')
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo',
+            'juju', '--show-log', 'deploy', '-m', 'foo:foo',
             '/tmp/repo/charms/dummy-source', '--series', 'bar-'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo',
+            'juju', '--show-log', 'deploy', '-m', 'foo:foo',
             '/tmp/repo/charms/dummy-sink', '--series', 'bar-'), 1)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-m', 'foo',
+            'juju', '--show-log', 'add-relation', '-m', 'foo:foo',
             'dummy-source', 'dummy-sink'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'expose', '-m', 'foo', 'dummy-sink'), 3)
+            'juju', '--show-log', 'expose', '-m', 'foo:foo', 'dummy-sink'), 3)
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
@@ -728,10 +750,10 @@ class TestDeployDummyStack(FakeHomeTestCase):
                         with temp_os_env('JUJU_REPOSITORY', '/tmp/repo'):
                             deploy_dummy_stack(client, 'bar-')
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo',
+            'juju', '--show-log', 'deploy', '-m', 'foo:foo',
             'local:bar-/dummy-source', '--series', 'bar-'), 0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo',
+            'juju', '--show-log', 'deploy', '-m', 'foo:foo',
             'local:bar-/dummy-sink', '--series', 'bar-'), 1)
 
 
@@ -922,8 +944,9 @@ class TestTestUpgrade(FakeHomeTestCase):
         'juju', '--show-log', 'run', '-e', 'foo', '--format', 'json',
         '--service', 'dummy-source,dummy-sink', 'uname')
     STATUS = (
-        'juju', '--show-log', 'show-status', '-m', 'foo', '--format', 'yaml')
-    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo',
+        'juju', '--show-log', 'show-status', '-m', 'foo:foo',
+        '--format', 'yaml')
+    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
                'tools-metadata-url')
 
     @classmethod
@@ -963,7 +986,7 @@ class TestTestUpgrade(FakeHomeTestCase):
             assess_upgrade(old_client, '/bar/juju')
         new_client = EnvJujuClient(env, None, '/bar/juju')
         assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'upgrade-juju', '-m', 'foo', '--version',
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
             '2.0-alpha3'), 0)
         self.assertEqual(cc_mock.call_count, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
@@ -1377,7 +1400,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual({
             'name': 'bar',
             'default-series': 'wacky',
-            'tools-metadata-url': 'url',
+            'agent-metadata-url': 'url',
             'type': 'foo',
             'region': 'bar',
             'test-mode': True,
@@ -1466,10 +1489,10 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-models', '-c', 'bar'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'controller',
+            'path', '--show-log', 'show-status', '-m', 'bar:controller',
             '--format', 'yaml'), 3)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar',
+            'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
     def test_bootstrap_context_non_jes(self):
@@ -1505,10 +1528,10 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-models', '-c', 'bar'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'controller',
+            'path', '--show-log', 'show-status', '-m', 'bar:controller',
             '--format', 'yaml'), 3)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar',
+            'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
     def test_keep_env_non_jes(self):
@@ -1754,10 +1777,10 @@ class TestBootContext(FakeHomeTestCase):
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-models', '-c', 'bar'), 2)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'controller',
+            'path', '--show-log', 'show-status', '-m', 'bar:controller',
             '--format', 'yaml'), 3)
         assert_juju_call(self, cc_mock, client, (
-            'path', '--show-log', 'show-status', '-m', 'bar',
+            'path', '--show-log', 'show-status', '-m', 'bar:bar',
             '--format', 'yaml'), 4)
 
 

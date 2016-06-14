@@ -571,10 +571,10 @@ class EnvJujuClient:
 
     # What feature flags have existed that CI used.
     known_feature_flags = frozenset([
-        'actions', 'jes', 'address-allocation', 'cloudsigma'])
+        'actions', 'jes', 'address-allocation', 'cloudsigma', 'migration'])
 
     # What feature flags are used by this version of the juju client.
-    used_feature_flags = frozenset(['address-allocation'])
+    used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
 
@@ -709,7 +709,9 @@ class EnvJujuClient:
         elif self.env is None or not include_e:
             return None
         else:
-            return self.model_name
+            return '{controller}:{model}'.format(
+                controller=self.env.controller.name,
+                model=self.model_name)
 
     def _full_args(self, command, sudo, args,
                    timeout=None, include_e=True, admin=False):
@@ -828,6 +830,9 @@ class EnvJujuClient:
 
     def make_model_config(self):
         config_dict = make_safe_config(self)
+        agent_metadata_url = config_dict.pop('tools-metadata-url', None)
+        if agent_metadata_url is not None:
+            config_dict.setdefault('agent-metadata-url', agent_metadata_url)
         # Strip unneeded variables.
         return dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',
@@ -1092,7 +1097,7 @@ class EnvJujuClient:
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
-        """deployer, using sudo if necessary."""
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',
@@ -1102,7 +1107,7 @@ class EnvJujuClient:
         )
         if name:
             args += (name,)
-        e_arg = ('-e', 'local.{}:{}'.format(
+        e_arg = ('-e', '{}:{}'.format(
             self.env.controller.name, self.env.environment))
         args = e_arg + args
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
@@ -1588,6 +1593,23 @@ class EnvJujuClient2B8(EnvJujuClient):
             *commands)
         return json.loads(responses)
 
+    def deployer(self, bundle_template, name=None, deploy_delay=10,
+                 timeout=3600):
+        """Deploy a bundle using deployer."""
+        bundle = self.format_bundle(bundle_template)
+        args = (
+            '--debug',
+            '--deploy-delay', str(deploy_delay),
+            '--timeout', str(timeout),
+            '--config', bundle,
+        )
+        if name:
+            args += (name,)
+        e_arg = ('-e', 'local.{}:{}'.format(
+            self.env.controller.name, self.env.environment))
+        args = e_arg + args
+        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
+
 
 class EnvJujuClient2B7(EnvJujuClient2B8):
 
@@ -1860,6 +1882,14 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
+    def _cmd_model(self, include_e, admin):
+        if admin:
+            return self.get_admin_model_name()
+        elif self.env is None or not include_e:
+            return None
+        else:
+            return self.model_name
+
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
         """Return the bootstrap arguments for the substrate."""
         constraints = self._get_substrate_constraints()
@@ -1944,6 +1974,7 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
+        """Deploy a bundle using deployer."""
         bundle = self.format_bundle(bundle_template)
         args = (
             '--debug',

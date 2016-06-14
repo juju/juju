@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 
 import argparse
+import copy
 import json
 import logging
 import sys
@@ -59,11 +60,63 @@ storage_pool_details = {
                 }}
 }
 
+storage_list_expected = {
+    "storage":
+        {"data/0":
+            {
+                "kind": "filesystem",
+                "attachments":
+                    {
+                        "units":
+                            {
+                                "dummy-storage-fs/0":
+                                    {"location": "/srv/data"}}}}}}
+
+storage_list_expected_2 = copy.deepcopy(storage_list_expected)
+storage_list_expected_2["storage"]["disks/1"] = {
+    "kind": "block",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-lp/0":
+                    {
+                        "location": ""}}}}
+storage_list_expected_3 = copy.deepcopy(storage_list_expected_2)
+storage_list_expected_3["storage"]["disks/2"] = {
+    "kind": "block",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-lp/0":
+                    {
+                        "location": ""}}}}
+storage_list_expected_4 = copy.deepcopy(storage_list_expected_3)
+storage_list_expected_4["storage"]["data/3"] = {
+    "kind": "filesystem",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-tp/0":
+                    {
+                        "location": "/srv/data"}}}}
+
 
 def storage_list(client):
     """Return the storage list."""
-    return json.loads(client.get_juju_output(
+    list_storage = json.loads(client.get_juju_output(
         'list-storage', '--format', 'json'))
+    for instance in list_storage["storage"].keys():
+        try:
+            list_storage["storage"][instance].pop("status")
+            list_storage["storage"][instance].pop("persistent")
+            attachments = list_storage["storage"][instance]["attachments"]
+            unit = attachments["units"].keys()[0]
+            attachments["units"][unit].pop("machine")
+            if instance.startswith("disks"):
+                attachments["units"][unit]["location"] = ""
+        except Exception:
+            pass
+    return list_storage
 
 
 def storage_pool_list(client):
@@ -93,7 +146,10 @@ def assess_create_pool(client):
 
 
 def assess_add_storage(client, unit, storage_type, amount="1"):
-    """Test adding storage instances to service."""
+    """Test adding storage instances to service.
+
+    Only type 'disk' is able to add instances.
+    """
     client.juju('add-storage', (unit, storage_type + "=" + amount))
 
 
@@ -137,7 +193,6 @@ def assess_deploy_storage(client, charm_series,
                                  series=charm_series,
                                  repository=charm_dir, platform=platform)
         deploy_storage(client, charm, charm_series, pool, "1G")
-        assess_add_storage(client, charm_name + '/0', storage.keys()[0], "1")
 
 
 def assess_storage(client, charm_series):
@@ -145,11 +200,24 @@ def assess_storage(client, charm_series):
     assess_create_pool(client)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
+    storage_list_derived = storage_list(client)
+    if storage_list_derived != storage_list_expected:
+        raise JujuAssertionError(storage_list_derived)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
+    storage_list_derived = storage_list(client)
+    if storage_list_derived != storage_list_expected_2:
+        raise JujuAssertionError(storage_list_derived)
+    assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
+    storage_list_derived = storage_list(client)
+    if storage_list_derived != storage_list_expected_3:
+        raise JujuAssertionError(storage_list_derived)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
-    # storage with provider 'ebs' is still under observation
+    storage_list_derived = storage_list(client)
+    if storage_list_derived != storage_list_expected_4:
+        raise JujuAssertionError(storage_list_derived)
+    # storage with provider 'ebs' is only available under 'aws'
     # assess_deploy_storage(client, charm_series,
     #                       'dummy-storage-eb', 'filesystem', 'ebs')
 
