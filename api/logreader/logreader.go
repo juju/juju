@@ -10,7 +10,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/stream"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/version"
@@ -41,11 +41,11 @@ type LogRecordReader struct {
 // OpenLogRecordReader opens a stream to the API's /log endpoint and
 // returns a reader that wraps that stream.
 func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID string) (*LogRecordReader, error) {
-	stream, err := common.OpenStream(conn, cfg)
+	wsStream, err := stream.Open(conn, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	lrr := NewLogRecordReader(stream, controllerUUID)
+	lrr := NewLogRecordReader(wsStream, controllerUUID)
 	return lrr, nil
 }
 

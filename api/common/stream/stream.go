@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package stream
 
 import (
 	"net/url"
@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-// StreamConfig exposes the information necessary to open a streaming
+// Config exposes the information necessary to open a streaming
 // connection to an API endpoint.
-type StreamConfig interface {
+type Config interface {
 	// Endpoint is the API endpoint path to which to connect.
 	Endpoint() string
 
@@ -21,9 +21,9 @@ type StreamConfig interface {
 	Apply(url.Values)
 }
 
-// OpenStream opens a streaming connection that conforms to the provided
+// Open opens a streaming connection that conforms to the provided
 // config (and its endpoint).
-func OpenStream(conn base.StreamConnector, cfg StreamConfig) (base.Stream, error) {
+func Open(conn base.StreamConnector, cfg Config) (base.Stream, error) {
 	path := cfg.Endpoint()
 	attrs := make(url.Values)
 	cfg.Apply(attrs)
