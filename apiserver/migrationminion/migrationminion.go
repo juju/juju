@@ -4,8 +4,6 @@
 package migrationminion
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -48,10 +46,7 @@ func NewAPI(
 // The MigrationStatusWatcher facade must be used to receive events
 // from the watcher.
 func (api *API) Watch() (params.NotifyWatchResult, error) {
-	w, err := api.backend.WatchMigrationStatus()
-	if err != nil {
-		return params.NotifyWatchResult{}, errors.Trace(err)
-	}
+	w := api.backend.WatchMigrationStatus()
 	return params.NotifyWatchResult{
 		NotifyWatcherId: api.resources.Register(w),
 	}, nil

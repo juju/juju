@@ -446,8 +446,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, &factory.MachineParams{})
 				c.Assert(m.Id(), gc.Equals, "0")
-				w, err := m.WatchForRebootEvent()
-				c.Assert(err, jc.ErrorIsNil)
+				w := m.WatchForRebootEvent()
 				return w
 			},
 			triggerEvent: func(st *state.State) {
