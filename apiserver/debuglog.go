@@ -77,7 +77,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			st, _, err := h.ctxt.stateForRequestAuthenticated(req)
+			st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 			if err != nil {
 				socket.sendError(err)
 				return
@@ -113,9 +113,6 @@ func isBrokenPipe(err error) bool {
 type debugLogSocket interface {
 	io.Writer
 
-	// WriteJSON sends the input as JSON.
-	WriteJSON(interface{}) error
-
 	// sendOk sends a nil error response, indicating there were no errors.
 	sendOk()
 
@@ -130,11 +127,6 @@ type debugLogSocketImpl struct {
 	*websocket.Conn
 }
 
-// WriteJSON implements debugLogSocket.
-func (s *debugLogSocketImpl) WriteJSON(data interface{}) error {
-	return websocket.JSON.Send(s.Conn, data)
-}
-
 // sendOk implements debugLogSocket.
 func (s *debugLogSocketImpl) sendOk() {
 	s.sendError(nil)
@@ -147,11 +139,8 @@ func (s *debugLogSocketImpl) sendError(err error) {
 	})
 }
 
-// TODO(ericsnow) Fold everything below into params.LogStreamConfig.
-
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
-	params.LogStreamConfig
 	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
@@ -164,13 +153,7 @@ type debugLogParams struct {
 }
 
 func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
-	cfg, err := params.GetLogStreamConfig(queryMap)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	params := &debugLogParams{
-		LogStreamConfig: cfg,
-	}
+	params := new(debugLogParams)
 
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)

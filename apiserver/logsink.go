@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -89,7 +90,8 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					if fileErr != nil {
 						logger.Errorf("logging to logsink.log failed: %v", fileErr)
 					}
-					dbErr := dbLogger.Log(m.Time, m.Module, m.Location, m.Level, m.Message)
+					level, _ := loggo.ParseLevel(m.Level)
+					dbErr := dbLogger.Log(m.Time, m.Module, m.Location, level, m.Message)
 					if dbErr != nil {
 						logger.Errorf("logging to DB failed: %v", err)
 					}
@@ -144,7 +146,7 @@ func (h *logSinkHandler) logToFile(prefix string, m params.LogRecord) error {
 	_, err := h.fileLogger.Write([]byte(strings.Join([]string{
 		prefix,
 		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-		m.Level.String(),
+		m.Level,
 		m.Module,
 		m.Location,
 		m.Message,

@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -125,48 +124,6 @@ func (s *debugLogDBIntSuite) TestFullRequest(c *gc.C) {
 	s.assertStops(c, done, tailer)
 }
 
-func (s *debugLogDBIntSuite) TestJSONFormat(c *gc.C) {
-	// Set up a fake log tailer with a 2 log records ready to send.
-	tailer := newFakeLogTailer()
-	tailer.logsCh <- &state.LogRecord{
-		ModelUUID: "deadbeef-...",
-		Time:      time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
-		Entity:    "machine-99",
-		Module:    "some.where",
-		Location:  "code.go:42",
-		Level:     loggo.INFO,
-		Message:   "stuff happened",
-	}
-	tailer.logsCh <- &state.LogRecord{
-		Time:     time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
-		Entity:   "unit-foo-2",
-		Module:   "else.where",
-		Location: "go.go:22",
-		Level:    loggo.ERROR,
-		Message:  "whoops",
-	}
-	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
-		c.Assert(params.AllModels, gc.Equals, true)
-		return tailer, nil
-	})
-
-	var args debugLogParams
-	args.Format = "json"
-	args.AllModels = true
-	stop := make(chan struct{})
-	done := s.runRequest(&args, stop)
-
-	s.assertOutput(c, []string{
-		"ok", // sendOk() call needs to happen first.
-		`{"o":"deadbeef-...","t":"2015-06-19T15:34:37Z","m":"some.where","l":"code.go:42","v":3,"x":"stuff happened"}`,
-		`{"t":"2015-06-19T15:36:40Z","m":"else.where","l":"go.go:22","v":5,"x":"whoops"}`,
-	})
-
-	// Check the request stops when requested.
-	close(stop)
-	s.assertStops(c, done, tailer)
-}
-
 func (s *debugLogDBIntSuite) TestRequestStopsWhenTailerStops(c *gc.C) {
 	tailer := newFakeLogTailer()
 	s.PatchValue(&newLogTailer, func(_ state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
@@ -276,15 +233,6 @@ func newFakeDebugLogSocket() *fakeDebugLogSocket {
 
 type fakeDebugLogSocket struct {
 	writes chan string
-}
-
-func (s *fakeDebugLogSocket) WriteJSON(input interface{}) error {
-	data, err := json.Marshal(input)
-	if err != nil {
-		return err
-	}
-	s.writes <- string(data)
-	return nil
 }
 
 func (s *fakeDebugLogSocket) sendOk() {

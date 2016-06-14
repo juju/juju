@@ -33,19 +33,19 @@ type JSONReadCloser interface {
 type LogRecordReader struct {
 	tomb tomb.Tomb
 
-	conn JSONReadCloser
-	out  chan logfwd.Record
+	conn           JSONReadCloser
+	out            chan logfwd.Record
+	controllerUUID string
 }
 
 // OpenLogRecordReader opens a stream to the API's /log endpoint and
 // returns a reader that wraps that stream.
-func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig) (*LogRecordReader, error) {
-	cfg.Format = params.StreamFormatJSON
+func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID string) (*LogRecordReader, error) {
 	stream, err := common.OpenStream(conn, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	lrr := NewLogRecordReader(stream)
+	lrr := NewLogRecordReader(stream, controllerUUID)
 	return lrr, nil
 }
 
@@ -54,11 +54,12 @@ func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig) 
 //
 // Note that the caller is responsible for stopping the reader, e.g. by
 // passing it to worker.Kill().
-func NewLogRecordReader(conn JSONReadCloser) *LogRecordReader {
+func NewLogRecordReader(conn JSONReadCloser, controllerUUID string) *LogRecordReader {
 	out := make(chan logfwd.Record)
 	lrr := &LogRecordReader{
-		conn: conn,
-		out:  out,
+		conn:           conn,
+		out:            out,
+		controllerUUID: controllerUUID,
 	}
 	go func() {
 		defer lrr.tomb.Done()
@@ -76,13 +77,13 @@ func (lrr *LogRecordReader) Channel() <-chan logfwd.Record {
 
 func (lrr *LogRecordReader) loop() error {
 	for {
-		var apiRecord params.LogRecord
+		var apiRecord params.LogStreamRecord
 		err := lrr.conn.ReadJSON(&apiRecord)
 		if err != nil {
 			return err
 		}
 
-		record, err := api2record(apiRecord)
+		record, err := api2record(apiRecord, lrr.controllerUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -105,11 +106,12 @@ func (lrr *LogRecordReader) Wait() error {
 	return lrr.tomb.Wait()
 }
 
-func api2record(apiRec params.LogRecord) (logfwd.Record, error) {
+func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
 	rec := logfwd.Record{
 		Origin: logfwd.Origin{
-			ModelUUID:   apiRec.ModelUUID,
-			JujuVersion: version.Current,
+			ControllerUUID: controllerUUID,
+			ModelUUID:      apiRec.ModelUUID,
+			JujuVersion:    version.Current,
 		},
 		Timestamp: apiRec.Time,
 		Level:     apiRec.LoggoLevel(),

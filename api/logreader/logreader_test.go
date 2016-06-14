@@ -29,8 +29,9 @@ type LogRecordReaderSuite struct {
 var _ = gc.Suite(&LogRecordReaderSuite{})
 
 func (s *LogRecordReaderSuite) TestLogRecordReader(c *gc.C) {
+	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
 	ts := time.Now()
-	apiRec := params.LogRecord{
+	apiRec := params.LogStreamRecord{
 		ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
 		Time:      ts,
 		Module:    "api.logreader.test",
@@ -44,21 +45,20 @@ func (s *LogRecordReaderSuite) TestLogRecordReader(c *gc.C) {
 	conn := &mockConnector{stub: stub}
 	conn.ReturnConnectStream = stream
 	var cfg params.LogStreamConfig
-	r, err := logreader.OpenLogRecordReader(conn, cfg)
+	r, err := logreader.OpenLogRecordReader(conn, cfg, cUUID)
 	c.Assert(err, gc.IsNil)
 
 	channel := r.Channel()
 	c.Assert(channel, gc.NotNil)
 
-	stub.CheckCall(c, 0, "ConnectStream", `/log`, url.Values{
-		"format": []string{"json"},
-	})
+	stub.CheckCall(c, 0, "ConnectStream", `/logstream`, url.Values{})
 	select {
 	case logRecord := <-channel:
 		c.Check(logRecord, jc.DeepEquals, logfwd.Record{
 			Origin: logfwd.Origin{
-				ModelUUID:   "deadbeef-2f18-4fd2-967d-db9663db7bea",
-				JujuVersion: version.Current,
+				ControllerUUID: cUUID,
+				ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
+				JujuVersion:    version.Current,
 			},
 			Timestamp: ts,
 			Level:     loggo.INFO,
@@ -80,19 +80,21 @@ func (s *LogRecordReaderSuite) TestLogRecordReader(c *gc.C) {
 }
 
 func (s *LogRecordReaderSuite) TestNewAPIReadLogError(c *gc.C) {
+	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
 	stub := &testing.Stub{}
 	conn := &mockConnector{stub: stub}
 	failure := errors.New("foo")
 	stub.SetErrors(failure)
 	var cfg params.LogStreamConfig
 
-	_, err := logreader.OpenLogRecordReader(conn, cfg)
+	_, err := logreader.OpenLogRecordReader(conn, cfg, cUUID)
 
 	stub.CheckCallNames(c, "ConnectStream")
-	c.Check(err, gc.ErrorMatches, "cannot connect to /log: foo")
+	c.Check(err, gc.ErrorMatches, "cannot connect to /logstream: foo")
 }
 
 func (s *LogRecordReaderSuite) TestNewAPIWriteError(c *gc.C) {
+	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
 	stub := &testing.Stub{}
 	stream := mockStream{stub: stub}
 	conn := &mockConnector{stub: stub}
@@ -100,7 +102,7 @@ func (s *LogRecordReaderSuite) TestNewAPIWriteError(c *gc.C) {
 	failure := errors.New("an error")
 	stub.SetErrors(nil, failure)
 	var cfg params.LogStreamConfig
-	r, err := logreader.OpenLogRecordReader(conn, cfg)
+	r, err := logreader.OpenLogRecordReader(conn, cfg, cUUID)
 	c.Assert(err, gc.IsNil)
 
 	channel := r.Channel()
@@ -134,7 +136,7 @@ type mockStream struct {
 	base.Stream
 	stub *testing.Stub
 
-	ReturnReadJSON params.LogRecord
+	ReturnReadJSON params.LogStreamRecord
 }
 
 func (s mockStream) ReadJSON(v interface{}) error {
@@ -144,7 +146,7 @@ func (s mockStream) ReadJSON(v interface{}) error {
 	}
 
 	switch vt := v.(type) {
-	case *params.LogRecord:
+	case *params.LogStreamRecord:
 		*vt = s.ReturnReadJSON
 		return nil
 	default:

@@ -10,47 +10,30 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 )
 
-// StreamFormat is the "enum" for supported stream formats.
-type StreamFormat string
-
-// These are the supported log stream formats.
-const (
-	StreamFormatRaw  StreamFormat = ""
-	StreamFormatJSON              = "json"
-)
-
-// StreamConfig holds common information needed to open a streaming
-// connection to an API endpoint for reading.
-type StreamConfig struct {
-	// Format identifies the way in which the streamed data
-	// should be formatted.
-	Format StreamFormat
+// LogStreamRecord describes a single log record being streamed from
+// the server.
+//
+// Single character field names are used for serialisation to keep the
+// size down. These messages are going to be sent a lot.
+type LogStreamRecord struct {
+	ModelUUID string    `json:"o"`
+	Time      time.Time `json:"t"`
+	Module    string    `json:"m"`
+	Location  string    `json:"l"`
+	Level     string    `json:"v"`
+	Message   string    `json:"x"`
 }
 
-// Apply adjusts the provided query to match the config.
-func (cfg StreamConfig) Apply(query url.Values) {
-	if cfg.Format != "" {
-		query.Set("format", string(cfg.Format))
+// LoggoLevel converts the level string to a loggo.Level.
+func (rec LogStreamRecord) LoggoLevel() loggo.Level {
+	level, ok := loggo.ParseLevel(rec.Level)
+	if !ok {
+		return loggo.UNSPECIFIED
 	}
-}
-
-// GetStreamConfig extracts the generic stream config from the provided
-// URL query.
-func GetStreamConfig(query url.Values) (StreamConfig, error) {
-	var cfg StreamConfig
-
-	switch query.Get("format") {
-	case string(StreamFormatRaw):
-		cfg.Format = StreamFormatRaw
-	case string(StreamFormatJSON):
-		cfg.Format = StreamFormatJSON
-	default:
-		return cfg, errors.Errorf("unsupported stream format %q", query.Get("format"))
-	}
-
-	return cfg, nil
+	return level
 }
 
 // TODO(ericsnow) At some point it would make sense to merge this code
@@ -59,8 +42,6 @@ func GetStreamConfig(query url.Values) (StreamConfig, error) {
 // LogStreamConfig holds all the information necessary to open a
 // streaming connection to the API endpoint for reading log records.
 type LogStreamConfig struct {
-	StreamConfig
-
 	// AllModels indicates whether logs for all the controller's models
 	// should be included or just those of the connection's model.
 	AllModels bool
@@ -72,21 +53,11 @@ type LogStreamConfig struct {
 
 // Endpoint returns the API endpoint path to use for log streaming.
 func (cfg LogStreamConfig) Endpoint() string {
-	return "/log"
+	return "/logstream"
 }
-
-// URLQuery converts the config into a URL query suitable for use when
-// connecting to an API endpoint stream.
-//func (cfg LogStreamConfig) URLQuery(format StreamFormat) url.Values {
-//	query := make(url.Values)
-//
-//	return query
-//}
 
 // Apply adjusts the provided query to match the config.
 func (cfg LogStreamConfig) Apply(query url.Values) {
-	cfg.StreamConfig.Apply(query)
-
 	if cfg.AllModels {
 		query.Set("all", fmt.Sprint(true))
 	}
@@ -100,12 +71,6 @@ func (cfg LogStreamConfig) Apply(query url.Values) {
 // provided URL query.
 func GetLogStreamConfig(query url.Values) (LogStreamConfig, error) {
 	var cfg LogStreamConfig
-
-	basecfg, err := GetStreamConfig(query)
-	if err != nil {
-		return cfg, errors.Trace(err)
-	}
-	cfg.StreamConfig = basecfg
 
 	if value := query.Get("all"); value != "" {
 		allModels, err := strconv.ParseBool(value)

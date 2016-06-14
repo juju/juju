@@ -22,14 +22,11 @@ func (s *LogStreamConfigSuite) TestEndpoint(c *gc.C) {
 
 	ep := cfg.Endpoint()
 
-	c.Check(ep, gc.Equals, "/log")
+	c.Check(ep, gc.Equals, "/logstream")
 }
 
 func (s *LogStreamConfigSuite) TestApplyFull(c *gc.C) {
 	cfg := params.LogStreamConfig{
-		StreamConfig: params.StreamConfig{
-			Format: params.StreamFormatJSON,
-		},
 		AllModels: true,
 		StartTime: time.Unix(12345, 10),
 	}
@@ -38,9 +35,8 @@ func (s *LogStreamConfigSuite) TestApplyFull(c *gc.C) {
 	cfg.Apply(query)
 
 	c.Check(query, jc.DeepEquals, url.Values{
-		"format": []string{"json"},
-		"all":    []string{"true"},
-		"start":  []string{"12345"},
+		"all":   []string{"true"},
+		"start": []string{"12345"},
 	})
 }
 
@@ -55,18 +51,14 @@ func (s *LogStreamConfigSuite) TestApplyZeroValue(c *gc.C) {
 
 func (s *LogStreamConfigSuite) TestGetLogStreamConfigFull(c *gc.C) {
 	query := url.Values{
-		"format": []string{"json"},
-		"all":    []string{"true"},
-		"start":  []string{"12345"},
+		"all":   []string{"true"},
+		"start": []string{"12345"},
 	}
 
 	cfg, err := params.GetLogStreamConfig(query)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cfg, jc.DeepEquals, params.LogStreamConfig{
-		StreamConfig: params.StreamConfig{
-			Format: params.StreamFormatJSON,
-		},
 		AllModels: true,
 		StartTime: time.Unix(12345, 0),
 	})
@@ -81,23 +73,10 @@ func (s *LogStreamConfigSuite) TestGetLogStreamConfigEmpty(c *gc.C) {
 	c.Check(cfg, jc.DeepEquals, params.LogStreamConfig{})
 }
 
-func (s *LogStreamConfigSuite) TestGetLogStreamConfigBadStreamConfig(c *gc.C) {
-	query := url.Values{
-		"format": []string{"..."},
-		"all":    []string{"true"},
-		"start":  []string{"12345"},
-	}
-
-	_, err := params.GetLogStreamConfig(query)
-
-	c.Check(err, gc.ErrorMatches, `unsupported stream format "..."`)
-}
-
 func (s *LogStreamConfigSuite) TestGetLogStreamConfigBadAllModels(c *gc.C) {
 	query := url.Values{
-		"format": []string{"json"},
-		"all":    []string{"..."},
-		"start":  []string{"12345"},
+		"all":   []string{"..."},
+		"start": []string{"12345"},
 	}
 
 	_, err := params.GetLogStreamConfig(query)
@@ -107,9 +86,8 @@ func (s *LogStreamConfigSuite) TestGetLogStreamConfigBadAllModels(c *gc.C) {
 
 func (s *LogStreamConfigSuite) TestGetLogStreamConfigStartTime(c *gc.C) {
 	query := url.Values{
-		"format": []string{"json"},
-		"all":    []string{"true"},
-		"start":  []string{"..."},
+		"all":   []string{"true"},
+		"start": []string{"..."},
 	}
 
 	_, err := params.GetLogStreamConfig(query)
