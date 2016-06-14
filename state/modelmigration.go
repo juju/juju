@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/mongo"
 )
 
 // This file contains functionality for managing the state documents
@@ -655,9 +656,28 @@ func checkTargetController(st *State, targetControllerTag names.ModelTag) error 
 func (st *State) GetModelMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
-
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-_id").Limit(1)
+	mig, err := st.modelMigrationFromQuery(query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mig, nil
+}
+
+// ModelMigration retrieves a specific ModelMigration by its
+// id. See also GetModelMigration.
+func (st *State) ModelMigration(id string) (ModelMigration, error) {
+	migColl, closer := st.getCollection(migrationsC)
+	defer closer()
+	mig, err := st.modelMigrationFromQuery(migColl.FindId(id))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mig, nil
+}
+
+func (st *State) modelMigrationFromQuery(query mongo.Query) (ModelMigration, error) {
 	var doc modelMigDoc
 	err := query.One(&doc)
 	if err == mgo.ErrNotFound {
@@ -670,8 +690,10 @@ func (st *State) GetModelMigration() (ModelMigration, error) {
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err = statusColl.FindId(doc.Id).One(&statusDoc)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to find status document")
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("migration status")
+	} else if err != nil {
+		return nil, errors.Annotate(err, "migration status lookup failed")
 	}
 
 	return &modelMigration{

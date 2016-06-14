@@ -252,6 +252,22 @@ func (s *ModelMigrationSuite) TestGetsLatestAttempt(c *gc.C) {
 	}
 }
 
+func (s *ModelMigrationSuite) TestModelMigration(c *gc.C) {
+	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mig2, err := s.State2.ModelMigration(mig1.Id())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(mig1.Id(), gc.Equals, mig2.Id())
+	c.Check(mig2.StartTime(), gc.Equals, s.clock.Now())
+}
+
+func (s *ModelMigrationSuite) TestModelMigrationNotFound(c *gc.C) {
+	_, err := s.State2.ModelMigration("does not exist")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, "migration not found")
+}
+
 func (s *ModelMigrationSuite) TestRefresh(c *gc.C) {
 	mig1, err := s.State2.CreateModelMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
