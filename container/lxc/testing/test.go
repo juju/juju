@@ -31,7 +31,7 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.RemovedDir = c.MkDir()
 	s.PatchValue(&container.RemovedContainerDir, s.RemovedDir)
 	c.Logf("container.RemovedContainerDir = %q", s.RemovedDir)
-	s.LxcDir = c.MkDir()
+	s.LxcDir = s.ContainerDir
 	s.PatchValue(&lxc.LxcContainerDir, s.LxcDir)
 	c.Logf("lxc.LxcContainerDir = %q", s.LxcDir)
 	s.RestartDir = c.MkDir()

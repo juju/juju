@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -74,7 +73,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 
 	name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
-	EnsureLXCRootFSEtcNetwork(c, name)
+	EnsureContainerRootFSEtcNetwork(c, name)
 
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", networkConfig, storageConfig, callback)
@@ -84,11 +83,11 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	return inst
 }
 
-func EnsureLXCRootFSEtcNetwork(c *gc.C, containerName string) {
+func EnsureContainerRootFSEtcNetwork(c *gc.C, containerName string) {
 	// Pre-create the mock rootfs dir for the container and
 	// /etc/network/ inside it, where the interfaces file will be
 	// pre-rendered (unless AUFS is used).
-	etcNetwork := filepath.Join(lxc.LxcContainerDir, containerName, "rootfs", "etc", "network")
+	etcNetwork := filepath.Join(container.ContainerDir, containerName, "rootfs", "etc", "network")
 	logger.Debugf("ensuring root fs /etc/network in %s", etcNetwork)
 	err := os.MkdirAll(etcNetwork, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +116,7 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 
 	name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
-	EnsureLXCRootFSEtcNetwork(c, name)
+	EnsureContainerRootFSEtcNetwork(c, name)
 
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", network, storage, callback)
