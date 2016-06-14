@@ -705,7 +705,9 @@ class EnvJujuClient:
 
     def _cmd_model(self, include_e, admin):
         if admin:
-            return self.get_admin_model_name()
+            return '{controller}:{model}'.format(
+                controller=self.env.controller.name,
+                model=self.get_admin_model_name())
         elif self.env is None or not include_e:
             return None
         else:
