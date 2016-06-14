@@ -40,21 +40,21 @@ type LogRecordReader struct {
 
 // OpenLogRecordReader opens a stream to the API's /log endpoint and
 // returns a reader that wraps that stream.
+//
+// Note that the caller is responsible for stopping the reader, e.g. by
+// passing it to worker.Stop().
 func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID string) (*LogRecordReader, error) {
 	wsStream, err := stream.Open(conn, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	lrr := NewLogRecordReader(wsStream, controllerUUID)
+	lrr := newLogRecordReader(wsStream, controllerUUID)
 	return lrr, nil
 }
 
-// NewLogRecordReader starts a new reader and returns it. The provided
+// newLogRecordReader starts a new reader and returns it. The provided
 // connection is the one from which the reader will stream log records.
-//
-// Note that the caller is responsible for stopping the reader, e.g. by
-// passing it to worker.Stop().
-func NewLogRecordReader(conn JSONReadCloser, controllerUUID string) *LogRecordReader {
+func newLogRecordReader(conn JSONReadCloser, controllerUUID string) *LogRecordReader {
 	out := make(chan logfwd.Record)
 	lrr := &LogRecordReader{
 		conn:           conn,
