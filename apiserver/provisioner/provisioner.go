@@ -545,7 +545,7 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 		}
 
 		// TODO(dimitern): Release those via the provider once we have
-		// Environ.ReleaseContainerAddresses.
+		// Environ.ReleaseContainerAddresses. See LP bug http://pad.lv/1585878
 		err = container.RemoveAllAddresses()
 		if err != nil {
 			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
