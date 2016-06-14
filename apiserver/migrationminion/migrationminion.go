@@ -9,12 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterStandardFacade("MigrationMinion", 1, NewAPI)
-}
 
 // API implements the API required for the model migration
 // master worker.
@@ -27,7 +22,7 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	st *state.State,
+	backend Backend,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -35,7 +30,7 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    getBackend(st), // XXX
+		backend:    backend,
 		authorizer: authorizer,
 		resources:  resources,
 	}, nil

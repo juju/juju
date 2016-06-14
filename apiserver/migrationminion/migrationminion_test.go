@@ -38,7 +38,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.backend = &stubBackend{stub: s.stub}
-	migrationminion.PatchState(s, s.backend)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -108,11 +107,11 @@ func (s *Suite) TestReportNoSuchMigration(c *gc.C) {
 }
 
 func (s *Suite) makeAPI() (*migrationminion.API, error) {
-	return migrationminion.NewAPI(nil, s.resources, s.authorizer)
+	return migrationminion.NewAPI(s.backend, s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationminion.API {
-	api, err := migrationminion.NewAPI(nil, s.resources, s.authorizer)
+	api, err := s.makeAPI()
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
