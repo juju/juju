@@ -49,7 +49,7 @@ func initExpectations(com *DeployCommand, store jujuclient.ClientStore) {
 		com.NumUnits = 1
 	}
 	com.SetClientStore(store)
-	com.SetModelName("admin")
+	com.SetModelName("controller")
 }
 
 func initDeployCommand(store jujuclient.ClientStore, args ...string) (*DeployCommand, error) {

@@ -650,7 +650,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 
 	life := Dying
 	if isEmpty && uuid != m.doc.ServerUUID {
-		// The model is empty, and is not the admin
+		// The model is empty, and is not the controller
 		// model, so we can move it straight to Dead.
 		life = Dead
 	}
