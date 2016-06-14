@@ -42,13 +42,13 @@ Add one unit of mysql to the existing machine 23:
 
     juju add-unit mysql --to 23
 
-Create a new LXC container on machine 7 and add one unit of mysql:
+Create a new LXD container on machine 7 and add one unit of mysql:
 
-    juju add-unit mysql --to lxc:7
+    juju add-unit mysql --to lxd:7
 
-Add a unit of mariadb to LXC container number 3 on machine 24:
+Add a unit of mariadb to LXD container number 3 on machine 24:
 
-    juju add-unit mariadb --to 24/lxc/3
+    juju add-unit mariadb --to 24/lxd/3
 
 See also: 
     remove-unit`[1:]

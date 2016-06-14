@@ -114,7 +114,7 @@ func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
 		Version: version.MustParseBinary("2.0.1-trusty-amd64"),
 	})
 	container := machine.AddContainer(description.MachineArgs{
-		Id: names.NewMachineTag("0/lxc/0"),
+		Id: names.NewMachineTag("0/lxd/0"),
 	})
 	container.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary("2.0.5-trusty-amd64"),

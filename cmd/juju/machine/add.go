@@ -39,7 +39,7 @@ may specify constraints for the machine to be provisioned; the provider
 will interpret these constraints in order to decide what kind of machine
 to allocate.
 
-If a container type is specified (e.g. "lxc"), then add machine will
+If a container type is specified (e.g. "lxd"), then add machine will
 allocate a container of that type on a new provider-specific machine. It is
 also possible to add containers to existing machines using the format
 <container type>:<machine number>. Constraints cannot be combined with
@@ -60,9 +60,9 @@ For more information on placement directives, see "juju help placement".
 Examples:
    juju add-machine                      (starts a new machine)
    juju add-machine -n 2                 (starts 2 new machines)
-   juju add-machine lxc                  (starts a new machine with an lxc container)
-   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
-   juju add-machine lxc:4                (starts a new lxc container on machine 4)
+   juju add-machine lxd                  (starts a new machine with an lxd container)
+   juju add-machine lxd -n 2             (starts 2 new machines with an lxd container)
+   juju add-machine lxd:4                (starts a new lxd container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)

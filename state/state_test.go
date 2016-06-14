@@ -337,12 +337,12 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
-			about: "LXC only containers",
+			about: "lxd only containers",
 			getWatcher: func(st *state.State) interface{} {
 				f := factory.NewFactory(st)
 				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
-				return m.WatchContainers(instance.LXC)
+				return m.WatchContainers(instance.LXD)
 			},
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
@@ -353,7 +353,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 						Jobs:   []state.MachineJob{state.JobHostUnits},
 					},
 					m.Id(),
-					instance.LXC,
+					instance.LXD,
 				)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -972,11 +972,11 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 		Series: "raring",
 		Jobs:   oneJob,
 	}
-	m, err := s.State.AddMachineInsideNewMachine(template, parentTemplate, instance.LXC)
+	m, err := s.State.AddMachineInsideNewMachine(template, parentTemplate, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
+	c.Assert(m.Id(), gc.Equals, "0/lxd/0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
-	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
+	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
@@ -984,10 +984,10 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 	m, err = s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineContainers(c, m, []string{"0/lxc/0"})
+	s.assertMachineContainers(c, m, []string{"0/lxd/0"})
 	c.Assert(m.Series(), gc.Equals, "raring")
 
-	m, err = s.State.Machine("0/lxc/0")
+	m, err = s.State.Machine("0/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineContainers(c, m, nil)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
@@ -1004,20 +1004,20 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	m, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, "1", instance.LXC)
+	}, "1", instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "1/lxc/0")
+	c.Assert(m.Id(), gc.Equals, "1/lxd/0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
-	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
+	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
+	s.assertMachineContainers(c, m1, []string{"1/lxd/0"})
 
 	s.assertMachineContainers(c, m0, nil)
-	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
-	m, err = s.State.Machine("1/lxc/0")
+	s.assertMachineContainers(c, m1, []string{"1/lxd/0"})
+	m, err = s.State.Machine("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertMachineContainers(c, m, nil)
 
@@ -1025,13 +1025,13 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	m, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, "1", instance.LXC)
+	}, "1", instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "1/lxc/1")
+	c.Assert(m.Id(), gc.Equals, "1/lxd/1")
 	c.Assert(m.Series(), gc.Equals, "quantal")
-	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
+	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
+	s.assertMachineContainers(c, m1, []string{"1/lxd/0", "1/lxd/1"})
 }
 
 func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {
@@ -1060,8 +1060,8 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, "0", instance.LXC)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
+	}, "0", instance.LXD)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxd containers")
 	s.assertMachineContainers(c, host, nil)
 }
 
@@ -1075,8 +1075,8 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, "0", instance.LXC)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
+	}, "0", instance.LXD)
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxd containers")
 	s.assertMachineContainers(c, host, nil)
 }
 
@@ -1090,13 +1090,13 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err := s.State.AddMachineInsideMachine(instIdTemplate, "0", instance.LXC)
+	_, err := s.State.AddMachineInsideMachine(instIdTemplate, "0", instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
-	_, err = s.State.AddMachineInsideNewMachine(instIdTemplate, normalTemplate, instance.LXC)
+	_, err = s.State.AddMachineInsideNewMachine(instIdTemplate, normalTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
-	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, instIdTemplate, instance.LXC)
+	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, instIdTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
 	_, err = s.State.AddOneMachine(instIdTemplate)
@@ -1116,13 +1116,13 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	_, err = s.State.AddOneMachine(noSeriesTemplate)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
-	_, err = s.State.AddMachineInsideNewMachine(noSeriesTemplate, normalTemplate, instance.LXC)
+	_, err = s.State.AddMachineInsideNewMachine(noSeriesTemplate, normalTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
-	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, noSeriesTemplate, instance.LXC)
+	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, noSeriesTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
-	_, err = s.State.AddMachineInsideMachine(noSeriesTemplate, "0", instance.LXC)
+	_, err = s.State.AddMachineInsideMachine(noSeriesTemplate, "0", instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 }
 
@@ -1131,7 +1131,7 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err := s.State.AddMachineInsideMachine(template, "10", instance.LXC)
+	_, err := s.State.AddMachineInsideMachine(template, "10", instance.LXD)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 10 not found")
 	_, err = s.State.AddMachineInsideMachine(template, "10", "")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no container type specified")
@@ -1209,25 +1209,25 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	m, err := s.State.AddMachineInsideMachine(template, "0", instance.LXC)
+	m, err := s.State.AddMachineInsideMachine(template, "0", instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
+	c.Assert(m.Id(), gc.Equals, "0/lxd/0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
-	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
+	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	s.assertMachineContainers(c, m0, []string{"0/lxc/0"})
+	s.assertMachineContainers(c, m0, []string{"0/lxd/0"})
 
 	// Add second container.
-	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXC)
+	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "0/lxc/1")
+	c.Assert(m.Id(), gc.Equals, "0/lxd/1")
 	c.Assert(m.Series(), gc.Equals, "quantal")
-	c.Assert(m.ContainerType(), gc.Equals, instance.LXC)
+	c.Assert(m.ContainerType(), gc.Equals, instance.LXD)
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
+	s.assertMachineContainers(c, m0, []string{"0/lxd/0", "0/lxd/1"})
 }
 
 func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
@@ -1253,10 +1253,10 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	m, err = s.State.AddOneMachine(template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
-	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXC)
+	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXD)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
-	m, err = s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	m, err = s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 }
 
@@ -1280,12 +1280,12 @@ func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
 	c.Assert(state.MachineIdLessThan("0", "1"), jc.IsTrue)
 	c.Assert(state.MachineIdLessThan("1", "0"), jc.IsFalse)
 	c.Assert(state.MachineIdLessThan("10", "2"), jc.IsFalse)
-	c.Assert(state.MachineIdLessThan("0", "0/lxc/0"), jc.IsTrue)
-	c.Assert(state.MachineIdLessThan("0/lxc/0", "0"), jc.IsFalse)
-	c.Assert(state.MachineIdLessThan("1", "0/lxc/0"), jc.IsFalse)
-	c.Assert(state.MachineIdLessThan("0/lxc/0", "1"), jc.IsTrue)
-	c.Assert(state.MachineIdLessThan("0/lxc/0/lxc/1", "0/lxc/0"), jc.IsFalse)
-	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxc/0"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("0", "0/lxd/0"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("0/lxd/0", "0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("1", "0/lxd/0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("0/lxd/0", "1"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("0/lxd/0/lxd/1", "0/lxd/0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxd/0"), jc.IsTrue)
 }
 
 func (s *StateSuite) TestAllMachines(c *gc.C) {
@@ -2168,7 +2168,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a container: not reported.
-	m, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	m, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2201,7 +2201,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial event is empty when no containers.
-	w := machine.WatchContainers(instance.LXC)
+	w := machine.WatchContainers(instance.LXD)
 	defer statetesting.AssertStop(c, w)
 	wAll := machine.WatchAllContainers()
 	defer statetesting.AssertStop(c, wAll)
@@ -2215,11 +2215,11 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Add a container of the required type: reported.
-	m, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	m, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("0/lxc/0")
+	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
-	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertChange("0/lxd/0")
 	wcAll.AssertNoChange()
 
 	// Add a container of a different type: not reported.
@@ -2231,28 +2231,28 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Add a nested container of the right type: not reported.
-	mchild, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
+	mchild, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	wcAll.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
-	m2, err := s.State.AddMachineInsideMachine(template, otherMachine.Id(), instance.LXC)
+	m2, err := s.State.AddMachineInsideMachine(template, otherMachine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	statetesting.AssertStop(c, w)
 	wcAll.AssertNoChange()
 	statetesting.AssertStop(c, wAll)
 
-	w = machine.WatchContainers(instance.LXC)
+	w = machine.WatchContainers(instance.LXD)
 	defer statetesting.AssertStop(c, w)
 	wc = statetesting.NewStringsWatcherC(c, s.State, w)
 	wAll = machine.WatchAllContainers()
 	defer statetesting.AssertStop(c, wAll)
 	wcAll = statetesting.NewStringsWatcherC(c, s.State, wAll)
-	wc.AssertChange("0/lxc/0")
+	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
-	wcAll.AssertChange("0/kvm/0", "0/lxc/0")
+	wcAll.AssertChange("0/kvm/0", "0/lxd/0")
 	wcAll.AssertNoChange()
 
 	// Make the container Dying: cannot because of nested container.
@@ -2267,9 +2267,9 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Make the container Dying: reported.
 	err = m.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("0/lxc/0")
+	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
-	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertChange("0/lxd/0")
 	wcAll.AssertNoChange()
 
 	// Make the other containers Dying: not reported.
@@ -2285,9 +2285,9 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Make the container Dead: reported.
 	err = m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("0/lxc/0")
+	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
-	wcAll.AssertChange("0/lxc/0")
+	wcAll.AssertChange("0/lxd/0")
 	wcAll.AssertNoChange()
 
 	// Make the other containers Dead: not reported.
@@ -3032,26 +3032,26 @@ func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 
 func (s *StateSuite) TestNestingLevel(c *gc.C) {
 	c.Assert(state.NestingLevel("0"), gc.Equals, 0)
-	c.Assert(state.NestingLevel("0/lxc/1"), gc.Equals, 1)
-	c.Assert(state.NestingLevel("0/lxc/1/kvm/0"), gc.Equals, 2)
+	c.Assert(state.NestingLevel("0/lxd/1"), gc.Equals, 1)
+	c.Assert(state.NestingLevel("0/lxd/1/kvm/0"), gc.Equals, 2)
 }
 
 func (s *StateSuite) TestTopParentId(c *gc.C) {
 	c.Assert(state.TopParentId("0"), gc.Equals, "0")
-	c.Assert(state.TopParentId("0/lxc/1"), gc.Equals, "0")
-	c.Assert(state.TopParentId("0/lxc/1/kvm/2"), gc.Equals, "0")
+	c.Assert(state.TopParentId("0/lxd/1"), gc.Equals, "0")
+	c.Assert(state.TopParentId("0/lxd/1/kvm/2"), gc.Equals, "0")
 }
 
 func (s *StateSuite) TestParentId(c *gc.C) {
 	c.Assert(state.ParentId("0"), gc.Equals, "")
-	c.Assert(state.ParentId("0/lxc/1"), gc.Equals, "0")
-	c.Assert(state.ParentId("0/lxc/1/kvm/0"), gc.Equals, "0/lxc/1")
+	c.Assert(state.ParentId("0/lxd/1"), gc.Equals, "0")
+	c.Assert(state.ParentId("0/lxd/1/kvm/0"), gc.Equals, "0/lxd/1")
 }
 
 func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
-	c.Assert(state.ContainerTypeFromId("0/lxc/1"), gc.Equals, instance.LXC)
-	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
+	c.Assert(state.ContainerTypeFromId("0/lxd/1"), gc.Equals, instance.LXD)
+	c.Assert(state.ContainerTypeFromId("0/lxd/1/kvm/0"), gc.Equals, instance.KVM)
 }
 
 func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {

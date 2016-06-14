@@ -746,7 +746,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	var supportedContainers []instance.ContainerType
 	supportsContainers := container.ContainersSupported()
 	if supportsContainers {
-		supportedContainers = append(supportedContainers, instance.LXC, instance.LXD)
+		supportedContainers = append(supportedContainers, instance.LXD)
 	}
 
 	supportsKvm, err := kvm.IsKVMSupported()
@@ -1369,13 +1369,8 @@ func (a *MachineAgent) uninstallAgent() error {
 	// its completion.
 	insideContainer := container.RunningInContainer()
 	if insideContainer {
-		// We're running inside LXC, so loop devices may leak. Detach
+		// We're running inside a container, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
-		//
-		// It is necessary to do this here as well as in container/lxc,
-		// as container/lxc needs to check in the container's rootfs
-		// to see if the loop device is attached to the container; that
-		// will fail if the data-dir is removed first.
 		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
 			errs = append(errs, err)
 		}

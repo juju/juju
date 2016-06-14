@@ -731,7 +731,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesRefusesToAddContaine
 			ParentName: parentDeviceGlobalKey,
 		}
 		err := s.containerMachine.SetLinkLayerDevices(containerDeviceArgs)
-		expectedError := `cannot set .* to machine "0/lxc/0": ` +
+		expectedError := `cannot set .* to machine "0/lxd/0": ` +
 			`invalid device "eth0": ` +
 			`parent device ".*" on host machine "0" must be of type "bridge", not type ".*"`
 		c.Check(err, gc.ErrorMatches, expectedError)
@@ -746,7 +746,7 @@ func (s *linkLayerDevicesStateSuite) addContainerMachine(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(containerTemplate, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	s.containerMachine = container
 }

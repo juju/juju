@@ -441,7 +441,7 @@ func (s *FilesystemStateSuite) TestParseFilesystemAttachmentId(c *gc.C) {
 	}
 	assertValid("0:0", names.NewMachineTag("0"), names.NewFilesystemTag("0"))
 	assertValid("0:0/1", names.NewMachineTag("0"), names.NewFilesystemTag("0/1"))
-	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewFilesystemTag("1"))
+	assertValid("0/lxd/0:1", names.NewMachineTag("0/lxd/0"), names.NewFilesystemTag("1"))
 }
 
 func (s *FilesystemStateSuite) TestParseFilesystemAttachmentIdError(c *gc.C) {

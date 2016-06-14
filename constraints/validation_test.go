@@ -152,12 +152,12 @@ var mergeTests = []struct {
 		desc: "empty all round",
 	}, {
 		desc:     "container with empty fallback",
-		cons:     "container=lxc",
-		expected: "container=lxc",
+		cons:     "container=lxd",
+		expected: "container=lxd",
 	}, {
 		desc:         "container from fallback",
-		consFallback: "container=lxc",
-		expected:     "container=lxc",
+		consFallback: "container=lxd",
+		expected:     "container=lxd",
 	}, {
 		desc:     "arch with empty fallback",
 		cons:     "arch=amd64",

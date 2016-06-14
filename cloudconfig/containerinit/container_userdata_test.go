@@ -188,7 +188,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 }
 
 func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
-	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
 	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)

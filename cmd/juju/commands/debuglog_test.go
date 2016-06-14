@@ -111,7 +111,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		return fake, nil
 	})
 	_, err := testing.RunCommand(c, newDebugLogCommand(),
-		"-i", "machine-1*", "-x", "machine-1-lxc-1",
+		"-i", "machine-1*", "-x", "machine-1-lxd-1",
 		"--include-module=juju.provisioner",
 		"--lines=500",
 		"--level=WARNING",
@@ -121,7 +121,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	c.Assert(fake.params, gc.DeepEquals, api.DebugLogParams{
 		IncludeEntity: []string{"machine-1*"},
 		IncludeModule: []string{"juju.provisioner"},
-		ExcludeEntity: []string{"machine-1-lxc-1"},
+		ExcludeEntity: []string{"machine-1-lxd-1"},
 		Backlog:       500,
 		Level:         loggo.WARNING,
 		NoTail:        true,

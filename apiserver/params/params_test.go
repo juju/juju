@@ -52,13 +52,13 @@ var marshalTestCases = []struct {
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
-			SupportedContainers:     []instance.ContainerType{instance.LXC},
+			SupportedContainers:     []instance.ContainerType{instance.LXD},
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
-	json: `["machine","change",{"ModelUUID":"uuid","Id":"Benji","InstanceId":"Shazam","JujuStatus":{"Err":null,"Current":"error","Message":"foo","Since":null,"Version":"","Data":null},"MachineStatus":{"Err":null,"Current":"pending","Message":"","Since":null,"Version":"","Data":null},"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"SupportedContainersKnown":false,"HardwareCharacteristics":{},"Jobs":["JobManageModel"],"Addresses":[],"HasVote":false,"WantsVote":false}]`,
+	json: `["machine","change",{"ModelUUID":"uuid","Id":"Benji","InstanceId":"Shazam","JujuStatus":{"Err":null,"Current":"error","Message":"foo","Since":null,"Version":"","Data":null},"MachineStatus":{"Err":null,"Current":"pending","Message":"","Since":null,"Version":"","Data":null},"Life":"alive","Series":"trusty","SupportedContainers":["lxd"],"SupportedContainersKnown":false,"HardwareCharacteristics":{},"Jobs":["JobManageModel"],"Addresses":[],"HasVote":false,"WantsVote":false}]`,
 }, {
 	about: "ApplicationInfo Delta",
 	value: multiwatcher.Delta{

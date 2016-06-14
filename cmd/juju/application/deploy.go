@@ -143,15 +143,6 @@ repeated more than once to upload more than one resource.
 Where bar and baz are resources named in the metadata for the foo charm.
 
 Charms can be deployed to a specific machine using the --to argument.
-If the destination is an LXC container the default is to use lxc-clone
-to create the container where possible. For Ubuntu deployments, lxc-clone
-is supported for the trusty OS series and later. A 'template' container is
-created with the name
-  juju-<series>-template
-where <series> is the OS series, for example 'juju-trusty-template'.
-
-You can override the use of clone by changing the provider configuration:
-  lxc-clone: false
 
 In more complex scenarios, Juju's network spaces are used to partition the cloud
 networking layer into sets of subnets. Instances hosting units inside the
@@ -167,13 +158,6 @@ When deploying an application or adding machines, the "spaces" constraint can be
 used to define a comma-delimited list of required and forbidden spaces
 (the latter prefixed with "^", similar to the "tags" constraint).
 
-If you have the main container directory mounted on a btrfs partition,
-then the clone will be using btrfs snapshots to create the containers.
-This means that clones use up much less disk space.  If you do not have btrfs,
-lxc will attempt to use aufs (an overlay type filesystem). You can
-explicitly ask Juju to create full containers and not overlays by specifying
-the following in the provider configuration:
-  lxc-clone-aufs: false
 
 Examples:
    juju deploy mysql --to 23       (deploy to machine 23)

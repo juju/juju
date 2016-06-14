@@ -278,7 +278,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	m, err := factory.st.AddMachineInsideMachine(
 		machineTemplate,
 		parentId,
-		instance.LXC,
+		instance.LXD,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)

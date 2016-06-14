@@ -237,13 +237,13 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"containers": M{
-			"1/lxc/0": M{
+			"1/lxd/0": M{
 				"juju-status": M{
 					"current": "started",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"containers": M{
-					"1/lxc/0/lxc/0": M{
+					"1/lxd/0/lxd/0": M{
 						"juju-status": M{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -265,7 +265,7 @@ var (
 				},
 				"series": "quantal",
 			},
-			"1/lxc/1": M{
+			"1/lxd/1": M{
 				"juju-status": M{
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
@@ -1876,20 +1876,20 @@ var statusTests = []testCase{
 		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
 
 		// step 14: A container on machine 1.
-		addContainer{"1", "1/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0", network.NewAddresses("controller-2.dns")},
-		startAliveMachine{"1/lxc/0"},
-		setMachineStatus{"1/lxc/0", status.StatusStarted, ""},
-		addAliveUnit{"mysql", "1/lxc/0"},
+		addContainer{"1", "1/lxd/0", state.JobHostUnits},
+		setAddresses{"1/lxd/0", network.NewAddresses("controller-2.dns")},
+		startAliveMachine{"1/lxd/0"},
+		setMachineStatus{"1/lxd/0", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "1/lxd/0"},
 		setAgentStatus{"mysql/1", status.StatusIdle, "", nil},
 		setUnitStatus{"mysql/1", status.StatusActive, "", nil},
-		addContainer{"1", "1/lxc/1", state.JobHostUnits},
+		addContainer{"1", "1/lxd/1", state.JobHostUnits},
 
 		// step 22: A nested container.
-		addContainer{"1/lxc/0", "1/lxc/0/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0/lxc/0", network.NewAddresses("controller-3.dns")},
-		startAliveMachine{"1/lxc/0/lxc/0"},
-		setMachineStatus{"1/lxc/0/lxc/0", status.StatusStarted, ""},
+		addContainer{"1/lxd/0", "1/lxd/0/lxd/0", state.JobHostUnits},
+		setAddresses{"1/lxd/0/lxd/0", network.NewAddresses("controller-3.dns")},
+		startAliveMachine{"1/lxd/0/lxd/0"},
+		setMachineStatus{"1/lxd/0/lxd/0", status.StatusStarted, ""},
 
 		expect{
 			"machines with nested containers",
@@ -1920,7 +1920,7 @@ var statusTests = []testCase{
 								"public-address": "controller-1.dns",
 							},
 							"mysql/1": M{
-								"machine": "1/lxc/0",
+								"machine": "1/lxd/0",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1950,7 +1950,7 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"containers": M{
-							"1/lxc/0": M{
+							"1/lxd/0": M{
 								"juju-status": M{
 									"current": "started",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1985,7 +1985,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/1": M{
-								"machine": "1/lxc/0",
+								"machine": "1/lxd/0",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2462,7 +2462,7 @@ func (ac addContainer) step(c *gc.C, ctx *context) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{ac.job},
 	}
-	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXC)
+	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
@@ -3389,8 +3389,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And the machine's address is "controller-0.dns"
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		// And a container is started
-		// And the container's ID is "0/lxc/0"
-		addContainer{"0", "0/lxc/0", state.JobHostUnits},
+		// And the container's ID is "0/lxd/0"
+		addContainer{"0", "0/lxd/0", state.JobHostUnits},
 
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
@@ -3500,7 +3500,7 @@ func (s *StatusSuite) TestFilterToMachineShowsContainer(c *gc.C) {
 	_, stdout, stderr := runStatus(c, "--format", "yaml", "0")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output matching:
-	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxc/0(.|\n)*"
+	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxd/0(.|\n)*"
 	c.Assert(string(stdout), gc.Matches, expected)
 }
 
@@ -3509,8 +3509,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	// When I run juju status --format yaml 0/lxc/0
-	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxc/0")
+	// When I run juju status --format yaml 0/lxd/0
+	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
 	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
 	const expected = "" +
@@ -3531,7 +3531,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
 		"    containers:\n" +
-		"      0/lxc/0:\n" +
+		"      0/lxd/0:\n" +
 		"        juju-status:\n" +
 		"          current: pending\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +

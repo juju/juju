@@ -140,53 +140,6 @@ var configTests = []configTest{
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
 		}),
 	}, {
-		about:       "LXC clone values",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "precise",
-			"lxc-clone":      true,
-			"lxc-clone-aufs": true,
-		}),
-	}, {
-		about:       "Allow LXC loop mounts true",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"allow-lxc-loop-mounts": "true",
-		}),
-	}, {
-		about:       "Allow LXC loop mounts default",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"allow-lxc-loop-mounts": "false",
-		}),
-		expected: minimalConfigAttrs.Merge(testing.Attrs{
-			"allow-lxc-loop-mounts": false,
-		}),
-	}, {
-		about:       "LXC default MTU not set",
-		useDefaults: config.UseDefaults,
-		attrs:       minimalConfigAttrs,
-	}, {
-		about:       "LXC default MTU set explicitly",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-default-mtu": 9000,
-		}),
-	}, {
-		about:       "LXC default MTU invalid (not a number)",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-default-mtu": "foo",
-		}),
-		err: `lxc-default-mtu: expected number, got string\("foo"\)`,
-	}, {
-		about:       "LXC default MTU invalid (negative)",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-default-mtu": -42,
-		}),
-		err: `lxc-default-mtu: expected positive integer, got -42`,
-	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -752,7 +705,6 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		{".ssh/identity.pub", "identity"},
 		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 		{".ssh/authorized_keys2", "auth2\nauth3\n"},
-
 		{".local/share/juju/my-name-cert.pem", caCert},
 		{".local/share/juju/my-name-private-key.pem", caKey},
 		{".local/share/juju/cacert2.pem", caCert2},
@@ -1075,27 +1027,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
-	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
-	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
-	if v, ok := test.attrs["lxc-clone"]; ok {
-		c.Assert(useLxcClone, gc.Equals, v)
-		c.Assert(useLxcClonePresent, jc.IsTrue)
-	} else {
-		if oldUseClonePresent {
-			c.Assert(useLxcClonePresent, jc.IsTrue)
-			c.Assert(useLxcClone, gc.Equals, oldUseClone)
-		} else {
-			c.Assert(useLxcClonePresent, jc.IsFalse)
-			c.Assert(useLxcClone, jc.IsFalse)
-		}
-	}
-	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
-	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
-		c.Assert(useLxcCloneAufs, gc.Equals, v)
-	} else {
-		c.Assert(useLxcCloneAufs, jc.IsFalse)
-	}
-
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
 	if _, ok := test.attrs["resource-tags"]; ok {
 		c.Assert(cfgHasResourceTags, jc.IsTrue)
@@ -1142,9 +1073,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
-	attrs["lxc-clone-aufs"] = false
 	attrs["set-numa-control-policy"] = false
-	attrs["allow-lxc-loop-mounts"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1239,21 +1168,6 @@ var validationTests = []validationTest{{
 	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
-}, {
-	about: "Cannot change lxc-clone",
-	old:   testing.Attrs{"lxc-clone": false},
-	new:   testing.Attrs{"lxc-clone": true},
-	err:   `cannot change lxc-clone from false to true`,
-}, {
-	about: "Cannot change lxc-clone-aufs",
-	old:   testing.Attrs{"lxc-clone-aufs": false},
-	new:   testing.Attrs{"lxc-clone-aufs": true},
-	err:   `cannot change lxc-clone-aufs from false to true`,
-}, {
-	about: "Cannot change lxc-default-mtu",
-	old:   testing.Attrs{"lxc-default-mtu": 9000},
-	new:   testing.Attrs{"lxc-default-mtu": 42},
-	err:   `cannot change lxc-default-mtu from 9000 to 42`,
 }, {
 	about: "Cannot change uuid",
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},

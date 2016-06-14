@@ -25,12 +25,6 @@ const (
 	// required for AWS, but should be disabled for MAAS.
 	ConfigEnableNAT = "enable-nat"
 
-	// ConfigLXCDefaultMTU, if set to a positive integer (serialized
-	// as a string), will cause all network interfaces on all created
-	// LXC containers (not KVM instances) to use the given MTU
-	// setting.
-	ConfigLXCDefaultMTU = "lxc-default-mtu"
-
 	DefaultNamespace = "juju"
 )
 

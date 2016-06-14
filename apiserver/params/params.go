@@ -513,7 +513,6 @@ type ContainerConfig struct {
 	Proxy                   proxy.Settings `json:"proxy"`
 	AptProxy                proxy.Settings `json:"apt-proxy"`
 	AptMirror               string         `json:"apt-mirror"`
-	AllowLXCLoopMounts      bool           `json:"allow-lxc-loop-mounts"`
 	*UpdateBehavior
 }
 

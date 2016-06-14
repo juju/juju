@@ -1172,7 +1172,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		},
 		parent.Id(),
-		instance.LXC,
+		instance.LXD,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1367,7 +1367,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	// Grab responsibility for the model on behalf of another machine.
 	claimer := s.BackingState.SingularClaimer()
 	uuid := s.BackingState.ModelUUID()
-	err := claimer.Claim(uuid, "machine-999-lxc-99", time.Hour)
+	err := claimer.Claim(uuid, "machine-999-lxd-99", time.Hour)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then run a normal model-tracking test, just checking for

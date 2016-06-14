@@ -418,14 +418,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/model/:modeluuid/api", mainAPIHandler)
 
-	add("/model/:modeluuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-			state:   srv.state,
-		},
-	)
-
 	endpoints = append(endpoints, guiEndpoints("/gui/:modeluuid/", srv.dataDir, httpCtxt)...)
 	add("/gui-archive", &guiArchiveHandler{
 		ctxt: httpCtxt,
