@@ -467,6 +467,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	}
 
 	return params.MigrationStatus{
+		Id:             mig.Id(),
 		Attempt:        attempt,
 		Phase:          phase.String(),
 		SourceAPIAddrs: sourceAddrs,

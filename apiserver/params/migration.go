@@ -73,6 +73,7 @@ type ModelArgs struct {
 
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
+	Id      string `json:"id"`
 	Attempt int    `json:"attempt"`
 	Phase   string `json:"phase"`
 
