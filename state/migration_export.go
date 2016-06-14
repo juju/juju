@@ -95,6 +95,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.linklayerdevices(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -652,6 +656,28 @@ func (e *exporter) spaces() error {
 			Name:       space.Name(),
 			Public:     space.IsPublic(),
 			ProviderID: string(space.ProviderId()),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) linklayerdevices() error {
+	linklayerdevices, err := e.st.AllLinkLayerDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d ip devices", len(linklayerdevices))
+	for _, device := range linklayerdevices {
+		e.model.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+			ProviderID:  string(device.ProviderID()),
+			MachineID:   device.MachineID(),
+			Name:        device.Name(),
+			MTU:         device.MTU(),
+			Type:        string(device.Type()),
+			MACAddress:  device.MACAddress(),
+			IsAutoStart: device.IsAutoStart(),
+			IsUp:        device.IsUp(),
+			ParentName:  device.ParentName(),
 		})
 	}
 	return nil

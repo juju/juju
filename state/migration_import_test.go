@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -531,6 +532,86 @@ func (s *MigrationImportSuite) assertDestroyModelAdvancesLife(c *gc.C, m *state.
 	err = m.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life)
+}
+
+func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	devices, err := newSt.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 1)
+	device := devices[0]
+	c.Assert(device.Name(), gc.Equals, "foo")
+	c.Assert(device.Type(), gc.Equals, state.EthernetDevice)
+}
+
+func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	machine2 := s.Factory.MakeMachineNested(c, machine.Id(), &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := []state.LinkLayerDeviceArgs{{
+		Name: "foo",
+		Type: state.BridgeDevice,
+	}, {
+		Name:       "bar",
+		ParentName: "foo",
+		Type:       state.EthernetDevice,
+	}}
+	for _, args := range deviceArgs {
+		err := machine.SetLinkLayerDevices(args)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	machine2DeviceArgs := state.LinkLayerDeviceArgs{
+		Name:       "baz",
+		ParentName: fmt.Sprintf("m#%v#d#foo", machine.Id()),
+		Type:       state.EthernetDevice,
+	}
+	err := machine2.SetLinkLayerDevices(machine2DeviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	devices, err := newSt.AllLinkLayerDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 3)
+	var parent *state.LinkLayerDevice
+	others := []*state.LinkLayerDevice{}
+	for _, device := range devices {
+		if device.Name() == "foo" {
+			parent = device
+		} else {
+			others = append(others, device)
+		}
+	}
+	// Assert we found the parent.
+	c.Assert(others, gc.HasLen, 2)
+	err = parent.Remove()
+	c.Assert(err, gc.ErrorMatches, `.*parent device "foo" has 2 children.*`)
+	err = others[0].Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = parent.Remove()
+	c.Assert(err, gc.ErrorMatches, `.*parent device "foo" has 1 children.*`)
+	err = others[1].Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	err = parent.Remove()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {

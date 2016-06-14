@@ -49,6 +49,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// networking
 		ipAddressesC,
 		spacesC,
+		linkLayerDevicesC,
 		subnetsC,
 
 		// storage
@@ -124,6 +125,10 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// This is marked as deprecated, and should probably be removed.
 		actionresultsC,
+
+		// These are recreated whilst migrating other network entities.
+		providerIDsC,
+		linkLayerDevicesRefsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -148,11 +153,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		storageConstraintsC,
 		volumesC,
 		volumeAttachmentsC,
-
-		// network
-		providerIDsC,
-		linkLayerDevicesC,
-		linkLayerDevicesRefsC,
 
 		// actions
 		actionsC,
@@ -603,6 +603,25 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"Value",
 	)
 	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
+}
+
+func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"ModelUUID",
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"MachineID",
+		"ProviderID",
+		"Name",
+		"MTU",
+		"Type",
+		"MACAddress",
+		"IsAutoStart",
+		"IsUp",
+		"ParentName",
+	)
+	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

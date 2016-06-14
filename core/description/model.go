@@ -41,6 +41,7 @@ func NewModel(args ModelArgs) Model {
 	m.setServices(nil)
 	m.setRelations(nil)
 	m.setSpaces(nil)
+	m.setLinkLayerDevices(nil)
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	return m
@@ -78,13 +79,14 @@ type model struct {
 
 	LatestToolsVersion_ version.Number `yaml:"latest-tools,omitempty"`
 
-	Users_       users       `yaml:"users"`
-	Machines_    machines    `yaml:"machines"`
-	Services_    services    `yaml:"services"`
-	Relations_   relations   `yaml:"relations"`
-	Spaces_      spaces      `yaml:"spaces"`
-	IPAddresses_ ipaddresses `yaml:"ipaddresses"`
-	Subnets_     subnets     `yaml:"subnets"`
+	Users_            users            `yaml:"users"`
+	Machines_         machines         `yaml:"machines"`
+	Services_         services         `yaml:"services"`
+	Relations_        relations        `yaml:"relations"`
+	Spaces_           spaces           `yaml:"spaces"`
+	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
+	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
+	Subnets_          subnets          `yaml:"subnets"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -266,6 +268,15 @@ func (m *model) setSpaces(spaceList []*space) {
 	}
 }
 
+// LinkLayerDevices implements Model.
+func (m *model) LinkLayerDevices() []LinkLayerDevice {
+	var result []LinkLayerDevice
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		result = append(result, device)
+	}
+	return result
+}
+
 // Subnets implements Model.
 func (m *model) Subnets() []Subnet {
 	var result []Subnet
@@ -273,6 +284,20 @@ func (m *model) Subnets() []Subnet {
 		result = append(result, subnet)
 	}
 	return result
+}
+
+// AddLinkLayerDevice implements Model.
+func (m *model) AddLinkLayerDevice(args LinkLayerDeviceArgs) LinkLayerDevice {
+	device := newLinkLayerDevice(args)
+	m.LinkLayerDevices_.LinkLayerDevices_ = append(m.LinkLayerDevices_.LinkLayerDevices_, device)
+	return device
+}
+
+func (m *model) setLinkLayerDevices(devicesList []*linklayerdevice) {
+	m.LinkLayerDevices_ = linklayerdevices{
+		Version:           1,
+		LinkLayerDevices_: devicesList,
+	}
 }
 
 // IPAddresses implements Model.
@@ -420,18 +445,19 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
-		"owner":        schema.String(),
-		"config":       schema.StringMap(schema.Any()),
-		"latest-tools": schema.String(),
-		"blocks":       schema.StringMap(schema.String()),
-		"users":        schema.StringMap(schema.Any()),
-		"machines":     schema.StringMap(schema.Any()),
-		"services":     schema.StringMap(schema.Any()),
-		"relations":    schema.StringMap(schema.Any()),
-		"ipaddresses":  schema.StringMap(schema.Any()),
-		"spaces":       schema.StringMap(schema.Any()),
-		"subnets":      schema.StringMap(schema.Any()),
-		"sequences":    schema.StringMap(schema.Int()),
+		"owner":            schema.String(),
+		"config":           schema.StringMap(schema.Any()),
+		"latest-tools":     schema.String(),
+		"blocks":           schema.StringMap(schema.String()),
+		"users":            schema.StringMap(schema.Any()),
+		"machines":         schema.StringMap(schema.Any()),
+		"services":         schema.StringMap(schema.Any()),
+		"relations":        schema.StringMap(schema.Any()),
+		"ipaddresses":      schema.StringMap(schema.Any()),
+		"spaces":           schema.StringMap(schema.Any()),
+		"subnets":          schema.StringMap(schema.Any()),
+		"linklayerdevices": schema.StringMap(schema.Any()),
+		"sequences":        schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -513,6 +539,13 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "spaces")
 	}
 	result.setSpaces(spaces)
+
+	deviceMap := valid["linklayerdevices"].(map[string]interface{})
+	devices, err := importLinkLayerDevices(deviceMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "linklayerdevices")
+	}
+	result.setLinkLayerDevices(devices)
 
 	subnetsMap := valid["subnets"].(map[string]interface{})
 	subnets, err := importSubnets(subnetsMap)

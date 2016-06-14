@@ -499,6 +499,27 @@ func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
 	c.Assert(model.Spaces(), gc.HasLen, 3)
 }
 
+func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices := model.LinkLayerDevices()
+	c.Assert(devices, gc.HasLen, 1)
+	device := devices[0]
+	c.Assert(device.Name(), gc.Equals, "foo")
+	c.Assert(device.Type(), gc.Equals, string(state.EthernetDevice))
+}
+
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{
 		CIDR:             "10.0.0.0/24",

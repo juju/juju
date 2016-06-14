@@ -63,6 +63,9 @@ type Model interface {
 	Spaces() []Space
 	AddSpace(SpaceArgs) Space
 
+	LinkLayerDevices() []LinkLayerDevice
+	AddLinkLayerDevice(LinkLayerDeviceArgs) LinkLayerDevice
+
 	Subnets() []Subnet
 	AddSubnet(SubnetArgs) Subnet
 
@@ -322,6 +325,19 @@ type Space interface {
 	Name() string
 	Public() bool
 	ProviderID() string
+}
+
+// LinkLayerDevice represents a link layer device.
+type LinkLayerDevice interface {
+	Name() string
+	MTU() uint
+	ProviderID() string
+	MachineID() string
+	Type() string
+	MACAddress() string
+	IsAutoStart() bool
+	IsUp() bool
+	ParentName() string
 }
 
 // Subnet represents a network subnet.
