@@ -889,7 +889,7 @@ func (i *importer) parentDocIDFromDevice(device description.LinkLayerDevice) (st
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if parentName == "" {
+	if hostMachineID == "" {
 		// ParentName is not a global key, but on the same machine.
 		hostMachineID = device.MachineID()
 		parentName = device.ParentName()
