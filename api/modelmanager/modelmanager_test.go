@@ -10,9 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -28,16 +26,6 @@ func (s *modelmanagerSuite) SetUpTest(c *gc.C) {
 
 func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
 	return modelmanager.NewClient(s.APIState)
-}
-
-func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	result, err := modelManager.ConfigSkeleton("", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ModelConfig{
-		"type":            "dummy",
-		"controller-uuid": coretesting.ModelTag.Id(),
-	})
 }
 
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {

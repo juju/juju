@@ -136,6 +136,12 @@ func InitializeState(
 	for k, v := range args.HostedModelConfig {
 		attrs[k] = v
 	}
+	// TODO(axw) we shouldn't be adding credentials to model config.
+	if args.ControllerCloudCredential != nil {
+		for k, v := range args.ControllerCloudCredential.Attributes() {
+			attrs[k] = v
+		}
+	}
 	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
 		modelmanager.IsAdmin, args.ControllerModelConfig, attrs,
 	)
@@ -143,10 +149,11 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
-		Owner:       adminUser,
-		Config:      hostedModelConfig,
-		CloudRegion: args.ControllerCloudRegion,
-		Constraints: args.ModelConstraints,
+		Owner:           adminUser,
+		Config:          hostedModelConfig,
+		Constraints:     args.ModelConstraints,
+		CloudRegion:     args.ControllerCloudRegion,
+		CloudCredential: args.ControllerCloudCredentialName,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")

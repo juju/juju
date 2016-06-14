@@ -179,7 +179,7 @@ var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 
-	if c.UploadTools && c.ModelName() != "admin" {
+	if c.UploadTools && c.ModelName() != "controller" {
 		return errors.Errorf("--upload-tools can only be used with the admin model")
 	}
 

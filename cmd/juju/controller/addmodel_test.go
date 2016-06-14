@@ -311,15 +311,6 @@ func (*fakeAddClient) Close() error {
 	return nil
 }
 
-func (*fakeAddClient) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
-	if provider == "" {
-		provider = "dummy"
-	}
-	return params.ModelConfig{
-		"type":       provider,
-		"controller": false,
-	}, nil
-}
 func (f *fakeAddClient) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
 	if f.err != nil {
 		return params.Model{}, f.err

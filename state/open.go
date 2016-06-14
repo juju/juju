@@ -255,7 +255,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.ModelConfigDefaults),
 	}
 	if len(args.CloudCredentials) > 0 {
-		credentialsOps := initCloudCredentialsOps(
+		credentialsOps := updateCloudCredentialsOps(
 			args.ControllerModelArgs.Owner, args.CloudCredentials,
 		)
 		ops = append(ops, credentialsOps...)

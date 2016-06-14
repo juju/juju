@@ -24,9 +24,48 @@ type cloudCredentialDoc struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
-// initCloudCredentialsOps returns a list of txn.Ops that will initialize
-// a set of cloud credentials for a user.
-func initCloudCredentialsOps(user names.UserTag, credentials map[string]cloud.Credential) []txn.Op {
+// CloudCredentials returns the user's cloud credentials, keyed by credential name.
+func (st *State) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
+	coll, cleanup := st.getCollection(cloudCredentialsC)
+	defer cleanup()
+
+	var doc cloudCredentialDoc
+	credentials := make(map[string]cloud.Credential)
+	iter := coll.Find(bson.D{{"owner", user.Canonical()}}).Iter()
+	for iter.Next(&doc) {
+		credentials[doc.Name] = doc.toCredential()
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Annotatef(err, "cannot get cloud credentials for %q", user.Canonical())
+	}
+	return credentials, nil
+}
+
+// UpdateCloudCredentials updates the user's cloud credentials. Any existing
+// credentials with the same names will be replaced, and any other credentials
+// not in the updated set will be untouched.
+func (st *State) UpdateCloudCredentials(user names.UserTag, credentials map[string]cloud.Credential) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		cloud, err := st.Cloud()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops, err := validateCloudCredentials(cloud, credentials)
+		if err != nil {
+			return nil, errors.Annotate(err, "validating cloud credentials")
+		}
+		ops = append(ops, updateCloudCredentialsOps(user, credentials)...)
+		return ops, nil
+	}
+	if err := st.run(buildTxn); err != nil {
+		return errors.Annotatef(err, "updating cloud credentials for %q", user.String())
+	}
+	return nil
+}
+
+// updateCloudCredentialsOps returns a list of txn.Ops that will create
+// or update a set of cloud credentials for a user.
+func updateCloudCredentialsOps(user names.UserTag, credentials map[string]cloud.Credential) []txn.Op {
 	owner := user.Canonical()
 	ops := make([]txn.Op, 0, len(credentials))
 	for name, credential := range credentials {
@@ -53,23 +92,6 @@ func (c cloudCredentialDoc) toCredential() cloud.Credential {
 	out := cloud.NewCredential(cloud.AuthType(c.AuthType), c.Attributes)
 	out.Label = c.Name
 	return out
-}
-
-// CloudCredentials returns the user's cloud credentials, keyed by cloud name.
-func (st *State) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
-	coll, cleanup := st.getCollection(cloudCredentialsC)
-	defer cleanup()
-
-	var doc cloudCredentialDoc
-	credentials := make(map[string]cloud.Credential)
-	iter := coll.Find(bson.D{{"owner", user.Canonical()}}).Iter()
-	for iter.Next(&doc) {
-		credentials[doc.Name] = doc.toCredential()
-	}
-	if err := iter.Close(); err != nil {
-		return nil, errors.Annotatef(err, "cannot get cloud credentials for %q", user.Canonical())
-	}
-	return credentials, nil
 }
 
 // validateCloudCredentials checks that the supplied cloud credentials are
