@@ -1224,6 +1224,10 @@ class TestEnvJujuClient(ClientTest):
         full = client._full_args('bar', True, ('baz', 'qux'))
         self.assertEqual((
             'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
+        full = client._full_args('bar', True, ('baz', 'qux'), admin=True)
+        self.assertEqual(
+            ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
+            full)
         client.env = None
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
@@ -1251,7 +1255,7 @@ class TestEnvJujuClient(ClientTest):
                           return_value='controller') as gamn_mock:
             full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
         self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'controller', 'baz', 'qux'),
+            'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
             full)
         gamn_mock.assert_called_once_with()
 
