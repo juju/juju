@@ -261,6 +261,7 @@ type Unit interface {
 
 	WorkloadStatus() Status
 	SetWorkloadStatus(StatusArgs)
+	WorkloadVersion() string
 
 	WorkloadStatusHistory() []Status
 	SetWorkloadStatusHistory([]StatusArgs)

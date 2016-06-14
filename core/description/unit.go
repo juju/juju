@@ -24,6 +24,7 @@ type unit struct {
 
 	WorkloadStatus_        *status        `yaml:"workload-status"`
 	WorkloadStatusHistory_ StatusHistory_ `yaml:"workload-status-history"`
+	WorkloadVersion_       string         `yaml:"workload-version,omitempty"`
 
 	Principal_    string   `yaml:"principal,omitempty"`
 	Subordinates_ []string `yaml:"subordinates,omitempty"`
@@ -51,6 +52,7 @@ type UnitArgs struct {
 	Principal    names.UnitTag
 	Subordinates []names.UnitTag
 
+	WorkloadVersion string
 	MeterStatusCode string
 	MeterStatusInfo string
 
@@ -68,6 +70,7 @@ func newUnit(args UnitArgs) *unit {
 		PasswordHash_:          args.PasswordHash,
 		Principal_:             args.Principal.Id(),
 		Subordinates_:          subordinates,
+		WorkloadVersion_:       args.WorkloadVersion,
 		MeterStatusCode_:       args.MeterStatusCode,
 		MeterStatusInfo_:       args.MeterStatusInfo,
 		WorkloadStatusHistory_: newStatusHistory(),
@@ -134,6 +137,11 @@ func (u *unit) Tools() AgentTools {
 // SetTools implements Unit.
 func (u *unit) SetTools(args AgentToolsArgs) {
 	u.Tools_ = newAgentTools(args)
+}
+
+// WorkloadVersion implements Unit.
+func (u *unit) WorkloadVersion() string {
+	return u.WorkloadVersion_
 }
 
 // WorkloadStatus implements Unit.
@@ -262,6 +270,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"agent-status-history":    schema.StringMap(schema.Any()),
 		"workload-status":         schema.StringMap(schema.Any()),
 		"workload-status-history": schema.StringMap(schema.Any()),
+		"workload-version":        schema.String(),
 
 		"principal":    schema.String(),
 		"subordinates": schema.List(schema.String()),
@@ -275,6 +284,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 	defaults := schema.Defaults{
 		"principal":         "",
 		"subordinates":      schema.Omit,
+		"workload-version":  "",
 		"meter-status-code": "",
 		"meter-status-info": "",
 	}
@@ -295,6 +305,7 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		Machine_:               valid["machine"].(string),
 		Principal_:             valid["principal"].(string),
 		PasswordHash_:          valid["password-hash"].(string),
+		WorkloadVersion_:       valid["workload-version"].(string),
 		MeterStatusCode_:       valid["meter-status-code"].(string),
 		MeterStatusInfo_:       valid["meter-status-info"].(string),
 		WorkloadStatusHistory_: newStatusHistory(),

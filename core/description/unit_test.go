@@ -70,6 +70,7 @@ func (s *UnitSerializationSuite) completeUnit() *unit {
 			names.NewUnitTag("sub1/0"),
 			names.NewUnitTag("sub2/0"),
 		},
+		WorkloadVersion: "malachite",
 		MeterStatusCode: "meter code",
 		MeterStatusInfo: "meter info",
 	}
@@ -92,6 +93,7 @@ func (s *UnitSerializationSuite) TestNewUnit(c *gc.C) {
 		names.NewUnitTag("sub1/0"),
 		names.NewUnitTag("sub2/0"),
 	})
+	c.Assert(unit.WorkloadVersion(), gc.Equals, "malachite")
 	c.Assert(unit.MeterStatusCode(), gc.Equals, "meter code")
 	c.Assert(unit.MeterStatusInfo(), gc.Equals, "meter info")
 	c.Assert(unit.Tools(), gc.NotNil)
