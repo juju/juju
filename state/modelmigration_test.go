@@ -423,7 +423,7 @@ func (s *ModelMigrationSuite) TestStatusMessage(c *gc.C) {
 
 func (s *ModelMigrationSuite) TestWatchForModelMigration(c *gc.C) {
 	// Start watching for migration.
-	w, wc := s.createWatcher(c, s.State2)
+	w, wc := s.createMigrationWatcher(c, s.State2)
 	wc.AssertOneChange()
 
 	// Create the migration - should be reported.
@@ -449,19 +449,19 @@ func (s *ModelMigrationSuite) TestWatchForModelMigrationInProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start watching for a migration - the in progress one should be reported.
-	_, wc := s.createWatcher(c, s.State2)
+	_, wc := s.createMigrationWatcher(c, s.State2)
 	wc.AssertOneChange()
 }
 
 func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
-	_, wc2 := s.createWatcher(c, s.State2)
+	_, wc2 := s.createMigrationWatcher(c, s.State2)
 	wc2.AssertOneChange()
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
 	State3 := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { State3.Close() })
-	_, wc3 := s.createWatcher(c, State3)
+	_, wc3 := s.createMigrationWatcher(c, State3)
 	wc3.AssertOneChange()
 
 	// Create a migration for 2.
@@ -477,7 +477,7 @@ func (s *ModelMigrationSuite) TestWatchForModelMigrationMultiModel(c *gc.C) {
 	wc3.AssertOneChange()
 }
 
-func (s *ModelMigrationSuite) createWatcher(c *gc.C, st *state.State) (
+func (s *ModelMigrationSuite) createMigrationWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
 	w := st.WatchForModelMigration()
@@ -660,12 +660,58 @@ func (s *ModelMigrationSuite) TestMinionReportWithInactiveMigration(c *gc.C) {
 	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{tag})
 }
 
+func (s *ModelMigrationSuite) TestWatchMinionReports(c *gc.C) {
+	mig, wc := s.createMigAndWatchReports(c, s.State2)
+	wc.AssertOneChange() // initial event
+
+	// A report should trigger the watcher.
+	c.Assert(mig.MinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// A report for a different phase shouldn't trigger the watcher.
+	c.Assert(mig.MinionReport(names.NewMachineTag("1"), migration.IMPORT, true), jc.ErrorIsNil)
+	wc.AssertNoChange()
+}
+
+func (s *ModelMigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
+	mig, wc := s.createMigAndWatchReports(c, s.State2)
+	wc.AssertOneChange() // initial event
+
+	State3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { State3.Close() })
+	mig3, wc3 := s.createMigAndWatchReports(c, State3)
+	wc3.AssertOneChange() // initial event
+
+	// Ensure the correct watchers are triggered.
+	c.Assert(mig.MinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc3.AssertNoChange()
+
+	c.Assert(mig3.MinionReport(names.NewMachineTag("0"), migration.QUIESCE, true), jc.ErrorIsNil)
+	wc.AssertNoChange()
+	wc3.AssertOneChange()
+}
+
 func (s *ModelMigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (
 	state.NotifyWatcher, statetesting.NotifyWatcherC,
 ) {
 	w := st.WatchMigrationStatus()
 	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
 	return w, statetesting.NewNotifyWatcherC(c, st, w)
+}
+
+func (s *ModelMigrationSuite) createMigAndWatchReports(c *gc.C, st *state.State) (
+	state.ModelMigration, statetesting.NotifyWatcherC,
+) {
+	mig, err := st.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := mig.WatchMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { statetesting.AssertStop(c, w) })
+	wc := statetesting.NewNotifyWatcherC(c, st, w)
+
+	return mig, wc
 }
 
 func assertPhase(c *gc.C, mig state.ModelMigration, phase migration.Phase) {
