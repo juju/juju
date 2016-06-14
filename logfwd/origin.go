@@ -77,13 +77,25 @@ func (ot OriginType) ValidateName(name string) error {
 	return nil
 }
 
-// Validate ensures that the origin is correct.
+// Origin describes what created the record.
 type Origin struct {
+	// ControllerUUID is the ID of the Juju controller under which the
+	// record originated.
 	ControllerUUID string
-	ModelUUID      string
-	Type           OriginType
-	Name           string
-	JujuVersion    version.Number
+
+	// ModelUUID is the ID of the Juju model under which the record
+	// originated.
+	ModelUUID string
+
+	// Type identifies the kind of thing that generated the record.
+	Type OriginType
+
+	// Name identifies the thing that generated the record.
+	Name string
+
+	// JujuVersion is the version of the running Juju agent under which
+	// the record originated.
+	JujuVersion version.Number
 }
 
 // PrivateEnterpriseNumber returns the IANA-registered "SMI Network

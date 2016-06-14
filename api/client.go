@@ -635,8 +635,6 @@ func (args DebugLogParams) URLQuery() url.Values {
 	return attrs
 }
 
-// TODO(ericsnow) Leverage api/logreader for WatchDebugLog().
-
 // WatchDebugLog returns a ReadCloser that the caller can read the log
 // lines from. Only log lines that match the filtering specified in
 // the DebugLogParams are returned. It returns an error that satisfies

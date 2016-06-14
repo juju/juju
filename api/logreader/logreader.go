@@ -21,7 +21,7 @@ import (
 type JSONReadCloser interface {
 	io.Closer
 
-	// ReadJSON decodes the next JDON value from the connection and
+	// ReadJSON decodes the next JSON value from the connection and
 	// sets the value at the provided pointer to that newly decoded one.
 	ReadJSON(interface{}) error
 }
@@ -53,7 +53,7 @@ func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig, 
 // connection is the one from which the reader will stream log records.
 //
 // Note that the caller is responsible for stopping the reader, e.g. by
-// passing it to worker.Kill().
+// passing it to worker.Stop().
 func NewLogRecordReader(conn JSONReadCloser, controllerUUID string) *LogRecordReader {
 	out := make(chan logfwd.Record)
 	lrr := &LogRecordReader{
