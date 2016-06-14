@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ModelMigrationSuite struct {
@@ -554,6 +555,109 @@ func (s *ModelMigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertOneChange()
 	wc3.AssertNoChange()
+}
+
+func (s *ModelMigrationSuite) TestMinionReports(c *gc.C) {
+	// Create some machines and units to report with.
+	factory2 := factory.NewFactory(s.State2)
+	m0 := factory2.MakeMachine(c, nil)
+	u0 := factory2.MakeUnit(c, &factory.UnitParams{Machine: m0})
+	m1 := factory2.MakeMachine(c, nil)
+	m2 := factory2.MakeMachine(c, nil)
+
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	const phase = migration.QUIESCE
+	c.Assert(mig.MinionReport(m0.Tag(), phase, true), jc.ErrorIsNil)
+	c.Assert(mig.MinionReport(m1.Tag(), phase, false), jc.ErrorIsNil)
+	c.Assert(mig.MinionReport(m2.Tag(), phase, true), jc.ErrorIsNil)
+
+	reports, err := mig.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{m0.Tag(), m2.Tag()})
+	c.Check(reports.Failed, jc.SameContents, []names.Tag{m1.Tag()})
+	c.Check(reports.Unknown, jc.SameContents, []names.Tag{u0.Tag()})
+}
+
+func (s *ModelMigrationSuite) TestDuplicateMinionReportsSameSuccess(c *gc.C) {
+	// It should be OK for a minion report to arrive more than once
+	// for the same migration, agent and phase as long as the value of
+	// "success" is the same.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewMachineTag("42")
+	c.Check(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+	c.Check(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+}
+
+func (s *ModelMigrationSuite) TestDuplicateMinionReportsDifferingSuccess(c *gc.C) {
+	// It is not OK for a minion report to arrive more than once for
+	// the same migration, agent and phase when the "success" value
+	// changes.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	tag := names.NewMachineTag("42")
+	c.Check(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+	err = mig.MinionReport(tag, migration.QUIESCE, false)
+	c.Check(err, gc.ErrorMatches,
+		fmt.Sprintf("conflicting reports received for %s/QUIESCE/machine-42", mig.Id()))
+}
+
+func (s *ModelMigrationSuite) TestMinionReportWithOldPhase(c *gc.C) {
+	// It is OK for a report to arrive for even a migration has moved
+	// on.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get another reference to the same migration.
+	migalt, err := s.State2.GetModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Confirm that there's no reports when starting.
+	reports, err := mig.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, gc.HasLen, 0)
+
+	// Advance the migration
+	c.Assert(mig.SetPhase(migration.READONLY), jc.ErrorIsNil)
+
+	// Submit minion report for the old phase.
+	tag := names.NewMachineTag("42")
+	c.Assert(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+
+	// The report should still have been recorded.
+	reports, err = migalt.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{tag})
+}
+
+func (s *ModelMigrationSuite) TestMinionReportWithInactiveMigration(c *gc.C) {
+	// Create a migration.
+	mig, err := s.State2.CreateModelMigration(s.stdSpec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get another reference to the same migration.
+	migalt, err := s.State2.GetModelMigration()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Abort the migration.
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+
+	// Confirm that there's no reports when starting.
+	reports, err := mig.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, gc.HasLen, 0)
+
+	// Submit a minion report for it.
+	tag := names.NewMachineTag("42")
+	c.Assert(mig.MinionReport(tag, migration.QUIESCE, true), jc.ErrorIsNil)
+
+	// The report should still have been recorded.
+	reports, err = migalt.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{tag})
 }
 
 func (s *ModelMigrationSuite) createStatusWatcher(c *gc.C, st *state.State) (

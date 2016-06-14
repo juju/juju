@@ -94,6 +94,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		migrationsC,
 		migrationsStatusC,
 		migrationsActiveC,
+		migrationsMinionSyncC,
 
 		// The container ref document is primarily there to keep track
 		// of a particular machine's containers. The migration format
