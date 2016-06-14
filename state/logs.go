@@ -111,15 +111,16 @@ func (logger *DbLoggerLastSent) Set(t time.Time) error {
 func (logger *DbLoggerLastSent) Get() (time.Time, error) {
 	zeroTime := time.Time{}
 	collection := logger.session.DB(logsDB).C(forwardedC)
-	var lastSent lastSentDoc
-	err := collection.FindId(logger.id).One(&lastSent)
+	var doc lastSentDoc
+	err := collection.FindId(logger.id).One(&doc)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			return zeroTime, errors.Trace(ErrNeverForwarded)
 		}
 		return zeroTime, errors.Trace(err)
 	}
-	return time.Unix(0, lastSent.Time).UTC(), nil
+	// It isn't worth it to try to preserve the time zone.
+	return time.Unix(0, doc.Time).UTC(), nil
 }
 
 // logDoc describes log messages stored in MongoDB.
@@ -132,7 +133,6 @@ func (logger *DbLoggerLastSent) Get() (time.Time, error) {
 type logDoc struct {
 	Id        bson.ObjectId `bson:"_id"`
 	Time      int64         `bson:"t"` // unix nano UTC
-	Timezone  int           `bson:"z"`
 	ModelUUID string        `bson:"e"`
 	Entity    string        `bson:"n"` // e.g. "machine-0"
 	Version   string        `bson:"r"`
@@ -166,11 +166,9 @@ func (logger *DbLogger) Log(t time.Time, module string, location string, level l
 	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
 	// since the Unix "epoch".
 	unixEpochNanoUTC := t.UnixNano()
-	_, zone := t.Zone()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
 		Time:      unixEpochNanoUTC,
-		Timezone:  zone,
 		ModelUUID: logger.modelUUID,
 		Entity:    logger.entity,
 		Version:   logger.version,
@@ -560,11 +558,12 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 	}
 
 	rec := &LogRecord{
+
 		ModelUUID: doc.ModelUUID,
 		Entity:    entity,
 		Version:   ver,
 
-		Time:    time.Unix(0, doc.Time).In(time.FixedZone("", doc.Timezone)),
+		Time:    time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 		Message: doc.Message,
 
 		Level:    level,

@@ -430,11 +430,9 @@ func MakeLogDoc(
 	level loggo.Level,
 	msg string,
 ) *logDoc {
-	_, tz := t.Zone()
 	return &logDoc{
 		Id:        bson.NewObjectId(),
 		Time:      t.UnixNano(),
-		Timezone:  tz,
 		ModelUUID: modelUUID,
 		Entity:    entity.String(),
 		Module:    module,
