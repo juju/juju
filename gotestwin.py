@@ -19,14 +19,14 @@ def main():
                         help='The package to test.')
     args = parser.parse_args()
 
-    juju_ci_path = join(scripts, 'jujuci.py')
+    s3_ci_path = join(scripts, 's3ci.py')
     downloaded = subprocess.check_output([
-        juju_ci_path, 'get', '-b', args.revision, 'build-revision', '*.tar.gz',
-        './'])
-    (tarfile,) = [basename(l) for l in downloaded.splitlines()]
+        s3_ci_path, 'get', args.revision, 'build-revision',
+        'juju_core.*.tar.gz', './'])
+    tarfile = basename(downloaded)
 
-    subprocess.check_call([
-        juju_ci_path, 'get-build-vars', '--summary', args.revision])
+    job_name = os.environ.get('job_name', 'GoTestWin')
+    subprocess.check_call([s3_ci_path, 'get-summary', args.revision, job_name])
     with open('temp-config.yaml', 'w') as temp_file:
         dump({
             'install': {'ci': [

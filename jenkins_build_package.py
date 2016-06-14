@@ -30,16 +30,16 @@ def main():
 
     subprocess.check_call(['jujuci.py', '-v', 'setup-workspace', workspace])
 
-    release_glob = '*{}*'.format(args.release)
+    release_glob = '.*{}.*'.format(args.release)
 
     subprocess.check_call([
-        'jujuci.py', 'get', '-b', args.source_package_build,
+        's3ci.py', 'get', revision_build,
         'build-source-packages', release_glob, workspace])
-    packages = glob(release_glob)
+    packages = glob('*{}*'.format(args.release))
     (dsc_file,) = [x for x in packages if x.endswith('.dsc')]
     subprocess.check_call(
-        ['jujuci.py', 'get', '-b', args.source_package_build,
-         'build-source-packages', '*orig.tar.gz', workspace])
+        ['s3ci.py', 'get', revision_build,
+         'build-source-packages', '.*orig.tar.gz', workspace])
     packages.extend(glob('*.orig.tar.gz'))
     command = [
         'mv', 'packages/*', '.', ';',
