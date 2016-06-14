@@ -34,7 +34,11 @@ type UserDataSuite struct {
 
 	networkInterfacesFile string
 	fakeInterfaces        []network.InterfaceInfo
-	expectedNetConfig     string
+
+	expectedSampleConfig     string
+	expectedSampleUserData   string
+	expectedFallbackConfig   string
+	expectedFallbackUserData string
 }
 
 var _ = gc.Suite(&UserDataSuite{})
@@ -66,9 +70,17 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 		InterfaceName: "eth2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
+	}, {
+		InterfaceName: "eth3",
+		ConfigType:    network.ConfigDHCP,
+		NoAutoStart:   false,
+	}, {
+		InterfaceName: "eth4",
+		ConfigType:    network.ConfigManual,
+		NoAutoStart:   true,
 	}}
-	s.expectedNetConfig = `
-auto eth0 eth1 lo
+	s.expectedSampleConfig = `
+auto eth0 eth1 eth3 lo
 
 iface lo inet loopback
   dns-nameservers ns1.invalid ns2.invalid
@@ -81,44 +93,19 @@ iface eth0 inet static
 iface eth1 inet static
   address 0.1.2.4/24
 
-iface eth2 inet manual
+iface eth2 inet dhcp
+
+iface eth3 inet dhcp
+
+iface eth4 inet manual
 `
-	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
-}
-
-func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	// No config or no interfaces - no error, but also noting to generate.
-	data, err := containerinit.GenerateNetworkConfig(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
-	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
-
-	// Test with all interface types.
-	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedNetConfig)
-}
-
-func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
-	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	// We need to indent expectNetConfig to make it valid YAML,
-	// dropping the last new line and using unindented blank lines.
-	lines := strings.Split(s.expectedNetConfig, "\n")
-	indentedNetConfig := strings.Join(lines[:len(lines)-2], "\n  ")
-	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1)
-	expected := `
+	s.expectedSampleUserData = `
 #cloud-config
 bootcmd:
 - install -D -m 644 /dev/null '%[1]s'
 - |-
   printf '%%s\n' '
-  auto eth0 eth1 lo
+  auto eth0 eth1 eth3 lo
 
   iface lo inet loopback
     dns-nameservers ns1.invalid ns2.invalid
@@ -131,37 +118,115 @@ bootcmd:
   iface eth1 inet static
     address 0.1.2.4/24
 
-  iface eth2 inet manual
+  iface eth2 inet dhcp
+
+  iface eth3 inet dhcp
+
+  iface eth4 inet manual
   ' > '%[1]s'
-runcmd:
-- ifup -a || true
 `[1:]
-	assertUserData(c, cloudConf, fmt.Sprintf(expected, s.networkInterfacesFile))
+
+	s.expectedFallbackConfig = `
+auto eth0 lo
+
+iface lo inet loopback
+
+iface eth0 inet dhcp
+`
+	s.expectedFallbackUserData = `
+#cloud-config
+bootcmd:
+- install -D -m 644 /dev/null '%[1]s'
+- |-
+  printf '%%s\n' '
+  auto eth0 lo
+
+  iface lo inet loopback
+
+  iface eth0 inet dhcp
+  ' > '%[1]s'
+`[1:]
+
+	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
 }
 
-func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
+func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
+	data, err := containerinit.GenerateNetworkConfig(nil)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.Equals, "")
+
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.Equals, s.expectedFallbackConfig)
+
+	// Test with all interface types.
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.Equals, s.expectedSampleConfig)
+}
+
+func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {
+	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := "#cloud-config\n{}\n"
+	c.Assert(cloudConf, gc.NotNil)
+
+	expected := fmt.Sprintf(s.expectedSampleUserData, s.networkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
-func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
+func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C) {
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudConf, gc.NotNil)
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile)
+	assertUserData(c, cloudConf, expected)
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
 	c.Assert(err, jc.ErrorIsNil)
 	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	// No need to test the exact contents here, as they are already
-	// tested separately.
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	c.Assert(data, gc.NotNil)
+
+	// Extract the "#cloud-config" header and all lines between from the
+	// "bootcmd" section up to (but not including) the "output" sections to
+	// match against expected.
+	var linesToMatch []string
+	seenBootcmd := false
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "#cloud-config") {
+			linesToMatch = append(linesToMatch, line)
+			continue
+		}
+
+		if strings.HasPrefix(line, "bootcmd:") {
+			seenBootcmd = true
+		}
+
+		if strings.HasPrefix(line, "output:") && seenBootcmd {
+			break
+		}
+
+		if seenBootcmd {
+			linesToMatch = append(linesToMatch, line)
+		}
+	}
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile)
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, expected)
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	data, err := cloudConf.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, expected)
+
 	// Make sure it's valid YAML as well.
 	out := make(map[string]interface{})
 	err = yaml.Unmarshal(data, &out)
