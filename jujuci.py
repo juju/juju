@@ -30,7 +30,6 @@ except ImportError:
 from utility import (
     extract_deb,
     get_deb_arch,
-    get_revision_build,
     print_now,
     )
 
@@ -103,68 +102,6 @@ def retrieve_artifact(credentials, url, local_path):
     auth_location = url.replace('http://',
                                 'http://{}:{}@'.format(*credentials))
     urllib.urlretrieve(auth_location, local_path)
-
-
-def get_juju_bin_artifact(package_namer, version, build_data):
-    file_name = package_namer.get_release_package(version)
-    return get_filename_artifact(file_name, build_data)
-
-
-def get_filename_artifact(file_name, build_data):
-    by_filename = dict((a['fileName'], a) for a in build_data['artifacts'])
-    bin_artifact = by_filename[file_name]
-    return make_artifact(build_data, bin_artifact)
-
-
-def retrieve_buildvars(credentials, build_number):
-    build_data = get_build_data(JENKINS_URL, credentials, BUILD_REVISION,
-                                build_number)
-    artifact = get_filename_artifact('buildvars.json', build_data)
-    return get_jenkins_json(credentials, artifact.location)
-
-
-def get_buildvars(credentials, build_number, summary=False, env='unknown',
-                  revision_build=False, version=False, branch=False,
-                  short_branch=False, revision=False, short_revision=False):
-    """Return requested information as text.
-
-    The 'summary' kwarg returns intelligible information about the build.
-    'env' is included in the summary text. Otherwise, a space-separated
-    string composed of the each True kwarg is returned in this order:
-        revision_build version short_branch short_revision branch revision
-    Note that revision_build is always the same as build number;
-    build_number can be an alias like 'lastBuild' or 'lastSuccessfulBuild'.
-    """
-    buildvars = retrieve_buildvars(credentials, build_number)
-    buildvars['short_revision_id'] = buildvars['revision_id'][0:7]
-    buildvars['short_branch'] = buildvars['branch'].split(':')[1]
-    buildvars['env'] = env
-    template = (
-        'Testing {branch} {short_revision_id} on {env} for {revision_build}')
-    if summary:
-        text = template.format(**buildvars)
-    else:
-        data = []
-        if revision_build:
-            data.append(buildvars['revision_build'])
-        if version:
-            data.append(buildvars['version'])
-        if short_branch:
-            data.append(buildvars['short_branch'])
-        if short_revision:
-            data.append(buildvars['short_revision_id'])
-        if branch:
-            data.append(buildvars['branch'])
-        if revision:
-            data.append(buildvars['revision_id'])
-        text = ' '.join(data)
-    return text
-
-
-def get_release_package_filename(credentials, build_data):
-    revision_build = get_revision_build(build_data)
-    version = retrieve_buildvars(credentials, revision_build)['version']
-    return PackageNamer.factory().get_release_package(version)
 
 
 def acquire_binary(package_path, workspace):
