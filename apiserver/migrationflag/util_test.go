@@ -59,12 +59,9 @@ func (mock *mockBackend) MigrationPhase() (migration.Phase, error) {
 }
 
 // WatchMigrationPhase is part of the migrationflag.Backend interface.
-func (mock *mockBackend) WatchMigrationPhase() (state.NotifyWatcher, error) {
+func (mock *mockBackend) WatchMigrationPhase() state.NotifyWatcher {
 	mock.stub.AddCall("WatchMigrationPhase")
-	if err := mock.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return newMockWatcher(mock.stub), nil
+	return newMockWatcher(mock.stub)
 }
 
 // newMockWatcher consumes an error from the supplied testing.Stub, and

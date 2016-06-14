@@ -48,7 +48,7 @@ type Facade interface {
 
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
-	Export() (params.SerializedModel, error)
+	Export() (migrationmaster.SerializedModel, error)
 
 	// Reap removes all documents of the model associated with the API
 	// connection.
@@ -62,6 +62,7 @@ type Config struct {
 	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries  func(migration.UploadBinariesConfig) error
 	CharmDownloader migration.CharmDownloader
+	ToolsDownloader migration.ToolsDownloader
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -80,6 +81,9 @@ func (config Config) Validate() error {
 	}
 	if config.CharmDownloader == nil {
 		return errors.NotValidf("nil CharmDownloader")
+	}
+	if config.ToolsDownloader == nil {
+		return errors.NotValidf("nil ToolsDownloader")
 	}
 	return nil
 }
@@ -252,6 +256,8 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
 		CharmUploader:   targetModelClient,
+		Tools:           serialized.Tools,
+		ToolsDownloader: w.config.ToolsDownloader,
 		ToolsUploader:   targetModelClient,
 	})
 	if err != nil {

@@ -35,12 +35,8 @@ func (shim *backend) ModelUUID() string {
 }
 
 // WatchMigrationPhase is part of the Backend interface.
-func (shim *backend) WatchMigrationPhase() (state.NotifyWatcher, error) {
-	watcher, err := shim.st.WatchMigrationStatus()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return watcher, nil
+func (shim *backend) WatchMigrationPhase() state.NotifyWatcher {
+	return shim.st.WatchMigrationStatus()
 }
 
 // MigrationPhase is part of the Backend interface.

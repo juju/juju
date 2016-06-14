@@ -11,6 +11,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -150,14 +151,17 @@ func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
 
 func (s *ClientSuite) TestExport(c *gc.C) {
 	var stub jujutesting.Stub
-	serialized := params.SerializedModel{
-		Bytes:  []byte("foo"),
-		Charms: []string{"cs:foo-1"},
-	}
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.SerializedModel)
-		*out = serialized
+		*out = params.SerializedModel{
+			Bytes:  []byte("foo"),
+			Charms: []string{"cs:foo-1"},
+			Tools: []params.SerializedModelTools{{
+				Version: "2.0.0-trusty-amd64",
+				URI:     "/tools/0",
+			}},
+		}
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller)
@@ -166,7 +170,13 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationMaster.Export", []interface{}{"", nil}},
 	})
-	c.Assert(out, gc.DeepEquals, serialized)
+	c.Assert(out, gc.DeepEquals, migrationmaster.SerializedModel{
+		Bytes:  []byte("foo"),
+		Charms: []string{"cs:foo-1"},
+		Tools: map[version.Binary]string{
+			version.MustParseBinary("2.0.0-trusty-amd64"): "/tools/0",
+		},
+	})
 }
 
 func (s *ClientSuite) TestExportError(c *gc.C) {

@@ -93,11 +93,14 @@ type FullMigrationStatus struct {
 	Phase   string             `json:"phase"`
 }
 
-type PhaseResult struct {
-	Phase string `json:"phase"`
-	Error *Error
+// PhasesResults holds the phase of one or more model migrations.
+type PhaseResults struct {
+	Results []PhaseResult `json:"results"`
 }
 
-type PhaseResults struct {
-	Results []PhaseResult `json:"Results"`
+// PhaseResult holds the phase of a single model migration, or an
+// error if the phase could not be determined.
+type PhaseResult struct {
+	Phase string `json:"phase,omitempty"`
+	Error *Error `json:"error,omitempty"`
 }

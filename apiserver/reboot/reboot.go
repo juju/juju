@@ -71,11 +71,8 @@ func (r *RebootAPI) WatchForRebootEvent() (params.NotifyWatchResult, error) {
 	var result params.NotifyWatchResult
 
 	if r.auth.AuthOwner(r.machine.Tag()) {
-		watch, err = r.machine.WatchForRebootEvent()
-		if err != nil {
-			result.Error = common.ServerError(err)
-			return result, nil
-		}
+		watch = r.machine.WatchForRebootEvent()
+		err = nil
 		// Consume the initial event. Technically, API
 		// calls to Watch 'transmit' the initial event
 		// in the Watch response. But NotifyWatchers
