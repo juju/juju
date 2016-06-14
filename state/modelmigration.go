@@ -83,6 +83,11 @@ type ModelMigration interface {
 	// well as those which are yet to report.
 	GetMinionReports() (*MinionReports, error)
 
+	// WatchMinionReports returns a notify watcher which triggers when
+	// a migration minion has reported back about the success or failure
+	// of its actions for the current migration phase.
+	WatchMinionReports() (NotifyWatcher, error)
+
 	// Refresh updates the contents of the ModelMigration from the
 	// underlying state.
 	Refresh() error
@@ -443,6 +448,23 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 		Failed:    failed.Values(),
 		Unknown:   unknown.Values(),
 	}, nil
+}
+
+// WatchMinionReports implements ModelMigration.
+func (mig *modelMigration) WatchMinionReports() (NotifyWatcher, error) {
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving phase")
+	}
+	prefix := mig.minionReportId(phase, "")
+	filter := func(rawId interface{}) bool {
+		id, ok := rawId.(string)
+		if !ok {
+			return false
+		}
+		return strings.HasPrefix(id, prefix)
+	}
+	return newNotifyCollWatcher(mig.st, migrationsMinionSyncC, filter), nil
 }
 
 func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey string) string {
