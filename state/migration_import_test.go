@@ -550,8 +550,8 @@ func (s *MigrationImportSuite) TestLinkLayerDevice(c *gc.C) {
 	}()
 
 	devices, err := newSt.AllLinkLayerDevices()
-	c.Assert(devices, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 1)
 	device := devices[0]
 	c.Assert(device.Name(), gc.Equals, "foo")
 	c.Assert(device.Type(), gc.Equals, state.EthernetDevice)
@@ -589,8 +589,8 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 	}()
 
 	devices, err := newSt.AllLinkLayerDevices()
-	c.Assert(devices, gc.HasLen, 3)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices, gc.HasLen, 3)
 	var parent *state.LinkLayerDevice
 	others := []*state.LinkLayerDevice{}
 	for _, device := range devices {
