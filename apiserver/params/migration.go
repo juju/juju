@@ -105,3 +105,11 @@ type PhaseResult struct {
 	Phase string `json:"phase,omitempty"`
 	Error *Error `json:"error,omitempty"`
 }
+
+// MinionReport holds the details of whether a migration minion
+// succeeded or failed for a specific migration phase.
+type MinionReport struct {
+	MigrationId string `json:"migration-id"`
+	Phase       string `json:"phase"`
+	Success     bool   `json:"success"`
+}

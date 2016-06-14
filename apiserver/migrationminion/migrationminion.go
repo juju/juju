@@ -4,8 +4,11 @@
 package migrationminion
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 )
 
@@ -32,7 +35,7 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    getBackend(st),
+		backend:    getBackend(st), // XXX
 		authorizer: authorizer,
 		resources:  resources,
 	}, nil
@@ -50,4 +53,21 @@ func (api *API) Watch() (params.NotifyWatchResult, error) {
 	return params.NotifyWatchResult{
 		NotifyWatcherId: api.resources.Register(w),
 	}, nil
+}
+
+// Report allows a migration minion to submit whether it succeeded or
+// failed for a specific migration phase.
+func (api *API) Report(info params.MinionReport) error {
+	phase, ok := migration.ParsePhase(info.Phase)
+	if !ok {
+		return errors.New("unable to parse phase")
+	}
+
+	mig, err := api.backend.ModelMigration(info.MigrationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = mig.MinionReport(api.authorizer.GetAuthTag(), phase, info.Success)
+	return errors.Trace(err)
 }
