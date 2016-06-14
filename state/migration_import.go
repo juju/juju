@@ -721,10 +721,11 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Principal:    u.Principal().Id(),
 		Subordinates: subordinates,
 		// StorageAttachmentCount int `bson:"storageattachmentcount"`
-		MachineId:    u.Machine().Id(),
-		Tools:        i.makeTools(u.Tools()),
-		Life:         Alive,
-		PasswordHash: u.PasswordHash(),
+		MachineId:       u.Machine().Id(),
+		Tools:           i.makeTools(u.Tools()),
+		Life:            Alive,
+		WorkloadVersion: u.WorkloadVersion(),
+		PasswordHash:    u.PasswordHash(),
 	}, nil
 }
 

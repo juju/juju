@@ -235,7 +235,7 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(container.Tag(), gc.Equals, nested.MachineTag())
 }
 
-func (s *MigrationExportSuite) TestServices(c *gc.C) {
+func (s *MigrationExportSuite) TestApplications(c *gc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
@@ -283,7 +283,7 @@ func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.StatusActive)
 }
 
-func (s *MigrationExportSuite) TestMultipleServices(c *gc.C) {
+func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"})
@@ -300,6 +300,8 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
 	err := unit.SetMeterStatus("GREEN", "some info")
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetWorkloadVersion("garnet")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -323,6 +325,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
+	c.Assert(exported.WorkloadVersion(), gc.Equals, "garnet")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)

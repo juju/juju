@@ -485,6 +485,7 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		args := description.UnitArgs{
 			Tag:             unit.UnitTag(),
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
+			WorkloadVersion: unit.doc.WorkloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
 			MeterStatusCode: unitMeterStatus.Code,
 			MeterStatusInfo: unitMeterStatus.Info,
