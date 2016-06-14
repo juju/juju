@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 from tempfile import NamedTemporaryFile
+from uuid import uuid1
 
 from deploy_stack import (
     BootstrapManager,
@@ -31,6 +32,16 @@ log = logging.getLogger("assess_resources")
 CharmstoreDetails = namedtuple(
     'CharmstoreDetails',
     ['email', 'username', 'password', 'api_url'])
+
+current_run_uuid = None
+
+
+def get_run_id():
+    global current_run_uuid
+    if current_run_uuid is None:
+        current_run_uuid = str(uuid1())
+        log.info('Generated run id of {}'.format(current_run_uuid))
+    return current_run_uuid
 
 
 def _resource_info(name, fingerprint, size):
@@ -192,10 +203,10 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
     """
     charm_command = CharmCommand(charm_bin, cs_details.api_url)
     with charm_command.logged_in_user(cs_details.email, cs_details.password):
-        charm_id = 'juju-qa-veebers-testing'
+        charm_id = 'juju-qa-resources-{id}'.format(id=get_run_id())
         # Only available for juju 2.x
         charm_path = local_charm_path('dummy-resource', '2.x')
-        # I think perhaps there is a better way in which to get the url
+        # Is there a better way to get the url?
         charm_url = 'cs:~{username}/{id}-0'.format(
             username=cs_details.username, id=charm_id)
 
@@ -251,7 +262,7 @@ def attach_resource_to_charm(
     half_meg = 1024 * 512
     fill_dummy_file(temp_file, half_meg)
 
-    charm_command.run('attach', charm_id, '{}={}'.format(
+    return charm_command.run('attach', charm_id, '{}={}'.format(
         resource_name, temp_file))
 
 
@@ -272,11 +283,12 @@ def check_resource_uploaded_revno(
       `revno`
 
     """
+    revno = int(revno)
     output = charm_command.run('list-resources', charm_url)
 
     for line in output.split('\n'):
         if line.startswith(resource_name):
-            rev = line.split(None, 1)[-1]
+            rev = int(line.split(None, 1)[-1])
             if rev != revno:
                 raise JujuAssertionError(
                     'Failed to upload resource and increment revision number.')
