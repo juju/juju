@@ -30,15 +30,19 @@ CharmstoreDetails = namedtuple(
     'CharmstoreDetails',
     ['email', 'username', 'password', 'api_url'])
 
-current_run_uuid = None
+
+# Using a run id we can create a unique charm for each test run allowing us to
+# test from fresh.
+class RunId:
+    _run_id = None
+
+    def __call__(self):
+        if self._run_id is None:
+            self._run_id = uuid1()
+        return self._run_id
 
 
-def get_run_id():
-    global current_run_uuid
-    if current_run_uuid is None:
-        current_run_uuid = str(uuid1())
-        log.info('Generated run id of {}'.format(current_run_uuid))
-    return current_run_uuid
+get_run_id = RunId()
 
 
 def get_charmstore_details(credentials_file):
