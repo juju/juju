@@ -30,22 +30,15 @@ func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
 
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
-	_, err := modelManager.CreateModel("not a user", nil, nil)
+	_, err := modelManager.CreateModel("mymodel", "not a user", "", "", nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
-}
-
-func (s *modelmanagerSuite) TestCreateModelMissingConfig(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	_, err := modelManager.CreateModel("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `failed to create config: creating config from values failed: name: expected string, got nothing`)
 }
 
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
-	newEnv, err := modelManager.CreateModel(owner, nil, map[string]interface{}{
-		"name":            "new-model",
+	newEnv, err := modelManager.CreateModel("new-model", owner, "", "", map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		// dummy needs controller
 		"controller": false,
@@ -53,6 +46,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnv.Name, gc.Equals, "new-model")
 	c.Assert(newEnv.OwnerTag, gc.Equals, user.Tag().String())
+	c.Assert(newEnv.CloudRegion, gc.Equals, "")
 	c.Assert(utils.IsValidUUIDString(newEnv.UUID), jc.IsTrue)
 }
 

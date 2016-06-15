@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/api/modelmanager"
@@ -37,6 +38,7 @@ func NewAddModelCommand() cmd.Command {
 // addModelCommand calls the API to add a new model.
 type addModelCommand struct {
 	modelcmd.ControllerCommandBase
+	apiRoot        api.Connection
 	newAddModelAPI func(base.APICallCloser) AddModelAPI
 	newCloudAPI    func(base.APICallCloser) CloudAPI
 
@@ -104,13 +106,19 @@ type AddModelAPI interface {
 }
 
 type CloudAPI interface {
-	Cloud() (cloud.Cloud, error)
 	Credentials(names.UserTag) (map[string]cloud.Credential, error)
 	UpdateCredentials(names.UserTag, map[string]cloud.Credential) error
 }
 
+func (c *addModelCommand) newApiRoot() (api.Connection, error) {
+	if c.apiRoot != nil {
+		return c.apiRoot, nil
+	}
+	return c.NewAPIRoot()
+}
+
 func (c *addModelCommand) Run(ctx *cmd.Context) error {
-	api, err := c.NewAPIRoot()
+	api, err := c.newApiRoot()
 	if err != nil {
 		return errors.Annotate(err, "opening API connection")
 	}
