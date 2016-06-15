@@ -46,10 +46,7 @@ get_run_id = RunId()
 
 
 def get_charmstore_details(credentials_file):
-    """Returns a CharmstoreDetails populated with details from
-    `credentials_file`
-
-    """
+    """Returns a CharmstoreDetails populated from `credentials_file`."""
 
     def split_line_details(string):
         safe_string = string.strip()
@@ -192,15 +189,14 @@ def check_resource_uploaded_contents(
     pass
 
 
-def assess_charmstore_resources(args):
+def assess_charmstore_resources(charm_bin, credentials_file):
     with temp_dir() as fake_home:
         temp_env = os.environ.copy()
         temp_env['HOME'] = fake_home
         with scoped_environ(temp_env):
-            cs_details = get_charmstore_details(args.credentials_file)
+            cs_details = get_charmstore_details(credentials_file)
             ensure_can_push_and_list_charm_with_resources(
-                args.charm_bin,
-                cs_details)
+                charm_bin, cs_details)
 
 
 def parse_args(argv):
@@ -220,7 +216,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    assess_charmstore_resources(args)
+    assess_charmstore_resources(args.charm_bin, args.credentials_file)
     return 0
 
 
