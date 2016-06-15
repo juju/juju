@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 const (
@@ -875,8 +876,9 @@ func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pinger, gc.NotNil)
-	defer pinger.Stop()
-
+	defer func() {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	}()
 	s.State.StartSync()
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)

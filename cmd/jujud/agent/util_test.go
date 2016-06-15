@@ -147,8 +147,7 @@ func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, ve
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
-		err := pinger.Stop()
-		c.Check(err, jc.ErrorIsNil)
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
 	})
 	return s.configureMachine(c, m.Id(), vers)
 }

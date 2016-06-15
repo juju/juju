@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 type MachineSuite struct {
@@ -627,7 +628,9 @@ func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pinger, gc.NotNil)
-	defer pinger.Stop()
+	defer func() {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	}()
 
 	s.State.StartSync()
 	alive, err = s.machine.AgentPresence()
