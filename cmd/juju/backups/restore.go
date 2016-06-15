@@ -53,7 +53,7 @@ type restoreCommand struct {
 	uploadTools bool
 
 	newAPIClientFunc func() (RestoreAPI, error)
-	getEnvironFunc   func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error)
+	getEnvironFunc   func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error)
 	getArchiveFunc   func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
 	waitForAgentFunc func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
 }
@@ -132,11 +132,18 @@ func (c *restoreCommand) Init(args []string) error {
 	return nil
 }
 
+type restoreBootstrapParams struct {
+	CloudName      string
+	CloudRegion    string
+	CredentialName string
+	Credential     cloud.Credential
+}
+
 // getEnviron returns the environ for the specified controller, or
 // mocked out environ for testing.
 func (c *restoreCommand) getEnviron(
 	controllerName string, meta *params.BackupsMetadataResult,
-) (environs.Environ, *environs.BootstrapCloudParams, error) {
+) (environs.Environ, *restoreBootstrapParams, error) {
 	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
 	// with a flag to specify a restore file. When we do that, we'll need
 	// to extract the CA cert from the backup, and we'll need to reset the
@@ -144,7 +151,7 @@ func (c *restoreCommand) getEnviron(
 	// We also need to store things like the admin-secret, controller
 	// certificate etc with the backup.
 	store := c.ClientStore()
-	params, err := modelcmd.NewGetBootstrapCloudParamsFunc(store)(controllerName)
+	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -152,7 +159,7 @@ func (c *restoreCommand) getEnviron(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	cfg, err := provider.BootstrapConfig(params.BootstrapConfigParams)
+	cfg, err := provider.BootstrapConfig(*params)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -198,7 +205,12 @@ func (c *restoreCommand) getEnviron(
 		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
-	return env, params, err
+	return env, &restoreBootstrapParams{
+		CloudName:      config.Cloud,
+		CloudRegion:    config.CloudRegion,
+		CredentialName: config.Credential,
+		Credential:     params.Credentials,
+	}, err
 }
 
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
@@ -240,8 +252,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 
 	bootVers := version.Current
 	var cred *cloud.Credential
-	if params.Credentials.AuthType() != cloud.EmptyAuthType {
-		cred = &params.Credentials
+	if params.Credential.AuthType() != cloud.EmptyAuthType {
+		cred = &params.Credential
 	}
 	args := bootstrap.BootstrapParams{
 		Cloud:               *cloudParam,

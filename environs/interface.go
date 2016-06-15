@@ -69,18 +69,6 @@ type ProviderSchema interface {
 	Schema() environschema.Fields
 }
 
-// BootstrapCloudParams contains the parameters need to re-bootstrap a
-// controller from scratch.
-type BootstrapCloudParams struct {
-	BootstrapConfigParams
-
-	// CloudName is the name of the cloud on which to bootstrap.
-	CloudName string
-
-	// CredentialName is the name of the credentials being used.
-	CredentialName string
-}
-
 // BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
 type BootstrapConfigParams struct {
 	// Config is the base configuration for the provider. This should

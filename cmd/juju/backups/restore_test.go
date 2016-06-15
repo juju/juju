@@ -27,8 +27,7 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	store  *jujuclienttesting.MemStore
-	params environs.BootstrapCloudParams
+	store *jujuclienttesting.MemStore
 }
 
 var _ = gc.Suite(&restoreSuite{})
@@ -48,7 +47,6 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.params.CloudName = "mycloud"
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		ControllerUUID: testing.ModelTag.Id(),
@@ -134,24 +132,21 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
 		},
-		func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
-			return fakeEnv, &s.params, nil
-		})
+		backups.GetEnvironFunc(fakeEnv, "mycloud"),
+	)
 	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*still seems to exist.*")
 }
 
 func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 	fakeEnv := fakeEnviron{}
-	loudName = "mycloud"
 	s.command = backups.NewRestoreCommandForTest(
 		s.store, &mockRestoreAPI{},
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
 		},
-		func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
-			return fakeEnv, &s.params, nil
-		})
+		backups.GetEnvironFunc(fakeEnv, "mycloud"),
+	)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return errors.New("failed to bootstrap new controller")
 	})
@@ -192,9 +187,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &metadata, nil
 		},
-		func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
-			return fakeEnv, &s.params, nil
-		})
+		backups.GetEnvironFunc(fakeEnv, "mycloud"),
+	)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return nil
 	})

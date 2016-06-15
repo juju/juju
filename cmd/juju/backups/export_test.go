@@ -69,7 +69,7 @@ func NewRestoreCommandForTest(
 	store jujuclient.ClientStore,
 	api RestoreAPI,
 	getArchive func(string) (ArchiveReader, *params.BackupsMetadataResult, error),
-	getEnviron func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error),
+	getEnviron func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error),
 ) cmd.Command {
 	c := &restoreCommand{
 		getArchiveFunc: getArchive,
@@ -81,11 +81,17 @@ func NewRestoreCommandForTest(
 			return nil
 		}}
 	if getEnviron == nil {
-		c.getEnvironFunc = func(controllerNme string, meta *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
+		c.getEnvironFunc = func(controllerNme string, meta *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
 			return c.getEnviron(controllerNme, meta)
 		}
 	}
 	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
+}
+
+func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
+	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
+		return e, &restoreBootstrapParams{CloudName: cloud}, nil
+	}
 }
