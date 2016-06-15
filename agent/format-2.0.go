@@ -17,17 +17,17 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
-var format_1_18 = formatter_1_18{}
+var format_2_0 = formatter_2_0{}
 
-// formatter_1_18 is the formatter for the 1.18 format.
-type formatter_1_18 struct {
+// formatter_2_0 is the formatter for the 2.0 format.
+type formatter_2_0 struct {
 }
 
-// Ensure that the formatter_1_18 struct implements the formatter interface.
-var _ formatter = formatter_1_18{}
+// Ensure that the formatter_2_0 struct implements the formatter interface.
+var _ formatter = formatter_2_0{}
 
-// format_1_18Serialization holds information for a given agent.
-type format_1_18Serialization struct {
+// format_2_0Serialization holds information for a given agent.
+type format_2_0Serialization struct {
 	Tag               string
 	DataDir           string
 	LogDir            string
@@ -59,24 +59,19 @@ type format_1_18Serialization struct {
 }
 
 func init() {
-	registerFormat(format_1_18)
+	registerFormat(format_2_0)
 }
 
-func (formatter_1_18) version() string {
-	return "1.18"
+func (formatter_2_0) version() string {
+	return "2.0"
 }
 
-func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
+func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	// NOTE: this needs to handle the absence of StatePort and get it from the
 	// address
-	var format format_1_18Serialization
+	var format format_2_0Serialization
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
-	}
-	if format.UpgradedToVersion == nil || *format.UpgradedToVersion == version.Zero {
-		// Assume we upgrade from 1.16.
-		upgradedToVersion := version.MustParse("1.16.0")
-		format.UpgradedToVersion = &upgradedToVersion
 	}
 	tag, err := names.ParseTag(format.Tag)
 	if err != nil {
@@ -153,12 +148,12 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	return config, nil
 }
 
-func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
+func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	var modelTag string
 	if config.model.Id() != "" {
 		modelTag = config.model.String()
 	}
-	format := &format_1_18Serialization{
+	format := &format_2_0Serialization{
 		Tag:               config.tag.String(),
 		DataDir:           config.paths.DataDir,
 		LogDir:            config.paths.LogDir,
