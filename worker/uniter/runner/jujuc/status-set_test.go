@@ -58,7 +58,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 		"set status information\n" +
 		"\n" +
 		"Options:\n" +
-		"--application  (= false)\n" +
+		"--service, --application  (= false)\n" +
 		"    set this status for the application to which the unit belongs if the unit is the leader\n" +
 		"\n" +
 		"Details:\n" +
@@ -95,6 +95,7 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	for i, args := range [][]string{
 		[]string{"--application", "maintenance", "doing some work"},
 		[]string{"--application", "active", ""},
+		[]string{"--service", "maintenance", "doing some work"},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
