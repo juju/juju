@@ -155,7 +155,7 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	if len(failures) == len(storages) {
 		// If we managed to collapse, then display these instead of the whole list.
 		if len(collapsedFailures) < len(failures) {
-			for one, _ := range collapsedFailures {
+			for _, one := range collapsedFailures.SortedValues() {
 				fmt.Fprintln(ctx.Stderr, one)
 			}
 			return cmd.ErrSilent
