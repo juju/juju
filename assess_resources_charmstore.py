@@ -4,13 +4,15 @@ from __future__ import print_function
 
 import argparse
 from collections import namedtuple
+from datetime import datetime
 import logging
 import os
 import sys
 from tempfile import NamedTemporaryFile
 from uuid import uuid1
 
-from assess_resources import fill_dummy_file
+import requests
+
 from jujucharm import CharmCommand
 from utility import (
     configure_logging,
@@ -93,12 +95,17 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
         # Ensure we can publish a charm with a resource
         with NamedTemporaryFile(suffix='.txt') as temp_foo_resource:
             temp_foo = temp_foo_resource.name
+            populate_file_data(temp_foo)
             push_charm_with_resource(
                 charm_command,
                 temp_foo,
                 charm_id,
                 charm_path,
                 resource_name='foo')
+
+            # Need to grant permissions so we can access details via the http
+            # api.
+            grant_everyone_access(charm_command, charm_url)
 
             expected_resource_details = {'foo': 0, 'bar': -1}
             check_resource_uploaded(
@@ -111,6 +118,7 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
         # Ensure we can attach a resource independently of pushing a charm.
         with NamedTemporaryFile(suffix='.txt') as temp_bar_resource:
             temp_bar = temp_bar_resource.name
+            populate_file_data(temp_bar)
             output = attach_resource_to_charm(
                 charm_command, temp_bar, charm_url, resource_name='bar')
             log.info(output)
@@ -124,23 +132,29 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
                 expected_resource_details)
 
 
+def populate_file_data(filepath):
+    """Write unique data to file at `filepath`."""
+    datestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    with open(filepath, 'w') as f:
+        f.write('{datestamp}:{uuid}'.format(
+            datestamp=datestamp,
+            uuid=get_run_id()))
+
+
 def push_charm_with_resource(
         charm_command, temp_file, charm_id, charm_path, resource_name):
-    half_meg = 1024 * 512
-    fill_dummy_file(temp_file, half_meg)
 
     output = charm_command.run(
         'push',
         charm_path,
         charm_id,
         '--resource', '{}={}'.format(resource_name, temp_file))
-    log.info(output)
+    log.info('Pushing charm "{id}": {output}'.format(
+        id=charm_id, output=output))
 
 
 def attach_resource_to_charm(
         charm_command, temp_file, charm_id, resource_name):
-    half_meg = 1024 * 512
-    fill_dummy_file(temp_file, half_meg)
 
     return charm_command.run('attach', charm_id, '{}={}'.format(
         resource_name, temp_file))
@@ -177,12 +191,36 @@ def check_resource_uploaded_revno(
         'Failed to find named resource \'{}\' in output'.format(resource_name))
 
 
+def grant_everyone_access(charm_command, charm_url):
+    output = charm_command.run('grant', charm_url, 'everyone')
+    log.info('Setting permissions on charm: {}'.format(output))
+
+
 def check_resource_uploaded_contents(
         charm_command, charm_url, resource_name, src_file):
-    # Pull the the charm to a temp file and compare the contents of the pulled
-    # resource and those that were pushed.
-    # This isn't working as expected so following this up.
-    pass
+    charmname = charm_url.replace('cs:', '')
+    api_url = '{apiurl}/v5/{charmname}/resource/{name}'.format(
+        apiurl=charm_command.api_url,
+        charmname=charmname,
+        name=resource_name,
+    )
+    log.info('Using api url: {}'.format(api_url))
+
+    res = requests.get(api_url)
+
+    if not res.ok:
+        raise JujuAssertionError('Failed to retrieve details: {}'.format(
+            res.content))
+
+    with open(src_file, 'r') as f:
+        file_contents = f.read()
+    resource_contents = res.content
+
+    if resource_contents != file_contents:
+        raise JujuAssertionError(
+            'Resource contents mismatch.\nExpected:\n{}\nGot:\n{}\n'.format(
+                file_contents,
+                resource_contents))
 
 
 def assess_charmstore_resources(charm_bin, credentials_file):
@@ -209,9 +247,17 @@ def parse_args(argv):
     return parser.parse_args(argv)
 
 
+def check_resources():
+    if os.environ.get('JUJU_REPOSITORY') is None:
+        raise AssertionError('JUJU_REPOSITORY required')
+
+
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+
+    check_resources()
+
     assess_charmstore_resources(args.charm_bin, args.credentials_file)
     return 0
 
