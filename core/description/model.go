@@ -392,7 +392,53 @@ func (m *model) Validate() error {
 		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
 	}
 
-	return m.validateRelations()
+	err := m.validateRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateLinkLayerDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// validateSubnets makes sure that any spaces referenced by subnets exist.
+func (m *model) validateSubnets() error {
+	spaceNames := set.NewStrings()
+	for _, space := range m.Spaces_.Spaces_ {
+		spaceNames.Add(space.Name())
+	}
+	for _, subnet := range m.Subnets_.Subnets_ {
+		if !spaceNames.Contains(subnet.SpaceName()) {
+			return errors.Errorf("subnet %q references non-existent space %q", subnet.CIDR(), subnet.SpaceName())
+		}
+	}
+
+	return nil
+}
+
+// validateLinkLayerDevices makes sure that any machines referenced by link
+// layer devices exist.
+func (m *model) validateLinkLayerDevices() error {
+	machineIDs := set.NewStrings()
+	for _, machine := range m.Machines_.Machines_ {
+		machineIDs.Add(machine.Id())
+	}
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		if !machineIDs.Contains(device.MachineID()) {
+			return errors.Errorf("device %q references non-existent machine %q", device.Name(), device.MachineID())
+		}
+	}
+
+	return nil
 }
 
 // validateRelations makes sure that for each endpoint in each relation there
