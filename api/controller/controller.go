@@ -5,15 +5,12 @@ package controller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
-
-var logger = loggo.GetLogger("juju.api.controller")
 
 // Client provides methods that the Juju client command uses to interact
 // with the Juju controller.
@@ -61,6 +58,14 @@ func (c *Client) ModelConfig() (map[string]interface{}, error) {
 	return result.Config, err
 }
 
+// ControllerConfig returns settings for the
+// controller itself.
+func (c *Client) ControllerConfig() (map[string]interface{}, error) {
+	result := params.ControllerConfigResult{}
+	err := c.facade.FacadeCall("ControllerConfig", nil, &result)
+	return result.Config, err
+}
+
 // DestroyController puts the controller model into a "dying" state,
 // and removes all non-manager machine instances. Underlying DestroyModel
 // calls will fail if there are any manually-provisioned non-manager machines
@@ -89,8 +94,8 @@ func (c *Client) RemoveBlocks() error {
 // WatchAllModels returns an AllWatcher, from which you can request
 // the Next collection of Deltas (for all models).
 func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
-	info := new(api.WatchAll)
-	if err := c.facade.FacadeCall("WatchAllModels", nil, info); err != nil {
+	var info params.AllWatcherId
+	if err := c.facade.FacadeCall("WatchAllModels", nil, &info); err != nil {
 		return nil, err
 	}
 	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker"
 )
 
 type baseSuite struct {
@@ -160,7 +161,10 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
-	ModelName: "admin",
+	Model: params.ModelStatusInfo{
+		Name:    "controller",
+		Version: "1.2.3",
+	},
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
@@ -216,7 +220,8 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
-			Charm: "local:quantal/logging-1",
+			Charm:  "local:quantal/logging-1",
+			Series: "quantal",
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
 			},
@@ -225,6 +230,7 @@ var scenarioStatus = &params.FullStatus{
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
+			Series:        "quantal",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
@@ -235,7 +241,8 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"wordpress": {
-			Charm: "local:quantal/wordpress-3",
+			Charm:  "local:quantal/wordpress-3",
+			Series: "quantal",
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},
 			},
@@ -377,6 +384,9 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
+	err = s.State.UpdateModelConfig(map[string]interface{}{
+		config.AgentVersionKey: "1.2.3"}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)
@@ -477,8 +487,12 @@ func (s *baseSuite) setupStoragePool(c *gc.C) {
 }
 
 func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
-	_, err := u.SetAgentPresence()
+	pinger, err := u.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
+
 	s.State.StartSync()
 	s.BackingState.StartSync()
 	err = u.WaitAgentPresence(coretesting.LongWait)

@@ -1023,14 +1023,16 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) TestBootstrapCloudConfigOverrideForbidden(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	_, err := coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "ctrl", "dummy-cloud-with-config",
 		"--auto-upgrade",
+		// Configuration specified on the command line overrides
+		// anything specified in files, no matter what the order.
 		"--config", "controller=false",
 	)
-	c.Assert(err, gc.ErrorMatches, "cannot override cloud attribute \"controller\"")
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {

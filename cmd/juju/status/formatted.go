@@ -11,8 +11,7 @@ import (
 )
 
 type formattedStatus struct {
-	Model        string                       `json:"model"`
-	ModelStatus  *modelStatus                 `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	Model        modelStatus                  `json:"model"`
 	Machines     map[string]machineStatus     `json:"machines"`
 	Applications map[string]applicationStatus `json:"applications"`
 }
@@ -27,6 +26,12 @@ type errorStatus struct {
 }
 
 type modelStatus struct {
+	Name       string `json:"name"`
+	Controller string `json:"controller"`
+	Cloud      string `json:"cloud"`
+	// TODO(thumper) 2016-06-10
+	// add region info when available
+	Version          string `json:"version"`
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 
@@ -64,6 +69,11 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 type applicationStatus struct {
 	Err           error                 `json:"-" yaml:",omitempty"`
 	Charm         string                `json:"charm" yaml:"charm"`
+	Series        string                `json:"series"`
+	OS            string                `json:"os"`
+	CharmOrigin   string                `json:"charm-origin" yaml:"charm-origin"`
+	CharmName     string                `json:"charm-name" yaml:"charm-name"`
+	CharmRev      int                   `json:"charm-rev" yaml:"charm-rev"`
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`

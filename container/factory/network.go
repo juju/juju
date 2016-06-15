@@ -13,7 +13,7 @@ import (
 // unknown then an empty string is returned.
 func DefaultNetworkBridge(cType instance.ContainerType) string {
 	switch cType {
-	case instance.LXC:
+	case instance.LXD:
 		return container.DefaultLxcBridge
 	case instance.KVM:
 		return container.DefaultKvmBridge

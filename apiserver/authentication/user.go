@@ -76,11 +76,9 @@ func (u *UserAuthenticator) Authenticate(
 // for invalid users.
 func (u *UserAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
 
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
-
 	// Ensure that the private key that we generate and store will be
 	// removed from storage once the expiry time has elapsed.
+	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
 	bakeryService, err := u.Service.ExpireStorageAt(expiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -111,6 +109,9 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	_, err := u.Service.CheckAny(req.Macaroons, assert, checkers.New(checkers.TimeBefore))
 	if err != nil {
 		logger.Debugf("local-login macaroon authentication failed: %v", err)
+		if allMacaroonsExpired(u.Clock.Now(), req.Macaroons) {
+			return nil, common.ErrLoginExpired
+		}
 		return nil, errors.Trace(common.ErrBadCreds)
 	}
 	entity, err := entityFinder.FindEntity(tag)
@@ -120,6 +121,41 @@ func (u *UserAuthenticator) authenticateMacaroons(
 		return nil, errors.Trace(err)
 	}
 	return entity, nil
+}
+
+// allMacaroonsExpired reports whether or not all of the macaroon
+// slices' primary macaroons have expired.
+func allMacaroonsExpired(now time.Time, ms []macaroon.Slice) bool {
+	for _, ms := range ms {
+		if len(ms) == 0 {
+			continue
+		}
+		m := ms[0]
+		var expired bool
+		for _, c := range m.Caveats() {
+			if c.Location != "" {
+				continue
+			}
+			cond, arg, err := checkers.ParseCaveat(c.Id)
+			if err != nil {
+				continue
+			}
+			if cond != checkers.CondTimeBefore {
+				continue
+			}
+			t, err := time.Parse(time.RFC3339Nano, arg)
+			if err != nil {
+				return false
+			}
+			if !now.Before(t) {
+				expired = true
+			}
+		}
+		if !expired {
+			return false
+		}
+	}
+	return true
 }
 
 // ExternalMacaroonAuthenticator performs authentication for external users using

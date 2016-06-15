@@ -18,7 +18,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -89,7 +88,6 @@ type MachineParams struct {
 type ApplicationParams struct {
 	Name        string
 	Charm       *state.Charm
-	Creator     names.Tag
 	Status      *status.StatusInfo
 	Settings    map[string]interface{}
 	Constraints constraints.Value
@@ -119,15 +117,11 @@ type MetricParams struct {
 }
 
 type ModelParams struct {
-	Name        string
-	Owner       names.Tag
-	ConfigAttrs testing.Attrs
-
-	// If Prepare is true, the environment will be "prepared for bootstrap".
-	Prepare       bool
-	Credential    *cloud.Credential
-	CloudEndpoint string
-	CloudRegion   string
+	Name            string
+	Owner           names.Tag
+	ConfigAttrs     testing.Attrs
+	CloudRegion     string
+	CloudCredential string
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -279,7 +273,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 	m, err := factory.st.AddMachineInsideMachine(
 		machineTemplate,
 		parentId,
-		instance.LXC,
+		instance.LXD,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
@@ -389,14 +383,8 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
 	}
-	if params.Creator == nil {
-		creator := factory.MakeUser(c, nil)
-		params.Creator = creator.Tag()
-	}
-	_ = params.Creator.(names.UserTag)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:        params.Name,
-		Owner:       params.Creator.String(),
 		Charm:       params.Charm,
 		Settings:    charm.Settings(params.Settings),
 		Constraints: params.Constraints,
@@ -579,6 +567,8 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	// as the initial model, or things will break elsewhere.
 	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	controllerCfg, err := factory.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -586,13 +576,14 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"name":       params.Name,
 		"uuid":       uuid.String(),
 		"type":       currentCfg.Type(),
-		"state-port": currentCfg.StatePort(),
-		"api-port":   currentCfg.APIPort(),
+		"state-port": controllerCfg.StatePort(),
+		"api-port":   controllerCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
-		Cloud:  "dummy",
-		Config: cfg,
-		Owner:  params.Owner.(names.UserTag),
+		CloudRegion:     params.CloudRegion,
+		CloudCredential: params.CloudCredential,
+		Config:          cfg,
+		Owner:           params.Owner.(names.UserTag),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st

@@ -63,7 +63,7 @@ func (s *EnvironCapabilitySuite) addMachineInsideNewMachine(c *gc.C) error {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	return err
 }
 

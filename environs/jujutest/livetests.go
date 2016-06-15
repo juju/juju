@@ -156,6 +156,32 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
 	}
 }
 
+func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+	var regions []cloud.Region
+	if t.CloudRegion != "" {
+		regions = []cloud.Region{{
+			Name:     t.CloudRegion,
+			Endpoint: t.CloudEndpoint,
+		}}
+	}
+	return bootstrap.BootstrapParams{
+		CloudName: t.TestConfig["type"].(string),
+		Cloud: cloud.Cloud{
+			Type:      t.TestConfig["type"].(string),
+			AuthTypes: []cloud.AuthType{credential.AuthType()},
+			Regions:   regions,
+			Endpoint:  t.CloudEndpoint,
+		},
+		CloudRegion:         t.CloudRegion,
+		CloudCredential:     &credential,
+		CloudCredentialName: "credential",
+	}
+}
+
 func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	if t.bootstrapped {
 		return
@@ -168,10 +194,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.toolsStorage, "released", nil, series.LatestLts())
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{
-		BootstrapConstraints: cons,
-		ModelConstraints:     cons,
-	})
+	args := t.bootstrapParams()
+	args.BootstrapConstraints = cons
+	args.ModelConstraints = cons
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -434,12 +460,15 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("opening state")
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 
-	env, err := st.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	owner := env.Owner()
+	owner := model.Owner()
 
 	c.Logf("opening API connection")
-	apiInfo, err := environs.APIInfo(t.Env)
+	controllerCfg, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	caCert, _ := controllerCfg.CACert()
+	apiInfo, err := environs.APIInfo(model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = owner
 	apiInfo.Password = t.Env.Config().AdminSecret()
@@ -491,7 +520,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Owner: owner.String(), Charm: sch})
+	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(st, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -781,7 +810,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer environs.Destroy("livetests", env, t.ControllerStore)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

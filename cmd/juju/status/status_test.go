@@ -33,14 +33,13 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	coreversion "github.com/juju/juju/version"
 )
 
-func nextVersion() version.Number {
-	ver := jujuversion.Current
-	ver.Patch++
-	return ver
-}
+var (
+	currentVersion = version.Number{Major: 1, Minor: 2, Patch: 3}
+	nextVersion    = version.Number{Major: 1, Minor: 2, Patch: 4}
+)
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
@@ -55,6 +54,18 @@ type StatusSuite struct {
 }
 
 var _ = gc.Suite(&StatusSuite{})
+
+func (s *StatusSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.PatchValue(&coreversion.Current, currentVersion)
+}
+
+func (s *StatusSuite) SetUpTest(c *gc.C) {
+	s.ConfigAttrs = map[string]interface{}{
+		"agent-version": currentVersion.String(),
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
 
 type M map[string]interface{}
 
@@ -142,13 +153,20 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 
 // shortcuts for expected output.
 var (
+	model = M{
+		"name":       "controller",
+		"controller": "kontroll",
+		"cloud":      "dummy",
+		"version":    "1.2.3",
+	}
+
 	machine0 = M{
 		"juju-status": M{
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "admin-0.dns",
-		"instance-id": "admin-0",
+		"dns-name":    "controller-0.dns",
+		"instance-id": "controller-0",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -162,8 +180,8 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "admin-1.dns",
-		"instance-id": "admin-1",
+		"dns-name":    "controller-1.dns",
+		"instance-id": "controller-1",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -176,8 +194,8 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "admin-2.dns",
-		"instance-id": "admin-2",
+		"dns-name":    "controller-2.dns",
+		"instance-id": "controller-2",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -190,8 +208,8 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "admin-3.dns",
-		"instance-id": "admin-3",
+		"dns-name":    "controller-3.dns",
+		"instance-id": "controller-3",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -204,8 +222,8 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "admin-4.dns",
-		"instance-id": "admin-4",
+		"dns-name":    "controller-4.dns",
+		"instance-id": "controller-4",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -219,19 +237,19 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"containers": M{
-			"1/lxc/0": M{
+			"1/lxd/0": M{
 				"juju-status": M{
 					"current": "started",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"containers": M{
-					"1/lxc/0/lxc/0": M{
+					"1/lxd/0/lxd/0": M{
 						"juju-status": M{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "admin-3.dns",
-						"instance-id": "admin-3",
+						"dns-name":    "controller-3.dns",
+						"instance-id": "controller-3",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -239,15 +257,15 @@ var (
 						"series": "quantal",
 					},
 				},
-				"dns-name":    "admin-2.dns",
-				"instance-id": "admin-2",
+				"dns-name":    "controller-2.dns",
+				"instance-id": "controller-2",
 				"machine-status": M{
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"series": "quantal",
 			},
-			"1/lxc/1": M{
+			"1/lxd/1": M{
 				"juju-status": M{
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
@@ -260,8 +278,8 @@ var (
 				"series": "quantal",
 			},
 		},
-		"dns-name":    "admin-1.dns",
-		"instance-id": "admin-1",
+		"dns-name":    "controller-1.dns",
+		"instance-id": "controller-1",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -270,23 +288,35 @@ var (
 		"series":   "quantal",
 		"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
-	unexposedService = M{
+	unexposedService = dummyCharm(M{
 		"application-status": M{
 			"current": "unknown",
 			"message": "Waiting for agent initialization to finish",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"charm":   "cs:quantal/dummy-1",
-		"exposed": false,
-	}
-	exposedService = M{
+	})
+	exposedService = dummyCharm(M{
 		"application-status": M{
 			"current": "unknown",
 			"message": "Waiting for agent initialization to finish",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"charm":   "cs:quantal/dummy-1",
 		"exposed": true,
+	})
+	loggingCharm = M{
+		"charm":              "cs:quantal/logging-1",
+		"charm-origin":       "jujucharms",
+		"charm-name":         "logging",
+		"charm-rev":          1,
+		"series":             "quantal",
+		"os":                 "ubuntu",
+		"exposed":            true,
+		"application-status": M{},
+		"relations": M{
+			"logging-directory": L{"wordpress"},
+			"info":              L{"mysql"},
+		},
+		"subordinate-to": L{"mysql", "wordpress"},
 	}
 )
 
@@ -314,7 +344,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -337,20 +367,20 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
 			network.NewAddress("10.0.0.1"),
-			network.NewScopedAddress("admin-0.dns", network.ScopePublic),
+			network.NewScopedAddress("controller-0.dns", network.ScopePublic),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "admin-0.dns",
-						"instance-id": "admin-0",
+						"dns-name":    "controller-0.dns",
+						"instance-id": "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -368,7 +398,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
@@ -380,11 +410,11 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
-						"dns-name":    "admin-0.dns",
-						"instance-id": "admin-0",
+						"dns-name":    "controller-0.dns",
+						"instance-id": "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -408,22 +438,22 @@ var statusTests = []testCase{
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
 			network.NewAddress("10.0.0.1"),
-			network.NewScopedAddress("admin-0.dns", network.ScopePublic),
+			network.NewScopedAddress("controller-0.dns", network.ScopePublic),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "admin-0.dns",
-						"instance-id": "admin-0",
+						"dns-name":    "controller-0.dns",
+						"instance-id": "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -445,14 +475,14 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has no dns-name",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"instance-id": "admin-0",
+						"instance-id": "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -472,7 +502,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -496,7 +526,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"instance-id": "i-missing",
@@ -522,7 +552,7 @@ var statusTests = []testCase{
 		"add two services and expose one, then add 2 more machines and some units",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"dummy"},
@@ -531,7 +561,7 @@ var statusTests = []testCase{
 		expect{
 			"no applications exposed yet",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
@@ -547,7 +577,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed application",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
@@ -560,17 +590,17 @@ var statusTests = []testCase{
 
 		// step 10
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 		expect{
 			"two more machines added",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -602,15 +632,14 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one started",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -632,13 +661,11 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					}),
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -654,10 +681,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -666,10 +693,10 @@ var statusTests = []testCase{
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
-		setAddresses{"3", network.NewAddresses("admin-3.dns")},
+		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		setMachineStatus{"3", status.StatusStopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("admin-4.dns")},
+		setAddresses{"4", network.NewAddresses("controller-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.StatusError, "Beware the red toys"},
 		ensureDyingUnit{"dummy-application/0"},
@@ -678,14 +705,14 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 					"3": M{
-						"dns-name":    "admin-3.dns",
-						"instance-id": "admin-3",
+						"dns-name":    "controller-3.dns",
+						"instance-id": "controller-3",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -699,8 +726,8 @@ var statusTests = []testCase{
 						"hardware": "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
-						"dns-name":    "admin-4.dns",
-						"instance-id": "admin-4",
+						"dns-name":    "controller-4.dns",
+						"instance-id": "controller-4",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -728,8 +755,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -751,13 +777,11 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					}),
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -773,10 +797,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -786,14 +810,12 @@ var statusTests = []testCase{
 			"scope status on dummy-application/0 unit",
 			[]string{"dummy-application/0"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"1": machine1,
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -809,10 +831,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -820,13 +842,12 @@ var statusTests = []testCase{
 			"scope status on exposed-application application",
 			[]string{"exposed-application"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"2": machine2,
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -848,10 +869,10 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -859,14 +880,12 @@ var statusTests = []testCase{
 			"scope status on application pattern",
 			[]string{"d*-application"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"1": machine1,
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -882,10 +901,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -893,13 +912,12 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-application/*"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"2": machine2,
 				},
 				"applications": M{
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -921,10 +939,10 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -932,15 +950,13 @@ var statusTests = []testCase{
 			"scope status on combination of application and unit patterns",
 			[]string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "terminated",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -956,12 +972,11 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
-					"exposed-application": M{
-						"charm":   "cs:quantal/dummy-1",
+					}),
+					"exposed-application": dummyCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "error",
@@ -983,10 +998,10 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -994,12 +1009,12 @@ var statusTests = []testCase{
 	test( // 5
 		"a unit with a hook relation error",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 
@@ -1020,15 +1035,13 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": false,
+					"wordpress": wordpressCharm(M{
 						"relations": M{
 							"db": L{"mysql"},
 						},
@@ -1049,13 +1062,11 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": false,
+					}),
+					"mysql": mysqlCharm(M{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
@@ -1076,10 +1087,10 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1087,12 +1098,12 @@ var statusTests = []testCase{
 	test( // 6
 		"a unit with a hook relation error when the agent is down",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 
@@ -1113,15 +1124,13 @@ var statusTests = []testCase{
 		expect{
 			"a unit with a hook relation error when the agent is down",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": false,
+					"wordpress": wordpressCharm(M{
 						"relations": M{
 							"db": L{"mysql"},
 						},
@@ -1142,13 +1151,11 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": false,
+					}),
+					"mysql": mysqlCharm(M{
 						"relations": M{
 							"server": L{"wordpress"},
 						},
@@ -1169,10 +1176,10 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1187,7 +1194,7 @@ var statusTests = []testCase{
 		expect{
 			"application shows life==dying",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
@@ -1204,10 +1211,8 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
-						"life":    "dying",
+					"dummy-application": dummyCharm(M{
+						"life": "dying",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -1227,7 +1232,7 @@ var statusTests = []testCase{
 								},
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1245,14 +1250,14 @@ var statusTests = []testCase{
 		expect{
 			"unit shows that agent is lost",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": M{
 						"juju-status": M{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"instance-id": "admin-0",
+						"instance-id": "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1263,9 +1268,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"dummy-application": M{
-						"charm":   "cs:quantal/dummy-1",
-						"exposed": false,
+					"dummy-application": dummyCharm(M{
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1285,7 +1288,7 @@ var statusTests = []testCase{
 								},
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1295,7 +1298,7 @@ var statusTests = []testCase{
 	test( // 9
 		"complex scenario with multiple related services",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -1305,7 +1308,7 @@ var statusTests = []testCase{
 		addService{name: "project", charm: "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
@@ -1315,7 +1318,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1325,7 +1328,7 @@ var statusTests = []testCase{
 		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("admin-3.dns")},
+		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.StatusStarted, ""},
 		addAliveUnit{"varnish", "3"},
@@ -1333,7 +1336,7 @@ var statusTests = []testCase{
 		addService{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("admin-4.dns")},
+		setAddresses{"4", network.NewAddresses("controller-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.StatusStarted, ""},
 		addAliveUnit{"private", "4"},
@@ -1345,7 +1348,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1354,8 +1357,7 @@ var statusTests = []testCase{
 					"4": machine4,
 				},
 				"applications": M{
-					"project": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"project": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1372,16 +1374,15 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
 						"relations": M{
 							"db":    L{"mysql"},
 							"cache": L{"varnish"},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					}),
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1398,16 +1399,21 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
 						"relations": M{
 							"server": L{"private", "project"},
 						},
-					},
+					}),
 					"varnish": M{
-						"charm":   "cs:quantal/varnish-1",
-						"exposed": true,
+						"charm":        "cs:quantal/varnish-1",
+						"charm-origin": "jujucharms",
+						"charm-name":   "varnish",
+						"charm-rev":    1,
+						"series":       "quantal",
+						"os":           "ubuntu",
+						"exposed":      true,
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -1425,15 +1431,14 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-3.dns",
+								"public-address": "controller-3.dns",
 							},
 						},
 						"relations": M{
 							"webcache": L{"project"},
 						},
 					},
-					"private": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"private": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "unknown",
@@ -1452,13 +1457,13 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-4.dns",
+								"public-address": "controller-4.dns",
 							},
 						},
 						"relations": M{
 							"db": L{"mysql"},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1466,7 +1471,7 @@ var statusTests = []testCase{
 	test( // 10
 		"simple peer scenario",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"riak"},
@@ -1475,21 +1480,21 @@ var statusTests = []testCase{
 		addService{name: "riak", charm: "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
 		setAgentStatus{"riak/0", status.StatusIdle, "", nil},
 		setUnitStatus{"riak/0", status.StatusActive, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
 		setAgentStatus{"riak/1", status.StatusIdle, "", nil},
 		setUnitStatus{"riak/1", status.StatusActive, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("admin-3.dns")},
+		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
@@ -1499,7 +1504,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -1508,8 +1513,13 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"riak": M{
-						"charm":   "cs:quantal/riak-7",
-						"exposed": true,
+						"charm":        "cs:quantal/riak-7",
+						"charm-origin": "jujucharms",
+						"charm-name":   "riak",
+						"charm-rev":    7,
+						"series":       "quantal",
+						"os":           "ubuntu",
+						"exposed":      true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -1525,7 +1535,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 							"riak/1": M{
 								"machine": "2",
@@ -1537,7 +1547,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 							"riak/2": M{
 								"machine": "3",
@@ -1549,7 +1559,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-3.dns",
+								"public-address": "controller-3.dns",
 							},
 						},
 						"relations": M{
@@ -1565,7 +1575,7 @@ var statusTests = []testCase{
 	test( // 11
 		"one application with one subordinate application",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -1575,7 +1585,7 @@ var statusTests = []testCase{
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -1585,7 +1595,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1610,15 +1620,14 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"wordpress": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1645,19 +1654,18 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "admin-1.dns",
+										"public-address": "controller-1.dns",
 									},
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					}),
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1685,27 +1693,18 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "admin-2.dns",
+										"public-address": "controller-2.dns",
 									},
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
 						"relations": M{
 							"server":    L{"wordpress"},
 							"juju-info": L{"logging"},
 						},
-					},
-					"logging": M{
-						"charm":              "cs:quantal/logging-1",
-						"exposed":            true,
-						"application-status": M{},
-						"relations": M{
-							"logging-directory": L{"wordpress"},
-							"info":              L{"mysql"},
-						},
-						"subordinate-to": L{"mysql", "wordpress"},
-					},
+					}),
+					"logging": loggingCharm,
 				},
 			},
 		},
@@ -1715,14 +1714,13 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"wordpress": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1749,19 +1747,18 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "admin-1.dns",
+										"public-address": "controller-1.dns",
 									},
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
-					},
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					}),
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1789,27 +1786,18 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "admin-2.dns",
+										"public-address": "controller-2.dns",
 									},
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
 						"relations": M{
 							"server":    L{"wordpress"},
 							"juju-info": L{"logging"},
 						},
-					},
-					"logging": M{
-						"charm":              "cs:quantal/logging-1",
-						"exposed":            true,
-						"application-status": M{},
-						"relations": M{
-							"logging-directory": L{"wordpress"},
-							"info":              L{"mysql"},
-						},
-						"subordinate-to": L{"mysql", "wordpress"},
-					},
+					}),
+					"logging": loggingCharm,
 				},
 			},
 		},
@@ -1819,13 +1807,12 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"1": machine1,
 				},
 				"applications": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
+					"wordpress": wordpressCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1852,27 +1839,18 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "admin-1.dns",
+										"public-address": "controller-1.dns",
 									},
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
 						},
-					},
-					"logging": M{
-						"charm":              "cs:quantal/logging-1",
-						"exposed":            true,
-						"application-status": M{},
-						"relations": M{
-							"logging-directory": L{"wordpress"},
-							"info":              L{"mysql"},
-						},
-						"subordinate-to": L{"mysql", "wordpress"},
-					},
+					}),
+					"logging": loggingCharm,
 				},
 			},
 		},
@@ -1881,7 +1859,7 @@ var statusTests = []testCase{
 		"machines with containers",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -1890,7 +1868,7 @@ var statusTests = []testCase{
 
 		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addAliveUnit{"mysql", "1"},
@@ -1898,32 +1876,31 @@ var statusTests = []testCase{
 		setUnitStatus{"mysql/0", status.StatusActive, "", nil},
 
 		// step 14: A container on machine 1.
-		addContainer{"1", "1/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0", network.NewAddresses("admin-2.dns")},
-		startAliveMachine{"1/lxc/0"},
-		setMachineStatus{"1/lxc/0", status.StatusStarted, ""},
-		addAliveUnit{"mysql", "1/lxc/0"},
+		addContainer{"1", "1/lxd/0", state.JobHostUnits},
+		setAddresses{"1/lxd/0", network.NewAddresses("controller-2.dns")},
+		startAliveMachine{"1/lxd/0"},
+		setMachineStatus{"1/lxd/0", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "1/lxd/0"},
 		setAgentStatus{"mysql/1", status.StatusIdle, "", nil},
 		setUnitStatus{"mysql/1", status.StatusActive, "", nil},
-		addContainer{"1", "1/lxc/1", state.JobHostUnits},
+		addContainer{"1", "1/lxd/1", state.JobHostUnits},
 
 		// step 22: A nested container.
-		addContainer{"1/lxc/0", "1/lxc/0/lxc/0", state.JobHostUnits},
-		setAddresses{"1/lxc/0/lxc/0", network.NewAddresses("admin-3.dns")},
-		startAliveMachine{"1/lxc/0/lxc/0"},
-		setMachineStatus{"1/lxc/0/lxc/0", status.StatusStarted, ""},
+		addContainer{"1/lxd/0", "1/lxd/0/lxd/0", state.JobHostUnits},
+		setAddresses{"1/lxd/0/lxd/0", network.NewAddresses("controller-3.dns")},
+		startAliveMachine{"1/lxd/0/lxd/0"},
+		setMachineStatus{"1/lxd/0/lxd/0", status.StatusStarted, ""},
 
 		expect{
 			"machines with nested containers",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -1940,10 +1917,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 							"mysql/1": M{
-								"machine": "1/lxc/0",
+								"machine": "1/lxd/0",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1952,10 +1929,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -1965,7 +1942,7 @@ var statusTests = []testCase{
 			"machines with nested containers 2",
 			[]string{"mysql/1"},
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"1": M{
 						"juju-status": M{
@@ -1973,13 +1950,13 @@ var statusTests = []testCase{
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"containers": M{
-							"1/lxc/0": M{
+							"1/lxd/0": M{
 								"juju-status": M{
 									"current": "started",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"dns-name":    "admin-2.dns",
-								"instance-id": "admin-2",
+								"dns-name":    "controller-2.dns",
+								"instance-id": "controller-2",
 								"machine-status": M{
 									"current": "pending",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1988,8 +1965,8 @@ var statusTests = []testCase{
 								"series": "quantal",
 							},
 						},
-						"dns-name":    "admin-1.dns",
-						"instance-id": "admin-1",
+						"dns-name":    "controller-1.dns",
+						"instance-id": "controller-1",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2000,8 +1977,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -2009,7 +1985,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/1": M{
-								"machine": "1/lxc/0",
+								"machine": "1/lxd/0",
 								"workload-status": M{
 									"current": "active",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -2018,10 +1994,10 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2029,11 +2005,11 @@ var statusTests = []testCase{
 	test( // 13
 		"application with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -2045,14 +2021,13 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":          "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
 						"application-status": M{
@@ -2072,10 +2047,10 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2083,11 +2058,11 @@ var statusTests = []testCase{
 	test( // 14
 		"unit with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -2101,15 +2076,16 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
-						"exposed": true,
+					"mysql": mysqlCharm(M{
+						"charm":        "local:quantal/mysql-1",
+						"charm-origin": "local",
+						"exposed":      true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2126,10 +2102,10 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2137,11 +2113,11 @@ var statusTests = []testCase{
 	test( // 15
 		"application and unit with out of date charms",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -2156,14 +2132,15 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
+					"mysql": mysqlCharm(M{
 						"charm":          "cs:quantal/mysql-2",
+						"charm-rev":      2,
 						"can-upgrade-to": "cs:quantal/mysql-23",
 						"exposed":        true,
 						"application-status": M{
@@ -2182,10 +2159,10 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2193,11 +2170,11 @@ var statusTests = []testCase{
 	test( // 16
 		"application with local charm not shown as out of date",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addCharm{"mysql"},
@@ -2212,15 +2189,16 @@ var statusTests = []testCase{
 		expect{
 			"services and units with correct charm status",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "local:quantal/mysql-1",
-						"exposed": true,
+					"mysql": mysqlCharm(M{
+						"charm":        "local:quantal/mysql-1",
+						"charm-origin": "local",
+						"exposed":      true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2237,10 +2215,10 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2248,27 +2226,27 @@ var statusTests = []testCase{
 	test( // 17
 		"deploy two services; set meter statuses on one",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("admin-3.dns")},
+		setAddresses{"3", network.NewAddresses("controller-3.dns")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.StatusStarted, ""},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("admin-4.dns")},
+		setAddresses{"4", network.NewAddresses("controller-4.dns")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.StatusStarted, ""},
 
@@ -2300,7 +2278,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate just the two services and a bootstrap node",
 			M{
-				"model": "admin",
+				"model": model,
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -2309,8 +2287,7 @@ var statusTests = []testCase{
 					"4": machine4,
 				},
 				"applications": M{
-					"mysql": M{
-						"charm":   "cs:quantal/mysql-1",
+					"mysql": mysqlCharm(M{
 						"exposed": true,
 						"application-status": M{
 							"current": "active",
@@ -2327,14 +2304,12 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-1.dns",
+								"public-address": "controller-1.dns",
 							},
 						},
-					},
+					}),
 
-					"servicewithmeterstatus": M{
-						"charm":   "cs:quantal/mysql-1",
-						"exposed": false,
+					"servicewithmeterstatus": mysqlCharm(M{
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2350,7 +2325,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "admin-2.dns",
+								"public-address": "controller-2.dns",
 							},
 							"servicewithmeterstatus/1": M{
 								"machine": "3",
@@ -2366,7 +2341,7 @@ var statusTests = []testCase{
 									"color":   "green",
 									"message": "test green status",
 								},
-								"public-address": "admin-3.dns",
+								"public-address": "controller-3.dns",
 							},
 							"servicewithmeterstatus/2": M{
 								"machine": "4",
@@ -2382,10 +2357,10 @@ var statusTests = []testCase{
 									"color":   "red",
 									"message": "test red status",
 								},
-								"public-address": "admin-4.dns",
+								"public-address": "controller-4.dns",
 							},
 						},
-					},
+					}),
 				},
 			},
 		},
@@ -2396,15 +2371,66 @@ var statusTests = []testCase{
 		expect{
 			"upgrade availability should be shown in model-status",
 			M{
-				"model": "admin",
-				"model-status": M{
-					"upgrade-available": nextVersion().String(),
+				"model": M{
+					"name":              "controller",
+					"controller":        "kontroll",
+					"cloud":             "dummy",
+					"version":           "1.2.3",
+					"upgrade-available": "1.2.4",
 				},
 				"machines":     M{},
 				"applications": M{},
 			},
 		},
 	),
+}
+
+func mysqlCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/mysql-1",
+		"charm-origin": "jujucharms",
+		"charm-name":   "mysql",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func dummyCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/dummy-1",
+		"charm-origin": "jujucharms",
+		"charm-name":   "dummy",
+		"charm-rev":    1,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
+}
+
+func wordpressCharm(extras M) M {
+	charm := M{
+		"charm":        "cs:quantal/wordpress-3",
+		"charm-origin": "jujucharms",
+		"charm-name":   "wordpress",
+		"charm-rev":    3,
+		"series":       "quantal",
+		"os":           "ubuntu",
+		"exposed":      false,
+	}
+	for key, value := range extras {
+		charm[key] = value
+	}
+	return charm
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
@@ -2436,7 +2462,7 @@ func (ac addContainer) step(c *gc.C, ctx *context) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{ac.job},
 	}
-	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXC)
+	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
@@ -2590,7 +2616,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Owner: ctx.adminUserTag, Charm: ch})
+	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
@@ -2959,7 +2985,7 @@ type setToolsUpgradeAvailable struct{}
 func (ua setToolsUpgradeAvailable) step(c *gc.C, ctx *context) {
 	env, err := ctx.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.UpdateLatestToolsVersion(nextVersion())
+	err = env.UpdateLatestToolsVersion(nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3060,7 +3086,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -3070,7 +3096,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -3080,7 +3106,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3106,10 +3132,10 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx.run(c, steps)
 
 	const expected = `
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:error)
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:error)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	assertOneLineStatus(c, expected)
 }
@@ -3138,7 +3164,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	steps := []stepper{
 		setToolsUpgradeAvailable{},
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", status.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -3147,7 +3173,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -3157,7 +3183,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3195,42 +3221,35 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	code, stdout, stderr := runStatus(c, args...)
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
-	const expected = `
-[Model]           
-UPGRADE-AVAILABLE 
-%s
+	expected := `
+MODEL       CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE  
+controller  kontroll    dummy  1.2.3    1.2.4              
 
-[Applications] 
-NAME           STATUS      EXPOSED CHARM                  
-logging                    true    cs:quantal/logging-1   
-mysql          maintenance true    cs:quantal/mysql-1     
-wordpress      active      true    cs:quantal/wordpress-3 
+APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS      
+logging                 true     jujucharms  logging    1    ubuntu  
+mysql      maintenance  true     jujucharms  mysql      1    ubuntu  
+wordpress  active       true     jujucharms  wordpress  3    ubuntu  
 
-[Relations]  
-APPLICATION1 APPLICATION2 RELATION          TYPE        
-logging      mysql        juju-info         regular     
-logging      wordpress    logging-dir       regular     
-mysql        logging      info              subordinate 
-mysql        wordpress    db                regular     
-wordpress    logging      logging-directory subordinate 
+RELATION           PROVIDES   CONSUMES   TYPE         
+juju-info          logging    mysql      regular      
+logging-dir        logging    wordpress  regular      
+info               mysql      logging    subordinate  
+db                 mysql      wordpress  regular      
+logging-directory  wordpress  logging    subordinate  
 
-[Units]     
-ID          WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                        
-mysql/0     maintenance     idle        1.2.3   2             admin-2.dns    installing all the things      
-  logging/1 error           idle                              admin-2.dns    somehow lost in all those logs 
-wordpress/0 active          idle        1.2.3   1             admin-1.dns                                   
-  logging/0 active          idle                              admin-1.dns                                   
+UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE                         
+mysql/0      maintenance  idle   2               controller-2.dns  installing all the things       
+  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs  
+wordpress/0  active       idle   1               controller-1.dns                                  
+  logging/0  active       idle                   controller-1.dns                                  
 
-[Machines] 
-ID         STATE   DNS         INS-ID  SERIES  AZ         
-0          started admin-0.dns admin-0 quantal us-east-1a 
-1          started admin-1.dns admin-1 quantal            
-2          started admin-2.dns admin-2 quantal            
+MACHINE  STATE    DNS               INS-ID        SERIES   AZ          
+0        started  controller-0.dns  controller-0  quantal  us-east-1a  
+1        started  controller-1.dns  controller-1  quantal              
+2        started  controller-2.dns  controller-2  quantal              
 
-`
-	nextVersionStr := nextVersion().String()
-	spaces := strings.Repeat(" ", len("UPGRADE-AVAILABLE")-len(nextVersionStr)+1)
-	c.Assert(string(stdout), gc.Equals, fmt.Sprintf(expected[1:], nextVersionStr+spaces))
+`[1:]
+	c.Assert(string(stdout), gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
@@ -3269,17 +3288,17 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-[Applications] 
-NAME           STATUS EXPOSED CHARM 
-foo                   false         
+MODEL  CONTROLLER  CLOUD  VERSION  
+                                   
 
-[Units] 
-ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE                           
-foo/0   maintenance     executing                                        (config-changed) doing some work  
-foo/1   maintenance     executing                                        (backup database) doing some work 
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
+foo          false                   0        
 
-[Machines] 
-ID         STATE DNS INS-ID SERIES AZ 
+UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE                            
+foo/0  maintenance  executing                                  (config-changed) doing some work   
+foo/1  maintenance  executing                                  (backup database) doing some work  
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
 `[1:])
 }
 
@@ -3288,7 +3307,7 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
 	}
@@ -3335,22 +3354,21 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-[Applications] 
-NAME           STATUS EXPOSED CHARM 
-foo                   false         
+MODEL  CONTROLLER  CLOUD  VERSION  
+                                   
 
-[Units] 
-ID      WORKLOAD-STATUS JUJU-STATUS VERSION MACHINE PORTS PUBLIC-ADDRESS MESSAGE 
-foo/0                                                                            
-foo/1                                                                            
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
+foo          false                   0        
 
-[Metering] 
-ID         STATUS  MESSAGE                     
-foo/0      strange warning: stable strangelets 
-foo/1      up      things are looking up       
+UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE  
+foo/0                                                            
+foo/1                                                            
 
-[Machines] 
-ID         STATE DNS INS-ID SERIES AZ 
+METER  STATUS   MESSAGE                      
+foo/0  strange  warning: stable strangelets  
+foo/1  up       things are looking up        
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
 `[1:])
 }
 
@@ -3368,11 +3386,11 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "0", job: state.JobManageModel},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.StatusStarted, ""},
-		// And the machine's address is "admin-0.dns"
-		setAddresses{"0", network.NewAddresses("admin-0.dns")},
+		// And the machine's address is "controller-0.dns"
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		// And a container is started
-		// And the container's ID is "0/lxc/0"
-		addContainer{"0", "0/lxc/0", state.JobHostUnits},
+		// And the container's ID is "0/lxd/0"
+		addContainer{"0", "0/lxd/0", state.JobHostUnits},
 
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
@@ -3389,8 +3407,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.StatusStarted, ""},
-		// And the machine's address is "admin-1.dns"
-		setAddresses{"1", network.NewAddresses("admin-1.dns")},
+		// And the machine's address is "controller-1.dns"
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
@@ -3403,8 +3421,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.StatusStarted, ""},
-		// And the machine's address is "admin-2.dns"
-		setAddresses{"2", network.NewAddresses("admin-2.dns")},
+		// And the machine's address is "controller-2.dns"
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
@@ -3450,8 +3468,8 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3467,8 +3485,8 @@ func (s *StatusSuite) TestFilterToMachine(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3482,7 +3500,7 @@ func (s *StatusSuite) TestFilterToMachineShowsContainer(c *gc.C) {
 	_, stdout, stderr := runStatus(c, "--format", "yaml", "0")
 	c.Assert(string(stderr), gc.Equals, "")
 	// Then I should receive output matching:
-	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxc/0(.|\n)*"
+	const expected = "(.|\n)*machines:(.|\n)*\"0\"(.|\n)*0/lxd/0(.|\n)*"
 	c.Assert(string(stdout), gc.Matches, expected)
 }
 
@@ -3491,25 +3509,29 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	// When I run juju status --format yaml 0/lxc/0
-	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxc/0")
+	// When I run juju status --format yaml 0/lxd/0
+	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
 	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
 	const expected = "" +
-		"model: admin\n" +
+		"model:\n" +
+		"  name: controller\n" +
+		"  controller: kontroll\n" +
+		"  cloud: dummy\n" +
+		"  version: 1.2.3\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
 		"      current: started\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
-		"    dns-name: admin-0.dns\n" +
-		"    instance-id: admin-0\n" +
+		"    dns-name: controller-0.dns\n" +
+		"    instance-id: controller-0\n" +
 		"    machine-status:\n" +
 		"      current: pending\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
 		"    series: quantal\n" +
 		"    containers:\n" +
-		"      0/lxc/0:\n" +
+		"      0/lxd/0:\n" +
 		"        juju-status:\n" +
 		"          current: pending\n" +
 		"          since: 01 Apr 15 01:23+10:00\n" +
@@ -3538,8 +3560,8 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:error)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:error)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3555,8 +3577,8 @@ func (s *StatusSuite) TestFilterToService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:active)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3579,8 +3601,8 @@ func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3597,8 +3619,8 @@ func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3657,10 +3679,10 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:active)
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:active)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3678,8 +3700,8 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3693,10 +3715,10 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:active)
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:active)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3710,10 +3732,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: admin-2.dns (agent:idle, workload:active)
-  - logging/1: admin-2.dns (agent:idle, workload:active)
-- wordpress/0: admin-1.dns (agent:idle, workload:active)
-  - logging/0: admin-1.dns (agent:idle, workload:active)
+- mysql/0: controller-2.dns (agent:idle, workload:active)
+  - logging/1: controller-2.dns (agent:idle, workload:active)
+- wordpress/0: controller-1.dns (agent:idle, workload:active)
+  - logging/0: controller-1.dns (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3769,7 +3791,7 @@ func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
 var statusTimeTest = test(
 	"status generates timestamps as UTC in ISO format",
 	addMachine{machineId: "0", job: state.JobManageModel},
-	setAddresses{"0", network.NewAddresses("admin-0.dns")},
+	setAddresses{"0", network.NewAddresses("controller-0.dns")},
 	startAliveMachine{"0"},
 	setMachineStatus{"0", status.StatusStarted, ""},
 	addCharm{"dummy"},
@@ -3777,22 +3799,25 @@ var statusTimeTest = test(
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},
-	setAddresses{"1", network.NewAddresses("admin-1.dns")},
+	setAddresses{"1", network.NewAddresses("controller-1.dns")},
 	setMachineStatus{"1", status.StatusStarted, ""},
 
 	addAliveUnit{"dummy-application", "1"},
 	expect{
 		"add two units, one alive (in error state), one started",
 		M{
-			"model": "admin",
+			"model": M{
+				"name":       "controller",
+				"controller": "kontroll",
+				"cloud":      "dummy",
+				"version":    "1.2.3",
+			},
 			"machines": M{
 				"0": machine0,
 				"1": machine1,
 			},
 			"applications": M{
-				"dummy-application": M{
-					"charm":   "cs:quantal/dummy-1",
-					"exposed": false,
+				"dummy-application": dummyCharm(M{
 					"application-status": M{
 						"current": "unknown",
 						"message": "Waiting for agent initialization to finish",
@@ -3810,10 +3835,10 @@ var statusTimeTest = test(
 								"current": "allocating",
 								"since":   "01 Apr 15 01:23+10:00",
 							},
-							"public-address": "admin-1.dns",
+							"public-address": "controller-1.dns",
 						},
 					},
-				},
+				}),
 			},
 		},
 	},

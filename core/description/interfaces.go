@@ -36,7 +36,8 @@ type Model interface {
 	HasAnnotations
 	HasConstraints
 
-	Cloud() string
+	CloudRegion() string
+	CloudCredential() string
 	Tag() names.ModelTag
 	Owner() names.UserTag
 	Config() map[string]interface{}

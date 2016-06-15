@@ -159,7 +159,7 @@ func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
-	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
 	err := s.manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -297,14 +297,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`arch constraint of "armhf" being ignored as not supported`,
 		},
 	}, {
-		cons: "container=lxc",
+		cons: "container=lxd",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.DefaultCpu,
 			RootDisk: kvm.DefaultDisk,
 		},
 		infoLog: []string{
-			`container constraint of "lxc" being ignored as not supported`,
+			`container constraint of "lxd" being ignored as not supported`,
 		},
 	}, {
 		cons: "cpu-power=100",
@@ -327,7 +327,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}, {
-		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxc tags=foo,bar",
+		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxd tags=foo,bar",
 		expected: kvm.StartParams{
 			Memory:   4 * 1024,
 			CpuCores: 4,
@@ -335,7 +335,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		},
 		infoLog: []string{
 			`arch constraint of "armhf" being ignored as not supported`,
-			`container constraint of "lxc" being ignored as not supported`,
+			`container constraint of "lxd" being ignored as not supported`,
 			`cpu-power constraint of 100 being ignored as not supported`,
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},

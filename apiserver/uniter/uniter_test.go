@@ -72,17 +72,15 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 		URL:  "cs:quantal/wordpress-3",
 	})
 	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
-		Name:    "wordpress",
-		Charm:   s.wpCharm,
-		Creator: s.AdminUserTag(c),
+		Name:  "wordpress",
+		Charm: s.wpCharm,
 	})
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
 	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
-		Name:    "mysql",
-		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c),
+		Name:  "mysql",
+		Charm: mysqlCharm,
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.wordpress,
@@ -2128,29 +2126,6 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestApplicationOwner(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "application-wordpress"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-		{Tag: "machine-0"},
-		{Tag: "application-foo"},
-	}}
-	result, err := s.uniter.ApplicationOwner(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: s.AdminUserTag(c).String()},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
 func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -2417,7 +2392,6 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 	s.base.wordpress, err = s.base.State.AddApplication(state.AddApplicationArgs{
 		Name:  "wordpress",
 		Charm: s.base.wpCharm,
-		Owner: s.base.AdminUserTag(c).String(),
 		EndpointBindings: map[string]string{
 			"db":        "internal", // relation name
 			"admin-api": "public",   // extra-binding name
@@ -2435,9 +2409,8 @@ func (s *uniterNetworkConfigSuite) SetUpTest(c *gc.C) {
 		Name: "mysql",
 	})
 	s.base.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
-		Name:    "mysql",
-		Charm:   mysqlCharm,
-		Creator: s.base.AdminUserTag(c),
+		Name:  "mysql",
+		Charm: mysqlCharm,
 	})
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.base.wordpress,

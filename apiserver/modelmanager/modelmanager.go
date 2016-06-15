@@ -8,6 +8,7 @@
 package modelmanager
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/permission"
@@ -33,8 +35,7 @@ func init() {
 
 // ModelManager defines the methods on the modelmanager API endpoint.
 type ModelManager interface {
-	ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error)
-	CreateModel(args params.ModelCreateArgs) (params.Model, error)
+	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 }
 
@@ -102,56 +103,9 @@ type ConfigSource interface {
 	Config() (*config.Config, error)
 }
 
-// ConfigSkeleton returns config values to be used as a starting point for the
-// API caller to construct a valid model specific config.  The provider
-// and region params are there for future use, and current behaviour expects
-// both of these to be empty.
-func (mm *ModelManagerAPI) ConfigSkeleton(args params.ModelSkeletonConfigArgs) (params.ModelConfigResult, error) {
-	var result params.ModelConfigResult
-	if args.Region != "" {
-		return result, errors.NotValidf("region value %q", args.Region)
-	}
-
-	controllerEnv, err := mm.state.ControllerModel()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	config, err := mm.configSkeleton(controllerEnv, args.Provider)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	result.Config = config
-	return result, nil
-}
-
-func (mm *ModelManagerAPI) configSkeleton(source ConfigSource, requestedProviderType string) (map[string]interface{}, error) {
-	baseConfig, err := source.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if requestedProviderType != "" && baseConfig.Type() != requestedProviderType {
-		return nil, errors.Errorf(
-			"cannot create new model with credentials for provider type %q on controller with provider type %q",
-			requestedProviderType, baseConfig.Type())
-	}
-	baseMap := baseConfig.AllAttrs()
-
-	fields, err := modelmanager.RestrictedProviderFields(baseConfig.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var result = make(map[string]interface{})
-	for _, field := range fields {
-		if value, found := baseMap[field]; found {
-			result[field] = value
-		}
-	}
-	return result, nil
-}
-
-func (mm *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source ConfigSource) (*config.Config, error) {
+func (mm *ModelManagerAPI) newModelConfig(
+	args params.ModelCreateArgs, source ConfigSource, credential *cloud.Credential,
+) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
 	// the account values and the model config together in the
 	// *config.Config instance.
@@ -159,13 +113,22 @@ func (mm *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 	for key, value := range args.Config {
 		joint[key] = value
 	}
-	// Account info overrides any config values.
-	for key, value := range args.Account {
-		joint[key] = value
-	}
 	if _, ok := joint["uuid"]; ok {
 		return nil, errors.New("uuid is generated, you cannot specify one")
 	}
+	if _, ok := joint[config.NameKey]; ok {
+		return nil, errors.New("name must not be specified in config")
+	}
+	joint[config.NameKey] = args.Name
+
+	// Copy credential attributes across to model config.
+	// TODO(axw) credentials should not be going into model config.
+	if credential != nil {
+		for key, value := range credential.Attributes() {
+			joint[key] = value
+		}
+	}
+
 	baseConfig, err := source.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -186,8 +149,8 @@ func (mm *ModelManagerAPI) newModelConfig(args params.ModelCreateArgs, source Co
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
-func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model, error) {
-	result := params.Model{}
+func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
+	result := params.ModelInfo{}
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
 	controllerModel, err := mm.state.ControllerModel()
@@ -208,33 +171,73 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
-	// TODO(axw) the user should specify a cloud, region and
-	// credential when creating the model. For now we just
-	// assume they're the same as in the controller model.
-	cloud := controllerModel.Cloud()
+	cloudCredentialName := args.CloudCredential
+	if cloudCredentialName == "" {
+		if ownerTag == controllerModel.Owner() {
+			cloudCredentialName = controllerModel.CloudCredential()
+		} else {
+			// TODO(axw) check if the user has one and only one
+			// cloud credential, and if so, use it? For now, we
+			// require the user to specify a credential unless
+			// the cloud does not require one.
+			controllerCloud, err := mm.state.Cloud()
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			var hasEmpty bool
+			for _, authType := range controllerCloud.AuthTypes {
+				if authType != cloud.EmptyAuthType {
+					continue
+				}
+				hasEmpty = true
+				break
+			}
+			if !hasEmpty {
+				return result, errors.NewNotValid(nil, "no credential specified")
+			}
+		}
+	}
 
-	newConfig, err := mm.newModelConfig(args, controllerModel)
+	cloudRegion := args.CloudRegion
+	if cloudRegion == "" {
+		cloudRegion = controllerModel.CloudRegion()
+	}
+
+	var credential *cloud.Credential
+	if cloudCredentialName != "" {
+		ownerCredentials, err := mm.state.CloudCredentials(ownerTag)
+		if err != nil {
+			return result, errors.Annotate(err, "getting credentials")
+		}
+		elem, ok := ownerCredentials[cloudCredentialName]
+		if !ok {
+			return result, errors.NewNotValid(nil, fmt.Sprintf(
+				"no such credential %q", cloudCredentialName,
+			))
+		}
+		credential = &elem
+	}
+
+	newConfig, err := mm.newModelConfig(args, controllerModel, credential)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
 	}
+
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := mm.state.NewModel(state.ModelArgs{
-		Cloud:  cloud,
-		Config: newConfig,
-		Owner:  ownerTag,
+		CloudRegion:     cloudRegion,
+		CloudCredential: cloudCredentialName,
+		Config:          newConfig,
+		Owner:           ownerTag,
 	})
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()
 
-	result.Name = model.Name()
-	result.UUID = model.UUID()
-	result.OwnerTag = model.Owner().String()
-
-	return result, nil
+	return mm.getModelInfo(model.ModelTag())
 }
 
 // ListModels returns the models that the specified user
@@ -293,70 +296,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		if err != nil {
 			return params.ModelInfo{}, err
 		}
-
-		st, err := m.state.ForModel(tag)
-		if errors.IsNotFound(err) {
-			return params.ModelInfo{}, common.ErrPerm
-		} else if err != nil {
-			return params.ModelInfo{}, err
-		}
-		defer st.Close()
-
-		model, err := st.Model()
-		if errors.IsNotFound(err) {
-			return params.ModelInfo{}, common.ErrPerm
-		} else if err != nil {
-			return params.ModelInfo{}, err
-		}
-
-		cfg, err := model.Config()
-		if err != nil {
-			return params.ModelInfo{}, err
-		}
-		users, err := model.Users()
-		if err != nil {
-			return params.ModelInfo{}, err
-		}
-		status, err := model.Status()
-		if err != nil {
-			return params.ModelInfo{}, err
-		}
-
-		owner := model.Owner()
-		info := params.ModelInfo{
-			Name:           cfg.Name(),
-			UUID:           cfg.UUID(),
-			ControllerUUID: cfg.ControllerUUID(),
-			OwnerTag:       owner.String(),
-			Life:           params.Life(model.Life().String()),
-			Status:         common.EntityStatusFromState(status),
-			ProviderType:   cfg.Type(),
-			DefaultSeries:  config.PreferredSeries(cfg),
-			Cloud:          model.Cloud(),
-		}
-
-		authorizedOwner := m.authCheck(owner) == nil
-		for _, user := range users {
-			if !authorizedOwner && m.authCheck(user.UserTag()) != nil {
-				// The authenticated user is neither the owner
-				// nor administrator, nor the model user, so
-				// has no business knowing about the model user.
-				continue
-			}
-			userInfo, err := common.ModelUserInfo(user)
-			if err != nil {
-				return params.ModelInfo{}, errors.Trace(err)
-			}
-			info.Users = append(info.Users, userInfo)
-		}
-
-		if len(info.Users) == 0 {
-			// No users, which means the authenticated user doesn't
-			// have access to the model.
-			return params.ModelInfo{}, common.ErrPerm
-		}
-
-		return info, nil
+		return m.getModelInfo(tag)
 	}
 
 	for i, arg := range args.Entities {
@@ -368,6 +308,77 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 		results.Results[i].Result = &modelInfo
 	}
 	return results, nil
+}
+
+func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
+	st, err := m.state.ForModel(tag)
+	if errors.IsNotFound(err) {
+		return params.ModelInfo{}, common.ErrPerm
+	} else if err != nil {
+		return params.ModelInfo{}, err
+	}
+	defer st.Close()
+
+	model, err := st.Model()
+	if errors.IsNotFound(err) {
+		return params.ModelInfo{}, common.ErrPerm
+	} else if err != nil {
+		return params.ModelInfo{}, err
+	}
+
+	cfg, err := model.Config()
+	if err != nil {
+		return params.ModelInfo{}, err
+	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return params.ModelInfo{}, err
+	}
+	users, err := model.Users()
+	if err != nil {
+		return params.ModelInfo{}, err
+	}
+	status, err := model.Status()
+	if err != nil {
+		return params.ModelInfo{}, err
+	}
+
+	owner := model.Owner()
+	info := params.ModelInfo{
+		Name:            cfg.Name(),
+		UUID:            cfg.UUID(),
+		ControllerUUID:  controllerCfg.ControllerUUID(),
+		OwnerTag:        owner.String(),
+		Life:            params.Life(model.Life().String()),
+		Status:          common.EntityStatusFromState(status),
+		ProviderType:    cfg.Type(),
+		DefaultSeries:   config.PreferredSeries(cfg),
+		CloudRegion:     model.CloudRegion(),
+		CloudCredential: model.CloudCredential(),
+	}
+
+	authorizedOwner := m.authCheck(owner) == nil
+	for _, user := range users {
+		if !authorizedOwner && m.authCheck(user.UserTag()) != nil {
+			// The authenticated user is neither the owner
+			// nor administrator, nor the model user, so
+			// has no business knowing about the model user.
+			continue
+		}
+		userInfo, err := common.ModelUserInfo(user)
+		if err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+		info.Users = append(info.Users, userInfo)
+	}
+
+	if len(info.Users) == 0 {
+		// No users, which means the authenticated user doesn't
+		// have access to the model.
+		return params.ModelInfo{}, common.ErrPerm
+	}
+
+	return info, nil
 }
 
 // ModifyModelAccess changes the model access granted to users.

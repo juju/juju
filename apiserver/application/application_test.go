@@ -1191,28 +1191,6 @@ func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application "application-name" not found`)
 }
 
-func (s *serviceSuite) TestServiceDeployApplicationOwner(c *gc.C) {
-	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
-	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
-		URL: curl.String(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := s.applicationApi.Deploy(params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
-			ApplicationName: "application",
-			NumUnits:        3,
-		}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-
-	application, err := s.State.Application("application")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.GetOwnerTag(), gc.Equals, s.authorizer.GetAuthTag().String())
-}
-
 func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-1", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
@@ -1735,7 +1713,7 @@ func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
 	_, err = s.applicationApi.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        1,
-		Placement:       []*instance.Placement{instance.MustParsePlacement("lxc:" + machine.Id())},
+		Placement:       []*instance.Placement{instance.MustParsePlacement("lxd:" + machine.Id())},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1743,7 +1721,7 @@ func (s *serviceSuite) TestAddServiceUnitsToNewContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Equals, machine.Id()+"/lxc/0")
+	c.Assert(mid, gc.Equals, machine.Id()+"/lxd/0")
 }
 
 var addServiceUnitTests = []struct {
@@ -1762,8 +1740,8 @@ var addServiceUnitTests = []struct {
 	}, {
 		about:      "direct machine assignment placement directive",
 		expected:   []string{"dummy/1", "dummy/2"},
-		placement:  []*instance.Placement{{"#", "1"}, {"lxc", "1"}},
-		machineIds: []string{"1", "1/lxc/0"},
+		placement:  []*instance.Placement{{"#", "1"}, {"lxd", "1"}},
+		machineIds: []string{"1", "1/lxd/0"},
 	}, {
 		about:     "invalid placement directive",
 		err:       ".* invalid placement is invalid",

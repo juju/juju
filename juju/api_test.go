@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -102,7 +103,13 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	return env, store
@@ -230,7 +237,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
 	// We expect to get the error from apiOpen, because it is not
 	// fatal to have no bootstrap config.
-	c.Assert(err, gc.ErrorMatches, "connecting with cached addresses: an error")
+	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -351,7 +358,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		c.Fatalf("api never opened via config")
 	}
 	// Let the info endpoint open go ahead and
-	// check that the NewAPIFromStore call returns.
+	// check that the NewAPIConnection call returns.
 	infoEndpointOpened <- struct{}{}
 	select {
 	case <-done:
@@ -814,6 +821,7 @@ func newAPIConnectionFromNames(
 		ControllerName:  controller,
 		BootstrapConfig: getBootstrapConfig,
 		DialOpts:        api.DefaultDialOpts(),
+		OpenAPI:         apiOpen,
 	}
 	if account != "" {
 		accountDetails, err := store.AccountByName(controller, account)
@@ -825,5 +833,5 @@ func newAPIConnectionFromNames(
 		c.Assert(err, jc.ErrorIsNil)
 		params.ModelUUID = modelDetails.ModelUUID
 	}
-	return juju.NewAPIFromStore(params, apiOpen)
+	return juju.NewAPIConnection(params)
 }

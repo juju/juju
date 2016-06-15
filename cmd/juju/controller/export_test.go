@@ -8,6 +8,7 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -35,13 +36,19 @@ type AddModelCommand struct {
 // NewAddModelCommandForTest returns a AddModelCommand with
 // the api provided as specified.
 func NewAddModelCommandForTest(
+	apiRoot api.Connection,
 	api AddModelAPI,
+	cloudAPI CloudAPI,
 	store jujuclient.ClientStore,
-	credentialStore jujuclient.CredentialStore,
 ) (cmd.Command, *AddModelCommand) {
 	c := &addModelCommand{
-		api:             api,
-		credentialStore: credentialStore,
+		apiRoot: apiRoot,
+		newAddModelAPI: func(caller base.APICallCloser) AddModelAPI {
+			return api
+		},
+		newCloudAPI: func(base.APICallCloser) CloudAPI {
+			return cloudAPI
+		},
 	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &AddModelCommand{c}
@@ -125,6 +132,14 @@ func NewListBlocksCommandForTest(api listBlocksAPI, apierr error, store jujuclie
 		api:    api,
 		apierr: apierr,
 	}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c)
+}
+
+// NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
+// the api provided as specified.
+func NewGetConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &getConfigCommand{api: api}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }

@@ -10,7 +10,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -254,12 +253,13 @@ func MaybeAssignedStorageInstance(
 // if the provider supports them.
 func storageTags(
 	storageInstance state.StorageInstance,
-	cfg *config.Config,
+	modelUUID, controllerUUID string,
+	tagger tags.ResourceTagger,
 ) (map[string]string, error) {
 	storageTags := tags.ResourceTags(
-		names.NewModelTag(cfg.UUID()),
-		names.NewModelTag(cfg.ControllerUUID()),
-		cfg,
+		names.NewModelTag(modelUUID),
+		names.NewModelTag(controllerUUID),
+		tagger,
 	)
 	if storageInstance != nil {
 		storageTags[tags.JujuStorageInstance] = storageInstance.Tag().Id()

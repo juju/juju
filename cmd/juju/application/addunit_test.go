@@ -114,13 +114,13 @@ func (s *AddUnitSuite) TestAddUnitWithPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 
-	err = s.runAddUnit(c, "--num-units", "2", "--to", "123,lxc:1,1/lxc/2,foo", "some-application-name")
+	err = s.runAddUnit(c, "--num-units", "2", "--to", "123,lxd:1,1/lxd/2,foo", "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 4)
 	c.Assert(s.fake.placement, jc.DeepEquals, []*instance.Placement{
 		{"#", "123"},
-		{"lxc", "1"},
-		{"#", "1/lxc/2"},
+		{"lxd", "1"},
+		{"#", "1/lxd/2"},
 		{"fake-uuid", "foo"},
 	})
 }
@@ -148,11 +148,11 @@ func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 }
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
-	err := s.runAddUnit(c, "some-application-name", "--to", "lxc:1")
+	err := s.runAddUnit(c, "some-application-name", "--to", "lxd:1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.numUnits, gc.Equals, 2)
 	c.Assert(s.fake.placement[0].Directive, gc.Equals, "1")
-	c.Assert(s.fake.placement[0].Scope, gc.Equals, "lxc")
+	c.Assert(s.fake.placement[0].Scope, gc.Equals, "lxd")
 }
 
 func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
@@ -163,16 +163,16 @@ func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer("0", true)
 	assertMachineOrNewContainer("00", false)
 	assertMachineOrNewContainer("1", true)
-	assertMachineOrNewContainer("0/lxc/0", true)
-	assertMachineOrNewContainer("lxc:0", true)
-	assertMachineOrNewContainer("lxc:lxc:0", false)
-	assertMachineOrNewContainer("kvm:0/lxc/1", true)
-	assertMachineOrNewContainer("lxc:", false)
-	assertMachineOrNewContainer(":lxc", false)
-	assertMachineOrNewContainer("0/lxc/", false)
-	assertMachineOrNewContainer("0/lxc", false)
-	assertMachineOrNewContainer("kvm:0/lxc", false)
-	assertMachineOrNewContainer("0/lxc/01", false)
-	assertMachineOrNewContainer("0/lxc/10", true)
+	assertMachineOrNewContainer("0/lxd/0", true)
+	assertMachineOrNewContainer("lxd:0", true)
+	assertMachineOrNewContainer("lxd:lxd:0", false)
+	assertMachineOrNewContainer("kvm:0/lxd/1", true)
+	assertMachineOrNewContainer("lxd:", false)
+	assertMachineOrNewContainer(":lxd", false)
+	assertMachineOrNewContainer("0/lxd/", false)
+	assertMachineOrNewContainer("0/lxd", false)
+	assertMachineOrNewContainer("kvm:0/lxd", false)
+	assertMachineOrNewContainer("0/lxd/01", false)
+	assertMachineOrNewContainer("0/lxd/10", true)
 	assertMachineOrNewContainer("0/kvm/4", true)
 }

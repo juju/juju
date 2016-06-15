@@ -113,7 +113,11 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 	if len(volumeAttachments) == 0 {
 		return nil, nil
 	}
-	envConfig, err := p.st.ModelConfig()
+	modelConfig, err := p.st.ModelConfig()
+	if err != nil {
+		return nil, err
+	}
+	controllerCfg, err := p.st.ControllerConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +135,8 @@ func (p *ProvisionerAPI) machineVolumeParams(m *state.Machine) ([]params.VolumeP
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
-		volumeParams, err := storagecommon.VolumeParams(volume, storageInstance, envConfig, poolManager)
+		volumeParams, err := storagecommon.VolumeParams(
+			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(), modelConfig, poolManager)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
@@ -190,7 +195,11 @@ func (p *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.Machi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machineTags := instancecfg.InstanceTags(cfg, jobs)
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	machineTags := instancecfg.InstanceTags(cfg.UUID(), controllerCfg.ControllerUUID(), cfg, jobs)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
@@ -395,7 +404,7 @@ func (p *ProvisionerAPI) obtainEnvCloudConfig() (*simplestreams.CloudSpec, *conf
 		return nil, nil, nil, errors.Annotate(err, "could not get model config")
 	}
 
-	env, err := environs.New(cfg)
+	env, err := environs.GetEnviron(p.st, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "could not get model")
 	}

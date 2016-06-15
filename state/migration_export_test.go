@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
@@ -111,7 +111,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
-	settings, err := state.ReadSettings(s.State, state.CloudSettingsC, state.CloudGlobalKey("dummy"))
+	settings, err := state.ReadSettings(s.State, state.ControllersC, state.DefaultModelSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	settings.Set("apt-mirror", "http://mirror")
 	_, err = settings.Write()
@@ -130,9 +130,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
 
 	// Remove all controller and cloud config before comparison.
-	for _, attr := range config.ControllerOnlyConfigAttributes {
-		delete(modelAttrs, attr)
-	}
+	controller.RemoveControllerAttributes(modelAttrs)
 	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
@@ -379,10 +377,8 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	// Need to remove owner from application.
-	ignored := s.Owner
-	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), ignored)
-	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"), ignored)
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)

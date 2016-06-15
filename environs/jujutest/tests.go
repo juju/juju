@@ -163,8 +163,34 @@ func (t *Tests) TestStartStop(c *gc.C) {
 }
 
 func (t *Tests) TestBootstrap(c *gc.C) {
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+
+	var regions []cloud.Region
+	if t.CloudRegion != "" {
+		regions = []cloud.Region{{
+			Name:     t.CloudRegion,
+			Endpoint: t.CloudEndpoint,
+		}}
+	}
+
+	args := bootstrap.BootstrapParams{
+		CloudName: t.TestConfig["type"].(string),
+		Cloud: cloud.Cloud{
+			Type:      t.TestConfig["type"].(string),
+			AuthTypes: []cloud.AuthType{credential.AuthType()},
+			Regions:   regions,
+			Endpoint:  t.CloudEndpoint,
+		},
+		CloudRegion:         t.CloudRegion,
+		CloudCredential:     &credential,
+		CloudCredentialName: "credential",
+	}
+
 	e := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances()
@@ -183,7 +209,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ControllerStore)

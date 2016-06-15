@@ -1,3 +1,7 @@
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package reboot_test
 
 import (
@@ -42,7 +46,7 @@ func (s *RebootSuite) SetUpSuite(c *gc.C) {
 
 	// These tests only patch out LXC, so only run full-stack tests
 	// over LXC.
-	s.PatchValue(&instance.ContainerTypes, []instance.ContainerType{instance.LXC})
+	s.PatchValue(&instance.ContainerTypes, []instance.ContainerType{instance.LXD})
 }
 
 func (s *RebootSuite) SetUpTest(c *gc.C) {

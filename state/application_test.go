@@ -88,7 +88,7 @@ func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
 
 func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -100,7 +100,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 
 func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -118,7 +118,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) 
 
 func (s *ServiceSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-windows")
 	cfg := state.SetCharmConfig{
@@ -150,7 +150,6 @@ func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 
 	service, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
-		Owner: s.Owner.String(),
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
 			"server": "db",
@@ -1718,7 +1717,7 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 
 func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch, s.Owner)
+	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
 
 	err := svc.Destroy()
 	dirty, err := s.State.NeedsCleanup()
@@ -2072,17 +2071,6 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
-}
-
-// SCHEMACHANGE
-// TODO(mattyw) remove when schema upgrades are possible
-// Check that GetOwnerTag returns user-admin even
-// when the service has no owner
-func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
-	service := s.AddTestingService(c, "foobar", s.charm)
-	state.SetApplicationOwnerTag(service, "")
-	c.Assert(state.GetApplicationOwnerTag(service), gc.Equals, "")
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
 }
 
 func (s *ServiceSuite) TestMetricCredentials(c *gc.C) {

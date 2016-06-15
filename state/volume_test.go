@@ -83,7 +83,7 @@ func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -92,7 +92,7 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -434,7 +434,7 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
 	}
 	assertValid("0:0", names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	assertValid("0:0/1", names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
-	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewVolumeTag("1"))
+	assertValid("0/lxd/0:1", names.NewMachineTag("0/lxd/0"), names.NewVolumeTag("1"))
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {

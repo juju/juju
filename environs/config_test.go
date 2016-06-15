@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/testing"
@@ -33,32 +32,6 @@ func dummySampleConfig() testing.Attrs {
 	return dummy.SampleConfig().Merge(testing.Attrs{
 		"controller": false,
 	})
-}
-
-func inMap(attrs testing.Attrs, attr string) bool {
-	_, ok := attrs[attr]
-	return ok
-}
-
-func (*suite) TestBootstrapConfig(c *gc.C) {
-	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"agent-version": "1.2.3",
-	})
-	c.Assert(inMap(attrs, "secret"), jc.IsTrue)
-	c.Assert(inMap(attrs, "ca-private-key"), jc.IsTrue)
-	c.Assert(inMap(attrs, "admin-secret"), jc.IsTrue)
-
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cfg1, err := environs.BootstrapConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expect := cfg.AllAttrs()
-	expect["admin-secret"] = ""
-	expect["ca-private-key"] = ""
-	c.Assert(cfg1.AllAttrs(), gc.DeepEquals, expect)
 }
 
 type dummyProvider struct {

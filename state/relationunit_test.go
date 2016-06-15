@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -77,7 +76,7 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rus := RUs{pr.ru0, pr.ru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -294,7 +293,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 
 	// Enter two units, and check that Destroying the service sets the
@@ -361,7 +360,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
@@ -412,7 +411,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
-		pr := NewPeerRelation(c, st, s.Owner)
+		pr := NewPeerRelation(c, st)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()
 		return w
@@ -420,7 +419,7 @@ func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -637,7 +636,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -751,8 +750,8 @@ type PeerRelation struct {
 	ru0, ru1, ru2, ru3 *state.RelationUnit
 }
 
-func NewPeerRelation(c *gc.C, st *state.State, owner names.UserTag) *PeerRelation {
-	svc := state.AddTestingService(c, st, "riak", state.AddTestingCharm(c, st, "riak"), owner)
+func NewPeerRelation(c *gc.C, st *state.State) *PeerRelation {
+	svc := state.AddTestingService(c, st, "riak", state.AddTestingCharm(c, st, "riak"))
 	ep, err := svc.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.EndpointsRelation(ep)

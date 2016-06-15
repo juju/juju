@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -151,8 +152,9 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(adminSecret, gc.Matches, "^[0-9a-f]*$")
 
 	// Check that the CA cert was generated.
-	cfgCertPEM, cfgCertOK := env.Config().CACert()
-	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	controllerCfg := controller.Config(env.Config().AllAttrs())
+	cfgCertPEM, cfgCertOK := controllerCfg.CACert()
+	cfgKeyPEM, cfgKeyOK := controllerCfg.CAPrivateKey()
 	c.Assert(cfgCertOK, jc.IsTrue)
 	c.Assert(cfgKeyOK, jc.IsTrue)
 
@@ -199,7 +201,7 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	// Allocate a new UUID, or we'll end up with the same config.
 	newUUID := utils.MustNewUUID()
 	baselineAttrs[config.UUIDKey] = newUUID.String()
-	baselineAttrs[config.ControllerUUIDKey] = newUUID.String()
+	baselineAttrs[controller.ControllerUUIDKey] = newUUID.String()
 
 	env1, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
 		ControllerName: "erewhemos",
@@ -250,8 +252,9 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 		CloudName:      "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	cfgCertPEM, cfgCertOK := env.Config().CACert()
-	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
+	controllerCfg := controller.Config(env.Config().AllAttrs())
+	cfgCertPEM, cfgCertOK := controllerCfg.CACert()
+	cfgKeyPEM, cfgKeyOK := controllerCfg.CAPrivateKey()
 	c.Assert(cfgCertOK, jc.IsTrue)
 	c.Assert(cfgKeyOK, jc.IsTrue)
 	c.Assert(string(cfgCertPEM), gc.DeepEquals, testing.CACert)

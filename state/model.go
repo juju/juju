@@ -14,6 +14,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -60,8 +62,14 @@ type modelDoc struct {
 	ServerUUID    string        `bson:"server-uuid"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
 
-	// Cloud is the name of the cloud that the model is managed within.
-	Cloud string `bson:"cloud"`
+	// CloudRegion is the name of the cloud region to which the model is
+	// deployed. This will be empty for clouds that do not support regions.
+	CloudRegion string `bson:"cloud-region,omitempty"`
+
+	// CloudCredential is the name of the cloud credential that is used
+	// for managing cloud resources for this model. This will be empty
+	// for clouds that do not require credentials.
+	CloudCredential string `bson:"cloud-credential,omitempty"`
 
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
@@ -140,11 +148,20 @@ func (st *State) AllModels() ([]*Model, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
-	// Cloud is the name of the cloud that the model is deployed to.
-	Cloud string
+	// CloudRegion is the name of the cloud region to which the model is
+	// deployed. This will be empty for clouds that do not support regions.
+	CloudRegion string
+
+	// CloudCredential is the name of the cloud credential that will be
+	// used for managing cloud resources for this model. This will be empty
+	// for clouds that do not require credentials.
+	CloudCredential string
 
 	// Config is the model config.
 	Config *config.Config
+
+	// Constraints contains the initial constraints for the model.
+	Constraints constraints.Value
 
 	// Owner is the user that owns the model.
 	Owner names.UserTag
@@ -155,9 +172,6 @@ type ModelArgs struct {
 
 // Validate validates the ModelArgs.
 func (m ModelArgs) Validate() error {
-	if m.Cloud == "" {
-		return errors.NotValidf("empty Cloud")
-	}
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
 	}
@@ -186,7 +200,32 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
+	// Ensure that the cloud region is valid, or if one is not specified,
+	// that the cloud does not support regions.
+	controllerCloud, err := st.Cloud()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// Ensure that the cloud credential is valid, or if one is not
+	// specified, that the cloud supports the "empty" authentication
+	// type.
 	owner := args.Owner
+	cloudCredentials, err := st.CloudCredentials(owner)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	assertCloudCredentialOp, err := validateCloudCredential(
+		controllerCloud, cloudCredentials, args.CloudCredential, owner,
+	)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
 			return nil, nil, errors.Annotate(err, "cannot create model")
@@ -204,15 +243,22 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 			newSt.Close()
 		}
 	}()
+	newSt.controllerTag = st.controllerTag
 
-	cloudCfg, err := st.CloudConfig()
+	configDefaults, err := st.ModelConfigDefaults()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
 	}
-	ops, err := newSt.modelSetupOps(args.Config, args.Cloud, cloudCfg, owner, args.MigrationMode)
+	modelOps, err := newSt.modelSetupOps(args, configDefaults)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
+
+	prereqOps := []txn.Op{
+		assertCloudRegionOp,
+		assertCloudCredentialOp,
+	}
+	ops := append(prereqOps, modelOps...)
 	err = newSt.runTransaction(ops)
 	if err == txn.ErrAborted {
 
@@ -252,6 +298,73 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	return newModel, newSt, nil
 }
 
+// validateCloudRegion validates the given region name against the
+// provided Cloud definition, and returns a txn.Op to include in a
+// transaction to assert the same.
+func validateCloudRegion(controllerCloud cloud.Cloud, regionName string) (txn.Op, error) {
+	// Ensure that the cloud region is valid, or if one is not specified,
+	// that the cloud does not support regions.
+	assertCloudRegionOp := txn.Op{
+		C:  controllersC,
+		Id: controllerCloudKey,
+	}
+	if regionName != "" {
+		region, err := cloud.RegionByName(controllerCloud.Regions, regionName)
+		if err != nil {
+			return txn.Op{}, errors.Trace(err)
+		}
+		assertCloudRegionOp.Assert = bson.D{
+			{"regions." + region.Name, bson.D{{"$exists", true}}},
+		}
+	} else {
+		if len(controllerCloud.Regions) > 0 {
+			return txn.Op{}, errors.NotValidf("missing CloudRegion")
+		}
+		assertCloudRegionOp.Assert = bson.D{
+			{"regions", bson.D{{"$exists", false}}},
+		}
+	}
+	return assertCloudRegionOp, nil
+}
+
+// validateCloudCredential validates the given cloud credential
+// name against the provided cloud definition and credentials,
+// and returns a txn.Op to include in a transaction to assert the
+// same.
+func validateCloudCredential(
+	controllerCloud cloud.Cloud,
+	cloudCredentials map[string]cloud.Credential,
+	cloudCredentialName string,
+	cloudCredentialOwner names.UserTag,
+) (txn.Op, error) {
+	if cloudCredentialName != "" {
+		if _, ok := cloudCredentials[cloudCredentialName]; !ok {
+			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredentialName)
+		}
+		return txn.Op{
+			C:      cloudCredentialsC,
+			Id:     cloudCredentialDocID(cloudCredentialOwner, cloudCredentialName),
+			Assert: txn.DocExists,
+		}, nil
+	}
+	var hasEmptyAuth bool
+	for _, authType := range controllerCloud.AuthTypes {
+		if authType != cloud.EmptyAuthType {
+			continue
+		}
+		hasEmptyAuth = true
+		break
+	}
+	if !hasEmptyAuth {
+		return txn.Op{}, errors.NotValidf("missing CloudCredential")
+	}
+	return txn.Op{
+		C:      controllersC,
+		Id:     controllerCloudKey,
+		Assert: bson.D{{"auth-types", string(cloud.EmptyAuthType)}},
+	}, nil
+}
+
 // Tag returns a name identifying the model.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
@@ -286,9 +399,15 @@ func (m *Model) Name() string {
 	return m.doc.Name
 }
 
-// Cloud returns the name of the cloud that the model is deployed to.
-func (m *Model) Cloud() string {
-	return m.doc.Cloud
+// CloudRegion returns the name of the cloud region to which the model is deployed.
+func (m *Model) CloudRegion() string {
+	return m.doc.CloudRegion
+}
+
+// CloudCredential returns the name of the cloud credential used for managing the
+// model's cloud resources.
+func (m *Model) CloudCredential() string {
+	return m.doc.CloudCredential
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -622,7 +741,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 
 	life := Dying
 	if isEmpty && uuid != m.doc.ServerUUID {
-		// The model is empty, and is not the admin
+		// The model is empty, and is not the controller
 		// model, so we can move it straight to Dead.
 		life = Dead
 	}
@@ -779,15 +898,20 @@ func ensureDestroyable(st *State) error {
 
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
-func createModelOp(st *State, owner names.UserTag, name, uuid, server, cloud string, mode MigrationMode) txn.Op {
+func createModelOp(
+	owner names.UserTag,
+	name, uuid, server, cloudRegion, cloudCredential string,
+	migrationMode MigrationMode,
+) txn.Op {
 	doc := &modelDoc{
-		UUID:          uuid,
-		Name:          name,
-		Life:          Alive,
-		Owner:         owner.Canonical(),
-		ServerUUID:    server,
-		MigrationMode: mode,
-		Cloud:         cloud,
+		UUID:            uuid,
+		Name:            name,
+		Life:            Alive,
+		Owner:           owner.Canonical(),
+		ServerUUID:      server,
+		MigrationMode:   migrationMode,
+		CloudRegion:     cloudRegion,
+		CloudCredential: cloudCredential,
 	}
 	return txn.Op{
 		C:      modelsC,

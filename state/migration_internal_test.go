@@ -52,9 +52,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
-		// This is controller global and each cloud will have
-		// its own settings.
-		cloudSettingsC,
+		// Cloud credentials aren't migrated. They must exist in the
+		// target controller already.
+		cloudCredentialsC,
 		// This is controller global, and related to the system state of the
 		// embedded GUI.
 		guimetadataC,
@@ -67,8 +67,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		usermodelnameC,
 		// Metrics aren't migrated.
 		metricsC,
-		// leaseC is deprecated in favour of leasesC.
-		leaseC,
 		// Backup and restore information is not migrated.
 		restoreInfoC,
 		// upgradeInfoC is used to coordinate upgrades and schema migrations,
@@ -186,7 +184,8 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 
 		"MigrationMode",
 		"Owner",
-		"Cloud",
+		"CloudRegion",
+		"CloudCredential",
 		"LatestAvailableTools",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
@@ -295,8 +294,6 @@ func (s *MigrationSuite) TestServiceDocFields(c *gc.C) {
 		"ModelUUID",
 		// Always alive, not explicitly exported.
 		"Life",
-		// OwnerTag is deprecated and should be deleted.
-		"OwnerTag",
 		// TxnRevno is mgo internals and should not be migrated.
 		"TxnRevno",
 		// UnitCount is handled by the number of units for the exported service.
@@ -355,10 +352,6 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		// TxnRevno isn't migrated.
 		"TxnRevno",
 		"PasswordHash",
-		// Obsolete and not migrated.
-		"Ports",
-		"PublicAddress",
-		"PrivateAddress",
 	)
 	todo := set.NewStrings(
 		"StorageAttachmentCount",

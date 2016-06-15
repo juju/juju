@@ -55,23 +55,22 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Application) *state.Unit {
 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	owner := s.AdminUserTag(c)
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Owner: owner.String(), Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Owner: owner.String(), Charm: charm})
+	notAssigned, err := s.State.AddApplication(state.AddApplicationArgs{Name: "not-assigned", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "no-units", Owner: owner.String(), Charm: charm})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "no-units", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Owner: owner.String(), Charm: s.AddTestingCharm(c, "wordpress")})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress0 := s.addUnit(c, wordpress)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "logging", Owner: owner.String(), Charm: s.AddTestingCharm(c, "logging")})
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "logging", Charm: s.AddTestingCharm(c, "logging")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -195,8 +194,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	s.addMachine(c)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	owner := s.Factory.MakeUser(c, nil).Tag()
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Owner: owner.String(), Charm: charm})
+	magic, err := s.State.AddApplication(state.AddApplicationArgs{Name: "magic", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

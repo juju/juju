@@ -53,7 +53,7 @@ func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
 			"name": "awesome",
 			"uuid": "some-uuid",
 		},
-		Cloud: "dummy",
+		CloudRegion: "some-region",
 	})
 	model.UpdateConfig(map[string]interface{}{
 		"name": "something else",
@@ -184,7 +184,7 @@ func (*ModelSerializationSuite) TestModelValidation(c *gc.C) {
 }
 
 func (*ModelSerializationSuite) TestModelValidationChecksMachines(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), CloudRegion: "some-region"})
 	model.AddMachine(MachineArgs{})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, "machine missing id not valid")
@@ -200,14 +200,14 @@ func (s *ModelSerializationSuite) addMachineToModel(model Model, id string) Mach
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksMachinesGood(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), CloudRegion: "some-region"})
 	s.addMachineToModel(model, "0")
 	err := model.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), CloudRegion: "some-region"})
 	machine := s.addMachineToModel(model, "0")
 	machine.AddOpenedPorts(OpenedPortsArgs{
 		OpenedPorts: []PortRangeArgs{
@@ -224,7 +224,7 @@ func (s *ModelSerializationSuite) TestModelValidationChecksOpenPortsUnits(c *gc.
 }
 
 func (*ModelSerializationSuite) TestModelValidationChecksApplications(c *gc.C) {
-	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), Cloud: "dummy"})
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner"), CloudRegion: "some-region"})
 	model.AddApplication(ApplicationArgs{})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, "application missing name not valid")
@@ -260,7 +260,7 @@ func (s *ModelSerializationSuite) wordpressModel() (Model, Endpoint, Endpoint) {
 		Config: map[string]interface{}{
 			"uuid": "some-uuid",
 		},
-		Cloud: "dummy",
+		CloudRegion: "some-region",
 	})
 	s.addApplicationToModel(model, "wordpress", 2)
 	s.addApplicationToModel(model, "mysql", 1)

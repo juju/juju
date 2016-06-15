@@ -15,9 +15,9 @@ var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
-	Message string
-	Code    string
-	Info    *ErrorInfo `json:",omitempty"`
+	Message string     `json:"message"`
+	Code    string     `json:"code"`
+	Info    *ErrorInfo `json:"info,omitempty"`
 }
 
 // ErrorInfo holds additional information provided by an error.
@@ -31,14 +31,14 @@ type ErrorInfo struct {
 	// discharged, may allow access to the juju API.
 	// This field is associated with the ErrDischargeRequired
 	// error code.
-	Macaroon *macaroon.Macaroon `json:",omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
 	// MacaroonPath holds the URL path to be associated
 	// with the macaroon. The macaroon is potentially
 	// valid for all URLs under the given path.
 	// If it is empty, the macaroon will be associated with
 	// the original URL from which the error was returned.
-	MacaroonPath string `json:",omitempty"`
+	MacaroonPath string `json:"macaroon-path,omitempty"`
 }
 
 func (e Error) Error() string {
@@ -59,6 +59,7 @@ func (e Error) GoString() string {
 const (
 	CodeNotFound                  = "not found"
 	CodeUnauthorized              = "unauthorized access"
+	CodeLoginExpired              = "login expired"
 	CodeCannotEnterScope          = "cannot enter scope"
 	CodeCannotEnterScopeYet       = "cannot enter scope yet"
 	CodeExcessiveContention       = "excessive contention"
@@ -111,6 +112,10 @@ func IsCodeNotFound(err error) bool {
 
 func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
+}
+
+func IsCodeLoginExpired(err error) bool {
+	return ErrCode(err) == CodeLoginExpired
 }
 
 // IsCodeNotFoundOrCodeUnauthorized is used in API clients which,

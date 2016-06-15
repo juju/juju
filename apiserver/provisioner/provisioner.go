@@ -230,17 +230,6 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
 
 	switch args.Type {
-	case instance.LXC:
-		if useLxcClone, ok := config.LXCUseClone(); ok {
-			cfg["use-clone"] = fmt.Sprint(useLxcClone)
-		}
-		if useLxcCloneAufs, ok := config.LXCUseCloneAUFS(); ok {
-			cfg["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
-		}
-		if lxcDefaultMTU, ok := config.LXCDefaultMTU(); ok {
-			logger.Debugf("using default MTU %v for all LXC containers NICs", lxcDefaultMTU)
-			cfg[container.ConfigLXCDefaultMTU] = fmt.Sprintf("%d", lxcDefaultMTU)
-		}
 	case instance.LXD:
 		// TODO(jam): DefaultMTU needs to be handled here
 		// TODO(jam): Do we want to handle ImageStream here, or do we
@@ -256,7 +245,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	}
 
 	// Create an environment to verify networking support.
-	env, err := environs.New(config)
+	env, err := environs.GetEnviron(p.st, environs.New)
 	if err != nil {
 		return result, err
 	}
@@ -301,7 +290,6 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
-	result.AllowLXCLoopMounts, _ = config.AllowLXCLoopMounts()
 
 	return result, nil
 }

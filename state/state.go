@@ -261,19 +261,6 @@ func (st *State) start(controllerTag names.ModelTag) (err error) {
 
 	st.controllerTag = controllerTag
 
-	// Read the cloud name for this state's model.
-	// We'll use it later when starting watchers.
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-	var doc modelDoc
-	if err := models.FindId(st.ModelUUID()).Select(bson.D{{"cloud", 1}}).One(&doc); err != nil {
-		if err == mgo.ErrNotFound {
-			return errors.NotFoundf("model")
-		}
-		return errors.Trace(err)
-	}
-	st.cloudName = doc.Cloud
-
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
@@ -706,26 +693,15 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.getRawCollection(machinesC)
+	machinesCollection, closer := st.getCollection(machinesC)
 	defer closer()
 
 	var err error
 	mdoc := &machineDoc{}
-	for _, tryId := range []string{st.docID(id), id} {
-		err = machinesCollection.FindId(tryId).One(mdoc)
-		if err != mgo.ErrNotFound {
-			break
-		}
-	}
+	err = machinesCollection.FindId(id).One(mdoc)
+
 	switch err {
 	case nil:
-		// This is required to allow loading of machines before the
-		// model UUID migration has been applied to the machines
-		// collection. Without this, a machine agent can't come up to
-		// run the database migration.
-		if mdoc.Id == "" {
-			mdoc.Id = mdoc.DocID
-		}
 		return mdoc, nil
 	case mgo.ErrNotFound:
 		return nil, errors.NotFoundf("machine %s", id)
@@ -872,7 +848,6 @@ func (st *State) addPeerRelationsOps(applicationname string, peers map[string]ch
 type AddApplicationArgs struct {
 	Name             string
 	Series           string
-	Owner            string
 	Charm            *Charm
 	Channel          csparams.Channel
 	Storage          map[string]StorageConstraints
@@ -889,10 +864,6 @@ type AddApplicationArgs struct {
 // they will be created automatically.
 func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
-	ownerTag, err := names.ParseUserTag(args.Owner)
-	if err != nil {
-		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)
-	}
 	// Sanity checks.
 	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")
@@ -911,9 +882,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Errorf("application already exists")
 	}
 	if err := checkModelActive(st); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if _, err := st.ModelUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if args.Storage == nil {
@@ -1018,7 +986,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      args.Owner,
 	}
 
 	svc := newApplication(st, svcDoc)
@@ -1285,7 +1252,10 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 			Dirty:       true,
 			Constraints: *unitCons,
 		}
-		return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		if data.machineId != "" {
+			return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		}
+		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
 		// If a placement directive is to be used, do that here.
 		template := MachineTemplate{
@@ -1746,6 +1716,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 
 type controllersDoc struct {
 	Id               string `bson:"_id"`
+	CloudName        string `bson:"cloud"`
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
@@ -1756,6 +1727,9 @@ type controllersDoc struct {
 // ControllerInfo holds information about currently
 // configured controller machines.
 type ControllerInfo struct {
+	// CloudName is the name of the cloud to which this controller is deployed.
+	CloudName string
+
 	// ModelTag identifies the initial model. Only the initial
 	// model is able to have machines that manage state. The initial
 	// model is the model that is created when bootstrapping.
@@ -1812,6 +1786,7 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
 	return &ControllerInfo{
+		CloudName:        doc.CloudName,
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,

@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/testing"
@@ -48,8 +49,19 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			CACert: testing.CACert,
 		},
 	}
-	dialopts := mongotest.DialOpts()
-	st, err := Initialize(s.owner, info, "dummy", nil, testing.ModelConfig(c), dialopts, nil)
+	st, err := Initialize(InitializeParams{
+		ControllerModelArgs: ModelArgs{
+			Owner:  s.owner,
+			Config: testing.ModelConfig(c),
+		},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
+		MongoInfo:     info,
+		MongoDialOpts: mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	s.AddCleanup(func(*gc.C) { s.state.Close() })

@@ -19,7 +19,7 @@ var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
 
 var _ environs.InstanceBroker = (*lxdBroker)(nil)
 
-func NewLxdBroker(
+var NewLxdBroker = func(
 	api APICalls,
 	manager container.Manager,
 	agentConfig agent.Config,

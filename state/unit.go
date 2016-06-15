@@ -91,12 +91,6 @@ type unitDoc struct {
 	Life                   Life
 	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
-
-	// TODO(mue) No longer actively used, only in upgrades.go.
-	// To be removed later.
-	Ports          []port `bson:"ports"`
-	PublicAddress  string `bson:"publicaddress"`
-	PrivateAddress string `bson:"privateaddress"`
 }
 
 // Unit represents the state of a service unit.

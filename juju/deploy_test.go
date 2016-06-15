@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 func Test(t *stdtesting.T) {
@@ -64,20 +63,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertCharm(c, service, s.charm.URL())
 	s.assertSettings(c, service, charm.Settings{})
 	s.assertConstraints(c, service, constraints.Value{})
-	c.Assert(service.GetOwnerTag(), gc.Equals, s.AdminUserTag(c).String())
 	s.assertMachines(c, service, constraints.Value{})
-}
-
-func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-	service, err := juju.DeployApplication(s.State,
-		juju.DeployApplicationParams{
-			ApplicationName:  "bobwithowner",
-			Charm:            s.charm,
-			ApplicationOwner: "user-foobar",
-		})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
 func (s *DeployLocalSuite) TestDeploySeries(c *gc.C) {
@@ -327,7 +313,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        1,
-			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXC))},
+			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -335,7 +321,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 1)
 	c.Assert(f.args.Placement, gc.HasLen, 1)
-	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXC), Directive: "0"})
+	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXD), Directive: "0"})
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
@@ -345,8 +331,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	placement := []*instance.Placement{
 		{Scope: s.State.ModelUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
-		{Scope: "lxc", Directive: "1"},
-		{Scope: "lxc", Directive: ""},
+		{Scope: "lxd", Directive: "1"},
+		{Scope: "lxd", Directive: ""},
 	}
 	_, err := juju.DeployApplication(f,
 		juju.DeployApplicationParams{

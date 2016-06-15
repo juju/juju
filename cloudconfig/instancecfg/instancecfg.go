@@ -24,7 +24,9 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
@@ -179,34 +181,49 @@ type BootstrapConfig struct {
 // This structure will be passed to the bootstrap agent. To do so, the
 // Marshal and Unmarshal methods must be used.
 type StateInitializationParams struct {
-	// InstanceId is the instance ID of the instance being initialised.
-	// This is required when bootstrapping, and ignored otherwise.
-	InstanceId instance.Id
-
-	// HardwareCharacteristics contains the harrdware characteristics of
-	// the instance being initialised. This optional, and is only used by
-	// the bootstrap agent during state initialisation.
-	HardwareCharacteristics *instance.HardwareCharacteristics
-
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
-	// ControllerCloud is the name of the cloud that Juju will be
+	// ControllerCloudName is the name of the cloud that Juju will be
 	// bootstrapped in.
-	ControllerCloud string
+	ControllerCloudName string
 
-	// CloudConfig is a set of config attributes to be shared by all
-	// models hosted by this controller on the same cloud.
-	CloudConfig map[string]interface{}
+	// ControllerCloud contains the properties of the cloud that Juju will
+	// be bootstrapped in.
+	ControllerCloud cloud.Cloud
+
+	// ControllerCloudRegion is the name of the cloud region that Juju will be
+	// bootstrapped in.
+	ControllerCloudRegion string
+
+	// ControllerCloudCredentialName is the name of the cloud credential that
+	// Juju will be bootstrapped with.
+	ControllerCloudCredentialName string
+
+	// ControllerCloudCredential contains the cloud credential that Juju will
+	// be bootstrapped with.
+	ControllerCloudCredential *cloud.Credential
+
+	// ModelConfigDefaults is a set of config attributes to be shared by all
+	// models managed by this controller.
+	ModelConfigDefaults map[string]interface{}
 
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
 	// initial hosted model config.
 	HostedModelConfig map[string]interface{}
 
+	// BootstrapMachineInstanceId is the instance ID of the bootstrap
+	// machine instance being initialized.
+	BootstrapMachineInstanceId instance.Id
+
 	// BootstrapMachineConstraints holds the constraints for the bootstrap
 	// machine.
 	BootstrapMachineConstraints constraints.Value
+
+	// BootstrapMachineHardwareCharacteristics contains the harrdware
+	// characteristics of the bootstrap machine instance being initialized.
+	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics
 
 	// ModelConstraints holds the initial model constraints.
 	ModelConstraints constraints.Value
@@ -218,15 +235,19 @@ type StateInitializationParams struct {
 }
 
 type stateInitializationParamsInternal struct {
-	InstanceId                  instance.Id                       `yaml:"instance-id"`
-	HardwareCharacteristics     *instance.HardwareCharacteristics `yaml:"hardware,omitempty"`
-	ControllerModelConfig       map[string]interface{}            `yaml:"controller-model-config"`
-	CloudConfig                 map[string]interface{}            `yaml:"cloud-config,omitempty"`
-	HostedModelConfig           map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
-	BootstrapMachineConstraints constraints.Value                 `yaml:"bootstrap-machine-constraints"`
-	ModelConstraints            constraints.Value                 `yaml:"model-constraints"`
-	CustomImageMetadataJSON     string                            `yaml:"custom-image-metadata,omitempty"`
-	ControllerCloud             string                            `yaml:"controller-cloud"`
+	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
+	ModelConfigDefaults                     map[string]interface{}            `yaml:"model-config-defaults,omitempty"`
+	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
+	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
+	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
+	BootstrapMachineHardwareCharacteristics *instance.HardwareCharacteristics `yaml:"bootstrap-machine-hardware,omitempty"`
+	ModelConstraints                        constraints.Value                 `yaml:"model-constraints"`
+	CustomImageMetadataJSON                 string                            `yaml:"custom-image-metadata,omitempty"`
+	ControllerCloudName                     string                            `yaml:"controller-cloud-name"`
+	ControllerCloud                         string                            `yaml:"controller-cloud"`
+	ControllerCloudRegion                   string                            `yaml:"controller-cloud-region"`
+	ControllerCloudCredentialName           string                            `yaml:"controller-cloud-credential-name,omitempty"`
+	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
 }
 
 // Marshal marshals StateInitializationParams to an opaque byte array.
@@ -235,16 +256,24 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "marshalling custom image metadata")
 	}
+	controllerCloud, err := cloud.MarshalCloud(p.ControllerCloud)
+	if err != nil {
+		return nil, errors.Annotate(err, "marshalling cloud definition")
+	}
 	internal := stateInitializationParamsInternal{
-		p.InstanceId,
-		p.HardwareCharacteristics,
 		p.ControllerModelConfig.AllAttrs(),
-		p.CloudConfig,
+		p.ModelConfigDefaults,
 		p.HostedModelConfig,
+		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
+		p.BootstrapMachineHardwareCharacteristics,
 		p.ModelConstraints,
 		string(customImageMetadataJSON),
-		p.ControllerCloud,
+		p.ControllerCloudName,
+		string(controllerCloud),
+		p.ControllerCloudRegion,
+		p.ControllerCloudCredentialName,
+		p.ControllerCloudCredential,
 	}
 	return yaml.Marshal(&internal)
 }
@@ -264,16 +293,24 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerCloud, err := cloud.UnmarshalCloud([]byte(internal.ControllerCloud))
+	if err != nil {
+		return errors.Trace(err)
+	}
 	*p = StateInitializationParams{
-		InstanceId:                  internal.InstanceId,
-		HardwareCharacteristics:     internal.HardwareCharacteristics,
-		ControllerModelConfig:       cfg,
-		CloudConfig:                 internal.CloudConfig,
-		HostedModelConfig:           internal.HostedModelConfig,
-		BootstrapMachineConstraints: internal.BootstrapMachineConstraints,
-		ModelConstraints:            internal.ModelConstraints,
-		CustomImageMetadata:         imageMetadata,
-		ControllerCloud:             internal.ControllerCloud,
+		ControllerModelConfig:                   cfg,
+		ModelConfigDefaults:                     internal.ModelConfigDefaults,
+		HostedModelConfig:                       internal.HostedModelConfig,
+		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
+		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
+		BootstrapMachineHardwareCharacteristics: internal.BootstrapMachineHardwareCharacteristics,
+		ModelConstraints:                        internal.ModelConstraints,
+		CustomImageMetadata:                     imageMetadata,
+		ControllerCloudName:                     internal.ControllerCloudName,
+		ControllerCloud:                         controllerCloud,
+		ControllerCloudRegion:                   internal.ControllerCloudRegion,
+		ControllerCloudCredentialName:           internal.ControllerCloudCredentialName,
+		ControllerCloudCredential:               internal.ControllerCloudCredential,
 	}
 	return nil
 }
@@ -551,8 +588,8 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.StateServingInfo.APIPort == 0 {
 		return errors.New("missing API port")
 	}
-	if cfg.InstanceId == "" {
-		return errors.New("missing instance-id")
+	if cfg.BootstrapMachineInstanceId == "" {
+		return errors.New("missing bootstrap machine instance ID")
 	}
 	if len(cfg.HostedModelConfig) == 0 {
 		return errors.New("missing hosted model config")
@@ -730,9 +767,14 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
-	caCert, hasCACert := cfg.CACert()
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
-		return errors.New("model configuration has no ca-cert")
+		return errors.New("controller configuration has no ca-cert")
+	}
+	caPrivateKey, hasCAPrivateKey := controllerCfg.CAPrivateKey()
+	if !hasCAPrivateKey {
+		return errors.New("controller configuration has no ca-private-key")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {
@@ -751,17 +793,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	// Initially, generate a controller certificate with no host IP
 	// addresses in the SAN field. Once the controller is up and the
 	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := cfg.GenerateControllerCertAndKey(nil)
+	cert, key, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
-	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
-	if !hasCAPrivateKey {
-		return errors.New("model configuration has no ca-private-key")
-	}
 	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
-		StatePort:    cfg.StatePort(),
-		APIPort:      cfg.APIPort(),
+		StatePort:    controllerCfg.StatePort(),
+		APIPort:      controllerCfg.APIPort(),
 		Cert:         string(cert),
 		PrivateKey:   string(key),
 		CAPrivateKey: caPrivateKey,
@@ -775,11 +813,11 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
-func InstanceTags(cfg *config.Config, jobs []multiwatcher.MachineJob) map[string]string {
+func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
 	instanceTags := tags.ResourceTags(
-		names.NewModelTag(cfg.UUID()),
-		names.NewModelTag(cfg.ControllerUUID()),
-		cfg,
+		names.NewModelTag(modelUUID),
+		names.NewModelTag(controllerUUID),
+		tagger,
 	)
 	if multiwatcher.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuIsController] = "true"

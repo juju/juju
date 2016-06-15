@@ -49,9 +49,9 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := s.State.ModelConfig()
+	cfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(envConfig.APIPort()))}
+	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(cfg.APIPort()))}
 
 	c.Check(instanceConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	toolsURL := fmt.Sprintf("https://%s/model/%s/tools/%s",

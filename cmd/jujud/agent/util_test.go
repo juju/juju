@@ -26,7 +26,6 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
@@ -56,27 +55,23 @@ var fastDialOpts = api.DialOpts{
 }
 
 type commonMachineSuite struct {
-	singularRecord *singularRunnerRecord
-	lxctesting.TestSuite
+	singularRecord  *singularRunnerRecord
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 }
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
-	s.TestSuite.SetUpSuite(c)
 	s.AgentSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
-	s.TestSuite.TearDownSuite(c)
 	s.AgentSuite.TearDownSuite(c)
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	s.TestSuite.SetUpTest(c)
 	s.AgentSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
@@ -125,7 +120,6 @@ func fakeCmd(path string) {
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.TearDownTest(c)
 	s.AgentSuite.TearDownTest(c)
 }
 
@@ -153,8 +147,7 @@ func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, ve
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
-		err := pinger.Stop()
-		c.Check(err, jc.ErrorIsNil)
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
 	})
 	return s.configureMachine(c, m.Id(), vers)
 }

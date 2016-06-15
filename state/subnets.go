@@ -60,8 +60,7 @@ type subnetDoc struct {
 	VLANTag           int    `bson:"vlantag,omitempty"`
 	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
 	IsPublic          bool   `bson:"is-public,omitempty"`
-	// TODO(dooferlad 2015-08-03): add an upgrade step to insert IsPublic=false
-	SpaceName string `bson:"space-name,omitempty"`
+	SpaceName         string `bson:"space-name,omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.

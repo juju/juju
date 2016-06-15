@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -24,27 +24,17 @@ import (
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
 
-// BootstrapMachineConfig holds configuration information
-// to attach to the bootstrap machine.
-type BootstrapMachineConfig struct {
-	// Addresses holds the bootstrap machine's addresses.
-	Addresses []network.Address
+// InitializeStateParams holds parameters used for initializing the state
+// database.
+type InitializeStateParams struct {
+	instancecfg.StateInitializationParams
 
-	// BootstrapConstraints holds the bootstrap machine's constraints.
-	BootstrapConstraints constraints.Value
+	// BootstrapMachineAddresses holds the bootstrap machine's addresses.
+	BootstrapMachineAddresses []network.Address
 
-	// ModelConstraints holds the model-level constraints.
-	ModelConstraints constraints.Value
-
-	// Jobs holds the jobs that the machine agent will run.
-	Jobs []multiwatcher.MachineJob
-
-	// InstanceId holds the instance id of the bootstrap machine.
-	InstanceId instance.Id
-
-	// Characteristics holds hardware information on the
-	// bootstrap machine.
-	Characteristics instance.HardwareCharacteristics
+	// BootstrapMachineJobs holds the jobs that the bootstrap machine
+	// agent will run.
+	BootstrapMachineJobs []multiwatcher.MachineJob
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	SharedSecret string
@@ -66,11 +56,7 @@ type BootstrapMachineConfig struct {
 func InitializeState(
 	adminUser names.UserTag,
 	c agent.ConfigSetter,
-	cfg *config.Config,
-	cloud string,
-	cloudConfigAttrs map[string]interface{},
-	hostedModelConfigAttrs map[string]interface{},
-	machineCfg BootstrapMachineConfig,
+	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
 	policy state.Policy,
 ) (_ *state.State, _ *state.Machine, resultErr error) {
@@ -94,8 +80,28 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
+	cloudCredentials := make(map[string]cloud.Credential)
+	if args.ControllerCloudCredential != nil {
+		cloudCredentials[args.ControllerCloudCredentialName] = *args.ControllerCloudCredential
+	}
+
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(adminUser, info, cloud, cloudConfigAttrs, cfg, dialOpts, policy)
+	st, err := state.Initialize(state.InitializeParams{
+		ControllerModelArgs: state.ModelArgs{
+			Owner:           adminUser,
+			Config:          args.ControllerModelConfig,
+			Constraints:     args.ModelConstraints,
+			CloudRegion:     args.ControllerCloudRegion,
+			CloudCredential: args.ControllerCloudCredentialName,
+		},
+		CloudName:           args.ControllerCloudName,
+		Cloud:               args.ControllerCloud,
+		CloudCredentials:    cloudCredentials,
+		ModelConfigDefaults: args.ModelConfigDefaults,
+		MongoInfo:           info,
+		MongoDialOpts:       dialOpts,
+		Policy:              policy,
+	})
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
 	}
@@ -105,45 +111,52 @@ func InitializeState(
 			st.Close()
 		}
 	}()
-	servingInfo.SharedSecret = machineCfg.SharedSecret
+	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
 	// Filter out any LXC bridge addresses from the machine addresses.
-	machineCfg.Addresses = network.FilterLXCAddresses(machineCfg.Addresses)
+	args.BootstrapMachineAddresses = network.FilterLXCAddresses(args.BootstrapMachineAddresses)
 
-	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
+	if err = initAPIHostPorts(c, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
 	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
 	if err := st.SetStateServingInfo(ssi); err != nil {
 		return nil, nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
-	m, err := initConstraintsAndBootstrapMachine(c, st, machineCfg)
+	m, err := initBootstrapMachine(c, st, args)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 	}
 
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
 	// and any user supplied config.
 	attrs := make(map[string]interface{})
-	for k, v := range hostedModelConfigAttrs {
+	for k, v := range args.HostedModelConfig {
 		attrs[k] = v
 	}
-	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(modelmanager.IsAdmin, cfg, attrs)
+	// TODO(axw) we shouldn't be adding credentials to model config.
+	if args.ControllerCloudCredential != nil {
+		for k, v := range args.ControllerCloudCredential.Attributes() {
+			attrs[k] = v
+		}
+	}
+	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
+		modelmanager.IsAdmin, args.ControllerModelConfig, attrs,
+	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
-		Cloud:  cloud,
-		Config: hostedModelConfig,
-		Owner:  adminUser,
+		Owner:           adminUser,
+		Config:          hostedModelConfig,
+		Constraints:     args.ModelConstraints,
+		CloudRegion:     args.ControllerCloudRegion,
+		CloudCredential: args.ControllerCloudCredentialName,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")
-	}
-	if err := hostedModelState.SetModelConstraints(machineCfg.ModelConstraints); err != nil {
-		return nil, nil, errors.Annotate(err, "cannot set initial hosted model constraints")
 	}
 	hostedModelState.Close()
 
@@ -162,17 +175,6 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 	}
 }
 
-func initConstraintsAndBootstrapMachine(c agent.ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := st.SetModelConstraints(cfg.ModelConstraints); err != nil {
-		return nil, errors.Annotate(err, "cannot set initial model constraints")
-	}
-	m, err := initBootstrapMachine(c, st, cfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
-	}
-	return m, nil
-}
-
 // initMongoAdminUser adds the admin user with the specified
 // password to the admin database in Mongo.
 func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
@@ -185,24 +187,28 @@ func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password strin
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
-func initBootstrapMachine(c agent.ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	logger.Infof("initialising bootstrap machine with config: %+v", cfg)
+func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args InitializeStateParams) (*state.Machine, error) {
+	logger.Infof("initialising bootstrap machine with config: %+v", args)
 
-	jobs := make([]state.MachineJob, len(cfg.Jobs))
-	for i, job := range cfg.Jobs {
+	jobs := make([]state.MachineJob, len(args.BootstrapMachineJobs))
+	for i, job := range args.BootstrapMachineJobs {
 		machineJob, err := machineJobFromParams(job)
 		if err != nil {
 			return nil, errors.Errorf("invalid bootstrap machine job %q: %v", job, err)
 		}
 		jobs[i] = machineJob
 	}
+	var hardware instance.HardwareCharacteristics
+	if args.BootstrapMachineHardwareCharacteristics != nil {
+		hardware = *args.BootstrapMachineHardwareCharacteristics
+	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
-		Addresses:               cfg.Addresses,
+		Addresses:               args.BootstrapMachineAddresses,
 		Series:                  series.HostSeries(),
 		Nonce:                   agent.BootstrapNonce,
-		Constraints:             cfg.BootstrapConstraints,
-		InstanceId:              cfg.InstanceId,
-		HardwareCharacteristics: cfg.Characteristics,
+		Constraints:             args.BootstrapMachineConstraints,
+		InstanceId:              args.BootstrapMachineInstanceId,
+		HardwareCharacteristics: hardware,
 		Jobs: jobs,
 	})
 	if err != nil {

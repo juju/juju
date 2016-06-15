@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -103,7 +104,7 @@ See also:
     set-constraints`
 
 // defaultHostedModelName is the name of the hosted model created in each
-// controller for deploying workloads to, in addition to the "admin" model.
+// controller for deploying workloads to, in addition to the "controller" model.
 const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {
@@ -369,10 +370,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
-		"type":                   cloud.Type,
-		"name":                   environs.ControllerModelName,
-		config.UUIDKey:           controllerUUID.String(),
-		config.ControllerUUIDKey: controllerUUID.String(),
+		"type":                       cloud.Type,
+		"name":                       environs.ControllerModelName,
+		config.UUIDKey:               controllerUUID.String(),
+		controller.ControllerUUIDKey: controllerUUID.String(),
 	}
 	for k, v := range cloud.Config {
 		configAttrs[k] = v
@@ -533,13 +534,11 @@ to clean up the model.`[1:])
 	delete(hostedModelConfig, config.AgentVersionKey)
 
 	// Based on the attribute names in clouds.yaml, create
-	// a map of config for all models on this cloud.
-	cloudConfigAttrs := make(map[string]interface{})
-	for attr, cloudAttrValue := range cloud.Config {
-		if val, ok := controllerModelConfigAttrs[attr]; ok && val != cloudAttrValue {
-			return errors.Errorf("cannot override cloud attribute %q", attr)
-		} else {
-			cloudConfigAttrs[attr] = cloudAttrValue
+	// a map of shared config for all models on this cloud.
+	sharedAttrs := make(map[string]interface{})
+	for k := range cloud.Config {
+		if v, ok := controllerModelConfigAttrs[k]; ok {
+			sharedAttrs[k] = v
 		}
 	}
 
@@ -560,8 +559,12 @@ to clean up the model.`[1:])
 		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
-		Cloud:                c.Cloud,
-		CloudConfig:          cloudConfigAttrs,
+		Cloud:                *cloud,
+		CloudName:            c.Cloud,
+		CloudRegion:          region.Name,
+		CloudCredential:      credential,
+		CloudCredentialName:  credentialName,
+		ModelConfigDefaults:  sharedAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
@@ -573,7 +576,8 @@ to clean up the model.`[1:])
 		return errors.Trace(err)
 	}
 
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, environ)
+	controllerCfg := controller.ControllerConfig(controllerModelConfigAttrs)
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerCfg.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -604,6 +608,7 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 			cloud.Endpoint,
 			cloud.StorageEndpoint,
 		}
+		cloud.Regions = []jujucloud.Region{region}
 		return region, nil
 	}
 	if regionName == "" {

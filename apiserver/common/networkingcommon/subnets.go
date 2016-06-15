@@ -439,14 +439,9 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 // environs.Networking, an error satisfying errors.IsNotSupported() will be
 // returned.
 func networkingEnviron(api NetworkBacking) (environs.NetworkingEnviron, error) {
-	envConfig, err := api.ModelConfig()
+	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting model config")
-	}
-
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening model")
+		return nil, errors.Annotate(err, "opening environment")
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
 		return netEnv, nil
@@ -517,14 +512,9 @@ func updateZones(api NetworkBacking) ([]providercommon.AvailabilityZone, error) 
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
 func zonedEnviron(api NetworkBacking) (providercommon.ZonedEnviron, error) {
-	envConfig, err := api.ModelConfig()
+	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting model config")
-	}
-
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening model")
+		return nil, errors.Annotate(err, "opening environment")
 	}
 	if zonedEnv, ok := env.(providercommon.ZonedEnviron); ok {
 		return zonedEnv, nil

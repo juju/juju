@@ -136,7 +136,7 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
@@ -209,7 +209,7 @@ func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -256,7 +256,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
@@ -287,7 +287,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, machine.Id(), instance.LXC)
+	}, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create active units (in relation scope, with subordinates).
