@@ -40,24 +40,24 @@ type FindTagsResults struct {
 
 // Entity identifies a single entity.
 type Entity struct {
-	Tag string `json:"tag"`
+	Tag string
 }
 
 // Entities identifies multiple entities.
 type Entities struct {
-	Entities []Entity `json:"entities"`
+	Entities []Entity
 }
 
 // EntityPasswords holds the parameters for making a SetPasswords call.
 type EntityPasswords struct {
-	Changes []EntityPassword `json:"changes"`
+	Changes []EntityPassword
 }
 
 // EntityPassword specifies a password change for the entity
 // with the given tag.
 type EntityPassword struct {
-	Tag      string `json:"tag"`
-	Password string `json:"password"`
+	Tag      string
+	Password string
 }
 
 // ErrorResults holds the results of calling a bulk operation which
@@ -65,7 +65,7 @@ type EntityPassword struct {
 // number of elements matches the operations specified in the request.
 type ErrorResults struct {
 	// Results contains the error results from each operation.
-	Results []ErrorResult `json:"results"`
+	Results []ErrorResult
 }
 
 // OneError returns the error from the result
@@ -98,61 +98,61 @@ func (result ErrorResults) Combine() error {
 
 // ErrorResult holds the error status of a single operation.
 type ErrorResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error
 }
 
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
-	Endpoints []string `json:"endpoints"`
+	Endpoints []string
 }
 
 // AddRelationResults holds the results of a AddRelation call. The Endpoints
 // field maps application names to the involved endpoints.
 type AddRelationResults struct {
-	Endpoints map[string]charm.Relation `json:"endpoints"`
+	Endpoints map[string]charm.Relation
 }
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
 // The endpoints specified are unordered.
 type DestroyRelation struct {
-	Endpoints []string `json:"endpoints"`
+	Endpoints []string
 }
 
 // AddCharm holds the arguments for making an AddCharm API call.
 type AddCharm struct {
-	URL     string `json:"url"`
-	Channel string `json:"channel"`
+	URL     string
+	Channel string
 }
 
 // AddCharmWithAuthorization holds the arguments for making an AddCharmWithAuthorization API call.
 type AddCharmWithAuthorization struct {
-	URL                string             `json:"url"`
-	Channel            string             `json:"channel"`
-	CharmStoreMacaroon *macaroon.Macaroon `json:"macaroon"`
+	URL                string
+	Channel            string
+	CharmStoreMacaroon *macaroon.Macaroon
 }
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Series      string                    `json:"series"`
-	Constraints constraints.Value         `json:"constraints"`
-	Jobs        []multiwatcher.MachineJob `json:"jobs"`
+	Series      string                    `json:"Series"`
+	Constraints constraints.Value         `json:"Constraints"`
+	Jobs        []multiwatcher.MachineJob `json:"Jobs"`
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
-	Disks []storage.Constraints `json:"disks"`
+	Disks []storage.Constraints `json:"Disks"`
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
-	Placement *instance.Placement `json:"placement"`
+	Placement *instance.Placement `json:"Placement"`
 
 	// If ParentId is non-empty, it specifies the id of the
 	// parent machine within which the new machine will
 	// be created. In that case, ContainerType must also be
 	// set.
-	ParentId string `json:"parent-id"`
+	ParentId string `json:"ParentId"`
 
 	// ContainerType optionally gives the container type of the
 	// new machine. If it is non-empty, the new machine
@@ -160,214 +160,214 @@ type AddMachineParams struct {
 	// but ParentId is empty, a new top level machine will
 	// be created to hold the container with given series,
 	// constraints and jobs.
-	ContainerType instance.ContainerType `json:"container-type"`
+	ContainerType instance.ContainerType `json:"ContainerType"`
 
 	// If InstanceId is non-empty, it will be associated with
 	// the new machine along with the given nonce,
 	// hardware characteristics and addresses.
 	// All the following fields will be ignored if ContainerType
 	// is set.
-	InstanceId              instance.Id                      `json:"instance-id"`
-	Nonce                   string                           `json:"nonce"`
-	HardwareCharacteristics instance.HardwareCharacteristics `json:"hardware-characteristics"`
-	Addrs                   []Address                        `json:"addresses"`
+	InstanceId              instance.Id                      `json:"InstanceId"`
+	Nonce                   string                           `json:"Nonce"`
+	HardwareCharacteristics instance.HardwareCharacteristics `json:"HardwareCharacteristics"`
+	Addrs                   []Address                        `json:"Addrs"`
 }
 
 // AddMachines holds the parameters for making the AddMachines call.
 type AddMachines struct {
-	MachineParams []AddMachineParams `json:"params"`
+	MachineParams []AddMachineParams `json:"MachineParams"`
 }
 
 // AddMachinesResults holds the results of an AddMachines call.
 type AddMachinesResults struct {
-	Machines []AddMachinesResult `json:"machines"`
+	Machines []AddMachinesResult `json:"Machines"`
 }
 
 // AddMachinesResult holds the name of a machine added by the
 // api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
-	Machine string `json:"machine"`
-	Error   *Error `json:"error,omitempty"`
+	Machine string `json:"Machine"`
+	Error   *Error `json:"Error"`
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.
 type DestroyMachines struct {
-	MachineNames []string `json:"machine-names"`
-	Force        bool     `json:"force"`
+	MachineNames []string
+	Force        bool
 }
 
 // ApplicationsDeploy holds the parameters for deploying one or more applications.
 type ApplicationsDeploy struct {
-	Applications []ApplicationDeploy `json:"applications"`
+	Applications []ApplicationDeploy
 }
 
 // ApplicationDeploy holds the parameters for making the application Deploy call.
 type ApplicationDeploy struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmUrl         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement"`
-	Storage          map[string]storage.Constraints `json:"storage"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings"`
-	Resources        map[string]string              `json:"resources"`
+	ApplicationName  string
+	Series           string
+	CharmUrl         string
+	Channel          string
+	NumUnits         int
+	Config           map[string]string
+	ConfigYAML       string // Takes precedence over config if both are present.
+	Constraints      constraints.Value
+	Placement        []*instance.Placement
+	Storage          map[string]storage.Constraints
+	EndpointBindings map[string]string
+	Resources        map[string]string
 }
 
 // ApplicationUpdate holds the parameters for making the application Update call.
 type ApplicationUpdate struct {
-	ApplicationName string             `json:"application"`
-	CharmUrl        string             `json:"charm-url"`
-	ForceCharmUrl   bool               `json:"force-charm-url"`
-	ForceSeries     bool               `json:"force-series"`
-	MinUnits        *int               `json:"min-units,omitempty"`
-	SettingsStrings map[string]string  `json:"settings"`
-	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
-	Constraints     *constraints.Value `json:"constraints,omitempty"`
+	ApplicationName string
+	CharmUrl        string
+	ForceCharmUrl   bool
+	ForceSeries     bool
+	MinUnits        *int
+	SettingsStrings map[string]string
+	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
+	Constraints     *constraints.Value
 }
 
 // ApplicationSetCharm sets the charm for a given application.
 type ApplicationSetCharm struct {
 	// ApplicationName is the name of the application to set the charm on.
-	ApplicationName string `json:"application"`
+	ApplicationName string `json:"applicationname"`
 	// CharmUrl is the new url for the charm.
-	CharmUrl string `json:"charm-url"`
+	CharmUrl string `json:"charmurl"`
 	// Channel is the charm store channel from which the charm came.
-	Channel string `json:"channel"`
+	Channel string `json:"cs-channel"`
 	// ForceUnits forces the upgrade on units in an error state.
-	ForceUnits bool `json:"force-units"`
+	ForceUnits bool `json:"forceunits"`
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
-	ForceSeries bool `json:"force-series"`
+	ForceSeries bool `json:"forceseries"`
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
-	ResourceIDs map[string]string `json:"resource-ids"`
+	ResourceIDs map[string]string `json:"resourceids"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.
 type ApplicationExpose struct {
-	ApplicationName string `json:"application"`
+	ApplicationName string
 }
 
 // ApplicationSet holds the parameters for an application Set
 // command. Options contains the configuration data.
 type ApplicationSet struct {
-	ApplicationName string            `json:"application"`
-	Options         map[string]string `json:"options"`
+	ApplicationName string
+	Options         map[string]string
 }
 
 // ApplicationUnset holds the parameters for an application Unset
 // command. Options contains the option attribute names
 // to unset.
 type ApplicationUnset struct {
-	ApplicationName string   `json:"application"`
-	Options         []string `json:"options"`
+	ApplicationName string
+	Options         []string
 }
 
 // ApplicationGet holds parameters for making the Get or
 // GetCharmURL calls.
 type ApplicationGet struct {
-	ApplicationName string `json:"application"`
+	ApplicationName string
 }
 
 // ApplicationGetResults holds results of the application Get call.
 type ApplicationGetResults struct {
-	Application string                 `json:"application"`
-	Charm       string                 `json:"charm"`
-	Config      map[string]interface{} `json:"config"`
-	Constraints constraints.Value      `json:"constraints"`
+	Application string
+	Charm       string
+	Config      map[string]interface{}
+	Constraints constraints.Value
 }
 
 // ApplicationCharmRelations holds parameters for making the application CharmRelations call.
 type ApplicationCharmRelations struct {
-	ApplicationName string `json:"application"`
+	ApplicationName string
 }
 
 // ApplicationCharmRelationsResults holds the results of the application CharmRelations call.
 type ApplicationCharmRelationsResults struct {
-	CharmRelations []string `json:"charm-relations"`
+	CharmRelations []string
 }
 
 // ApplicationUnexpose holds parameters for the application Unexpose call.
 type ApplicationUnexpose struct {
-	ApplicationName string `json:"application"`
+	ApplicationName string
 }
 
 // ApplicationMetricCredential holds parameters for the SetApplicationCredentials call.
 type ApplicationMetricCredential struct {
-	ApplicationName   string `json:"application"`
-	MetricCredentials []byte `json:"metrics-credentials"`
+	ApplicationName   string
+	MetricCredentials []byte
 }
 
 // ApplicationMetricCredentials holds multiple ApplicationMetricCredential parameters.
 type ApplicationMetricCredentials struct {
-	Creds []ApplicationMetricCredential `json:"creds"`
+	Creds []ApplicationMetricCredential
 }
 
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
-	Target string `json:"target"`
+	Target string
 }
 
 // PublicAddressResults holds results of the PublicAddress call.
 type PublicAddressResults struct {
-	PublicAddress string `json:"public-address"`
+	PublicAddress string
 }
 
 // PrivateAddress holds parameters for the PrivateAddress call.
 type PrivateAddress struct {
-	Target string `json:"target"`
+	Target string
 }
 
 // PrivateAddressResults holds results of the PrivateAddress call.
 type PrivateAddressResults struct {
-	PrivateAddress string `json:"private-address"`
+	PrivateAddress string
 }
 
 // Resolved holds parameters for the Resolved call.
 type Resolved struct {
-	UnitName string `json:"unit-name"`
-	Retry    bool   `json:"retry"`
+	UnitName string
+	Retry    bool
 }
 
 // ResolvedResults holds results of the Resolved call.
 type ResolvedResults struct {
-	Application string                 `json:"application"`
-	Charm       string                 `json:"charm"`
-	Settings    map[string]interface{} `json:"settings"`
+	Application string
+	Charm       string
+	Settings    map[string]interface{}
 }
 
 // AddApplicationUnitsResults holds the names of the units added by the
 // AddUnits call.
 type AddApplicationUnitsResults struct {
-	Units []string `json:"units"`
+	Units []string
 }
 
 // AddApplicationUnits holds parameters for the AddUnits call.
 type AddApplicationUnits struct {
-	ApplicationName string                `json:"application"`
-	NumUnits        int                   `json:"num-units"`
-	Placement       []*instance.Placement `json:"placement"`
+	ApplicationName string
+	NumUnits        int
+	Placement       []*instance.Placement
 }
 
 // DestroyApplicationUnits holds parameters for the DestroyUnits call.
 type DestroyApplicationUnits struct {
-	UnitNames []string `json:"unit-names"`
+	UnitNames []string
 }
 
 // ApplicationDestroy holds the parameters for making the application Destroy call.
 type ApplicationDestroy struct {
-	ApplicationName string `json:"application"`
+	ApplicationName string
 }
 
 // Creds holds credentials for identifying an entity.
 type Creds struct {
-	AuthTag  string `json:"auth-tag"`
-	Password string `json:"password"`
-	Nonce    string `json:"nonce"`
+	AuthTag  string
+	Password string
+	Nonce    string
 }
 
 // LoginRequest holds credentials for identifying an entity to the Login v1
@@ -387,94 +387,94 @@ type LoginRequest struct {
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1
 // or earlier (v0 or even pre-facade).
 type LoginRequestCompat struct {
-	LoginRequest `json:"login-request"`
-	Creds        `json:"creds"`
+	LoginRequest
+	Creds
 }
 
 // GetAnnotationsResults holds annotations associated with an entity.
 type GetAnnotationsResults struct {
-	Annotations map[string]string `json:"annotations"`
+	Annotations map[string]string
 }
 
 // GetAnnotations stores parameters for making the GetAnnotations call.
 type GetAnnotations struct {
-	Tag string `json:"tag"`
+	Tag string
 }
 
 // SetAnnotations stores parameters for making the SetAnnotations call.
 type SetAnnotations struct {
-	Tag   string            `json:"tag"`
-	Pairs map[string]string `json:"annotations"`
+	Tag   string
+	Pairs map[string]string
 }
 
 // GetApplicationConstraints stores parameters for making the GetApplicationConstraints call.
 type GetApplicationConstraints struct {
-	ApplicationName string `json:"application"`
+	ApplicationName string
 }
 
 // GetConstraintsResults holds results of the GetConstraints call.
 type GetConstraintsResults struct {
-	Constraints constraints.Value `json:"constraints"`
+	Constraints constraints.Value
 }
 
 // SetConstraints stores parameters for making the SetConstraints call.
 type SetConstraints struct {
-	ApplicationName string            `json:"application"` //optional, if empty, model constraints are set.
-	Constraints     constraints.Value `json:"constraints"`
+	ApplicationName string //optional, if empty, model constraints are set.
+	Constraints     constraints.Value
 }
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.URL `json:"references"`
+	References []charm.URL
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
 type ResolveCharmResult struct {
-	URL   *charm.URL `json:"url,omitempty"`
-	Error string     `json:"error,omitempty"`
+	URL   *charm.URL `json:",omitempty"`
+	Error string     `json:",omitempty"`
 }
 
 // ResolveCharmResults holds results of the ResolveCharms call.
 type ResolveCharmResults struct {
-	URLs []ResolveCharmResult `json:"urls"`
+	URLs []ResolveCharmResult
 }
 
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
-	AllWatcherId string `json:"watcher-id"`
+	AllWatcherId string
 }
 
 // AllWatcherNextResults holds deltas returned from calling AllWatcher.Next().
 type AllWatcherNextResults struct {
-	Deltas []multiwatcher.Delta `json:"deltas"`
+	Deltas []multiwatcher.Delta
 }
 
 // ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
 type ListSSHKeys struct {
-	Entities `json:"entities"`
-	Mode     ssh.ListMode `json:"mode"`
+	Entities
+	Mode ssh.ListMode
 }
 
 // ModifyUserSSHKeys stores parameters used for a KeyManager.Add|Delete|Import call for a user.
 type ModifyUserSSHKeys struct {
-	User string   `json:"user"`
-	Keys []string `json:"ssh-keys"`
+	User string
+	Keys []string
 }
 
 // StateServingInfo holds information needed by a state
 // server.
 type StateServingInfo struct {
-	APIPort   int `json:"api-port"`
-	StatePort int `json:"state-port"`
+	APIPort   int
+	StatePort int
 	// The controller cert and corresponding private key.
-	Cert       string `json:"cert"`
-	PrivateKey string `json:"private-key"`
+	Cert       string
+	PrivateKey string
 	// The private key for the CA cert so that a new controller
 	// cert can be generated when needed.
-	CAPrivateKey string `json:"ca-private-key"`
+	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
-	SharedSecret   string `json:"shared-secret"`
-	SystemIdentity string `json:"system-identity"`
+	SharedSecret   string
+	SystemIdentity string
 }
 
 // IsMasterResult holds the result of an IsMaster API call.
@@ -482,106 +482,106 @@ type IsMasterResult struct {
 	// Master reports whether the connected agent
 	// lives on the same instance as the mongo replica
 	// set master.
-	Master bool `json:"master"`
+	Master bool
 }
 
 // ContainerManagerConfigParams contains the parameters for the
 // ContainerManagerConfig provisioner API call.
 type ContainerManagerConfigParams struct {
-	Type instance.ContainerType `json:"type"`
+	Type instance.ContainerType
 }
 
 // ContainerManagerConfig contains information from the model config
 // that is needed for configuring the container manager.
 type ContainerManagerConfig struct {
-	ManagerConfig map[string]string `json:"config"`
+	ManagerConfig map[string]string
 }
 
 // UpdateBehavior contains settings that are duplicated in several
 // places. Let's just embed this instead.
 type UpdateBehavior struct {
-	EnableOSRefreshUpdate bool `json:"enable-os-refresh-update"`
-	EnableOSUpgrade       bool `json:"enable-os-upgrade"`
+	EnableOSRefreshUpdate bool
+	EnableOSUpgrade       bool
 }
 
 // ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
-	ProviderType            string         `json:"provider-type"`
-	AuthorizedKeys          string         `json:"authorized-keys"`
-	SSLHostnameVerification bool           `json:"ssl-hostname-verification"`
-	Proxy                   proxy.Settings `json:"proxy"`
-	AptProxy                proxy.Settings `json:"apt-proxy"`
-	AptMirror               string         `json:"apt-mirror"`
+	ProviderType            string
+	AuthorizedKeys          string
+	SSLHostnameVerification bool
+	Proxy                   proxy.Settings
+	AptProxy                proxy.Settings
+	AptMirror               string
 	*UpdateBehavior
 }
 
 // ProvisioningScriptParams contains the parameters for the
 // ProvisioningScript client API call.
 type ProvisioningScriptParams struct {
-	MachineId string `json:"machine-id"`
-	Nonce     string `json:"nonce"`
+	MachineId string
+	Nonce     string
 
 	// DataDir may be "", in which case the default will be used.
-	DataDir string `json:"data-dir"`
+	DataDir string
 
 	// DisablePackageCommands may be set to disable all
 	// package-related commands. It is then the responsibility of the
 	// provisioner to ensure that all the packages required by Juju
 	// are available.
-	DisablePackageCommands bool `json:"disable-package-commands"`
+	DisablePackageCommands bool
 }
 
 // ProvisioningScriptResult contains the result of the
 // ProvisioningScript client API call.
 type ProvisioningScriptResult struct {
-	Script string `json:"script"`
+	Script string
 }
 
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo
 // API call.
 type DeployerConnectionValues struct {
-	StateAddresses []string `json:"state-addresses"`
-	APIAddresses   []string `json:"api-addresses"`
+	StateAddresses []string
+	APIAddresses   []string
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
 type JobsResult struct {
-	Jobs  []multiwatcher.MachineJob `json:"jobs"`
-	Error *Error                    `json:"error,omitempty"`
+	Jobs  []multiwatcher.MachineJob `json:"Jobs"`
+	Error *Error                    `json:"Error"`
 }
 
 // JobsResults holds the result of a call to Jobs.
 type JobsResults struct {
-	Results []JobsResult `json:"results"`
+	Results []JobsResult `json:"Results"`
 }
 
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
-	Error  *Error        `json:"error,omitempty"`
-	Result []instance.Id `json:"result"`
+	Error  *Error
+	Result []instance.Id
 }
 
 // DistributionGroupResults is the bulk form of
 // DistributionGroupResult.
 type DistributionGroupResults struct {
-	Results []DistributionGroupResult `json:"results"`
+	Results []DistributionGroupResult
 }
 
 // FacadeVersions describes the available Facades and what versions of each one
 // are available
 type FacadeVersions struct {
-	Name     string `json:"name"`
-	Versions []int  `json:"versions"`
+	Name     string
+	Versions []int
 }
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers        [][]HostPort     `json:"servers"`
-	ModelTag       string           `json:"model-tag"`
-	LastConnection *time.Time       `json:"last-connection"`
-	Facades        []FacadeVersions `json:"facades"`
+	Servers        [][]HostPort     `json:"Servers"`
+	ModelTag       string           `json:"ModelTag"`
+	LastConnection *time.Time       `json:"LastConnection"`
+	Facades        []FacadeVersions `json:"Facades"`
 }
 
 // ReauthRequest holds a challenge/response token meaningful to the identity
@@ -643,7 +643,7 @@ type LoginResultV1 struct {
 // ControllersServersSpec contains arguments for
 // the EnableHA client API call.
 type ControllersSpec struct {
-	ModelTag       string            `json:"model-tag"`
+	ModelTag       string
 	NumControllers int               `json:"num-controllers"`
 	Constraints    constraints.Value `json:"constraints,omitempty"`
 	// Series is the series to associate with new controller machines.
@@ -656,21 +656,21 @@ type ControllersSpec struct {
 // ControllersServersSpecs contains all the arguments
 // for the EnableHA API call.
 type ControllersSpecs struct {
-	Specs []ControllersSpec `json:"specs"`
+	Specs []ControllersSpec
 }
 
 // ControllersChangeResult contains the results
 // of a single EnableHA API call or
 // an error.
 type ControllersChangeResult struct {
-	Result ControllersChanges `json:"result"`
-	Error  *Error             `json:"error,omitempty"`
+	Result ControllersChanges
+	Error  *Error
 }
 
 // ControllersChangeResults contains the results
 // of the EnableHA API call.
 type ControllersChangeResults struct {
-	Results []ControllersChangeResult `json:"results"`
+	Results []ControllersChangeResult
 }
 
 // ControllersChanges lists the servers
@@ -688,26 +688,26 @@ type ControllersChanges struct {
 // FindToolsParams defines parameters for the FindTools method.
 type FindToolsParams struct {
 	// Number will be used to match tools versions exactly if non-zero.
-	Number version.Number `json:"number"`
+	Number version.Number
 
 	// MajorVersion will be used to match the major version if non-zero.
-	MajorVersion int `json:"major"`
+	MajorVersion int
 
 	// MinorVersion will be used to match the major version if greater
 	// than or equal to zero, and Number is zero.
-	MinorVersion int `json:"minor"`
+	MinorVersion int
 
 	// Arch will be used to match tools by architecture if non-empty.
-	Arch string `json:"arch"`
+	Arch string
 
 	// Series will be used to match tools by series if non-empty.
-	Series string `json:"series"`
+	Series string
 }
 
 // FindToolsResult holds a list of tools from FindTools and any error.
 type FindToolsResult struct {
-	List  tools.List `json:"list"`
-	Error *Error     `json:"error,omitempty"`
+	List  tools.List
+	Error *Error
 }
 
 // ImageFilterParams holds the parameters used to specify images to delete.
@@ -792,29 +792,29 @@ type BundleChangesChange struct {
 // UpgradeMongoParams holds the arguments required to
 // enter upgrade mongo mode.
 type UpgradeMongoParams struct {
-	Target mongo.Version `json:"target"`
+	Target mongo.Version
 }
 
 // HAMember holds information that identifies one member
 // of HA.
 type HAMember struct {
-	Tag           string          `json:"tag"`
-	PublicAddress network.Address `json:"public-address"`
-	Series        string          `json:"series"`
+	Tag           string
+	PublicAddress network.Address
+	Series        string
 }
 
 // MongoUpgradeResults holds the results of an attempt
 // to enter upgrade mongo mode.
 type MongoUpgradeResults struct {
-	RsMembers []replicaset.Member `json:"rs-members"`
-	Master    HAMember            `json:"master"`
-	Members   []HAMember          `json:"ha-members"`
+	RsMembers []replicaset.Member
+	Master    HAMember
+	Members   []HAMember
 }
 
 // ResumeReplicationParams holds the members of a HA that
 // must be resumed.
 type ResumeReplicationParams struct {
-	Members []replicaset.Member `json:"members"`
+	Members []replicaset.Member
 }
 
 // MeterStatusParam holds meter status information to be set for the specified tag.

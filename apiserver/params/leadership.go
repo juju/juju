@@ -8,7 +8,7 @@ package params
 type ClaimLeadershipBulkParams struct {
 
 	// Params are the parameters for making a bulk leadership claim.
-	Params []ClaimLeadershipParams `json:"params"`
+	Params []ClaimLeadershipParams
 }
 
 // ClaimLeadershipParams are the parameters needed for making a
@@ -17,13 +17,13 @@ type ClaimLeadershipParams struct {
 
 	// ApplicationTag is the application for which you want to make a
 	// leadership claim.
-	ApplicationTag string `json:"application-tag"`
+	ApplicationTag string
 
 	// UnitTag is the unit which is making the leadership claim.
-	UnitTag string `json:"unit-tag"`
+	UnitTag string
 
 	// DurationSeconds is the number of seconds for which the lease is required.
-	DurationSeconds float64 `json:"duration"`
+	DurationSeconds float64
 }
 
 // ClaimLeadershipBulkResults is the collection of results from a bulk
@@ -33,7 +33,7 @@ type ClaimLeadershipBulkResults ErrorResults
 // ReleaseLeadershipBulkParams is a collection of parameters needed to
 // make a bulk release leadership call.
 type ReleaseLeadershipBulkParams struct {
-	Params []ReleaseLeadershipParams `json:"params"`
+	Params []ReleaseLeadershipParams
 }
 
 // ReleaseLeadershipParams are the parameters needed to release a
@@ -42,10 +42,10 @@ type ReleaseLeadershipParams struct {
 
 	// ApplicationTag is the application for which you want to make a
 	// leadership claim.
-	ApplicationTag string `json:"application-tag"`
+	ApplicationTag string
 
 	// UnitTag is the unit which is making the leadership claim.
-	UnitTag string `json:"unit-tag"`
+	UnitTag string
 }
 
 // ReleaseLeadershipBulkResults is a type which contains results from
@@ -55,14 +55,14 @@ type ReleaseLeadershipBulkResults ErrorResults
 // GetLeadershipSettingsBulkResults is the collection of results from
 // a bulk request for leadership settings.
 type GetLeadershipSettingsBulkResults struct {
-	Results []GetLeadershipSettingsResult `json:"results"`
+	Results []GetLeadershipSettingsResult
 }
 
 // GetLeadershipSettingsResult is the results from requesting
 // leadership settings.
 type GetLeadershipSettingsResult struct {
-	Settings Settings `json:"settings"`
-	Error    *Error   `json:"error,omitempty"`
+	Settings Settings
+	Error    *Error
 }
 
 // MergeLeadershipSettingsBulkParams is a collection of parameters for
@@ -71,7 +71,7 @@ type MergeLeadershipSettingsBulkParams struct {
 
 	// Params are the parameters for making a bulk leadership settings
 	// merge.
-	Params []MergeLeadershipSettingsParam `json:"params"`
+	Params []MergeLeadershipSettingsParam
 }
 
 // MergeLeadershipSettingsParam are the parameters needed for merging
@@ -79,8 +79,8 @@ type MergeLeadershipSettingsBulkParams struct {
 type MergeLeadershipSettingsParam struct {
 	// ApplicationTag is the application for which you want to merge
 	// leadership settings.
-	ApplicationTag string `json:"application-tag"`
+	ApplicationTag string
 
 	// Settings are the Leadership settings you wish to merge in.
-	Settings Settings `json:"settings"`
+	Settings Settings
 }

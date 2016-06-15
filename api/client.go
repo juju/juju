@@ -236,11 +236,16 @@ func (c *Client) ModelUserInfo() ([]params.ModelUserInfo, error) {
 	return info, nil
 }
 
+// WatchAll holds the id of the newly-created AllWatcher/AllModelWatcher.
+type WatchAll struct {
+	AllWatcherId string
+}
+
 // WatchAll returns an AllWatcher, from which you can request the Next
 // collection of Deltas.
 func (c *Client) WatchAll() (*AllWatcher, error) {
-	var info params.AllWatcherId
-	if err := c.facade.FacadeCall("WatchAll", nil, &info); err != nil {
+	info := new(WatchAll)
+	if err := c.facade.FacadeCall("WatchAll", nil, info); err != nil {
 		return nil, err
 	}
 	return NewAllWatcher(c.st, &info.AllWatcherId), nil

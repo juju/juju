@@ -44,20 +44,16 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 		return pr
 	}
 	mkResults := func(rs ...interface{}) M {
-		return M{"results": rs}
+		return M{"Results": rs}
 	}
 	mkResult := func(err, ports interface{}) M {
-		result := M{"ports": ports}
-		if err != nil {
-			result["error"] = err
-		}
-		return result
+		return M{"Error": err, "Ports": ports}
 	}
 	mkError := func(msg, code string) M {
-		return M{"message": msg, "code": code}
+		return M{"Message": msg, "Code": code}
 	}
 	mkPort := func(prot string, num int) M {
-		return M{"protocol": prot, "number": num}
+		return M{"Protocol": prot, "Number": num}
 	}
 	// Tests.
 	tests := []struct {
@@ -103,10 +99,10 @@ func (s *NetworkSuite) TestPortsResults(c *gc.C) {
 func (s *NetworkSuite) TestHostPort(c *gc.C) {
 	mkHostPort := func(v, t, s string, p int) M {
 		return M{
-			"value": v,
-			"type":  t,
-			"scope": s,
-			"port":  p,
+			"Value": v,
+			"Type":  t,
+			"Scope": s,
+			"Port":  p,
 		}
 	}
 	tests := []struct {
@@ -179,12 +175,12 @@ func (s *NetworkSuite) TestHostPort(c *gc.C) {
 func (s *NetworkSuite) TestMachinePortRange(c *gc.C) {
 	mkPortRange := func(u, r string, f, t int, p string) M {
 		return M{
-			"unit-tag":     u,
-			"relation-tag": r,
-			"port-range": M{
-				"from-port": f,
-				"to-port":   t,
-				"protocol":  p,
+			"UnitTag":     u,
+			"RelationTag": r,
+			"PortRange": M{
+				"FromPort": f,
+				"ToPort":   t,
+				"Protocol": p,
 			},
 		}
 	}

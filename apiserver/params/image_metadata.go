@@ -22,7 +22,7 @@ type ImageMetadataFilter struct {
 	Stream string `json:"stream,omitempty"`
 
 	// VirtType stores virtualisation type.
-	VirtType string `json:"virt-type,omitempty"`
+	VirtType string `json:"virt_type,omitempty"`
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
@@ -31,7 +31,7 @@ type ImageMetadataFilter struct {
 // CloudImageMetadata holds cloud image metadata properties.
 type CloudImageMetadata struct {
 	// ImageId is an image identifier.
-	ImageId string `json:"image-id"`
+	ImageId string `json:"image_id"`
 
 	// Stream contains reference to a particular stream,
 	// for e.g. "daily" or "released"
@@ -50,13 +50,13 @@ type CloudImageMetadata struct {
 	Arch string `json:"arch"`
 
 	// VirtType contains the virtualisation type of the cloud image, for e.g. "pv", "hvm". "kvm".
-	VirtType string `json:"virt-type,omitempty"`
+	VirtType string `json:"virt_type,omitempty"`
 
 	// RootStorageType contains type of root storage, for e.g. "ebs", "instance".
-	RootStorageType string `json:"root-storage_type,omitempty"`
+	RootStorageType string `json:"root_storage_type,omitempty"`
 
 	// RootStorageSize contains size of root storage in gigabytes (GB).
-	RootStorageSize *uint64 `json:"root-storage_size,omitempty"`
+	RootStorageSize *uint64 `json:"root_storage_size,omitempty"`
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source string `json:"source"`
@@ -85,5 +85,5 @@ type CloudImageMetadataList struct {
 
 // MetadataImageIds holds image ids and can be used to identify related image metadata.
 type MetadataImageIds struct {
-	Ids []string `json:"image-ids"`
+	Ids []string `json:"image_ids"`
 }
