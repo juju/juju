@@ -187,8 +187,8 @@ failed to add "storage42": storage "storage42" not found
 func (s *addSuite) TestAddStorageMixDistinctAndNonDistinctErrors(c *gc.C) {
 	expectedOut := ``
 	expectedErr := `
-storage "storage0" not found
 some unit error
+storage "storage0" not found
 `[1:]
 
 	unitErr := `some unit error`
