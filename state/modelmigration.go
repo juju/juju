@@ -83,6 +83,11 @@ type ModelMigration interface {
 	// well as those which are yet to report.
 	GetMinionReports() (*MinionReports, error)
 
+	// WatchMinionReports returns a notify watcher which triggers when
+	// a migration minion has reported back about the success or failure
+	// of its actions for the current migration phase.
+	WatchMinionReports() (NotifyWatcher, error)
+
 	// Refresh updates the contents of the ModelMigration from the
 	// underlying state.
 	Refresh() error
@@ -353,7 +358,7 @@ func (mig *modelMigration) MinionReport(tag names.Tag, phase migration.Phase, su
 	if err != nil {
 		return errors.Trace(err)
 	}
-	docID := fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
+	docID := mig.minionReportId(phase, globalKey)
 	doc := modelMigMinionSyncDoc{
 		Id:          docID,
 		MigrationId: mig.Id(),
@@ -402,9 +407,9 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 
 	coll, closer := mig.st.getCollection(migrationsMinionSyncC)
 	defer closer()
-	query := coll.Find(bson.M{
-		"_id": bson.M{"$regex": "^" + mig.Id() + ":" + phase.String() + ":.+"},
-	})
+	query := coll.Find(bson.M{"_id": bson.M{
+		"$regex": "^" + mig.minionReportId(phase, ".+"),
+	}})
 	query = query.Select(bson.M{
 		"entity-key": 1,
 		"success":    1,
@@ -443,6 +448,27 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 		Failed:    failed.Values(),
 		Unknown:   unknown.Values(),
 	}, nil
+}
+
+// WatchMinionReports implements ModelMigration.
+func (mig *modelMigration) WatchMinionReports() (NotifyWatcher, error) {
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving phase")
+	}
+	prefix := mig.minionReportId(phase, "")
+	filter := func(rawId interface{}) bool {
+		id, ok := rawId.(string)
+		if !ok {
+			return false
+		}
+		return strings.HasPrefix(id, prefix)
+	}
+	return newNotifyCollWatcher(mig.st, migrationsMinionSyncC, filter), nil
+}
+
+func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey string) string {
+	return fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
 }
 
 func (mig *modelMigration) getAllAgents() (set.Tags, error) {
