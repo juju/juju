@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -220,10 +219,6 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	config, err := p.st.ModelConfig()
-	if err != nil {
-		return result, err
-	}
 	cfg := make(map[string]string)
 	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
 
