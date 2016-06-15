@@ -23,6 +23,7 @@ import (
 	_ "github.com/juju/juju/apiserver/charms"
 	_ "github.com/juju/juju/apiserver/cleaner"
 	_ "github.com/juju/juju/apiserver/client"
+	_ "github.com/juju/juju/apiserver/cloud"
 	_ "github.com/juju/juju/apiserver/controller"
 	_ "github.com/juju/juju/apiserver/deployer"
 	_ "github.com/juju/juju/apiserver/discoverspaces"

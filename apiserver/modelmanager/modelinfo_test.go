@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -41,6 +42,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 	s.st = &mockState{
 		uuid: coretesting.ModelTag.Id(),
+		cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 	}
 	s.st.model = &mockModel{
 		owner: names.NewUserTag("bob@local"),
@@ -81,14 +86,15 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	)
 	info := s.getModelInfo(c)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
-		Name:           "testenv",
-		UUID:           s.st.model.cfg.UUID(),
-		ControllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		OwnerTag:       "user-bob@local",
-		ProviderType:   "someprovider",
-		CloudRegion:    "some-region",
-		DefaultSeries:  series.LatestLts(),
-		Life:           params.Dying,
+		Name:            "testenv",
+		UUID:            s.st.model.cfg.UUID(),
+		ControllerUUID:  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		OwnerTag:        "user-bob@local",
+		ProviderType:    "someprovider",
+		CloudRegion:     "some-region",
+		CloudCredential: "some-credential",
+		DefaultSeries:   series.LatestLts(),
+		Life:            params.Dying,
 		Status: params.EntityStatus{
 			Status: status.StatusDestroying,
 			Since:  &time.Time{},
@@ -124,6 +130,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Owner", nil},
 		{"Life", nil},
 		{"CloudRegion", nil},
+		{"CloudCredential", nil},
 	})
 }
 
@@ -199,10 +206,12 @@ type mockState struct {
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
 
-	uuid  string
-	model *mockModel
-	owner names.UserTag
-	users []*state.ModelUser
+	uuid            string
+	cloud           cloud.Cloud
+	model           *mockModel
+	controllerModel *mockModel
+	users           []*state.ModelUser
+	creds           map[string]cloud.Credential
 }
 
 func (st *mockState) ModelUUID() string {
@@ -220,14 +229,15 @@ func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error)
 	return user.Canonical() == "admin@local", st.NextErr()
 }
 
-func (st *mockState) NewModel(args state.ModelArgs) (*state.Model, *state.State, error) {
+func (st *mockState) NewModel(args state.ModelArgs) (modelmanager.Model, modelmanager.Backend, error) {
 	st.MethodCall(st, "NewModel", args)
-	return nil, nil, st.NextErr()
+	st.model.tag = names.NewModelTag(args.Config.UUID())
+	return st.model, st, st.NextErr()
 }
 
-func (st *mockState) ControllerModel() (*state.Model, error) {
+func (st *mockState) ControllerModel() (modelmanager.Model, error) {
 	st.MethodCall(st, "ControllerModel")
-	return nil, st.NextErr()
+	return st.controllerModel, st.NextErr()
 }
 
 func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) {
@@ -238,6 +248,16 @@ func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) 
 func (st *mockState) Model() (modelmanager.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
+}
+
+func (st *mockState) Cloud() (cloud.Cloud, error) {
+	st.MethodCall(st, "Cloud")
+	return st.cloud, st.NextErr()
+}
+
+func (st *mockState) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
+	st.MethodCall(st, "CloudCredentials", user)
+	return st.creds, st.NextErr()
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
@@ -273,6 +293,7 @@ type mockModel struct {
 	gitjujutesting.Stub
 	owner  names.UserTag
 	life   state.Life
+	tag    names.ModelTag
 	status status.StatusInfo
 	cfg    *config.Config
 	users  []*mockModelUser
@@ -287,6 +308,12 @@ func (m *mockModel) Owner() names.UserTag {
 	m.MethodCall(m, "Owner")
 	m.PopNoErr()
 	return m.owner
+}
+
+func (m *mockModel) ModelTag() names.ModelTag {
+	m.MethodCall(m, "ModelTag")
+	m.PopNoErr()
+	return m.tag
 }
 
 func (m *mockModel) Life() state.Life {
@@ -304,6 +331,12 @@ func (m *mockModel) CloudRegion() string {
 	m.MethodCall(m, "CloudRegion")
 	m.PopNoErr()
 	return "some-region"
+}
+
+func (m *mockModel) CloudCredential() string {
+	m.MethodCall(m, "CloudCredential")
+	m.PopNoErr()
+	return "some-credential"
 }
 
 func (m *mockModel) Users() ([]common.ModelUser, error) {

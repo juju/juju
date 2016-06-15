@@ -45,10 +45,9 @@ func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.Model {
+func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isServer bool) params.ModelInfo {
 	modelManager := modelmanager.NewClient(s.APIState)
-	model, err := modelManager.CreateModel(s.AdminUserTag(c).Id(), nil, map[string]interface{}{
-		"name":       modelname,
+	model, err := modelManager.CreateModel(modelname, s.AdminUserTag(c).Id(), "", "", map[string]interface{}{
 		"controller": isServer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,8 +57,7 @@ func (s *cmdControllerSuite) createModelAdminUser(c *gc.C, modelname string, isS
 func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, isServer bool) {
 	s.run(c, "add-user", "test")
 	modelManager := modelmanager.NewClient(s.APIState)
-	_, err := modelManager.CreateModel(names.NewLocalUserTag("test").Id(), nil, map[string]interface{}{
-		"name":            modelname,
+	_, err := modelManager.CreateModel(modelname, names.NewLocalUserTag("test").Id(), "", "", map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		"controller":      isServer,
 	})
@@ -104,7 +102,6 @@ models:
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
-  cloud-region: some-region
   type: dummy
   life: alive
   status:

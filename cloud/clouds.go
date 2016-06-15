@@ -164,6 +164,18 @@ func CloudByName(name string) (*Cloud, error) {
 	return nil, errors.NotFoundf("cloud %s", name)
 }
 
+// RegionByName finds the region in the given slice with the
+// specified name, with case folding.
+func RegionByName(regions []Region, name string) (*Region, error) {
+	for _, region := range regions {
+		if !strings.EqualFold(region.Name, name) {
+			continue
+		}
+		return &region, nil
+	}
+	return nil, errors.NotFoundf("region %q", name)
+}
+
 // JujuPublicCloudsPath is the location where public cloud information is
 // expected to be found. Requires JUJU_HOME to be set.
 func JujuPublicCloudsPath() string {

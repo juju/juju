@@ -91,7 +91,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"owner":           "admin@local",
-			"cloud-region":    "some-region",
+			"region":          "some-region",
 			"type":            "openstack",
 			"life":            "alive",
 			"status": attrs{

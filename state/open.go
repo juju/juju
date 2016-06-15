@@ -158,9 +158,19 @@ func (p InitializeParams) Validate() error {
 	if p.Cloud.Type == "" {
 		return errors.NotValidf("empty Cloud")
 	}
-	// TODO(axw) check that the controller model region exists in the
-	// cloud definition. If no region is specified, ensure that the
-	// cloud specifies no regions.
+	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
+		return errors.Annotate(err, "validating controller model cloud region")
+	}
+	if _, err := validateCloudCredentials(p.Cloud, p.CloudCredentials); err != nil {
+		return errors.Annotate(err, "validating cloud credentials")
+	}
+	if _, err := validateCloudCredential(
+		p.Cloud, p.CloudCredentials,
+		p.ControllerModelArgs.CloudCredential,
+		p.ControllerModelArgs.Owner,
+	); err != nil {
+		return errors.Annotate(err, "validating controller model cloud credential")
+	}
 	return nil
 }
 
@@ -245,7 +255,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.ModelConfigDefaults),
 	}
 	if len(args.CloudCredentials) > 0 {
-		credentialsOps := initCloudCredentialsOps(
+		credentialsOps := updateCloudCredentialsOps(
 			args.ControllerModelArgs.Owner, args.CloudCredentials,
 		)
 		ops = append(ops, credentialsOps...)

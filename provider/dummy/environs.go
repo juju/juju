@@ -686,10 +686,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
-	cfg, err := environs.BootstrapConfig(e.Config())
-	if err != nil {
-		return nil, fmt.Errorf("cannot make bootstrap config: %v", err)
-	}
 
 	estate, err := e.state()
 	if err != nil {
@@ -714,72 +710,83 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		controller:   true,
 	}
 	estate.insts[i.id] = i
-
-	if e.ecfg().controller() {
-		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
-		// so that we can call it here.
-
-		info := stateInfo()
-		// Since the admin user isn't setup until after here,
-		// the password in the info structure is empty, so the admin
-		// user is constructed with an empty password here.
-		// It is set just below.
-		st, err := state.Initialize(state.InitializeParams{
-			ControllerModelArgs: state.ModelArgs{
-				Owner:       names.NewUserTag("admin@local"),
-				CloudRegion: "some-region",
-				Config:      cfg,
-			},
-			CloudName:     "dummy",
-			Cloud:         cloud.Cloud{Type: "dummy"},
-			MongoInfo:     info,
-			MongoDialOpts: mongotest.DialOpts(),
-			Policy:        estate.statePolicy,
-		})
-		if err != nil {
-			panic(err)
-		}
-		if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
-			panic(err)
-		}
-		if err := st.SetAdminMongoPassword(password); err != nil {
-			panic(err)
-		}
-		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
-			panic(err)
-		}
-		env, err := st.Model()
-		if err != nil {
-			panic(err)
-		}
-		owner, err := st.User(env.Owner())
-		if err != nil {
-			panic(err)
-		}
-		// We log this out for test purposes only. No one in real life can use
-		// a dummy provider for anything other than testing, so logging the password
-		// here is fine.
-		logger.Debugf("setting password for %q to %q", owner.Name(), password)
-		owner.SetPassword(password)
-
-		estate.apiStatePool = state.NewStatePool(st)
-
-		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-			Cert:      []byte(testing.ServerCert),
-			Key:       []byte(testing.ServerKey),
-			Tag:       names.NewMachineTag("0"),
-			DataDir:   DataDir,
-			LogDir:    LogDir,
-			StatePool: estate.apiStatePool,
-		})
-		if err != nil {
-			panic(err)
-		}
-		estate.apiState = st
-	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
+
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+		if e.ecfg().controller() {
+			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
+			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
+				return err
+			}
+
+			cloudCredentials := make(map[string]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil {
+				cloudCredentials[icfg.Bootstrap.ControllerCloudCredentialName] =
+					*icfg.Bootstrap.ControllerCloudCredential
+			}
+
+			info := stateInfo()
+			// Since the admin user isn't setup until after here,
+			// the password in the info structure is empty, so the admin
+			// user is constructed with an empty password here.
+			// It is set just below.
+			st, err := state.Initialize(state.InitializeParams{
+				ControllerModelArgs: state.ModelArgs{
+					Owner:           names.NewUserTag("admin@local"),
+					Config:          icfg.Bootstrap.ControllerModelConfig,
+					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
+					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
+				},
+				Cloud:            icfg.Bootstrap.ControllerCloud,
+				CloudName:        icfg.Bootstrap.ControllerCloudName,
+				CloudCredentials: cloudCredentials,
+				MongoInfo:        info,
+				MongoDialOpts:    mongotest.DialOpts(),
+				Policy:           estate.statePolicy,
+			})
+			if err != nil {
+				return err
+			}
+			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				return err
+			}
+			if err := st.SetAdminMongoPassword(password); err != nil {
+				return err
+			}
+			if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
+				return err
+			}
+			env, err := st.Model()
+			if err != nil {
+				return err
+			}
+			owner, err := st.User(env.Owner())
+			if err != nil {
+				return err
+			}
+			// We log this out for test purposes only. No one in real life can use
+			// a dummy provider for anything other than testing, so logging the password
+			// here is fine.
+			logger.Debugf("setting password for %q to %q", owner.Name(), password)
+			owner.SetPassword(password)
+
+			estate.apiStatePool = state.NewStatePool(st)
+
+			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+				Cert:      []byte(testing.ServerCert),
+				Key:       []byte(testing.ServerKey),
+				Tag:       names.NewMachineTag("0"),
+				DataDir:   DataDir,
+				LogDir:    LogDir,
+				StatePool: estate.apiStatePool,
+			})
+			if err != nil {
+				panic(err)
+			}
+			estate.apiState = st
+		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}

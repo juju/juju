@@ -4119,12 +4119,14 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       owner,
-			CloudRegion: "some-region",
-			Config:      cfg,
+			Owner:  owner,
+			Config: cfg,
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     authInfo,
 		MongoDialOpts: mongotest.DialOpts(),
 	})

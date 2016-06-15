@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -102,7 +103,13 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	return env, store

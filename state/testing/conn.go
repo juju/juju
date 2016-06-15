@@ -29,12 +29,14 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			CloudRegion: "some-region",
-			Config:      cfg,
-			Owner:       owner,
+			Config: cfg,
+			Owner:  owner,
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
 		Policy:        policy,
