@@ -26,15 +26,15 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		expectScope:     instance.MachineScope,
 		expectDirective: "0",
 	}, {
-		arg:             "0/lxc/0",
+		arg:             "0/lxd/0",
 		expectScope:     instance.MachineScope,
-		expectDirective: "0/lxc/0",
+		expectDirective: "0/lxd/0",
 	}, {
 		arg: "#:x",
 		err: `invalid value "x" for "#" scope: expected machine-id`,
 	}, {
-		arg: "lxc:x",
-		err: `invalid value "x" for "lxc" scope: expected machine-id`,
+		arg: "lxd:x",
+		err: `invalid value "x" for "lxd" scope: expected machine-id`,
 	}, {
 		arg: "kvm:x",
 		err: `invalid value "x" for "kvm" scope: expected machine-id`,
@@ -43,8 +43,8 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		expectScope:     string(instance.KVM),
 		expectDirective: "123",
 	}, {
-		arg:         "lxc",
-		expectScope: string(instance.LXC),
+		arg:         "lxd",
+		expectScope: string(instance.LXD),
 	}, {
 		arg: "non-standard",
 		err: "placement scope missing",

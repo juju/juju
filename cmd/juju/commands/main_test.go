@@ -403,6 +403,7 @@ var commandNames = []string{
 	"get-config",
 	"get-configs",
 	"get-constraints",
+	"get-controller-config",
 	"get-model-config",
 	"get-model-constraints",
 	"grant",

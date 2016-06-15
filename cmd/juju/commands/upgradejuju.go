@@ -179,10 +179,6 @@ var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 
-	if c.UploadTools && c.ModelName() != "controller" {
-		return errors.Errorf("--upload-tools can only be used with the admin model")
-	}
-
 	client, err := getUpgradeJujuAPI(c)
 	if err != nil {
 		return err
@@ -203,6 +199,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		return err
+	}
+
+	if c.UploadTools && (cfg.UUID() != cfg.ControllerUUID()) {
+		// For UploadTools, model must be the "controller" model,
+		// that is, modelUUID == controllerUUID
+		return errors.Errorf("--upload-tools can only be used with the controller model")
 	}
 
 	agentVersion, ok := cfg.AgentVersion()

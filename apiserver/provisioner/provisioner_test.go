@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
@@ -205,7 +204,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
-		container, err := s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
+		container, err := s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
 		c.Check(err, jc.ErrorIsNil)
 		containers = append(containers, container)
 	}
@@ -534,7 +533,7 @@ func (s *withoutControllerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.WatchContainers{Params: []params.WatchContainer{
-		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXC)},
+		{MachineTag: s.machines[0].Tag().String(), ContainerType: string(instance.LXD)},
 		{MachineTag: s.machines[1].Tag().String(), ContainerType: string(instance.KVM)},
 		{MachineTag: "machine-42", ContainerType: ""},
 		{MachineTag: "unit-foo-0", ContainerType: ""},
@@ -774,7 +773,7 @@ func (s *withoutControllerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
-		{Tag: "machine-0-lxc-99"},
+		{Tag: "machine-0-lxd-99"},
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
@@ -805,9 +804,9 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 		{Tag: "machine-0"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"},
-		{Tag: "machine-0-lxc-99"},
-		{Tag: "machine-1-lxc-99"},
-		{Tag: "machine-1-lxc-99-lxc-100"},
+		{Tag: "machine-0-lxd-99"},
+		{Tag: "machine-1-lxd-99"},
+		{Tag: "machine-1-lxd-99-lxd-100"},
 	}}
 	result, err := provisioner.DistributionGroup(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -819,7 +818,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 			// only a machine agent for the container or its
 			// parent may access it.
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError("machine 1/lxc/99")},
+			{Error: apiservertesting.NotFoundError("machine 1/lxd/99")},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -1078,7 +1077,7 @@ func (s *withoutControllerSuite) TestContainerManagerConfigNoIPForwarding(c *gc.
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy":            "http://proxy.example.com:9000",
-		"allow-lxc-loop-mounts": true,
+		"allow-lxd-loop-mounts": true,
 		"apt-mirror":            "http://example.mirror.com",
 	}
 	err := s.State.UpdateModelConfig(attrs, nil, nil)
@@ -1096,16 +1095,15 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
-	c.Check(results.AllowLXCLoopMounts, jc.IsTrue)
 }
 
 func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 	args := params.MachineContainersParams{Params: []params.MachineContainers{{
 		MachineTag:     "machine-0",
-		ContainerTypes: []instance.ContainerType{instance.LXC},
+		ContainerTypes: []instance.ContainerType{instance.LXD},
 	}, {
 		MachineTag:     "machine-1",
-		ContainerTypes: []instance.ContainerType{instance.LXC, instance.KVM},
+		ContainerTypes: []instance.ContainerType{instance.LXD, instance.KVM},
 	}}}
 	results, err := s.provisioner.SetSupportedContainers(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1117,12 +1115,12 @@ func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC})
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD})
 	m1, err := s.State.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok = m1.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
 func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
@@ -1137,13 +1135,13 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{{
 			MachineTag:     "machine-0",
-			ContainerTypes: []instance.ContainerType{instance.LXC},
+			ContainerTypes: []instance.ContainerType{instance.LXD},
 		}, {
 			MachineTag:     "machine-1",
-			ContainerTypes: []instance.ContainerType{instance.LXC},
+			ContainerTypes: []instance.ContainerType{instance.LXD},
 		}, {
 			MachineTag:     "machine-42",
-			ContainerTypes: []instance.ContainerType{instance.LXC},
+			ContainerTypes: []instance.ContainerType{instance.LXD},
 		},
 		},
 	}
@@ -1267,44 +1265,4 @@ func (s *withoutControllerSuite) TestFindTools(c *gc.C) {
 			s.APIState.Addr(), coretesting.ModelTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
-}
-
-type lxcDefaultMTUSuite struct {
-	provisionerSuite
-}
-
-var _ = gc.Suite(&lxcDefaultMTUSuite{})
-
-func (s *lxcDefaultMTUSuite) SetUpTest(c *gc.C) {
-	// Because lxc-default-mtu is an immutable setting, we need to set
-	// it in the default config JujuConnSuite uses, before the
-	// environment is "created".
-	s.DummyConfig = dummy.SampleConfig()
-	s.DummyConfig["lxc-default-mtu"] = 9000
-	s.provisionerSuite.SetUpTest(c)
-
-	stateConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	value, ok := stateConfig.LXCDefaultMTU()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(value, gc.Equals, 9000)
-	c.Logf("environ config lxc-default-mtu set to %v", value)
-}
-
-func (s *lxcDefaultMTUSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
-	managerConfig := s.getManagerConfig(c, instance.LXC)
-	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:     coretesting.ModelTag.Id(),
-		container.ConfigLXCDefaultMTU: "9000",
-
-		"use-aufs":                   "false",
-		container.ConfigIPForwarding: "true",
-	})
-
-	// KVM instances are not affected.
-	managerConfig = s.getManagerConfig(c, instance.KVM)
-	c.Assert(managerConfig, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID:    coretesting.ModelTag.Id(),
-		container.ConfigIPForwarding: "true",
-	})
 }

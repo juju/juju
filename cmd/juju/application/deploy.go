@@ -143,15 +143,6 @@ repeated more than once to upload more than one resource.
 Where bar and baz are resources named in the metadata for the foo charm.
 
 Charms can be deployed to a specific machine using the --to argument.
-If the destination is an LXC container the default is to use lxc-clone
-to create the container where possible. For Ubuntu deployments, lxc-clone
-is supported for the trusty OS series and later. A 'template' container is
-created with the name
-  juju-<series>-template
-where <series> is the OS series, for example 'juju-trusty-template'.
-
-You can override the use of clone by changing the provider configuration:
-  lxc-clone: false
 
 In more complex scenarios, Juju's network spaces are used to partition the cloud
 networking layer into sets of subnets. Instances hosting units inside the
@@ -167,18 +158,12 @@ When deploying an application or adding machines, the "spaces" constraint can be
 used to define a comma-delimited list of required and forbidden spaces
 (the latter prefixed with "^", similar to the "tags" constraint).
 
-If you have the main container directory mounted on a btrfs partition,
-then the clone will be using btrfs snapshots to create the containers.
-This means that clones use up much less disk space.  If you do not have btrfs,
-lxc will attempt to use aufs (an overlay type filesystem). You can
-explicitly ask Juju to create full containers and not overlays by specifying
-the following in the provider configuration:
-  lxc-clone-aufs: false
 
 Examples:
    juju deploy mysql --to 23       (deploy to machine 23)
-   juju deploy mysql --to 24/lxc/3 (deploy to lxc container 3 on host machine 24)
-   juju deploy mysql --to lxc:25   (deploy to a new lxc container on host machine 25)
+   juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on host machine 24)
+   juju deploy mysql --to lxd:25   (deploy to a new lxd container on host machine 25)
+   juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
 
    juju deploy mysql -n 5 --constraints mem=8G
    (deploy 5 instances of mysql with at least 8 GB of RAM each)

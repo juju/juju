@@ -352,7 +352,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
-		{Tag: s.machines[0].Tag().String() + "-lxc-0"},
+		{Tag: s.machines[0].Tag().String() + "-lxd-0"},
 		{Tag: "machine-42"},
 		{Tag: s.machines[1].Tag().String()},
 		{Tag: "application-bar"},
@@ -370,7 +370,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 					tags.JujuModel:      coretesting.ModelTag.Id(),
 				},
 			}},
-			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
+			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

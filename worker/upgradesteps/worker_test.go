@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/version"
 )
@@ -461,7 +462,9 @@ func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := machine.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { pinger.Stop() })
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
 }
 
 // Return a version the same as the current software version, but with

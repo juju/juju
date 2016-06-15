@@ -19,21 +19,14 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
-
-var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
-
-var _ environs.InstanceBroker = (*lxcBroker)(nil)
 
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
@@ -43,173 +36,6 @@ type APICalls interface {
 }
 
 var _ APICalls = (*apiprovisioner.State)(nil)
-
-// Override for testing.
-var NewLxcBroker = newLxcBroker
-
-func newLxcBroker(api APICalls,
-	agentConfig agent.Config,
-	managerConfig container.ManagerConfig,
-	imageURLGetter container.ImageURLGetter,
-	enableNAT bool,
-	defaultMTU int,
-) (environs.InstanceBroker, error) {
-	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &lxcBroker{
-		manager:     manager,
-		api:         api,
-		agentConfig: agentConfig,
-		enableNAT:   enableNAT,
-		defaultMTU:  defaultMTU,
-	}, nil
-}
-
-type lxcBroker struct {
-	manager     container.Manager
-	api         APICalls
-	agentConfig agent.Config
-	enableNAT   bool
-	defaultMTU  int
-}
-
-// StartInstance is specified in the Broker interface.
-func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// TODO: refactor common code out of the container brokers.
-	machineId := args.InstanceConfig.MachineId
-	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
-
-	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultLxcBridge
-	}
-
-	config, err := broker.api.ContainerConfig()
-	if err != nil {
-		lxcLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
-	}
-
-	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
-		broker.api,
-		machineId,
-		bridgeDevice,
-		true, // allocate if possible, do not maintain existing.
-		broker.enableNAT,
-		args.NetworkInfo,
-		lxcLogger,
-		config.ProviderType,
-	)
-	if err != nil {
-		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
-		// container.
-		logger.Warningf("failed to prepare container %q network config: %v", machineId, err)
-	} else {
-		args.NetworkInfo = preparedInfo
-
-	}
-	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
-
-	// The provisioner worker will provide all tools it knows about
-	// (after applying explicitly specified constraints), which may
-	// include tools for architectures other than the host's. We
-	// must constrain to the host's architecture for LXC.
-	archTools, err := matchHostArchTools(args.Tools)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	series := archTools.OneSeries()
-	args.InstanceConfig.MachineContainerType = instance.LXC
-	if err := args.InstanceConfig.SetTools(archTools); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	storageConfig := &container.StorageConfig{
-		AllowMount: config.AllowLXCLoopMounts,
-	}
-
-	if err := instancecfg.PopulateInstanceConfig(
-		args.InstanceConfig,
-		config.ProviderType,
-		config.AuthorizedKeys,
-		config.SSLHostnameVerification,
-		config.Proxy,
-		config.AptProxy,
-		config.AptMirror,
-		config.EnableOSRefreshUpdate,
-		config.EnableOSUpgrade,
-	); err != nil {
-		lxcLogger.Errorf("failed to populate machine config: %v", err)
-		return nil, err
-	}
-
-	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints,
-		series, network, storageConfig, args.StatusCallback,
-	)
-	if err != nil {
-		lxcLogger.Errorf("failed to start container: %v", err)
-		return nil, err
-	}
-	lxcLogger.Infof("started lxc container for machineId: %s, %s, %s", machineId, inst.Id(), hardware.String())
-	return &environs.StartInstanceResult{
-		Instance:    inst,
-		Hardware:    hardware,
-		NetworkInfo: network.Interfaces,
-	}, nil
-}
-
-// MaintainInstance ensures the container's host has the required iptables and
-// routing rules to make the container visible to both the host and other
-// machines on the same subnet. This is important mostly when address allocation
-// feature flag is enabled, as otherwise we don't create additional iptables
-// rules or routes.
-func (broker *lxcBroker) MaintainInstance(args environs.StartInstanceParams) error {
-	machineID := args.InstanceConfig.MachineId
-
-	// Default to using the host network until we can configure.
-	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
-	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultLxcBridge
-	}
-
-	// There's no InterfaceInfo we expect to get below.
-	_, err := prepareOrGetContainerInterfaceInfo(
-		broker.api,
-		machineID,
-		bridgeDevice,
-		false, // maintain, do not allocate.
-		broker.enableNAT,
-		args.NetworkInfo,
-		lxcLogger,
-		broker.agentConfig.Value(agent.ProviderType),
-	)
-	return err
-}
-
-// StopInstances shuts down the given instances.
-func (broker *lxcBroker) StopInstances(ids ...instance.Id) error {
-	// TODO: potentially parallelise.
-	for _, id := range ids {
-		lxcLogger.Infof("stopping lxc container for instance: %s", id)
-		if err := broker.manager.DestroyContainer(id); err != nil {
-			lxcLogger.Errorf("container did not stop: %v", err)
-			return err
-		}
-		providerType := broker.agentConfig.Value(agent.ProviderType)
-		maybeReleaseContainerAddresses(broker.api, id, broker.manager.Namespace(), lxcLogger, providerType)
-	}
-	return nil
-}
-
-// AllInstances only returns running containers.
-func (broker *lxcBroker) AllInstances() (result []instance.Instance, err error) {
-	return broker.manager.ListContainers()
-}
 
 type hostArchToolsFinder struct {
 	f ToolsFinder
@@ -644,18 +470,20 @@ func prepareOrGetContainerInterfaceInfo(
 
 	log.Debugf("address allocation feature flag not enabled; using multi-bridge networking for container %q", machineID)
 
-	// In case we're running on MAAS 1.8+ with devices support, we'll still
-	// call PrepareContainerInterfaceInfo(), but we'll ignore a NotSupported
-	// error if we get it (which means we're not using MAAS 1.8+).
 	containerTag := names.NewMachineTag(machineID)
 	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
 	if err != nil && errors.IsNotSupported(err) {
-		log.Warningf("new container %q not registered as device: not running on MAAS 1.8+", machineID)
-		return nil, nil
+		log.Warningf("%v (using fallback config)", err)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
+
+	// Use the fallback network config as a last resort.
+	if len(preparedInfo) == 0 {
+		log.Infof("using fallback network config for container %q", machineID)
+		preparedInfo = container.FallbackInterfaceInfo()
+	}
 
 	dnsServersFound := false
 	for _, info := range preparedInfo {

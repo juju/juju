@@ -65,8 +65,7 @@ var networkInterfacesFile = "/etc/network/interfaces"
 // Interfaces field.
 func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
-		logger.Tracef("no network config to generate")
-		return "", nil
+		return "", errors.Errorf("missing container network config")
 	}
 	logger.Debugf("generating network config from %#v", *networkConfig)
 
@@ -99,6 +98,9 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 		address, hasAddress := prepared.NameToAddress[name]
 		if !hasAddress {
 			output.WriteString("iface " + name + " inet manual\n")
+			continue
+		} else if address == string(network.ConfigDHCP) {
+			output.WriteString("iface " + name + " inet dhcp\n")
 			continue
 		}
 
@@ -148,6 +150,8 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 
 		if cidr := info.CIDRAddress(); cidr != "" {
 			nameToAddress[info.InterfaceName] = cidr
+		} else if info.ConfigType == network.ConfigDHCP {
+			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
 		}
 
 		for _, dns := range info.DNSServers {
@@ -181,17 +185,16 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 // might include per-interface networking config if both networkConfig
 // is not nil and its Interfaces field is not empty.
 func newCloudInitConfigWithNetworks(series string, networkConfig *container.NetworkConfig) (cloudinit.CloudConfig, error) {
+	config, err := GenerateNetworkConfig(networkConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	cloudConfig, err := cloudinit.New(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := GenerateNetworkConfig(networkConfig)
-	if err != nil || len(config) == 0 {
-		return cloudConfig, errors.Trace(err)
-	}
 
 	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
-	cloudConfig.AddRunCmd("ifup -a || true")
 	return cloudConfig, nil
 }
 

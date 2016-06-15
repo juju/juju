@@ -255,7 +255,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	err = os.MkdirAll(s.DataDir(), 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchEnvironment(osenv.JujuModelEnvKey, "admin")
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "controller")
 
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +275,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Config().Name(), gc.Equals, "admin")
+	c.Assert(environ.Config().Name(), gc.Equals, "controller")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -523,7 +523,7 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		s.DummyConfig = dummy.SampleConfig()
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"name":           "admin",
+		"name":           "controller",
 		"admin-secret":   AdminSecret,
 		"agent-version":  jujuversion.Current.String(),
 		"ca-cert":        testing.CACert,

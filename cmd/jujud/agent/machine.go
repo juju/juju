@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ var (
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker = mongoupgrader.New
-	reportOpenedState     = func(io.Closer) {}
+	reportOpenedState     = func(*state.State) {}
 )
 
 // Variable to override in tests, default is true
@@ -747,7 +746,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	var supportedContainers []instance.ContainerType
 	supportsContainers := container.ContainersSupported()
 	if supportsContainers {
-		supportedContainers = append(supportedContainers, instance.LXC, instance.LXD)
+		supportedContainers = append(supportedContainers, instance.LXD)
 	}
 
 	supportsKvm, err := kvm.IsKVMSupported()
@@ -1261,24 +1260,22 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		logger.Debugf("upgrades done, starting worker %q", name)
 
 		// Upgrades are done, start the worker.
-		worker, err := start()
+		w, err := start()
 		if err != nil {
 			return err
 		}
 		// Wait for worker to finish or for us to be stopped.
-		waitCh := make(chan error)
+		done := make(chan error, 1)
 		go func() {
-			waitCh <- worker.Wait()
+			done <- w.Wait()
 		}()
 		select {
-		case err := <-waitCh:
-			logger.Debugf("worker %q exited with %v", name, err)
-			return err
+		case err := <-done:
+			return errors.Annotatef(err, "worker %q exited", name)
 		case <-stop:
 			logger.Debugf("stopping so killing worker %q", name)
-			worker.Kill()
+			return worker.Stop(w)
 		}
-		return <-waitCh // Ensure worker has stopped before returning.
 	})
 }
 
@@ -1370,13 +1367,8 @@ func (a *MachineAgent) uninstallAgent() error {
 	// its completion.
 	insideContainer := container.RunningInContainer()
 	if insideContainer {
-		// We're running inside LXC, so loop devices may leak. Detach
+		// We're running inside a container, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
-		//
-		// It is necessary to do this here as well as in container/lxc,
-		// as container/lxc needs to check in the container's rootfs
-		// to see if the loop device is attached to the container; that
-		// will fail if the data-dir is removed first.
 		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
 			errs = append(errs, err)
 		}

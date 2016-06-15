@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -68,8 +69,8 @@ func (s *cmdControllerSuite) createModelNormalUser(c *gc.C, modelname string, is
 func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	context := s.run(c, "list-controllers")
 	expectedOutput := `
-CONTROLLER  MODEL  USER         CLOUD/REGION
-kontroll*   admin  admin@local  dummy
+CONTROLLER  MODEL       USER         CLOUD/REGION
+kontroll*   controller  admin@local  dummy
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -79,9 +80,9 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL      OWNER        STATUS     LAST CONNECTION\n"+
-		"admin*     admin@local  available  just now\n"+
-		"new-model  admin@local  available  never connected\n"+
+		"MODEL        OWNER        STATUS     LAST CONNECTION\n"+
+		"controller*  admin@local  available  just now\n"+
+		"new-model    admin@local  available  never connected\n"+
 		"\n")
 }
 
@@ -89,9 +90,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL      OWNER        STATUS     LAST CONNECTION\n"+
-		"admin*     admin@local  available  just now\n"+
-		"new-model  test@local   available  never connected\n"+
+		"MODEL        OWNER        STATUS     LAST CONNECTION\n"+
+		"controller*  admin@local  available  just now\n"+
+		"new-model    test@local   available  never connected\n"+
 		"\n")
 }
 
@@ -99,7 +100,7 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 	context := s.run(c, "list-models", "--format=yaml")
 	c.Assert(testing.Stdout(context), gc.Matches, `
 models:
-- name: admin
+- name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   owner: admin@local
@@ -113,7 +114,7 @@ models:
       display-name: admin
       access: write
       last-connection: just now
-current-model: admin
+current-model: controller
 `[1:])
 }
 
@@ -139,9 +140,9 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"MODEL      OWNER        STATUS      LAST CONNECTION\n"+
-		"admin*     admin@local  available   just now\n"+
-		"new-model  admin@local  destroying  never connected\n"+
+		"MODEL        OWNER        STATUS      LAST CONNECTION\n"+
+		"controller*  admin@local  available   just now\n"+
+		"new-model    admin@local  destroying  never connected\n"+
 		"\n")
 }
 
@@ -251,7 +252,7 @@ func (s *cmdControllerSuite) TestListBlocks(c *gc.C) {
 	s.State.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
 	ctx := s.run(c, "list-all-blocks", "--format", "json")
-	expected := fmt.Sprintf(`[{"name":"admin","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
+	expected := fmt.Sprintf(`[{"name":"controller","model-uuid":"%s","owner-tag":"%s","blocks":["BlockDestroy","BlockChange"]}]`,
 		s.State.ModelUUID(), s.AdminUserTag(c).String())
 
 	strippedOut := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
@@ -309,4 +310,13 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 
 func noBootstrapConfig(controllerName string) (*config.Config, error) {
 	return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
+}
+
+func (s *cmdControllerSuite) TestGetControllerConfigYAML(c *gc.C) {
+	context := s.run(c, "get-controller-config", "--format=yaml")
+	controllerCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgYaml, err := yaml.Marshal(controllerCfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, string(cfgYaml))
 }

@@ -313,7 +313,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 			Charm:           s.charm,
 			Constraints:     serviceCons,
 			NumUnits:        1,
-			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXC))},
+			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
@@ -321,7 +321,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 1)
 	c.Assert(f.args.Placement, gc.HasLen, 1)
-	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXC), Directive: "0"})
+	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXD), Directive: "0"})
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
@@ -331,8 +331,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	placement := []*instance.Placement{
 		{Scope: s.State.ModelUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
-		{Scope: "lxc", Directive: "1"},
-		{Scope: "lxc", Directive: ""},
+		{Scope: "lxd", Directive: "1"},
+		{Scope: "lxd", Directive: ""},
 	}
 	_, err := juju.DeployApplication(f,
 		juju.DeployApplicationParams{

@@ -1782,7 +1782,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1827,7 +1827,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Jobs:                     []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
-						SupportedContainers:      []instance.ContainerType{instance.LXC},
+						SupportedContainers:      []instance.ContainerType{instance.LXD},
 						SupportedContainersKnown: true,
 					}}}
 		},

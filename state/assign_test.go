@@ -370,12 +370,12 @@ func (s *AssignSuite) assertAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineId := s.assertAssignedUnit(c, unit)
 	c.Assert(state.ParentId(machineId), gc.Not(gc.Equals), "")
-	c.Assert(state.ContainerTypeFromId(machineId), gc.Equals, instance.LXC)
+	c.Assert(state.ContainerTypeFromId(machineId), gc.Equals, instance.LXD)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 	// Set up service constraints.
-	scons := constraints.MustParse("container=lxc")
+	scons := constraints.MustParse("container=lxd")
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitToNewMachineContainerConstraint(c)
@@ -383,7 +383,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 
 func (s *AssignSuite) TestAssignUnitToNewMachineDefaultContainerConstraint(c *gc.C) {
 	// Set up env constraints.
-	econs := constraints.MustParse("container=lxc")
+	econs := constraints.MustParse("container=lxd")
 	err := s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitToNewMachineContainerConstraint(c)
@@ -504,7 +504,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up constraints to specify we want to install into a container.
-	econs := constraints.MustParse("container=lxc")
+	econs := constraints.MustParse("container=lxd")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -529,7 +529,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 
 	mid, err = anotherUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Equals, "2/lxc/0")
+	c.Assert(mid, gc.Equals, "2/lxd/0")
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
@@ -537,7 +537,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up constraints to specify we want to install into a container.
-	econs := constraints.MustParse("container=lxc")
+	econs := constraints.MustParse("container=lxd")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -552,7 +552,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 			_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
 				Jobs:   []state.MachineJob{state.JobHostUnits},
-			}, machine.Id(), instance.LXC)
+			}, machine.Id(), instance.LXD)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 	}
@@ -563,7 +563,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 
 	mid, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Equals, "2/lxc/0")
+	c.Assert(mid, gc.Equals, "2/lxd/0")
 }
 
 func (s *AssignSuite) TestAssignUnitBadPolicy(c *gc.C) {
@@ -626,14 +626,14 @@ func (s *AssignSuite) assertAssignUnitNewPolicyWithContainerConstraint(c *gc.C) 
 	assertMachineCount(c, s.State, 3)
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, "1/lxc/0")
+	c.Assert(id, gc.Equals, "1/lxd/0")
 }
 
 func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraint(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set up service constraints.
-	scons := constraints.MustParse("container=lxc")
+	scons := constraints.MustParse("container=lxd")
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitNewPolicyWithContainerConstraint(c)
@@ -643,7 +643,7 @@ func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *g
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set up env constraints.
-	econs := constraints.MustParse("container=lxc")
+	econs := constraints.MustParse("container=lxd")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAssignUnitNewPolicyWithContainerConstraint(c)
@@ -743,7 +743,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	container, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, hostMachine.Id(), instance.LXC)
+	}, hostMachine.Id(), instance.LXD)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
@@ -1048,10 +1048,10 @@ func (s *assignCleanSuite) TestAssignToMachineErrors(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, machine.Id(), instance.LXC)
+	}, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(container)
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxc/0: adding storage to lxc container not supported`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "storage-filesystem/0" to machine 0/lxd/0: adding storage to lxd container not supported`)
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithNonDynamicStorageCleanAvailable(c *gc.C) {
@@ -1165,7 +1165,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, hostMachine.Id(), instance.LXC)
+	}, hostMachine.Id(), instance.LXD)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 	if s.policy == state.AssignClean {
@@ -1206,14 +1206,14 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, hostMachine.Id(), instance.LXC)
+	}, hostMachine.Id(), instance.LXD)
 	err = hostMachine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
 	// Set up constraints to specify we want to install into a container.
-	econs := constraints.MustParse("container=lxc")
+	econs := constraints.MustParse("container=lxd")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1233,7 +1233,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(mid, gc.Equals, fmt.Sprintf("%d/lxc/0", expectedNumUnits+1))
+		c.Assert(mid, gc.Equals, fmt.Sprintf("%d/lxd/0", expectedNumUnits+1))
 		assertMachineCount(c, s.State, 2*expectedNumUnits+3)
 
 		// Sanity check that the machine knows about its assigned unit and was
@@ -1260,7 +1260,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mid, err = unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mid, gc.Equals, hostMachine.Id()+"/lxc/0")
+	c.Assert(mid, gc.Equals, hostMachine.Id()+"/lxd/0")
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {

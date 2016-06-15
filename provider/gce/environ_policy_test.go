@@ -196,10 +196,10 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *gc.C) {
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := constraints.MustParse("container=lxc")
+	cons := constraints.MustParse("container=lxd")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxc\nvalid values are:.*")
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {

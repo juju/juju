@@ -752,7 +752,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
 		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should not attempt to create it
@@ -932,7 +932,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 		c.Assert(classification, gc.Equals, t.classification)
 	}
 
-	machineIds := []string{"0/lxc/0", "0/kvm/0", "0"}
+	machineIds := []string{"0/kvm/0", "0"}
 	for _, id := range machineIds {
 		tests := machineClassificationTests
 		if id == "0" {

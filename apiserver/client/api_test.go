@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker"
 )
 
 type baseSuite struct {
@@ -161,7 +162,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
-		Name:    "admin",
+		Name:    "controller",
 		Version: "1.2.3",
 	},
 	Machines: map[string]params.MachineStatus{
@@ -486,8 +487,12 @@ func (s *baseSuite) setupStoragePool(c *gc.C) {
 }
 
 func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
-	_, err := u.SetAgentPresence()
+	pinger, err := u.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
+
 	s.State.StartSync()
 	s.BackingState.StartSync()
 	err = u.WaitAgentPresence(coretesting.LongWait)

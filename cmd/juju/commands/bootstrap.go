@@ -104,7 +104,7 @@ See also:
     set-constraints`
 
 // defaultHostedModelName is the name of the hosted model created in each
-// controller for deploying workloads to, in addition to the "admin" model.
+// controller for deploying workloads to, in addition to the "controller" model.
 const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {

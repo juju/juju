@@ -70,7 +70,7 @@ func (s *destroyModelSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) 
 	m2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "precise",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, m1.Id(), instance.LXC)
+	}, m1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetProvisioned("container0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)

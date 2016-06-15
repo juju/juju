@@ -42,7 +42,7 @@ func (s *RebootSuite) SetUpSuite(c *gc.C) {
 
 	// These tests only patch out LXC, so only run full-stack tests
 	// over LXC.
-	s.PatchValue(&instance.ContainerTypes, []instance.ContainerType{instance.LXC})
+	s.PatchValue(&instance.ContainerTypes, []instance.ContainerType{instance.LXD})
 }
 
 func (s *RebootSuite) SetUpTest(c *gc.C) {

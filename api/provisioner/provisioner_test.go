@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -465,15 +464,15 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add one LXC container.
+	// Add one LXD container.
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := apiMachine.WatchContainers(instance.LXC)
+	w, err := apiMachine.WatchContainers(instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
@@ -492,8 +491,8 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Add another LXC container and make sure it's detected.
-	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	// Add another LXD container and make sure it's detected.
+	container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(container.Id())
 }
@@ -546,7 +545,7 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	_, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -592,57 +591,6 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
-	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.State.ModelTag(), s.MongoInfo(c), mongotest.DialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	tests := []struct {
-		lxcUseClone          bool
-		lxcUseCloneAufs      bool
-		expectedUseClone     string
-		expectedUseCloneAufs string
-	}{{
-		lxcUseClone:          true,
-		expectedUseClone:     "true",
-		expectedUseCloneAufs: "false",
-	}, {
-		lxcUseClone:          false,
-		expectedUseClone:     "false",
-		expectedUseCloneAufs: "false",
-	}, {
-		lxcUseCloneAufs:      false,
-		expectedUseClone:     "false",
-		expectedUseCloneAufs: "false",
-	}, {
-		lxcUseClone:          true,
-		lxcUseCloneAufs:      true,
-		expectedUseClone:     "true",
-		expectedUseCloneAufs: "true",
-	}}
-
-	result, err := s.provisioner.ContainerManagerConfig(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
-	c.Assert(result.ManagerConfig["use-clone"], gc.Equals, "")
-
-	// Change lxc-clone, and ensure it gets picked up.
-	for i, t := range tests {
-		c.Logf("test %d: %+v", i, t)
-		err = st.UpdateModelConfig(map[string]interface{}{
-			"lxc-clone":      t.lxcUseClone,
-			"lxc-clone-aufs": t.lxcUseCloneAufs,
-		}, nil, nil)
-		c.Assert(err, jc.ErrorIsNil)
-		result, err := s.provisioner.ContainerManagerConfig(args)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result.ManagerConfig[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
-		c.Assert(result.ManagerConfig["use-clone"], gc.Equals, t.expectedUseClone)
-		c.Assert(result.ManagerConfig["use-aufs"], gc.Equals, t.expectedUseCloneAufs)
-	}
-}
-
 func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	// ContainerManagerConfig is permissive of container types, and
 	// will just return the basic type-independent configuration.
@@ -656,30 +604,6 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	})
 }
 
-func (s *provisionerSuite) TestContainerManagerConfigLXCDefaultMTU(c *gc.C) {
-	var resultConfig = map[string]string{
-		"lxc-default-mtu": "9000",
-	}
-	var called bool
-	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
-		called = true
-		c.Assert(request, gc.Equals, "ContainerManagerConfig")
-		expected := params.ContainerManagerConfigParams{
-			Type: instance.LXC,
-		}
-		c.Assert(args, gc.Equals, expected)
-		result := response.(*params.ContainerManagerConfig)
-		result.ManagerConfig = resultConfig
-		return nil
-	})
-
-	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	result, err := s.provisioner.ContainerManagerConfig(args)
-	c.Assert(called, jc.IsTrue)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.ManagerConfig, jc.DeepEquals, resultConfig)
-}
-
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -691,14 +615,14 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	err = apiMachine.SetSupportedContainers(instance.LXC, instance.KVM)
+	err = apiMachine.SetSupportedContainers(instance.LXD, instance.KVM)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := s.machine.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
 func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
@@ -785,7 +709,7 @@ func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
@@ -824,7 +748,7 @@ func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
 
 	// allocate some addresses to release
 	subInfo := state.SubnetInfo{

@@ -16,39 +16,39 @@ import (
 // Subnet describes a single subnet within a network.
 type Subnet struct {
 	// CIDR of the subnet in IPv4 or IPv6 notation.
-	CIDR string `json:"CIDR"`
+	CIDR string `json:"cidr"`
 
 	// ProviderId is the provider-specific subnet ID (if applicable).
-	ProviderId string `json:"ProviderId,omitempty"`
+	ProviderId string `json:"provider-id,omitempty"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int `json:"VLANTag"`
+	VLANTag int `json:"vlan-tag"`
 
 	// Life is the subnet's life cycle value - Alive means the subnet
 	// is in use by one or more machines, Dying or Dead means the
 	// subnet is about to be removed.
-	Life Life `json:"Life"`
+	Life Life `json:"life"`
 
 	// SpaceTag is the Juju network space this subnet is associated
 	// with.
-	SpaceTag string `json:"SpaceTag"`
+	SpaceTag string `json:"space-tag"`
 
 	// Zones contain one or more availability zones this subnet is
 	// associated with.
-	Zones []string `json:"Zones"`
+	Zones []string `json:"zones"`
 
 	// StaticRangeLowIP (if available) is the lower bound of the
 	// subnet's static IP allocation range.
-	StaticRangeLowIP net.IP `json:"StaticRangeLowIP,omitempty"`
+	StaticRangeLowIP net.IP `json:"static-range-low-ip,omitempty"`
 
 	// StaticRangeHighIP (if available) is the higher bound of the
 	// subnet's static IP allocation range.
-	StaticRangeHighIP net.IP `json:"StaticRangeHighIP,omitempty"`
+	StaticRangeHighIP net.IP `json:"static-range-high-ip,omitempty"`
 
 	// Status returns the status of the subnet, whether it is in use, not
 	// in use or terminating.
-	Status string `json:"Status,omitempty"`
+	Status string `json:"status,omitempty"`
 }
 
 // NetworkConfig describes the necessary information to configure
@@ -59,101 +59,101 @@ type Subnet struct {
 type NetworkConfig struct {
 	// DeviceIndex specifies the order in which the network interface
 	// appears on the host. The primary interface has an index of 0.
-	DeviceIndex int `json:"DeviceIndex"`
+	DeviceIndex int `json:"device-index"`
 
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
-	MACAddress string `json:"MACAddress"`
+	MACAddress string `json:"mac-address"`
 
 	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string `json:"CIDR"`
+	CIDR string `json:"cidr"`
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packats that the interface can pass through. It is only used
 	// when > 0.
-	MTU int `json:"MTU"`
+	MTU int `json:"mtu"`
 
 	// ProviderId is a provider-specific network interface id.
-	ProviderId string `json:"ProviderId"`
+	ProviderId string `json:"provider-id"`
 
 	// ProviderSubnetId is a provider-specific subnet id, to which the
 	// interface is attached to.
-	ProviderSubnetId string `json:"ProviderSubnetId"`
+	ProviderSubnetId string `json:"provider-subnet-id"`
 
 	// ProviderSpaceId is a provider-specific space id, to which the interface
 	// is attached to, if known and supported.
-	ProviderSpaceId string `json:"ProviderSpaceId"`
+	ProviderSpaceId string `json:"provider-space-id"`
 
 	// ProviderAddressId is the provider-specific id of the assigned address, if
 	// supported and known.
-	ProviderAddressId string `json:"ProviderAddressId"`
+	ProviderAddressId string `json:"provider-address-id"`
 
 	// ProviderVLANId is the provider-specific id of the assigned address's
 	// VLAN, if supported and known.
-	ProviderVLANId string `json:"ProviderVLANId"`
+	ProviderVLANId string `json:"provider-vlan-id"`
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int `json:"VLANTag"`
+	VLANTag int `json:"vlan-tag"`
 
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
-	InterfaceName string `json:"InterfaceName"`
+	InterfaceName string `json:"interface-name"`
 
 	// ParentInterfaceName is the name of the parent interface to use, if known.
-	ParentInterfaceName string `json:"ParentInterfaceName"`
+	ParentInterfaceName string `json:"parent-interface-name"`
 
 	// InterfaceType is the type of the interface.
-	InterfaceType string `json:"InterfaceType"`
+	InterfaceType string `json:"interface-type"`
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it at all or stop it if running.
-	Disabled bool `json:"Disabled"`
+	Disabled bool `json:"disabled"`
 
 	// NoAutoStart is true when the interface should not be configured
 	// to start automatically on boot. By default and for
 	// backwards-compatibility, interfaces are configured to
 	// auto-start.
-	NoAutoStart bool `json:"NoAutoStart,omitempty"`
+	NoAutoStart bool `json:"no-auto-start,omitempty"`
 
 	// ConfigType, if set, defines what type of configuration to use.
 	// See network.InterfaceConfigType for more info. If not set, for
 	// backwards-compatibility, "dhcp" is assumed.
-	ConfigType string `json:"ConfigType,omitempty"`
+	ConfigType string `json:"config-type,omitempty"`
 
 	// Address contains an optional static IP address to configure for
 	// this network interface. The subnet mask to set will be inferred
 	// from the CIDR value.
-	Address string `json:"Address,omitempty"`
+	Address string `json:"address,omitempty"`
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
-	DNSServers []string `json:"DNSServers,omitempty"`
+	DNSServers []string `json:"dns-servers,omitempty"`
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
 	// interface.
-	DNSSearchDomains []string `json:"DNSSearchDomains,omitempty"`
+	DNSSearchDomains []string `json:"dns-search-domains,omitempty"`
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
 	// usually (one of) the host address(es).
-	GatewayAddress string `json:"GatewayAddress,omitempty"`
+	GatewayAddress string `json:"gateway-address,omitempty"`
 }
 
 // NetworkConfigs holds the network configuration for multiple networks
 type NetworkConfigs struct {
-	Results []NetworkConfig
-	Errors  []error
+	Results []NetworkConfig `json:"results"`
+	Errors  []error         `json:"errors,omitempty"`
 }
 
 // Port encapsulates a protocol and port number. It is used in API
 // requests/responses. See also network.Port, from/to which this is
 // transformed.
 type Port struct {
-	Protocol string `json:"Protocol"`
-	Number   int    `json:"Number"`
+	Protocol string `json:"protocol"`
+	Number   int    `json:"number"`
 }
 
 // FromNetworkPort is a convenience helper to create a parameter
@@ -178,9 +178,9 @@ func (p Port) NetworkPort() network.Port {
 // requests/responses. See also network.PortRange, from/to which this is
 // transformed.
 type PortRange struct {
-	FromPort int    `json:"FromPort"`
-	ToPort   int    `json:"ToPort"`
-	Protocol string `json:"Protocol"`
+	FromPort int    `json:"from-port"`
+	ToPort   int    `json:"to-port"`
+	Protocol string `json:"protocol"`
 }
 
 // FromNetworkPortRange is a convenience helper to create a parameter
@@ -205,29 +205,29 @@ func (pr PortRange) NetworkPortRange() network.PortRange {
 
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
-	Tag      string `json:"Tag"`
-	Protocol string `json:"Protocol"`
-	Port     int    `json:"Port"`
+	Tag      string `json:"tag"`
+	Protocol string `json:"protocol"`
+	Port     int    `json:"port"`
 }
 
 // EntitiesPorts holds the parameters for making an OpenPort or
 // ClosePort on some entities.
 type EntitiesPorts struct {
-	Entities []EntityPort `json:"Entities"`
+	Entities []EntityPort `json:"entities"`
 }
 
 // EntityPortRange holds an entity's tag, a protocol and a port range.
 type EntityPortRange struct {
-	Tag      string `json:"Tag"`
-	Protocol string `json:"Protocol"`
-	FromPort int    `json:"FromPort"`
-	ToPort   int    `json:"ToPort"`
+	Tag      string `json:"tag"`
+	Protocol string `json:"protocol"`
+	FromPort int    `json:"from-port"`
+	ToPort   int    `json:"to-port"`
 }
 
 // EntitiesPortRanges holds the parameters for making an OpenPorts or
 // ClosePorts on some entities.
 type EntitiesPortRanges struct {
-	Entities []EntityPortRange `json:"Entities"`
+	Entities []EntityPortRange `json:"entities"`
 }
 
 // Address represents the location of a machine, including metadata
@@ -235,10 +235,10 @@ type EntitiesPortRanges struct {
 // the API requests/responses. See also network.Address, from/to
 // which this is transformed.
 type Address struct {
-	Value     string `json:"Value"`
-	Type      string `json:"Type"`
-	Scope     string `json:"Scope"`
-	SpaceName string `json:"SpaceName,omitempty"`
+	Value     string `json:"value"`
+	Type      string `json:"type"`
+	Scope     string `json:"scope"`
+	SpaceName string `json:"space-name,omitempty"`
 }
 
 // FromNetworkAddress is a convenience helper to create a parameter
@@ -288,7 +288,7 @@ func NetworkAddresses(addrs ...Address) []network.Address {
 // which this is transformed.
 type HostPort struct {
 	Address
-	Port int `json:"Port"`
+	Port int `json:"port"`
 }
 
 // FromNetworkHostPort is a convenience helper to create a parameter
@@ -346,60 +346,60 @@ func NetworkHostsPorts(hpm [][]HostPort) [][]network.HostPort {
 // UnitsNetworkConfig holds the parameters for calling Uniter.NetworkConfig()
 // API.
 type UnitsNetworkConfig struct {
-	Args []UnitNetworkConfig `json:"Args"`
+	Args []UnitNetworkConfig `json:"args"`
 }
 
 // UnitNetworkConfig holds a unit tag and an endpoint binding name.
 type UnitNetworkConfig struct {
-	UnitTag     string `json:"UnitTag"`
-	BindingName string `json:"BindingName"`
+	UnitTag     string `json:"unit-tag"`
+	BindingName string `json:"binding-name"`
 }
 
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
-	Tag       string    `json:"Tag"`
-	Addresses []Address `json:"Addresses"`
+	Tag       string    `json:"tag"`
+	Addresses []Address `json:"addresses"`
 }
 
 // SetMachinesAddresses holds the parameters for making an
 // API call to update machine addresses.
 type SetMachinesAddresses struct {
-	MachineAddresses []MachineAddresses `json:"MachineAddresses"`
+	MachineAddresses []MachineAddresses `json:"machine-addresses"`
 }
 
 // SetMachineNetworkConfig holds the parameters for making an API call to update
 // machine network config.
 type SetMachineNetworkConfig struct {
-	Tag    string          `json:"Tag"`
-	Config []NetworkConfig `json:"Config"`
+	Tag    string          `json:"tag"`
+	Config []NetworkConfig `json:"config"`
 }
 
 // MachineAddressesResult holds a list of machine addresses or an
 // error.
 type MachineAddressesResult struct {
-	Error     *Error    `json:"Error"`
-	Addresses []Address `json:"Addresses"`
+	Error     *Error    `json:"error,omitempty"`
+	Addresses []Address `json:"addresses"`
 }
 
 // MachineAddressesResults holds the results of calling an API method
 // returning a list of addresses per machine.
 type MachineAddressesResults struct {
-	Results []MachineAddressesResult `json:"Results"`
+	Results []MachineAddressesResult `json:"results"`
 }
 
 // MachinePortRange holds a single port range open on a machine for
 // the given unit and relation tags.
 type MachinePortRange struct {
-	UnitTag     string    `json:"UnitTag"`
-	RelationTag string    `json:"RelationTag"`
-	PortRange   PortRange `json:"PortRange"`
+	UnitTag     string    `json:"unit-tag"`
+	RelationTag string    `json:"relation-tag"`
+	PortRange   PortRange `json:"port-range"`
 }
 
 // MachinePorts holds a machine and subnet tags. It's used when referring to
 // opened ports on the machine for a subnet.
 type MachinePorts struct {
-	MachineTag string `json:"MachineTag"`
-	SubnetTag  string `json:"SubnetTag"`
+	MachineTag string `json:"machine-tag"`
+	SubnetTag  string `json:"subnet-tag"`
 }
 
 // -----
@@ -409,68 +409,68 @@ type MachinePorts struct {
 // PortsResults holds the bulk operation result of an API call
 // that returns a slice of Port.
 type PortsResults struct {
-	Results []PortsResult `json:"Results"`
+	Results []PortsResult `json:"results"`
 }
 
 // PortsResult holds the result of an API call that returns a slice
 // of Port or an error.
 type PortsResult struct {
-	Error *Error `json:"Error"`
-	Ports []Port `json:"Ports"`
+	Error *Error `json:"error,omitempty"`
+	Ports []Port `json:"ports"`
 }
 
 // UnitNetworkConfigResult holds network configuration for a single unit.
 type UnitNetworkConfigResult struct {
-	Error *Error `json:"Error"`
+	Error *Error `json:"error,omitempty"`
 
 	// Tagged to Info due to compatibility reasons.
-	Config []NetworkConfig `json:"Info"`
+	Config []NetworkConfig `json:"info"`
 }
 
 // UnitNetworkConfigResults holds network configuration for multiple machines.
 type UnitNetworkConfigResults struct {
-	Results []UnitNetworkConfigResult `json:"Results"`
+	Results []UnitNetworkConfigResult `json:"results"`
 }
 
 // MachineNetworkConfigResult holds network configuration for a single machine.
 type MachineNetworkConfigResult struct {
-	Error *Error `json:"Error"`
+	Error *Error `json:"error,omitempty"`
 
 	// Tagged to Info due to compatibility reasons.
-	Config []NetworkConfig `json:"Info"`
+	Config []NetworkConfig `json:"info"`
 }
 
 // MachineNetworkConfigResults holds network configuration for multiple machines.
 type MachineNetworkConfigResults struct {
-	Results []MachineNetworkConfigResult `json:"Results"`
+	Results []MachineNetworkConfigResult `json:"results"`
 }
 
 // MachinePortsParams holds the arguments for making a
 // FirewallerAPIV1.GetMachinePorts() API call.
 type MachinePortsParams struct {
-	Params []MachinePorts `json:"Params"`
+	Params []MachinePorts `json:"params"`
 }
 
 // MachinePortsResult holds a single result of the
 // FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
 // API calls.
 type MachinePortsResult struct {
-	Error *Error             `json:"Error"`
-	Ports []MachinePortRange `json:"Ports"`
+	Error *Error             `json:"error,omitempty"`
+	Ports []MachinePortRange `json:"ports"`
 }
 
 // MachinePortsResults holds all the results of the
 // FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
 // API calls.
 type MachinePortsResults struct {
-	Results []MachinePortsResult `json:"Results"`
+	Results []MachinePortsResult `json:"results"`
 }
 
 // APIHostPortsResult holds the result of an APIHostPorts
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
-	Servers [][]HostPort `json:"Servers"`
+	Servers [][]HostPort `json:"servers"`
 }
 
 // NetworkHostsPorts is a convenience helper to return the contained
@@ -482,43 +482,43 @@ func (r APIHostPortsResult) NetworkHostsPorts() [][]network.HostPort {
 // ZoneResult holds the result of an API call that returns an
 // availability zone name and whether it's available for use.
 type ZoneResult struct {
-	Error     *Error `json:"Error"`
-	Name      string `json:"Name"`
-	Available bool   `json:"Available"`
+	Error     *Error `json:"error,omitempty"`
+	Name      string `json:"name"`
+	Available bool   `json:"available"`
 }
 
 // ZoneResults holds multiple ZoneResult results
 type ZoneResults struct {
-	Results []ZoneResult `json:"Results"`
+	Results []ZoneResult `json:"results"`
 }
 
 // SpaceResult holds a single space tag or an error.
 type SpaceResult struct {
-	Error *Error `json:"Error"`
-	Tag   string `json:"Tag"`
+	Error *Error `json:"error,omitempty"`
+	Tag   string `json:"tag"`
 }
 
 // SpaceResults holds the bulk operation result of an API call
 // that returns space tags or an errors.
 type SpaceResults struct {
-	Results []SpaceResult `json:"Results"`
+	Results []SpaceResult `json:"results"`
 }
 
 // ListSubnetsResults holds the result of a ListSubnets API call.
 type ListSubnetsResults struct {
-	Results []Subnet `json:"Results"`
+	Results []Subnet `json:"results"`
 }
 
 // SubnetsFilters holds an optional SpaceTag and Zone for filtering
 // the subnets returned by a ListSubnets call.
 type SubnetsFilters struct {
-	SpaceTag string `json:"SpaceTag,omitempty"`
-	Zone     string `json:"Zone,omitempty"`
+	SpaceTag string `json:"space-tag,omitempty"`
+	Zone     string `json:"zone,omitempty"`
 }
 
 // AddSubnetsParams holds the arguments of AddSubnets API call.
 type AddSubnetsParams struct {
-	Subnets []AddSubnetParams `json:"Subnets"`
+	Subnets []AddSubnetParams `json:"subnets"`
 }
 
 // AddSubnetParams holds a subnet and space tags, subnet provider ID,
@@ -526,81 +526,81 @@ type AddSubnetsParams struct {
 // SubnetProviderId must be set, but not both. Zones can be empty if
 // they can be discovered
 type AddSubnetParams struct {
-	SubnetTag        string   `json:"SubnetTag,omitempty"`
-	SubnetProviderId string   `json:"SubnetProviderId,omitempty"`
-	SpaceTag         string   `json:"SpaceTag"`
-	Zones            []string `json:"Zones,omitempty"`
+	SubnetTag        string   `json:"subnet-tag,omitempty"`
+	SubnetProviderId string   `json:"subnet-provider-id,omitempty"`
+	SpaceTag         string   `json:"space-tag"`
+	Zones            []string `json:"zones,omitempty"`
 }
 
 // CreateSubnetsParams holds the arguments of CreateSubnets API call.
 type CreateSubnetsParams struct {
-	Subnets []CreateSubnetParams `json:"Subnets"`
+	Subnets []CreateSubnetParams `json:"subnets"`
 }
 
 // CreateSubnetParams holds a subnet and space tags, vlan tag,
 // and a list of zones to associate the subnet to.
 type CreateSubnetParams struct {
-	SubnetTag string   `json:"SubnetTag,omitempty"`
-	SpaceTag  string   `json:"SpaceTag"`
-	Zones     []string `json:"Zones,omitempty"`
-	VLANTag   int      `json:"VLANTag,omitempty"`
-	IsPublic  bool     `json:"IsPublic"`
+	SubnetTag string   `json:"subnet-tag,omitempty"`
+	SpaceTag  string   `json:"space-tag"`
+	Zones     []string `json:"zones,omitempty"`
+	VLANTag   int      `json:"vlan-tag,omitempty"`
+	IsPublic  bool     `json:"is-public"`
 }
 
 // CreateSpacesParams olds the arguments of the AddSpaces API call.
 type CreateSpacesParams struct {
-	Spaces []CreateSpaceParams `json:"Spaces"`
+	Spaces []CreateSpaceParams `json:"spaces"`
 }
 
 // CreateSpaceParams holds the space tag and at least one subnet
 // tag required to create a new space.
 type CreateSpaceParams struct {
-	SubnetTags []string `json:"SubnetTags"`
-	SpaceTag   string   `json:"SpaceTag"`
-	Public     bool     `json:"Public"`
-	ProviderId string   `json:"ProviderId,omitempty"`
+	SubnetTags []string `json:"subnet-tags"`
+	SpaceTag   string   `json:"space-tag"`
+	Public     bool     `json:"public"`
+	ProviderId string   `json:"provider-id,omitempty"`
 }
 
 // ListSpacesResults holds the list of all available spaces.
 type ListSpacesResults struct {
-	Results []Space `json:"Results"`
+	Results []Space `json:"results"`
 }
 
 // Space holds the information about a single space and its associated subnets.
 type Space struct {
-	Name    string   `json:"Name"`
-	Subnets []Subnet `json:"Subnets"`
-	Error   *Error   `json:"Error,omitempty"`
+	Name    string   `json:"name"`
+	Subnets []Subnet `json:"subnets"`
+	Error   *Error   `json:"error,omitempty"`
 }
 
 // DiscoverSpacesResults holds the list of all provider spaces.
 type DiscoverSpacesResults struct {
-	Results []ProviderSpace `json:"Results"`
+	Results []ProviderSpace `json:"results"`
 }
 
 // ProviderSpace holds the information about a single space and its associated subnets.
 type ProviderSpace struct {
-	Name       string   `json:"Name"`
-	ProviderId string   `json:"ProviderId"`
-	Subnets    []Subnet `json:"Subnets"`
-	Error      *Error   `json:"Error,omitempty"`
+	Name       string   `json:"name"`
+	ProviderId string   `json:"provider-id"`
+	Subnets    []Subnet `json:"subnets"`
+	Error      *Error   `json:"error,omitempty"`
 }
 
 type ProxyConfig struct {
-	HTTP    string `json:"HTTP"`
-	HTTPS   string `json:"HTTPS"`
-	FTP     string `json:"FTP"`
-	NoProxy string `json:"NoProxy"`
+	HTTP    string `json:"http"`
+	HTTPS   string `json:"https"`
+	FTP     string `json:"ftp"`
+	NoProxy string `json:"no-proxy"`
 }
 
 // ProxyConfigResult contains information needed to configure a clients proxy settings
 type ProxyConfigResult struct {
-	ProxySettings    ProxyConfig `json:"ProxySettings"`
-	APTProxySettings ProxyConfig `json:"APTProxySettings"`
-	Error            *Error      `json:"Error,omitempty"`
+	ProxySettings    ProxyConfig `json:"proxy-settings"`
+	APTProxySettings ProxyConfig `json:"apt-proxy-settings"`
+	Error            *Error      `json:"error,omitempty"`
 }
 
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings
 type ProxyConfigResults struct {
-	Results []ProxyConfigResult `json:"Results"`
+	Results []ProxyConfigResult `json:"results"`
 }
