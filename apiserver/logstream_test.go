@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/go-querystring/query"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type LogStreamIntSuite struct {
@@ -28,30 +30,28 @@ type LogStreamIntSuite struct {
 var _ = gc.Suite(&LogStreamIntSuite{})
 
 func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
-	start := time.Unix(12345, 0)
 	cfg := params.LogStreamConfig{
 		AllModels: true,
-		StartTime: start,
+		Sink:      "spam",
 	}
 	req := s.newReq(c, cfg)
 
-	var tailerArgs *state.LogTailerParams
+	stub := &testing.Stub{}
+	source := &stubSource{stub: stub}
+	start := time.Unix(12345, 0)
+	source.ReturnGetStart = start
 	handler := logStreamEndpointHandler{
-		stopCh: nil,
-		newState: func(*http.Request) (state.LogTailerState, error) {
-			return nil, nil
-		},
-		newTailer: func(_ state.LogTailerState, args *state.LogTailerParams) (state.LogTailer, error) {
-			tailerArgs = args
-			return nil, nil
-		},
+		stopCh:    nil,
+		newSource: source.newSource,
 	}
 
 	reqHandler, err := handler.newLogStreamRequestHandler(req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(reqHandler.cfg, jc.DeepEquals, cfg)
-	c.Check(tailerArgs, jc.DeepEquals, &state.LogTailerParams{
+	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
+	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
+	stub.CheckCall(c, 1, "getStart", "spam")
+	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
 		StartTime: start,
 		AllModels: true,
 	})
@@ -60,12 +60,16 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	cfg := params.LogStreamConfig{
 		AllModels: true,
-		StartTime: time.Unix(12345, 0),
+		Sink:      "eggs",
 	}
 	req := s.newReq(c, cfg)
-	tailer := &stubLogTailer{}
-	tailer.logs = []state.LogRecord{{
+	stub := &testing.Stub{}
+	source := &stubSource{stub: stub}
+	start := time.Unix(12345, 0)
+	source.ReturnGetStart = start
+	logs := []state.LogRecord{{
 		ModelUUID: "deadbeef-...",
+		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
 		Entity:    "machine-99",
 		Module:    "some.where",
@@ -74,6 +78,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		Message:   "stuff happened",
 	}, {
 		ModelUUID: "deadbeef-...",
+		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
 		Entity:    "unit-foo-2",
 		Module:    "else.where",
@@ -82,9 +87,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		Message:   "whoops",
 	}}
 	var expected []params.LogStreamRecord
-	for _, rec := range tailer.logs {
+	for _, rec := range logs {
 		expected = append(expected, params.LogStreamRecord{
 			ModelUUID: rec.ModelUUID,
+			Version:   version.Current.String(),
 			Timestamp: rec.Time,
 			Module:    rec.Module,
 			Location:  rec.Location,
@@ -92,10 +98,13 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 			Message:   rec.Message,
 		})
 	}
+	tailer := &stubLogTailer{stub: stub}
+	tailer.ReturnLogs = tailer.newChannel(logs)
+	source.ReturnNewTailer = tailer
 	reqHandler := &logStreamRequestHandler{
-		req:    req,
-		cfg:    cfg,
-		tailer: tailer,
+		req:           req,
+		tailer:        tailer,
+		sendModelUUID: true,
 	}
 
 	// Start the websocket server.
@@ -166,32 +175,71 @@ func (s *LogStreamIntSuite) newReq(c *gc.C, cfg params.LogStreamConfig) *http.Re
 	return req
 }
 
-type stubLogTailer struct {
-	state.LogTailer
-	logs []state.LogRecord
+type stubSource struct {
+	stub *testing.Stub
 
-	logsCh <-chan *state.LogRecord
+	ReturnGetStart  time.Time
+	ReturnNewTailer state.LogTailer
 }
 
-func (t *stubLogTailer) newChannel() <-chan *state.LogRecord {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, error) {
+	s.stub.AddCall("newSource", req)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s, nil
+}
+
+func (s *stubSource) getStart(sink string) (time.Time, error) {
+	s.stub.AddCall("getStart", sink)
+	if err := s.stub.NextErr(); err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
+
+	return s.ReturnGetStart, nil
+}
+
+func (s *stubSource) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+	s.stub.AddCall("newTailer", args)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.ReturnNewTailer, nil
+}
+
+type stubLogTailer struct {
+	state.LogTailer
+	stub *testing.Stub
+
+	ReturnLogs <-chan *state.LogRecord
+}
+
+func (s *stubLogTailer) newChannel(logs []state.LogRecord) <-chan *state.LogRecord {
 	ch := make(chan *state.LogRecord)
 	go func() {
-		for i := range t.logs {
-			rec := t.logs[i]
+		for i := range logs {
+			rec := logs[i]
 			ch <- &rec
 		}
 	}()
 	return ch
 }
 
-func (t *stubLogTailer) Logs() <-chan *state.LogRecord {
-	if t.logsCh == nil {
-		t.logsCh = t.newChannel()
-	}
-	return t.logsCh
+func (s *stubLogTailer) Logs() <-chan *state.LogRecord {
+	s.stub.AddCall("Logs")
+	s.stub.NextErr() // pop one off
+
+	return s.ReturnLogs
 }
 
-func (t *stubLogTailer) Err() error {
+func (s *stubLogTailer) Err() error {
+	s.stub.AddCall("Err")
+	if err := s.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 

@@ -11,7 +11,7 @@ import (
 // the server.
 type LogStreamRecord struct {
 	ModelUUID string    `json:"id"`
-	Version   string    `json:"ver"`
+	Version   string    `json:"ver,omitempty"`
 	Timestamp time.Time `json:"ts"`
 	Module    string    `json:"mod"`
 	Location  string    `json:"lo"`
@@ -33,7 +33,8 @@ type LogStreamConfig struct {
 	// should be included or just those of the connection's model.
 	AllModels bool `schema:"all" url:"all,omitempty"`
 
-	// StartTime, if set, determines where in the log history that
-	// streaming should start.
-	StartTime time.Time `schema:"start" url:"start,omitempty"`
+	// Sink identifies the target to which log records will be streamed.
+	// This is used as a bookmark for where to start the next time logs
+	// are streamed for the same sink.
+	Sink string `schema:"sink" url:"sink,omitempty"`
 }

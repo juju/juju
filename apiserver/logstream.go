@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/schema"
 	"github.com/juju/errors"
@@ -15,22 +16,28 @@ import (
 	"github.com/juju/juju/state"
 )
 
+type logStreamSource interface {
+	getStart(sink string) (time.Time, error)
+	newTailer(*state.LogTailerParams) (state.LogTailer, error)
+}
+
 // logStreamEndpointHandler takes requests to stream logs from the DB.
 type logStreamEndpointHandler struct {
 	stopCh    <-chan struct{}
-	newState  func(*http.Request) (state.LogTailerState, error)
-	newTailer func(state.LogTailerState, *state.LogTailerParams) (state.LogTailer, error)
+	newSource func(*http.Request) (logStreamSource, error)
 }
 
 func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
-	newState := func(req *http.Request) (state.LogTailerState, error) {
+	newSource := func(req *http.Request) (logStreamSource, error) {
 		st, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
-		return st, err
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &logStreamState{st}, nil
 	}
 	return &logStreamEndpointHandler{
 		stopCh:    ctxt.stop(),
-		newState:  newState,
-		newTailer: state.NewLogTailer,
+		newSource: newSource,
 	}
 }
 
@@ -58,7 +65,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
-	st, err := eph.newState(req)
+	source, err := eph.newSource(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,27 +75,66 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 		return nil, errors.Trace(err)
 	}
 
-	tailerArgs := &state.LogTailerParams{
-		StartTime: cfg.StartTime,
-		AllModels: cfg.AllModels,
-	}
-	tailer, err := eph.newTailer(st, tailerArgs)
+	tailer, err := eph.newTailer(source, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	reqHandler := &logStreamRequestHandler{
-		req:    req,
-		cfg:    cfg,
-		tailer: tailer,
+		req:           req,
+		tailer:        tailer,
+		sendModelUUID: cfg.AllModels,
 	}
 	return reqHandler, nil
 }
 
+func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig) (state.LogTailer, error) {
+	start, err := source.getStart(cfg.Sink)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	tailerArgs := &state.LogTailerParams{
+		StartTime: start,
+		AllModels: cfg.AllModels,
+	}
+	tailer, err := source.newTailer(tailerArgs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return tailer, nil
+}
+
+// logStreamState is an implementation of logStreamSource.
+type logStreamState struct {
+	state.LogTailerState
+}
+
+func (st logStreamState) getStart(sink string) (time.Time, error) {
+	// TODO(ericsnow) Resume for the sink...
+	//   This will be addressed in a follow-up patch.
+	//lastLogger := state.NewLastSentLogger(st, sink)
+	//lastSent, err := lastLogger.Get()
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//start := lastSent.Add(1) // Don't do this?
+	var start time.Time
+
+	return start, nil
+}
+
+func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+	tailer, err := state.NewLogTailer(st, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return tailer, nil
+}
+
 type logStreamRequestHandler struct {
-	req    *http.Request
-	cfg    params.LogStreamConfig
-	tailer state.LogTailer
+	req           *http.Request
+	tailer        state.LogTailer
+	sendModelUUID bool
 
 	stream *apiLogStream
 }
@@ -125,7 +171,7 @@ func (rh *logStreamRequestHandler) initStream(conn *websocket.Conn, initial erro
 	stream := &apiLogStream{
 		conn:          conn,
 		codec:         websocket.JSON,
-		sendModelUUID: rh.cfg.AllModels,
+		sendModelUUID: rh.sendModelUUID,
 	}
 	stream.sendInitial(initial)
 
