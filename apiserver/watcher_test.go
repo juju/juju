@@ -92,6 +92,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
+		MigrationId:    "id",
 		Attempt:        2,
 		Phase:          "READONLY",
 		SourceAPIAddrs: []string{"1.2.3.4:5", "2.3.4.5:6", "3.4.5.6:7"},
@@ -147,7 +148,7 @@ type fakeMigrationBackend struct {
 	noMigration bool
 }
 
-func (b *fakeMigrationBackend) GetModelMigration() (state.ModelMigration, error) {
+func (b *fakeMigrationBackend) LatestModelMigration() (state.ModelMigration, error) {
 	if b.noMigration {
 		return nil, errors.NotFoundf("migration")
 	}
@@ -175,6 +176,10 @@ func MustParseHostPorts(hostports ...string) []network.HostPort {
 
 type fakeModelMigration struct {
 	state.ModelMigration
+}
+
+func (m *fakeModelMigration) Id() string {
+	return "id"
 }
 
 func (m *fakeModelMigration) Attempt() (int, error) {

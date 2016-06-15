@@ -4,23 +4,28 @@
 package migrationminion_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/migrationminion"
+	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // Ensure that Backend remains compatible with *state.State
 var _ migrationminion.Backend = (*state.State)(nil)
 
 type Suite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 
+	stub       *testing.Stub
 	backend    *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -31,8 +36,8 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.backend = &stubBackend{}
-	migrationminion.PatchState(s, s.backend)
+	s.stub = &testing.Stub{}
+	s.backend = &stubBackend{stub: s.stub}
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -65,20 +70,77 @@ func (s *Suite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Get(result.NotifyWatcherId), gc.NotNil)
 }
 
+func (s *Suite) TestReport(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	err := api.Report(params.MinionReport{
+		MigrationId: "id",
+		Phase:       "READONLY",
+		Success:     true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{"ModelMigration", []interface{}{"id"}},
+		{"Report", []interface{}{s.authorizer.Tag, migration.READONLY, true}},
+	})
+}
+
+func (s *Suite) TestReportInvalidPhase(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	err := api.Report(params.MinionReport{
+		MigrationId: "id",
+		Phase:       "WTF",
+		Success:     true,
+	})
+	c.Assert(err, gc.ErrorMatches, "unable to parse phase")
+}
+
+func (s *Suite) TestReportNoSuchMigration(c *gc.C) {
+	failure := errors.NotFoundf("model")
+	s.backend.modelLookupErr = failure
+	api := s.mustMakeAPI(c)
+	err := api.Report(params.MinionReport{
+		MigrationId: "id",
+		Phase:       "QUIESCE",
+		Success:     false,
+	})
+	c.Assert(errors.Cause(err), gc.Equals, failure)
+}
+
 func (s *Suite) makeAPI() (*migrationminion.API, error) {
-	return migrationminion.NewAPI(nil, s.resources, s.authorizer)
+	return migrationminion.NewAPI(s.backend, s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationminion.API {
-	api, err := migrationminion.NewAPI(nil, s.resources, s.authorizer)
+	api, err := s.makeAPI()
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
 type stubBackend struct {
 	migrationminion.Backend
+	stub           *testing.Stub
+	modelLookupErr error
 }
 
 func (b *stubBackend) WatchMigrationStatus() state.NotifyWatcher {
+	b.stub.AddCall("WatchMigrationStatus")
 	return apiservertesting.NewFakeNotifyWatcher()
+}
+
+func (b *stubBackend) ModelMigration(id string) (state.ModelMigration, error) {
+	b.stub.AddCall("ModelMigration", id)
+	if b.modelLookupErr != nil {
+		return nil, b.modelLookupErr
+	}
+	return &stubModelMigration{stub: b.stub}, nil
+}
+
+type stubModelMigration struct {
+	state.ModelMigration
+	stub *testing.Stub
+}
+
+func (m *stubModelMigration) MinionReport(tag names.Tag, phase migration.Phase, success bool) error {
+	m.stub.AddCall("Report", tag, phase, success)
+	return nil
 }

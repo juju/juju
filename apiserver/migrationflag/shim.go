@@ -41,7 +41,7 @@ func (shim *backend) WatchMigrationPhase() state.NotifyWatcher {
 
 // MigrationPhase is part of the Backend interface.
 func (shim *backend) MigrationPhase() (migration.Phase, error) {
-	mig, err := shim.st.GetModelMigration()
+	mig, err := shim.st.LatestModelMigration()
 	if errors.IsNotFound(err) {
 		return migration.NONE, nil
 	} else if err != nil {
