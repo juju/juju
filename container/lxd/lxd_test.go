@@ -159,17 +159,28 @@ func (t *LxdSuite) TestNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
 
 func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
-		ParentInterfaceName: "br-eth0",
-		InterfaceName:       "eth0",
-		InterfaceType:       "ethernet",
-		Address:             network.NewAddress("0.10.0.20"),
-		MACAddress:          "aa:bb:cc:dd:ee:f0",
-	}, {
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
 		Address:       network.NewAddress("0.10.0.21"),
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		MTU:           9000,
+	}}
+
+	result, err := lxd.NetworkDevices(&container.NetworkConfig{
+		Interfaces: interfaces,
+	})
+
+	c.Assert(err, gc.ErrorMatches, "invalid parent device name")
+	c.Assert(result, gc.IsNil)
+}
+
+func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
+	interfaces := []network.InterfaceInfo{{
+		ParentInterfaceName: "br-eth0",
+		InterfaceName:       "eth0",
+		InterfaceType:       "ethernet",
+		Address:             network.NewAddress("0.10.0.20"),
+		MACAddress:          "aa:bb:cc:dd:ee:f0",
 	}}
 
 	expected := lxdclient.Devices{
@@ -179,14 +190,6 @@ func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
 			"nictype": "bridged",
 			"parent":  "br-eth0",
 			"type":    "nic",
-		},
-		"eth1": lxdclient.Device{
-			"hwaddr":  "aa:bb:cc:dd:ee:f1",
-			"name":    "eth1",
-			"nictype": "bridged",
-			"parent":  "lxdbr0",
-			"type":    "nic",
-			"mtu":     "9000",
 		},
 	}
 
