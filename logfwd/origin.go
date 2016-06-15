@@ -4,6 +4,8 @@
 package logfwd
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/version"
@@ -109,16 +111,14 @@ func (o Origin) Validate() error {
 		return errors.NewNotValid(nil, "empty ControllerUUID")
 	}
 	if !names.IsValidModel(o.ControllerUUID) {
-		err := errors.NewNotValid(nil, "must be UUID")
-		return errors.Annotatef(err, "invalid ControllerUUID %q", o.ControllerUUID)
+		return errors.NewNotValid(nil, fmt.Sprintf("ControllerUUID %q not a valid UUID", o.ControllerUUID))
 	}
 
 	if o.ModelUUID == "" {
 		return errors.NewNotValid(nil, "empty ModelUUID")
 	}
 	if !names.IsValidModel(o.ModelUUID) {
-		err := errors.NewNotValid(nil, "must be UUID")
-		return errors.Annotatef(err, "invalid ModelUUID %q", o.ModelUUID)
+		return errors.NewNotValid(nil, fmt.Sprintf("ModelUUID %q not a valid UUID", o.ModelUUID))
 	}
 
 	if err := o.Type.Validate(); err != nil {

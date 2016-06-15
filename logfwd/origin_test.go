@@ -190,7 +190,7 @@ func (s *OriginSuite) TestValidateBadControllerUUID(c *gc.C) {
 	err := origin.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ControllerUUID "...": must be UUID`)
+	c.Check(err, gc.ErrorMatches, `ControllerUUID "..." not a valid UUID`)
 }
 
 func (s *OriginSuite) TestValidateEmptyModelUUID(c *gc.C) {
@@ -210,7 +210,7 @@ func (s *OriginSuite) TestValidateBadModelUUID(c *gc.C) {
 	err := origin.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ModelUUID "...": must be UUID`)
+	c.Check(err, gc.ErrorMatches, `ModelUUID "..." not a valid UUID`)
 }
 
 func (s *OriginSuite) TestValidateBadOriginType(c *gc.C) {
