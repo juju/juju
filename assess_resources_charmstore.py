@@ -52,7 +52,7 @@ def get_charmstore_details(credentials_file):
         safe_string = string.strip()
         return safe_string.split('=', 1)[-1].strip('"')
 
-    required_keys = ('api_url', 'password', 'email_address', 'username')
+    required_keys = ('api_url', 'password', 'email', 'username')
 
     details = {}
     with open(credentials_file, 'r') as creds:
@@ -60,21 +60,17 @@ def get_charmstore_details(credentials_file):
             if 'STORE_CREDENTIALS' in line:
                 creds = split_line_details(line)
                 email_address, password = creds.split(':', 1)
-                details['email_address'] = email_address
+                details['email'] = email_address
                 details['password'] = password
                 raw_username = email_address.split('@', 1)[0]
                 details['username'] = raw_username.replace('.', '-')
             elif 'STORE_URL' in line:
                 details['api_url'] = split_line_details(line)
 
-    if not all(k in details for k in required_keys):
+    if not set(details.keys()).issuperset(required_keys):
         raise ValueError('Unable to get all details from file.')
 
-    return CharmstoreDetails(
-        details['email_address'],
-        details['username'],
-        details['password'],
-        details['api_url'])
+    return CharmstoreDetails(**details)
 
 
 def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
