@@ -19,15 +19,15 @@ type LogStreamRecord struct {
 	Message   string    `json:"msg"`
 }
 
-// TODO(ericsnow) At some point it would make sense to merge this code
-// with Client.WatchDebugLog().
-
 // LogStreamConfig holds all the information necessary to open a
 // streaming connection to the API endpoint for reading log records.
 //
 // The field tags relate to the following 2 libraries:
 //   github.com/google/go-querystring/query (encoding)
 //   github.com/gorilla/schema (decoding)
+//
+// See apiserver/debuglog.go:debugLogParams for additional things we
+// may consider supporting here.
 type LogStreamConfig struct {
 	// AllModels indicates whether logs for all the controller's models
 	// should be included or just those of the connection's model.
