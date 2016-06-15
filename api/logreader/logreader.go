@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/logfwd"
 )
 
+var logger = loggo.GetLogger("juju.api.logreader")
+
 // JSONReadCloser provides the functionality to send JSON-serialized
 // values over a streaming connection.
 type JSONReadCloser interface {
@@ -65,7 +67,11 @@ func newLogRecordReader(conn JSONReadCloser, controllerUUID string) *LogRecordRe
 	go func() {
 		defer lrr.tomb.Done()
 		defer close(lrr.out)
-		defer lrr.conn.Close()
+		defer func() {
+			if err := lrr.conn.Close(); err != nil {
+				logger.Errorf("while closing stream: %v", err)
+			}
+		}()
 		lrr.tomb.Kill(lrr.loop())
 	}()
 	return lrr
@@ -81,7 +87,7 @@ func (lrr *LogRecordReader) loop() error {
 		var apiRecord params.LogStreamRecord
 		err := lrr.conn.ReadJSON(&apiRecord)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		record, err := api2record(apiRecord, lrr.controllerUUID)
