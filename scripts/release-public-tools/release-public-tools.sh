@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Licensed under the AGPLv3, see LICENCE file for details.
 # Release public tools.
 #
 # Retrieve the published juju-core debs for a specific release.

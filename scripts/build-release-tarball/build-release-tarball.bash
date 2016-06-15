@@ -1,4 +1,6 @@
 #!/usr/bin/env bash -e
+# Copyright 2013 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
 
 # if someone invokes this with bash
 set -e
