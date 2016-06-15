@@ -27,16 +27,6 @@ var originTypes = map[OriginType]string{
 
 // OriginType is the "enum" type for the different kinds of log record
 // origin.
-//
-// Go does not have native enum support, nor support for struct literal
-// constants.  Thus to use constants for the enum values we must
-// "typedef" a type that Go supports for constants (e.g. int). One
-// downside is that the underlying concrete value is exposed to type
-// conversion as well as the operators for the underlying type. It also
-// means that any value of the underlying type may be type converted to
-// the enum type, even though the enum type doesn't support the value.
-// Consequently the enum type must have a Validate() method to ensure
-// this did not happen.
 type OriginType int
 
 // ParseOriginType converts a string to an OriginType or fails if
