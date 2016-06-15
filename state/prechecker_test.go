@@ -138,7 +138,7 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "intertubes",
 	}
-	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
 	c.Assert(s.prechecker.precheckInstancePlacement, gc.Equals, template.Placement)

@@ -80,11 +80,6 @@ const (
 	// Only prevent all-changes from running
 	// if user specifically requests it. Otherwise, let them run.
 	DefaultPreventAllChanges = false
-
-	// DefaultLXCDefaultMTU is the default value for "lxc-default-mtu"
-	// config setting. Only non-zero, positive integer values will
-	// have effect.
-	DefaultLXCDefaultMTU = 0
 )
 
 // TODO(katco-): Please grow this over time.
@@ -140,9 +135,6 @@ const (
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
 
-	// LxcClone stores the value for this setting.
-	LxcClone = "lxc-clone"
-
 	// NumaControlPolicyKey stores the value for this setting
 	SetNumaControlPolicyKey = "set-numa-control-policy"
 
@@ -152,16 +144,6 @@ const (
 	// ResourceTagsKey is an optional list or space-separated string
 	// of k=v pairs, defining the tags for ResourceTags.
 	ResourceTagsKey = "resource-tags"
-
-	// For LXC containers, is the container allowed to mount block
-	// devices. A theoretical security issue, so must be explicitly
-	// allowed by the user.
-	AllowLXCLoopMounts = "allow-lxc-loop-mounts"
-
-	// LXCDefaultMTU, when set to a positive integer, overrides the
-	// Machine Transmission Unit (MTU) setting of all network
-	// interfaces created for LXC containers. See also bug #1442257.
-	LXCDefaultMTU = "lxc-default-mtu"
 
 	// CloudImageBaseURL allows a user to override the default url that the
 	// 'ubuntu-cloudimg-query' executable uses to find container images. This
@@ -505,11 +487,6 @@ func Validate(cfg, old *Config) error {
 				return fmt.Errorf("cannot clear agent-version")
 			}
 		}
-	}
-
-	// Check LXCDefaultMTU is a positive integer, when set.
-	if lxcDefaultMTU, ok := cfg.LXCDefaultMTU(); ok && lxcDefaultMTU < 0 {
-		return errors.Errorf("%s: expected positive integer, got %v", LXCDefaultMTU, lxcDefaultMTU)
 	}
 
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
@@ -863,30 +840,6 @@ func (c *Config) TestMode() bool {
 	return c.defined["test-mode"].(bool)
 }
 
-// LXCUseClone reports whether the LXC provisioner should create a
-// template and use cloning to speed up container provisioning.
-func (c *Config) LXCUseClone() (bool, bool) {
-	v, ok := c.defined[LxcClone].(bool)
-	return v, ok
-}
-
-// LXCUseCloneAUFS reports whether the LXC provisioner should create a
-// lxc clone using aufs if available.
-func (c *Config) LXCUseCloneAUFS() (bool, bool) {
-	v, ok := c.defined["lxc-clone-aufs"].(bool)
-	return v, ok
-}
-
-// LXCDefaultMTU reports whether the LXC provisioner should create a
-// containers with a specific MTU value for all network intefaces.
-func (c *Config) LXCDefaultMTU() (int, bool) {
-	v, ok := c.defined[LXCDefaultMTU].(int)
-	if !ok {
-		return DefaultLXCDefaultMTU, false
-	}
-	return v, ok
-}
-
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -906,13 +859,6 @@ func (c *Config) IgnoreMachineAddresses() (bool, bool) {
 func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	bs := c.asString(StorageDefaultBlockSourceKey)
 	return bs, bs != ""
-}
-
-// AllowLXCLoopMounts returns whether loop devices are allowed
-// to be mounted inside lxc containers.
-func (c *Config) AllowLXCLoopMounts() (bool, bool) {
-	v, ok := c.defined[AllowLXCLoopMounts].(bool)
-	return v, ok
 }
 
 // CloudImageBaseURL returns the specified override url that the 'ubuntu-
@@ -1038,13 +984,10 @@ var alwaysOptional = schema.Defaults{
 	AptHttpsProxyKey:             schema.Omit,
 	AptFtpProxyKey:               schema.Omit,
 	"apt-mirror":                 schema.Omit,
-	LxcClone:                     schema.Omit,
-	LXCDefaultMTU:                schema.Omit,
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-	AllowLXCLoopMounts:           false,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
 
@@ -1064,7 +1007,6 @@ var alwaysOptional = schema.Defaults{
 	AgentMetadataURLKey:        schema.Omit,
 	"default-series":           "",
 	"test-mode":                false,
-	"lxc-clone-aufs":           false,
 }
 
 func allowEmpty(attr string) bool {
@@ -1127,9 +1069,6 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
-	LxcClone,
-	LXCDefaultMTU,
-	"lxc-clone-aufs",
 }
 
 var (
@@ -1276,11 +1215,6 @@ var configSchema = environschema.Fields{
 		Group:       environschema.JujuGroup,
 		Immutable:   true,
 	},
-	AllowLXCLoopMounts: {
-		Description: `whether loop devices are allowed to be mounted inside lxc containers.`,
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
 	AptFtpProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT FTP proxy for the model",
@@ -1415,25 +1349,6 @@ global or per instance security groups.`,
 	"logging-config": {
 		Description: `The configuration string to use when configuring Juju agent logging (see http://godoc.org/github.com/juju/loggo#ParseConfigurationString for details)`,
 		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LxcClone: {
-		Description: "Whether to use lxc-clone to create new LXC containers",
-		Type:        environschema.Tbool,
-		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
-	"lxc-clone-aufs": {
-		Description: `Whether the LXC provisioner should creat an LXC clone using AUFS if available`,
-		Type:        environschema.Tbool,
-		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
-	LXCDefaultMTU: {
-		// default: the default MTU setting for the container
-		Description: `The MTU setting to use for network interfaces in LXC containers`,
-		Type:        environschema.Tint,
-		Immutable:   true,
 		Group:       environschema.EnvironGroup,
 	},
 	NameKey: {

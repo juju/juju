@@ -56,11 +56,11 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 			machines: []string{"1", "2"},
 			force:    true,
 		}, {
-			args:        []string{"lxc"},
-			errorString: `invalid machine id "lxc"`,
+			args:        []string{"lxd"},
+			errorString: `invalid machine id "lxd"`,
 		}, {
-			args:     []string{"1/lxc/2"},
-			machines: []string{"1/lxc/2"},
+			args:     []string{"1/lxd/2"},
+			machines: []string{"1/lxd/2"},
 		},
 	} {
 		c.Logf("test %d", i)
@@ -77,17 +77,17 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
-	_, err := s.run(c, "1", "2/lxc/1")
+	_, err := s.run(c, "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.forced, jc.IsFalse)
-	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxc/1"})
+	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
 }
 
 func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
-	_, err := s.run(c, "--force", "1", "2/lxc/1")
+	_, err := s.run(c, "--force", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.forced, jc.IsTrue)
-	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxc/1"})
+	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {

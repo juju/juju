@@ -71,10 +71,6 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	storageConfig *container.StorageConfig,
 ) instance.Instance {
 
-	name, err := manager.Namespace().Hostname(instanceConfig.MachineId)
-	c.Assert(err, jc.ErrorIsNil)
-	EnsureContainerRootFSEtcNetwork(c, name)
-
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "quantal", networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)

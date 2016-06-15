@@ -79,12 +79,12 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
 	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
-	lxcHost := s.MakeMachineNested(c, host.Id(), nil)
+	lxdHost := s.MakeMachineNested(c, host.Id(), nil)
 	machines := map[string][]*state.Machine{
 		host.Id(): {
 			host,
-			lxcHost,
-			s.MakeMachineNested(c, lxcHost.Id(), nil),
+			lxdHost,
+			s.MakeMachineNested(c, lxdHost.Id(), nil),
 			s.MakeMachineNested(c, host.Id(), nil),
 		},
 	}
@@ -94,7 +94,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 
 	hostContainer := statuses[host.Id()].Containers
 	c.Check(hostContainer, gc.HasLen, 2)
-	c.Check(hostContainer[lxcHost.Id()].Containers, gc.HasLen, 1)
+	c.Check(hostContainer[lxdHost.Id()].Containers, gc.HasLen, 1)
 }
 
 var testUnits = []struct {

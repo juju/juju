@@ -100,7 +100,7 @@ func validEnvironConfig() storageprovisioner.Config {
 
 func validMachineConfig() storageprovisioner.Config {
 	config := almostValidConfig()
-	config.Scope = names.NewMachineTag("123/lxc/7")
+	config.Scope = names.NewMachineTag("123/lxd/7")
 	config.StorageDir = "storage-dir"
 	return config
 }
