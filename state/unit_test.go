@@ -1776,12 +1776,18 @@ func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	unit, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(unit.WorkloadVersion(), gc.Equals, "")
+	version, err := unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "")
 
 	unit.SetWorkloadVersion("3.combined")
-	c.Check(unit.WorkloadVersion(), gc.Equals, "3.combined")
+	version, err = unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
 
 	regotUnit, err := s.State.Unit("alexandrite/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(regotUnit.WorkloadVersion(), gc.Equals, "3.combined")
+	version, err = regotUnit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
 }

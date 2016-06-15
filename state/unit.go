@@ -89,8 +89,7 @@ type unitDoc struct {
 	Resolved               ResolvedMode
 	Tools                  *tools.Tools `bson:",omitempty"`
 	Life                   Life
-	WorkloadVersion        string `bson:"workload-version"`
-	TxnRevno               int64  `bson:"txn-revno"`
+	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
 }
 
@@ -161,6 +160,12 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
+// globalWorkloadVersionKey returns the global database key for the
+// workload version status key for this unit.
+func globalWorkloadVersionKey(name string) string {
+	return unitGlobalKey(name) + "#sat#workload-version"
+}
+
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
@@ -176,6 +181,12 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
+// globalWorkloadVersionKey returns the global database key for the unit's
+// workload version info.
+func (u *Unit) globalWorkloadVersionKey() string {
+	return globalWorkloadVersionKey(u.doc.Name)
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
@@ -184,22 +195,28 @@ func (u *Unit) Life() Life {
 // WorkloadVersion returns the version of the running workload set by
 // the charm (eg, the version of postgresql that is running, as
 // opposed to the version of the postgresql charm).
-func (u *Unit) WorkloadVersion() string {
-	return u.doc.WorkloadVersion
+func (u *Unit) WorkloadVersion() (string, error) {
+	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return status.Message, nil
 }
 
 func (u *Unit) SetWorkloadVersion(version string) error {
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: isAliveDoc,
-		Update: bson.D{{"$set", bson.D{{"workload-version", version}}}},
-	}}
-	if err := u.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set workload version for unit %q to %v: %v", u, version, onAbort(err, errNotAlive))
-	}
-	u.doc.WorkloadVersion = version
-	return nil
+	// Store in status rather than an attribute of the unit doc - we
+	// want to avoid everything being an attr of the main docs to
+	// stop a swarm of watchers being notified for irrelevant changes.
+	now := time.Now()
+	return setStatus(u.st, setStatusParams{
+		badge:     "workload",
+		globalKey: u.globalWorkloadVersionKey(),
+		status:    status.StatusActive,
+		message:   version,
+		updated:   &now,
+	})
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -2267,10 +2284,11 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 }
 
 type addUnitOpsArgs struct {
-	unitDoc           *unitDoc
-	agentStatusDoc    statusDoc
-	workloadStatusDoc statusDoc
-	meterStatusDoc    *meterStatusDoc
+	unitDoc            *unitDoc
+	agentStatusDoc     statusDoc
+	workloadStatusDoc  statusDoc
+	workloadVersionDoc statusDoc
+	meterStatusDoc     *meterStatusDoc
 }
 
 // addUnitOps returns the operations required to add a unit to the units
@@ -2285,6 +2303,7 @@ func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 	return []txn.Op{
 		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
 		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
 		{
 			C:      unitsC,

@@ -964,12 +964,17 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: MessageWaitForAgentInit,
 		Updated:    now.UnixNano(),
 	}
+	workloadVersionDoc := statusDoc{
+		Status:  status.StatusUnknown,
+		Updated: now.UnixNano(),
+	}
 
 	ops := addUnitOps(s.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: unitStatusDoc,
-		meterStatusDoc:    &meterStatusDoc{Code: MeterNotSet.String()},
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  unitStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
+		meterStatusDoc:     &meterStatusDoc{Code: MeterNotSet.String()},
 	})
 
 	ops = append(ops, storageOps...)

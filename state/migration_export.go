@@ -482,10 +482,14 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
+		workloadVersion, err := unit.WorkloadVersion()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		args := description.UnitArgs{
 			Tag:             unit.UnitTag(),
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
-			WorkloadVersion: unit.doc.WorkloadVersion,
+			WorkloadVersion: workloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
 			MeterStatusCode: unitMeterStatus.Code,
 			MeterStatusInfo: unitMeterStatus.Info,

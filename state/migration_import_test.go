@@ -378,7 +378,9 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 
 	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
-	c.Assert(imported.WorkloadVersion(), gc.Equals, exported.WorkloadVersion())
+	version, err := imported.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(version, gc.Equals, "amethyst")
 
 	exportedMachineId, err := exported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

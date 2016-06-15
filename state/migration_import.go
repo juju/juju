@@ -610,10 +610,21 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
 
+	workloadVersion := u.WorkloadVersion()
+	versionStatus := status.StatusActive
+	if workloadVersion == "" {
+		versionStatus = status.StatusUnknown
+	}
+	workloadVersionDoc := statusDoc{
+		Status:     versionStatus,
+		StatusInfo: workloadVersion,
+	}
+
 	ops := addUnitOps(i.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: workloadStatusDoc,
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  workloadStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
 		meterStatusDoc: &meterStatusDoc{
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),
@@ -721,11 +732,10 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Principal:    u.Principal().Id(),
 		Subordinates: subordinates,
 		// StorageAttachmentCount int `bson:"storageattachmentcount"`
-		MachineId:       u.Machine().Id(),
-		Tools:           i.makeTools(u.Tools()),
-		Life:            Alive,
-		WorkloadVersion: u.WorkloadVersion(),
-		PasswordHash:    u.PasswordHash(),
+		MachineId:    u.Machine().Id(),
+		Tools:        i.makeTools(u.Tools()),
+		Life:         Alive,
+		PasswordHash: u.PasswordHash(),
 	}, nil
 }
 

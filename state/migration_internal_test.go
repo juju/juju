@@ -349,7 +349,6 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"Tools",
 		// Life isn't migrated as we only migrate live things.
 		"Life",
-		"WorkloadVersion",
 		// TxnRevno isn't migrated.
 		"TxnRevno",
 		"PasswordHash",
