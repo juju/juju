@@ -274,7 +274,7 @@ func (c *ControllerAPI) InitiateModelMigration(reqArgs params.InitiateModelMigra
 		if err != nil {
 			result.Error = common.ServerError(err)
 		} else {
-			result.Id = id
+			result.MigrationId = id
 		}
 	}
 	return out, nil

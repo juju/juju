@@ -312,7 +312,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 		c.Check(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
 		expectedId := st.ModelUUID() + ":0"
-		c.Check(result.Id, gc.Equals, expectedId)
+		c.Check(result.MigrationId, gc.Equals, expectedId)
 
 		// Ensure the migration made it into the DB correctly.
 		mig, err := st.LatestModelMigration()
@@ -347,7 +347,7 @@ func (s *controllerSuite) TestInitiateModelMigrationValidationError(c *gc.C) {
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
-	c.Check(result.Id, gc.Equals, "")
+	c.Check(result.MigrationId, gc.Equals, "")
 	c.Check(result.Error, gc.ErrorMatches, "controller tag: .+ is not a valid tag")
 }
 
