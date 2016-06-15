@@ -27,18 +27,36 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	store *jujuclienttesting.MemStore
+	store  *jujuclienttesting.MemStore
+	params environs.BootstrapCloudParams
 }
 
 var _ = gc.Suite(&restoreSuite{})
 
 func (s *restoreSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
+	clouds := map[string]cloud.Cloud{
+		"mycloud": {
+			Type:      "openstack",
+			AuthTypes: []cloud.AuthType{"userpass", "access-key"},
+			Endpoint:  "http://homestack",
+			Regions: []cloud.Region{
+				{Name: "a-region", Endpoint: "http://london/1.0"},
+			},
+		},
+	}
+	err := cloud.WritePersonalCloudMetadata(clouds)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.params.CloudName = "mycloud"
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
 		ControllerUUID: testing.ModelTag.Id(),
 		CACert:         testing.CACert,
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
 	}
+	s.store.CurrentControllerName = "testing"
 	s.store.Models["testing"] = jujuclient.ControllerAccountModels{
 		AccountModels: map[string]*jujuclient.AccountModels{
 			"admin@local": {
@@ -59,8 +77,8 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 		CurrentAccount: "admin@local",
 	}
 	s.store.BootstrapConfig["testing"] = jujuclient.BootstrapConfig{
-		Cloud: "dummy",
-		//Credential: "me",
+		Cloud:       "mycloud",
+		CloudRegion: "a-region",
 		Config: map[string]interface{}{
 			"type": "dummy",
 			"name": "admin",
@@ -116,8 +134,8 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
 		},
-		func(string, *params.BackupsMetadataResult) (environs.Environ, error) {
-			return fakeEnv, nil
+		func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
+			return fakeEnv, &s.params, nil
 		})
 	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*still seems to exist.*")
@@ -125,13 +143,14 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 
 func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 	fakeEnv := fakeEnviron{}
+	loudName = "mycloud"
 	s.command = backups.NewRestoreCommandForTest(
 		s.store, &mockRestoreAPI{},
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &params.BackupsMetadataResult{}, nil
 		},
-		func(string, *params.BackupsMetadataResult) (environs.Environ, error) {
-			return fakeEnv, nil
+		func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
+			return fakeEnv, &s.params, nil
 		})
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return errors.New("failed to bootstrap new controller")
@@ -173,8 +192,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
 			return &mockArchiveReader{}, &metadata, nil
 		},
-		func(string, *params.BackupsMetadataResult) (environs.Environ, error) {
-			return fakeEnv, nil
+		func(string, *params.BackupsMetadataResult) (environs.Environ, *environs.BootstrapCloudParams, error) {
+			return fakeEnv, &s.params, nil
 		})
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		return nil
@@ -183,6 +202,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
+		Cloud:                  "mycloud",
+		CloudRegion:            "a-region",
 		CACert:                 testing.CACert,
 		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		APIEndpoints:           []string{"10.0.0.1:100"},

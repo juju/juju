@@ -304,11 +304,29 @@ func NewGetBootstrapConfigFunc(store jujuclient.ClientStore) func(string) (*conf
 	return bootstrapConfigGetter{store}.getBootstrapConfig
 }
 
+// NewGetBootstrapCloudParamsFunc returns a function that, given a controller name,
+// returns the bootstrap cloud params for that controller in the given client store.
+func NewGetBootstrapCloudParamsFunc(store jujuclient.ClientStore) func(string) (*environs.BootstrapCloudParams, error) {
+	return bootstrapConfigGetter{store}.getBootstrapCloudParams
+}
+
 type bootstrapConfigGetter struct {
 	jujuclient.ClientStore
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
+	params, err := g.getBootstrapCloudParams(controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	provider, err := environs.Provider(params.Config.Type())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return provider.BootstrapConfig(params.BootstrapConfigParams)
+}
+
+func (g bootstrapConfigGetter) getBootstrapCloudParams(controllerName string) (*environs.BootstrapCloudParams, error) {
 	if _, err := g.ClientStore.ControllerByName(controllerName); err != nil {
 		return nil, errors.Annotate(err, "resolving controller name")
 	}
@@ -361,14 +379,14 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return provider.BootstrapConfig(environs.BootstrapConfigParams{
-		cfg, *credential,
-		bootstrapConfig.CloudRegion,
-		bootstrapConfig.CloudEndpoint,
-		bootstrapConfig.CloudStorageEndpoint,
-	})
+	return &environs.BootstrapCloudParams{
+		BootstrapConfigParams: environs.BootstrapConfigParams{
+			cfg, *credential,
+			bootstrapConfig.CloudRegion,
+			bootstrapConfig.CloudEndpoint,
+			bootstrapConfig.CloudStorageEndpoint,
+		},
+		CloudName:      bootstrapConfig.Cloud,
+		CredentialName: bootstrapConfig.Credential,
+	}, nil
 }
