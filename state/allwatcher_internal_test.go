@@ -55,7 +55,7 @@ func (s *allWatcherBaseSuite) newState(c *gc.C) *State {
 		"name": fmt.Sprintf("testenv%d", s.envCount),
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.state.NewModel(ModelArgs{Config: cfg, Owner: s.owner, CloudRegion: "some-region"})
+	_, st, err := s.state.NewModel(ModelArgs{Config: cfg, Owner: s.owner})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
@@ -1782,7 +1782,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
@@ -1827,7 +1827,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Jobs:                     []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
-						SupportedContainers:      []instance.ContainerType{instance.LXC},
+						SupportedContainers:      []instance.ContainerType{instance.LXD},
 						SupportedContainersKnown: true,
 					}}}
 		},

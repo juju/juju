@@ -51,12 +51,14 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	}
 	st, err := Initialize(InitializeParams{
 		ControllerModelArgs: ModelArgs{
-			Owner:       s.owner,
-			CloudRegion: "some-region",
-			Config:      testing.ModelConfig(c),
+			Owner:  s.owner,
+			Config: testing.ModelConfig(c),
 		},
-		CloudName:     "dummy",
-		Cloud:         cloud.Cloud{Type: "dummy"},
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		MongoInfo:     info,
 		MongoDialOpts: mongotest.DialOpts(),
 	})

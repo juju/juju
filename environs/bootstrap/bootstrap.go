@@ -194,10 +194,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
-		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
-	}
-
 	imageMetadata, err := bootstrapImageMetadata(
 		environ, availableTools,
 		args.BootstrapImage,
@@ -293,6 +289,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	instanceConfig.Bootstrap.ControllerCloudName = args.CloudName
 	instanceConfig.Bootstrap.ControllerCloud = args.Cloud
 	instanceConfig.Bootstrap.ControllerCloudRegion = args.CloudRegion
+	instanceConfig.Bootstrap.ControllerCloudCredential = args.CloudCredential
+	instanceConfig.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	instanceConfig.Bootstrap.ModelConfigDefaults = args.ModelConfigDefaults
 	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {

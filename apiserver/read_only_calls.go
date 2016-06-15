@@ -46,6 +46,8 @@ var readOnlyCalls = set.NewStrings(
 	// Status is so old it shouldn't be used.
 	"Client.StatusHistory",
 	"Client.WatchAll",
+	"Cloud.Cloud",
+	"Cloud.Credentials",
 	// TODO: add controller work.
 	"KeyManager.ListKeys",
 	"ModelManager.ModelInfo",

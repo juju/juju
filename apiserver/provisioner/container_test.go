@@ -62,7 +62,7 @@ func (s *containerSuite) newCustomAPI(c *gc.C, hostInstId instance.Id, addContai
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		},
 		s.machines[0].Id(),
-		instance.LXC,
+		instance.LXD,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	if provisionContainer {
@@ -208,7 +208,7 @@ func (s *prepareSuite) TestErrorWithProvisionedContainer(c *gc.C) {
 	args := s.makeArgs(container)
 	s.assertCall(c, args, s.makeErrors(
 		apiservertesting.ServerError(
-			`container "0/lxc/0" already provisioned as "i-foo"`,
+			`container "0/lxd/0" already provisioned as "i-foo"`,
 		),
 	), "")
 }
@@ -242,7 +242,7 @@ func (s *prepareSuite) TestErrorsWithContainersOnDifferentHost(c *gc.C) {
 				Jobs:   []state.MachineJob{state.JobHostUnits},
 			},
 			s.machines[1].Id(),
-			instance.LXC,
+			instance.LXD,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		containers = append(containers, container)
@@ -374,7 +374,7 @@ func (s *prepareSuite) TestRetryingOnAllocateAddressFailure(c *gc.C) {
 	})
 
 	_, testLog := s.assertCall(c, args, s.makeErrors(apiservertesting.ServerError(
-		`failed to allocate an address for "0/lxc/0": `+
+		`failed to allocate an address for "0/lxd/0": `+
 			`allocatable IP addresses exhausted for subnet "0.10.0.0/24"`,
 	)), "")
 
@@ -455,7 +455,7 @@ func (s *prepareSuite) TestReleaseAndCleanupWhenAllocateAndOrSetFail(c *gc.C) {
 	})
 
 	_, testLog := s.assertCall(c, args, s.makeErrors(apiservertesting.ServerError(
-		`failed to allocate an address for "0/lxc/0": `+
+		`failed to allocate an address for "0/lxd/0": `+
 			`allocatable IP addresses exhausted for subnet "0.10.0.0/24"`,
 	)), "")
 
@@ -628,7 +628,7 @@ func (s *prepareSuite) TestSuccessWithSingleContainer(c *gc.C) {
 		`allocated address ".+" on instance "i-host" and subnet "dummy-private"`,
 	}, {
 		loggo.INFO,
-		`assigned address ".+" to container "0/lxc/0"`,
+		`assigned address ".+" to container "0/lxd/0"`,
 	}})
 }
 
@@ -667,7 +667,7 @@ func (s *prepareSuite) TestSuccessWhenFirstSubnetNotAllocatable(c *gc.C) {
 		`allocated address ".+" on instance "i-no-alloc-0" and subnet "dummy-public"`,
 	}, {
 		loggo.INFO,
-		`assigned address ".+" to container "0/lxc/0"`,
+		`assigned address ".+" to container "0/lxd/0"`,
 	}})
 }
 
@@ -762,7 +762,7 @@ func (s *releaseSuite) TestErrorsWithContainersOnDifferentHost(c *gc.C) {
 				Jobs:   []state.MachineJob{state.JobHostUnits},
 			},
 			s.machines[1].Id(),
-			instance.LXC,
+			instance.LXD,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		containers = append(containers, container)

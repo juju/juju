@@ -49,7 +49,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXC)
+	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
@@ -85,7 +85,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
 			{Tag: "machine-0"},
-			{Tag: "machine-1-lxc-0"},
+			{Tag: "machine-1-lxd-0"},
 			{Tag: "machine-42"},
 		},
 	}
@@ -117,7 +117,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
 			{Tag: "machine-0"},
-			{Tag: "machine-1-lxc-0"},
+			{Tag: "machine-1-lxd-0"},
 			{Tag: "machine-42"},
 		},
 	}
@@ -129,7 +129,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 			{
 				Life:          "dying",
 				Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				ContainerType: instance.LXC,
+				ContainerType: instance.LXD,
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

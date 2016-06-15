@@ -95,7 +95,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	response, err := s.controller.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
-	expected := []string{"admin", "no-access", "owned", "user"}
+	expected := []string{"controller", "no-access", "owned", "user"}
 	var obtained []string
 	for _, env := range response.UserModels {
 		obtained = append(obtained, env.Name)
@@ -121,7 +121,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 
 	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
 		params.ModelBlockInfo{
-			Name:     "admin",
+			Name:     "controller",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{
@@ -151,7 +151,7 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	env, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "admin")
+	c.Assert(env.Config["name"], gc.Equals, "controller")
 }
 
 func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
@@ -164,7 +164,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["name"], gc.Equals, "admin")
+	c.Assert(cfg.Config["name"], gc.Equals, "controller")
 }
 
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {

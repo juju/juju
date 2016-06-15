@@ -351,12 +351,13 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	}
 
 	info := params.ModelInfo{
-		DefaultSeries:  config.PreferredSeries(conf),
-		CloudRegion:    model.CloudRegion(),
-		ProviderType:   conf.Type(),
-		Name:           conf.Name(),
-		UUID:           model.UUID(),
-		ControllerUUID: model.ControllerUUID(),
+		DefaultSeries:   config.PreferredSeries(conf),
+		CloudRegion:     model.CloudRegion(),
+		CloudCredential: model.CloudCredential(),
+		ProviderType:    conf.Type(),
+		Name:            conf.Name(),
+		UUID:            model.UUID(),
+		ControllerUUID:  model.ControllerUUID(),
 	}
 	return info, nil
 }

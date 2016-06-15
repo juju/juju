@@ -498,7 +498,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 	m, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.Watch()
-	defer w.Stop()
+	defer worker.Stop(w)
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -706,7 +706,7 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 		err = unit.Refresh()
 		c.Assert(err, jc.ErrorIsNil)
 		w := unit.Watch()
-		defer w.Stop()
+		defer worker.Stop(w)
 
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
@@ -739,7 +739,7 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		err := service.SetMinUnits(1)
 		c.Assert(err, jc.ErrorIsNil)
 		w := service.Watch()
-		defer w.Stop()
+		defer worker.Stop(w)
 
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
@@ -1172,7 +1172,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		},
 		parent.Id(),
-		instance.LXC,
+		instance.LXD,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1367,7 +1367,7 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	// Grab responsibility for the model on behalf of another machine.
 	claimer := s.BackingState.SingularClaimer()
 	uuid := s.BackingState.ModelUUID()
-	err := claimer.Claim(uuid, "machine-999-lxc-99", time.Hour)
+	err := claimer.Claim(uuid, "machine-999-lxd-99", time.Hour)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then run a normal model-tracking test, just checking for

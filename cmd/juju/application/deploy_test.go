@@ -415,7 +415,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,9 +429,9 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", "lxc:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertForceMachine(c, machine.Id()+"/lxc/0")
+	s.assertForceMachine(c, machine.Id()+"/lxd/0")
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		machines, err := s.State.AllMachines()

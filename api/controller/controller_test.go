@@ -56,7 +56,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"admin@local/admin",
+		"admin@local/controller",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -67,7 +67,7 @@ func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	cfg, err := sysManager.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["name"], gc.Equals, "admin")
+	c.Assert(cfg["name"], gc.Equals, "controller")
 }
 
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
@@ -101,7 +101,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
 		{
-			Name:     "admin",
+			Name:     "controller",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.AdminUserTag(c).String(),
 			Blocks: []string{

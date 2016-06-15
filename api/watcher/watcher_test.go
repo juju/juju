@@ -278,7 +278,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	const nonce = "noncey"
 
 	// Create a model to migrate.
-	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{Prepare: true})
+	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{})
 	defer hostedState.Close()
 	hostedFactory := factory.NewFactory(hostedState)
 

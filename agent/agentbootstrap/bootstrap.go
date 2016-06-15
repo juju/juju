@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/instance"
@@ -79,16 +80,23 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
+	cloudCredentials := make(map[string]cloud.Credential)
+	if args.ControllerCloudCredential != nil {
+		cloudCredentials[args.ControllerCloudCredentialName] = *args.ControllerCloudCredential
+	}
+
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerModelArgs: state.ModelArgs{
-			Owner:       adminUser,
-			Config:      args.ControllerModelConfig,
-			CloudRegion: args.ControllerCloudRegion,
-			Constraints: args.ModelConstraints,
+			Owner:           adminUser,
+			Config:          args.ControllerModelConfig,
+			Constraints:     args.ModelConstraints,
+			CloudRegion:     args.ControllerCloudRegion,
+			CloudCredential: args.ControllerCloudCredentialName,
 		},
 		CloudName:           args.ControllerCloudName,
 		Cloud:               args.ControllerCloud,
+		CloudCredentials:    cloudCredentials,
 		ModelConfigDefaults: args.ModelConfigDefaults,
 		MongoInfo:           info,
 		MongoDialOpts:       dialOpts,
@@ -128,6 +136,12 @@ func InitializeState(
 	for k, v := range args.HostedModelConfig {
 		attrs[k] = v
 	}
+	// TODO(axw) we shouldn't be adding credentials to model config.
+	if args.ControllerCloudCredential != nil {
+		for k, v := range args.ControllerCloudCredential.Attributes() {
+			attrs[k] = v
+		}
+	}
 	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
 		modelmanager.IsAdmin, args.ControllerModelConfig, attrs,
 	)
@@ -135,10 +149,11 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model config")
 	}
 	_, hostedModelState, err := st.NewModel(state.ModelArgs{
-		Owner:       adminUser,
-		Config:      hostedModelConfig,
-		CloudRegion: args.ControllerCloudRegion,
-		Constraints: args.ModelConstraints,
+		Owner:           adminUser,
+		Config:          hostedModelConfig,
+		Constraints:     args.ModelConstraints,
+		CloudRegion:     args.ControllerCloudRegion,
+		CloudCredential: args.ControllerCloudCredentialName,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")

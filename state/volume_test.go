@@ -434,7 +434,7 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
 	}
 	assertValid("0:0", names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	assertValid("0:0/1", names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
-	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewVolumeTag("1"))
+	assertValid("0/lxd/0:1", names.NewMachineTag("0/lxd/0"), names.NewVolumeTag("1"))
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {

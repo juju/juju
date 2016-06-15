@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/worker"
 )
 
 type UpgradeSuite struct {
@@ -61,8 +62,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	pinger, err := controller.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
-		err := pinger.Stop()
-		c.Check(err, jc.ErrorIsNil)
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
 	})
 	s.serverIdA = controller.Id()
 	s.provision(c, s.serverIdA)

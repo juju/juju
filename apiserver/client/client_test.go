@@ -40,6 +40,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 )
 
 type serverSuite struct {
@@ -66,6 +67,9 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
 	s.State.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1042,13 +1046,13 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
 		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		ContainerType: instance.LXC,
+		ContainerType: instance.LXD,
 		ParentId:      "0",
 		Series:        "quantal",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
 }
 
 // updateConfig sets config variable with given key to a given value
@@ -1083,15 +1087,15 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
-	apiParams[0].Placement = instance.MustParsePlacement("lxc")
-	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
-	apiParams[1].ContainerType = instance.LXC
-	apiParams[2].Placement = instance.MustParsePlacement("admin:invalid")
-	apiParams[3].Placement = instance.MustParsePlacement("admin:valid")
+	apiParams[0].Placement = instance.MustParsePlacement("lxd")
+	apiParams[1].Placement = instance.MustParsePlacement("lxd:0")
+	apiParams[1].ContainerType = instance.LXD
+	apiParams[2].Placement = instance.MustParsePlacement("controller:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("controller:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
-	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
 	c.Assert(machines[1].Error, gc.ErrorMatches, "container type and placement are mutually exclusive")
 	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: invalid placement is invalid")
 	c.Assert(machines[3].Machine, gc.Equals, "1")
@@ -1112,8 +1116,8 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Create a machine to host the requested containers.
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	// The host only supports lxc containers.
-	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+	// The host only supports ldc containers.
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up params for adding 3 containers.

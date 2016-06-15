@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -388,7 +388,8 @@ func classifyMachine(machine ClassifiableMachine) (
 	case params.Dead:
 		return Dead, nil
 	}
-	if instId, err := machine.InstanceId(); err != nil {
+	instId, err := machine.InstanceId()
+	if err != nil {
 		if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
 		}
@@ -401,17 +402,12 @@ func classifyMachine(machine ClassifiableMachine) (
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
-	} else {
-		logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
-		if err != nil {
-			logger.Infof("Error fetching provisioning info")
-		} else {
-			isLxc := regexp.MustCompile(`\d+/lxc/\d+`)
-			isKvm := regexp.MustCompile(`\d+/kvm/\d+`)
-			if isLxc.MatchString(machine.Id()) || isKvm.MatchString(machine.Id()) {
-				return Maintain, nil
-			}
-		}
+		return None, nil
+	}
+	logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
+
+	if state.ContainerTypeFromId(machine.Id()) != "" {
+		return Maintain, nil
 	}
 	return None, nil
 }
