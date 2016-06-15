@@ -45,7 +45,7 @@ type LogRecordReader struct {
 // Note that the caller is responsible for stopping the reader, e.g. by
 // passing it to worker.Stop().
 func OpenLogRecordReader(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID string) (*LogRecordReader, error) {
-	wsStream, err := stream.Open(conn, cfg)
+	wsStream, err := stream.Open(conn, "/logstream", &cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

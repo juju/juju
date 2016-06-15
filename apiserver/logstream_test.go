@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/go-querystring/query"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -155,11 +156,11 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 }
 
 func (s *LogStreamIntSuite) newReq(c *gc.C, cfg params.LogStreamConfig) *http.Request {
-	query := make(url.Values)
-	cfg.Apply(query)
+	attrs, err := query.Values(cfg)
+	c.Assert(err, jc.ErrorIsNil)
 	URL, err := url.Parse("https://a.b.c/logstream")
 	c.Assert(err, jc.ErrorIsNil)
-	URL.RawQuery = query.Encode()
+	URL.RawQuery = attrs.Encode()
 	req, err := http.NewRequest("GET", URL.String(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return req

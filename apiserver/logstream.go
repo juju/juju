@@ -6,6 +6,7 @@ package apiserver
 import (
 	"net/http"
 
+	"github.com/gorilla/schema"
 	"github.com/juju/errors"
 	"golang.org/x/net/websocket"
 
@@ -62,8 +63,8 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 		return nil, errors.Trace(err)
 	}
 
-	cfg, err := params.GetLogStreamConfig(req.URL.Query())
-	if err != nil {
+	var cfg params.LogStreamConfig
+	if err := schema.NewDecoder().Decode(&cfg, req.URL.Query()); err != nil {
 		return nil, errors.Trace(err)
 	}
 

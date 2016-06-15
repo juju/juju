@@ -4,29 +4,19 @@
 package stream
 
 import (
-	"net/url"
-
+	"github.com/google/go-querystring/query"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 )
 
-// Config exposes the information necessary to open a streaming
-// connection to an API endpoint.
-type Config interface {
-	// Endpoint is the API endpoint path to which to connect.
-	Endpoint() string
-
-	// Apply adjusts the provided URL query to match the config.
-	Apply(url.Values)
-}
-
-// Open opens a streaming connection that conforms to the provided
-// config (and its endpoint).
-func Open(conn base.StreamConnector, cfg Config) (base.Stream, error) {
-	path := cfg.Endpoint()
-	attrs := make(url.Values)
-	cfg.Apply(attrs)
+// Open opens a streaming connection to the endpoint path that conforms
+// to the provided config.
+func Open(conn base.StreamConnector, path string, cfg interface{}) (base.Stream, error) {
+	attrs, err := query.Values(cfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to generate URL query from config")
+	}
 	stream, err := conn.ConnectStream(path, attrs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to %s", path)
