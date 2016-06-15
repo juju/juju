@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright 2012 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
 
 # basic stress test
 
