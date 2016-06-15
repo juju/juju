@@ -315,12 +315,13 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 		}
 	}
 
-	assertChange := func(phase migration.Phase) {
+	assertChange := func(id string, phase migration.Phase) {
 		s.startSync(c, hostedState)
 		select {
 		case status, ok := <-w.Changes():
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(status.Phase, gc.Equals, phase)
+			c.Check(status.MigrationId, gc.Equals, id)
+			c.Check(status.Phase, gc.Equals, phase)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}
@@ -328,7 +329,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	}
 
 	// Initial event with no migration in progress.
-	assertChange(migration.NONE)
+	assertChange("", migration.NONE)
 
 	// Now create a migration, should trigger watcher.
 	spec := state.ModelMigrationSpec{
@@ -343,16 +344,16 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	}
 	mig, err := hostedState.CreateModelMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(migration.QUIESCE)
+	assertChange(mig.Id(), migration.QUIESCE)
 
 	// Now abort the migration, this should be reported too.
 	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
-	assertChange(migration.ABORT)
+	assertChange(mig.Id(), migration.ABORT)
 	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
-	assertChange(migration.ABORTDONE)
+	assertChange(mig.Id(), migration.ABORTDONE)
 
 	// Start a new migration, this should also trigger.
-	_, err = hostedState.CreateModelMigration(spec)
+	mig2, err := hostedState.CreateModelMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(migration.QUIESCE)
+	assertChange(mig2.Id(), migration.QUIESCE)
 }
