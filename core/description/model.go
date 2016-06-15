@@ -4,7 +4,9 @@
 package description
 
 import (
+	"net"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -68,6 +70,22 @@ func Deserialize(bytes []byte) (Model, error) {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
+}
+
+// parseLinkLayerDeviceGlobalKey is used to validate that the parent device
+// referenced by a LinkLayerDevice exists.
+func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
+	if !strings.Contains(globalKey, "#") {
+		// Can't be a global key.
+		return "", "", false
+	}
+	keyParts := strings.Split(globalKey, "#")
+	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
+		// Invalid global key format.
+		return "", "", true
+	}
+	machineID, deviceName = keyParts[1], keyParts[3]
+	return machineID, deviceName, true
 }
 
 type model struct {
@@ -428,13 +446,51 @@ func (m *model) validateSubnets() error {
 // validateLinkLayerDevices makes sure that any machines referenced by link
 // layer devices exist.
 func (m *model) validateLinkLayerDevices() error {
-	machineIDs := set.NewStrings()
+	machineIDs := make(map[string]Machine)
 	for _, machine := range m.Machines_.Machines_ {
-		machineIDs.Add(machine.Id())
+		machineIDs[machine.Id()] = machine
 	}
+
+	// Build a map of all devices for each machine, in order to validate
+	// parents.
+	machineDevices := make(map[string]map[string]LinkLayerDevice)
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
-		if !machineIDs.Contains(device.MachineID()) {
+		machineDevices[device.MachineID()][device.Name()] = device
+	}
+
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		_, ok := machineIDs[device.MachineID()]
+		if !ok {
 			return errors.Errorf("device %q references non-existent machine %q", device.Name(), device.MachineID())
+		}
+		if device.Name() == "" {
+			return errors.Errorf("device has empty name: %#v", device)
+		}
+		if device.MACAddress() != "" {
+			if _, err := net.ParseMAC(device.MACAddress()); err != nil {
+				return errors.Errorf("device %q has invalid MACAddress %q", device.Name(), device.MACAddress())
+			}
+		}
+		if device.ParentName() != "" {
+			hostMachineID, parentDeviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(device.ParentName())
+			if !canBeGlobalKey {
+				hostMachineID = device.MachineID()
+				parentDeviceName = device.ParentName()
+			}
+			_, ok := machineDevices[hostMachineID][parentDeviceName]
+			if !ok {
+				return errors.Errorf("device %q has non-existent parent %q", device.Name(), parentDeviceName)
+			}
+			if canBeGlobalKey {
+				// The device is on a container.
+				// check parent device is a bridge
+				// check parent device machine id is the parent
+				// of the host machine
+			} else {
+				if device.Name() == parentDeviceName {
+					return errors.Errorf("XXX")
+				}
+			}
 		}
 	}
 
