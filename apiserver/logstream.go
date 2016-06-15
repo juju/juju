@@ -117,7 +117,9 @@ func (st logStreamState) getStart(sink string) (time.Time, error) {
 	//if err != nil {
 	//	return nil, errors.Trace(err)
 	//}
-	//start := lastSent.Add(1) // Don't do this?
+	//// Using the same timestamp will cause at least 1 duplicate
+	//// entry, but that is better than dropping records.
+	//start := lastSent
 	var start time.Time
 
 	return start, nil
