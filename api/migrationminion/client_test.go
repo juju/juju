@@ -14,6 +14,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 )
@@ -79,5 +80,35 @@ func (s *ClientSuite) TestWatchErr(c *gc.C) {
 	})
 	client := migrationminion.NewClient(apiCaller)
 	_, err := client.Watch()
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestReport(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, arg)
+		return nil
+	})
+
+	client := migrationminion.NewClient(apiCaller)
+	err := client.Report("id", migration.IMPORT, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMinion.Report", []interface{}{params.MinionReport{
+			MigrationId: "id",
+			Phase:       "IMPORT",
+			Success:     true,
+		}}},
+	})
+}
+
+func (s *ClientSuite) TestReportError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("boom")
+	})
+
+	client := migrationminion.NewClient(apiCaller)
+	err := client.Report("id", migration.IMPORT, true)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
