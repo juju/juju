@@ -154,9 +154,9 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     export TMPDIR=/mnt/tmp
 fi
 export GOPATH=\$HOME/$juju_version
-if [[ -d $GOPATH ]]; then
+if [[ -d \$GOPATH ]]; then
     echo "Cleaning up files unpacked into the GOPATH by a previous test."
-    rm -r $GOPATH
+    rm -r \$GOPATH
 fi
 tar -xzf $tarfile_basename
 if [[ -d \$HOME/goroot ]]; then
