@@ -153,8 +153,12 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
     export TMPDIR=/mnt/tmp
 fi
-tar -xzf $tarfile_basename
 export GOPATH=\$HOME/$juju_version
+if [[ -d $GOPATH ]]; then
+    echo "Cleaning up files unpacked into the GOPATH by a previous test."
+    rm -r $GOPATH
+fi
+tar -xzf $tarfile_basename
 if [[ -d \$HOME/goroot ]]; then
     export GOROOT=\$HOME/goroot
 fi
