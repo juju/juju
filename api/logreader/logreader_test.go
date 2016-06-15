@@ -80,7 +80,7 @@ func (s *LogRecordReaderSuite) TestLogRecordReader(c *gc.C) {
 	stub.CheckCallNames(c, "ConnectStream", "ReadJSON", "ReadJSON", "Close")
 }
 
-func (s *LogRecordReaderSuite) TestNewAPIReadLogError(c *gc.C) {
+func (s *LogRecordReaderSuite) TestErrorOpeningStream(c *gc.C) {
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
 	stub := &testing.Stub{}
 	conn := &mockConnector{stub: stub}
@@ -90,11 +90,11 @@ func (s *LogRecordReaderSuite) TestNewAPIReadLogError(c *gc.C) {
 
 	_, err := logreader.OpenLogRecordReader(conn, cfg, cUUID)
 
-	stub.CheckCallNames(c, "ConnectStream")
 	c.Check(err, gc.ErrorMatches, "cannot connect to /logstream: foo")
+	stub.CheckCallNames(c, "ConnectStream")
 }
 
-func (s *LogRecordReaderSuite) TestNewAPIWriteError(c *gc.C) {
+func (s *LogRecordReaderSuite) TestErrorReadingFromStream(c *gc.C) {
 	cUUID := "feebdaed-2f18-4fd2-967d-db9663db7bea"
 	stub := &testing.Stub{}
 	stream := mockStream{stub: stub}
@@ -113,7 +113,7 @@ func (s *LogRecordReaderSuite) TestNewAPIWriteError(c *gc.C) {
 	case <-channel:
 		c.Assert(r.Wait(), gc.ErrorMatches, "an error")
 	case <-time.After(coretesting.LongWait):
-		c.Fail()
+		c.Error("timed out waiting for records on the channel")
 	}
 	stub.CheckCallNames(c, "ConnectStream", "ReadJSON", "Close")
 }
