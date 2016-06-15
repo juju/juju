@@ -104,69 +104,127 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 
 // RemoveUser removes the user with the given name from the User collection as
 // well as any modeluser entries in the ModelUser collection.
-func (st *State) RemoveUser(user names.UserTag) error {
+func (st *State) RemoveUser(tag names.UserTag) error {
+	name := strings.ToLower(tag.Name())
 
-	name := strings.ToLower(user.Name())
-
-	_, err := st.User(user)
+	u, err := st.User(tag)
 	if errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	// This builds the transaction operations we want to try for the User.
-	buildTxn := func(attempt int) ([]txn.Op, error) {
 
-		ops := []txn.Op{{
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var ops []txn.Op
+		if attempt > 0 {
+			// If it is not our first attempt, refresh the user.
+			if userErr := u.Refresh(); userErr != nil {
+				if errors.IsNotFound(userErr) {
+					// If there is no user, see if anything was added
+					// elsewhere.
+					ops, err := st.removeUserOpsFromOtherCollections(tag)
+					if err != nil {
+						return nil, err
+					}
+					// If there ops, return them.
+					if len(ops) != 0 {
+						return ops, nil
+					}
+					// Otherwise return ErrNoOperations
+					return nil, jujutxn.ErrNoOperations
+				}
+				// Or return the unexpected error.
+				return nil, errors.Trace(userErr)
+			}
+		}
+		// Otherwise this is our first attempt or our first attempt failed. So
+		// build the slice of transaction ops for UserModels,
+		// UserModelLastConnectionTime, and User.
+		ops, err := st.removeUserOpsFromOtherCollections(tag)
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, txn.Op{
 			Id:     name,
 			C:      usersC,
 			Assert: txn.DocExists,
 			Remove: true,
-		}}
+		})
 		return ops, nil
 	}
-	// We remove the user first so that new modelusers cannot be added while we
-	// delete them next. We also do it seperately so that we don't have
-	// assertion issues if we try to remove a non-existent user.
-	err = st.run(buildTxn)
-
-	// If there is no User then we return with a user not found error.
-	if err == jujutxn.ErrNoOperations {
-		return errors.NewUserNotFound(err, "user not found")
+	if err = st.run(buildTxn); err == nil {
+		// If there's no error rerun to ensure nothing was added while building
+		// our original ops.
+		return st.run(buildTxn)
 	}
+	// Or return the error
+	return err
+}
 
-	// Get a raw connection to the ModelUser collection.
-	modelUsers, userCloser := st.getRawCollection(modelUsersC)
-	defer userCloser()
+func (st *State) removeUserOpsFromOtherCollections(user names.UserTag) ([]txn.Op, error) {
+	var ops []txn.Op
+	ops, err := st.modelUserOps(user)
+	if err != nil {
+		return ops, errors.Trace(err)
+	}
+	muSerLastConOps, err := st.modelUserLastConOps(user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(muSerLastConOps) > 0 {
+		ops = append(ops, muSerLastConOps...)
+	}
+	return ops, nil
+}
 
-	// Build the transaction for removing all ModelUsers for the user.
-	buildTxn = func(attempt int) ([]txn.Op, error) {
-		var modelUserIDs []struct {
+func (st *State) modelUserOps(user names.UserTag) ([]txn.Op, error) {
+	c, closer := st.getRawCollection(modelUsersC)
+	defer closer()
+
+	var (
+		ids []struct {
 			ID string `bson:"_id"`
 		}
-		// The `_id` is munged in the ModelUser collection because it is a
-		// *local* collection. Here we pierce the veil in the interest of speed
-		// and simplicity. Rather than building up the `_id` from the name and
-		// model UUID in a series of loops we simply return the _ids which we
-		// need to remove. This was left inside this function instead of
-		// creating an external helper to prevent confusion with the existing
-		// RemoveModelUser function which has a different purpose: namely
-		// unsharing a model.
-		err := modelUsers.Find(bson.D{
-			{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&modelUserIDs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		var ops []txn.Op
-		for _, entry := range modelUserIDs {
-			ops = append(ops, txn.Op{
-				C:      modelUsersC,
-				Id:     entry.ID,
-				Assert: txn.DocExists,
-				Remove: true,
-			})
-		}
-		return ops, nil
+		ops []txn.Op
+	)
+	err := c.Find(bson.D{
+		{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&ids)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return st.run(buildTxn)
+	for _, entry := range ids {
+		ops = append(ops, txn.Op{
+			C:      modelUsersC,
+			Id:     entry.ID,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	return ops, nil
+}
+
+func (st *State) modelUserLastConOps(user names.UserTag) ([]txn.Op, error) {
+	c, closer := st.getRawCollection(modelUserLastConnectionC)
+	defer closer()
+
+	var (
+		ids []struct {
+			ID string `bson:"_id"`
+		}
+		ops []txn.Op
+	)
+	err := c.Find(bson.D{
+		{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, entry := range ids {
+		ops = append(ops, txn.Op{
+			C:      modelUserLastConnectionC,
+			Id:     entry.ID,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	return ops, nil
 }
 
 func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
