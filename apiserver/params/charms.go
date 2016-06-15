@@ -5,20 +5,20 @@ package params
 
 // CharmInfo stores parameters for a charms.CharmInfo call.
 type CharmInfo struct {
-	CharmURL string `json:"charm-url"`
+	CharmURL string
 }
 
 // CharmsList stores parameters for a charms.List call
 type CharmsList struct {
-	Names []string `json:"names"`
+	Names []string
 }
 
 // CharmsListResult stores result from a charms.List call
 type CharmsListResult struct {
-	CharmURLs []string `json:"charm-urls"`
+	CharmURLs []string
 }
 
 // IsMeteredResult stores result from a charms.IsMetered call
 type IsMeteredResult struct {
-	Metered bool `json:"metered"`
+	Metered bool
 }
