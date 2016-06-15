@@ -111,26 +111,24 @@ class CharmCommand:
     @contextmanager
     def logged_in_user(self, user_email, password):
         """Contextmanager that logs in and ensures user logs out."""
+        from utility import ensure_deleted  # Workaround circular import
+
         try:
             self.login(user_email, password)
             yield
         finally:
             try:
                 self.logout()
-            except:
-                token_file = os.path.join(
-                    os.environ['HOME'],
-                    '.local/share/juju/store-usso-token')
+            except Exception as e:
+                log.error('Failed to logout: {}'.format(str(e)))
+                default_juju_data = os.path.join(
+                    os.environ['HOME'], '.local', 'share', 'juju')
+                juju_data = os.environ.get('JUJU_DATA', default_juju_data)
+                token_file = os.path.join(juju_data, 'store-usso-token')
                 cookie_file = os.path.join(os.environ['HOME'], '.go-cookies')
-                log.info('Failed to log out, removing {} and {}'.format(
-                    token_file, cookie_file))
-                try:
-                    if os.path.exists(token_file):
-                        os.remove(token_file)
-                    if os.path.exists(cookie_file):
-                        os.remove(cookie_file)
-                except:
-                    log.error('Failed to remove files')
+                log.debug('Removing {} and {}'.format(token_file, cookie_file))
+                ensure_deleted(token_file)
+                ensure_deleted(cookie_file)
 
     def login(self, user_email, password):
         log.debug('Logging {} in.'.format(user_email))
