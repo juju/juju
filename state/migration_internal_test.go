@@ -106,10 +106,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// separately.
 		modelEntityRefsC,
 
-		// This has been deprecated in 2.0, and should not contain any data
-		// we actually care about migrating.
-		legacyipaddressesC,
-
 		// The SSH host keys for each machine will be reported as each
 		// machine agent starts up.
 		sshHostKeysC,

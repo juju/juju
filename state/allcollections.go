@@ -284,18 +284,6 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// These collections hold information associated with networking.
-		// TODO(dimitern): Remove the obsolete collections below once possible.
-		legacyipaddressesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"uuid"},
-			}, {
-				Key: []string{"model-uuid", "state"},
-			}, {
-				Key: []string{"model-uuid", "subnetid"},
-			}},
-		},
-		// TODO(dimitern): End of obsolete networking collections.
 		providerIDsC:          {},
 		spacesC:               {},
 		subnetsC:              {},
@@ -390,7 +378,6 @@ const (
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
-	legacyipaddressesC       = "ipaddresses"
 	leasesC                  = "leases"
 	machinesC                = "machines"
 	meterStatusC             = "meterStatus"

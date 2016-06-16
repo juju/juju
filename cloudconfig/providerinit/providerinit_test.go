@@ -210,7 +210,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	allJobs := []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
-		multiwatcher.JobManageNetworking,
 	}
 	cfg := &instancecfg.InstanceConfig{
 		MachineId:    "10",

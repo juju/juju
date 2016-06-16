@@ -9,7 +9,6 @@
 package provisioner_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -57,10 +55,6 @@ var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	// We're testing with address allocation on by default. There are
-	// separate tests to check the behavior when the flag is not
-	// enabled.
-	s.SetFeatureFlags(feature.AddressAllocation)
 
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobManageModel)
@@ -82,26 +76,6 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, apitesting.HasSecrets)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
-}
-
-func (s *provisionerSuite) TestPrepareContainerInterfaceInfoNoFeatureFlag(c *gc.C) {
-	c.Skip("dimitern: test disabled as no longer relevant in the face of removing address-allocation feature flag")
-	s.SetFeatureFlags() // clear the flag
-	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(names.NewMachineTag("42"))
-	// We'll still attempt to reserve an address, in case we're running on MAAS
-	// 1.8+ and have registered the container as a device.
-	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
-	c.Assert(ifaceInfo, gc.HasLen, 0)
-}
-
-func (s *provisionerSuite) TestReleaseContainerAddressNoFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags() // clear the flag
-	err := s.provisioner.ReleaseContainerAddresses(names.NewMachineTag("42"))
-	// We'll still attempt to release all addresses, in case we're running on
-	// MAAS 1.8+ and have registered the container as a device.
-	c.Assert(err, gc.ErrorMatches,
-		`cannot release static addresses for "42": machine 42 not found`,
-	)
 }
 
 func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
@@ -412,15 +386,12 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 2 subnets into each space.
-	// Only the first subnet of space2 has AllocatableIPLow|High set.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	testing.AddSubnetsWithTemplate(c, s.State, 4, state.SubnetInfo{
-		CIDR:              "10.{{.}}.0.0/16",
-		ProviderId:        "subnet-{{.}}",
-		AllocatableIPLow:  "{{if (eq . 2)}}10.{{.}}.0.5{{end}}",
-		AllocatableIPHigh: "{{if (eq . 2)}}10.{{.}}.254.254{{end}}",
-		AvailabilityZone:  "zone{{.}}",
-		SpaceName:         "{{if (lt . 2)}}space1{{else}}space2{{end}}",
+		CIDR:             "10.{{.}}.0.0/16",
+		ProviderId:       "subnet-{{.}}",
+		AvailabilityZone: "zone{{.}}",
+		SpaceName:        "{{if (lt . 2)}}space1{{else}}space2{{end}}",
 	})
 
 	cons := constraints.MustParse("cpu-cores=12 mem=8G spaces=^space1,space2")
@@ -569,25 +540,10 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 	return result.ManagerConfig
 }
 
-func (s *provisionerSuite) TestContainerManagerConfigKNoIPForwarding(c *gc.C) {
-	// Break dummy provider's SupportsAddressAllocation method to
-	// ensure ConfigIPForwarding is not set below.
-	s.AssertConfigParameterUpdated(c, "broken", "SupportsAddressAllocation")
-
-	cfg := s.getManagerConfig(c, instance.KVM)
-	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID: coretesting.ModelTag.Id(),
-	})
-}
-
 func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigModelUUID: coretesting.ModelTag.Id(),
-
-		// dummy provider supports both networking and address
-		// allocation by default, so IP forwarding should be enabled.
-		container.ConfigIPForwarding: "true",
 	})
 }
 
@@ -597,10 +553,6 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	cfg := s.getManagerConfig(c, "invalid")
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
 		container.ConfigModelUUID: coretesting.ModelTag.Id(),
-
-		// dummy provider supports both networking and address
-		// allocation by default, so IP forwarding should be enabled.
-		container.ConfigIPForwarding: "true",
 	})
 }
 
@@ -698,90 +650,5 @@ func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logi
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(apiList, jc.SameContents, toolsList)
-	}
-}
-
-func (s *provisionerSuite) TestPrepareContainerInterfaceInfo(c *gc.C) {
-	c.Skip("dimitern: test disabled as it needs proper fixing in the face of removing address-allocation feature flag")
-	// This test exercises just the success path, all the other cases
-	// are already tested in the apiserver package.
-	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ifaceInfo, err := s.provisioner.PrepareContainerInterfaceInfo(container.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifaceInfo, gc.HasLen, 1)
-
-	expectInfo := []network.InterfaceInfo{{
-		DeviceIndex:      0,
-		CIDR:             "0.10.0.0/24",
-		ProviderId:       "dummy-eth0",
-		ProviderSubnetId: "dummy-private",
-		VLANTag:          0,
-		InterfaceName:    "eth0",
-		InterfaceType:    "ethernet",
-		Disabled:         false,
-		NoAutoStart:      false,
-		ConfigType:       network.ConfigStatic,
-		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
-		GatewayAddress:   network.NewAddress("0.10.0.2"),
-		// Overwrite Address and MACAddress fields below with the actual ones,
-		// as they are chosen randomly.
-		Address:    network.Address{},
-		MACAddress: "",
-	}}
-	c.Assert(ifaceInfo[0].Address, gc.Not(gc.DeepEquals), network.Address{})
-	c.Assert(ifaceInfo[0].MACAddress, gc.Not(gc.DeepEquals), "")
-	expectInfo[0].Address = ifaceInfo[0].Address
-	expectInfo[0].MACAddress = ifaceInfo[0].MACAddress
-	c.Assert(ifaceInfo, jc.DeepEquals, expectInfo)
-}
-
-func (s *provisionerSuite) TestReleaseContainerAddresses(c *gc.C) {
-	// This test exercises just the success path, all the other cases
-	// are already tested in the apiserver package.
-	template := state.MachineTemplate{
-		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
-
-	// allocate some addresses to release
-	subInfo := state.SubnetInfo{
-		ProviderId:        "dummy-private",
-		CIDR:              "0.10.0.0/24",
-		VLANTag:           0,
-		AllocatableIPLow:  "0.10.0.0",
-		AllocatableIPHigh: "0.10.0.10",
-	}
-	sub, err := s.State.AddSubnet(subInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 3; i++ {
-		addr := network.NewAddress(fmt.Sprintf("0.10.0.%d", i))
-		ipaddr, err := s.State.AddIPAddress(addr, sub.ID())
-		c.Check(err, jc.ErrorIsNil)
-		err = ipaddr.AllocateTo(container.Id(), "nic42", "aa:bb:cc:dd:ee:f0")
-		c.Check(err, jc.ErrorIsNil)
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = container.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	err = container.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.provisioner.ReleaseContainerAddresses(container.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses, err := s.State.AllocatedIPAddresses(container.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.HasLen, 3)
-	for _, addr := range addresses {
-		c.Assert(addr.Life(), gc.Equals, state.Dead)
 	}
 }

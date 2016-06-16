@@ -127,7 +127,6 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
-		multiwatcher.JobManageNetworking,
 	})
 }
 
@@ -187,18 +186,6 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
-}
-
-func (s *AddMachineSuite) TestProviderDoesNotSupportJobManageNetworking(c *gc.C) {
-	s.fakeAddMachine.providerType = "maas"
-	_, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
-	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
-		multiwatcher.JobHostUnits,
-	})
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {

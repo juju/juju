@@ -6,7 +6,6 @@ package provisioner_test
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -97,7 +95,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig, false)
+	s.broker, err = provisioner.NewKvmBroker(s.api, s.agentConfig, managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -159,7 +157,6 @@ func (s *kvmBrokerSuite) maintainInstance(c *gc.C, machineId string) {
 
 func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/kvm/0"
-	s.SetFeatureFlags(feature.AddressAllocation)
 	kvm := s.startInstance(c, machineId)
 	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "ContainerConfig",
@@ -171,35 +168,7 @@ func (s *kvmBrokerSuite) TestStartInstance(c *gc.C) {
 	s.assertInstances(c, kvm)
 }
 
-func (s *kvmBrokerSuite) TestStartInstanceAddressAllocationDisabled(c *gc.C) {
-	machineId := "1/kvm/0"
-	kvm := s.startInstance(c, machineId)
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "ContainerConfig",
-	}, {
-		FuncName: "PrepareContainerInterfaceInfo",
-		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
-	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
-	s.assertInstances(c, kvm)
-}
-
-func (s *kvmBrokerSuite) TestMaintainInstance(c *gc.C) {
-	machineId := "1/kvm/0"
-	s.SetFeatureFlags(feature.AddressAllocation)
-	kvm := s.startInstance(c, machineId)
-	s.api.ResetCalls()
-
-	s.maintainInstance(c, machineId)
-	s.api.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "GetContainerInterfaceInfo",
-		Args:     []interface{}{names.NewMachineTag("1-kvm-0")},
-	}})
-	c.Assert(kvm.Id(), gc.Equals, instance.Id("juju-06f00d-1-kvm-0"))
-	s.assertInstances(c, kvm)
-}
-
-func (s *kvmBrokerSuite) TestMaintainInstanceAddressAllocationDisabled(c *gc.C) {
+func (s *kvmBrokerSuite) TestMaintainInstanceAddress(c *gc.C) {
 	machineId := "1/kvm/0"
 	kvm := s.startInstance(c, machineId)
 	s.api.ResetCalls()
@@ -252,10 +221,6 @@ func (s *kvmBrokerSuite) kvmRemovedContainerDir(inst instance.Instance) string {
 }
 
 func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	s.PatchValue(provisioner.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		return []net.Addr{&fakeAddr{"0.1.2.1/24"}}, nil
-	})
 	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
 	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -282,8 +247,7 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
 		DeviceIndex:      0,
 		CIDR:             "0.1.2.0/24",
-		ConfigType:       network.ConfigStatic,
-		InterfaceName:    "eth0", // generated from the device index.
+		InterfaceName:    "dummy0",
 		DNSServers:       network.NewAddresses("ns1.dummy"),
 		DNSSearchDomains: []string{""},
 		MACAddress:       "aa:bb:cc:dd:ee:ff",
@@ -367,7 +331,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()}
-	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig, false)
+	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
 	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)

@@ -23,11 +23,6 @@ const LogErrorStack = "log-error-stack"
 // instead of systemd for vivid and newer.
 const LegacyUpstart = "legacy-upstart"
 
-// AddressAllocation is used to indicate that LXC and KVM containers
-// on providers that support that (currently only MAAS and EC2) will
-// use statically allocated IP addresses.
-const AddressAllocation = "address-allocation"
-
 // PostNetCLIMVP is used to indicate that additional networking
 // commands will be available in addition to the networking MVP ones
 // (space list|create, subnet list|add).

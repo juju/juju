@@ -16,7 +16,6 @@ import (
 // Facades that existed before versioning start at 0.
 var facadeVersions = map[string]int{
 	"Action":                       2,
-	"Addresser":                    2,
 	"Agent":                        2,
 	"AgentTools":                   1,
 	"AllModelWatcher":              2,
