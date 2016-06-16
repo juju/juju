@@ -74,7 +74,7 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
                 print("%s not found in %s" % (release, safe_archive))
             else:
                 raise e
-        else:
+        except CalledProcessError:
             raise
     move_debs(dest_debs)
     if os.path.exists(s3_config):
