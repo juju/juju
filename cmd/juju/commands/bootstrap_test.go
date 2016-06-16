@@ -918,14 +918,9 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 		c, s.newBootstrapCommand(), "ctrl", "dummy-cloud-without-regions/my-region",
 		"--config", "default-series=precise",
 	)
-	// If the cloud doesn't have any regions defined, we still allow the
-	// user to pass a region through. This enables the manual provider to
-	// take the bootstrap-host from the region name, and later, will
-	// enable the lxd provider to take the lxd remote from the region
-	// name.
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"Creating Juju controller \"ctrl\" on dummy-cloud-without-regions/my-region(.|\n)*")
-	c.Assert(err, jc.ErrorIsNil)
+		"region \"my-region\" not found \\(expected one of \\[\\]\\)\n\n.*")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
@@ -942,10 +937,10 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentials(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/not-dummy")
-	c.Assert(err, gc.NotNil)
-	errMsg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(errMsg, gc.Matches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)alternatively, try "juju update-clouds"`)
+	ctx, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/not-dummy")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	stderr := strings.Replace(coretesting.Stderr(ctx), "\n", "", -1)
+	c.Assert(stderr, gc.Matches, `region "not-dummy" not found \(expected one of \["dummy"\]\)Specify an alternative region, or try "juju update-clouds".`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
