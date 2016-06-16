@@ -446,6 +446,9 @@ func (m *model) validateSubnets() error {
 		spaceNames.Add(space.Name())
 	}
 	for _, subnet := range m.Subnets_.Subnets_ {
+		if subnet.SpaceName() == "" {
+			continue
+		}
 		if !spaceNames.Contains(subnet.SpaceName()) {
 			return errors.Errorf("subnet %q references non-existent space %q", subnet.CIDR(), subnet.SpaceName())
 		}

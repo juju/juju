@@ -330,6 +330,7 @@ func (s *ModelSerializationSuite) TestModelSerializationWithRelations(c *gc.C) {
 func (s *ModelSerializationSuite) TestModelValidationChecksSubnets(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddSubnet(SubnetArgs{CIDR: "10.0.0.0/24", SpaceName: "foo"})
+	model.AddSubnet(SubnetArgs{CIDR: "10.0.1.0/24"})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, `subnet "10.0.0.0/24" references non-existent space "foo"`)
 	model.AddSpace(SpaceArgs{Name: "foo"})
