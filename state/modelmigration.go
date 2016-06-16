@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/mongo"
 )
 
 // This file contains functionality for managing the state documents
@@ -82,6 +83,11 @@ type ModelMigration interface {
 	// reported success or failure for the current migration phase, as
 	// well as those which are yet to report.
 	GetMinionReports() (*MinionReports, error)
+
+	// WatchMinionReports returns a notify watcher which triggers when
+	// a migration minion has reported back about the success or failure
+	// of its actions for the current migration phase.
+	WatchMinionReports() (NotifyWatcher, error)
 
 	// Refresh updates the contents of the ModelMigration from the
 	// underlying state.
@@ -353,7 +359,7 @@ func (mig *modelMigration) MinionReport(tag names.Tag, phase migration.Phase, su
 	if err != nil {
 		return errors.Trace(err)
 	}
-	docID := fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
+	docID := mig.minionReportId(phase, globalKey)
 	doc := modelMigMinionSyncDoc{
 		Id:          docID,
 		MigrationId: mig.Id(),
@@ -402,9 +408,9 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 
 	coll, closer := mig.st.getCollection(migrationsMinionSyncC)
 	defer closer()
-	query := coll.Find(bson.M{
-		"_id": bson.M{"$regex": "^" + mig.Id() + ":" + phase.String() + ":.+"},
-	})
+	query := coll.Find(bson.M{"_id": bson.M{
+		"$regex": "^" + mig.minionReportId(phase, ".+"),
+	}})
 	query = query.Select(bson.M{
 		"entity-key": 1,
 		"success":    1,
@@ -443,6 +449,27 @@ func (mig *modelMigration) GetMinionReports() (*MinionReports, error) {
 		Failed:    failed.Values(),
 		Unknown:   unknown.Values(),
 	}, nil
+}
+
+// WatchMinionReports implements ModelMigration.
+func (mig *modelMigration) WatchMinionReports() (NotifyWatcher, error) {
+	phase, err := mig.Phase()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving phase")
+	}
+	prefix := mig.minionReportId(phase, "")
+	filter := func(rawId interface{}) bool {
+		id, ok := rawId.(string)
+		if !ok {
+			return false
+		}
+		return strings.HasPrefix(id, prefix)
+	}
+	return newNotifyCollWatcher(mig.st, migrationsMinionSyncC, filter), nil
+}
+
+func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey string) string {
+	return fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
 }
 
 func (mig *modelMigration) getAllAgents() (set.Tags, error) {
@@ -624,14 +651,33 @@ func checkTargetController(st *State, targetControllerTag names.ModelTag) error 
 	return nil
 }
 
-// GetModelMigration returns the most recent ModelMigration for a
+// LatestModelMigration returns the most recent ModelMigration for a
 // model (if any).
-func (st *State) GetModelMigration() (ModelMigration, error) {
+func (st *State) LatestModelMigration() (ModelMigration, error) {
 	migColl, closer := st.getCollection(migrationsC)
 	defer closer()
-
 	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
 	query = query.Sort("-_id").Limit(1)
+	mig, err := st.modelMigrationFromQuery(query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mig, nil
+}
+
+// ModelMigration retrieves a specific ModelMigration by its
+// id. See also LatestModelMigration.
+func (st *State) ModelMigration(id string) (ModelMigration, error) {
+	migColl, closer := st.getCollection(migrationsC)
+	defer closer()
+	mig, err := st.modelMigrationFromQuery(migColl.FindId(id))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mig, nil
+}
+
+func (st *State) modelMigrationFromQuery(query mongo.Query) (ModelMigration, error) {
 	var doc modelMigDoc
 	err := query.One(&doc)
 	if err == mgo.ErrNotFound {
@@ -644,8 +690,10 @@ func (st *State) GetModelMigration() (ModelMigration, error) {
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err = statusColl.FindId(doc.Id).One(&statusDoc)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to find status document")
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("migration status")
+	} else if err != nil {
+		return nil, errors.Annotate(err, "migration status lookup failed")
 	}
 
 	return &modelMigration{
