@@ -623,6 +623,8 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		SpaceName:        "bam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
 	defer func() {

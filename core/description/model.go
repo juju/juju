@@ -4,7 +4,9 @@
 package description
 
 import (
+	"net"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -68,6 +70,33 @@ func Deserialize(bytes []byte) (Model, error) {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
+}
+
+// parseLinkLayerDeviceGlobalKey is used to validate that the parent device
+// referenced by a LinkLayerDevice exists. Copied from state to avoid exporting
+// and will be replaced by device.ParentMachineID() at some point.
+func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
+	if !strings.Contains(globalKey, "#") {
+		// Can't be a global key.
+		return "", "", false
+	}
+	keyParts := strings.Split(globalKey, "#")
+	if len(keyParts) != 4 || (keyParts[0] != "m" && keyParts[2] != "d") {
+		// Invalid global key format.
+		return "", "", true
+	}
+	machineID, deviceName = keyParts[1], keyParts[3]
+	return machineID, deviceName, true
+}
+
+// parentId returns the id of the host machine if machineId a container id, or ""
+// if machineId is not for a container.
+func parentId(machineId string) string {
+	idParts := strings.Split(machineId, "/")
+	if len(idParts) < 3 {
+		return ""
+	}
+	return strings.Join(idParts[:len(idParts)-2], "/")
 }
 
 type model struct {
@@ -392,7 +421,112 @@ func (m *model) Validate() error {
 		return errors.Errorf("unknown unit names in open ports: %s", unknownUnitsWithPorts.SortedValues())
 	}
 
-	return m.validateRelations()
+	err := m.validateRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateSubnets()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = m.validateLinkLayerDevices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// validateSubnets makes sure that any spaces referenced by subnets exist.
+func (m *model) validateSubnets() error {
+	spaceNames := set.NewStrings()
+	for _, space := range m.Spaces_.Spaces_ {
+		spaceNames.Add(space.Name())
+	}
+	for _, subnet := range m.Subnets_.Subnets_ {
+		if subnet.SpaceName() == "" {
+			continue
+		}
+		if !spaceNames.Contains(subnet.SpaceName()) {
+			return errors.Errorf("subnet %q references non-existent space %q", subnet.CIDR(), subnet.SpaceName())
+		}
+	}
+
+	return nil
+}
+
+func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
+	machineIDs[machine.Id()] = machine
+	for _, container := range machine.Containers() {
+		addMachinesToMap(container, machineIDs)
+	}
+}
+
+// validateLinkLayerDevices makes sure that any machines referenced by link
+// layer devices exist.
+func (m *model) validateLinkLayerDevices() error {
+	machineIDs := make(map[string]Machine)
+	for _, machine := range m.Machines_.Machines_ {
+		addMachinesToMap(machine, machineIDs)
+	}
+
+	// Build a map of all devices for each machine, in order to validate
+	// parents.
+	machineDevices := make(map[string]map[string]LinkLayerDevice)
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		_, ok := machineDevices[device.MachineID()]
+		if !ok {
+			machineDevices[device.MachineID()] = make(map[string]LinkLayerDevice)
+		}
+		machineDevices[device.MachineID()][device.Name()] = device
+	}
+
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		machine, ok := machineIDs[device.MachineID()]
+		if !ok {
+			return errors.Errorf("device %q references non-existent machine %q", device.Name(), device.MachineID())
+		}
+		if device.Name() == "" {
+			return errors.Errorf("device has empty name: %#v", device)
+		}
+		if device.MACAddress() != "" {
+			if _, err := net.ParseMAC(device.MACAddress()); err != nil {
+				return errors.Errorf("device %q has invalid MACAddress %q", device.Name(), device.MACAddress())
+			}
+		}
+		if device.ParentName() == "" {
+			continue
+		}
+		hostMachineID, parentDeviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(device.ParentName())
+		if !canBeGlobalKey {
+			hostMachineID = device.MachineID()
+			parentDeviceName = device.ParentName()
+		}
+		parentDevice, ok := machineDevices[hostMachineID][parentDeviceName]
+		if !ok {
+			return errors.Errorf("device %q has non-existent parent %q", device.Name(), parentDeviceName)
+		}
+		if !canBeGlobalKey {
+			if device.Name() == parentDeviceName {
+				return errors.Errorf("device %q is its own parent", device.Name())
+			}
+			continue
+		}
+		// The device is on a container.
+		if parentDevice.Type() != "bridge" {
+			return errors.Errorf("device %q on a container but not a bridge", device.Name())
+		}
+		parentId := parentId(machine.Id())
+		if parentId == "" {
+			return errors.Errorf("ParentName %q for non-container machine %q", device.ParentName(), machine.Id())
+		}
+		if parentDevice.MachineID() != parentId {
+			return errors.Errorf("parent machine of device %q not host machine %q", device.Name(), parentId)
+		}
+	}
+	return nil
 }
 
 // validateRelations makes sure that for each endpoint in each relation there
