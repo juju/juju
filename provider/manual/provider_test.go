@@ -47,14 +47,8 @@ func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
 	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "public auth key\n", ctx.GetStdin(), ctx.GetStdout())
 }
 
-func (s *providerSuite) TestPrepareForBootstrapCloudRegionOnly(c *gc.C) {
-	ctx, err := s.testPrepareForBootstrap(c, "", "region")
-	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "region", "", "public auth key\n", ctx.GetStdin(), ctx.GetStdout())
-}
-
-func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpointOrRegion(c *gc.C) {
-	_, err := s.testPrepareForBootstrap(c, "", "")
+func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {
+	_, err := s.testPrepareForBootstrap(c, "", "region")
 	c.Assert(err, gc.ErrorMatches,
 		`missing address of host to bootstrap: please specify "juju bootstrap manual/<host>"`)
 }

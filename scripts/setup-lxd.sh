@@ -1,4 +1,6 @@
 #!/bin/sh
+# Copyright 2016 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
 set -ex
 
 # Do the manual steps a user has to run on a fresh system to get an lxd

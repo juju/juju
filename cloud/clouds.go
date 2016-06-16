@@ -173,7 +173,18 @@ func RegionByName(regions []Region, name string) (*Region, error) {
 		}
 		return &region, nil
 	}
-	return nil, errors.NotFoundf("region %q", name)
+	return nil, errors.NewNotFound(nil, fmt.Sprintf(
+		"region %q not found (expected one of %q)",
+		name, cloudRegionNames(regions),
+	))
+}
+
+func cloudRegionNames(regions []Region) []string {
+	names := make([]string, len(regions))
+	for i, region := range regions {
+		names[i] = region.Name
+	}
+	return names
 }
 
 // JujuPublicCloudsPath is the location where public cloud information is

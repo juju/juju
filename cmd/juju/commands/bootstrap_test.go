@@ -918,14 +918,9 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 		c, s.newBootstrapCommand(), "ctrl", "dummy-cloud-without-regions/my-region",
 		"--config", "default-series=precise",
 	)
-	// If the cloud doesn't have any regions defined, we still allow the
-	// user to pass a region through. This enables the manual provider to
-	// take the bootstrap-host from the region name, and later, will
-	// enable the lxd provider to take the lxd remote from the region
-	// name.
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"Creating Juju controller \"ctrl\" on dummy-cloud-without-regions/my-region(.|\n)*")
-	c.Assert(err, jc.ErrorIsNil)
+		"region \"my-region\" not found \\(expected one of \\[\\]\\)\n\n.*")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
@@ -940,12 +935,53 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ambiguousCredentialError.Error())
 }
 
-func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/not-dummy")
-	c.Assert(err, gc.NotNil)
-	errMsg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(errMsg, gc.Matches, `region "not-dummy" in cloud "dummy" not found \(expected one of \["dummy"\]\)alternatively, try "juju update-clouds"`)
+	ctx, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy/not-dummy")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	stderr := strings.Replace(coretesting.Stderr(ctx), "\n", "", -1)
+	c.Assert(stderr, gc.Matches, `region "not-dummy" not found \(expected one of \["dummy"\]\)Specify an alternative region, or try "juju update-clouds".`)
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrap fakeBootstrapFuncs
+	bootstrap.cloudRegionDetector = cloudRegionDetectorFunc(func() ([]cloud.Region, error) {
+		return []cloud.Region{{Name: "bruce", Endpoint: "endpoint"}}, nil
+	})
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
+	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "bruce")
+	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		Regions:   []cloud.Region{{Name: "bruce", Endpoint: "endpoint"}},
+	})
+}
+
+func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrap fakeBootstrapFuncs
+	bootstrap.cloudRegionDetector = cloudRegionDetectorFunc(func() ([]cloud.Region, error) {
+		return nil, errors.NotFoundf("regions")
+	})
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl", "dummy")
+	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
+	c.Assert(bootstrap.args.Cloud, jc.DeepEquals, cloud.Cloud{
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+	})
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
@@ -1196,12 +1232,23 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 // test scenarios. This could help improve some of the tests in this
 // file which execute large amounts of external functionality.
 type fakeBootstrapFuncs struct {
-	args bootstrap.BootstrapParams
+	args                bootstrap.BootstrapParams
+	cloudRegionDetector environs.CloudRegionDetector
 }
 
 func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	fake.args = args
 	return nil
+}
+
+func (fake *fakeBootstrapFuncs) CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
+	detector := fake.cloudRegionDetector
+	if detector == nil {
+		detector = cloudRegionDetectorFunc(func() ([]cloud.Region, error) {
+			return nil, errors.NotFoundf("regions")
+		})
+	}
+	return detector, true
 }
 
 type noCloudRegionDetectionProvider struct {
@@ -1216,6 +1263,10 @@ func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
 }
 
+func (noCloudRegionsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return nil
+}
+
 type noCredentialsProvider struct {
 	environs.EnvironProvider
 }
@@ -1226,6 +1277,10 @@ func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 
 func (noCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return nil, errors.NotFoundf("credentials")
+}
+
+func (noCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return nil
 }
 
 type manyCredentialsProvider struct {
@@ -1242,4 +1297,14 @@ func (manyCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, erro
 			"one": {}, "two": {},
 		},
 	}, nil
+}
+
+func (manyCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{"one": {}, "two": {}}
+}
+
+type cloudRegionDetectorFunc func() ([]cloud.Region, error)
+
+func (c cloudRegionDetectorFunc) DetectRegions() ([]cloud.Region, error) {
+	return c()
 }

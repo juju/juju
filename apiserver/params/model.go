@@ -12,25 +12,25 @@ import (
 // ModelConfigResults contains the result of client API calls
 // to get model config values.
 type ModelConfigResults struct {
-	Config map[string]interface{} `json:"config"`
+	Config map[string]interface{}
 }
 
 // ModelSet contains the arguments for ModelSet client API
 // call.
 type ModelSet struct {
-	Config map[string]interface{} `json:"config"`
+	Config map[string]interface{}
 }
 
 // ModelUnset contains the arguments for ModelUnset client API
 // call.
 type ModelUnset struct {
-	Keys []string `json:"keys"`
+	Keys []string
 }
 
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
-	Version version.Number `json:"version"`
+	Version version.Number
 }
 
 // ModelInfo holds information about the Juju model.
@@ -38,28 +38,28 @@ type ModelInfo struct {
 	// The json names for the fields below are as per the older
 	// field names for backward compatability. New fields are
 	// camel-cased for consistency within this type only.
-	Name           string `json:"name"`
-	UUID           string `json:"uuid"`
-	ControllerUUID string `json:"controller-uuid"`
-	ProviderType   string `json:"provider-type"`
-	DefaultSeries  string `json:"default-series"`
-	CloudRegion    string `json:"cloud-region,omitempty"`
+	Name           string `json:"Name"`
+	UUID           string `json:"UUID"`
+	ControllerUUID string `json:"ServerUUID"`
+	ProviderType   string `json:"ProviderType"`
+	DefaultSeries  string `json:"DefaultSeries"`
+	CloudRegion    string `json:"CloudRegion,omitempty"`
 	// TODO(axw) make sure we're setting this everywhere
-	CloudCredential string `json:"cloud-credential,omitempty"`
+	CloudCredential string `json:"CloudCredential,omitempty"`
 
 	// OwnerTag is the tag of the user that owns the model.
-	OwnerTag string `json:"owner-tag"`
+	OwnerTag string `json:"OwnerTag"`
 
 	// Life is the current lifecycle state of the model.
-	Life Life `json:"life"`
+	Life Life `json:"Life"`
 
 	// Status is the current status of the model.
-	Status EntityStatus `json:"status"`
+	Status EntityStatus `json:"Status"`
 
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users
 	// that have access; other users can only see their own details.
-	Users []ModelUserInfo `json:"users"`
+	Users []ModelUserInfo `json:"Users"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.
@@ -96,8 +96,8 @@ type ModelInfoListResults struct {
 // who have access, so it should not include sensitive information.
 type ModelUserInfo struct {
 	UserName       string                `json:"user"`
-	DisplayName    string                `json:"display-name"`
-	LastConnection *time.Time            `json:"last-connection"`
+	DisplayName    string                `json:"displayname"`
+	LastConnection *time.Time            `json:"lastconnection"`
 	Access         ModelAccessPermission `json:"access"`
 }
 
