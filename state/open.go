@@ -158,6 +158,8 @@ func (p InitializeParams) Validate() error {
 	if p.Cloud.Type == "" {
 		return errors.NotValidf("empty Cloud")
 	}
+	// TODO(wallyworld) - TODO check that the cloud has a non-empty list of auth types
+	//
 	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
 		return errors.Annotate(err, "validating controller model cloud region")
 	}
