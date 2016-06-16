@@ -854,10 +854,6 @@ var addNetworkInterfaceErrorsTests = []struct {
 	nil,
 	`cannot add network interface "eth1" to machine "2": invalid MAC address.*`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false, false},
-	nil,
-	`cannot add network interface "eth1" to machine "2": MAC address "aa:bb:cc:dd:ee:f0" on network "net1" already exists`,
-}, {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false, false},
 	nil,
 	`cannot add network interface "" to machine "2": interface name must be not empty`,
