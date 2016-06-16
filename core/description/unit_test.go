@@ -30,14 +30,15 @@ func (s *UnitSerializationSuite) SetUpTest(c *gc.C) {
 
 func minimalUnitMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"name":                    "ubuntu/0",
-		"machine":                 "0",
-		"agent-status":            minimalStatusMap(),
-		"agent-status-history":    emptyStatusHistoryMap(),
-		"workload-status":         minimalStatusMap(),
-		"workload-status-history": emptyStatusHistoryMap(),
-		"password-hash":           "secure-hash",
-		"tools":                   minimalAgentToolsMap(),
+		"name":                     "ubuntu/0",
+		"machine":                  "0",
+		"agent-status":             minimalStatusMap(),
+		"agent-status-history":     emptyStatusHistoryMap(),
+		"workload-status":          minimalStatusMap(),
+		"workload-status-history":  emptyStatusHistoryMap(),
+		"workload-version-history": emptyStatusHistoryMap(),
+		"password-hash":            "secure-hash",
+		"tools":                    minimalAgentToolsMap(),
 	}
 }
 
@@ -59,7 +60,7 @@ func minimalUnitArgs() UnitArgs {
 
 func (s *UnitSerializationSuite) completeUnit() *unit {
 	// This unit is about completeness, not reasonableness. That is why the
-	// unit has a principle (normally only for subordinates), and also a list
+	// unit has a principal (normally only for subordinates), and also a list
 	// of subordinates.
 	args := UnitArgs{
 		Tag:          names.NewUnitTag("ubuntu/0"),
