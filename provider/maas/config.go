@@ -108,6 +108,10 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
 		providerDefaults[config.StorageDefaultBlockSourceKey] = maasStorageProviderType
 	}
+
+	// MAAS bootstrap timeout default should be marginally longer than commonly specified provider default.
+	providerDefaults["bootstrap-timeout"] = minBootstrapTimeout
+
 	if len(providerDefaults) > 0 {
 		if cfg, err = cfg.Apply(providerDefaults); err != nil {
 			return nil, err
@@ -141,9 +145,6 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if strings.Count(oauth, ":") != 2 {
 		return nil, errMalformedMaasOAuth
 	}
-
-	// MAAS bootstrap needs more time to complete.
-	envCfg.attrs["bootstrap-timeout"] = minBootstrapTimeout
 
 	return cfg.Apply(envCfg.attrs)
 }
