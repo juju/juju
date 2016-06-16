@@ -175,7 +175,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environs.Destroy(c.ControllerName(), controllerEnviron, store)
+		return environs.Destroy(c.ControllerName(), controllerDetails.ControllerUUID, controllerEnviron, store)
 	}
 }
 

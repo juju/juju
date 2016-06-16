@@ -78,7 +78,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances() ([]instance.Id, error) {
+func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	prefix := env.namespace.Prefix()
 	instances, err := env.client.Instances(prefix)
 	if err != nil {

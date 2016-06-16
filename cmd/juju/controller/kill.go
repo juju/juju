@@ -115,19 +115,20 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
+	controllerUUID := controllerDetails.ControllerUUID
 
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server. Destroying through provider.")
-		return environs.Destroy(controllerName, controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerUUID, controllerEnviron, store)
 	}
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
-		return environs.Destroy(controllerName, controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerUUID, controllerEnviron, store)
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
@@ -142,5 +143,5 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 
-	return environs.Destroy(controllerName, controllerEnviron, store)
+	return environs.Destroy(controllerName, controllerUUID, controllerEnviron, store)
 }

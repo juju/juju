@@ -202,7 +202,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
+func (env *maasEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
 }
 
@@ -2111,6 +2111,11 @@ func (environ *maasEnviron) Destroy() error {
 		return errors.Trace(err)
 	}
 	return environ.Storage().RemoveAll()
+}
+
+// DestroyController implements the Environ interface.
+func (environ *maasEnviron) DestroyController(controllerUUID string) error {
+	return environ.Destroy()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

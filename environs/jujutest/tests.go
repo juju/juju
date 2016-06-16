@@ -32,10 +32,11 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	TestConfig    coretesting.Attrs
-	Credential    cloud.Credential
-	CloudEndpoint string
-	CloudRegion   string
+	TestConfig     coretesting.Attrs
+	Credential     cloud.Credential
+	CloudEndpoint  string
+	CloudRegion    string
+	ControllerUUID string
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
 
@@ -106,6 +107,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclienttesting.NewMemStore()
+	t.ControllerUUID = coretesting.ModelTag.Id()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -125,7 +127,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc := testing.AssertStartInstance(c, e, "0")
+	inst0, hc := testing.AssertStartInstance(c, e, t.ControllerUUID, "0")
 	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -133,7 +135,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _ := testing.AssertStartInstance(c, e, "1")
+	inst1, _ := testing.AssertStartInstance(c, e, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
@@ -177,7 +179,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	args := bootstrap.BootstrapParams{
-		CloudName: t.TestConfig["type"].(string),
+		ControllerUUID: t.ControllerUUID,
+		CloudName:      t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
 			AuthTypes: []cloud.AuthType{credential.AuthType()},
@@ -193,17 +196,17 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerInstances, err := e.ControllerInstances()
+	controllerInstances, err := e.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
 	e2 := t.Open(c, e.Config())
-	controllerInstances2, err := e2.ControllerInstances()
+	controllerInstances2, err := e2.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
 	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2.Config().Name(), e2, t.ControllerStore)
+	err = environs.Destroy(e2.Config().Name(), t.ControllerUUID, e2, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
@@ -212,6 +215,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy(e3.Config().Name(), e3, t.ControllerStore)
+	err = environs.Destroy(e3.Config().Name(), t.ControllerUUID, e3, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 }

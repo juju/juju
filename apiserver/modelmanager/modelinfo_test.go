@@ -240,6 +240,13 @@ func (st *mockState) ControllerModel() (modelmanager.Model, error) {
 	return st.controllerModel, st.NextErr()
 }
 
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	st.MethodCall(st, "ControllerConfig")
+	return controller.Config{
+		controller.ControllerUUIDKey: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}, st.NextErr()
+}
+
 func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) {
 	st.MethodCall(st, "ForModel", tag)
 	return st, st.NextErr()
@@ -258,15 +265,6 @@ func (st *mockState) Cloud() (cloud.Cloud, error) {
 func (st *mockState) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
 	st.MethodCall(st, "CloudCredentials", user)
 	return st.creds, st.NextErr()
-}
-
-func (st *mockState) ControllerConfig() (controller.Config, error) {
-	st.MethodCall(st, "ControllerConfig")
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
-		controller.CACertKey:         coretesting.CACert,
-		controller.CAPrivateKey:      coretesting.CAKey,
-	}, st.NextErr()
 }
 
 func (st *mockState) Close() error {

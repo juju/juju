@@ -406,6 +406,9 @@ func resourceName(tag names.Tag, envName string) string {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	var inst *ec2Instance
 	defer func() {
 		if resultErr == nil || inst == nil {
@@ -492,7 +495,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	} else {
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
-	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, apiPort)
+	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -602,7 +605,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewModelTag(cfg.ControllerUUID()),
+			names.NewModelTag(args.ControllerUUID),
 			cfg,
 		)
 		tags[tagName] = instanceName + "-root"
@@ -1094,15 +1097,6 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
-func getTagByKey(key string, ec2Tags []ec2.Tag) (string, bool) {
-	for _, tag := range ec2Tags {
-		if tag.Key == key {
-			return tag.Value, true
-		}
-	}
-	return "", false
-}
-
 // AllInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return e.AllInstancesByState("pending", "running")
@@ -1146,11 +1140,11 @@ func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, er
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (e *environ) ControllerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
-	e.addModelFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	ids, err := e.allInstanceIDs(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1166,10 +1160,10 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 //
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
-func (e *environ) allControllerManagedInstances() ([]instance.Id, error) {
+func (e *environ) allControllerManagedInstances(controllerUUID string) ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
-	e.addControllerFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	return e.allInstanceIDs(filter)
 }
 
@@ -1203,15 +1197,6 @@ func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) 
 
 // Destroy is part of the environs.Environ interface.
 func (e *environ) Destroy() error {
-	cfg := e.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// In case any hosted environment hasn't been cleaned up yet,
-		// we also attempt to delete their resources when the controller
-		// environment is destroyed.
-		if err := e.destroyControllerManagedEnvirons(); err != nil {
-			return errors.Annotate(err, "destroying managed environs")
-		}
-	}
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
 	}
@@ -1221,12 +1206,23 @@ func (e *environ) Destroy() error {
 	return nil
 }
 
+// DestroyController implements the Environ interface.
+func (e *environ) DestroyController(controllerUUID string) error {
+	// In case any hosted environment hasn't been cleaned up yet,
+	// we also attempt to delete their resources when the controller
+	// environment is destroyed.
+	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed environs")
+	}
+	return e.Destroy()
+}
+
 // destroyControllerManagedEnvirons destroys all environments managed by this
 // environment's controller.
-func (e *environ) destroyControllerManagedEnvirons() error {
+func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error {
 
 	// Terminate all instances managed by the controller.
-	instIds, err := e.allControllerManagedInstances()
+	instIds, err := e.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
@@ -1235,7 +1231,7 @@ func (e *environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Delete all volumes managed by the controller.
-	volIds, err := e.allControllerManagedVolumes()
+	volIds, err := e.allControllerManagedVolumes(controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
@@ -1248,7 +1244,7 @@ func (e *environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Delete security groups managed by the controller.
-	groups, err := e.controllerSecurityGroups()
+	groups, err := e.controllerSecurityGroups(controllerUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1263,9 +1259,9 @@ func (e *environ) destroyControllerManagedEnvirons() error {
 	return nil
 }
 
-func (e *environ) allControllerManagedVolumes() ([]string, error) {
+func (e *environ) allControllerManagedVolumes(controllerUUID string) ([]string, error) {
 	filter := ec2.NewFilter()
-	e.addControllerFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	return listVolumes(e.ec2(), filter)
 }
 
@@ -1415,9 +1411,9 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 
 // controllerSecurityGroups returns the details of all security groups managed
 // by the environment's controller.
-func (e *environ) controllerSecurityGroups() ([]ec2.SecurityGroup, error) {
+func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.SecurityGroup, error) {
 	filter := ec2.NewFilter()
-	e.addControllerFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	resp, err := e.ec2().SecurityGroups(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing security groups")
@@ -1581,8 +1577,8 @@ func (e *environ) addModelFilter(f *ec2.Filter) {
 	f.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.uuid())
 }
 
-func (e *environ) addControllerFilter(f *ec2.Filter) {
-	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), e.Config().ControllerUUID())
+func (e *environ) addControllerFilter(f *ec2.Filter, controllerUUID string) {
+	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
 }
 
 func (e *environ) uuid() string {
@@ -1608,10 +1604,10 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(controllerUUID, machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
 
 	// Ensure there's a global group for Juju-related traffic.
-	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(),
 		[]ec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  22,
@@ -1643,9 +1639,9 @@ func (e *environ) setUpGroups(machineId string, apiPort int) ([]ec2.SecurityGrou
 	var machineGroup ec2.SecurityGroup
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+		machineGroup, err = e.ensureGroup(controllerUUID, e.machineGroupName(machineId), nil)
 	case config.FwGlobal:
-		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+		machineGroup, err = e.ensureGroup(controllerUUID, e.globalGroupName(), nil)
 	}
 	if err != nil {
 		return nil, err
@@ -1680,7 +1676,7 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
-func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
 	chosenVPCID := e.ecfg().vpcID()
 	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
@@ -1703,7 +1699,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewModelTag(cfg.ControllerUUID()),
+			names.NewModelTag(controllerUUID),
 			cfg,
 		)
 		if err := tagResources(ec2inst, tags, g.Id); err != nil {

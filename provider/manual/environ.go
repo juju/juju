@@ -122,7 +122,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (e *manualEnviron) ControllerInstances() ([]instance.Id, error) {
+func (e *manualEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	arg0 := filepath.Base(os.Args[0])
 	if arg0 != names.Jujud {
 		// Not running inside the controller, so we must
@@ -242,6 +242,11 @@ exit 0
 		[]string{"sudo", "/bin/bash"}, script,
 	)
 	return err
+}
+
+// DestroyController implements the Environ interface.
+func (e *manualEnviron) DestroyController(controllerUUID string) error {
+	return e.Destroy()
 }
 
 func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -37,6 +38,7 @@ const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabili
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
+	controllerUUID string
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
@@ -138,6 +140,7 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	}
 	testAttrs["maas-server"] = suite.testMAASObject.TestServer.URL
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	suite.controllerUUID = controller.Config(attrs).ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)

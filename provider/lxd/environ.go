@@ -154,7 +154,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
-func (env *environ) Destroy() error {
+func (env *environ) destroy(allResources bool) error {
 	ports, err := env.Ports()
 	if err != nil {
 		return errors.Trace(err)
@@ -164,8 +164,7 @@ func (env *environ) Destroy() error {
 			return errors.Trace(err)
 		}
 	}
-	cfg := env.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
+	if allResources {
 		// This is the controller model, so we'll make sure
 		// there are no resources for hosted models remaining.
 		if err := env.destroyHostedModelResources(); err != nil {
@@ -176,6 +175,17 @@ func (env *environ) Destroy() error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// Destroy shuts down all known machines and destroys the rest of the
+// known environment.
+func (env *environ) Destroy() error {
+	return env.destroy(false)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	return env.destroy(true)
 }
 
 func (env *environ) destroyHostedModelResources() error {

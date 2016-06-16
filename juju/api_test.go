@@ -104,7 +104,8 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ControllerUUID: "uuid",
+		CloudName:      "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},

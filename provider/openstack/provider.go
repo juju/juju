@@ -573,9 +573,9 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *Environ) ControllerInstances() ([]instance.Id, error) {
+func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
-	instances, err := e.AllInstances()
+	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -867,6 +867,9 @@ func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -970,7 +973,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
 	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, apiPort)
+	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -1213,32 +1216,31 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
 	filter := e.machinesFilter()
-	allInstances, err := e.allControllerManagedInstances(filter, e.ecfg().useFloatingIP())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUUID := e.Config().UUID()
-	matching := make([]instance.Instance, 0, len(allInstances))
-	for _, inst := range allInstances {
-		if inst.(*openstackInstance).serverDetail.Metadata[tags.JujuModel] != modelUUID {
-			continue
-		}
-		matching = append(matching, inst)
-	}
-	return matching, nil
+	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
+	return e.allInstances(filter, tagFilter, e.ecfg().useFloatingIP())
 }
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allControllerManagedInstances(filter *nova.Filter, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+func (e *Environ) allControllerManagedInstances(controllerUUID string, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	tagFilter := tagValue{tags.JujuController, controllerUUID}
+	return e.allInstances(nil, tagFilter, updateFloatingIPAddresses)
+}
+
+type tagValue struct {
+	tag, value string
+}
+
+// allControllerManagedInstances returns all instances managed by this
+// environment's controller, matching the optionally specified filter.
+func (e *Environ) allInstances(filter *nova.Filter, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
 	servers, err := e.nova().ListServersDetail(filter)
 	if err != nil {
 		return nil, err
 	}
 	instsById := make(map[string]instance.Instance)
-	controllerUUID := e.Config().ControllerUUID()
 	for _, server := range servers {
-		if server.Metadata[tags.JujuController] != controllerUUID {
+		if server.Metadata[tagFilter.tag] != tagFilter.value {
 			continue
 		}
 		if e.isAliveServer(server) {
@@ -1264,24 +1266,29 @@ func (e *Environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg := e.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// In case any hosted environment hasn't been cleaned up yet,
-		// we also attempt to delete their resources when the controller
-		// environment is destroyed.
-		if err := e.destroyControllerManagedEnvirons(); err != nil {
-			return errors.Annotate(err, "destroying managed environs")
-		}
-	}
 	// Delete all security groups remaining in the model.
-	return e.firewaller.DeleteAllGroups()
+	return e.firewaller.DeleteAllModelGroups()
+}
+
+// DestroyController implements the Environ interface.
+func (e *Environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return errors.Annotate(err, "destroying controller model")
+	}
+	// In case any hosted environment hasn't been cleaned up yet,
+	// we also attempt to delete their resources when the controller
+	// environment is destroyed.
+	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed models")
+	}
+	return e.firewaller.DeleteAllControllerGroups(controllerUUID)
 }
 
 // destroyControllerManagedEnvirons destroys all environments managed by this
-// environment's controller.
-func (e *Environ) destroyControllerManagedEnvirons() error {
+// models's controller.
+func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error {
 	// Terminate all instances managed by the controller.
-	insts, err := e.allControllerManagedInstances(nil, false)
+	insts, err := e.allControllerManagedInstances(controllerUUID, false)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
@@ -1297,7 +1304,7 @@ func (e *Environ) destroyControllerManagedEnvirons() error {
 	cfg := e.Config()
 	storageAdapter, err := newOpenstackStorageAdapter(cfg)
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(storageAdapter, cfg.ControllerUUID())
+		volIds, err := allControllerManagedVolumes(storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
@@ -1313,7 +1320,7 @@ func (e *Environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Security groups for hosted models are destroyed by the
-	// DeleteAllGroups method call from Destroy().
+	// DeleteAllControllerGroups method call from Destroy().
 	return nil
 }
 

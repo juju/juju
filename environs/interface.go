@@ -212,11 +212,11 @@ type Environ interface {
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
 	// ControllerInstances returns the IDs of instances corresponding
-	// to Juju controllers. If there are no controller instances,
-	// ErrNoInstances is returned. If it can be determined that the
-	// environment has not been bootstrapped, then ErrNotBootstrapped
-	// should be returned instead.
-	ControllerInstances() ([]instance.Id, error)
+	// to Juju controller, having the specified controller UUID.
+	// If there are no controller instances, ErrNoInstances is returned.
+	// If it can be determined that the environment has not been bootstrapped,
+	// then ErrNotBootstrapped should be returned instead.
+	ControllerInstances(controllerUUID string) ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,
@@ -231,6 +231,15 @@ type Environ interface {
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid.
 	Destroy() error
+
+	// DestroyController is similar to Destroy() in that it destroys
+	// the model, which in this case will be the controller model.
+	//
+	// In addition, this method also destroy any resources relating
+	// to hosted models on the controller on which it is invoked.
+	// This ensures that "kill-controller" can clean up hosted models
+	// when the Juju controller process is unavailable.
+	DestroyController(controllerUUID string) error
 
 	Firewaller
 

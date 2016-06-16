@@ -57,13 +57,13 @@ func (s *destroyModelSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 func (s *destroyModelSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
 	m0, err := s.State.AddMachine("precise", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
+	inst, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerUUID, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ = testing.AssertStartInstance(c, s.Environ, m1.Id())
+	inst, _ = testing.AssertStartInstance(c, s.Environ, s.ControllerUUID, m1.Id())
 	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 

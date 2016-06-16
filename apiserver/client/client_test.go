@@ -464,14 +464,12 @@ func (s *clientSuite) TestClientModelInfo(c *gc.C) {
 	conf, _ := s.State.ModelConfig()
 	info, err := s.APIState.Client().ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
-	c.Assert(info.UUID, gc.Equals, env.UUID())
-	c.Assert(info.ControllerUUID, gc.Equals, env.ControllerUUID())
+	c.Assert(info.UUID, gc.Equals, model.UUID())
+	c.Assert(info.ControllerUUID, gc.Equals, model.ControllerUUID())
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {

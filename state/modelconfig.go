@@ -13,10 +13,6 @@ import (
 // ModelConfig returns the complete config for the model represented
 // by this state.
 func (st *State) ModelConfig() (*config.Config, error) {
-	controllerSettings, err := readSettings(st, controllersC, controllerSettingsGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	defaultModelSettings, err := readSettings(st, controllersC, defaultModelSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -31,9 +27,6 @@ func (st *State) ModelConfig() (*config.Config, error) {
 	for k, v := range modelSettings.Map() {
 		attrs[k] = v
 	}
-
-	// We also need to add controller UUID.
-	attrs[controller.ControllerUUIDKey] = controllerSettings.Map()[controller.ControllerUUIDKey]
 
 	return config.New(config.NoDefaults, attrs)
 }

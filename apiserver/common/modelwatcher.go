@@ -82,14 +82,3 @@ func (m *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
 	result.Config = allAttrs
 	return result, nil
 }
-
-// ControllerConfig returns the controller's configuration.
-func (m *ModelWatcher) ControllerConfig() (params.ControllerConfigResult, error) {
-	result := params.ControllerConfigResult{}
-	config, err := m.st.ControllerConfig()
-	if err != nil {
-		return result, err
-	}
-	result.Config = params.ControllerConfig(config)
-	return result, nil
-}

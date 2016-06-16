@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -110,6 +111,10 @@ func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) Prefix() string {
 	return s.Env.namespace.Prefix()
+}
+
+func (s *BaseSuiteUnpatched) ControllerUUID() string {
+	return controller.Config(s.Config.AllAttrs()).ControllerUUID()
 }
 
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {

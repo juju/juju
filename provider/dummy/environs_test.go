@@ -131,7 +131,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ControllerUUID: s.ControllerUUID,
+		CloudName:      "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -148,7 +149,7 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, hwc := jujutesting.AssertStartInstance(c, e, "0")
+	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	c.Check(hwc.AvailabilityZone, gc.IsNil)
 }
@@ -257,7 +258,7 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	subnetId := network.Id("net1")
 
@@ -296,7 +297,7 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	subnetId := network.Id("net1")
 

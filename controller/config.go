@@ -74,11 +74,6 @@ func ControllerConfig(cfg map[string]interface{}) Config {
 // RemoveControllerAttributes removes any controller attributes from attrs.
 func RemoveControllerAttributes(attrs map[string]interface{}) {
 	for _, attr := range ControllerOnlyConfigAttributes {
-		// TODO(wallyworld) - we need to keep controller uuid in model config for now
-		// but want to remove it
-		if attr == ControllerUUIDKey {
-			continue
-		}
 		delete(attrs, attr)
 	}
 }
@@ -254,7 +249,7 @@ func Validate(c Config) error {
 		}
 	}
 
-	if uuid := c.ControllerUUID(); !utils.IsValidUUIDString(uuid) {
+	if uuid, ok := c[ControllerUUIDKey].(string); ok && !utils.IsValidUUIDString(uuid) {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 

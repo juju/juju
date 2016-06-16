@@ -70,7 +70,9 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.FakeCommon.BSFinalizer = finalizer
 
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerUUID: s.ControllerUUID(),
+	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -82,7 +84,9 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerUUID: s.ControllerUUID(),
+	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 

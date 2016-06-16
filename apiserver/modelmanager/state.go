@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -26,6 +27,7 @@ type Backend interface {
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, Backend, error)
 	ControllerModel() (Model, error)
+	ControllerConfig() (controller.Config, error)
 	ForModel(tag names.ModelTag) (Backend, error)
 	Model() (Model, error)
 	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)

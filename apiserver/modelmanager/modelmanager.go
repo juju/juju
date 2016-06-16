@@ -51,7 +51,7 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
-func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
+func newFacade(st *state.State, _ *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(NewStateBackend(st), auth)
 }
 
@@ -382,7 +382,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 }
 
 // ModifyModelAccess changes the model access granted to users.
-func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
+func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

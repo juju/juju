@@ -22,6 +22,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -864,6 +865,9 @@ func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
 	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
 		return a, nil
 	})
+	s.PatchValue(&getControllerAPI, func(*upgradeJujuCommand) (controllerAPI, error) {
+		return a, nil
+	})
 }
 
 func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
@@ -878,6 +882,14 @@ func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
 		return make(map[string]interface{}), err
 	}
 	return config.AllAttrs(), nil
+}
+
+func (a *fakeUpgradeJujuAPI) ControllerConfig() (controller.Config, error) {
+	config, err := a.st.ControllerConfig()
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (

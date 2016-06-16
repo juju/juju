@@ -88,7 +88,7 @@ type stepper interface {
 // context
 //
 
-func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag string) *context {
+func newContext(st *state.State, env environs.Environ, adminUserTag string) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
@@ -143,7 +143,7 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
-	return newContext(c, st, s.Environ, s.AdminUserTag(c).String())
+	return newContext(st, s.Environ, s.AdminUserTag(c).String())
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
@@ -2476,7 +2476,9 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2490,7 +2492,9 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	// lp:1558657
@@ -2514,7 +2518,9 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -2531,7 +2537,9 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
+	cfg, err := ctx.st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -3259,9 +3267,9 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
-			"foo": applicationStatus{
+			"foo": {
 				Units: map[string]unitStatus{
-					"foo/0": unitStatus{
+					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
 							Current: status.StatusExecuting,
 							Message: "running config-changed hook",
@@ -3271,7 +3279,7 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 							Message: "doing some work",
 						},
 					},
-					"foo/1": unitStatus{
+					"foo/1": {
 						JujuStatusInfo: statusInfoContents{
 							Current: status.StatusExecuting,
 							Message: "running action backup database",
@@ -3333,15 +3341,15 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
-			"foo": applicationStatus{
+			"foo": {
 				Units: map[string]unitStatus{
-					"foo/0": unitStatus{
+					"foo/0": {
 						MeterStatus: &meterStatus{
 							Color:   "strange",
 							Message: "warning: stable strangelets",
 						},
 					},
-					"foo/1": unitStatus{
+					"foo/1": {
 						MeterStatus: &meterStatus{
 							Color:   "up",
 							Message: "things are looking up",
@@ -3857,7 +3865,7 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 	status := &params.FullStatus{
 		Machines: map[string]params.MachineStatus{
-			"1": params.MachineStatus{
+			"1": {
 				AgentStatus: params.DetailedStatus{
 					Status: "error",
 					Info:   "<error while provisioning>",
@@ -3875,7 +3883,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 
 	c.Check(formatted, jc.DeepEquals, formattedStatus{
 		Machines: map[string]machineStatus{
-			"1": machineStatus{
+			"1": {
 				JujuStatus: statusInfoContents{Current: "error", Message: "<error while provisioning>"},
 				InstanceId: "pending",
 				Series:     "trusty",

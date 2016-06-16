@@ -41,7 +41,9 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 		return s.innerEnviron.Bootstrap(ctx, args)
 	})
-	s.environ.Bootstrap(nil, environs.BootstrapParams{})
+	s.environ.Bootstrap(nil, environs.BootstrapParams{
+		ControllerUUID: "uuid",
+	})
 	c.Check(s.innerEnviron.Pop().name, gc.Equals, "Bootstrap")
 }
 
@@ -161,12 +163,17 @@ func (e *fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) 
 	return []instance.Instance{&fakeInstance{}}, nil
 }
 
-func (e *fakeEnviron) ControllerInstances() ([]instance.Id, error) {
+func (e *fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
 	e.Push("ControllerInstances")
 	return nil, nil
 }
 
 func (e *fakeEnviron) Destroy() error {
+	e.Push("Destroy")
+	return nil
+}
+
+func (e *fakeEnviron) DestroyController(controllerUUID string) error {
 	e.Push("Destroy")
 	return nil
 }

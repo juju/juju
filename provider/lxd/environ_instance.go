@@ -93,7 +93,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances() ([]instance.Id, error) {
+func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	prefix := env.namespace.Prefix()
 	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
 	if err != nil {
