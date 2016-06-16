@@ -1576,6 +1576,27 @@ class EnvJujuClient:
 
         self.controller_juju('revoke', args)
 
+    def add_storage(self, unit, storage_type, amount="1"):
+        """Add storage instances to service.
+
+        Only type 'disk' is able to add instances.
+        """
+        self.juju('add-storage', (unit, storage_type + "=" + amount))
+
+    def list_storage(self):
+        """Return the storage list."""
+        return self.get_juju_output('list-storage', '--format', 'json')
+
+    def list_storage_pool(self):
+        """Return the list of storage pool."""
+        return self.get_juju_output('list-storage-pools', '--format', 'json')
+
+    def create_storage_pool(self, name, provider, size):
+        """Create storage pool."""
+        self.juju('create-storage-pool',
+                  (name, provider,
+                   'size={}'.format(size)))
+
 
 class EnvJujuClient2B8(EnvJujuClient):
 
@@ -1711,7 +1732,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         return args
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False):
+               service=None, force=False, storage=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
@@ -1719,6 +1740,8 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             args.extend(['--to', to])
         if service is not None:
             args.extend([service])
+        if storage is not None:
+            args.extend(['--storage', storage])
         return self.juju('deploy', tuple(args))
 
 
@@ -1998,6 +2021,27 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
+
+    def add_storage(self, unit, storage_type, amount="1"):
+        """Add storage instances to service.
+
+        Only type 'disk' is able to add instances.
+        """
+        self.juju('storage add', (unit, storage_type + "=" + amount))
+
+    def list_storage(self):
+        """Return the storage list."""
+        return self.get_juju_output('storage list', '--format', 'json')
+
+    def list_storage_pool(self):
+        """Return the list of storage pool."""
+        return self.get_juju_output('storage pool list', '--format', 'json')
+
+    def create_storage_pool(self, name, provider, size):
+        """Create storage pool."""
+        self.juju('storage pool create',
+                  (name, provider,
+                   'size={}'.format(size)))
 
 
 class EnvJujuClient22(EnvJujuClient1X):
