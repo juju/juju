@@ -102,11 +102,11 @@ func newLinkLayerDevice(st *State, doc linkLayerDeviceDoc) *LinkLayerDevice {
 
 // AllLinkLayerDevices returns all link layer devices in the model.
 func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	addressesCollection, closer := st.getCollection(linkLayerDevicesC)
+	devicesCollection, closer := st.getCollection(linkLayerDevicesC)
 	defer closer()
 
 	sdocs := []linkLayerDeviceDoc{}
-	err = addressesCollection.Find(nil).All(&sdocs)
+	err = devicesCollection.Find(nil).All(&sdocs)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all link layer devices")
 	}
