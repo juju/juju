@@ -48,7 +48,9 @@ var readOnlyCalls = set.NewStrings(
 	"Client.WatchAll",
 	"Cloud.Cloud",
 	"Cloud.Credentials",
-	// TODO: add controller work.
+	// TODO(thumper): add all controller work.
+	"Controller.ControllerConfig",
+	"Controller.DefaultModelConfig",
 	"KeyManager.ListKeys",
 	"ModelManager.ModelInfo",
 	"Spaces.ListSpaces",

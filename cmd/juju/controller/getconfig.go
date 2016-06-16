@@ -23,7 +23,7 @@ func NewGetConfigCommand() cmd.Command {
 // the requested value in a format of the user's choosing.
 type getConfigCommand struct {
 	modelcmd.ControllerCommandBase
-	api controllerAPI
+	api controllerConfigAPI
 	key string
 	out cmd.Output
 }
@@ -59,12 +59,12 @@ func (c *getConfigCommand) Init(args []string) (err error) {
 	return
 }
 
-type controllerAPI interface {
+type controllerConfigAPI interface {
 	Close() error
 	ControllerConfig() (map[string]interface{}, error)
 }
 
-func (c *getConfigCommand) getAPI() (controllerAPI, error) {
+func (c *getConfigCommand) getAPI() (controllerConfigAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

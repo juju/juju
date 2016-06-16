@@ -32,6 +32,7 @@ type controllerSuite struct {
 var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.ModelDefaultAttrs = map[string]interface{}{"apt-mirror": "http://mirror"}
 	s.JujuConnSuite.SetUpTest(c)
 }
 
@@ -79,6 +80,16 @@ func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	c.Assert(cfg["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(int(cfg["state-port"].(float64)), gc.Equals, cfgFromDB.StatePort())
 	c.Assert(int(cfg["api-port"].(float64)), gc.Equals, cfgFromDB.APIPort())
+}
+
+func (s *controllerSuite) TestDefaultModelConfig(c *gc.C) {
+	sysManager := s.OpenAPI(c)
+	cfg, err := sysManager.DefaultModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgFromDB, err := s.State.ModelConfigDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg["apt-mirror"], gc.Equals, "http://mirror")
+	c.Assert(cfg["apt-mirror"], gc.Equals, cfgFromDB["apt-mirror"])
 }
 
 func (s *controllerSuite) TestDestroyController(c *gc.C) {

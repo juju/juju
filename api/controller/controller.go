@@ -63,7 +63,15 @@ func (c *Client) ModelConfig() (map[string]interface{}, error) {
 func (c *Client) ControllerConfig() (map[string]interface{}, error) {
 	result := params.ControllerConfigResult{}
 	err := c.facade.FacadeCall("ControllerConfig", nil, &result)
-	return result.Config, err
+	return result.ControllerConfig, err
+}
+
+// DefaultModelConfig returns default settings shared by
+// all hosted models.
+func (c *Client) DefaultModelConfig() (map[string]interface{}, error) {
+	result := params.ControllerConfigResult{}
+	err := c.facade.FacadeCall("DefaultModelConfig", nil, &result)
+	return result.DefaultModelConfig, err
 }
 
 // DestroyController puts the controller model into a "dying" state,

@@ -739,12 +739,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
 					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
 				},
-				Cloud:            icfg.Bootstrap.ControllerCloud,
-				CloudName:        icfg.Bootstrap.ControllerCloudName,
-				CloudCredentials: cloudCredentials,
-				MongoInfo:        info,
-				MongoDialOpts:    mongotest.DialOpts(),
-				Policy:           estate.statePolicy,
+				Cloud:               icfg.Bootstrap.ControllerCloud,
+				CloudName:           icfg.Bootstrap.ControllerCloudName,
+				CloudCredentials:    cloudCredentials,
+				MongoInfo:           info,
+				MongoDialOpts:       mongotest.DialOpts(),
+				Policy:              estate.statePolicy,
+				ModelConfigDefaults: icfg.Bootstrap.ModelConfigDefaults,
 			})
 			if err != nil {
 				return err

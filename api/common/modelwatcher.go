@@ -56,5 +56,5 @@ func (e *ModelWatcher) ControllerConfig() (controller.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return controller.Config(result.Config), nil
+	return controller.Config(result.ControllerConfig), nil
 }
