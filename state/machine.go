@@ -1513,11 +1513,10 @@ func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
 func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *NetworkInterface, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add network interface %q to machine %q", args.InterfaceName, m.doc.Id)
 
-	if args.MACAddress == "" {
-		return nil, fmt.Errorf("MAC address must be not empty")
-	}
-	if _, err = net.ParseMAC(args.MACAddress); err != nil {
-		return nil, err
+	if args.MACAddress != "" {
+		if _, err = net.ParseMAC(args.MACAddress); err != nil {
+			return nil, err
+		}
 	}
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
@@ -1573,9 +1572,11 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		if err = networkInterfaces.Find(sel).One(nil); err == nil {
 			return nil, errors.AlreadyExistsf("%q on machine %q", args.InterfaceName, m.doc.Id)
 		}
-		sel = bson.D{{"macaddress", args.MACAddress}, {"networkname", args.NetworkName}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
-			return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
+		if args.MACAddress != "" {
+			sel = bson.D{{"macaddress", args.MACAddress}, {"networkname", args.NetworkName}}
+			if err = networkInterfaces.Find(sel).One(nil); err == nil {
+				return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
+			}
 		}
 		// Should never happen.
 		logger.Errorf("unknown error while adding network interface doc %#v", doc)

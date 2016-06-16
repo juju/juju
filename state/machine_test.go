@@ -850,10 +850,6 @@ var addNetworkInterfaceErrorsTests = []struct {
 	beforeAdding func(*gc.C, *state.Machine)
 	expectErr    string
 }{{
-	state.NetworkInterfaceInfo{"", "eth1", "net1", false, false},
-	nil,
-	`cannot add network interface "eth1" to machine "2": MAC address must be not empty`,
-}, {
 	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": invalid MAC address.*`,
@@ -1064,9 +1060,9 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
 	assertNotProvisioned()
 
-	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
+	invalidInterfaces := []state.NetworkInterfaceInfo{{InterfaceName: ""}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces, nil, nil)
-	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": interface name must be not empty`)
 	assertNotProvisioned()
 
 	invalidVolumes := map[names.VolumeTag]state.VolumeInfo{
