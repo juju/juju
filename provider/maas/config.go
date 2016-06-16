@@ -87,8 +87,6 @@ func (maasEnvironProvider) Schema() environschema.Fields {
 
 var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")
 
-var minBootstrapTimeout = config.DefaultBootstrapSSHTimeout * 2
-
 func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating MAAS specifics.
 	err := config.Validate(cfg, oldCfg)
@@ -109,8 +107,12 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 		providerDefaults[config.StorageDefaultBlockSourceKey] = maasStorageProviderType
 	}
 
-	// MAAS bootstrap timeout default should be marginally longer than commonly specified provider default.
-	providerDefaults["bootstrap-timeout"] = minBootstrapTimeout
+	// If user has not psecified bootstrap timeout,
+	// set provider default setting.
+	// MAAS bootstrap timeout default should be longer than standard timeout.
+	if _, ok := cfg.AllAttrs()["bootstrap-timeout"]; !ok {
+		providerDefaults["bootstrap-timeout"] = config.DefaultBootstrapSSHTimeout * 2
+	}
 
 	if len(providerDefaults) > 0 {
 		if cfg, err = cfg.Apply(providerDefaults); err != nil {
