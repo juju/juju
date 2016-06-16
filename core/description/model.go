@@ -436,11 +436,34 @@ func (m *model) Validate() error {
 		return errors.Trace(err)
 	}
 
+	err = m.validateAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
 // validateSubnets makes sure that any spaces referenced by subnets exist.
 func (m *model) validateSubnets() error {
+	spaceNames := set.NewStrings()
+	for _, space := range m.Spaces_.Spaces_ {
+		spaceNames.Add(space.Name())
+	}
+	for _, subnet := range m.Subnets_.Subnets_ {
+		if subnet.SpaceName() == "" {
+			continue
+		}
+		if !spaceNames.Contains(subnet.SpaceName()) {
+			return errors.Errorf("subnet %q references non-existent space %q", subnet.CIDR(), subnet.SpaceName())
+		}
+	}
+
+	return nil
+}
+
+// validateAddresses makes sure that any spaces referenced by IP addresses exist.
+func (m *model) validateAddresses() error {
 	spaceNames := set.NewStrings()
 	for _, space := range m.Spaces_.Spaces_ {
 		spaceNames.Add(space.Name())
