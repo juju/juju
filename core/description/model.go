@@ -508,7 +508,7 @@ func (m *model) validateLinkLayerDevices() error {
 					return errors.Errorf("ParentName %q for non-container machine %q", device.ParentName(), machine.Id())
 				}
 				if parentDevice.MachineID() != parentId {
-					return errors.Errorf("parent machine %q not on host machine %q", parentDevice.Name(), parentId)
+					return errors.Errorf("parent machine %q not host machine %q", parentDevice.Name(), parentId)
 				}
 			} else {
 				if device.Name() == parentDeviceName {
