@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 type UnitSuite struct {
 	ConnSuite
 	charm   *state.Charm
-	service *state.Service
+	service *state.Application
 	unit    *state.Unit
 }
 
@@ -52,9 +53,9 @@ func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 }
 
 func (s *UnitSuite) TestService(c *gc.C) {
-	svc, err := s.unit.Service()
+	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Name(), gc.Equals, s.unit.ServiceName())
+	c.Assert(svc.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
@@ -368,7 +369,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Series: "quantal",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
-		}, tc.host.Id(), instance.LXC)
+		}, tc.host.Id(), instance.LXD)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -502,7 +503,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
 				Jobs:   []state.MachineJob{state.JobHostUnits},
-			}, host.Id(), instance.LXC)
+			}, host.Id(), instance.LXD)
 			c.Assert(err, jc.ErrorIsNil)
 			assertLife(c, machine, state.Alive)
 
@@ -875,8 +876,9 @@ func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pinger, gc.NotNil)
-	defer pinger.Stop()
-
+	defer func() {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	}()
 	s.State.StartSync()
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)

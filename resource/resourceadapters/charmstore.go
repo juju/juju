@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/resource"
@@ -20,20 +20,20 @@ import (
 
 // charmstoreEntityCache adapts between resource state and charmstore.EntityCache.
 type charmstoreEntityCache struct {
-	st        state.Resources
-	userID    names.Tag
-	unit      resource.Unit
-	serviceID string
+	st            state.Resources
+	userID        names.Tag
+	unit          resource.Unit
+	applicationID string
 }
 
 // GetResource implements charmstore.EntityCache.
 func (cache *charmstoreEntityCache) GetResource(name string) (resource.Resource, error) {
-	return cache.st.GetResource(cache.serviceID, name)
+	return cache.st.GetResource(cache.applicationID, name)
 }
 
 // SetResource implements charmstore.EntityCache.
 func (cache *charmstoreEntityCache) SetResource(chRes charmresource.Resource, reader io.Reader) (resource.Resource, error) {
-	return cache.st.SetResource(cache.serviceID, cache.userID.Id(), chRes, reader)
+	return cache.st.SetResource(cache.applicationID, cache.userID.Id(), chRes, reader)
 }
 
 // OpenResource implements charmstore.EntityCache.

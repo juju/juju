@@ -4,15 +4,13 @@
 package modelmanager_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/modelmanager"
-	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -30,44 +28,17 @@ func (s *modelmanagerSuite) OpenAPI(c *gc.C) *modelmanager.Client {
 	return modelmanager.NewClient(s.APIState)
 }
 
-func (s *modelmanagerSuite) TestConfigSkeleton(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	result, err := modelManager.ConfigSkeleton("", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// The apiPort changes every test run as the dummy provider
-	// looks for a random open port.
-	apiPort := s.Environ.Config().APIPort()
-
-	// Numbers coming over the api are floats, not ints.
-	c.Assert(result, jc.DeepEquals, params.ModelConfig{
-		"type":            "dummy",
-		"controller-uuid": coretesting.ModelTag.Id(),
-		"ca-cert":         coretesting.CACert,
-		"state-port":      float64(1234),
-		"api-port":        float64(apiPort),
-	})
-
-}
-
 func (s *modelmanagerSuite) TestCreateModelBadUser(c *gc.C) {
 	modelManager := s.OpenAPI(c)
-	_, err := modelManager.CreateModel("not a user", nil, nil)
+	_, err := modelManager.CreateModel("mymodel", "not a user", "", "", nil)
 	c.Assert(err, gc.ErrorMatches, `invalid owner name "not a user"`)
-}
-
-func (s *modelmanagerSuite) TestCreateModelMissingConfig(c *gc.C) {
-	modelManager := s.OpenAPI(c)
-	_, err := modelManager.CreateModel("owner", nil, nil)
-	c.Assert(err, gc.ErrorMatches, `failed to create config: creating config from values failed: name: expected string, got nothing`)
 }
 
 func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
-	newEnv, err := modelManager.CreateModel(owner, nil, map[string]interface{}{
-		"name":            "new-model",
+	newEnv, err := modelManager.CreateModel("new-model", owner, "", "", map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		// dummy needs controller
 		"controller": false,
@@ -75,6 +46,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnv.Name, gc.Equals, "new-model")
 	c.Assert(newEnv.OwnerTag, gc.Equals, user.Tag().String())
+	c.Assert(newEnv.CloudRegion, gc.Equals, "")
 	c.Assert(utils.IsValidUUIDString(newEnv.UUID), jc.IsTrue)
 }
 

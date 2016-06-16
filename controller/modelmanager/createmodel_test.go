@@ -88,8 +88,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc.C) {
 	var err error
 	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
-		"username":        "user",
-		"password":        "password",
 		"authorized-keys": "ssh-key",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,8 +102,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc
 	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := expectedCfg.AllAttrs()
-	c.Assert(expected["username"], gc.Equals, "user")
-	c.Assert(expected["password"], gc.Equals, "password")
 	c.Assert(expected["authorized-keys"], gc.Equals, "ssh-key")
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 
@@ -180,10 +176,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelBadConfig(c *gc.C) {
 		key:      "type",
 		value:    "dummy",
 		errMatch: `specified type "dummy" does not match controller "fake"`,
-	}, {
-		key:      "state-port",
-		value:    9876,
-		errMatch: `specified state-port "9876" does not match controller "19034"`,
 	}, {
 		key:      "restricted",
 		value:    51,
@@ -285,35 +277,35 @@ func (*RestrictedProviderFieldsSuite) TestRestrictedProviderFields(c *gc.C) {
 	}{{
 		provider: "azure",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type",
 			"location", "endpoint", "storage-endpoint",
 		},
 	}, {
 		provider: "dummy",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type",
 		},
 	}, {
 		provider: "joyent",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid", "sdc-url",
+			"type", "sdc-url",
 		},
 	}, {
 		provider: "maas",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type",
 			"maas-server",
 		},
 	}, {
 		provider: "openstack",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type",
 			"region", "auth-url", "auth-mode",
 		},
 	}, {
 		provider: "ec2",
 		expected: []string{
-			"type", "ca-cert", "state-port", "api-port", "controller-uuid",
+			"type",
 			"region", "vpc-id-force",
 		},
 	}} {

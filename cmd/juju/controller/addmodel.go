@@ -4,13 +4,18 @@
 package controller
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
@@ -21,45 +26,46 @@ import (
 // NewAddModelCommand returns a command to add a model.
 func NewAddModelCommand() cmd.Command {
 	return modelcmd.WrapController(&addModelCommand{
-		credentialStore: jujuclient.NewFileCredentialStore(),
+		newAddModelAPI: func(caller base.APICallCloser) AddModelAPI {
+			return modelmanager.NewClient(caller)
+		},
+		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
+			return cloudapi.NewClient(caller)
+		},
 	})
 }
 
 // addModelCommand calls the API to add a new model.
 type addModelCommand struct {
 	modelcmd.ControllerCommandBase
-	api             AddModelAPI
-	credentialStore jujuclient.CredentialStore
+	apiRoot        api.Connection
+	newAddModelAPI func(base.APICallCloser) AddModelAPI
+	newCloudAPI    func(base.APICallCloser) CloudAPI
 
 	Name           string
 	Owner          string
-	CredentialSpec string
-	CloudName      string
-	CloudType      string
 	CredentialName string
+	CloudRegion    string
 	Config         common.ConfigFlag
 }
 
 const addModelHelpDoc = `
 Adding a model is typically done in order to run a specific workload. The
-model is of the same cloud type as the controller and resides within that
-controller. By default, the controller is the current controller.
-The credentials used to add the model are the ones used to create any
-future resources within the model (` + "`juju deploy`, `juju add-unit`" + `).
+model is of the same cloud type as the controller and is managed by that
+controller. By default, the controller is the current controller. The
+credentials used to add the model are the ones used to create any future
+resources within the model (` + "`juju deploy`, `juju add-unit`" + `).
+
 Model names can be duplicated across controllers but must be unique for
-any given controller.
-The necessary configuration must be available, either via the controller
-configuration (known to Juju upon its creation), command line arguments,
-or configuration file (--config). For 'ec2' and 'openstack' cloud types,
-the access and secret keys need to be provided.
-If the same configuration values are passed by both command line arguments
-and the --config option, the former take priority.
+any given controller. Model names may only contain lowercase letters,
+digits and hyphens, and may not start with a hyphen.
 
 Examples:
 
     juju add-model mymodel
-    juju add-model mymodel --config aws-creds.yaml --config image-stream=daily
-    juju add-model mymodel --credential aws:credential_name --config authorized-keys="ssh-rsa ..."
+    juju add-model mymodel --config my-config.yaml --config image-stream=daily
+    juju add-model mymodel --credential credential_name --config authorized-keys="ssh-rsa ..."
+    juju add-model mymodel --region us-east-1
 `
 
 func (c *addModelCommand) Info() *cmd.Info {
@@ -73,7 +79,8 @@ func (c *addModelCommand) Info() *cmd.Info {
 
 func (c *addModelCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Owner, "owner", "", "The owner of the new model if not the current user")
-	f.StringVar(&c.CredentialSpec, "credential", "", "Credential used to add the model: <cloud>:<credential name>")
+	f.StringVar(&c.CredentialName, "credential", "", "Credential used to add the model")
+	f.StringVar(&c.CloudRegion, "region", "", "Cloud region to add the model to")
 	f.Var(&c.Config, "config", "Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])")
 }
 
@@ -83,45 +90,39 @@ func (c *addModelCommand) Init(args []string) error {
 	}
 	c.Name, args = args[0], args[1:]
 
+	if !names.IsValidModelName(c.Name) {
+		return errors.Errorf("%q is not a valid name: model names may only contain lowercase letters, digits and hyphens", c.Name)
+	}
+
 	if c.Owner != "" && !names.IsValidUser(c.Owner) {
 		return errors.Errorf("%q is not a valid user", c.Owner)
 	}
 
-	if c.CredentialSpec != "" {
-		parts := strings.Split(c.CredentialSpec, ":")
-		if len(parts) < 2 {
-			return errors.Errorf("invalid cloud credential %s, expected <cloud>:<credential-name>", c.CredentialSpec)
-		}
-		c.CloudName = parts[0]
-		if cloud, err := common.CloudOrProvider(c.CloudName, cloud.CloudByName); err != nil {
-			return errors.Trace(err)
-		} else {
-			c.CloudType = cloud.Type
-		}
-		c.CredentialName = parts[1]
-	}
 	return nil
 }
 
 type AddModelAPI interface {
-	Close() error
-	ConfigSkeleton(provider, region string) (params.ModelConfig, error)
-	CreateModel(owner string, account, config map[string]interface{}) (params.Model, error)
+	CreateModel(name, owner, cloudRegion, cloudCredential string, config map[string]interface{}) (params.ModelInfo, error)
 }
 
-func (c *addModelCommand) getAPI() (AddModelAPI, error) {
-	if c.api != nil {
-		return c.api, nil
+type CloudAPI interface {
+	Credentials(names.UserTag) (map[string]cloud.Credential, error)
+	UpdateCredentials(names.UserTag, map[string]cloud.Credential) error
+}
+
+func (c *addModelCommand) newApiRoot() (api.Connection, error) {
+	if c.apiRoot != nil {
+		return c.apiRoot, nil
 	}
-	return c.NewModelManagerAPIClient()
+	return c.NewAPIRoot()
 }
 
 func (c *addModelCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	api, err := c.newApiRoot()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "opening API connection")
 	}
-	defer client.Close()
+	defer api.Close()
 
 	store := c.ClientStore()
 	controllerName := c.ControllerName()
@@ -142,32 +143,60 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		modelOwner = names.NewUserTag(c.Owner).Canonical()
 	}
 
-	serverSkeleton, err := client.ConfigSkeleton(c.CloudType, "")
+	attrs, err := c.getConfigValues(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	attrs, err := c.getConfigValues(ctx, serverSkeleton)
-	if err != nil {
-		return errors.Trace(err)
+	var forUserSuffix = ""
+	if modelOwner != currentAccount.User {
+		forUserSuffix += fmt.Sprintf(" for %q", c.Owner)
 	}
 
-	accountDetails := map[string]interface{}{}
+	// If the user has specified a credential, then we will upload it if
+	// it doesn't already exist in the controller, and it exists locally.
 	if c.CredentialName != "" {
-		cred, _, _, err := modelcmd.GetCredentials(
-			c.credentialStore, "", c.CredentialName, c.CloudName, c.CloudType,
-		)
+		cloudClient := c.newCloudAPI(api)
+		modelOwnerTag := names.NewUserTag(modelOwner)
+		credentials, err := cloudClient.Credentials(modelOwnerTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for k, v := range cred.Attributes() {
-			accountDetails[k] = v
+		if _, ok := credentials[c.CredentialName]; !ok {
+			controllerDetails, err := store.ControllerByName(controllerName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			cloudDetails, err := cloud.CloudByName(controllerDetails.Cloud)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			credential, _, _, err := modelcmd.GetCredentials(
+				store, c.CloudRegion, c.CredentialName,
+				controllerDetails.Cloud, cloudDetails.Type,
+			)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ctx.Infof("uploading credential %q to controller%s", c.CredentialName, forUserSuffix)
+			credentials = map[string]cloud.Credential{c.CredentialName: *credential}
+			if err := cloudClient.UpdateCredentials(modelOwnerTag, credentials); err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			ctx.Infof("using credential %q cached in controller", c.CredentialName)
 		}
 	}
-	model, err := client.CreateModel(modelOwner, accountDetails, attrs)
+
+	addModelClient := c.newAddModelAPI(api)
+	model, err := addModelClient.CreateModel(c.Name, modelOwner, c.CloudRegion, c.CredentialName, attrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	messageFormat := "added model %q"
+	messageArgs := []interface{}{c.Name}
+
 	if modelOwner == currentAccount.User {
 		controllerName := c.ControllerName()
 		accountName := c.AccountName()
@@ -179,27 +208,28 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("added model %q", c.Name)
 	} else {
-		ctx.Infof("added model %q for %q", c.Name, c.Owner)
+		messageFormat += forUserSuffix
 	}
+
+	if model.CloudRegion != "" {
+		messageFormat += " in region %q"
+		messageArgs = append(messageArgs, model.CloudRegion)
+	}
+	if model.CloudCredential != "" {
+		messageFormat += " with credential %q"
+		messageArgs = append(messageArgs, model.CloudCredential)
+	}
+	ctx.Infof(messageFormat, messageArgs...)
 
 	return nil
 }
 
-func (c *addModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton params.ModelConfig) (map[string]interface{}, error) {
-	configValues := make(map[string]interface{})
-	for key, value := range serverSkeleton {
-		configValues[key] = value
-	}
-	configAttr, err := c.Config.ReadAttrs(ctx)
+func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interface{}, error) {
+	configValues, err := c.Config.ReadAttrs(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to parse config")
 	}
-	for key, value := range configAttr {
-		configValues[key] = value
-	}
-	configValues["name"] = c.Name
 	coercedValues, err := common.ConformYAML(configValues)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to parse config")
@@ -208,6 +238,5 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context, serverSkeleton param
 	if !ok {
 		return nil, errors.New("params must contain a YAML map with string keys")
 	}
-
 	return stringParams, nil
 }

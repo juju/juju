@@ -11,11 +11,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -64,14 +65,6 @@ type BackingSubnetInfo struct {
 	// networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
 
-	// AllocatableIPHigh and Low describe the allocatable portion of the
-	// subnet. The remainder, if any, is reserved by the provider.
-	// Either both of these must be set or neither, if they're empty it
-	// means that none of the subnet is allocatable. If present they must
-	// be valid IP addresses within the subnet CIDR.
-	AllocatableIPHigh string
-	AllocatableIPLow  string
-
 	// AvailabilityZones describes which availability zone(s) this
 	// subnet is in. It can be empty if the provider does not support
 	// availability zones.
@@ -116,6 +109,9 @@ type BackingSpace interface {
 type NetworkBacking interface {
 	// ModelConfig returns the current environment config.
 	ModelConfig() (*config.Config, error)
+
+	// ControllerConfig returns the current controller config.
+	ControllerConfig() (controller.Config, error)
 
 	// AvailabilityZones returns all cached availability zones (i.e.
 	// not from the provider, but in state).
@@ -358,16 +354,11 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 	return devicesArgs, devicesAddrs
 }
 
-// ModelConfigGetter is used to get the current model configuration.
-type ModelConfigGetter interface {
-	ModelConfig() (*config.Config, error)
-}
-
 // NetworkingEnvironFromModelConfig constructs and returns
 // environs.NetworkingEnviron using the given configGetter. Returns an error
 // satisfying errors.IsNotSupported() if the model config does not support
 // networking features.
-func NetworkingEnvironFromModelConfig(configGetter ModelConfigGetter) (environs.NetworkingEnviron, error) {
+func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter) (environs.NetworkingEnviron, error) {
 	modelConfig, err := configGetter.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
@@ -375,11 +366,11 @@ func NetworkingEnvironFromModelConfig(configGetter ModelConfigGetter) (environs.
 	if modelConfig.Type() == "dummy" {
 		return nil, errors.NotSupportedf("dummy provider network config")
 	}
-	model, err := environs.New(modelConfig)
+	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}
-	netEnviron, supported := environs.SupportsNetworking(model)
+	netEnviron, supported := environs.SupportsNetworking(env)
 	if !supported {
 		// " not supported" will be appended to the message below.
 		return nil, errors.NotSupportedf("model %q networking", modelConfig.Name())

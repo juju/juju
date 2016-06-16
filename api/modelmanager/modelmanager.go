@@ -6,7 +6,7 @@ package modelmanager
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -34,34 +34,21 @@ func (c *Client) Close() error {
 	return c.ClientFacade.Close()
 }
 
-// ConfigSkeleton returns config values to be used as a starting point for the
-// API caller to construct a valid model specific config.  The provider
-// and region params are there for future use, and current behaviour expects
-// both of these to be empty.
-func (c *Client) ConfigSkeleton(provider, region string) (params.ModelConfig, error) {
-	var result params.ModelConfigResult
-	args := params.ModelSkeletonConfigArgs{
-		Provider: provider,
-		Region:   region,
-	}
-	err := c.facade.FacadeCall("ConfigSkeleton", args, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result.Config, nil
-}
-
-// CreateModel creates a new model using the account and
-// model config specified in the args.
-func (c *Client) CreateModel(owner string, account, config map[string]interface{}) (params.Model, error) {
-	var result params.Model
+// CreateModel creates a new model using the model config,
+// cloud region and credential specified in the args.
+func (c *Client) CreateModel(
+	name, owner, cloudRegion, cloudCredential string, config map[string]interface{},
+) (params.ModelInfo, error) {
+	var result params.ModelInfo
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
 	}
 	createArgs := params.ModelCreateArgs{
-		OwnerTag: names.NewUserTag(owner).String(),
-		Account:  account,
-		Config:   config,
+		Name:            name,
+		OwnerTag:        names.NewUserTag(owner).String(),
+		Config:          config,
+		CloudRegion:     cloudRegion,
+		CloudCredential: cloudCredential,
 	}
 	err := c.facade.FacadeCall("CreateModel", createArgs, &result)
 	if err != nil {

@@ -25,7 +25,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType instance.ContainerType
 		valid         bool
 	}{{
-		containerType: instance.LXC,
+		containerType: instance.LXD,
 		valid:         true,
 	}, {
 		containerType: instance.LXD,

@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
@@ -20,15 +20,18 @@ import (
 )
 
 const userChangePasswordDoc = `
-Change the password for the user you are currently logged in as;
-or as an admin, change the password for another user.
+The user is, by default, the current user. The latter can be confirmed with
+the ` + "`juju show-user`" + ` command.
+
+A controller administrator can change the password for another user (on
+that controller).
 
 Examples:
-  # Change the password for the user you are logged in as.
-  juju change-user-password
 
-  # Change the password for bob.
-  juju change-user-password bob
+    juju change-user-password
+    juju change-user-password bob
+
+See also: add-user
 
 `
 
@@ -48,7 +51,7 @@ func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-user-password",
 		Args:    "[username]",
-		Purpose: "changes the password for a user",
+		Purpose: "Changes the password for a Juju user.",
 		Doc:     userChangePasswordDoc,
 	}
 }

@@ -5,9 +5,9 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -30,7 +30,7 @@ import (
 func FakeStateInfo(machineId string) *mongo.MongoInfo {
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{"0.1.2.3:1234"},
+			Addrs:  []string{"0.1.2.3:17777"},
 			CACert: testing.CACert,
 		},
 		Tag:      names.NewMachineTag(machineId),
@@ -43,7 +43,7 @@ func FakeStateInfo(machineId string) *mongo.MongoInfo {
 // of the machine to be started.
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
+		Addrs:    []string{"0.1.2.3:17777"},
 		Tag:      names.NewMachineTag(machineId),
 		Password: "unimportant",
 		CACert:   testing.CACert,
@@ -160,22 +160,20 @@ func StartInstanceWithParams(
 	}
 
 	machineNonce := "fake_nonce"
-	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
 		preferredSeries,
-		"",
 		true,
-		stateInfo,
 		apiInfo,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	instanceConfig.Tags = instancecfg.InstanceTags(env.Config(), nil)
+	cfg := env.Config()
+	instanceConfig.Tags = instancecfg.InstanceTags(cfg.UUID(), cfg.ControllerUUID(), cfg, nil)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)

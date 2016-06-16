@@ -5,11 +5,11 @@ package server
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -83,7 +83,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		},
 		ID:     "idfoo",
 		Status: payload.StateRunning,
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	}
 	s.state.payloads = []payload.Result{{
 		ID: id,
@@ -108,7 +108,7 @@ func (s *suite) TestListOne(c *gc.C) {
 		ID:      "idfoo",
 		Status:  payload.StateRunning,
 		Labels:  []string{},
-		Unit:    "unit-a-service-0",
+		Unit:    "unit-a-application-0",
 		Machine: "machine-1",
 	}
 
@@ -134,7 +134,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		},
 		ID:     "idfoo",
 		Status: payload.StateRunning,
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	}
 	s.state.payloads = []payload.Result{{
 		ID: id,
@@ -155,7 +155,7 @@ func (s *suite) TestListAll(c *gc.C) {
 		ID:      "idfoo",
 		Status:  payload.StateRunning,
 		Labels:  []string{},
-		Unit:    "unit-a-service-0",
+		Unit:    "unit-a-application-0",
 		Machine: "machine-1",
 	}
 	c.Check(results, jc.DeepEquals, internal.PayloadResults{

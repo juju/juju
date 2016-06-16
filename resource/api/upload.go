@@ -10,15 +10,15 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/resource"
 )
 
 // UploadRequest defines a single upload request.
 type UploadRequest struct {
-	// Service is the service ID.
+	// Service is the application ID.
 	Service string
 
 	// Name is the resource name.
@@ -39,8 +39,8 @@ type UploadRequest struct {
 
 // NewUploadRequest generates a new upload request for the given resource.
 func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRequest, error) {
-	if !names.IsValidService(service) {
-		return UploadRequest{}, errors.Errorf("invalid service %q", service)
+	if !names.IsValidApplication(service) {
+		return UploadRequest{}, errors.Errorf("invalid application %q", service)
 	}
 
 	content, err := resource.GenerateContent(r)

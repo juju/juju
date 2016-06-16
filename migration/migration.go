@@ -60,14 +60,12 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 		return nil, nil, errors.Trace(err)
 	}
 
-	controllerConfig, err := controllerModel.Config()
+	controllerModelConfig, err := controllerModel.Config()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	model.UpdateConfig(controllerValues(controllerConfig))
-
-	if err := updateConfigFromProvider(model, controllerConfig); err != nil {
+	if err := updateConfigFromProvider(model, st, controllerModelConfig); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -78,26 +76,8 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 	return dbModel, dbState, nil
 }
 
-func controllerValues(config *config.Config) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	result["state-port"] = config.StatePort()
-	result["api-port"] = config.APIPort()
-	result["controller-uuid"] = config.ControllerUUID()
-	// We ignore the second bool param from the CACert check as if there
-	// wasn't a CACert, there is no way we'd be importing a new model
-	// into the controller
-	result["ca-cert"], _ = config.CACert()
-	return result
-}
-
-func updateConfigFromProvider(model description.Model, controllerConfig *config.Config) error {
-	newConfig, err := config.New(config.NoDefaults, model.Config())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	provider, err := environs.New(newConfig)
+func updateConfigFromProvider(model description.Model, getter environs.EnvironConfigGetter, controllerConfig *config.Config) error {
+	provider, err := environs.GetEnviron(getter, environs.New)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/version"
 )
@@ -461,7 +462,9 @@ func (s *UpgradeSuite) setMachineAlive(c *gc.C, id string) {
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := machine.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { pinger.Stop() })
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
 }
 
 // Return a version the same as the current software version, but with

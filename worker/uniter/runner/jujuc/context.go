@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -115,12 +115,12 @@ type ContextStatus interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
-	// ServiceStatus returns the executing unit's service status
+	// ApplicationStatus returns the executing unit's service status
 	// (including all units).
-	ServiceStatus() (ServiceStatusInfo, error)
+	ApplicationStatus() (ApplicationStatusInfo, error)
 
-	// SetServiceStatus updates the status for the unit's service.
-	SetServiceStatus(StatusInfo) error
+	// SetApplicationStatus updates the status for the unit's service.
+	SetApplicationStatus(StatusInfo) error
 }
 
 // ContextInstance is the part of a hook context related to the unit's instance.

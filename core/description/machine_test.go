@@ -4,10 +4,10 @@
 package description
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 )
 
@@ -159,13 +159,13 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 		"machines": []interface{}{
 			minimalMachineMap("0"),
 			minimalMachineMap("1",
-				minimalMachineMap("1/lxc/0"),
-				minimalMachineMap("1/lxc/1"),
+				minimalMachineMap("1/lxd/0"),
+				minimalMachineMap("1/lxd/1"),
 			),
 			minimalMachineMap("2",
 				minimalMachineMap("2/kvm/0",
-					minimalMachineMap("2/kvm/0/lxc/0"),
-					minimalMachineMap("2/kvm/0/lxc/1"),
+					minimalMachineMap("2/kvm/0/lxd/0"),
+					minimalMachineMap("2/kvm/0/lxd/1"),
 				),
 			),
 		}})
@@ -173,13 +173,13 @@ func (*MachineSerializationSuite) TestNestedParsing(c *gc.C) {
 	expected := []*machine{
 		minimalMachine("0"),
 		minimalMachine("1",
-			minimalMachine("1/lxc/0"),
-			minimalMachine("1/lxc/1"),
+			minimalMachine("1/lxd/0"),
+			minimalMachine("1/lxd/1"),
 		),
 		minimalMachine("2",
 			minimalMachine("2/kvm/0",
-				minimalMachine("2/kvm/0/lxc/0"),
-				minimalMachine("2/kvm/0/lxc/1"),
+				minimalMachine("2/kvm/0/lxd/0"),
+				minimalMachine("2/kvm/0/lxd/1"),
 			),
 		),
 	}

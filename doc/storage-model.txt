@@ -110,9 +110,9 @@ namespace juju.juju.state <<Database>> {
 	Unit "1" *-- "*" StorageAttachment : has
 	Unit "1" *-- "*" StorageConstraints : records >
 
-	Service "1" *-- "*" StorageInstance : owns (shared) >
-	Service "1" *-- "*" StorageConstraints : records >
-	Service "1" -- "1" juju.charm.Charm
+	application "1" *-- "*" StorageInstance : owns (shared) >
+	application "1" *-- "*" StorageConstraints : records >
+	application "1" -- "1" juju.charm.Charm
 
 	StorageInstance --* StoragePool
 	StorageInstance "1" *-- "*" StorageAttachment : has >

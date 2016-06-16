@@ -11,10 +11,9 @@ import (
 )
 
 type formattedStatus struct {
-	Model       string                   `json:"model"`
-	ModelStatus *modelStatus             `json:"model-status,omitempty" yaml:"model-status,omitempty"`
-	Machines    map[string]machineStatus `json:"machines"`
-	Services    map[string]serviceStatus `json:"services"`
+	Model        modelStatus                  `json:"model"`
+	Machines     map[string]machineStatus     `json:"machines"`
+	Applications map[string]applicationStatus `json:"applications"`
 }
 
 type formattedMachineStatus struct {
@@ -27,6 +26,12 @@ type errorStatus struct {
 }
 
 type modelStatus struct {
+	Name       string `json:"name"`
+	Controller string `json:"controller"`
+	Cloud      string `json:"cloud"`
+	// TODO(thumper) 2016-06-10
+	// add region info when available
+	Version          string `json:"version"`
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 
@@ -61,32 +66,37 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 	return machineStatusNoMarshal(s), nil
 }
 
-type serviceStatus struct {
+type applicationStatus struct {
 	Err           error                 `json:"-" yaml:",omitempty"`
 	Charm         string                `json:"charm" yaml:"charm"`
+	Series        string                `json:"series"`
+	OS            string                `json:"os"`
+	CharmOrigin   string                `json:"charm-origin" yaml:"charm-origin"`
+	CharmName     string                `json:"charm-name" yaml:"charm-name"`
+	CharmRev      int                   `json:"charm-rev" yaml:"charm-rev"`
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo    statusInfoContents    `json:"service-status,omitempty" yaml:"service-status"`
+	StatusInfo    statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
 	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 }
 
-type serviceStatusNoMarshal serviceStatus
+type applicationStatusNoMarshal applicationStatus
 
-func (s serviceStatus) MarshalJSON() ([]byte, error) {
+func (s applicationStatus) MarshalJSON() ([]byte, error) {
 	if s.Err != nil {
 		return json.Marshal(errorStatus{s.Err.Error()})
 	}
-	return json.Marshal(serviceStatusNoMarshal(s))
+	return json.Marshal(applicationStatusNoMarshal(s))
 }
 
-func (s serviceStatus) MarshalYAML() (interface{}, error) {
+func (s applicationStatus) MarshalYAML() (interface{}, error) {
 	if s.Err != nil {
 		return errorStatus{s.Err.Error()}, nil
 	}
-	return serviceStatusNoMarshal(s), nil
+	return applicationStatusNoMarshal(s), nil
 }
 
 type meterStatus struct {

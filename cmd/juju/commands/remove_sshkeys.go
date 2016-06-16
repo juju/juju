@@ -29,7 +29,7 @@ Examples:
     juju remove-ssh-key bob@ubuntu carol@ubuntu
 
 See also: 
-    list-ssh-key
+    ssh-keys
     add-ssh-key
     import-ssh-key`[1:]
 

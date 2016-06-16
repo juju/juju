@@ -12,9 +12,9 @@ import (
 type StubUnit struct {
 	*testing.Stub
 
-	ReturnName        string
-	ReturnServiceName string
-	ReturnCharmURL    *charm.URL
+	ReturnName            string
+	ReturnApplicationName string
+	ReturnCharmURL        *charm.URL
 }
 
 // Name implements resource.Unit.
@@ -25,12 +25,12 @@ func (s *StubUnit) Name() string {
 	return s.ReturnName
 }
 
-// ServiceName implements resource.Unit.
-func (s *StubUnit) ServiceName() string {
-	s.AddCall("ServiceName")
+// ApplicationName implements resource.Unit.
+func (s *StubUnit) ApplicationName() string {
+	s.AddCall("ApplicationName")
 	s.NextErr() // Pop one off.
 
-	return s.ReturnServiceName
+	return s.ReturnApplicationName
 }
 
 // CharmURL implements resource.Unit.

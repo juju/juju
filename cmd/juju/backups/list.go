@@ -13,7 +13,7 @@ import (
 )
 
 const listDoc = `
-list-backups provides the metadata associated with all backups.
+backups provides the metadata associated with all backups.
 `
 
 // NewListCommand returns a command used to list metadata for backups.
@@ -29,11 +29,11 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-backups",
+		Name:    "backups",
 		Args:    "",
 		Purpose: "get all metadata",
 		Doc:     listDoc,
-		Aliases: []string{"backups"},
+		Aliases: []string{"list-backups"},
 	}
 }
 

@@ -6,10 +6,10 @@ package remotestate_test
 import (
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
@@ -39,7 +39,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			tag:  names.NewUnitTag("mysql/0"),
 			life: params.Alive,
 			service: mockService{
-				tag:                   names.NewServiceTag("mysql"),
+				tag:                   names.NewApplicationTag("mysql"),
 				life:                  params.Alive,
 				curl:                  charm.MustParseURL("cs:trusty/mysql"),
 				charmModifiedVersion:  5,

@@ -4,9 +4,9 @@
 package machine_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -142,11 +142,6 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
 	// State serving info should not be set for JobHostUnits.
 	s.checkNotController(c, multiwatcher.JobHostUnits)
-}
-
-func (s *ServingInfoSetterSuite) TestJobManageNetworking(c *gc.C) {
-	// State serving info should NOT be set for JobManageNetworking.
-	s.checkNotController(c, multiwatcher.JobManageNetworking)
 }
 
 func (s *ServingInfoSetterSuite) checkNotController(c *gc.C, job multiwatcher.MachineJob) {

@@ -17,13 +17,10 @@ import (
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
-var _ environs.InstanceBroker = (*kvmBroker)(nil)
-
 func NewKvmBroker(
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
-	enableNAT bool,
 ) (environs.InstanceBroker, error) {
 	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
@@ -33,7 +30,6 @@ func NewKvmBroker(
 		manager:     manager,
 		api:         api,
 		agentConfig: agentConfig,
-		enableNAT:   enableNAT,
 	}, nil
 }
 
@@ -41,7 +37,6 @@ type kvmBroker struct {
 	manager     container.Manager
 	api         APICalls
 	agentConfig agent.Config
-	enableNAT   bool
 }
 
 // StartInstance is specified in the Broker interface.
@@ -69,10 +64,8 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		machineId,
 		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
-		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
-		config.ProviderType,
 	)
 	if err != nil {
 		// It's not fatal (yet) if we couldn't pre-allocate addresses for the
@@ -121,7 +114,10 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	storageConfig := &container.StorageConfig{
 		AllowMount: true,
 	}
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig, args.StatusCallback)
+	inst, hardware, err := broker.manager.CreateContainer(
+		args.InstanceConfig, args.Constraints,
+		series, network, storageConfig, args.StatusCallback,
+	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -136,9 +132,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 // MaintainInstance ensures the container's host has the required iptables and
 // routing rules to make the container visible to both the host and other
-// machines on the same subnet. This is important mostly when address allocation
-// feature flag is enabled, as otherwise we don't create additional iptables
-// rules or routes.
+// machines on the same subnet.
 func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineID := args.InstanceConfig.MachineId
 
@@ -154,10 +148,8 @@ func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) err
 		machineID,
 		bridgeDevice,
 		false, // maintain, do not allocate.
-		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
-		broker.agentConfig.Value(agent.ProviderType),
 	)
 	return err
 }
@@ -171,8 +163,7 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		providerType := broker.agentConfig.Value(agent.ProviderType)
-		maybeReleaseContainerAddresses(broker.api, id, broker.manager.Namespace(), kvmLogger, providerType)
+		releaseContainerAddresses(broker.api, id, broker.manager.Namespace(), kvmLogger)
 	}
 	return nil
 }

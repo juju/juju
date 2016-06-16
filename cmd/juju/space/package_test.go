@@ -4,7 +4,6 @@
 package space_test
 
 import (
-	"net"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
@@ -148,23 +147,19 @@ func NewStubAPI() *StubAPI {
 		Zones:      []string{"zone1"},
 	}, {
 		// IPv4 subnet.
-		CIDR:              "10.1.2.0/24",
-		ProviderId:        "subnet-private",
-		Life:              params.Alive,
-		SpaceTag:          "space-space2",
-		Zones:             []string{"zone1", "zone2"},
-		StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
-		StaticRangeHighIP: net.ParseIP("10.1.2.200"),
+		CIDR:       "10.1.2.0/24",
+		ProviderId: "subnet-private",
+		Life:       params.Alive,
+		SpaceTag:   "space-space2",
+		Zones:      []string{"zone1", "zone2"},
 	}, {
 		// IPv4 VLAN subnet.
-		CIDR:              "4.3.2.0/28",
-		Life:              params.Dead,
-		ProviderId:        "vlan-42",
-		SpaceTag:          "space-space2",
-		Zones:             []string{"zone1"},
-		VLANTag:           42,
-		StaticRangeLowIP:  net.ParseIP("4.3.2.2"),
-		StaticRangeHighIP: net.ParseIP("4.3.2.4"),
+		CIDR:       "4.3.2.0/28",
+		Life:       params.Dead,
+		ProviderId: "vlan-42",
+		SpaceTag:   "space-space2",
+		Zones:      []string{"zone1"},
+		VLANTag:    42,
 	}}
 	spaces := []params.Space{{
 		Name:    "space1",

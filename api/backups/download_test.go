@@ -27,7 +27,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	backupsState := backups.NewBackups(store)
 
 	r := strings.NewReader("<compressed archive data>")
-	meta, err := backups.NewMetadataState(s.State, "0")
+	meta, err := backups.NewMetadataState(s.State, "0", "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta.CACert, gc.Equals, testing.CACert)
 	c.Assert(meta.CAPrivateKey, gc.Equals, testing.CAKey)

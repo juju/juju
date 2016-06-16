@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // FakeAuthorizer implements the common.Authorizer interface.

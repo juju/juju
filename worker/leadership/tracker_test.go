@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	coreleadership "github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"
@@ -64,10 +64,10 @@ func (s *TrackerSuite) unblockRelease(c *gc.C) {
 	}
 }
 
-func (s *TrackerSuite) TestServiceName(c *gc.C) {
+func (s *TrackerSuite) TestApplicationName(c *gc.C) {
 	tracker := leadership.NewTracker(s.unitTag, s.claimer, trackerDuration)
 	defer assertStop(c, tracker)
-	c.Assert(tracker.ServiceName(), gc.Equals, "led-service")
+	c.Assert(tracker.ApplicationName(), gc.Equals, "led-service")
 }
 
 func (s *TrackerSuite) TestOnLeaderSuccess(c *gc.C) {

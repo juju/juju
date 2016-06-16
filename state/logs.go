@@ -15,9 +15,9 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/deque"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
@@ -325,7 +325,13 @@ func (t *logTailer) processCollection() error {
 		}
 	}
 
-	iter := query.Sort("t").Iter()
+	// In tests, sorting by time can leave the result ordering
+	// underconstrained. Since object ids are (timestamp, machine id,
+	// process id, counter)
+	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
+	// and the tests only run one mongod process, including _id
+	// guarantees getting log messages in a predictable order.
+	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
 		select {

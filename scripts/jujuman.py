@@ -1,3 +1,6 @@
+# Copyright 2013 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
+
 """Functions for generating the manpage using the juju command."""
 
 import subprocess

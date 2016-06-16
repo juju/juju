@@ -5,6 +5,7 @@ package container
 
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -12,23 +13,6 @@ import (
 const (
 	ConfigModelUUID = "model-uuid"
 	ConfigLogDir    = "log-dir"
-
-	// ConfigIPForwarding, if set to a non-empty value, instructs the
-	// container manager to enable IP forwarding as part of the
-	// container initialization. Will be enabled if the enviroment
-	// supports networking.
-	ConfigIPForwarding = "ip-forwarding"
-
-	// ConfigEnableNAT, if set to a non-empty value, instructs the
-	// container manager to enable NAT for hosted containers. NAT is
-	// required for AWS, but should be disabled for MAAS.
-	ConfigEnableNAT = "enable-nat"
-
-	// ConfigLXCDefaultMTU, if set to a positive integer (serialized
-	// as a string), will cause all network interfaces on all created
-	// LXC containers (not KVM instances) to use the given MTU
-	// setting.
-	ConfigLXCDefaultMTU = "lxc-default-mtu"
 
 	DefaultNamespace = "juju"
 )
@@ -46,6 +30,7 @@ type Manager interface {
 	// machine.
 	CreateContainer(
 		instanceConfig *instancecfg.InstanceConfig,
+		cons constraints.Value,
 		series string,
 		network *NetworkConfig,
 		storage *StorageConfig,

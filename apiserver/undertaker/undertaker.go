@@ -5,7 +5,7 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -102,7 +102,7 @@ func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {
 		nothing.Error = common.ServerError(err)
 		return nothing
 	}
-	services, err := u.st.AllServices()
+	services, err := u.st.AllApplications()
 	if err != nil {
 		nothing.Error = common.ServerError(err)
 		return nothing

@@ -59,7 +59,7 @@ type StubSymlinkInfo struct{ StubFileInfo }
 
 func (StubSymlinkInfo) Mode() os.FileMode { return os.ModeSymlink }
 
-// BaseSuite is the base test suite for the service package.
+// BaseSuite is the base test suite for the application package.
 type BaseSuite struct {
 	testing.IsolationSuite
 

@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
 	"gopkg.in/juju/blobstore.v2"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -52,6 +53,7 @@ type storageMetaDoc struct {
 	Machine  string         `bson:"machine"`
 	Hostname string         `bson:"hostname"`
 	Version  version.Number `bson:"version"`
+	Series   string         `bson:"series"`
 }
 
 func (doc *storageMetaDoc) isFileInfoComplete() bool {
@@ -126,6 +128,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta.Origin.Machine = doc.Machine
 	meta.Origin.Hostname = doc.Hostname
 	meta.Origin.Version = doc.Version
+	meta.Origin.Series = doc.Series
 
 	meta.SetID(doc.ID)
 
@@ -176,6 +179,7 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 	doc.Machine = meta.Origin.Machine
 	doc.Hostname = meta.Origin.Hostname
 	doc.Version = meta.Origin.Version
+	doc.Series = meta.Origin.Series
 
 	return doc
 }
@@ -536,6 +540,9 @@ type DB interface {
 
 	// ModelConfig is the config of the model being backedup.
 	ModelConfig() (*config.Config, error)
+
+	// ControllerConfig is the config of the controller being backedup.
+	ControllerConfig() (controller.Config, error)
 
 	// StateServingInfo is the secrets of the controller.
 	StateServingInfo() (state.StateServingInfo, error)

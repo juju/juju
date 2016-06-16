@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,7 +18,6 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -30,6 +28,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"launchpad.net/gnuflag"
@@ -96,7 +95,7 @@ var (
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	newUpgradeMongoWorker = mongoupgrader.New
-	reportOpenedState     = func(io.Closer) {}
+	reportOpenedState     = func(*state.State) {}
 )
 
 // Variable to override in tests, default is true
@@ -645,11 +644,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}()
 
-	modelConfig, err := apiagent.NewState(apiConn).ModelConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read model config: %v", err)
-	}
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, apiConn, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -663,7 +657,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 
 		// Published image metadata for some providers are in simple streams.
 		// Providers that do not depend on simple streams do not need this worker.
-		env, err := newEnvirons(modelConfig)
+		env, err := environs.GetEnviron(apiagent.NewState(apiConn), newEnvirons)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting environ")
 		}
@@ -752,7 +746,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st api.Connec
 	var supportedContainers []instance.ContainerType
 	supportsContainers := container.ContainersSupported()
 	if supportsContainers {
-		supportedContainers = append(supportedContainers, instance.LXC, instance.LXD)
+		supportedContainers = append(supportedContainers, instance.LXD)
 	}
 
 	supportsKvm, err := kvm.IsKVMSupported()
@@ -884,8 +878,6 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 		switch job {
 		case state.JobHostUnits:
 			// Implemented elsewhere with workers that use the API.
-		case state.JobManageNetworking:
-			// Not used by state workers.
 		case state.JobManageModel:
 			useMultipleCPUs()
 			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
@@ -1266,24 +1258,22 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		logger.Debugf("upgrades done, starting worker %q", name)
 
 		// Upgrades are done, start the worker.
-		worker, err := start()
+		w, err := start()
 		if err != nil {
 			return err
 		}
 		// Wait for worker to finish or for us to be stopped.
-		waitCh := make(chan error)
+		done := make(chan error, 1)
 		go func() {
-			waitCh <- worker.Wait()
+			done <- w.Wait()
 		}()
 		select {
-		case err := <-waitCh:
-			logger.Debugf("worker %q exited with %v", name, err)
-			return err
+		case err := <-done:
+			return errors.Annotatef(err, "worker %q exited", name)
 		case <-stop:
 			logger.Debugf("stopping so killing worker %q", name)
-			worker.Kill()
+			return worker.Stop(w)
 		}
-		return <-waitCh // Ensure worker has stopped before returning.
 	})
 }
 
@@ -1375,13 +1365,8 @@ func (a *MachineAgent) uninstallAgent() error {
 	// its completion.
 	insideContainer := container.RunningInContainer()
 	if insideContainer {
-		// We're running inside LXC, so loop devices may leak. Detach
+		// We're running inside a container, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
-		//
-		// It is necessary to do this here as well as in container/lxc,
-		// as container/lxc needs to check in the container's rootfs
-		// to see if the loop device is attached to the container; that
-		// will fail if the data-dir is removed first.
 		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
 			errs = append(errs, err)
 		}

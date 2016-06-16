@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // ManifoldConfig describes the dependencies of a machine action runner.

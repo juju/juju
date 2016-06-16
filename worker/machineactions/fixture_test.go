@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/workertest"
-	"github.com/juju/names"
 	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 )
 
 var actionNotFoundErr = errors.New("action not found")

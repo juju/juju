@@ -139,12 +139,9 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg, gc.NotNil)
 	c.Check(icfg.APIInfo, gc.NotNil)
-	c.Check(icfg.MongoInfo, gc.NotNil)
 
-	stateInfo := s.MongoInfo(c)
 	apiInfo := s.APIInfo(c)
 	c.Check(icfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Check(icfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {

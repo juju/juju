@@ -20,14 +20,16 @@ var (
 	Create        = create
 	FileTimestamp = fileTimestamp
 
-	TestGetFilesToBackUp = &getFilesToBackUp
-	GetDBDumper          = &getDBDumper
-	RunCreate            = &runCreate
-	FinishMeta           = &finishMeta
-	StoreArchiveRef      = &storeArchive
-	GetMongodumpPath     = &getMongodumpPath
-	RunCommand           = &runCommandFn
-	ReplaceableFolders   = &replaceableFolders
+	TestGetFilesToBackUp  = &getFilesToBackUp
+	GetDBDumper           = &getDBDumper
+	RunCreate             = &runCreate
+	FinishMeta            = &finishMeta
+	StoreArchiveRef       = &storeArchive
+	GetMongodumpPath      = &getMongodumpPath
+	GetMongorestorePath   = &getMongorestorePath
+	RunCommand            = &runCommandFn
+	ReplaceableFolders    = &replaceableFolders
+	MongoInstalledVersion = &mongoInstalledVersion
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
@@ -164,7 +166,4 @@ func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadat
 }
 
 // Export for patching in tests
-var PlaceNewMongo = placeNewMongo
-var MongoRestoreArgsForVersion = mongoRestoreArgsForVersion
 var RestorePath = &getMongorestorePath
-var RestoreArgsForVersion = &restoreArgsForVersion

@@ -1,3 +1,4 @@
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package firewaller
@@ -5,7 +6,7 @@ package firewaller
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"

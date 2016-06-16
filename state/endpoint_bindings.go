@@ -18,8 +18,7 @@ import (
 // endpointBindingsDoc per service.
 type endpointBindingsDoc struct {
 	// DocID is always the same as a service's global key.
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID string `bson:"_id"`
 
 	// Bindings maps a service endpoint name to the space name it is bound to.
 	Bindings bindingsMap `bson:"bindings"`

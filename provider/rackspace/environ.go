@@ -66,8 +66,10 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		}
 		client := newInstanceConfigurator(addr)
 		apiPort := 0
-		if isController(args.InstanceConfig) {
-			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		if isController(args.InstanceConfig) && args.InstanceConfig.Bootstrap != nil {
+			// TODO(axw) 2016-06-01 #1587739
+			// We should be doing this for non-bootstrap machines as well.
+			apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
 		}
 		err = client.DropAllPorts([]int{apiPort, 22}, addr)
 		if err != nil {

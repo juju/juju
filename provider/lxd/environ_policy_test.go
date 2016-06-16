@@ -163,10 +163,10 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C)
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := constraints.MustParse("container=lxc")
+	cons := constraints.MustParse("container=lxd")
 	_, err = validator.Validate(cons)
 
-	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxc\nvalid values are:.*")
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
@@ -187,20 +187,6 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 
 func (s *environPolSuite) TestSupportNetworks(c *gc.C) {
 	isSupported := s.Env.SupportNetworks()
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocation(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("some-network")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocationEmpty(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(isSupported, jc.IsFalse)
 }

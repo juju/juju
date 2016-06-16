@@ -86,7 +86,7 @@ func (s *leadershipSuite) expectReadCalls() []testing.StubCall {
 		Args: []interface{}{
 			"Read",
 			params.Entities{Entities: []params.Entity{{
-				Tag: "service-foobar",
+				Tag: "application-foobar",
 			}}},
 		},
 	}}
@@ -168,7 +168,7 @@ func (s *leadershipSuite) expectMergeCalls() []testing.StubCall {
 			"Merge",
 			params.MergeLeadershipSettingsBulkParams{
 				Params: []params.MergeLeadershipSettingsParam{{
-					ServiceTag: "service-foobar",
+					ApplicationTag: "application-foobar",
 					Settings: map[string]string{
 						"foo": "bar",
 						"baz": "qux",
@@ -257,7 +257,7 @@ func (s *leadershipSuite) expectWatchCalls() []testing.StubCall {
 		Args: []interface{}{
 			"WatchLeadershipSettings",
 			params.Entities{Entities: []params.Entity{{
-				Tag: "service-foobar",
+				Tag: "application-foobar",
 			}}},
 		},
 	}}

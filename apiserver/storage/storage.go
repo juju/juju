@@ -7,8 +7,8 @@ package storage
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -42,7 +42,6 @@ func createAPI(
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
 	return &API{
 		storage:     st,
 		poolManager: pm,
@@ -668,13 +667,6 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 		return params.ErrorResults{}, nil
 	}
 
-	serverErr := func(err error) params.ErrorResult {
-		if errors.IsNotFound(err) {
-			err = common.ErrPerm
-		}
-		return params.ErrorResult{Error: common.ServerError(err)}
-	}
-
 	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
 		s := state.StorageConstraints{Pool: p.Pool}
 		if p.Size != nil {
@@ -690,17 +682,13 @@ func (a *API) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, err
 	for i, one := range args.Storages {
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "parsing unit tag %v", one.UnitTag))
+			result[i] = params.ErrorResult{Error: common.ServerError(err)}
 			continue
 		}
 
-		err = a.storage.AddStorageForUnit(u,
-			one.StorageName,
-			paramsToState(one.Constraints))
+		err = a.storage.AddStorageForUnit(u, one.StorageName, paramsToState(one.Constraints))
 		if err != nil {
-			result[i] = serverErr(
-				errors.Annotatef(err, "adding storage %v for %v", one.StorageName, one.UnitTag))
+			result[i] = params.ErrorResult{Error: common.ServerError(err)}
 		}
 	}
 	return params.ErrorResults{Results: result}, nil

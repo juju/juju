@@ -4,8 +4,8 @@
 package lifeflag_test
 
 import (
-	"github.com/juju/names"
 	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"

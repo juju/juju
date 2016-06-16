@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -49,11 +49,11 @@ output to a file, use --output.
 // Info is defined on the cmd.Command interface.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-subnets",
+		Name:    "subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
 		Purpose: "list subnets known to Juju",
 		Doc:     strings.TrimSpace(listCommandDoc),
-		Aliases: []string{"subnets"},
+		Aliases: []string{"list-subnets"},
 	}
 }
 

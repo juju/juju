@@ -6,10 +6,10 @@ package watcher_test
 import (
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationminion"
@@ -278,7 +278,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	const nonce = "noncey"
 
 	// Create a model to migrate.
-	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{Prepare: true})
+	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{})
 	defer hostedState.Close()
 	hostedFactory := factory.NewFactory(hostedState)
 

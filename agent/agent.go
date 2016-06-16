@@ -16,11 +16,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -418,7 +418,11 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		return nil, errors.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
-	// blank.  This is by design.
+	// blank.  This is by design: we want to generate a secure password
+	// for new agents. So, we create this config without a current password
+	// which signals to apicaller worker that it should try to connect using old password.
+	// When/if this connection is successful, apicaller worker will generate
+	// a new secure password and update this agent's config.
 	config := &configInternal{
 		paths:             NewPathsWithDefaults(configParams.Paths),
 		jobs:              configParams.Jobs,

@@ -86,9 +86,10 @@ func (c *poolListCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolListCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-storage-pools",
+		Name:    "storage-pools",
 		Purpose: "list storage pools",
 		Doc:     poolListCommandDoc,
+		Aliases: []string{"list-storage-pools"},
 	}
 }
 

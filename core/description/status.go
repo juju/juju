@@ -10,7 +10,7 @@ import (
 	"github.com/juju/schema"
 )
 
-// StatusArgs is an argument struct used to set the agent, service, or
+// StatusArgs is an argument struct used to set the agent, application, or
 // workload status.
 type StatusArgs struct {
 	Value   string

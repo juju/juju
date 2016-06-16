@@ -29,18 +29,18 @@ func counterpartRole(r charm.RelationRole) charm.RelationRole {
 
 // Endpoint represents one endpoint of a relation.
 type Endpoint struct {
-	ServiceName string
+	ApplicationName string
 	charm.Relation
 }
 
 // String returns the unique identifier of the relation endpoint.
 func (ep Endpoint) String() string {
-	return ep.ServiceName + ":" + ep.Name
+	return ep.ApplicationName + ":" + ep.Name
 }
 
 // CanRelateTo returns whether a relation may be established between e and other.
 func (ep Endpoint) CanRelateTo(other Endpoint) bool {
-	return ep.ServiceName != other.ServiceName &&
+	return ep.ApplicationName != other.ApplicationName &&
 		ep.Interface == other.Interface &&
 		ep.Role != charm.RolePeer &&
 		counterpartRole(ep.Role) == other.Role

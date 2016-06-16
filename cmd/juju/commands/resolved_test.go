@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/cmd/juju/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -38,7 +38,7 @@ func runResolved(c *gc.C, args []string) error {
 }
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, service.NewDeployCommand(), args...)
+	_, err := testing.RunCommand(c, application.NewDeployCommand(), args...)
 	return err
 }
 

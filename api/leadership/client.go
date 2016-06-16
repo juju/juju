@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -51,7 +51,7 @@ func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duratio
 func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 	const friendlyErrMsg = "error blocking on leadership release"
 	var result params.ErrorResult
-	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewServiceTag(serviceId), &result)
+	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewApplicationTag(serviceId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)
 	} else if result.Error != nil {
@@ -68,7 +68,7 @@ func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 // preperation for making a bulk call.
 func (c *client) prepareClaimLeadership(serviceId, unitId string, duration time.Duration) params.ClaimLeadershipParams {
 	return params.ClaimLeadershipParams{
-		names.NewServiceTag(serviceId).String(),
+		names.NewApplicationTag(serviceId).String(),
 		names.NewUnitTag(unitId).String(),
 		duration.Seconds(),
 	}

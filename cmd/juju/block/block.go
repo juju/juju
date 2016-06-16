@@ -117,11 +117,11 @@ To by-pass the block, where available, run desired remove command with --force o
     destroy-model
     remove-machine
     remove-relation
-    remove-service
+    remove-application
     remove-unit
    
 Examples:
-   To prevent the machines, services, units and relations from being removed:
+   To prevent the machines, applications, units and relations from being removed:
    juju block remove-object
 
 `
@@ -171,7 +171,7 @@ To by-pass the block, where available, run desired remove command with --force o
     expose
     remove-machine
     remove-relation
-    remove-service
+    remove-application
     remove-unit
     resolved
     retry-provisioning

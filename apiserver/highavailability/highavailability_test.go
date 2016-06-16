@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -33,7 +34,6 @@ type clientSuite struct {
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
-	pingers    []*presence.Pinger
 
 	commontesting.BlockHelper
 }
@@ -76,16 +76,9 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
-	s.pingers = []*presence.Pinger{s.setAgentPresence(c, "0")}
+	s.setAgentPresence(c, "0")
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-}
-
-func (s *clientSuite) TearDownTest(c *gc.C) {
-	for _, pinger := range s.pingers {
-		assertKill(c, pinger)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
@@ -93,6 +86,10 @@ func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
+
 	s.State.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,11 +145,8 @@ func (s *clientSuite) TestEnableHASeries(c *gc.C) {
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 
-	pingerB := s.setAgentPresence(c, "1")
-	defer assertKill(c, pingerB)
-
-	pingerC := s.setAgentPresence(c, "2")
-	defer assertKill(c, pingerC)
+	s.setAgentPresence(c, "1")
+	s.setAgentPresence(c, "2")
 
 	enableHAResult, err = s.enableHA(c, 5, emptyCons, "non-default", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,11 +257,11 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
-	s.pingers = append(s.pingers, s.setAgentPresence(c, "1"))
+	s.setAgentPresence(c, "1")
 
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.pingers = append(s.pingers, s.setAgentPresence(c, "2"))
+	s.setAgentPresence(c, "2")
 
 	placement := []string{"1", "2"}
 	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, placement)
@@ -307,8 +301,7 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 3)
 
-	pingerB := s.setAgentPresence(c, "1")
-	defer assertKill(c, pingerB)
+	s.setAgentPresence(c, "1")
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
@@ -335,14 +328,9 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 5)
-	pingerB := s.setAgentPresence(c, "1")
-	defer assertKill(c, pingerB)
-
-	pingerC := s.setAgentPresence(c, "2")
-	defer assertKill(c, pingerC)
-
-	pingerD := s.setAgentPresence(c, "3")
-	defer assertKill(c, pingerD)
+	s.setAgentPresence(c, "1")
+	s.setAgentPresence(c, "2")
+	s.setAgentPresence(c, "3")
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)

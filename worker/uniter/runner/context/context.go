@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
@@ -299,25 +299,25 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return ctx.status, nil
 }
 
-// ServiceStatus returns the status for the service and all the units on
+// ApplicationStatus returns the status for the application and all the units on
 // the service to which this context unit belongs, only if this unit is
 // the leader.
-func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+		return jujuc.ApplicationStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		return jujuc.ServiceStatusInfo{}, ErrIsNotLeader
+		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	service, err := ctx.unit.Service()
+	service, err := ctx.unit.Application()
 	if err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 	status, err := service.Status(ctx.unit.Name())
 	if err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 	us := make([]jujuc.StatusInfo, len(status.Units))
 	i := 0
@@ -330,12 +330,12 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 		}
 		i++
 	}
-	return jujuc.ServiceStatusInfo{
-		Service: jujuc.StatusInfo{
+	return jujuc.ApplicationStatusInfo{
+		Application: jujuc.StatusInfo{
 			Tag:    service.Tag().String(),
-			Status: string(status.Service.Status),
-			Info:   status.Service.Info,
-			Data:   status.Service.Data,
+			Status: string(status.Application.Status),
+			Info:   status.Application.Info,
+			Data:   status.Application.Data,
 		},
 		Units: us,
 	}, nil
@@ -352,10 +352,10 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	)
 }
 
-// SetServiceStatus will set the given status to the service to which this
+// SetApplicationStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetServiceStatus(serviceStatus jujuc.StatusInfo) error {
-	logger.Tracef("[SERVICE-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
+func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) error {
+	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -364,7 +364,7 @@ func (ctx *HookContext) SetServiceStatus(serviceStatus jujuc.StatusInfo) error {
 		return ErrIsNotLeader
 	}
 
-	service, err := ctx.unit.Service()
+	service, err := ctx.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -5,12 +5,11 @@ package provisioner
 
 import (
 	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -24,6 +23,8 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
@@ -387,7 +388,8 @@ func classifyMachine(machine ClassifiableMachine) (
 	case params.Dead:
 		return Dead, nil
 	}
-	if instId, err := machine.InstanceId(); err != nil {
+	instId, err := machine.InstanceId()
+	if err != nil {
 		if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "failed to load machine id:%s, details:%v", machine.Id(), machine)
 		}
@@ -400,17 +402,12 @@ func classifyMachine(machine ClassifiableMachine) (
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
-	} else {
-		logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
-		if err != nil {
-			logger.Infof("Error fetching provisioning info")
-		} else {
-			isLxc := regexp.MustCompile(`\d+/lxc/\d+`)
-			isKvm := regexp.MustCompile(`\d+/kvm/\d+`)
-			if isLxc.MatchString(machine.Id()) || isKvm.MatchString(machine.Id()) {
-				return Maintain, nil
-			}
-		}
+		return None, nil
+	}
+	logger.Infof("machine %s already started as instance %q", machine.Id(), instId)
+
+	if state.ContainerTypeFromId(machine.Id()) != "" {
+		return Maintain, nil
 	}
 	return None, nil
 }
@@ -499,21 +496,36 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
-	publicKey, err := simplestreams.UserPublicSigningKey()
-	if err != nil {
-		return nil, err
-	}
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
-	return instancecfg.NewInstanceConfig(
+	instanceConfig, err := instancecfg.NewInstanceConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
 		pInfo.Series,
-		publicKey,
 		task.secureServerConnection,
-		stateInfo,
 		apiInfo,
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	instanceConfig.Tags = pInfo.Tags
+	if len(pInfo.Jobs) > 0 {
+		instanceConfig.Jobs = pInfo.Jobs
+	}
+
+	if multiwatcher.AnyJobNeedsState(instanceConfig.Jobs...) {
+		publicKey, err := simplestreams.UserPublicSigningKey()
+		if err != nil {
+			return nil, err
+		}
+		instanceConfig.Controller = &instancecfg.ControllerConfig{
+			PublicImageSigningKey: publicKey,
+			MongoInfo:             stateInfo,
+		}
+	}
+
+	return instanceConfig, nil
 }
 
 func constructStartInstanceParams(
@@ -745,13 +757,6 @@ func assocProvInfoAndMachCfg(
 	provInfo *params.ProvisioningInfo,
 	instanceConfig *instancecfg.InstanceConfig,
 ) *provisioningInfo {
-
-	instanceConfig.Tags = provInfo.Tags
-
-	if len(provInfo.Jobs) > 0 {
-		instanceConfig.Jobs = provInfo.Jobs
-	}
-
 	return &provisioningInfo{
 		Constraints:    provInfo.Constraints,
 		Series:         provInfo.Series,

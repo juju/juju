@@ -4,9 +4,9 @@
 package logger_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/logger"
@@ -20,10 +20,10 @@ type loggerSuite struct {
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
-	rawCharm   *state.Charm
-	rawService *state.Service
-	rawUnit    *state.Unit
+	rawMachine     *state.Machine
+	rawCharm       *state.Charm
+	rawApplication *state.Application
+	rawUnit        *state.Unit
 
 	logger *logger.State
 }

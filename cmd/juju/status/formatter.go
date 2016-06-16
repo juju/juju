@@ -4,6 +4,11 @@
 package status
 
 import (
+	"strings"
+
+	"github.com/juju/utils/series"
+	"gopkg.in/juju/charm.v6-unstable"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -12,6 +17,7 @@ import (
 
 type statusFormatter struct {
 	status    *params.FullStatus
+	model     modelStatus
 	relations map[int]params.RelationStatus
 	isoTime   bool
 }
@@ -19,8 +25,13 @@ type statusFormatter struct {
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+	return newStatusFormatter(status, modelStatus{}, isoTime)
+}
+
+func newStatusFormatter(status *params.FullStatus, model modelStatus, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:    status,
+		model:     model,
 		relations: make(map[int]params.RelationStatus),
 		isoTime:   isoTime,
 	}
@@ -34,22 +45,19 @@ func (sf *statusFormatter) format() formattedStatus {
 	if sf.status == nil {
 		return formattedStatus{}
 	}
+	model := sf.model
+	model.Version = sf.status.Model.Version
+	model.AvailableVersion = sf.status.Model.AvailableVersion
 	out := formattedStatus{
-		Model:    sf.status.ModelName,
-		Machines: make(map[string]machineStatus),
-		Services: make(map[string]serviceStatus),
+		Model:        model,
+		Machines:     make(map[string]machineStatus),
+		Applications: make(map[string]applicationStatus),
 	}
-	if sf.status.AvailableVersion != "" {
-		out.ModelStatus = &modelStatus{
-			AvailableVersion: sf.status.AvailableVersion,
-		}
-	}
-
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
 	}
-	for sn, s := range sf.status.Services {
-		out.Services[sn] = sf.formatService(sn, s)
+	for sn, s := range sf.status.Applications {
+		out.Applications[sn] = sf.formatApplication(sn, s)
 	}
 	return out
 }
@@ -60,7 +68,7 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 		return formattedMachineStatus{}
 	}
 	out := formattedMachineStatus{
-		Model:    sf.status.ModelName,
+		Model:    sf.status.Model.Name,
 		Machines: make(map[string]machineStatus),
 	}
 	for k, m := range sf.status.Machines {
@@ -104,30 +112,58 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	return out
 }
 
-func (sf *statusFormatter) formatService(name string, service params.ServiceStatus) serviceStatus {
-	out := serviceStatus{
-		Err:           service.Err,
-		Charm:         service.Charm,
-		Exposed:       service.Exposed,
-		Life:          service.Life,
-		Relations:     service.Relations,
-		CanUpgradeTo:  service.CanUpgradeTo,
-		SubordinateTo: service.SubordinateTo,
-		Units:         make(map[string]unitStatus),
-		StatusInfo:    sf.getServiceStatusInfo(service),
+func (sf *statusFormatter) formatApplication(name string, application params.ApplicationStatus) applicationStatus {
+	appOS, _ := series.GetOSFromSeries(application.Series)
+	var (
+		charmOrigin = ""
+		charmName   = ""
+		charmRev    = 0
+	)
+	if curl, err := charm.ParseURL(application.Charm); err != nil {
+		// We should never fail to parse a charm url sent back
+		// but if we do, don't crash.
+		logger.Errorf("failed to parse charm: %v", err)
+	} else {
+		switch curl.Schema {
+		case "cs":
+			charmOrigin = "jujucharms"
+		case "local":
+			charmOrigin = "local"
+		default:
+			charmOrigin = "unknown"
+		}
+		charmName = curl.Name
+		charmRev = curl.Revision
 	}
-	for k, m := range service.Units {
+
+	out := applicationStatus{
+		Err:           application.Err,
+		Charm:         application.Charm,
+		Series:        application.Series,
+		OS:            strings.ToLower(appOS.String()),
+		CharmOrigin:   charmOrigin,
+		CharmName:     charmName,
+		CharmRev:      charmRev,
+		Exposed:       application.Exposed,
+		Life:          application.Life,
+		Relations:     application.Relations,
+		CanUpgradeTo:  application.CanUpgradeTo,
+		SubordinateTo: application.SubordinateTo,
+		Units:         make(map[string]unitStatus),
+		StatusInfo:    sf.getServiceStatusInfo(application),
+	}
+	for k, m := range application.Units {
 		out.Units[k] = sf.formatUnit(unitFormatInfo{
-			unit:          m,
-			unitName:      k,
-			serviceName:   name,
-			meterStatuses: service.MeterStatuses,
+			unit:            m,
+			unitName:        k,
+			applicationName: name,
+			meterStatuses:   application.MeterStatuses,
 		})
 	}
 	return out
 }
 
-func (sf *statusFormatter) getServiceStatusInfo(service params.ServiceStatus) statusInfoContents {
+func (sf *statusFormatter) getServiceStatusInfo(service params.ApplicationStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     service.Status.Err,
@@ -142,15 +178,15 @@ func (sf *statusFormatter) getServiceStatusInfo(service params.ServiceStatus) st
 }
 
 type unitFormatInfo struct {
-	unit          params.UnitStatus
-	unitName      string
-	serviceName   string
-	meterStatuses map[string]params.MeterStatus
+	unit            params.UnitStatus
+	unitName        string
+	applicationName string
+	meterStatuses   map[string]params.MeterStatus
 }
 
 func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	// TODO(Wallyworld) - this should be server side but we still need to support older servers.
-	sf.updateUnitStatusInfo(&info.unit, info.serviceName)
+	sf.updateUnitStatusInfo(&info.unit, info.applicationName)
 
 	out := unitStatus{
 		WorkloadStatusInfo: sf.getWorkloadStatusInfo(info.unit),
@@ -171,10 +207,10 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 
 	for k, m := range info.unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(unitFormatInfo{
-			unit:          m,
-			unitName:      k,
-			serviceName:   info.serviceName,
-			meterStatuses: info.meterStatuses,
+			unit:            m,
+			unitName:        k,
+			applicationName: info.applicationName,
+			meterStatuses:   info.meterStatuses,
 		})
 	}
 	return out
@@ -223,12 +259,12 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 	return info
 }
 
-func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
+func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, applicationName string) {
 	// TODO(perrito66) add status validation.
 	if status.Status(unit.WorkloadStatus.Status) == status.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
-			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
+			if ep, ok := findOtherEndpoint(relation.Endpoints, applicationName); ok {
 				unit.WorkloadStatus.Info = unit.WorkloadStatus.Info + " for " + ep.String()
 			}
 		}
@@ -263,11 +299,11 @@ func getRelationIdFromData(unit *params.UnitStatus) int {
 }
 
 // findOtherEndpoint searches the provided endpoints for an endpoint
-// that *doesn't* match serviceName. The returned bool indicates if
+// that *doesn't* match applicationName. The returned bool indicates if
 // such an endpoint was found.
-func findOtherEndpoint(endpoints []params.EndpointStatus, serviceName string) (params.EndpointStatus, bool) {
+func findOtherEndpoint(endpoints []params.EndpointStatus, applicationName string) (params.EndpointStatus, bool) {
 	for _, endpoint := range endpoints {
-		if endpoint.ServiceName != serviceName {
+		if endpoint.ApplicationName != applicationName {
 			return endpoint, true
 		}
 	}

@@ -61,7 +61,7 @@ Please send this command to bob:
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
 Please set a name for this controller: 
-Enter password: 
+Enter a new password: 
 Confirm password: 
 
 Welcome, bob. You are now logged into "bob-controller".
@@ -82,6 +82,7 @@ of a model to grant access to that model with "juju grant".
 		AccountDetails:  accountDetails,
 		BootstrapConfig: noBootstrapConfig,
 		DialOpts:        api.DefaultDialOpts(),
+		OpenAPI:         api.Open,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)

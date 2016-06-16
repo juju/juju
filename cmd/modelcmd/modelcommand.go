@@ -24,12 +24,11 @@ var logger = loggo.GetLogger("juju.cmd.modelcmd")
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
 // has been explicitly specified, and there is no default model.
-var ErrNoModelSpecified = errors.New(`no model specified
+var ErrNoModelSpecified = errors.New(`no model in focus
 
-There is no current model specified for the current controller,
-and none specified on the command line. Please use "juju switch"
-to set the current model, or specify a model on the command line
-using the "-m" flag.
+Please use "juju models" to see models available to you.
+You can set current model by running "juju switch"
+or specify any other model on the command line using the "-m" flag.
 `)
 
 // GetCurrentModel returns the name of the current Juju model.
@@ -149,8 +148,7 @@ func (c *ModelCommandBase) SetModelName(modelName string) error {
 		controllerName = currentController
 	} else {
 		var err error
-		controllerName, err = ResolveControllerName(c.store, controllerName)
-		if err != nil {
+		if _, err = c.store.ControllerByName(controllerName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -199,7 +197,14 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
 	if c.controllerName == "" {
-		return nil, errors.Trace(ErrNoControllerSpecified)
+		controllers, err := c.store.AllControllers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(controllers) == 0 {
+			return nil, errors.Trace(ErrNoControllersDefined)
+		}
+		return nil, errors.Trace(ErrNotLoggedInToController)
 	}
 	if c.modelName == "" {
 		return nil, errors.Trace(ErrNoModelSpecified)

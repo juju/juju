@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -39,11 +39,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 )
-
-type Killer interface {
-	Kill() error
-}
 
 type serverSuite struct {
 	baseSuite
@@ -69,6 +66,9 @@ func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := m.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
 	s.State.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,9 +172,9 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
@@ -223,9 +223,9 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	agentVersion, found := modelConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
@@ -339,7 +339,7 @@ var _ = gc.Suite(&clientSuite{})
 // clearSinceTimes zeros out the updated timestamps inside status
 // so we can easily check the results.
 func clearSinceTimes(status *params.FullStatus) {
-	for serviceId, service := range status.Services {
+	for applicationId, service := range status.Applications {
 		for unitId, unit := range service.Units {
 			unit.WorkloadStatus.Since = nil
 			unit.AgentStatus.Since = nil
@@ -351,7 +351,7 @@ func clearSinceTimes(status *params.FullStatus) {
 			service.Units[unitId] = unit
 		}
 		service.Status.Since = nil
-		status.Services[serviceId] = service
+		status.Applications[applicationId] = service
 	}
 	for id, machine := range status.Machines {
 		machine.AgentStatus.Since = nil
@@ -459,12 +459,15 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientModelInfo(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	conf, _ := s.State.ModelConfig()
 	info, err := s.APIState.Client().ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
+	c.Assert(info.CloudRegion, gc.Equals, model.CloudRegion())
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
 	c.Assert(info.UUID, gc.Equals, env.UUID())
@@ -480,10 +483,6 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 func assertRemoved(c *gc.C, entity state.Living) {
 	err := entity.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func assertKill(c *gc.C, killer Killer) {
-	c.Assert(killer.Kill(), gc.IsNil)
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
@@ -822,32 +821,32 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 }
 
 func (s *serverSuite) TestClientModelGet(c *gc.C) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, gc.DeepEquals, envConfig.AllAttrs())
+	c.Assert(result.Config, gc.DeepEquals, modelConfig.AllAttrs())
 }
 
 func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	value, found := envConfig.AllAttrs()[key]
+	value, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, expected)
 }
 
 func (s *serverSuite) assertEnvValueMissing(c *gc.C, key string) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()[key]
+	_, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)
 }
 
 func (s *serverSuite) TestClientModelSet(c *gc.C) {
-	envConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()["some-key"]
+	_, found := modelConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsFalse)
 
 	params := params.ModelSet{
@@ -865,10 +864,10 @@ func (s *serverSuite) TestClientModelSetImmutable(c *gc.C) {
 	// The various immutable config values are tested in
 	// environs/config/config_test.go, so just choosing one here.
 	params := params.ModelSet{
-		Config: map[string]interface{}{"state-port": "1"},
+		Config: map[string]interface{}{"firewall-mode": "global"},
 	}
 	err := s.client.ModelSet(params)
-	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to 1`)
+	c.Check(err, gc.ErrorMatches, `cannot change firewall-mode from .* to "global"`)
 }
 
 func (s *serverSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
@@ -880,21 +879,6 @@ func (s *serverSuite) TestBlockChangesClientModelSet(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockChangesClientModelSet")
 	args := map[string]interface{}{"some-key": "value"}
 	s.assertModelSetBlocked(c, args, "TestBlockChangesClientModelSet")
-}
-
-func (s *serverSuite) TestClientModelSetDeprecated(c *gc.C) {
-	envConfig, err := s.State.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	url := envConfig.AllAttrs()["agent-metadata-url"]
-	c.Assert(url, gc.Equals, "")
-
-	args := params.ModelSet{
-		Config: map[string]interface{}{"tools-metadata-url": "value"},
-	}
-	err = s.client.ModelSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertEnvValue(c, "agent-metadata-url", "value")
-	s.assertEnvValue(c, "tools-metadata-url", "value")
 }
 
 func (s *serverSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
@@ -1060,13 +1044,13 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
 		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		ContainerType: instance.LXC,
+		ContainerType: instance.LXD,
 		ParentId:      "0",
 		Series:        "quantal",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
 }
 
 // updateConfig sets config variable with given key to a given value
@@ -1101,15 +1085,15 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
-	apiParams[0].Placement = instance.MustParsePlacement("lxc")
-	apiParams[1].Placement = instance.MustParsePlacement("lxc:0")
-	apiParams[1].ContainerType = instance.LXC
-	apiParams[2].Placement = instance.MustParsePlacement("admin:invalid")
-	apiParams[3].Placement = instance.MustParsePlacement("admin:valid")
+	apiParams[0].Placement = instance.MustParsePlacement("lxd")
+	apiParams[1].Placement = instance.MustParsePlacement("lxd:0")
+	apiParams[1].ContainerType = instance.LXD
+	apiParams[2].Placement = instance.MustParsePlacement("controller:invalid")
+	apiParams[3].Placement = instance.MustParsePlacement("controller:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
-	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
+	c.Assert(machines[0].Machine, gc.Equals, "0/lxd/0")
 	c.Assert(machines[1].Error, gc.ErrorMatches, "container type and placement are mutually exclusive")
 	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: invalid placement is invalid")
 	c.Assert(machines[3].Machine, gc.Equals, "1")
@@ -1130,8 +1114,8 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Create a machine to host the requested containers.
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	// The host only supports lxc containers.
-	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+	// The host only supports ldc containers.
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up params for adding 3 containers.

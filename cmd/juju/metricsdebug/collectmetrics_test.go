@@ -5,11 +5,11 @@ package metricsdebug_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -45,11 +45,11 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		err       string
 	}{{
 		about: "missing args",
-		err:   "you need to specify a unit or service.",
+		err:   "you need to specify a unit or application.",
 	}, {
-		about: "invalid service name",
-		args:  []string{"service_1-0"},
-		err:   `"service_1-0" is not a valid unit or service`,
+		about: "invalid application name",
+		args:  []string{"application_1-0"},
+		err:   `"application_1-0" is not a valid unit or application`,
 	}, {
 		about: "all is well",
 		args:  []string{"uptime"},

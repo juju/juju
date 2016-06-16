@@ -33,7 +33,7 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 		serviceName: "led-service",
 	}
 	s.CheckCalls(c, []testing.StubCall{{
-		FuncName: "ServiceName",
+		FuncName: "ApplicationName",
 	}}, func() {
 		s.context = context.NewLeadershipContext(s.accessor, s.tracker)
 	})
@@ -307,8 +307,8 @@ type StubTracker struct {
 	results     []StubTicket
 }
 
-func (stub *StubTracker) ServiceName() string {
-	stub.MethodCall(stub, "ServiceName")
+func (stub *StubTracker) ApplicationName() string {
+	stub.MethodCall(stub, "ApplicationName")
 	return stub.serviceName
 }
 

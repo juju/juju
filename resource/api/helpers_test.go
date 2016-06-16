@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
@@ -51,11 +51,11 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	err = res.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,11 +72,11 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	})
 }
 
@@ -97,11 +97,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -119,11 +119,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,11 +139,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 
 	unitRes := api.Resource{
@@ -157,11 +157,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 
 	fp2, err := charmresource.GenerateFingerprint(strings.NewReader("boo!"))
@@ -254,11 +254,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,11 +276,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	err = unitExpected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,11 +296,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 
 	unitRes := api.Resource{
@@ -314,11 +314,11 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 
 	_, err = api.APIResult2ServiceResources(api.ResourcesResult{
@@ -350,8 +350,8 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		ServiceID: "a-service",
+		ID:            "a-application/spam",
+		ApplicationID: "a-application",
 	}
 	failure := errors.New("<failure>")
 
@@ -381,14 +381,14 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		ServiceID: "a-service",
+		ID:            "a-application/spam",
+		ApplicationID: "a-application",
 	}
 
 	_, err := api.APIResult2ServiceResources(api.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
-				Message: `service "a-service" not found`,
+				Message: `application "a-application" not found`,
 				Code:    params.CodeNotFound,
 			},
 		},
@@ -413,11 +413,11 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: []byte(fingerprint),
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -436,11 +436,11 @@ func (HelpersSuite) TestAPI2Resource(c *gc.C) {
 			Fingerprint: fp,
 			Size:        10,
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: "a-service",
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: "a-application",
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	err = expected.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -513,11 +513,11 @@ func (HelpersSuite) TestAPI2CharmResource(c *gc.C) {
 }
 
 func (HelpersSuite) TestServiceResources2API(c *gc.C) {
-	res1 := resourcetesting.NewResource(c, nil, "res1", "a-service", "data").Resource
-	res2 := resourcetesting.NewResource(c, nil, "res2", "a-service", "data2").Resource
+	res1 := resourcetesting.NewResource(c, nil, "res1", "a-application", "data").Resource
+	res2 := resourcetesting.NewResource(c, nil, "res2", "a-application", "data2").Resource
 
-	tag0 := names.NewUnitTag("a-service/0")
-	tag1 := names.NewUnitTag("a-service/1")
+	tag0 := names.NewUnitTag("a-application/0")
+	tag1 := names.NewUnitTag("a-application/1")
 
 	chres1 := res1.Resource
 	chres2 := res2.Resource
@@ -566,7 +566,7 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 		UnitResources: []api.UnitResources{
 			{
 				Entity: params.Entity{
-					Tag: "unit-a-service-0",
+					Tag: "unit-a-application-0",
 				},
 				Resources: []api.Resource{
 					apiRes1,
@@ -580,7 +580,7 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 				// we should have a listing for every unit, even if they
 				// have no resources.
 				Entity: params.Entity{
-					Tag: "unit-a-service-1",
+					Tag: "unit-a-application-1",
 				},
 			},
 		},

@@ -4,6 +4,5 @@
 package migration
 
 var (
-	ControllerValues         = controllerValues
 	UpdateConfigFromProvider = updateConfigFromProvider
 )

@@ -41,24 +41,24 @@ func (s *BootstrapConfigSuite) TestBootstrapConfigForControllerNotFound(c *gc.C)
 }
 
 func (s *BootstrapConfigSuite) TestBootstrapConfigForController(c *gc.C) {
-	cfg, err := s.store.BootstrapConfigForController("local.aws-test")
+	cfg, err := s.store.BootstrapConfigForController("aws-test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
-	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["local.aws-test"])
+	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["aws-test"])
 }
 
 func (s *BootstrapConfigSuite) TestUpdateBootstrapConfigNewController(c *gc.C) {
-	err := s.store.UpdateBootstrapConfig("new-controller", testBootstrapConfig["local.mallards"])
+	err := s.store.UpdateBootstrapConfig("new-controller", testBootstrapConfig["mallards"])
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.store.BootstrapConfigForController("new-controller")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["local.mallards"])
+	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["mallards"])
 }
 
 func (s *BootstrapConfigSuite) TestUpdateBootstrapConfigOverwrites(c *gc.C) {
-	err := s.store.UpdateBootstrapConfig("local.aws-test", testBootstrapConfig["local.mallards"])
+	err := s.store.UpdateBootstrapConfig("aws-test", testBootstrapConfig["mallards"])
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.store.BootstrapConfigForController("local.aws-test")
+	cfg, err := s.store.BootstrapConfigForController("aws-test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["local.mallards"])
+	c.Assert(*cfg, jc.DeepEquals, testBootstrapConfig["mallards"])
 }

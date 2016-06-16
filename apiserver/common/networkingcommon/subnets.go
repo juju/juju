@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -354,12 +354,6 @@ func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSub
 		AvailabilityZones: zones,
 		SpaceName:         spaceTag.Id(),
 	}
-	if subnetInfo.AllocatableIPLow != nil {
-		backingInfo.AllocatableIPLow = subnetInfo.AllocatableIPLow.String()
-	}
-	if subnetInfo.AllocatableIPHigh != nil {
-		backingInfo.AllocatableIPHigh = subnetInfo.AllocatableIPHigh.String()
-	}
 	if _, err := api.AddSubnet(backingInfo); err != nil {
 		return errors.Trace(err)
 	}
@@ -439,14 +433,9 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 // environs.Networking, an error satisfying errors.IsNotSupported() will be
 // returned.
 func networkingEnviron(api NetworkBacking) (environs.NetworkingEnviron, error) {
-	envConfig, err := api.ModelConfig()
+	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting model config")
-	}
-
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening model")
+		return nil, errors.Annotate(err, "opening environment")
 	}
 	if netEnv, ok := environs.SupportsNetworking(env); ok {
 		return netEnv, nil
@@ -517,14 +506,9 @@ func updateZones(api NetworkBacking) ([]providercommon.AvailabilityZone, error) 
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
 func zonedEnviron(api NetworkBacking) (providercommon.ZonedEnviron, error) {
-	envConfig, err := api.ModelConfig()
+	env, err := environs.GetEnviron(api, environs.New)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting model config")
-	}
-
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "opening model")
+		return nil, errors.Annotate(err, "opening environment")
 	}
 	if zonedEnv, ok := env.(providercommon.ZonedEnviron); ok {
 		return zonedEnv, nil

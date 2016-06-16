@@ -43,7 +43,7 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvPathPrepend(s.testPath)
 	s.PatchValue(&upstart.InitDir, s.initDir)
 	s.service = upstart.NewService(
-		"some-service",
+		"some-application",
 		common.Conf{
 			Desc:      "some service",
 			ExecStart: "/path/to/some-command",
@@ -56,7 +56,7 @@ var checkargs = `
 if [ "$1" != "--system" ]; then
   exit 255
 fi
-if [ "$2" != "some-service" ]; then
+if [ "$2" != "some-application" ]; then
   exit 255
 fi
 if [ "$3" != "" ]; then
@@ -71,15 +71,15 @@ func (s *UpstartSuite) MakeTool(c *gc.C, name, script string) {
 }
 
 func (s *UpstartSuite) StoppedStatus(c *gc.C) {
-	s.MakeTool(c, "status", `echo "some-service stop/waiting"`)
+	s.MakeTool(c, "status", `echo "some-application stop/waiting"`)
 }
 
 func (s *UpstartSuite) RunningStatusNoProcessID(c *gc.C) {
-	s.MakeTool(c, "status", `echo "some-service start/running"`)
+	s.MakeTool(c, "status", `echo "some-application start/running"`)
 }
 
 func (s *UpstartSuite) RunningStatusWithProcessID(c *gc.C) {
-	s.MakeTool(c, "status", `echo "some-service start/running, process 123"`)
+	s.MakeTool(c, "status", `echo "some-application start/running, process 123"`)
 }
 
 func (s *UpstartSuite) goodInstall(c *gc.C) {
@@ -175,7 +175,7 @@ func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	err := s.service.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	filename := filepath.Join(upstart.InitDir, "some-service.conf")
+	filename := filepath.Join(upstart.InitDir, "some-application.conf")
 	_, err = os.Stat(filename)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
 }
@@ -184,7 +184,7 @@ func (s *UpstartSuite) TestStopRunning(c *gc.C) {
 	s.goodInstall(c)
 	s.RunningStatusWithProcessID(c)
 	s.MakeTool(c, "stop", "exit 99")
-	filename := filepath.Join(upstart.InitDir, "some-service.conf")
+	filename := filepath.Join(upstart.InitDir, "some-application.conf")
 	err := s.service.Stop()
 	c.Assert(err, gc.ErrorMatches, ".*exit status 99.*")
 
@@ -206,7 +206,7 @@ func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
 	s.service.Service.Conf = conf
 	s.service.Service.Name = ""
 	check("missing Name")
-	s.service.Service.Name = "some-service"
+	s.service.Service.Name = "some-application"
 	check("missing Desc")
 	s.service.Service.Conf.Desc = "this is an upstart service"
 	check("missing ExecStart")
@@ -229,7 +229,7 @@ func (s *UpstartSuite) dummyConf(c *gc.C) common.Conf {
 
 func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
-	expectPath := filepath.Join(upstart.InitDir, "some-service.conf")
+	expectPath := filepath.Join(upstart.InitDir, "some-application.conf")
 
 	s.service.Service.Conf = conf
 	svc := s.service
@@ -241,10 +241,10 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	cmds, err = s.service.StartCommands()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
-		"start some-service",
+		"start some-application",
 	})
 
-	s.MakeTool(c, "status", `echo "some-service stop/waiting"`)
+	s.MakeTool(c, "status", `echo "some-application stop/waiting"`)
 	s.MakeTool(c, "start", "exit 99")
 	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
@@ -342,8 +342,8 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	pathTo := func(name string) string {
 		return filepath.Join(s.testPath, name)
 	}
-	s.MakeTool(c, "status-stopped", `echo "some-service stop/waiting"`)
-	s.MakeTool(c, "status-started", `echo "some-service start/running, process 123"`)
+	s.MakeTool(c, "status-stopped", `echo "some-application stop/waiting"`)
+	s.MakeTool(c, "status-started", `echo "some-application start/running, process 123"`)
 	s.MakeTool(c, "stop", fmt.Sprintf(
 		"rm %s; ln -s %s %s",
 		pathTo("status"), pathTo("status-stopped"), pathTo("status"),
@@ -355,7 +355,7 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	err := symlink.New(pathTo("status-started"), pathTo("status"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := upstart.NewService("some-service", s.dummyConf(c))
+	svc := upstart.NewService("some-application", s.dummyConf(c))
 	err = svc.Install()
 	c.Assert(err, jc.ErrorIsNil)
 	installed, err := svc.Running()

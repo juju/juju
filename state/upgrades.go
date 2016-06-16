@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/status"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -215,28 +215,28 @@ func settingsDocNeedsMigration(doc bson.M) bool {
 }
 
 func addDefaultBindingsToServices(st *State) error {
-	services, err := st.AllServices()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	upgradesLogger.Debugf("adding default endpoint bindings to services (where missing)")
-	ops := make([]txn.Op, 0, len(services))
-	for _, service := range services {
-		ch, _, err := service.Charm()
+	upgradesLogger.Debugf("adding default endpoint bindings to applications (where missing)")
+	ops := make([]txn.Op, 0, len(applications))
+	for _, application := range applications {
+		ch, _, err := application.Charm()
 		if err != nil {
-			return errors.Annotatef(err, "cannot get charm for service %q", service.Name())
+			return errors.Annotatef(err, "cannot get charm for application %q", application.Name())
 		}
-		if _, err := service.EndpointBindings(); err == nil {
-			upgradesLogger.Debugf("service %q already has bindings (skipping)", service.Name())
+		if _, err := application.EndpointBindings(); err == nil {
+			upgradesLogger.Debugf("application %q already has bindings (skipping)", application.Name())
 			continue
 		} else if !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "checking service %q for existing bindings", service.Name())
+			return errors.Annotatef(err, "checking application %q for existing bindings", application.Name())
 		}
 		// Passing nil for the bindings map will use the defaults.
-		createOp, err := createEndpointBindingsOp(st, service.globalKey(), nil, ch.Meta())
+		createOp, err := createEndpointBindingsOp(st, application.globalKey(), nil, ch.Meta())
 		if err != nil {
-			return errors.Annotatef(err, "setting default endpoint bindings for service %q", service.Name())
+			return errors.Annotatef(err, "setting default endpoint bindings for application %q", application.Name())
 		}
 		ops = append(ops, createOp)
 	}

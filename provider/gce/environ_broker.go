@@ -57,10 +57,10 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// Ensure the API server port is open (globally for all instances
 	// on the network, not just for the specific node of the state
 	// server). See LP bug #1436191 for details.
-	if isController(args.InstanceConfig) {
+	if args.InstanceConfig.Bootstrap != nil {
 		ports := network.PortRange{
-			FromPort: args.InstanceConfig.StateServingInfo.APIPort,
-			ToPort:   args.InstanceConfig.StateServingInfo.APIPort,
+			FromPort: args.InstanceConfig.Bootstrap.StateServingInfo.APIPort,
+			ToPort:   args.InstanceConfig.Bootstrap.StateServingInfo.APIPort,
 			Protocol: "tcp",
 		}
 		if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {

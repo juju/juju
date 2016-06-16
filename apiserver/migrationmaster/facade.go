@@ -5,9 +5,9 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -146,8 +146,8 @@ func (api *API) Reap() error {
 
 func getUsedCharms(model description.Model) []string {
 	result := set.NewStrings()
-	for _, service := range model.Services() {
-		result.Add(service.CharmURL())
+	for _, application := range model.Applications() {
+		result.Add(application.CharmURL())
 	}
 	return result.Values()
 }
@@ -161,8 +161,8 @@ func getUsedTools(model description.Model) []params.SerializedModelTools {
 		addToolsVersionForMachine(machine, usedVersions)
 	}
 
-	for _, service := range model.Services() {
-		for _, unit := range service.Units() {
+	for _, application := range model.Applications() {
+		for _, unit := range application.Units() {
 			tools := unit.Tools()
 			usedVersions[tools.Version()] = true
 		}

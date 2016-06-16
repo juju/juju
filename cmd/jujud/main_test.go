@@ -101,9 +101,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	msga := `unrecognized args: ["toastie"]`
 	checkMessage(c, msga,
 		"bootstrap-state",
-		"--model-config", b64yaml{"blah": "blah"}.encode(),
-		"--hosted-model-config", b64yaml{"blah": "blah"}.encode(),
-		"--instance-id", "inst",
+		"bootstrap-params-file",
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--unit-name", "un/0",

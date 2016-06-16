@@ -133,7 +133,7 @@ func (s *registrationSuite) TestRegisterInvalidFormat(c *gc.C) {
 
 func (s *registrationSuite) TestRegisterInvalidUserTag(c *gc.C) {
 	s.testInvalidRequest(
-		c, `{"user": "service-bob"}`, `"service-bob" is not a valid user tag`, "",
+		c, `{"user": "application-bob"}`, `"application-bob" is not a valid user tag`, "",
 		http.StatusInternalServerError,
 	)
 }

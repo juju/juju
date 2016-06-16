@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
@@ -165,6 +165,35 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
 	c.Assert(call.Args[1], jc.DeepEquals, map[string]string{"username": "bobbrown@local"})
 	// no check for checker function, can't compare functions
+}
+
+func (s *userAuthenticatorSuite) TestMacaroonUserLoginExpired(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "bobbrown",
+	})
+	clock := coretesting.NewClock(time.Now())
+
+	m := &macaroon.Macaroon{}
+	err := m.AddFirstPartyCaveat(
+		checkers.TimeBeforeCaveat(clock.Now().Add(-time.Second)).Condition,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	macaroons := []macaroon.Slice{{m}}
+	service := mockBakeryService{}
+	service.SetErrors(errors.New("auth failed"))
+
+	// User login
+	authenticator := &authentication.UserAuthenticator{
+		Service: &service,
+		Clock:   clock,
+	}
+	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+		Credentials: "",
+		Nonce:       "",
+		Macaroons:   macaroons,
+	})
+	c.Assert(err, gc.Equals, common.ErrLoginExpired)
 }
 
 func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {

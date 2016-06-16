@@ -6,18 +6,19 @@ package utils
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
 
-var getEnviron = GetEnviron
+var newEnviron = environs.New
 
 // AvailabilityZone returns the availability zone associated with
 // an instance ID.
 func AvailabilityZone(st *state.State, instID instance.Id) (string, error) {
 	// Get the provider.
-	env, err := getEnviron(st)
+	env, err := environs.GetEnviron(st, newEnviron)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

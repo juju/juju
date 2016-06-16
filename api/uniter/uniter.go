@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -69,12 +69,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV3 creates a new client-side Uniter facade, version 3.
-var newStateV3 = newStateForVersionFn(3)
+// newStateV4 creates a new client-side Uniter facade, version 4.
+var newStateV4 = newStateForVersionFn(4)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV3
+var NewState = newStateV4
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -156,13 +156,13 @@ func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	}, nil
 }
 
-// Service returns a service state by tag.
-func (st *State) Service(tag names.ServiceTag) (*Service, error) {
+// Application returns an application state by tag.
+func (st *State) Application(tag names.ApplicationTag) (*Application, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
+	return &Application{
 		tag:  tag,
 		life: life,
 		st:   st,
