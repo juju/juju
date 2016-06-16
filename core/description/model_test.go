@@ -364,6 +364,18 @@ func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerMACAddress(c
 	c.Assert(err, gc.ErrorMatches, `device "foo" has invalid MACAddress "DEADBEEF"`)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksParentExists(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "bar", MACAddress: "01:23:45:67:89:ab"}
+	model.AddLinkLayerDevice(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" has non-existent parent "bar"`)
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "bar", MachineID: "42"})
+	err = model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	space := initial.AddSpace(SpaceArgs{Name: "special"})
