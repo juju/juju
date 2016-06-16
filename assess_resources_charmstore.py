@@ -40,22 +40,49 @@ class RunId:
 
     def __call__(self):
         if self._run_id is None:
-            self._run_id = uuid1()
+            self._run_id = str(uuid1()).replace('-', '')
         return self._run_id
 
 
 get_run_id = RunId()
 
 
-def get_charmstore_details(credentials_file):
-    """Returns a CharmstoreDetails populated from `credentials_file`."""
+def get_charmstore_details(credentials_file=None):
+    """Returns a CharmstoreDetails from `credentials_file` or env vars.
 
-    def split_line_details(string):
-        safe_string = string.strip()
-        return safe_string.split('=', 1)[-1].strip('"')
+    Parses the credentials file (if supplied) and environment variables to
+    retrieve the charmstore details and credentials.
+
+    Note. any supplied detail via environment variables will overwrite anything
+    supplied in the credentials file..
+
+    """
 
     required_keys = ('api_url', 'password', 'email', 'username')
 
+    details = {}
+    if credentials_file is not None:
+        details = parse_credentials_file(credentials_file)
+
+    for key in required_keys:
+        env_key = 'CS_{}'.format(key.upper())
+        value = os.environ.get(env_key, details.get(key))
+        # Can't have empty credential details
+        if value is not None:
+            details[key] = value
+
+    if not set(details.keys()).issuperset(required_keys):
+        raise ValueError('Unable to get all details from file.')
+
+    return CharmstoreDetails(**details)
+
+
+def split_line_details(string):
+    safe_string = string.strip()
+    return safe_string.split('=', 1)[-1].strip('"')
+
+
+def parse_credentials_file(credentials_file):
     details = {}
     with open(credentials_file, 'r') as creds:
         for line in creds.readlines():
@@ -68,11 +95,7 @@ def get_charmstore_details(credentials_file):
                 details['username'] = raw_username.replace('.', '-')
             elif 'STORE_URL' in line:
                 details['api_url'] = split_line_details(line)
-
-    if not set(details.keys()).issuperset(required_keys):
-        raise ValueError('Unable to get all details from file.')
-
-    return CharmstoreDetails(**details)
+    return details
 
 
 def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
