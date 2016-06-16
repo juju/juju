@@ -87,6 +87,8 @@ func (maasEnvironProvider) Schema() environschema.Fields {
 
 var errMalformedMaasOAuth = errors.New("malformed maas-oauth (3 items separated by colons)")
 
+var minBootstrapTimeout = config.DefaultBootstrapSSHTimeout * 2
+
 func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating MAAS specifics.
 	err := config.Validate(cfg, oldCfg)
@@ -139,5 +141,9 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 	if strings.Count(oauth, ":") != 2 {
 		return nil, errMalformedMaasOAuth
 	}
+
+	// MAAS bootstrap needs more time to complete.
+	envCfg.attrs["bootstrap-timeout"] = minBootstrapTimeout
+
 	return cfg.Apply(envCfg.attrs)
 }
