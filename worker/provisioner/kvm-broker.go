@@ -87,6 +87,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	// Unlike with LXC, we don't override the default MTU to use.
 	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
+	interfaces := maybePopulateNetworkNameAndProviderId(network.Interfaces)
 
 	series := args.Tools.OneSeries()
 	args.InstanceConfig.MachineContainerType = instance.KVM
@@ -126,7 +127,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	return &environs.StartInstanceResult{
 		Instance:    inst,
 		Hardware:    hardware,
-		NetworkInfo: network.Interfaces,
+		NetworkInfo: interfaces,
 	}, nil
 }
 

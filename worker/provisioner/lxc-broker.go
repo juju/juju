@@ -117,6 +117,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		}
 	}
 	network := container.BridgeNetworkConfig(bridgeDevice, broker.defaultMTU, args.NetworkInfo)
+	interfaces := maybePopulateNetworkNameAndProviderId(network.Interfaces)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -172,7 +173,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	return &environs.StartInstanceResult{
 		Instance:    inst,
 		Hardware:    hardware,
-		NetworkInfo: network.Interfaces,
+		NetworkInfo: interfaces,
 	}, nil
 }
 
@@ -511,6 +512,20 @@ func discoverPrimaryNIC() (string, network.Address, error) {
 	return "", network.Address{}, errors.Errorf("cannot detect the primary network interface")
 }
 
+func maybePopulateNetworkNameAndProviderId(interfaceInfos []network.InterfaceInfo) []network.InterfaceInfo {
+	// Ensure we populate the following fields, as even though they are now
+	// irrelevant, the provisioner will validate them.
+	for i, _ := range interfaceInfos {
+		if interfaceInfos[i].NetworkName == "" {
+			interfaceInfos[i].NetworkName = network.DefaultPrivate
+		}
+		if interfaceInfos[i].ProviderId == "" {
+			interfaceInfos[i].ProviderId = network.DefaultProviderId
+		}
+	}
+	return interfaceInfos
+}
+
 // configureContainerNetworking tries to allocate a static IP address
 // for the given containerId using the provisioner API, when
 // allocateAddress is true. Otherwise it configures the container with
@@ -576,12 +591,6 @@ func configureContainerNetwork(
 		finalIfaceInfo[i].DNSServers = dnsServers
 		finalIfaceInfo[i].DNSSearch = searchDomain
 		finalIfaceInfo[i].GatewayAddress = primaryAddr
-		if finalIfaceInfo[i].NetworkName == "" {
-			finalIfaceInfo[i].NetworkName = network.DefaultPrivate
-		}
-		if finalIfaceInfo[i].ProviderId == "" {
-			finalIfaceInfo[i].ProviderId = network.DefaultProviderId
-		}
 	}
 	err = setupRoutesAndIPTables(
 		primaryNIC,
@@ -593,7 +602,7 @@ func configureContainerNetwork(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return finalIfaceInfo, nil
+	return maybePopulateNetworkNameAndProviderId(finalIfaceInfo), nil
 }
 
 // MaintainInstance checks that the container's host has the required iptables and routing
