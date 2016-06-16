@@ -409,6 +409,22 @@ func (s *ModelSerializationSuite) TestModelValidationChecksChildDeviceContained(
 	c.Assert(err, gc.ErrorMatches, `ParentName "m#43#d#bar" for non-container machine "42"`)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksParentOnHost(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "41/lxd/0", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar", Type: "bridge"}
+	model.AddLinkLayerDevice(args2)
+	machine := s.addMachineToModel(model, "41")
+	container := machine.AddContainer(MachineArgs{Id: names.NewMachineTag("41/lxd/0")})
+	container.SetInstance(CloudInstanceArgs{InstanceId: "magic"})
+	container.SetTools(minimalAgentToolsArgs())
+	container.SetStatus(minimalStatusArgs())
+	s.addMachineToModel(model, "43")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `parent machine of device "foo" not host machine "41"`)
+}
+
 func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	space := initial.AddSpace(SpaceArgs{Name: "special"})
