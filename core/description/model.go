@@ -472,6 +472,10 @@ func (m *model) validateLinkLayerDevices() error {
 	// parents.
 	machineDevices := make(map[string]map[string]LinkLayerDevice)
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		_, ok := machineDevices[device.MachineID()]
+		if !ok {
+			machineDevices[device.MachineID()] = make(map[string]LinkLayerDevice)
+		}
 		machineDevices[device.MachineID()][device.Name()] = device
 	}
 

@@ -337,6 +337,16 @@ func (s *ModelSerializationSuite) TestModelValidationChecksSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachineId(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" references non-existent machine "42"`)
+	model.AddSpace(SpaceArgs{Name: "foo"})
+	err = model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	space := initial.AddSpace(SpaceArgs{Name: "special"})
