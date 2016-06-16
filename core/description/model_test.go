@@ -376,6 +376,39 @@ func (s *ModelSerializationSuite) TestModelValidationChecksParentExists(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksParentIsNotItself(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "foo"}
+	model.AddLinkLayerDevice(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" is its own parent`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksParentIsABridge(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar"}
+	model.AddLinkLayerDevice(args2)
+	s.addMachineToModel(model, "42")
+	s.addMachineToModel(model, "43")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" on a container but not a bridge`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksChildDeviceContained(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar", Type: "bridge"}
+	model.AddLinkLayerDevice(args2)
+	s.addMachineToModel(model, "42")
+	s.addMachineToModel(model, "43")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ParentName "m#43#d#bar" for non-container machine "42"`)
+}
+
 func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	space := initial.AddSpace(SpaceArgs{Name: "special"})
