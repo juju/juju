@@ -342,7 +342,7 @@ func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachin
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
 	err := model.Validate()
 	c.Assert(err, gc.ErrorMatches, `device "foo" references non-existent machine "42"`)
-	model.AddSpace(SpaceArgs{Name: "foo"})
+	s.addMachineToModel(model, "42")
 	err = model.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 }
