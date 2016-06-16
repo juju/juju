@@ -88,6 +88,16 @@ func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName stri
 	return machineID, deviceName, true
 }
 
+// parentId returns the id of the host machine if machineId a container id, or ""
+// if machineId is not for a container.
+func parentId(machineId string) string {
+	idParts := strings.Split(machineId, "/")
+	if len(idParts) < 3 {
+		return ""
+	}
+	return strings.Join(idParts[:len(idParts)-2], "/")
+}
+
 type model struct {
 	Version int `yaml:"version"`
 
@@ -443,12 +453,19 @@ func (m *model) validateSubnets() error {
 	return nil
 }
 
+func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
+	machineIDs[machine.Id()] = machine
+	for _, container := range machine.Containers() {
+		addMachinesToMap(container, machineIDs)
+	}
+}
+
 // validateLinkLayerDevices makes sure that any machines referenced by link
 // layer devices exist.
 func (m *model) validateLinkLayerDevices() error {
 	machineIDs := make(map[string]Machine)
 	for _, machine := range m.Machines_.Machines_ {
-		machineIDs[machine.Id()] = machine
+		addMachinesToMap(machine, machineIDs)
 	}
 
 	// Build a map of all devices for each machine, in order to validate
@@ -459,7 +476,7 @@ func (m *model) validateLinkLayerDevices() error {
 	}
 
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
-		_, ok := machineIDs[device.MachineID()]
+		machine, ok := machineIDs[device.MachineID()]
 		if !ok {
 			return errors.Errorf("device %q references non-existent machine %q", device.Name(), device.MachineID())
 		}
@@ -477,23 +494,29 @@ func (m *model) validateLinkLayerDevices() error {
 				hostMachineID = device.MachineID()
 				parentDeviceName = device.ParentName()
 			}
-			_, ok := machineDevices[hostMachineID][parentDeviceName]
+			parentDevice, ok := machineDevices[hostMachineID][parentDeviceName]
 			if !ok {
 				return errors.Errorf("device %q has non-existent parent %q", device.Name(), parentDeviceName)
 			}
 			if canBeGlobalKey {
 				// The device is on a container.
-				// check parent device is a bridge
-				// check parent device machine id is the parent
-				// of the host machine
+				if parentDevice.Type() != "bridge" {
+					return errors.Errorf("device %q on a container but not a bridge", device.Name())
+				}
+				parentId := parentId(machine.Id())
+				if parentId == "" {
+					return errors.Errorf("ParentName %q for non-container machine %q", device.ParentName(), machine.Id())
+				}
+				if parentDevice.MachineID() != parentId {
+					return errors.Errorf("parent machine %q not on host machine %q", parentDevice.Name(), parentId)
+				}
 			} else {
 				if device.Name() == parentDeviceName {
-					return errors.Errorf("XXX")
+					return errors.Errorf("device %q is its own parent", device.Name())
 				}
 			}
 		}
 	}
-
 	return nil
 }
 
