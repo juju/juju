@@ -55,6 +55,13 @@ var configSchema = environschema.Fields{
 		Group:       environschema.AccountGroup,
 		Secret:      true,
 	},
+	"domain-name": {
+		Description: "The Keystone v3 domain-name.",
+		EnvVars:     identity.CredEnvDomainName,
+		Example:     "yourdomain",
+		Group:       environschema.AccountGroup,
+		Type:        environschema.Tstring,
+	},
 	"secret-key": {
 		Description: "The secret key to use when auth-mode is set to keypair.",
 		EnvVars:     identity.CredEnvSecrets,
