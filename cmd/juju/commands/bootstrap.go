@@ -245,12 +245,18 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
+	CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool)
 }
 
 type bootstrapFuncs struct{}
 
 func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, args)
+}
+
+func (b bootstrapFuncs) CloudRegionDetector(provider environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
+	detector, ok := provider.(environs.CloudRegionDetector)
+	return detector, ok
 }
 
 var getBootstrapFuncs = func() BootstrapInterface {
@@ -295,7 +301,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		detector, ok := provider.(environs.CloudRegionDetector)
+		detector, ok := bootstrapFuncs.CloudRegionDetector(provider)
 		if !ok {
 			ctx.Verbosef(
 				"provider %q does not support detecting regions",
@@ -311,9 +317,15 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				c.Cloud,
 			)
 		}
+		schemas := provider.CredentialSchemas()
+		authTypes := make([]jujucloud.AuthType, 0, len(schemas))
+		for authType := range schemas {
+			authTypes = append(authTypes, authType)
+		}
 		cloud = &jujucloud.Cloud{
-			Type:    c.Cloud,
-			Regions: regions,
+			Type:      c.Cloud,
+			AuthTypes: authTypes,
+			Regions:   regions,
 		}
 	} else if err != nil {
 		return errors.Trace(err)
@@ -608,7 +620,9 @@ func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.
 			cloud.Endpoint,
 			cloud.StorageEndpoint,
 		}
-		cloud.Regions = []jujucloud.Region{region}
+		if regionName != "" {
+			cloud.Regions = []jujucloud.Region{region}
+		}
 		return region, nil
 	}
 	if regionName == "" {
