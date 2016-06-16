@@ -28,34 +28,34 @@ var _ formatter = formatter_2_0{}
 
 // format_2_0Serialization holds information for a given agent.
 type format_2_0Serialization struct {
-	Tag               string
-	DataDir           string
-	LogDir            string
-	MetricsSpoolDir   string
-	Nonce             string
-	Jobs              []multiwatcher.MachineJob `yaml:",omitempty"`
+	Tag               string                    `yaml:"tag,omitempty"`
+	DataDir           string                    `yaml:"datadir,omitempty"`
+	LogDir            string                    `yaml:"logdir,omitempty"`
+	MetricsSpoolDir   string                    `yaml:"metricsspooldir,omitempty"`
+	Nonce             string                    `yaml:"nonce,omitempty"`
+	Jobs              []multiwatcher.MachineJob `yaml:"jobs,omitempty"`
 	UpgradedToVersion *version.Number           `yaml:"upgradedToVersion"`
 
-	CACert         string
-	StateAddresses []string `yaml:",omitempty"`
-	StatePassword  string   `yaml:",omitempty"`
+	CACert         string   `yaml:"cacert,omitempty"`
+	StateAddresses []string `yaml:"stateaddresses,omitempty"`
+	StatePassword  string   `yaml:"statepassword,omitempty"`
 
-	Model        string   `yaml:",omitempty"`
-	APIAddresses []string `yaml:",omitempty"`
-	APIPassword  string   `yaml:",omitempty"`
+	Model        string   `yaml:"model,omitempty"`
+	APIAddresses []string `yaml:"apiaddresses,omitempty"`
+	APIPassword  string   `yaml:"apipassword,omitempty"`
 
-	OldPassword string
-	Values      map[string]string
+	OldPassword string            `yaml:"oldpassword,omitempty"`
+	Values      map[string]string `yaml:"values"`
 
 	// Only controller machines have these next items set.
-	ControllerCert string `yaml:",omitempty"`
-	ControllerKey  string `yaml:",omitempty"`
-	CAPrivateKey   string `yaml:",omitempty"`
-	APIPort        int    `yaml:",omitempty"`
-	StatePort      int    `yaml:",omitempty"`
-	SharedSecret   string `yaml:",omitempty"`
-	SystemIdentity string `yaml:",omitempty"`
-	MongoVersion   string `yaml:",omitempty"`
+	ControllerCert string `yaml:"controllercert,omitempty"`
+	ControllerKey  string `yaml:"controllerkey,omitempty"`
+	CAPrivateKey   string `yaml:"caprivatekey,omitempty"`
+	APIPort        int    `yaml:"apiport,omitempty"`
+	StatePort      int    `yaml:"stateport,omitempty"`
+	SharedSecret   string `yaml:"sharedsecret,omitempty"`
+	SystemIdentity string `yaml:"systemidentity,omitempty"`
+	MongoVersion   string `yaml:"mongoversion,omitempty"`
 }
 
 func init() {
@@ -174,12 +174,16 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.SystemIdentity = config.servingInfo.SystemIdentity
 	}
 	if config.stateDetails != nil {
-		format.StateAddresses = config.stateDetails.addresses
-		format.StatePassword = config.stateDetails.password
+		if len(config.stateDetails.addresses) > 0 {
+			format.StateAddresses = config.stateDetails.addresses
+			format.StatePassword = config.stateDetails.password
+		}
 	}
 	if config.apiDetails != nil {
-		format.APIAddresses = config.apiDetails.addresses
-		format.APIPassword = config.apiDetails.password
+		if len(config.apiDetails.addresses) > 0 {
+			format.APIAddresses = config.apiDetails.addresses
+			format.APIPassword = config.apiDetails.password
+		}
 	}
 	if config.mongoVersion != "" {
 		format.MongoVersion = string(config.mongoVersion)
