@@ -355,7 +355,7 @@ func validateCloudCredential(
 		hasEmptyAuth = true
 		break
 	}
-	if !hasEmptyAuth {
+	if len(controllerCloud.AuthTypes) > 0 && !hasEmptyAuth {
 		return txn.Op{}, errors.NotValidf("missing CloudCredential")
 	}
 	return txn.Op{
