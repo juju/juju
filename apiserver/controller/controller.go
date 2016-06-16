@@ -206,7 +206,19 @@ func (s *ControllerAPI) ControllerConfig() (params.ControllerConfigResult, error
 	if err != nil {
 		return result, err
 	}
-	result.Config = params.ControllerConfig(config)
+	result.ControllerConfig = params.ControllerConfig(config)
+	return result, nil
+}
+
+// DefaultModelConfig returns the shared configuration defaults
+// for all hosted models.
+func (s *ControllerAPI) DefaultModelConfig() (params.ControllerConfigResult, error) {
+	result := params.ControllerConfigResult{}
+	config, err := s.state.ModelConfigDefaults()
+	if err != nil {
+		return result, err
+	}
+	result.DefaultModelConfig = config
 	return result, nil
 }
 

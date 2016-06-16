@@ -364,6 +364,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewRemoveBlocksCommand())
 	r.Register(controller.NewShowControllerCommand())
 	r.Register(controller.NewGetConfigCommand())
+	r.Register(controller.NewGetSharedConfigCommand())
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())

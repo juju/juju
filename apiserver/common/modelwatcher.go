@@ -90,6 +90,6 @@ func (m *ModelWatcher) ControllerConfig() (params.ControllerConfigResult, error)
 	if err != nil {
 		return result, err
 	}
-	result.Config = params.ControllerConfig(config)
+	result.ControllerConfig = params.ControllerConfig(config)
 	return result, nil
 }

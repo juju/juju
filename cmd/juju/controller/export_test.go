@@ -138,8 +138,16 @@ func NewListBlocksCommandForTest(api listBlocksAPI, apierr error, store jujuclie
 
 // NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
 // the api provided as specified.
-func NewGetConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
+func NewGetConfigCommandForTest(api controllerConfigAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &getConfigCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c)
+}
+
+// NewGetSharedConfigCommandForTest returns a GetSharedConfigCommandCommand with
+// the api provided as specified.
+func NewGetSharedConfigCommandForTest(api controllerSharedConfigAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &getSharedConfigCommand{api: api}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }

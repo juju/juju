@@ -224,6 +224,9 @@ type ModelConfig map[string]interface{}
 // ControllerConfig holds a controller configuration.
 type ControllerConfig map[string]interface{}
 
+// DefaultModelConfig holds default configuration for models.
+type DefaultModelConfig map[string]interface{}
+
 // ModelConfigResult holds model configuration.
 type ModelConfigResult struct {
 	Config ModelConfig
@@ -231,7 +234,8 @@ type ModelConfigResult struct {
 
 // ControllerConfigResult holds controller configuration.
 type ControllerConfigResult struct {
-	Config ControllerConfig
+	ControllerConfig   ControllerConfig   `json:"controller-config,omitempty"`
+	DefaultModelConfig DefaultModelConfig `json:"default-model-config,omitempty"`
 }
 
 // RelationUnit holds a relation and a unit tag.

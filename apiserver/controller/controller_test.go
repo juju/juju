@@ -35,6 +35,7 @@ type controllerSuite struct {
 var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.ModelDefaultAttrs = map[string]interface{}{"apt-mirror": "http://mirror"}
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -172,9 +173,18 @@ func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
-	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
-	c.Assert(cfg.Config["api-port"], gc.Equals, cfgFromDB.APIPort())
+	c.Assert(cfg.ControllerConfig["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
+	c.Assert(cfg.ControllerConfig["state-port"], gc.Equals, cfgFromDB.StatePort())
+	c.Assert(cfg.ControllerConfig["api-port"], gc.Equals, cfgFromDB.APIPort())
+}
+
+func (s *controllerSuite) TestDefaultModelConfig(c *gc.C) {
+	cfg, err := s.controller.DefaultModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgFromDB, err := s.State.ModelConfigDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.DefaultModelConfig["apt-mirror"], gc.Equals, "http://mirror")
+	c.Assert(cfg.DefaultModelConfig["apt-mirror"], gc.Equals, cfgFromDB["apt-mirror"])
 }
 
 func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
@@ -189,9 +199,9 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
-	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
-	c.Assert(cfg.Config["api-port"], gc.Equals, cfgFromDB.APIPort())
+	c.Assert(cfg.ControllerConfig["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
+	c.Assert(cfg.ControllerConfig["state-port"], gc.Equals, cfgFromDB.StatePort())
+	c.Assert(cfg.ControllerConfig["api-port"], gc.Equals, cfgFromDB.APIPort())
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {

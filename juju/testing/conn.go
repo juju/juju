@@ -71,6 +71,11 @@ type JujuConnSuite struct {
 	// added to the suite's environment configuration.
 	ConfigAttrs map[string]interface{}
 
+	// ModelConfigAttrs can be set up before SetUpTest
+	// is invoked. Any attributes set here will be
+	// added to the suite's default model configuration.
+	ModelDefaultAttrs map[string]interface{}
+
 	// TODO: JujuConnSuite should not be concerned both with JUJU_DATA and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
@@ -294,8 +299,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	defaultConfig := make(map[string]interface{})
+	for attr, val := range s.ModelDefaultAttrs {
+		defaultConfig[attr] = val
+	}
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ModelConfigDefaults: defaultConfig,
+		CloudName:           "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
