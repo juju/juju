@@ -355,6 +355,15 @@ func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerName(c *gc.C
 	c.Assert(err, gc.ErrorMatches, "device has empty name.*")
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerMACAddress(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", MACAddress: "DEADBEEF"}
+	model.AddLinkLayerDevice(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" has invalid MACAddress "DEADBEEF"`)
+}
+
 func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	space := initial.AddSpace(SpaceArgs{Name: "special"})
