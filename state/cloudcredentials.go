@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cloud"
 )
 
 // cloudCredentialDoc records information about a user's cloud credentials.
@@ -25,12 +25,12 @@ type cloudCredentialDoc struct {
 }
 
 // CloudCredentials returns the user's cloud credentials, keyed by credential name.
-func (st *State) CloudCredentials(user names.UserTag) (map[string]jujucloud.Credential, error) {
+func (st *State) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
 	coll, cleanup := st.getCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
-	credentials := make(map[string]jujucloud.Credential)
+	credentials := make(map[string]cloud.Credential)
 	iter := coll.Find(bson.D{{"owner", user.Canonical()}}).Iter()
 	for iter.Next(&doc) {
 		credentials[doc.Name] = doc.toCredential()
@@ -44,7 +44,7 @@ func (st *State) CloudCredentials(user names.UserTag) (map[string]jujucloud.Cred
 // UpdateCloudCredentials updates the user's cloud credentials. Any existing
 // credentials with the same names will be replaced, and any other credentials
 // not in the updated set will be untouched.
-func (st *State) UpdateCloudCredentials(user names.UserTag, credentials map[string]jujucloud.Credential) error {
+func (st *State) UpdateCloudCredentials(user names.UserTag, credentials map[string]cloud.Credential) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloud, err := st.Cloud()
 		if err != nil {
@@ -65,7 +65,7 @@ func (st *State) UpdateCloudCredentials(user names.UserTag, credentials map[stri
 
 // updateCloudCredentialsOps returns a list of txn.Ops that will create
 // or update a set of cloud credentials for a user.
-func updateCloudCredentialsOps(user names.UserTag, credentials map[string]jujucloud.Credential) []txn.Op {
+func updateCloudCredentialsOps(user names.UserTag, credentials map[string]cloud.Credential) []txn.Op {
 	owner := user.Canonical()
 	ops := make([]txn.Op, 0, len(credentials))
 	for name, credential := range credentials {
@@ -88,8 +88,8 @@ func cloudCredentialDocID(user names.UserTag, credentialName string) string {
 	return fmt.Sprintf("%s#%s", user.Canonical(), credentialName)
 }
 
-func (c cloudCredentialDoc) toCredential() jujucloud.Credential {
-	out := jujucloud.NewCredential(jujucloud.AuthType(c.AuthType), c.Attributes)
+func (c cloudCredentialDoc) toCredential() cloud.Credential {
+	out := cloud.NewCredential(cloud.AuthType(c.AuthType), c.Attributes)
 	out.Label = c.Name
 	return out
 }
@@ -97,7 +97,7 @@ func (c cloudCredentialDoc) toCredential() jujucloud.Credential {
 // validateCloudCredentials checks that the supplied cloud credentials are
 // valid for use with the controller's cloud, and returns a set of txn.Ops
 // to assert the same in a transaction.
-func validateCloudCredentials(cloud jujucloud.Cloud, credentials map[string]jujucloud.Credential) ([]txn.Op, error) {
+func validateCloudCredentials(cloud cloud.Cloud, credentials map[string]cloud.Credential) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
 	for name, credential := range credentials {
 		var found bool
@@ -107,8 +107,7 @@ func validateCloudCredentials(cloud jujucloud.Cloud, credentials map[string]juju
 				break
 			}
 		}
-		validEmptyCredential := len(cloud.AuthTypes) == 0 && credential.AuthType() == jujucloud.EmptyAuthType
-		if !found && !validEmptyCredential {
+		if !found {
 			return nil, errors.NewNotValid(nil, fmt.Sprintf(
 				"credential %q with auth-type %q is not supported (expected one of %q)",
 				name, credential.AuthType(), cloud.AuthTypes,

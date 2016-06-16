@@ -348,6 +348,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	// Custom clouds may not have explicitly declared support for any auth types.
+	if len(cloud.AuthTypes) == 0 {
+		cloud.AuthTypes = append(cloud.AuthTypes, jujucloud.EmptyAuthType)
+	}
+
 	// Get the credentials and region name.
 	store := c.ClientStore()
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
