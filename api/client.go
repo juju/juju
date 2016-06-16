@@ -190,6 +190,7 @@ type CharmInfo struct {
 	Config   *charm.Config
 	Meta     *charm.Meta
 	Actions  *charm.Actions
+	Metrics  *charm.Metrics `json:"Metrics,omitempty"`
 }
 
 // CharmInfo returns information about the requested charm.
