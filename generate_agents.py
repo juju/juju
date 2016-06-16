@@ -63,11 +63,19 @@ def retrieve_packages(release, upatch, archives, dest_debs, s3_config):
         netloc = netloc.rsplit('@')[-1]
         safe_archive = urlunsplit((scheme, netloc, path, query, fragment))
         print("checking {} for {}".format(safe_archive, release))
-        subprocess.call([
-            'lftp', '-c', 'mirror', '-i',
-            "(juju-2.0|juju-core).*{}.*\.{}~juj.*\.deb$".format(
-                release, upatch),
-            archive], cwd=dest_debs)
+        try:
+            subprocess.call([
+                'lftp', '-c', 'mirror', '-i',
+                "(juju-2.0|juju-core).*{}.*\.{}~juj.*\.deb$".format(
+                    release, upatch),
+                archive], cwd=dest_debs)
+        except OSError as e:
+            if e.errno == errno.ENOENT:
+                print("%s not found in %s" % (release, safe_archive))
+            else:
+                raise e
+        else:
+            raise
     move_debs(dest_debs)
     if os.path.exists(s3_config):
         print(
