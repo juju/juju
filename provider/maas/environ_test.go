@@ -71,7 +71,7 @@ func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 	attrs["type"] = "maas"
 	attrs["maas-server"] = "http://maas.testing.invalid"
 	attrs["maas-oauth"] = "a:b:c"
-	attrs["bootstrap-timeout"] = maas.MinBootstrapTimeout
+	attrs["bootstrap-timeout"] = "1200"
 	for k, v := range extraAttrs {
 		attrs[k] = v
 	}
@@ -145,7 +145,7 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 	// These are attrs we need to make it a valid Config, but would usually
 	// be set by other infrastructure
 	attrs["type"] = "maas"
-	attrs["bootstrap-timeout"] = maas.MinBootstrapTimeout
+	attrs["bootstrap-timeout"] = "1200"
 	nilCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	validatedConfig, err := provider.Validate(baseCfg, nilCfg)
