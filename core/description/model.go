@@ -73,7 +73,8 @@ func Deserialize(bytes []byte) (Model, error) {
 }
 
 // parseLinkLayerDeviceGlobalKey is used to validate that the parent device
-// referenced by a LinkLayerDevice exists.
+// referenced by a LinkLayerDevice exists. Copied from state to avoid exporting
+// and will be replaced by device.ParentMachineID() at some point.
 func parseLinkLayerDeviceGlobalKey(globalKey string) (machineID, deviceName string, canBeGlobalKey bool) {
 	if !strings.Contains(globalKey, "#") {
 		// Can't be a global key.
@@ -492,33 +493,34 @@ func (m *model) validateLinkLayerDevices() error {
 				return errors.Errorf("device %q has invalid MACAddress %q", device.Name(), device.MACAddress())
 			}
 		}
-		if device.ParentName() != "" {
-			hostMachineID, parentDeviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(device.ParentName())
-			if !canBeGlobalKey {
-				hostMachineID = device.MachineID()
-				parentDeviceName = device.ParentName()
+		if device.ParentName() == "" {
+			continue
+		}
+		hostMachineID, parentDeviceName, canBeGlobalKey := parseLinkLayerDeviceGlobalKey(device.ParentName())
+		if !canBeGlobalKey {
+			hostMachineID = device.MachineID()
+			parentDeviceName = device.ParentName()
+		}
+		parentDevice, ok := machineDevices[hostMachineID][parentDeviceName]
+		if !ok {
+			return errors.Errorf("device %q has non-existent parent %q", device.Name(), parentDeviceName)
+		}
+		if !canBeGlobalKey {
+			if device.Name() == parentDeviceName {
+				return errors.Errorf("device %q is its own parent", device.Name())
 			}
-			parentDevice, ok := machineDevices[hostMachineID][parentDeviceName]
-			if !ok {
-				return errors.Errorf("device %q has non-existent parent %q", device.Name(), parentDeviceName)
-			}
-			if canBeGlobalKey {
-				// The device is on a container.
-				if parentDevice.Type() != "bridge" {
-					return errors.Errorf("device %q on a container but not a bridge", device.Name())
-				}
-				parentId := parentId(machine.Id())
-				if parentId == "" {
-					return errors.Errorf("ParentName %q for non-container machine %q", device.ParentName(), machine.Id())
-				}
-				if parentDevice.MachineID() != parentId {
-					return errors.Errorf("parent machine of device %q not host machine %q", device.Name(), parentId)
-				}
-			} else {
-				if device.Name() == parentDeviceName {
-					return errors.Errorf("device %q is its own parent", device.Name())
-				}
-			}
+			continue
+		}
+		// The device is on a container.
+		if parentDevice.Type() != "bridge" {
+			return errors.Errorf("device %q on a container but not a bridge", device.Name())
+		}
+		parentId := parentId(machine.Id())
+		if parentId == "" {
+			return errors.Errorf("ParentName %q for non-container machine %q", device.ParentName(), machine.Id())
+		}
+		if parentDevice.MachineID() != parentId {
+			return errors.Errorf("parent machine of device %q not host machine %q", device.Name(), parentId)
 		}
 	}
 	return nil
