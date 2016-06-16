@@ -779,7 +779,7 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
 	_, _, err := st.NewModel(state.ModelArgs{
 		Config: cfg, Owner: owner, CloudRegion: "missing-region",
 	})
-	c.Assert(err, gc.ErrorMatches, `region "missing-region" not found`)
+	c.Assert(err, gc.ErrorMatches, `region "missing-region" not found \(expected one of \["some-region"\]\)`)
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {

@@ -309,9 +309,20 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			)
 			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
 		}
+		var cloudEndpoint string
 		regions, err := detector.DetectRegions()
-		if err != nil && !errors.IsNotFound(err) {
-			// It's not an error to have no regions.
+		if errors.IsNotFound(err) {
+			// It's not an error to have no regions. If the
+			// provider does not support regions, then we
+			// reinterpret the supplied region name as the
+			// cloud's endpoint. This enables the user to
+			// supply, for example, maas/<IP> or manual/<IP>.
+			if c.Region != "" {
+				ctx.Verbosef("interpreting %q as the cloud endpoint")
+				cloudEndpoint = c.Region
+				c.Region = ""
+			}
+		} else if err != nil {
 			return errors.Annotatef(err,
 				"detecting regions for %q cloud provider",
 				c.Cloud,
@@ -325,6 +336,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		cloud = &jujucloud.Cloud{
 			Type:      c.Cloud,
 			AuthTypes: authTypes,
+			Endpoint:  cloudEndpoint,
 			Regions:   regions,
 		}
 	} else if err != nil {
@@ -368,7 +380,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	region, err := getRegion(cloud, c.Cloud, regionName)
 	if err != nil {
-		return errors.Trace(err)
+		fmt.Fprintf(ctx.GetStderr(),
+			"%s\n\nSpecify an alternative region, or try %q.",
+			err, "juju update-clouds",
+		)
+		return cmd.ErrSilent
 	}
 
 	hostedModelUUID, err := utils.NewUUID()
@@ -601,52 +617,25 @@ to clean up the model.`[1:])
 }
 
 // getRegion returns the cloud.Region to use, based on the specified
-// region name, and the region name selected if none was specified.
-//
-// If no region name is specified, and there is at least one region,
-// we use the first region in the list.
-//
-// If no region name is specified, and there are no regions at all,
-// then we synthesise a region from the cloud's endpoint information
-// and just pass this on to the provider.
+// region name.  If no region name is specified, and there is at least
+// one region, we use the first region in the list.
 func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.Region, error) {
-	if len(cloud.Regions) == 0 {
-		// The cloud does not specify regions, so assume
-		// that the cloud provider does not have a concept
-		// of regions, or has no pre-defined regions, and
-		// defer validation to the provider.
-		region := jujucloud.Region{
-			regionName,
-			cloud.Endpoint,
-			cloud.StorageEndpoint,
+	if regionName != "" {
+		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
+		if err != nil {
+			return jujucloud.Region{}, errors.Trace(err)
 		}
-		if regionName != "" {
-			cloud.Regions = []jujucloud.Region{region}
-		}
-		return region, nil
+		return *region, nil
 	}
-	if regionName == "" {
+	if len(cloud.Regions) > 0 {
 		// No region was specified, use the first region in the list.
 		return cloud.Regions[0], nil
 	}
-	for _, region := range cloud.Regions {
-		// Do a case-insensitive comparison
-		if strings.EqualFold(region.Name, regionName) {
-			return region, nil
-		}
-	}
-	return jujucloud.Region{}, errors.NewNotFound(nil, fmt.Sprintf(
-		"region %q in cloud %q not found (expected one of %q)\nalternatively, try %q",
-		regionName, cloudName, cloudRegionNames(cloud), "juju update-clouds",
-	))
-}
-
-func cloudRegionNames(cloud *jujucloud.Cloud) []string {
-	var regionNames []string
-	for _, region := range cloud.Regions {
-		regionNames = append(regionNames, region.Name)
-	}
-	return regionNames
+	return jujucloud.Region{
+		"", // no region name
+		cloud.Endpoint,
+		cloud.StorageEndpoint,
+	}, nil
 }
 
 // checkProviderType ensures the provider type is okay.
