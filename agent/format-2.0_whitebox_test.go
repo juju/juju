@@ -40,7 +40,7 @@ func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
-	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18Contents), 0600)
+	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0Contents), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := ReadConfig(configPath)
@@ -49,7 +49,7 @@ func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 }
 
-var agentConfig1_18Contents = `
+var agentConfig2_0Contents = `
 # format 2.0
 tag: machine-0
 datadir: /home/user/.local/share/juju/local

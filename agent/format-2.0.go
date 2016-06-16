@@ -121,9 +121,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			SharedSecret:   format.SharedSecret,
 			SystemIdentity: format.SystemIdentity,
 		}
-		// There's a private key, then we need the state port,
-		// which wasn't always in the  1.18 format. If it's not present
-		// we can infer it from the ports in the state addresses.
+		// If private key is not present, infer it from the ports in the state addresses.
 		if config.servingInfo.StatePort == 0 {
 			if len(format.StateAddresses) == 0 {
 				return nil, fmt.Errorf("server key found but no state port")
