@@ -20,16 +20,16 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type format_1_18Suite struct {
+type format_2_0Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&format_1_18Suite{})
+var _ = gc.Suite(&format_2_0Suite{})
 
-func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
+func (s *format_2_0Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
-	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18NotStateMachine), 0600)
+	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0NotStateMachine), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,10 +37,10 @@ func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	c.Assert(available, jc.IsFalse)
 }
 
-func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C) {
+func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
-	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18Contents), 0600)
+	err := utils.AtomicWriteFile(configPath, []byte(agentConfig2_0Contents), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := ReadConfig(configPath)
@@ -49,8 +49,8 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 }
 
-var agentConfig1_18Contents = `
-# format 1.18
+var agentConfig2_0Contents = `
+# format 2.0
 tag: machine-0
 datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
@@ -197,8 +197,8 @@ caprivatekey: '-----BEGIN RSA PRIVATE KEY-----
 apiport: 17070
 `[1:]
 
-var agentConfig1_18NotStateMachine = `
-# format 1.18
+var agentConfig2_0NotStateMachine = `
+# format 2.0
 tag: machine-1
 datadir: /home/user/.local/share/juju/local
 logdir: /var/log/juju-user-local
