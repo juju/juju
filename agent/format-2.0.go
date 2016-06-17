@@ -139,8 +139,14 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 
 	}
-	// Mongo version is set, we might be running a version other than default.
+
+	// TODO (anastasiamac 2016-06-17) Mongo version must be set.
+	// For scenarios where mongo version is not set, we should still
+	// be explicit about what "default" mongo version is. After these lines,
+	// config.mongoVersion should not be empty under any circumstance.
+	// Bug# 1593855
 	if format.MongoVersion != "" {
+		// Mongo version is set, we might be running a version other than default.
 		config.mongoVersion = format.MongoVersion
 	}
 	return config, nil
