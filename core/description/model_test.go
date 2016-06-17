@@ -359,6 +359,26 @@ func (s *ModelSerializationSuite) TestModelValidationChecksAddressDeviceName(c *
 	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.0" references non-existent device "foo"`)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressValueEmpty(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{MachineID: "42", DeviceName: "foo"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address has invalid value ""`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressValueInvalid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{MachineID: "42", DeviceName: "foo", Value: "foobar"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address has invalid value "foobar"`)
+}
+
 func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachineId(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
