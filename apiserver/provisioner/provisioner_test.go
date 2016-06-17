@@ -1109,6 +1109,21 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
 }
 
+func checkInterfaces(c *gc.C, machine *state.Machine, obtained []*state.NetworkInterface, expected []params.NetworkInterface) {
+	c.Check(obtained, gc.HasLen, len(expected))
+	actual := make([]params.NetworkInterface, len(obtained))
+	for i, iface := range obtained {
+		actual[i].InterfaceName = iface.InterfaceName()
+		actual[i].NetworkTag = iface.NetworkTag().String()
+		actual[i].MACAddress = iface.MACAddress()
+		actual[i].IsVirtual = iface.IsVirtual()
+		actual[i].Disabled = iface.IsDisabled()
+		c.Check(iface.MachineId(), gc.Equals, machine.Id())
+		c.Check(iface.MachineTag(), gc.Equals, machine.Tag())
+	}
+	c.Check(actual, jc.SameContents, expected)
+}
+
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	registry.RegisterProvider("static", &storagedummy.StorageProvider{IsDynamic: false})
 	defer registry.RegisterProvider("static", nil)
@@ -1178,11 +1193,6 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		InterfaceName: "eth0.69",
 		IsVirtual:     true,
 		Disabled:      true,
-	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
-		IsVirtual:     true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		NetworkTag:    "network-net1",
@@ -1261,25 +1271,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Check(gotHardware, gc.DeepEquals, &hwChars)
 	ifacesMachine1, err := s.machines[1].NetworkInterfaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifacesMachine1, gc.HasLen, 4)
-	actual := make([]params.NetworkInterface, len(ifacesMachine1))
-	for i, iface := range ifacesMachine1 {
-		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkTag = iface.NetworkTag().String()
-		actual[i].MACAddress = iface.MACAddress()
-		actual[i].IsVirtual = iface.IsVirtual()
-		actual[i].Disabled = iface.IsDisabled()
-		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
-		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag())
-	}
-	c.Assert(actual, jc.SameContents, ifaces[:4])
+	checkInterfaces(c, s.machines[1], ifacesMachine1, ifaces[:4])
+
 	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ifacesMachine2, gc.HasLen, 1)
-	c.Assert(ifacesMachine2[0].InterfaceName(), gc.Equals, ifaces[5].InterfaceName)
-	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
-	c.Assert(ifacesMachine2[0].NetworkTag().String(), gc.Equals, ifaces[5].NetworkTag)
-	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
+	checkInterfaces(c, s.machines[2], ifacesMachine2, ifaces[:4])
+
 	for i := range networks {
 		if i == 3 {
 			// Last one was ignored, so don't check.
