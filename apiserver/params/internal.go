@@ -84,28 +84,34 @@ type ModelResult struct {
 	UUID  string
 }
 
-// ModelSkeletonConfigArgs wraps the args for modelmanager.SkeletonConfig.
-type ModelSkeletonConfigArgs struct {
-	Provider string
-	Region   string
-}
-
 // ModelCreateArgs holds the arguments that are necessary to create
 // a model.
 type ModelCreateArgs struct {
+	// Name is the name for the new model.
+	Name string
+
 	// OwnerTag represents the user that will own the new model.
 	// The OwnerTag must be a valid user tag.  If the user tag represents
 	// a local user, that user must exist.
 	OwnerTag string
 
-	// Account holds the provider specific account details necessary to
-	// interact with the provider to create, list and destroy machines.
-	Account map[string]interface{}
-
 	// Config defines the model config, which includes the name of the
-	// model.  An model UUID is allocated by the API server during
-	// the creation of the model.
+	// model. A model UUID is allocated by the API server during the
+	// creation of the model.
 	Config map[string]interface{}
+
+	// CloudRegion is the name of the cloud region to create the
+	// model in. If the cloud does not support regions, this must
+	// be empty. If this is empty, the model will be created in
+	// the same region as the controller model.
+	CloudRegion string
+
+	// CloudCredential is the name of the cloud credential to use
+	// for managing the model's resources. If the cloud does not
+	// require credentials, this may be empty. If this is empty,
+	// and the owner is the controller owner, the same credential
+	// used for the controller model will be used.
+	CloudCredential string
 }
 
 // Model holds the result of an API call returning a name and UUID
@@ -197,7 +203,7 @@ type SettingsResults struct {
 	Results []SettingsResult
 }
 
-// ConfigSettings holds unit, service or cham configuration settings
+// ConfigSettings holds unit, application or cham configuration settings
 // with string keys and arbitrary values.
 type ConfigSettings map[string]interface{}
 
@@ -212,12 +218,20 @@ type ConfigSettingsResults struct {
 	Results []ConfigSettingsResult
 }
 
-// ModelConfig holds an model configuration.
+// ModelConfig holds a model configuration.
 type ModelConfig map[string]interface{}
 
-// ModelConfigResult holds model configuration or an error.
+// ControllerConfig holds a controller configuration.
+type ControllerConfig map[string]interface{}
+
+// ModelConfigResult holds model configuration.
 type ModelConfigResult struct {
 	Config ModelConfig
+}
+
+// ControllerConfigResult holds controller configuration.
+type ControllerConfigResult struct {
+	Config ControllerConfig
 }
 
 // RelationUnit holds a relation and a unit tag.
@@ -529,13 +543,13 @@ type CharmsResponse struct {
 
 // RunParams is used to provide the parameters to the Run method.
 // Commands and Timeout are expected to have values, and one or more
-// values should be in the Machines, Services, or Units slices.
+// values should be in the Machines, Applications, or Units slices.
 type RunParams struct {
-	Commands string
-	Timeout  time.Duration
-	Machines []string
-	Services []string
-	Units    []string
+	Commands     string
+	Timeout      time.Duration
+	Machines     []string
+	Applications []string
+	Units        []string
 }
 
 // RunResult contains the result from an individual run call on a machine.

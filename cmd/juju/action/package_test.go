@@ -174,7 +174,7 @@ func (c *fakeAPIClient) Cancel(args params.Actions) (params.ActionResults, error
 	}, c.apiErr
 }
 
-func (c *fakeAPIClient) ServiceCharmActions(params.Entity) (*charm.Actions, error) {
+func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (*charm.Actions, error) {
 	return c.charmActions, c.apiErr
 }
 

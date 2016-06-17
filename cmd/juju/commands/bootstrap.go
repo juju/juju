@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -41,27 +42,37 @@ var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
 
 var usageBootstrapDetails = `
-Initialization consists of creating an 'admin' model and provisioning a 
-machine to act as controller.
+Used without arguments, bootstrap will step you through the process of 
+initializing a Juju cloud environment. Initialization consists of creating
+a 'controller' model and provisioning a machine to act as controller.
+
+We recommend you call your controller ‘username-region’ e.g. ‘fred-us-west-1’
+See --clouds for a list of clouds and credentials.
+See --regions <cloud> for a list of available regions for a given cloud.
+
 Credentials are set beforehand and are distinct from any other 
 configuration (see `[1:] + "`juju add-credential`" + `).
-The 'admin' model typically does not run workloads. It should remain
+The 'controller' model typically does not run workloads. It should remain
 pristine to run and manage Juju's own infrastructure for the corresponding
 cloud. Additional (hosted) models should be created with ` + "`juju create-\nmodel`" + ` for workload purposes.
 Note that a 'default' model is also created and becomes the current model
 of the environment once the command completes. It can be discarded if
 other models are created.
+
 If '--bootstrap-constraints' is used, its values will also apply to any
 future controllers provisioned for high availability (HA).
+
 If '--constraints' is used, its values will be set as the default 
 constraints for all future workload machines in the model, exactly as if 
 the constraints were set with ` + "`juju set-model-constraints`" + `.
+
 It is possible to override constraints and the automatic machine selection
 algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be 
 used with the MAAS provider ('--to <host>.maas').
+
 You can change the default timeout and retry delays used during the 
-bootstrap by changing the following settings in your configuration file
+bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
     # How long to wait for a connection to the controller
     bootstrap-timeout: 600 # default: 10 minutes
@@ -70,6 +81,7 @@ address.
     bootstrap-retry-delay: 5 # default: 5 seconds
     # How often to refresh controller addresses from the API server.
     bootstrap-addresses-delay: 10 # default: 10 seconds
+    
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
 The value of '--agent-version' will become the default tools version to
@@ -78,10 +90,13 @@ use in all models for this controller. The full binary version is accepted
 used. Otherwise, by default, the version used is that of the client.
 
 Examples:
-    juju bootstrap mycontroller google
-    juju bootstrap --config=~/config-rs.yaml mycontroller rackspace
-    juju bootstrap --config agent-version=1.25.3 mycontroller aws
-    juju bootstrap --config bootstrap-timeout=1200 mycontroller azure
+    juju bootstrap
+    juju bootstrap --clouds
+    juju bootstrap --regions aws
+    juju bootstrap joe-us-east1 google
+    juju bootstrap --config=~/config-rs.yaml joe-syd rackspace
+    juju bootstrap --config agent-version=1.25.3 joe-us-east-1 aws
+    juju bootstrap --config bootstrap-timeout=1200 joe-eastus azure
 
 See also: 
     add-credentials
@@ -89,7 +104,7 @@ See also:
     set-constraints`
 
 // defaultHostedModelName is the name of the hosted model created in each
-// controller for deploying workloads to, in addition to the "admin" model.
+// controller for deploying workloads to, in addition to the "controller" model.
 const defaultHostedModelName = "default"
 
 func newBootstrapCommand() cmd.Command {
@@ -117,12 +132,14 @@ type bootstrapCommand struct {
 	AgentVersion          *version.Number
 	config                common.ConfigFlag
 
-	controllerName  string
-	hostedModelName string
-	CredentialName  string
-	Cloud           string
-	Region          string
-	noGUI           bool
+	showClouds          bool
+	showRegionsForCloud string
+	controllerName      string
+	hostedModelName     string
+	CredentialName      string
+	Cloud               string
+	Region              string
+	noGUI               bool
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -152,9 +169,20 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
+	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
+	if c.showClouds && c.showRegionsForCloud != "" {
+		return fmt.Errorf("--clouds and --regions can't be used together")
+	}
+	if c.showClouds {
+		return cmd.CheckEmpty(args)
+	}
+	if c.showRegionsForCloud != "" {
+		return cmd.CheckEmpty(args)
+	}
 	if c.AgentVersionParam != "" && c.UploadTools {
 		return fmt.Errorf("--agent-version and --upload-tools can't be used together")
 	}
@@ -206,7 +234,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
 		return errors.New("controller name and cloud name are required")
 	}
-	c.controllerName = bootstrappedControllerName(args[0])
+	c.controllerName = args[0]
 	c.Cloud = args[1]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
@@ -214,19 +242,21 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[2:])
 }
 
-var bootstrappedControllerName = func(controllerName string) string {
-	return fmt.Sprintf("local.%s", controllerName)
-}
-
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
+	CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool)
 }
 
 type bootstrapFuncs struct{}
 
 func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, args)
+}
+
+func (b bootstrapFuncs) CloudRegionDetector(provider environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
+	detector, ok := provider.(environs.CloudRegionDetector)
+	return detector, ok
 }
 
 var getBootstrapFuncs = func() BootstrapInterface {
@@ -248,6 +278,13 @@ run juju autoload-credentials and specify a credential using the --credential ar
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	if c.showClouds {
+		return printClouds(ctx, c.ClientStore())
+	}
+	if c.showRegionsForCloud != "" {
+		return printCloudRegions(ctx, c.showRegionsForCloud)
+	}
+
 	bootstrapFuncs := getBootstrapFuncs()
 
 	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
@@ -264,7 +301,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		detector, ok := provider.(environs.CloudRegionDetector)
+		detector, ok := bootstrapFuncs.CloudRegionDetector(provider)
 		if !ok {
 			ctx.Verbosef(
 				"provider %q does not support detecting regions",
@@ -272,17 +309,35 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			)
 			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
 		}
+		var cloudEndpoint string
 		regions, err := detector.DetectRegions()
-		if err != nil && !errors.IsNotFound(err) {
-			// It's not an error to have no regions.
+		if errors.IsNotFound(err) {
+			// It's not an error to have no regions. If the
+			// provider does not support regions, then we
+			// reinterpret the supplied region name as the
+			// cloud's endpoint. This enables the user to
+			// supply, for example, maas/<IP> or manual/<IP>.
+			if c.Region != "" {
+				ctx.Verbosef("interpreting %q as the cloud endpoint")
+				cloudEndpoint = c.Region
+				c.Region = ""
+			}
+		} else if err != nil {
 			return errors.Annotatef(err,
 				"detecting regions for %q cloud provider",
 				c.Cloud,
 			)
 		}
+		schemas := provider.CredentialSchemas()
+		authTypes := make([]jujucloud.AuthType, 0, len(schemas))
+		for authType := range schemas {
+			authTypes = append(authTypes, authType)
+		}
 		cloud = &jujucloud.Cloud{
-			Type:    c.Cloud,
-			Regions: regions,
+			Type:      c.Cloud,
+			AuthTypes: authTypes,
+			Endpoint:  cloudEndpoint,
+			Regions:   regions,
 		}
 	} else if err != nil {
 		return errors.Trace(err)
@@ -291,6 +346,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		// This error will get handled later.
 	} else if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Custom clouds may not have explicitly declared support for any auth types.
+	if len(cloud.AuthTypes) == 0 {
+		cloud.AuthTypes = append(cloud.AuthTypes, jujucloud.EmptyAuthType)
 	}
 
 	// Get the credentials and region name.
@@ -325,7 +385,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	region, err := getRegion(cloud, c.Cloud, regionName)
 	if err != nil {
-		return errors.Trace(err)
+		fmt.Fprintf(ctx.GetStderr(),
+			"%s\n\nSpecify an alternative region, or try %q.",
+			err, "juju update-clouds",
+		)
+		return cmd.ErrSilent
 	}
 
 	hostedModelUUID, err := utils.NewUUID()
@@ -339,10 +403,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
-		"type":                   cloud.Type,
-		"name":                   environs.ControllerModelName,
-		config.UUIDKey:           controllerUUID.String(),
-		config.ControllerUUIDKey: controllerUUID.String(),
+		"type":                       cloud.Type,
+		"name":                       environs.ControllerModelName,
+		config.UUIDKey:               controllerUUID.String(),
+		controller.ControllerUUIDKey: controllerUUID.String(),
 	}
 	for k, v := range cloud.Config {
 		configAttrs[k] = v
@@ -489,9 +553,9 @@ to clean up the model.`[1:])
 	// We copy across any user supplied attributes to the hosted model config.
 	// But only if the attributes have not been removed from the controller
 	// model config as part of preparing the controller model.
-	controllerConfigAttrs := environ.Config().AllAttrs()
+	controllerModelConfigAttrs := environ.Config().AllAttrs()
 	for k, v := range userConfigAttrs {
-		if _, ok := controllerConfigAttrs[k]; ok {
+		if _, ok := controllerModelConfigAttrs[k]; ok {
 			hostedModelConfig[k] = v
 		}
 	}
@@ -501,6 +565,15 @@ to clean up the model.`[1:])
 	// inherited.
 	delete(hostedModelConfig, config.AuthKeysConfig)
 	delete(hostedModelConfig, config.AgentVersionKey)
+
+	// Based on the attribute names in clouds.yaml, create
+	// a map of shared config for all models on this cloud.
+	sharedAttrs := make(map[string]interface{})
+	for k := range cloud.Config {
+		if v, ok := controllerModelConfigAttrs[k]; ok {
+			sharedAttrs[k] = v
+		}
+	}
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
@@ -519,6 +592,12 @@ to clean up the model.`[1:])
 		BuildToolsTarball:    sync.BuildToolsTarball,
 		AgentVersion:         c.AgentVersion,
 		MetadataDir:          metadataDir,
+		Cloud:                *cloud,
+		CloudName:            c.Cloud,
+		CloudRegion:          region.Name,
+		CloudCredential:      credential,
+		CloudCredentialName:  credentialName,
+		ModelConfigDefaults:  sharedAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
@@ -530,7 +609,8 @@ to clean up the model.`[1:])
 		return errors.Trace(err)
 	}
 
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, environ)
+	controllerCfg := controller.ControllerConfig(controllerModelConfigAttrs)
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerCfg.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -542,49 +622,25 @@ to clean up the model.`[1:])
 }
 
 // getRegion returns the cloud.Region to use, based on the specified
-// region name, and the region name selected if none was specified.
-//
-// If no region name is specified, and there is at least one region,
-// we use the first region in the list.
-//
-// If no region name is specified, and there are no regions at all,
-// then we synthesise a region from the cloud's endpoint information
-// and just pass this on to the provider.
+// region name.  If no region name is specified, and there is at least
+// one region, we use the first region in the list.
 func getRegion(cloud *jujucloud.Cloud, cloudName, regionName string) (jujucloud.Region, error) {
-	if len(cloud.Regions) == 0 {
-		// The cloud does not specify regions, so assume
-		// that the cloud provider does not have a concept
-		// of regions, or has no pre-defined regions, and
-		// defer validation to the provider.
-		region := jujucloud.Region{
-			regionName,
-			cloud.Endpoint,
-			cloud.StorageEndpoint,
+	if regionName != "" {
+		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
+		if err != nil {
+			return jujucloud.Region{}, errors.Trace(err)
 		}
-		return region, nil
+		return *region, nil
 	}
-	if regionName == "" {
+	if len(cloud.Regions) > 0 {
 		// No region was specified, use the first region in the list.
 		return cloud.Regions[0], nil
 	}
-	for _, region := range cloud.Regions {
-		// Do a case-insensitive comparison
-		if strings.EqualFold(region.Name, regionName) {
-			return region, nil
-		}
-	}
-	return jujucloud.Region{}, errors.NewNotFound(nil, fmt.Sprintf(
-		"region %q in cloud %q not found (expected one of %q)\nalternatively, try %q",
-		regionName, cloudName, cloudRegionNames(cloud), "juju update-clouds",
-	))
-}
-
-func cloudRegionNames(cloud *jujucloud.Cloud) []string {
-	var regionNames []string
-	for _, region := range cloud.Regions {
-		regionNames = append(regionNames, region.Name)
-	}
-	return regionNames
+	return jujucloud.Region{
+		"", // no region name
+		cloud.Endpoint,
+		cloud.StorageEndpoint,
+	}, nil
 }
 
 // checkProviderType ensures the provider type is okay.

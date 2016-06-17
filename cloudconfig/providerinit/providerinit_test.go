@@ -10,11 +10,11 @@ import (
 	"path"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -71,8 +72,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		MongoInfo: &mongo.MongoInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: userTag},
+		APIInfo: &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
@@ -84,8 +84,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	icfg := &instancecfg.InstanceConfig{
-		MongoInfo: &mongo.MongoInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: userTag},
+		APIInfo: &api.Info{Tag: userTag},
 	}
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 
@@ -115,8 +114,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	icfg := &instancecfg.InstanceConfig{
-		MongoInfo: &mongo.MongoInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: userTag},
+		APIInfo: &api.Info{Tag: userTag},
 	}
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,8 +124,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		MongoInfo: &mongo.MongoInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: userTag},
+		APIInfo: &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
@@ -145,29 +142,31 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oldAttrs := cfg.AllAttrs()
 	icfg := &instancecfg.InstanceConfig{
-		Bootstrap: true,
+		Bootstrap:  &instancecfg.BootstrapConfig{},
+		Controller: &instancecfg.ControllerConfig{},
 	}
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := "lisboan-pork"
-	c.Check(icfg.APIInfo, gc.DeepEquals, &api.Info{
+	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 		ModelTag: testing.ModelTag,
 	})
-	c.Check(icfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
+	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
-	c.Check(icfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
-	c.Check(icfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
-	c.Check(icfg.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
+	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
+	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
 
-	oldAttrs["ca-private-key"] = ""
-	oldAttrs["admin-secret"] = ""
-	c.Check(icfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
-	srvCertPEM := icfg.StateServingInfo.Cert
-	srvKeyPEM := icfg.StateServingInfo.PrivateKey
+	delete(oldAttrs, "admin-secret")
+	delete(oldAttrs, "ca-private-key")
+	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), jc.DeepEquals, oldAttrs)
+	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
+	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -211,20 +210,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	allJobs := []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
-		multiwatcher.JobManageNetworking,
 	}
 	cfg := &instancecfg.InstanceConfig{
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Series:       series,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:  []string{"127.0.0.1:1234"},
-				CACert: "CA CERT\n" + testing.CACert,
-			},
-			Password: "pw1",
-			Tag:      names.NewMachineTag("10"),
-		},
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
@@ -237,7 +227,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		MetricsSpoolDir:         metricsSpoolDir,
 		Jobs:                    allJobs,
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
-		Config:                  envConfig,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
 		MachineAgentServiceName: "jujud-machine-10",
@@ -246,13 +235,28 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
-		cfg.Bootstrap = true
-		cfg.StateServingInfo = &params.StateServingInfo{
-			StatePort:    envConfig.StatePort(),
-			APIPort:      envConfig.APIPort(),
-			Cert:         testing.ServerCert,
-			PrivateKey:   testing.ServerKey,
-			CAPrivateKey: testing.CAKey,
+		controllerCfg := controller.ControllerConfig(envConfig.AllAttrs())
+		cfg.Bootstrap = &instancecfg.BootstrapConfig{
+			StateInitializationParams: instancecfg.StateInitializationParams{
+				ControllerModelConfig: envConfig,
+			},
+			StateServingInfo: params.StateServingInfo{
+				StatePort:    controllerCfg.StatePort(),
+				APIPort:      controllerCfg.APIPort(),
+				Cert:         testing.ServerCert,
+				PrivateKey:   testing.ServerKey,
+				CAPrivateKey: testing.CAKey,
+			},
+		}
+		cfg.Controller = &instancecfg.ControllerConfig{
+			MongoInfo: &mongo.MongoInfo{
+				Info: mongo.Info{
+					Addrs:  []string{"127.0.0.1:1234"},
+					CACert: "CA CERT\n" + testing.CACert,
+				},
+				Password: "pw1",
+				Tag:      names.NewMachineTag("10"),
+			},
 		}
 	}
 	script1 := "script1"
@@ -349,17 +353,8 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 		MachineId:        "10",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		Series:           series,
-		Bootstrap:        false,
 		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		MachineNonce:     "FAKE_NONCE",
-		MongoInfo: &mongo.MongoInfo{
-			Tag:      names.NewMachineTag("10"),
-			Password: "arble",
-			Info: mongo.Info{
-				CACert: "CA CERT\n" + testing.CACert,
-				Addrs:  []string{"state-addr.testing.invalid:12345"},
-			},
-		},
 		APIInfo: &api.Info{
 			Addrs:    []string{"state-addr.testing.invalid:54321"},
 			Password: "bletch",

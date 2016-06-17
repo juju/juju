@@ -6,7 +6,7 @@ package provisioner
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"

@@ -10,20 +10,15 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// CharmMetadata returns the charm metadata for the identified service.
-func CharmMetadata(st *state.State, serviceID string) (*charm.Meta, error) {
-	return charmMetadata(NewCharmState(st), serviceID)
-}
-
-func charmMetadata(st CharmState, serviceID string) (*charm.Meta, error) {
-	service, err := st.Service(serviceID)
+func charmMetadata(st CharmState, applicationID string) (*charm.Meta, error) {
+	application, err := st.Service(applicationID)
 	if err != nil {
-		return nil, errors.Annotatef(err, "while looking up service %q", serviceID)
+		return nil, errors.Annotatef(err, "while looking up application %q", applicationID)
 	}
 
-	ch, err := service.Charm()
+	ch, err := application.Charm()
 	if err != nil {
-		return nil, errors.Annotatef(err, "while looking up charm info for service %q", serviceID)
+		return nil, errors.Annotatef(err, "while looking up charm info for application %q", applicationID)
 	}
 
 	meta := ch.Meta()
@@ -57,7 +52,7 @@ type charmState struct {
 
 // Service implements CharmState.
 func (st charmState) Service(id string) (CharmService, error) {
-	raw, err := st.raw.Service(id)
+	raw, err := st.raw.Application(id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +60,7 @@ func (st charmState) Service(id string) (CharmService, error) {
 }
 
 type charmService struct {
-	raw *state.Service
+	raw *state.Application
 }
 
 // Charm implements CharmService.

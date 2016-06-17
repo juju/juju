@@ -8,7 +8,7 @@ import (
 	"github.com/juju/utils/shell"
 )
 
-// Service is the base type for service.Service implementations.
+// Service is the base type for application.Service implementations.
 type Service struct {
 	// Name is the name of the service.
 	Name string

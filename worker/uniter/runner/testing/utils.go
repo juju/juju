@@ -8,9 +8,9 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/storage"
@@ -121,6 +121,6 @@ type FakeTracker struct {
 	leadership.Tracker
 }
 
-func (FakeTracker) ServiceName() string {
-	return "service-name"
+func (FakeTracker) ApplicationName() string {
+	return "application-name"
 }

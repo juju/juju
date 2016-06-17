@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -73,14 +73,15 @@ func (s *storageAddSuite) TestStorageAddUnitDestroyIgnored(c *gc.C) {
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
 
-func (s *storageAddSuite) TestStorageAddUnitError(c *gc.C) {
+func (s *storageAddSuite) TestStorageAddUnitInvalidName(c *gc.C) {
 	args := params.StorageAddParams{
+		UnitTag:     "invalid-unit-name",
 		StorageName: "data",
 	}
 	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 1)
-	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*is not a valid tag.*")
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, "\"invalid-unit-name\" is not a valid tag")
 
 	expectedCalls := []string{getBlockForTypeCall}
 	s.assertCalls(c, expectedCalls)
@@ -101,25 +102,6 @@ func (s *storageAddSuite) TestStorageAddUnitStateError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(failures.Results, gc.HasLen, 1)
 	c.Assert(failures.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
-
-	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
-}
-
-func (s *storageAddSuite) TestStorageAddUnitPermError(c *gc.C) {
-	msg := "add test directive error"
-	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
-		s.calls = append(s.calls, addStorageForUnitCall)
-		return errors.NotFoundf(msg)
-	}
-
-	args := params.StorageAddParams{
-		UnitTag:     s.unitTag.String(),
-		StorageName: "data",
-	}
-	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(failures.Results, gc.HasLen, 1)
-	c.Assert(failures.Results[0].Error.Error(), gc.Matches, ".*permission denied.*")
 
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall})
 }
@@ -155,4 +137,22 @@ func (s *storageAddSuite) TestStorageAddUnitResultOrder(c *gc.C) {
 	c.Assert(failures.Results[2].Error.Error(), gc.Matches, fmt.Sprintf(".*%v.*", msg))
 
 	s.assertCalls(c, []string{getBlockForTypeCall, addStorageForUnitCall, addStorageForUnitCall})
+}
+
+func (s *storageAddSuite) TestStorageAddUnitNotFoundErr(c *gc.C) {
+	msg := "sanity"
+	s.state.addStorageForUnit = func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+		s.calls = append(s.calls, addStorageForUnitCall)
+		return errors.NotFoundf(msg)
+	}
+
+	args := params.StorageAddParams{
+		UnitTag:     s.unitTag.String(),
+		StorageName: "data",
+	}
+	failures, err := s.api.AddToUnit(params.StoragesAddParams{[]params.StorageAddParams{args}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(failures.Results, gc.HasLen, 1)
+	c.Assert(failures.Results[0].Error.Error(), gc.Matches, "sanity not found")
+	c.Assert(failures.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }

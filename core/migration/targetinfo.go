@@ -6,7 +6,7 @@ package migration
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // TargetInfo holds the details required to connect to a

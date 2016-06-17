@@ -5,10 +5,10 @@ package migrationtarget_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/migrationtarget"
@@ -186,9 +186,8 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 
 	newUUID := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
-		"name":    "some-model",
-		"uuid":    newUUID,
-		"ca-cert": "not really a cert",
+		"name": "some-model",
+		"uuid": newUUID,
 	})
 
 	bytes, err := description.Serialize(model)

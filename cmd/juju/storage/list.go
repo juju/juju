@@ -52,11 +52,11 @@ func (c *listCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-storage",
+		Name:    "storage",
 		Args:    "<machineID> ...",
 		Purpose: "lists storage details",
 		Doc:     listCommandDoc,
-		Aliases: []string{"storage"},
+		Aliases: []string{"list-storage"},
 	}
 }
 

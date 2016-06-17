@@ -16,10 +16,10 @@ var waitUntilReady = replicaset.WaitUntilReady
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
 func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataResult, err error) {
-	backupsMethods, closer := newBackups(a.st)
+	backupsMethods, closer := newBackups(a.backend)
 	defer closer.Close()
 
-	session := a.st.MongoSession().Copy()
+	session := a.backend.MongoSession().Copy()
 	defer session.Close()
 
 	// Don't go if HA isn't ready.
@@ -28,13 +28,17 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 		return p, errors.Annotatef(err, "HA not ready; try again later")
 	}
 
-	mgoInfo := a.st.MongoConnectionInfo()
+	mgoInfo := a.backend.MongoConnectionInfo()
 	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
+	mSeries, err := a.backend.MachineSeries(a.machineID)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
 
-	meta, err := backups.NewMetadataState(a.st, a.machineID)
+	meta, err := backups.NewMetadataState(a.backend, a.machineID, mSeries)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

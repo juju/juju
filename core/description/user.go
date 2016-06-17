@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/schema"
+	"gopkg.in/juju/names.v2"
 )
 
 type users struct {

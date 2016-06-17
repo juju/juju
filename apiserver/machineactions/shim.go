@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 func init() {

@@ -27,8 +27,8 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -42,22 +42,22 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadFull(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        serviceID + "/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            applicationID + "/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		storagePath: "service-a-service/resources/spam",
+		storagePath: "application-a-application/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
-		DocID:     docID,
-		ID:        res.ID,
-		PendingID: "some-unique-ID",
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            res.ID,
+		PendingID:     "some-unique-ID",
+		ApplicationID: applicationID,
 
 		Name:        "spam",
 		Type:        "file",
@@ -72,7 +72,7 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 }
 
@@ -82,8 +82,8 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -95,20 +95,20 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        serviceID + "/spam",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            applicationID + "/spam",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		storagePath: "service-a-service/resources/spam",
+		storagePath: "application-a-application/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
-		DocID:     docID,
-		ID:        res.ID,
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            res.ID,
+		ApplicationID: applicationID,
 
 		Name: "spam",
 		Type: "file",
@@ -121,7 +121,7 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 }
 
@@ -131,7 +131,7 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadPending(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	serviceID := "a-service"
+	applicationID := "a-application"
 	docID := pendingResourceID("spam", "some-unique-ID-001")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
@@ -144,22 +144,22 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadPending(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        serviceID + "/spam",
-		PendingID: "some-unique-ID-001",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            applicationID + "/spam",
+		PendingID:     "some-unique-ID-001",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		storagePath: "service-a-service/resources/spam",
+		storagePath: "application-a-application/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
-		DocID:     docID,
-		ID:        res.ID,
-		PendingID: "some-unique-ID-001",
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            res.ID,
+		PendingID:     "some-unique-ID-001",
+		ApplicationID: applicationID,
 
 		Name: "spam",
 		Type: "file",
@@ -172,12 +172,12 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadPending(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 }
 
 func (s *ResourcesMongoSuite) TestDoc2Resource(c *gc.C) {
-	serviceID := "a-service"
+	applicationID := "a-application"
 	docID := pendingResourceID("spam", "some-unique-ID-001")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
@@ -185,10 +185,10 @@ func (s *ResourcesMongoSuite) TestDoc2Resource(c *gc.C) {
 	now := time.Now().UTC()
 
 	res, err := doc2resource(resourceDoc{
-		DocID:     docID,
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID-001",
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID-001",
+		ApplicationID: applicationID,
 
 		Name: "spam",
 		Type: "file",
@@ -201,7 +201,7 @@ func (s *ResourcesMongoSuite) TestDoc2Resource(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam-some-unique-ID-001",
+		StoragePath: "application-a-application/resources/spam-some-unique-ID-001",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -217,18 +217,18 @@ func (s *ResourcesMongoSuite) TestDoc2Resource(c *gc.C) {
 				Fingerprint: fp,
 				Size:        int64(len(content)),
 			},
-			ID:        "a-service/spam",
-			PendingID: "some-unique-ID-001",
-			ServiceID: serviceID,
-			Username:  "a-user",
-			Timestamp: now,
+			ID:            "a-application/spam",
+			PendingID:     "some-unique-ID-001",
+			ApplicationID: applicationID,
+			Username:      "a-user",
+			Timestamp:     now,
 		},
-		storagePath: "service-a-service/resources/spam-some-unique-ID-001",
+		storagePath: "application-a-application/resources/spam-some-unique-ID-001",
 	})
 }
 
 func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
-	serviceID := "a-service"
+	applicationID := "a-application"
 	docID := pendingResourceID("spam", "some-unique-ID-001")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
@@ -236,10 +236,10 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	now := time.Now().UTC()
 
 	res, err := doc2basicResource(resourceDoc{
-		DocID:     docID,
-		ID:        "a-service/spam",
-		ServiceID: serviceID,
-		PendingID: "some-unique-ID-001",
+		DocID:         docID,
+		ID:            "a-application/spam",
+		ApplicationID: applicationID,
+		PendingID:     "some-unique-ID-001",
 
 		Name:        "spam",
 		Type:        "file",
@@ -254,7 +254,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -271,26 +271,26 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID-001",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID-001",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	})
 }
 
 func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
 	res, err := doc2basicResource(resourceDoc{
-		DocID:     docID,
-		ID:        "a-service/spam",
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            "a-application/spam",
+		ApplicationID: applicationID,
 
 		Name: "spam",
 		Type: "file",
@@ -303,7 +303,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -318,10 +318,10 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        "a-service/spam",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	})
 }
 
@@ -331,8 +331,8 @@ func (s *ResourcesMongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -346,15 +346,15 @@ func (s *ResourcesMongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		storagePath: "service-a-service/resources/spam",
+		storagePath: "application-a-application/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
@@ -362,7 +362,7 @@ func (s *ResourcesMongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		ID:        res.ID,
 		PendingID: "some-unique-ID",
 
-		ServiceID: serviceID,
+		ApplicationID: applicationID,
 
 		Name:        "spam",
 		Type:        "file",
@@ -377,13 +377,13 @@ func (s *ResourcesMongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 }
 
 func (s *ResourcesMongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
@@ -391,10 +391,10 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     docID,
-		ID:        "a-service/spam",
+		ID:        "a-application/spam",
 		PendingID: "some-unique-ID",
 
-		ServiceID: serviceID,
+		ApplicationID: applicationID,
 
 		Name:        "spam",
 		Type:        "file",
@@ -409,7 +409,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 		Username:  "a-user",
 		Timestamp: now,
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -426,21 +426,21 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 			Fingerprint: fp,
 			Size:        int64(len(content)),
 		},
-		ID:        "a-service/spam",
-		PendingID: "some-unique-ID",
-		ServiceID: serviceID,
-		Username:  "a-user",
-		Timestamp: now,
+		ID:            "a-application/spam",
+		PendingID:     "some-unique-ID",
+		ApplicationID: applicationID,
+		Username:      "a-user",
+		Timestamp:     now,
 	})
 }
 
 func (s *ResourcesMongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	res, err := doc2basicResource(resourceDoc{
-		DocID:     docID,
-		ID:        "a-service/spam",
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            "a-application/spam",
+		ApplicationID: applicationID,
 
 		Name: "spam",
 		Type: "file",
@@ -448,7 +448,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 
 		Origin: "upload",
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -461,14 +461,14 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourcePlaceholder(c *gc.C) {
 			},
 			Origin: charmresource.OriginUpload,
 		},
-		ID:        "a-service/spam",
-		ServiceID: serviceID,
+		ID:            "a-application/spam",
+		ApplicationID: applicationID,
 	})
 }
 
 func (s *ResourcesMongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
-	serviceID := "a-service"
-	docID := serviceResourceID("spam")
+	applicationID := "a-application"
+	docID := applicationResourceID("spam")
 	res := resource.Resource{
 		Resource: charmresource.Resource{
 			Meta: charmresource.Meta{
@@ -478,18 +478,18 @@ func (s *ResourcesMongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 			},
 			Origin: charmresource.OriginUpload,
 		},
-		ID:        "a-service/spam",
-		ServiceID: serviceID,
+		ID:            "a-application/spam",
+		ApplicationID: applicationID,
 	}
 	doc := resource2doc(docID, storedResource{
 		Resource:    res,
-		storagePath: "service-a-service/resources/spam",
+		storagePath: "application-a-application/resources/spam",
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
-		DocID:     docID,
-		ID:        res.ID,
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            res.ID,
+		ApplicationID: applicationID,
 
 		Name: "spam",
 		Type: "file",
@@ -497,7 +497,7 @@ func (s *ResourcesMongoSuite) TestResource2DocLocalPlaceholder(c *gc.C) {
 
 		Origin: "upload",
 
-		StoragePath: "service-a-service/resources/spam",
+		StoragePath: "application-a-application/resources/spam",
 	})
 }
 
@@ -507,9 +507,9 @@ func (s *ResourcesMongoSuite) TestCharmStoreResource2DocFull(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now().UTC()
 
-	serviceID := "a-service"
-	id := serviceID + "/spam"
-	docID := serviceResourceID("spam") + "#charmstore"
+	applicationID := "a-application"
+	id := applicationID + "/spam"
+	docID := applicationResourceID("spam") + "#charmstore"
 	res := charmresource.Resource{
 		Meta: charmresource.Meta{
 			Name:        "spam",
@@ -523,16 +523,16 @@ func (s *ResourcesMongoSuite) TestCharmStoreResource2DocFull(c *gc.C) {
 		Size:        int64(len(content)),
 	}
 	doc := charmStoreResource2Doc(docID, charmStoreResource{
-		Resource:   res,
-		id:         id,
-		serviceID:  serviceID,
-		lastPolled: now,
+		Resource:      res,
+		id:            id,
+		applicationID: applicationID,
+		lastPolled:    now,
 	})
 
 	c.Check(doc, jc.DeepEquals, &resourceDoc{
-		DocID:     docID,
-		ID:        id,
-		ServiceID: serviceID,
+		DocID:         docID,
+		ID:            id,
+		ApplicationID: applicationID,
 
 		Name:        "spam",
 		Type:        "file",

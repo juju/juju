@@ -1,11 +1,14 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package client_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
@@ -33,7 +36,7 @@ func (s *publicSuite) SetUpTest(c *gc.C) {
 		ID:      "idspam",
 		Status:  payload.StateRunning,
 		Labels:  nil,
-		Unit:    names.NewUnitTag("a-service/0").String(),
+		Unit:    names.NewUnitTag("a-application/0").String(),
 		Machine: names.NewMachineTag("1").String(),
 	}
 }
@@ -48,7 +51,7 @@ func (s *publicSuite) TestListOkay(c *gc.C) {
 
 	pclient := client.NewPublicClient(s.facade)
 
-	payloads, err := pclient.ListFull("a-tag", "a-service/0")
+	payloads, err := pclient.ListFull("a-tag", "a-application/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected, _ := api.API2Payload(s.payload)

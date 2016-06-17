@@ -38,11 +38,11 @@ output to be redirected to a file. `
 // Info is defined on the cmd.Command interface.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-spaces",
+		Name:    "spaces",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
 		Purpose: "List known spaces, including associated subnets",
 		Doc:     strings.TrimSpace(listCommandDoc),
-		Aliases: []string{"spaces"},
+		Aliases: []string{"list-spaces"},
 	}
 }
 

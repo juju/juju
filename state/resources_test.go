@@ -30,12 +30,12 @@ type ResourcesSuite struct {
 
 func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	ch := s.ConnSuite.AddTestingCharm(c, "wordpress")
-	s.ConnSuite.AddTestingService(c, "a-service", ch)
+	s.ConnSuite.AddTestingService(c, "a-application", ch)
 
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err := st.ListResources("a-service")
+	resources, err := st.ListResources("a-application")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resources.Resources, gc.HasLen, 0)
@@ -44,14 +44,14 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	res := newResource(c, "spam", data)
 	file := bytes.NewBufferString(data)
 
-	_, err = st.SetResource("a-service", res.Username, res.Resource, file)
+	_, err = st.SetResource("a-application", res.Username, res.Resource, file)
 	c.Assert(err, jc.ErrorIsNil)
 
 	csResources := []charmresource.Resource{res.Resource}
-	err = st.SetCharmStoreResources("a-service", csResources, time.Now())
+	err = st.SetCharmStoreResources("a-application", csResources, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 
-	resources, err = st.ListResources("a-service")
+	resources, err = st.ListResources("a-application")
 	c.Assert(err, jc.ErrorIsNil)
 
 	res.Timestamp = resources.Resources[0].Timestamp
@@ -64,7 +64,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 }
 
 func newResource(c *gc.C, name, data string) resource.Resource {
-	opened := resourcetesting.NewResource(c, nil, name, "a-service", data)
+	opened := resourcetesting.NewResource(c, nil, name, "a-application", data)
 	res := opened.Resource
 	res.Timestamp = time.Unix(res.Timestamp.Unix(), 0)
 	return res

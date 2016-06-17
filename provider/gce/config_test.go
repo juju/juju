@@ -130,10 +130,6 @@ var newConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"client-email": ""},
 	err:    "client-email: must not be empty",
 }, {
-	info:   "region is optional",
-	remove: []string{"region"},
-	expect: testing.Attrs{"region": "us-central1"},
-}, {
 	info:   "region cannot be empty",
 	insert: testing.Attrs{"region": ""},
 	err:    "region: must not be empty",
@@ -257,7 +253,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 
 func (s *ConfigSuite) TestValidateChangeFromOldConfigWithMissingAttributeWithDefault(c *gc.C) {
 	// If the provider implementation is changed to add a new configuration attribute
-	// that has a default value, and the controller is upgraded to the new implementaton,
+	// that has a default value, and the controller is upgraded to the new implementation,
 	// the validated configuration in the state will have no value for that attribute,
 	// even though newly validated configurations will.
 	//
@@ -266,18 +262,18 @@ func (s *ConfigSuite) TestValidateChangeFromOldConfigWithMissingAttributeWithDef
 	// still validate OK.
 
 	oldCfg := configTestSpec{
-		remove: []string{"region"},
+		remove: []string{"image-endpoint"},
 	}.newConfig(c)
 
 	newCfg, err := testing.ModelConfig(c).Apply(gce.ConfigAttrs.Merge(testing.Attrs{
-		"region": "us-central1",
+		"image-endpoint": "https://www.googleapis.com",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 
 	validatedConfig, err := gce.Provider.Validate(newCfg, oldCfg)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(validatedConfig.AllAttrs()["region"], gc.Equals, "us-central1")
+	c.Assert(validatedConfig.AllAttrs()["image-endpoint"], gc.Equals, "https://www.googleapis.com")
 }
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {

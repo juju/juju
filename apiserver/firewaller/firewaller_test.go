@@ -6,9 +6,9 @@ package firewaller_test
 import (
 	"sort"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -206,11 +206,11 @@ func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 			{Result: expectResultsMachine0},
 			{Result: nil, Error: nil},
 			{Result: expectResultsMachine2},
-			{Error: apiservertesting.ServerError(`"service-wordpress" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"application-wordpress" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"unit-wordpress-0" is not a valid machine tag`)},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ServerError(`"unit-foo-0" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"service-bar" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"application-bar" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"user-foo" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"foo-bar" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},

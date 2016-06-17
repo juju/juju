@@ -4,7 +4,6 @@
 package state
 
 import (
-	"math/rand"
 	"net"
 
 	"github.com/juju/errors"
@@ -27,14 +26,6 @@ type SubnetInfo struct {
 	// networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
 
-	// AllocatableIPHigh and Low describe the allocatable portion of the
-	// subnet. The remainder, if any, is reserved by the provider.
-	// Either both of these must be set or neither, if they're empty it
-	// means that none of the subnet is allocatable. If present they must
-	// be valid IP addresses within the subnet CIDR.
-	AllocatableIPHigh string
-	AllocatableIPLow  string
-
 	// AvailabilityZone describes which availability zone this subnet is in. It can
 	// be empty if the provider does not support availability zones.
 	AvailabilityZone string
@@ -50,19 +41,16 @@ type Subnet struct {
 }
 
 type subnetDoc struct {
-	DocID             string `bson:"_id"`
-	ModelUUID         string `bson:"model-uuid"`
-	Life              Life   `bson:"life"`
-	ProviderId        string `bson:"providerid,omitempty"`
-	CIDR              string `bson:"cidr"`
-	AllocatableIPHigh string `bson:"allocatableiphigh,omitempty"`
-	AllocatableIPLow  string `bson:"allocatableiplow,omitempty"`
-	VLANTag           int    `bson:"vlantag,omitempty"`
-	AvailabilityZone  string `bson:"availabilityzone,omitempty"`
+	DocID            string `bson:"_id"`
+	ModelUUID        string `bson:"model-uuid"`
+	Life             Life   `bson:"life"`
+	ProviderId       string `bson:"providerid,omitempty"`
+	CIDR             string `bson:"cidr"`
+	VLANTag          int    `bson:"vlantag,omitempty"`
+	AvailabilityZone string `bson:"availabilityzone,omitempty"`
 	// TODO: add IsPublic to SubnetArgs, add an IsPublic method and add
 	// IsPublic to migration import/export.
-	IsPublic bool `bson:"is-public,omitempty"`
-	// TODO(dooferlad 2015-08-03): add an upgrade step to insert IsPublic=false
+	IsPublic  bool   `bson:"is-public,omitempty"`
 	SpaceName string `bson:"space-name,omitempty"`
 }
 
@@ -121,32 +109,12 @@ func (s *Subnet) Remove() (err error) {
 		return errors.New("subnet is not dead")
 	}
 
-	addresses, closer := s.st.getCollection(legacyipaddressesC)
-	defer closer()
-
-	var ops []txn.Op
-	id := s.ID()
-	var doc struct {
-		DocID string `bson:"_id"`
-	}
-	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
-	for iter.Next(&doc) {
-		ops = append(ops, txn.Op{
-			C:      legacyipaddressesC,
-			Id:     doc.DocID,
-			Remove: true,
-		})
-	}
-	if err = iter.Close(); err != nil {
-		return errors.Annotate(err, "cannot read addresses")
-	}
-
-	ops = append(ops, txn.Op{
+	ops := []txn.Op{{
 		C:      subnetsC,
 		Id:     s.doc.DocID,
 		Remove: true,
 		Assert: isDeadDoc,
-	})
+	}}
 	if s.doc.ProviderId != "" {
 		op := s.st.networkEntityGlobalKeyRemoveOp("subnet", s.ProviderId())
 		ops = append(ops, op)
@@ -175,16 +143,6 @@ func (s *Subnet) VLANTag() int {
 	return s.doc.VLANTag
 }
 
-// AllocatableIPLow returns the lowest allocatable IP address in the subnet
-func (s *Subnet) AllocatableIPLow() string {
-	return s.doc.AllocatableIPLow
-}
-
-// AllocatableIPHigh returns the hightest allocatable IP address in the subnet.
-func (s *Subnet) AllocatableIPHigh() string {
-	return s.doc.AllocatableIPHigh
-}
-
 // AvailabilityZone returns the availability zone of the subnet. If the subnet
 // is not associated with an availability zone it will be the empty string.
 func (s *Subnet) AvailabilityZone() string {
@@ -197,45 +155,21 @@ func (s *Subnet) SpaceName() string {
 	return s.doc.SpaceName
 }
 
-// Validate validates the subnet, checking the CIDR, VLANTag and
-// AllocatableIPHigh and Low, if present.
+// Validate validates the subnet, checking the CIDR, and VLANTag, if present.
 func (s *Subnet) Validate() error {
-	var mask *net.IPNet
-	var err error
 	if s.doc.CIDR != "" {
-		_, mask, err = net.ParseCIDR(s.doc.CIDR)
+		_, _, err := net.ParseCIDR(s.doc.CIDR)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	} else {
 		return errors.Errorf("missing CIDR")
 	}
+
 	if s.doc.VLANTag < 0 || s.doc.VLANTag > 4094 {
 		return errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", s.doc.VLANTag)
 	}
-	present := func(str string) bool {
-		return str != ""
-	}
-	either := present(s.doc.AllocatableIPLow) || present(s.doc.AllocatableIPHigh)
-	both := present(s.doc.AllocatableIPLow) && present(s.doc.AllocatableIPHigh)
 
-	if either && !both {
-		return errors.Errorf("either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
-	}
-
-	// TODO (mfoord 26-11-2014) we could also validate that the IPs are the
-	// same type (IPv4 or IPv6) and that IPLow is lower than or equal to
-	// IPHigh.
-	if s.doc.AllocatableIPHigh != "" {
-		highIP := net.ParseIP(s.doc.AllocatableIPHigh)
-		if highIP == nil || !mask.Contains(highIP) {
-			return errors.Errorf("invalid AllocatableIPHigh %q", s.doc.AllocatableIPHigh)
-		}
-		lowIP := net.ParseIP(s.doc.AllocatableIPLow)
-		if lowIP == nil || !mask.Contains(lowIP) {
-			return errors.Errorf("invalid AllocatableIPLow %q", s.doc.AllocatableIPLow)
-		}
-	}
 	return nil
 }
 
@@ -254,113 +188,6 @@ func (s *Subnet) Refresh() error {
 		return errors.Errorf("cannot refresh subnet %q: %v", s, err)
 	}
 	return nil
-}
-
-// PickNewAddress returns a new IPAddress that isn't in use for the subnet.
-// The address starts with AddressStateUnknown, for later allocation.
-// This will fail if the subnet is not alive.
-func (s *Subnet) PickNewAddress() (*IPAddress, error) {
-	for {
-		addr, err := s.attemptToPickNewAddress()
-		if err == nil {
-			return addr, err
-		}
-		if !errors.IsAlreadyExists(err) {
-			return addr, err
-		}
-	}
-}
-
-// attemptToPickNewAddress will try to pick a new address. It can fail
-// with AlreadyExists due to a race condition between fetching the
-// list of addresses already in use and allocating a new one. If the
-// subnet is not alive, it will also fail. It is called in a loop by
-// PickNewAddress until it gets one or there are no more available!
-func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
-	if s.doc.Life != Alive {
-		return nil, errors.Errorf("cannot pick address: subnet %q is not alive", s)
-	}
-	high := s.doc.AllocatableIPHigh
-	low := s.doc.AllocatableIPLow
-	if low == "" || high == "" {
-		return nil, errors.Errorf("no allocatable IP addresses for subnet %q", s)
-	}
-
-	// convert low and high to decimals as the bounds
-	lowDecimal, err := network.IPv4ToDecimal(net.ParseIP(low))
-	if err != nil {
-		// these addresses are validated so should never happen
-		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %q", low, s)
-	}
-	highDecimal, err := network.IPv4ToDecimal(net.ParseIP(high))
-	if err != nil {
-		// these addresses are validated so should never happen
-		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %q", high, s)
-	}
-
-	// find all addresses for this subnet and convert them to decimals
-	addresses, closer := s.st.getCollection(legacyipaddressesC)
-	defer closer()
-
-	id := s.ID()
-	var doc struct {
-		Value string
-	}
-	allocated := make(map[uint32]bool)
-	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
-	for iter.Next(&doc) {
-		// skip invalid values. Can't happen anyway as we validate.
-		value, err := network.IPv4ToDecimal(net.ParseIP(doc.Value))
-		if err != nil {
-			continue
-		}
-		allocated[value] = true
-	}
-	if err := iter.Close(); err != nil {
-		return nil, errors.Annotatef(err, "cannot read addresses of subnet %q", s)
-	}
-
-	// Check that the number of addresses in use is less than the
-	// difference between low and high - i.e. we haven't exhausted all
-	// possible addresses.
-	if len(allocated) >= int(highDecimal-lowDecimal)+1 {
-		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %q", s)
-	}
-
-	// pick a new random decimal between the low and high bounds that
-	// doesn't match an existing one
-	newDecimal := pickAddress(lowDecimal, highDecimal, allocated)
-
-	// convert it back to a dotted-quad
-	newIP := network.DecimalToIPv4(newDecimal)
-	newAddr := network.NewAddress(newIP.String())
-
-	// and create a new IPAddress from it and return it
-	return s.st.AddIPAddress(newAddr, s.ID())
-}
-
-// pickAddress will pick a number, representing an IPv4 address, between low
-// and high (inclusive) that isn't in the allocated map. There must be at least
-// one available address between low and high and not in allocated.
-// e.g. pickAddress(uint32(2700), uint32(2800), map[uint32]bool{uint32(2701): true})
-// The allocated map is just being used as a set of unavailable addresses, so
-// the bool value isn't significant.
-var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
-	// +1 because Int63n will pick a number up to, but not including, the
-	// bounds we provide.
-	bounds := uint32(high-low) + 1
-	if bounds == 1 {
-		// we've already checked that there is a free IP address, so
-		// this must be it!
-		return low
-	}
-	for {
-		inBounds := rand.Int63n(int64(bounds))
-		value := uint32(inBounds) + low
-		if _, ok := allocated[value]; !ok {
-			return value
-		}
-	}
 }
 
 // AddSubnet creates and returns a new subnet
@@ -401,16 +228,14 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
-		DocID:             subnetID,
-		ModelUUID:         st.ModelUUID(),
-		Life:              Alive,
-		CIDR:              args.CIDR,
-		VLANTag:           args.VLANTag,
-		ProviderId:        string(args.ProviderId),
-		AllocatableIPHigh: args.AllocatableIPHigh,
-		AllocatableIPLow:  args.AllocatableIPLow,
-		AvailabilityZone:  args.AvailabilityZone,
-		SpaceName:         args.SpaceName,
+		DocID:            subnetID,
+		ModelUUID:        st.ModelUUID(),
+		Life:             Alive,
+		CIDR:             args.CIDR,
+		VLANTag:          args.VLANTag,
+		ProviderId:       string(args.ProviderId),
+		AvailabilityZone: args.AvailabilityZone,
+		SpaceName:        args.SpaceName,
 	}
 	subnet := &Subnet{doc: subDoc, st: st}
 	err := subnet.Validate()
@@ -423,16 +248,14 @@ func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 func (st *State) addSubnetOps(args SubnetInfo) []txn.Op {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
-		DocID:             subnetID,
-		ModelUUID:         st.ModelUUID(),
-		Life:              Alive,
-		CIDR:              args.CIDR,
-		VLANTag:           args.VLANTag,
-		ProviderId:        string(args.ProviderId),
-		AllocatableIPHigh: args.AllocatableIPHigh,
-		AllocatableIPLow:  args.AllocatableIPLow,
-		AvailabilityZone:  args.AvailabilityZone,
-		SpaceName:         args.SpaceName,
+		DocID:            subnetID,
+		ModelUUID:        st.ModelUUID(),
+		Life:             Alive,
+		CIDR:             args.CIDR,
+		VLANTag:          args.VLANTag,
+		ProviderId:       string(args.ProviderId),
+		AvailabilityZone: args.AvailabilityZone,
+		SpaceName:        args.SpaceName,
 	}
 	ops := []txn.Op{
 		{

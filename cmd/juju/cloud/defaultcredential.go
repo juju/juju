@@ -19,7 +19,7 @@ var usageSetDefaultCredentialDetails = `
 The default credentials are specified with a "credential name". A 
 credential name is created during the process of adding credentials either 
 via `[1:] + "`juju add-credential` or `juju autoload-credentials`" + `. Credential names 
-can be listed with ` + "`juju list-credentials`" + `.
+can be listed with ` + "`juju credentials`" + `.
 Default credentials avoid the need to specify a particular set of 
 credentials when more than one are available for a given cloud.
 
@@ -27,9 +27,9 @@ Examples:
     juju set-default-credential google credential_name
 
 See also: 
+    credentials
     add-credential
     remove-credential
-    list-credentials
     autoload-credentials`
 
 type setDefaultCredentialCommand struct {

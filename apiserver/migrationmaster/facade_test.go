@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/migrationmaster"
@@ -136,8 +136,8 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	s.model.AddService(description.ServiceArgs{
-		Tag:      names.NewServiceTag("foo"),
+	s.model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("foo"),
 		CharmURL: "cs:foo-0",
 	})
 	const tools = "2.0.0-xenial-amd64"

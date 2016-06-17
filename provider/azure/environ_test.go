@@ -19,13 +19,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/arm/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -37,7 +37,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
@@ -410,14 +409,6 @@ func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.M
 
 func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
-	stateInfo := &mongo.MongoInfo{
-		Info: mongo.Info{
-			CACert: testing.CACert,
-			Addrs:  []string{"localhost:123"},
-		},
-		Password: "password",
-		Tag:      machineTag,
-	}
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:246"},
 		CACert:   testing.CACert,
@@ -429,7 +420,7 @@ func makeStartInstanceParams(c *gc.C, series string) environs.StartInstanceParam
 	const secureServerConnections = true
 	icfg, err := instancecfg.NewInstanceConfig(
 		machineTag.Id(), "yanonce", imagemetadata.ReleasedStream,
-		series, "", secureServerConnections, stateInfo, apiInfo,
+		series, secureServerConnections, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -123,7 +123,7 @@ Relations
   * A relation is created with `juju add-relation`. No two relations with the
     same canonical name can exist. (The canonical relation name form is
     "<requirer-endpoint> <provider-endpoint>", where each endpoint takes the
-    form "<service-name>:<charm-relation-name>".)
+    form "<application-name>:<charm-relation-name>".)
       * Thanks to convention, the above is not strictly true: it is possible
         for a subordinate charm to require a container-scoped "juju-info"
         relation. These restrictions mean that the name can never cause

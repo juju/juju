@@ -23,7 +23,7 @@ func (s *unitPayloadsSuite) TestTrackOkay(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 
@@ -40,7 +40,7 @@ func (s *unitPayloadsSuite) TestTrackInvalid(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 
@@ -56,7 +56,7 @@ func (s *unitPayloadsSuite) TestTrackEnsureDefinitionFailed(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 
@@ -72,7 +72,7 @@ func (s *unitPayloadsSuite) TestTrackInsertFailed(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 
@@ -87,7 +87,7 @@ func (s *unitPayloadsSuite) TestTrackAlreadyExists(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 
@@ -102,7 +102,7 @@ func (s *unitPayloadsSuite) TestSetStatusOkay(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 
@@ -122,7 +122,7 @@ func (s *unitPayloadsSuite) TestSetStatusFailed(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	err := ps.SetStatus(pl.Name, payload.StateRunning)
@@ -133,7 +133,7 @@ func (s *unitPayloadsSuite) TestSetStatusFailed(c *gc.C) {
 func (s *unitPayloadsSuite) TestSetStatusMissing(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	err := ps.SetStatus("payloadA", payload.StateRunning)
@@ -149,7 +149,7 @@ func (s *unitPayloadsSuite) TestListOkay(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 	}
 	results, err := ps.List(pl.Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *unitPayloadsSuite) TestListAll(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	results, err := ps.List()
@@ -192,7 +192,7 @@ func (s *unitPayloadsSuite) TestListFailed(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	_, err := ps.List()
@@ -208,7 +208,7 @@ func (s *unitPayloadsSuite) TestListMissing(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	results, err := ps.List(pl.Name, missingName)
@@ -232,7 +232,7 @@ func (s *unitPayloadsSuite) TestUntrackOkay(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	err := ps.Untrack(pl.Name)
@@ -245,7 +245,7 @@ func (s *unitPayloadsSuite) TestUntrackOkay(c *gc.C) {
 func (s *unitPayloadsSuite) TestUntrackMissing(c *gc.C) {
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	err := ps.Untrack("payloadA")
@@ -261,7 +261,7 @@ func (s *unitPayloadsSuite) TestUntrackFailed(c *gc.C) {
 
 	ps := state.UnitPayloads{
 		Persist: s.persist,
-		Unit:    "a-service/0",
+		Unit:    "a-application/0",
 		Machine: "0",
 	}
 	err := ps.Untrack("payloadA")

@@ -163,14 +163,14 @@ var setConstraintsTests = []struct {
 }, {
 	about:        "container type can only be used for deployment, not provisioning",
 	consToSet:    "container=kvm arch=amd64",
-	consFallback: "container=lxc mem=8G",
+	consFallback: "container=lxd mem=8G",
 
 	// service deployment constraints are transformed into machine
 	// provisioning constraints, and the container type only makes
 	// sense currently as a deployment constraint, so it's cleared
 	// when merging service/model deployment constraints into
 	// effective machine provisioning constraints.
-	effectiveModelCons:   "container=lxc mem=8G",
+	effectiveModelCons:   "container=lxd mem=8G",
 	effectiveServiceCons: "container=kvm arch=amd64",
 	effectiveUnitCons:    "container=kvm mem=8G arch=amd64",
 	effectiveMachineCons: "mem=8G arch=amd64",

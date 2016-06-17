@@ -53,7 +53,7 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
+	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }

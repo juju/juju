@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
 )
@@ -46,4 +47,14 @@ func (e *ModelWatcher) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return conf, nil
+}
+
+// ControllerConfig returns the current controller configuration.
+func (e *ModelWatcher) ControllerConfig() (controller.Config, error) {
+	var result params.ControllerConfigResult
+	err := e.facade.FacadeCall("ControllerConfig", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return controller.Config(result.Config), nil
 }

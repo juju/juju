@@ -30,7 +30,7 @@ var (
 //
 //  * local (in opposition to global; and for want of a better term): these
 //    hold information relevant *within* specific models (machines,
-//    services, relations, settings, bookkeeping, etc) and should generally be
+//    applications, relations, settings, bookkeeping, etc) and should generally be
 //    read via an modelStateCollection, and written via a multiModelRunner. This is
 //    the most common form of collection, and the above access should usually
 //    be automatic via Database.Collection and Database.Runner.
@@ -132,10 +132,6 @@ func allCollections() collectionSchema {
 		// one model.
 		usersC: {
 			global: true,
-			indexes: []mgo.Index{{
-				// TODO(thumper): schema change to remove this index.
-				Key: []string{"name"},
-			}},
 		},
 
 		// This collection holds the last time the user connected to the API server.
@@ -150,18 +146,20 @@ func allCollections() collectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
+		// This collection holds users' cloud credentials.
+		cloudCredentialsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"owner"},
+			}},
+		},
+
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
 		metricsC: {global: true},
 
 		// This collection holds persistent state for the metrics manager.
 		metricsManagerC: {global: true},
-
-		// This collection holds lease data, which is per-model, but is
-		// not itself multi-model-aware; happily it will imminently be
-		// deprecated in favour of the non-global leasesC below.
-		// TODO(fwereade): drop leaseC entirely so can't use wrong const.
-		leaseC: {global: true},
 
 		// This collection was deprecated before multi-model support
 		// was implemented.
@@ -203,7 +201,7 @@ func allCollections() collectionSchema {
 		sequenceC: {},
 
 		// This collection holds lease data. It's currently only used to
-		// implement service leadership, but is namespaced and available
+		// implement application leadership, but is namespaced and available
 		// for use by other clients in future.
 		leasesC: {
 			indexes: []mgo.Index{{
@@ -215,12 +213,12 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// These collections hold information associated with services.
-		charmsC:   {},
-		servicesC: {},
+		// These collections hold information associated with applications.
+		charmsC:       {},
+		applicationsC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "service"},
+				Key: []string{"model-uuid", "application"},
 			}, {
 				Key: []string{"model-uuid", "principal"},
 			}, {
@@ -241,7 +239,7 @@ func allCollections() collectionSchema {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
 			}, {
-				Key: []string{"model-uuid", "endpoints.servicename"},
+				Key: []string{"model-uuid", "endpoints.applicationname"},
 			}},
 		},
 		relationScopesC: {},
@@ -290,18 +288,6 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// These collections hold information associated with networking.
-		// TODO(dimitern): Remove the obsolete collections below once possible.
-		legacyipaddressesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"uuid"},
-			}, {
-				Key: []string{"model-uuid", "state"},
-			}, {
-				Key: []string{"model-uuid", "subnetid"},
-			}},
-		},
-		// TODO(dimitern): End of obsolete networking collections.
 		providerIDsC:          {},
 		spacesC:               {},
 		subnetsC:              {},
@@ -346,7 +332,7 @@ func allCollections() collectionSchema {
 		annotationsC: {},
 
 		// This collection in particular holds an astounding number of
-		// different sorts of data: service config settings by charm version,
+		// different sorts of data: application config settings by charm version,
 		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
@@ -387,6 +373,7 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
 	controllersC             = "controllers"
@@ -395,8 +382,6 @@ const (
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
-	legacyipaddressesC       = "ipaddresses"
-	leaseC                   = "lease"
 	leasesC                  = "leases"
 	machinesC                = "machines"
 	meterStatusC             = "meterStatus"
@@ -418,7 +403,7 @@ const (
 	relationsC               = "relations"
 	restoreInfoC             = "restoreInfo"
 	sequenceC                = "sequence"
-	servicesC                = "services"
+	applicationsC            = "applications"
 	endpointBindingsC        = "endpointbindings"
 	settingsC                = "settings"
 	settingsrefsC            = "settingsrefs"

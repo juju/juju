@@ -21,8 +21,10 @@ import (
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -60,6 +62,30 @@ type BootstrapParams struct {
 	// BootstrapImage, if specified, is the image ID to use for the
 	// initial bootstrap machine.
 	BootstrapImage string
+
+	// CloudName is the name of the cloud that Juju will be bootstrapped in.
+	CloudName string
+
+	// Cloud contains the properties of the cloud that Juju will be
+	// bootstrapped in.
+	Cloud cloud.Cloud
+
+	// CloudRegion is the name of the cloud region that Juju will be bootstrapped in.
+	CloudRegion string
+
+	// CloudCredentialName is the name of the cloud credential that Juju will be
+	// bootstrapped with. This may be empty, for clouds that do not require
+	// credentials.
+	CloudCredentialName string
+
+	// CloudCredential contains the cloud credential that Juju will be
+	// bootstrapped with. This may be nil, for clouds that do not require
+	// credentialis.
+	CloudCredential *cloud.Credential
+
+	// ModelConfigDefaults is the set of config attributes to be shared
+	// across all models in the same controller.
+	ModelConfigDefaults map[string]interface{}
 
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
@@ -110,10 +136,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// we'll be here to catch this problem early.
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
-	if _, hasCACert := cfg.CACert(); !hasCACert {
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	if _, hasCACert := controllerCfg.CACert(); !hasCACert {
 		return errors.Errorf("model configuration has no ca-cert")
 	}
-	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
+	if _, hasCAKey := controllerCfg.CAPrivateKey(); !hasCAKey {
 		return errors.Errorf("model configuration has no ca-private-key")
 	}
 
@@ -165,10 +192,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.New(noToolsMessage)
 	} else if err != nil {
 		return err
-	}
-
-	if lxcMTU, ok := cfg.LXCDefaultMTU(); ok {
-		logger.Debugf("using MTU %v for all created LXC containers' network interfaces", lxcMTU)
 	}
 
 	imageMetadata, err := bootstrapImageMetadata(
@@ -262,10 +285,15 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
-	instanceConfig.CustomImageMetadata = customImageMetadata
-	instanceConfig.HostedModelConfig = args.HostedModelConfig
-
-	instanceConfig.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
+	instanceConfig.Bootstrap.CustomImageMetadata = customImageMetadata
+	instanceConfig.Bootstrap.ControllerCloudName = args.CloudName
+	instanceConfig.Bootstrap.ControllerCloud = args.Cloud
+	instanceConfig.Bootstrap.ControllerCloudRegion = args.CloudRegion
+	instanceConfig.Bootstrap.ControllerCloudCredential = args.CloudCredential
+	instanceConfig.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
+	instanceConfig.Bootstrap.ModelConfigDefaults = args.ModelConfigDefaults
+	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
+	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)
 	})
 

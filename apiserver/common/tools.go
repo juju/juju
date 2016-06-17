@@ -8,12 +8,11 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -28,10 +27,6 @@ type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
 	ToolsURLs(v version.Binary) ([]string, error)
-}
-
-type ModelConfigGetter interface {
-	ModelConfig() (*config.Config, error)
 }
 
 // APIHostPortsGetter is an interface providing the APIHostPorts method.
@@ -50,7 +45,7 @@ type ToolsStorageGetter interface {
 // facades.
 type ToolsGetter struct {
 	entityFinder       state.EntityFinder
-	configGetter       ModelConfigGetter
+	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
@@ -58,7 +53,7 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c ModelConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
+func NewToolsGetter(f state.EntityFinder, c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
 	return &ToolsGetter{f, c, s, t, getCanRead}
 }
 
@@ -196,14 +191,14 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
-	configGetter       ModelConfigGetter
+	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c ModelConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
+func NewToolsFinder(c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
 	return &ToolsFinder{c, s, t}
 }
 
@@ -258,15 +253,12 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	cfg, err := f.configGetter.ModelConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(cfg)
+	env, err := environs.GetEnviron(f.configGetter, environs.New)
 	if err != nil {
 		return nil, err
 	}
 	filter := toolsFilter(args)
+	cfg := env.Config()
 	stream := envtools.PreferredStream(&args.Number, cfg.Development(), cfg.AgentStream())
 	simplestreamsList, err := envtoolsFindTools(
 		env, args.MajorVersion, args.MinorVersion, stream, filter,

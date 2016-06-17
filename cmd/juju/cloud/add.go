@@ -34,7 +34,7 @@ Examples:
     juju add-cloud mycloud ~/mycloud.yaml
 
 See also: 
-    list-clouds`
+    clouds`
 
 type addCloudCommand struct {
 	cmd.CommandBase

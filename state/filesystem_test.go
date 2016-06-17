@@ -5,10 +5,10 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -25,7 +25,7 @@ func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Charm: ch, Storage: storage})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -56,14 +56,13 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 		"data": makeStorageCons("", 1024, 1),
 	}
 
-	args := state.AddServiceArgs{
+	args := state.AddApplicationArgs{
 		Name:     "storage-filesystem",
-		Owner:    s.Owner.String(),
 		Charm:    ch,
 		Storage:  storage,
 		NumUnits: numUnits,
 	}
-	svc, err := s.State.AddService(args)
+	svc, err := s.State.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := svc.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +75,7 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 	}
 	c.Assert(cons, jc.DeepEquals, expected)
 
-	svc, err = s.State.Service(args.Name)
+	svc, err = s.State.Application(args.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := svc.AllUnits()
@@ -442,7 +441,7 @@ func (s *FilesystemStateSuite) TestParseFilesystemAttachmentId(c *gc.C) {
 	}
 	assertValid("0:0", names.NewMachineTag("0"), names.NewFilesystemTag("0"))
 	assertValid("0:0/1", names.NewMachineTag("0"), names.NewFilesystemTag("0/1"))
-	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewFilesystemTag("1"))
+	assertValid("0/lxd/0:1", names.NewMachineTag("0/lxd/0"), names.NewFilesystemTag("1"))
 }
 
 func (s *FilesystemStateSuite) TestParseFilesystemAttachmentIdError(c *gc.C) {
@@ -916,7 +915,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 		"data": makeStorageCons("rootfs", 1024, 1),
 	}
 
-	deploy := func(rev int, location, serviceName string) error {
+	deploy := func(rev int, location, applicationname string) error {
 		ch := s.createStorageCharmRev(c, "storage-filesystem", charm.Storage{
 			Name:     "data",
 			Type:     charm.StorageFilesystem,
@@ -924,7 +923,7 @@ func (s *FilesystemStateSuite) testFilesystemAttachmentParamsConcurrent(c *gc.C,
 			CountMax: 1,
 			Location: location,
 		}, rev)
-		service := s.AddTestingServiceWithStorage(c, serviceName, ch, storage)
+		service := s.AddTestingServiceWithStorage(c, applicationname, ch, storage)
 		unit, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		return unit.AssignToMachine(machine)

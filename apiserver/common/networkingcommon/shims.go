@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -95,6 +96,10 @@ func (s *stateShim) ModelConfig() (*config.Config, error) {
 	return s.st.ModelConfig()
 }
 
+func (s *stateShim) ControllerConfig() (controller.Config, error) {
+	return s.st.ControllerConfig()
+}
+
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
 	_, err := s.st.AddSpace(name, providerId, subnetIds, public)
 	return err
@@ -140,11 +145,6 @@ func (s *stateShim) AllSubnets() ([]BackingSubnet, error) {
 	}
 	return subnets, nil
 }
-
-type availZoneShim struct{}
-
-func (availZoneShim) Name() string    { return "not-set" }
-func (availZoneShim) Available() bool { return true }
 
 func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
 	// TODO(dimitern): Fix this to get them from state when available!

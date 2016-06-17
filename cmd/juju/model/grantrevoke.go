@@ -18,8 +18,12 @@ Grants access to a Juju user for a model.`[1:]
 
 var usageGrantDetails = `
 By default, the controller is the current controller.
-Model access can also be granted at user-addition time with the `[1:] + "`juju add-\nuser`" + ` command.
-Users with read access are limited in what they can do with models: ` + "`juju \nlist-models`, `juju list-machines`, and `juju status`" + `.
+
+Model access can also be granted at user-addition time with the
+`[1:] + "`juju add-user`" + ` command.
+
+Users with read access are limited in what they can do with models:
+` + "`juju models`, `juju machines`, and `juju status`" + `.
 
 Examples:
 Grant user 'joe' default (read) access to model 'mymodel':
@@ -43,6 +47,7 @@ Revokes access from a Juju user for a model.`[1:]
 
 var usageRevokeDetails = `
 By default, the controller is the current controller.
+
 Revoking write access, from a user who has that permission, will leave
 that user with read access. Revoking read access, however, also revokes
 write access.

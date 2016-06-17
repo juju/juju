@@ -4,7 +4,6 @@
 package backups
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,10 +22,10 @@ const (
 	agentsDir   = "agents"
 	agentsConfs = "machine-*"
 	toolsDir    = "tools"
+	initDir     = "init"
 
 	sshIdentFile = "system-identity"
 	nonceFile    = "nonce.txt"
-	machineLog   = "machine-%s.log"
 	authKeysFile = "authorized_keys"
 
 	dbPEM    = "server.pem"
@@ -50,6 +49,12 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 		return nil, errors.Annotate(err, "failed to fetch agent config files")
 	}
 
+	glob = filepath.Join(rootDir, paths.DataDir, initDir, "*")
+	serviceConfs, err := filepath.Glob(glob)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to fetch service config files")
+	}
+
 	backupFiles := []string{
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 
@@ -59,17 +64,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 	}
 	backupFiles = append(backupFiles, agentConfs...)
-
-	// TODO(ericsnow) It might not be machine 0...
-	machinelog := filepath.Join(rootDir, paths.LogsDir, fmt.Sprintf(machineLog, oldmachine))
-	if _, err := os.Stat(machinelog); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, errors.Trace(err)
-		}
-		logger.Errorf("skipping missing file %q", machinelog)
-	} else {
-		backupFiles = append(backupFiles, machinelog)
-	}
+	backupFiles = append(backupFiles, serviceConfs...)
 
 	// Handle nonce.txt (might not exist).
 	nonce := filepath.Join(rootDir, paths.DataDir, nonceFile)
@@ -106,10 +101,13 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 
 	for _, replaceable := range []string{
 		filepath.Join(dataDir, "db"),
+		filepath.Join(dataDir, "init"),
 		dataDir,
-		logsDir,
 	} {
 		dirStat, err := os.Stat(replaceable)
+		if os.IsNotExist(err) {
+			continue
+		}
 		if err != nil {
 			return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
 		}

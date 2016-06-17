@@ -42,9 +42,9 @@ func (s *imageURLSuite) assertImageURLForStream(c *gc.C, stream string) {
 			Stream:            stream,
 			ImageDownloadFunc: container.ImageDownloadURL,
 		})
-	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
+	imageURL, err := imageURLGetter.ImageURL(instance.LXD, "trusty", "amd64")
 	c.Assert(err, gc.IsNil)
-	c.Assert(imageURL, gc.Equals, fmt.Sprintf("https://host:port/model/12345/images/lxc/trusty/amd64/trusty-%s-amd64-root.tar.gz", stream))
+	c.Assert(imageURL, gc.Equals, fmt.Sprintf("https://host:port/model/12345/images/lxd/trusty/amd64/trusty-%s-amd64-root.tar.gz", stream))
 	c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
 }
 
@@ -64,21 +64,21 @@ func (s *imageURLSuite) TestImageURLOtherBase(c *gc.C) {
 			Stream:            "released",
 			ImageDownloadFunc: mockFunc,
 		})
-	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
+	imageURL, err := imageURLGetter.ImageURL(instance.LXD, "trusty", "amd64")
 	c.Assert(err, gc.IsNil)
-	c.Assert(imageURL, gc.Equals, "https://host:port/model/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
+	c.Assert(imageURL, gc.Equals, "https://host:port/model/12345/images/lxd/trusty/amd64/trusty-released-amd64-root.tar.gz")
 	c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
 	c.Assert(calledBaseURL, gc.Equals, baseURL)
 }
 
 func (s *imageURLSuite) TestImageDownloadURL(c *gc.C) {
-	imageDownloadURL, err := container.ImageDownloadURL(instance.LXC, "trusty", "amd64", "released", "")
+	imageDownloadURL, err := container.ImageDownloadURL(instance.LXD, "trusty", "amd64", "released", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageDownloadURL, gc.Equals, "test://cloud-images/trusty-released-amd64-root.tar.gz")
 }
 
 func (s *imageURLSuite) TestImageDownloadURLOtherBase(c *gc.C) {
-	imageDownloadURL, err := container.ImageDownloadURL(instance.LXC, "trusty", "amd64", "released", "other://cloud-images")
+	imageDownloadURL, err := container.ImageDownloadURL(instance.LXD, "trusty", "amd64", "released", "other://cloud-images")
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageDownloadURL, gc.Equals, "other://cloud-images/trusty-released-amd64-root.tar.gz")
 }

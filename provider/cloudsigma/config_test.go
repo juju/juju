@@ -64,7 +64,7 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	}{{
 		info:   "username is required",
 		remove: []string{"username"},
-		err:    "username: must not be empty",
+		err:    "username: expected string, got nothing",
 	}, {
 		info:   "username cannot be empty",
 		insert: testing.Attrs{"username": ""},
@@ -72,17 +72,17 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	}, {
 		info:   "password is required",
 		remove: []string{"password"},
-		err:    "password: must not be empty",
+		err:    "password: expected string, got nothing",
 	}, {
 		info:   "password cannot be empty",
 		insert: testing.Attrs{"password": ""},
 		err:    "password: must not be empty",
 	}, {
-		info:   "region is inserted if missing",
+		info:   "region cannot be empty",
 		remove: []string{"region"},
-		expect: testing.Attrs{"region": "zrh"},
+		err:    "region: expected string, got nothing",
 	}, {
-		info:   "region must not be empty",
+		info:   "region cannot not be empty",
 		insert: testing.Attrs{"region": ""},
 		err:    "region: must not be empty",
 	}}

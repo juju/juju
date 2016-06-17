@@ -4,9 +4,9 @@
 package firewaller_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
@@ -71,9 +71,9 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 }
 
 func (s *unitSuite) TestService(c *gc.C) {
-	service, err := s.apiUnit.Service()
+	service, err := s.apiUnit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(service.Name(), gc.Equals, s.service.Name())
+	c.Assert(service.Name(), gc.Equals, s.application.Name())
 }
 
 func (s *unitSuite) TestName(c *gc.C) {

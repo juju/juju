@@ -136,9 +136,6 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 func (env *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	if region == "" {
-		region = gosigma.DefaultRegion
-	}
 	env.lock.Lock()
 	defer env.lock.Unlock()
 	return &simplestreams.MetadataLookupParams{

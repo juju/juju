@@ -6,9 +6,9 @@ package provider_test
 import (
 	"path/filepath"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"

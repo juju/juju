@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -30,40 +30,38 @@ import (
 const (
 	InstanceDataC     = instanceDataC
 	MachinesC         = machinesC
-	ServicesC         = servicesC
+	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
 	SettingsC         = settingsC
-	UnitsC            = unitsC
+	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
-	StatusesHistoryC  = statusesHistoryC
 	GUISettingsC      = guisettingsC
 )
 
 var (
-	BinarystorageNew       = &binarystorageNew
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	ControllerAvailable    = &controllerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
-	AddVolumeOps           = (*State).addVolumeOps
-	CombineMeterStatus     = combineMeterStatus
-	ServiceGlobalKey       = serviceGlobalKey
-	MergeBindings          = mergeBindings
-	UpgradeInProgressError = errUpgradeInProgress
+	BinarystorageNew              = &binarystorageNew
+	ImageStorageNewStorage        = &imageStorageNewStorage
+	MachineIdLessThan             = machineIdLessThan
+	ControllerAvailable           = &controllerAvailable
+	GetOrCreatePorts              = getOrCreatePorts
+	GetPorts                      = getPorts
+	NowToTheSecond                = nowToTheSecond
+	AddVolumeOps                  = (*State).addVolumeOps
+	CombineMeterStatus            = combineMeterStatus
+	ApplicationGlobalKey          = applicationGlobalKey
+	ReadSettings                  = readSettings
+	DefaultModelSettingsGlobalKey = defaultModelSettingsGlobalKey
+	MergeBindings                 = mergeBindings
+	UpgradeInProgressError        = errUpgradeInProgress
 )
 
 type (
 	CharmDoc        charmDoc
 	MachineDoc      machineDoc
 	RelationDoc     relationDoc
-	ServiceDoc      serviceDoc
+	ApplicationDoc  applicationDoc
 	UnitDoc         unitDoc
 	BlockDevicesDoc blockDevicesDoc
 )
@@ -104,11 +102,11 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
+func ServiceSettingsRefCount(st *State, applicationname string, curl *charm.URL) (int, error) {
 	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
 	defer closer()
 
-	key := serviceSettingsKey(serviceName, curl)
+	key := applicationSettingsKey(applicationname, curl)
 	var doc settingsRefsDoc
 	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
@@ -139,28 +137,27 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
-	return addTestingService(c, st, "", name, ch, owner, nil, nil)
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Application {
+	return addTestingService(c, st, "", name, ch, nil, nil)
 }
 
-func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag) *Service {
-	return addTestingService(c, st, series, name, ch, owner, nil, nil)
+func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+	return addTestingService(c, st, series, name, ch, nil, nil)
 }
 
-func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
-	return addTestingService(c, st, "", name, ch, owner, nil, storage)
+func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	return addTestingService(c, st, "", name, ch, nil, storage)
 }
 
-func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, bindings map[string]string) *Service {
-	return addTestingService(c, st, "", name, ch, owner, bindings, nil)
+func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingService(c, st, "", name, ch, bindings, nil)
 }
 
-func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag, bindings map[string]string, storage map[string]StorageConstraints) *Service {
+func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{
+	service, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
 		Series:           series,
-		Owner:            owner.String(),
 		Charm:            ch,
 		EndpointBindings: bindings,
 		Storage:          storage,
@@ -216,18 +213,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// SCHEMACHANGE
-// This method is used to reset the ownertag attribute
-func SetServiceOwnerTag(s *Service, ownerTag string) {
-	s.doc.OwnerTag = ownerTag
-}
-
-// SCHEMACHANGE
-// Get the owner directly
-func GetServiceOwnerTag(s *Service) string {
-	return s.doc.OwnerTag
-}
-
 func SetPasswordHash(e Authenticator, passwordHash string) error {
 	type hasSetPasswordHash interface {
 		setPasswordHash(string) error
@@ -265,12 +250,12 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 }
 
 // MinUnitsRevno returns the Revno of the minUnits document
-// associated with the given service name.
-func MinUnitsRevno(st *State, serviceName string) (int, error) {
+// associated with the given application name.
+func MinUnitsRevno(st *State, applicationname string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(applicationname).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
@@ -475,7 +460,7 @@ func UpdateModelUserLastConnection(e *ModelUser, when time.Time) error {
 	return e.updateLastConnection(when)
 }
 
-func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
+func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
 	globalKey := service.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
@@ -484,11 +469,11 @@ func RemoveEndpointBindingsForService(c *gc.C, service *Service) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func RelationCount(service *Service) int {
+func RelationCount(service *Application) int {
 	return service.doc.RelationCount
 }
 
-func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Service) {
+func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Application) {
 	globalKey := service.globalKey()
 	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)

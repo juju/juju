@@ -36,7 +36,7 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	_, err = wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Set up minimum units for services.
+	// Set up minimum units for applications.
 	err = wordpress.SetMinUnits(3)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.SetMinUnits(2)

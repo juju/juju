@@ -40,7 +40,7 @@ func (s *envPayloadsSuite) newPayload(name string) payload.FullPayloadInfo {
 			ID:     "id" + name,
 			Status: payload.StateRunning,
 			Labels: []string{"a-tag"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	}
@@ -68,12 +68,12 @@ func (s *envPayloadsSuite) TestListAllOkay(c *gc.C) {
 func (s *envPayloadsSuite) TestListAllMulti(c *gc.C) {
 	p1 := s.newPayload("spam")
 	p2 := s.newPayload("eggs")
-	p2.Unit = "a-service/1"
+	p2.Unit = "a-application/1"
 	p3 := s.newPayload("ham")
-	p3.Unit = "a-service/2"
+	p3.Unit = "a-application/2"
 	p3.Machine = "2"
 	p4 := s.newPayload("spamspamspam")
-	p4.Unit = "a-service/1"
+	p4.Unit = "a-application/1"
 	s.persists.setPayload(p1)
 	s.persists.setPayload(p2)
 	s.persists.setPayload(p3)

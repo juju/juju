@@ -7,20 +7,14 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
-// ConfigGetter exposes a model configuration to its clients.
-type ConfigGetter interface {
-	ModelConfig() (*config.Config, error)
-}
-
 // ConfigObserver exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
 type ConfigObserver interface {
-	ConfigGetter
+	environs.EnvironConfigGetter
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -30,12 +24,8 @@ type ConfigObserver interface {
 // use of model config in this package.
 type Config struct {
 	Observer       ConfigObserver
-	NewEnvironFunc NewEnvironFunc
+	NewEnvironFunc environs.NewEnvironFunc
 }
-
-// NewEnvironFunc is the type of a function that, given a model config,
-// returns an Environ. This will typically be environs.New.
-type NewEnvironFunc func(*config.Config) (environs.Environ, error)
 
 // Validate returns an error if the config cannot be used to start a Tracker.
 func (config Config) Validate() error {
@@ -66,11 +56,7 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelConfig, err := config.Observer.ModelConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot read environ config")
-	}
-	environ, err := config.NewEnvironFunc(modelConfig)
+	environ, err := environs.GetEnviron(config.Observer, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create environ")
 	}

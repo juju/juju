@@ -23,7 +23,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
-	"github.com/juju/juju/cert"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -88,6 +88,8 @@ var minimalConfigAttrs = testing.Attrs{
 	"controller-uuid": testing.ModelTag.Id(),
 }
 
+var modelNameErr = "%q is not a valid name: model names may only contain lowercase letters, digits and hyphens"
+
 var configTests = []configTest{
 	{
 		about:       "The minimum good configuration",
@@ -101,37 +103,11 @@ var configTests = []configTest{
 			"agent-stream":       "released",
 		}),
 	}, {
-		about:       "Deprecated tools-stream used",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"tools-stream": "tools-stream-value",
-		}),
-	}, {
-		about:       "Deprecated tools-stream ignored",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"agent-stream": "released",
-			"tools-stream": "ignore-me",
-		}),
-	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"image-metadata-url": "image-url",
 			"agent-metadata-url": "agent-metadata-url-value",
-		}),
-	}, {
-		about:       "Deprecated tools metadata URL used",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"tools-metadata-url": "tools-metadata-url-value",
-		}),
-	}, {
-		about:       "Deprecated tools metadata URL ignored",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"agent-metadata-url": "agent-metadata-url-value",
-			"tools-metadata-url": "ignore-me",
 		}),
 	}, {
 		about:       "Explicit series",
@@ -163,66 +139,6 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
 		}),
-	}, {
-		about:       "LXC clone values",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-series": "precise",
-			"lxc-clone":      true,
-			"lxc-clone-aufs": true,
-		}),
-	}, {
-		about:       "Deprecated lxc-use-clone used",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-use-clone": true,
-		}),
-	}, {
-		about:       "Deprecated lxc-use-clone ignored",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-use-clone": false,
-			"lxc-clone":     true,
-		}),
-	}, {
-		about:       "Allow LXC loop mounts true",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"allow-lxc-loop-mounts": "true",
-		}),
-	}, {
-		about:       "Allow LXC loop mounts default",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"allow-lxc-loop-mounts": "false",
-		}),
-		expected: minimalConfigAttrs.Merge(testing.Attrs{
-			"allow-lxc-loop-mounts": false,
-		}),
-	}, {
-		about:       "LXC default MTU not set",
-		useDefaults: config.UseDefaults,
-		attrs:       minimalConfigAttrs,
-	}, {
-		about:       "LXC default MTU set explicitly",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-default-mtu": 9000,
-		}),
-	}, {
-		about:       "LXC default MTU invalid (not a number)",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-default-mtu": "foo",
-		}),
-		err: `lxc-default-mtu: expected number, got string\("foo"\)`,
-	}, {
-		about:       "LXC default MTU invalid (negative)",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"lxc-default-mtu": -42,
-		}),
-		err: `lxc-default-mtu: expected positive integer, got -42`,
 	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
@@ -371,42 +287,6 @@ var configTests = []configTest{
 			"set-numa-control-policy": false,
 		}),
 	}, {
-		about:       "block-destroy-model on",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"block-destroy-model": true,
-		}),
-	}, {
-		about:       "block-destroy-model off",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"block-destroy-model": false,
-		}),
-	}, {
-		about:       "block-remove-object on",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"block-remove-object": true,
-		}),
-	}, {
-		about:       "block-remove-object off",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"block-remove-object": false,
-		}),
-	}, {
-		about:       "block-all-changes on",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"block-all-changes": true,
-		}),
-	}, {
-		about:       "block-all-changes off",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"block-all-changest": false,
-		}),
-	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -437,14 +317,29 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo/bar",
 		}),
-		err: "model name contains unsafe characters",
+		err: fmt.Sprintf(modelNameErr, "foo/bar"),
 	}, {
 		about:       "Bad name, no backslash",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"name": "foo\\bar",
 		}),
-		err: "model name contains unsafe characters",
+		// Double escape to keep the safe quote in the format string happy
+		err: fmt.Sprintf(modelNameErr, "foo\\\\bar"),
+	}, {
+		about:       "Bad name, no space",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"name": "foo bar",
+		}),
+		err: fmt.Sprintf(modelNameErr, "foo bar"),
+	}, {
+		about:       "Bad name, no capital",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"name": "fooBar",
+		}),
+		err: fmt.Sprintf(modelNameErr, "fooBar"),
 	}, {
 		about:       "Empty name",
 		useDefaults: config.UseDefaults,
@@ -664,37 +559,24 @@ var configTests = []configTest{
 		attrs:       sampleConfig.Delete("authorized-keys"),
 		err:         `authorized-keys missing from model configuration`,
 	}, {
-		about:       "Config settings from juju 1.13.3 actual installation",
+		about:       "Config settings from juju actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
 			"name":                      "sample",
 			"development":               false,
-			"admin-secret":              "",
 			"ssl-hostname-verification": true,
 			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
 			"region":                    "us-east-1",
-			"image-metadata-url":        "",
-			"ca-private-key":            "",
 			"default-series":            "precise",
-			"agent-metadata-url":        "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
 			"ca-cert":                   caCert,
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
-			// These ones weren't actual values, but we require
-			// them now, and have no backwards-compatibility
-			// with the old config.
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
+			"uuid":                      testing.ModelTag.Id(),
+			"controller-uuid":           testing.ModelTag.Id(),
 		},
-	}, {
-		about:       "Provider type null is replaced with manual",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type": "null",
-		}),
 	}, {
 		about:       "TestMode flag specified",
 		useDefaults: config.UseDefaults,
@@ -742,14 +624,6 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
-	{
-		about:       "Deprecated safe-mode failover",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"provisioner-safe-mode":    true,
-			"provisioner-harvest-mode": config.HarvestNone.String(),
-		}),
-	},
 	{
 		about:       "Explicit apt-mirror",
 		useDefaults: config.UseDefaults,
@@ -832,7 +706,6 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		{".ssh/identity.pub", "identity"},
 		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 		{".ssh/authorized_keys2", "auth2\nauth3\n"},
-
 		{".local/share/juju/my-name-cert.pem", caCert},
 		{".local/share/juju/my-name-private-key.pem", caKey},
 		{".local/share/juju/cacert2.pem", caCert2},
@@ -966,40 +839,7 @@ func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
 	}
 
 	_, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
-
-	cfg, err := config.New(config.UseDefaults, testing.Attrs{
-		"name":                  "name",
-		"type":                  "type",
-		"uuid":                  testing.ModelTag.Id(),
-		"controller-uuid":       testing.ModelTag.Id(),
-		"provisioner-safe-mode": false,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(
-		cfg.ProvisionerHarvestMode().String(),
-		gc.Equals,
-		config.HarvestAll.String(),
-	)
-
-	cfg, err = config.New(config.UseDefaults, testing.Attrs{
-		"name":                  "name",
-		"type":                  "type",
-		"uuid":                  testing.ModelTag.Id(),
-		"controller-uuid":       testing.ModelTag.Id(),
-		"provisioner-safe-mode": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(
-		cfg.ProvisionerHarvestMode().String(),
-		gc.Equals,
-		config.HarvestDestroyed.String(),
-	)
+	c.Assert(err, gc.ErrorMatches, "empty ca-private-key in model configuration")
 }
 
 func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
@@ -1029,26 +869,27 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(agentVersion, gc.Equals, version.Zero)
 	}
 
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
 	if statePort, ok := test.attrs["state-port"]; ok {
-		c.Assert(cfg.StatePort(), gc.Equals, statePort)
+		c.Assert(controllerCfg.StatePort(), gc.Equals, statePort)
 	}
 	if apiPort, ok := test.attrs["api-port"]; ok {
-		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
+		c.Assert(controllerCfg.APIPort(), gc.Equals, apiPort)
 	}
 	if expected, ok := test.attrs["uuid"]; ok {
 		c.Assert(cfg.UUID(), gc.Equals, expected)
 	}
 	if expected, ok := test.attrs["controller-uuid"]; ok {
-		c.Assert(cfg.ControllerUUID(), gc.Equals, expected)
+		c.Assert(controllerCfg.ControllerUUID(), gc.Equals, expected)
 	}
 	if identityURL, ok := test.attrs["identity-url"]; ok {
-		c.Assert(cfg.IdentityURL(), gc.Equals, identityURL)
+		c.Assert(controllerCfg.IdentityURL(), gc.Equals, identityURL)
 	}
 	if identityPublicKey, ok := test.attrs["identity-public-key"]; ok {
 		var pk bakery.PublicKey
 		err := pk.UnmarshalText([]byte(identityPublicKey.(string)))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.IdentityPublicKey(), gc.DeepEquals, &pk)
+		c.Assert(controllerCfg.IdentityPublicKey(), gc.DeepEquals, &pk)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -1082,7 +923,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
 	}
 
-	cert, certPresent := cfg.CACert()
+	cert, certPresent := controllerCfg.CACert()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, path))
@@ -1100,7 +941,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(certPresent, jc.IsFalse)
 	}
 
-	key, keyPresent := cfg.CAPrivateKey()
+	key, keyPresent := controllerCfg.CAPrivateKey()
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, path))
@@ -1163,21 +1004,13 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
 
-	toolsURL, urlPresent := cfg.AgentMetadataURL()
-	oldToolsURL := cfg.AllAttrs()["tools-metadata-url"]
-	oldToolsURLAttrValue, oldTSTPresent := test.attrs["tools-metadata-url"]
+	agentURL, urlPresent := cfg.AgentMetadataURL()
 	expectedToolsURLValue := test.attrs["agent-metadata-url"]
-	expectedToolsURLPresent := true
-	if expectedToolsURLValue == nil || expectedToolsURLValue == "" {
-		if oldTSTPresent {
-			expectedToolsURLValue = oldToolsURLAttrValue
-		} else {
-			expectedToolsURLValue = oldToolsURL
-			expectedToolsURLPresent = false
-		}
+	if urlPresent {
+		c.Assert(agentURL, gc.Equals, expectedToolsURLValue)
+	} else {
+		c.Assert(agentURL, gc.Equals, "")
 	}
-	c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
-	c.Assert(urlPresent, gc.Equals, expectedToolsURLPresent)
 
 	// assertions for deprecated tools-stream attribute used with new agent-stream
 	agentStreamValue := cfg.AgentStream()
@@ -1194,27 +1027,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		}
 	}
 	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
-
-	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
-	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
-	if v, ok := test.attrs["lxc-clone"]; ok {
-		c.Assert(useLxcClone, gc.Equals, v)
-		c.Assert(useLxcClonePresent, jc.IsTrue)
-	} else {
-		if oldUseClonePresent {
-			c.Assert(useLxcClonePresent, jc.IsTrue)
-			c.Assert(useLxcClone, gc.Equals, oldUseClone)
-		} else {
-			c.Assert(useLxcClonePresent, jc.IsFalse)
-			c.Assert(useLxcClone, jc.IsFalse)
-		}
-	}
-	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
-	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
-		c.Assert(useLxcCloneAufs, gc.Equals, v)
-	} else {
-		c.Assert(useLxcCloneAufs, jc.IsFalse)
-	}
 
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
 	if _, ok := test.attrs["resource-tags"]; ok {
@@ -1261,17 +1073,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// These attributes are added if not set.
-	attrs["development"] = false
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
-	attrs["ca-private-key"] = ""
-	attrs["image-metadata-url"] = ""
-	attrs["agent-metadata-url"] = ""
-	attrs["tools-metadata-url"] = ""
-	attrs["image-stream"] = ""
-	attrs["proxy-ssh"] = false
-	attrs["lxc-clone-aufs"] = false
 	attrs["set-numa-control-policy"] = false
-	attrs["allow-lxc-loop-mounts"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1366,21 +1169,6 @@ var validationTests = []validationTest{{
 	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
-}, {
-	about: "Cannot change lxc-clone",
-	old:   testing.Attrs{"lxc-clone": false},
-	new:   testing.Attrs{"lxc-clone": true},
-	err:   `cannot change lxc-clone from false to true`,
-}, {
-	about: "Cannot change lxc-clone-aufs",
-	old:   testing.Attrs{"lxc-clone-aufs": false},
-	new:   testing.Attrs{"lxc-clone-aufs": true},
-	err:   `cannot change lxc-clone-aufs from false to true`,
-}, {
-	about: "Cannot change lxc-default-mtu",
-	old:   testing.Attrs{"lxc-default-mtu": 9000},
-	new:   testing.Attrs{"lxc-default-mtu": 42},
-	err:   `cannot change lxc-default-mtu from 9000 to 42`,
 }, {
 	about: "Cannot change uuid",
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
@@ -1685,7 +1473,13 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, gc.IsNil)
-	orig := config.ConfigSchema
+	orig := make(environschema.Fields)
+	for name, field := range config.ConfigSchema {
+		orig[name] = field
+	}
+	for name, field := range controller.ConfigSchema {
+		orig[name] = field
+	}
 	c.Assert(schema, jc.DeepEquals, orig)
 	// Check that we actually returned a copy, not the original.
 	schema["foo"] = environschema.Attr{}
@@ -1704,7 +1498,13 @@ func (s *ConfigSuite) TestSchemaWithExtraFields(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(schema["foo"], gc.DeepEquals, extraField)
 	delete(schema, "foo")
-	orig := config.ConfigSchema
+	orig := make(environschema.Fields)
+	for name, field := range config.ConfigSchema {
+		orig[name] = field
+	}
+	for name, field := range controller.ConfigSchema {
+		orig[name] = field
+	}
 	c.Assert(schema, jc.DeepEquals, orig)
 }
 
@@ -1717,81 +1517,6 @@ func (s *ConfigSuite) TestSchemaWithExtraOverlap(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `config field "type" clashes with global config`)
 	c.Assert(schema, gc.IsNil)
-}
-
-func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
-	// Add a cert.
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
-
-	for _, test := range []struct {
-		configValues map[string]interface{}
-		sanValues    []string
-		errMatch     string
-	}{{
-		configValues: map[string]interface{}{
-			"name":            "test-no-certs",
-			"type":            "dummy",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-		},
-		errMatch: "model configuration has no ca-cert",
-	}, {
-		configValues: map[string]interface{}{
-			"name":            "test-no-certs",
-			"type":            "dummy",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"ca-cert":         testing.CACert,
-		},
-		errMatch: "model configuration has no ca-private-key",
-	}, {
-		configValues: map[string]interface{}{
-			"name":            "test-no-certs",
-			"type":            "dummy",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"ca-cert":         testing.CACert,
-			"ca-private-key":  testing.CAKey,
-		},
-	}, {
-		configValues: map[string]interface{}{
-			"name":            "test-no-certs",
-			"type":            "dummy",
-			"uuid":            testing.ModelTag.Id(),
-			"controller-uuid": testing.ModelTag.Id(),
-			"ca-cert":         testing.CACert,
-			"ca-private-key":  testing.CAKey,
-		},
-		sanValues: []string{"10.0.0.1", "192.168.1.1"},
-	}} {
-		cfg, err := config.New(config.UseDefaults, test.configValues)
-		c.Assert(err, jc.ErrorIsNil)
-		certPEM, keyPEM, err := cfg.GenerateControllerCertAndKey(test.sanValues)
-		if test.errMatch == "" {
-			c.Assert(err, jc.ErrorIsNil)
-
-			_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
-			c.Check(err, jc.ErrorIsNil)
-
-			err = cert.Verify(certPEM, testing.CACert, time.Now())
-			c.Assert(err, jc.ErrorIsNil)
-			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
-			c.Assert(err, jc.ErrorIsNil)
-			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
-			c.Assert(err, gc.NotNil)
-			srvCert, err := cert.ParseCert(certPEM)
-			c.Assert(err, jc.ErrorIsNil)
-			sanIPs := make([]string, len(srvCert.IPAddresses))
-			for i, ip := range srvCert.IPAddresses {
-				sanIPs[i] = ip.String()
-			}
-			c.Assert(sanIPs, jc.SameContents, test.sanValues)
-		} else {
-			c.Assert(err, gc.ErrorMatches, test.errMatch)
-			c.Assert(certPEM, gc.Equals, "")
-			c.Assert(keyPEM, gc.Equals, "")
-		}
-	}
 }
 
 var specializeCharmRepoTests = []struct {

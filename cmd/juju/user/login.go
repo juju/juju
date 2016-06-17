@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/usermanager"
@@ -18,20 +18,17 @@ import (
 )
 
 const loginDoc = `
-Log in to the controller.
-
-After logging in successfully, the client system will
-be updated such that any previously recorded password
-will be removed from disk, and a temporary, time-limited
-credential written in its place. Once the credential
-expires, you will be prompted to run "juju login" again.
+After login, a token ("macaroon") will become active. It has an expiration
+time of 24 hours. Upon expiration, no further Juju commands can be issued
+and the user will be prompted to log in again.
 
 Examples:
-  # Log in as the current user for the controller.
-  juju login
 
-  # Log in as the user "bob".
-  juju login bob
+    juju login bob
+
+See also: enable-user
+          disable-user
+          logout
 
 `
 
@@ -60,7 +57,7 @@ func (c *loginCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "login",
 		Args:    "[username]",
-		Purpose: "logs in to the controller",
+		Purpose: "Logs a user in to a controller.",
 		Doc:     loginDoc,
 	}
 }

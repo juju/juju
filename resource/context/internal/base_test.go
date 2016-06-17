@@ -15,7 +15,7 @@ import (
 )
 
 func newResource(c *gc.C, stub *testing.Stub, name, content string) (resource.Resource, io.ReadCloser) {
-	opened := resourcetesting.NewResource(c, stub, name, "a-service", content)
+	opened := resourcetesting.NewResource(c, stub, name, "a-application", content)
 	res := opened.Resource
 	if content != "" {
 		return res, opened.ReadCloser

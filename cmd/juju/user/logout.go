@@ -13,15 +13,26 @@ import (
 )
 
 const logoutDoc = `
-Log out of the controller.
+If another client has logged in as the same user, they will remain logged
+in. This command only affects the local client.
 
-This command will remove the user credentials for the current
-or specified controller from the client system. This command
-will fail if you have not previously logged in with a password;
-you can override this behavior by passing --force.
+The command will fail if the user has not yet set a password
+(` + "`juju change-user-password`" + `). This scenario is only possible after 
+` + "`juju bootstrap`" + `since ` + "`juju register`" + ` sets a password. The
+failing behaviour can be overridden with the '--force' option.
 
-If another client has logged in as the same user, they will
-remain logged in. This command only affects the local client.
+If the same user is logged in with another client system, that user session
+will not be affected by this command; it only affects the local client.
+
+By default, the controller is the current controller.
+
+Examples:
+
+    juju logout
+
+See also:
+    change-user-password
+    login
 
 `
 
@@ -40,7 +51,7 @@ type logoutCommand struct {
 func (c *logoutCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "logout",
-		Purpose: "logs out of the controller",
+		Purpose: "Logs a Juju user out of a controller.",
 		Doc:     logoutDoc,
 	}
 }

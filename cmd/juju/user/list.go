@@ -23,7 +23,7 @@ var usageListUsersDetails = `
 By default, the tabular format is used.
 
 Examples:
-    juju list-users
+    juju users
 
 See also: 
     add-user
@@ -45,9 +45,10 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-users",
+		Name:    "users",
 		Purpose: usageListUsersSummary,
 		Doc:     usageListUsersDetails,
+		Aliases: []string{"list-users"},
 	}
 }
 

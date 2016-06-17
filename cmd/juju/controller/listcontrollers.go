@@ -23,11 +23,11 @@ The output format may be selected with the '--format' option. In the
 default tabular output, the current controller is marked with an asterisk.
 
 Examples:
-    juju list-controllers
-    juju list-controllers --format json --output ~/tmp/controllers.json
+    juju controllers
+    juju controllers --format json --output ~/tmp/controllers.json
 
 See also:
-    list-models
+    models
     show-controller`[1:]
 
 // NewListControllersCommand returns a command to list registered controllers.
@@ -41,9 +41,10 @@ func NewListControllersCommand() cmd.Command {
 // Info implements Command.Info
 func (c *listControllersCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-controllers",
+		Name:    "controllers",
 		Purpose: helpControllersSummary,
 		Doc:     helpControllersDetails,
+		Aliases: []string{"list-controllers"},
 	}
 }
 

@@ -6,13 +6,12 @@
 package modelmanager
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/tools"
@@ -20,14 +19,6 @@ import (
 
 var (
 	logger = loggo.GetLogger("juju.controller.modelmanager")
-
-	configValuesFromController = []string{
-		"type",
-		config.CACertKey,
-		"state-port",
-		"api-port",
-		config.ControllerUUIDKey,
-	}
 )
 
 const (
@@ -88,6 +79,7 @@ func (c ModelConfigCreator) NewModelConfig(
 			}
 		}
 	}
+	attrs[controller.ControllerUUIDKey] = baseAttrs[controller.ControllerUUIDKey]
 
 	// Generate a new UUID for the model as necessary,
 	// and finalize the new config.
@@ -103,7 +95,8 @@ func (c ModelConfigCreator) NewModelConfig(
 		return nil, errors.Trace(err)
 	}
 	attrs = cfg.AllAttrs()
-
+	// Strip out all controller values except uuid before checking validity.
+	controller.RemoveControllerAttributes(attrs)
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
@@ -176,13 +169,19 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 
 // RestrictedProviderFields returns the set of config fields that may not be
 // overridden.
+//
+// TODO(axw) restricted config should go away. There should be no provider-
+// specific config, since models should be independent of each other; and
+// anything that should not change across models should be in the controller
+// config.
 func RestrictedProviderFields(providerType string) ([]string, error) {
 	provider, err := environs.Provider(providerType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var fields []string
-	fields = append(fields, configValuesFromController...)
+	// For now, all models in a controller must be of the same type.
+	fields = append(fields, config.TypeKey)
 	fields = append(fields, provider.RestrictedConfigAttributes()...)
 	return fields, nil
 }
@@ -196,10 +195,13 @@ func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string
 		return nil, errors.Trace(err)
 	}
 
-	// Controller admins creating models do not have to re-supply new secrets.
-	// These may be copied from the controller model if not supplied.
 	if isAdmin {
-		maybeCopyControllerSecrets(provider, controllerCfg.AllAttrs(), attrs)
+		// If the user is an administrator, and has not supplied authorized-keys,
+		// copy across authorized-keys from the controller model.
+		const key = "authorized-keys"
+		if _, ok := attrs[key]; !ok {
+			attrs[key] = controllerCfg.AllAttrs()[key]
+		}
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
@@ -215,53 +217,4 @@ func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string
 		return nil, errors.Annotate(err, "provider validation failed")
 	}
 	return cfg, nil
-}
-
-// maybeCopyControllerSecrets asks the specified provider for all possible config
-// attributes representing credential values and copies those across from the
-// controller config into the new model's config attrs if not already present.
-func maybeCopyControllerSecrets(provider environs.ProviderCredentials, controllerAttrs, attrs map[string]interface{}) {
-	requiredControllerAttrNames := []string{"authorized-keys"}
-	var controllerCredentialAttrNames []string
-	for _, schema := range provider.CredentialSchemas() {
-		// possibleCredentialValues holds any values from attrs that belong to
-		// the credential schema.
-		possibleCredentialValues := make(map[string]string)
-		for _, attr := range schema {
-			attrName := attr.Name
-			if v, ok := attrs[attrName]; ok && v != "" {
-				possibleCredentialValues[attrName] = fmt.Sprintf("%v", attrs[attrName])
-			}
-			controllerCredentialAttrNames = append(controllerCredentialAttrNames, attrName)
-		}
-		// readFile is not needed server side.
-		readFile := func(string) ([]byte, error) {
-			return nil, errors.NotImplementedf("read file")
-		}
-		// If the user has passed in valid credentials, we'll use
-		// those and not the ones from the controller.
-		if len(possibleCredentialValues) == 0 {
-			continue
-		}
-		finalValues, err := schema.Finalize(possibleCredentialValues, readFile)
-		if err == nil {
-			for k, v := range finalValues {
-				attrs[k] = v
-			}
-			controllerCredentialAttrNames = nil
-			break
-		}
-	}
-
-	// Ensure any required attributes which are empty are copied from the controller config.
-	for _, attrName := range requiredControllerAttrNames {
-		if _, ok := attrs[attrName]; !ok {
-			attrs[attrName] = controllerAttrs[attrName]
-		}
-	}
-	for _, attrName := range controllerCredentialAttrNames {
-		if _, ok := attrs[attrName]; !ok {
-			attrs[attrName] = controllerAttrs[attrName]
-		}
-	}
 }

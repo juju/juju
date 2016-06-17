@@ -15,12 +15,12 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -53,7 +53,6 @@ var (
 	allMachineJobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
-		multiwatcher.JobManageNetworking,
 	}
 	normalMachineJobs = []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
@@ -84,7 +83,7 @@ func must(s string, err error) string {
 	return s
 }
 
-var stateServingInfo = &params.StateServingInfo{
+var stateServingInfo = params.StateServingInfo{
 	Cert:         string(serverCert),
 	PrivateKey:   string(serverKey),
 	CAPrivateKey: "ca-private-key",
@@ -109,18 +108,9 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 		agent.ProviderType: "dummy",
 	}
 	cfg.MachineNonce = "FAKE_NONCE"
-	cfg.InstanceId = "i-machine"
 	cfg.Jobs = normalMachineJobs
 	cfg.MetricsSpoolDir = metricsSpoolDir(series)
-	// MongoInfo and APIInfo (sans Tag) must be initialized before
-	// calling setMachineID().
-	cfg.MongoInfo = &mongo.MongoInfo{
-		Password: "arble",
-		Info: mongo.Info{
-			Addrs:  []string{"state-addr.testing.invalid:12345"},
-			CACert: "CA CERT\n" + testing.CACert,
-		},
-	}
+	// APIInfo (sans Tag) must be initialized before calling setMachineID().
 	cfg.APIInfo = &api.Info{
 		Addrs:    []string{"state-addr.testing.invalid:54321"},
 		Password: "bletch",
@@ -170,9 +160,6 @@ func makeNormalConfig(series string) *testInstanceConfig {
 func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	cfg.MachineId = id
 	cfg.MachineAgentServiceName = fmt.Sprintf("jujud-%s", names.NewMachineTag(id).String())
-	if cfg.MongoInfo != nil {
-		cfg.MongoInfo.Tag = names.NewMachineTag(id)
-	}
 	if cfg.APIInfo != nil {
 		cfg.APIInfo.Tag = names.NewMachineTag(id)
 	}
@@ -181,7 +168,7 @@ func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 
 // setGUI populates the configuration with the Juju GUI tools.
 func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
-	cfg.GUI = &tools.GUIArchive{
+	cfg.Bootstrap.GUI = &tools.GUIArchive{
 		URL:     url,
 		Version: version.MustParse("1.2.3"),
 		Size:    42,
@@ -191,13 +178,11 @@ func (cfg *testInstanceConfig) setGUI(url string) *testInstanceConfig {
 }
 
 // maybeSetModelConfig sets the Config field to the given envConfig, if not
-// nil.
+// nil, and the instance config is for a bootstrap machine.
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
-	if envConfig != nil {
-		cfg.Config = envConfig
-		if cfg.Bootstrap {
-			cfg.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
-		}
+	if envConfig != nil && cfg.Bootstrap != nil {
+		cfg.Bootstrap.ControllerModelConfig = envConfig
+		cfg.Bootstrap.HostedModelConfig = map[string]interface{}{"name": "hosted-model"}
 	}
 	return cfg
 }
@@ -230,13 +215,24 @@ func (cfg *testInstanceConfig) setSeries(series string) *testInstanceConfig {
 // a controller instance.
 func (cfg *testInstanceConfig) setController() *testInstanceConfig {
 	cfg.setMachineID("0")
-	cfg.Constraints = bootstrapConstraints
-	cfg.ModelConstraints = envConstraints
-	cfg.Bootstrap = true
-	cfg.StateServingInfo = stateServingInfo
+	cfg.Controller = &instancecfg.ControllerConfig{
+		MongoInfo: &mongo.MongoInfo{
+			Password: "arble",
+			Info: mongo.Info{
+				Addrs:  []string{"state-addr.testing.invalid:12345"},
+				CACert: "CA CERT\n" + testing.CACert,
+			},
+		},
+	}
+	cfg.Bootstrap = &instancecfg.BootstrapConfig{
+		StateInitializationParams: instancecfg.StateInitializationParams{
+			BootstrapMachineInstanceId:  "i-bootstrap",
+			BootstrapMachineConstraints: bootstrapConstraints,
+			ModelConstraints:            envConstraints,
+		},
+		StateServingInfo: stateServingInfo,
+	}
 	cfg.Jobs = allMachineJobs
-	cfg.InstanceId = "i-bootstrap"
-	cfg.MongoInfo.Tag = nil
 	cfg.APIInfo.Tag = nil
 	return cfg.setEnableOSUpdateAndUpgrade(true, false)
 }
@@ -347,8 +343,10 @@ printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/relea
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
+install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
+printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Bootstrapping Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --constraints 'mem=2048M' --debug
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:syslog /var/log/juju/machine-0\.log\\n  chmod 0600 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
@@ -368,7 +366,9 @@ curl .* '.*' --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --constraints 'mem=2048M' --debug
+install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
+printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
+/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 `,
@@ -423,40 +423,6 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 `,
 	},
 
-	// non controller with GUI (the GUI is not installed)
-	{
-		cfg: makeNormalConfig("quantal").setGUI("file:///path/to/gui.tar.bz2"),
-		expectScripts: `
-set -xe
-install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown\.conf'
-printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju-clean-shutdown\.conf'
-install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
-printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
-test -e /proc/self/fd/9 \|\| exec 9>&2
-\(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
-mkdir -p /var/lib/juju/locks
-\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
-mkdir -p /var/log/juju
-chown syslog:adm /var/log/juju
-bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
-mkdir -p \$bin
-echo 'Fetching tools.*
-curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-quantal-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-quantal-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
-mkdir -p '/var/lib/juju/agents/machine-99'
-cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
-chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
-ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
-echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
-cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
-start jujud-machine-99
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
-`,
-	},
-
 	// CentOS non controller with systemd
 	{
 		cfg:          makeNormalConfig("centos7"),
@@ -471,16 +437,16 @@ sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 	// check that it works ok with compound machine ids.
 	{
 		cfg: makeNormalConfig("quantal").mutate(func(cfg *testInstanceConfig) {
-			cfg.MachineContainerType = "lxc"
-		}).setMachineID("2/lxc/1"),
+			cfg.MachineContainerType = "lxd"
+		}).setMachineID("2/lxd/1"),
 		inexactMatch: true,
 		expectScripts: `
-mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
-cat > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf' << 'EOF'\\n.*\\nEOF
-chmod 0600 '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
-ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
-cat > /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju agent for machine-2-lxc-1"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxc-1\.log\\n  chown syslog:syslog /var/log/juju/machine-2-lxc-1\.log\\n  chmod 0600 /var/log/juju/machine-2-lxc-1\.log\\n\\n  exec '/var/lib/juju/tools/machine-2-lxc-1/jujud' machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nend script\\nEOF\\n
-start jujud-machine-2-lxc-1
+mkdir -p '/var/lib/juju/agents/machine-2-lxd-1'
+cat > '/var/lib/juju/agents/machine-2-lxd-1/agent\.conf' << 'EOF'\\n.*\\nEOF
+chmod 0600 '/var/lib/juju/agents/machine-2-lxd-1/agent\.conf'
+ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-2-lxd-1'
+cat > /etc/init/jujud-machine-2-lxd-1\.conf << 'EOF'\\ndescription "juju agent for machine-2-lxd-1"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxd-1\.log\\n  chown syslog:syslog /var/log/juju/machine-2-lxd-1\.log\\n  chmod 0600 /var/log/juju/machine-2-lxd-1\.log\\n\\n  exec '/var/lib/juju/tools/machine-2-lxd-1/jujud' machine --data-dir '/var/lib/juju' --machine-id 2/lxd/1 --debug >> /var/log/juju/machine-2-lxd-1\.log 2>&1\\nend script\\nEOF\\n
+start jujud-machine-2-lxd-1
 `,
 	},
 
@@ -498,31 +464,31 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 	// empty bootstrap contraints.
 	{
 		cfg: makeBootstrapConfig("precise").mutate(func(cfg *testInstanceConfig) {
-			cfg.Constraints = constraints.Value{}
+			cfg.Bootstrap.BootstrapMachineConstraints = constraints.Value{}
 		}),
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
+printf '%s\\n' '.*bootstrap-machine-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 `,
 	},
 
 	// empty environ contraints.
 	{
 		cfg: makeBootstrapConfig("precise").mutate(func(cfg *testInstanceConfig) {
-			cfg.ModelConstraints = constraints.Value{}
+			cfg.Bootstrap.ModelConstraints = constraints.Value{}
 		}),
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --model-config '[^']*' --hosted-model-config '[^']*' --instance-id 'i-bootstrap' --bootstrap-constraints 'mem=4096M' --debug
+printf '%s\\n' '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 `,
 	},
 
 	// custom image metadata (at bootstrap).
 	{
 		cfg: makeBootstrapConfig("trusty").mutate(func(cfg *testInstanceConfig) {
-			cfg.CustomImageMetadata = []*imagemetadata.ImageMetadata{{
+			cfg.Bootstrap.CustomImageMetadata = []*imagemetadata.ImageMetadata{{
 				Id:         "image-id",
 				Storage:    "ebs",
 				VirtType:   "pv",
@@ -534,15 +500,14 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 		setEnvConfig: true,
 		inexactMatch: true,
 		expectScripts: `
-printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/index\.json'
-printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud-released-imagemetadata\.json'
+printf '%s\\n' '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstrap-params'
 `,
 	},
 
 	// custom image metadata signing key.
 	{
 		cfg: makeBootstrapConfig("trusty").mutate(func(cfg *testInstanceConfig) {
-			cfg.PublicImageSigningKey = "publickey"
+			cfg.Controller.PublicImageSigningKey = "publickey"
 		}),
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -585,24 +550,27 @@ func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
 }
 
 // check that any --model-config $base64 is valid and matches t.cfg.Config
-func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
+func checkEnvConfig(c *gc.C, cfg *config.Config, scripts []string) {
+	args := getStateInitializationParams(c, scripts)
+	c.Assert(cfg.AllAttrs(), jc.DeepEquals, args.ControllerModelConfig.AllAttrs())
+}
+
+func getStateInitializationParams(c *gc.C, scripts []string) instancecfg.StateInitializationParams {
+	var args instancecfg.StateInitializationParams
 	c.Assert(scripts, gc.Not(gc.HasLen), 0)
-	re := regexp.MustCompile(`--model-config '([^']+)'`)
-	found := false
+	re := regexp.MustCompile(`printf '%s\\n' '(?s:(.+))' > '/var/lib/juju/bootstrap-params'`)
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
 		if m == nil {
 			continue
 		}
-		found = true
-		buf, err := base64.StdEncoding.DecodeString(m[1])
+		str := strings.Replace(m[1], "'\"'\"'", "'", -1)
+		err := args.Unmarshal([]byte(str))
 		c.Assert(err, jc.ErrorIsNil)
-		var actual map[string]interface{}
-		err = goyaml.Unmarshal(buf, &actual)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cfg.AllAttrs(), jc.DeepEquals, actual)
+		return args
 	}
-	c.Assert(found, jc.IsTrue)
+	c.Fatal("could not find state initialization params")
+	panic("unreachable")
 }
 
 // TestCloudInit checks that the output from the various tests
@@ -649,8 +617,8 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 
 		scripts := getScripts(configKeyValues)
 		assertScriptMatch(c, scripts, test.expectScripts, !test.inexactMatch)
-		if testConfig.Config != nil {
-			checkEnvConfig(c, testConfig.Config, configKeyValues, scripts)
+		if testConfig.Bootstrap != nil {
+			checkEnvConfig(c, testConfig.Bootstrap.ControllerModelConfig, scripts)
 		}
 
 		// curl should always be installed, since it's required by jujud.
@@ -672,7 +640,7 @@ func (*cloudinitSuite) TestCloudInitWithLocalGUI(c *gc.C) {
 	err := ioutil.WriteFile(guiPath, content, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := makeBootstrapConfig("precise").setGUI("file://" + filepath.ToSlash(guiPath))
-	guiJson, err := json.Marshal(cfg.GUI)
+	guiJson, err := json.Marshal(cfg.Bootstrap.GUI)
 	c.Assert(err, jc.ErrorIsNil)
 	base64Content := base64.StdEncoding.EncodeToString(content)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
@@ -688,7 +656,7 @@ rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt
 
 func (*cloudinitSuite) TestCloudInitWithRemoteGUI(c *gc.C) {
 	cfg := makeBootstrapConfig("precise").setGUI("https://1.2.3.4/gui.tar.bz2")
-	guiJson, err := json.Marshal(cfg.GUI)
+	guiJson, err := json.Marshal(cfg.Bootstrap.GUI)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`gui='/var/lib/juju/gui'
 mkdir -p $gui
@@ -779,10 +747,7 @@ func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *gc.C) {
 	scripts := s.bootstrapConfigScripts(c)
-	expected := "jujud bootstrap-state --data-dir '.*' --model-config '.*'" +
-		" --hosted-model-config '[^']*'" +
-		" --instance-id '.*' --bootstrap-constraints 'mem=4096M'" +
-		" --constraints 'mem=2048M' --show-log"
+	expected := "jujud bootstrap-state .* --show-log .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
@@ -957,11 +922,11 @@ var verifyTests = []struct {
 	{"invalid machine id", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineId = "-1"
 	}},
-	{"missing model configuration", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Config = nil
+	{"invalid bootstrap configuration: missing model configuration", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.ControllerModelConfig = nil
 	}},
-	{"missing state info", func(cfg *instancecfg.InstanceConfig) {
-		cfg.MongoInfo = nil
+	{"invalid controller configuration: missing state info", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Controller.MongoInfo = nil
 	}},
 	{"missing API info", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = nil
@@ -973,72 +938,41 @@ var verifyTests = []struct {
 			CACert: testing.CACert,
 		}
 	}},
-	{"missing state hosts", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		cfg.MongoInfo = &mongo.MongoInfo{
+	{"invalid controller configuration: missing state hosts", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap = nil
+		cfg.Controller.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				CACert: testing.CACert,
 			},
-		}
-		cfg.APIInfo = &api.Info{
-			Addrs:    []string{"foo:35"},
-			Tag:      names.NewMachineTag("99"),
-			CACert:   testing.CACert,
-			ModelTag: testing.ModelTag,
 		}
 	}},
 	{"missing API hosts", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		cfg.MongoInfo = &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:  []string{"foo:35"},
-				CACert: testing.CACert,
-			},
-			Tag: names.NewMachineTag("99"),
-		}
+		cfg.Bootstrap = nil
+		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
 		cfg.APIInfo = &api.Info{
 			Tag:      names.NewMachineTag("99"),
 			CACert:   testing.CACert,
 			ModelTag: testing.ModelTag,
 		}
 	}},
-	{"missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
-		cfg.MongoInfo = &mongo.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
+	{"invalid controller configuration: missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Controller.MongoInfo.CACert = ""
 	}},
-	{"missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		cfg.MongoInfo = &mongo.MongoInfo{
-			Tag: names.NewMachineTag("99"),
-			Info: mongo.Info{
-				Addrs: []string{"host:98765"},
-			},
-		}
+	{"invalid bootstrap configuration: missing controller certificate", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.StateServingInfo.Cert = ""
 	}},
-	{"missing controller certificate", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.StateServingInfo
-		info.Cert = ""
-		cfg.StateServingInfo = &info
+	{"invalid bootstrap configuration: missing controller private key", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.StateServingInfo.PrivateKey = ""
 	}},
-	{"missing controller private key", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.StateServingInfo
-		info.PrivateKey = ""
-		cfg.StateServingInfo = &info
+	{"invalid bootstrap configuration: missing ca cert private key", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.StateServingInfo.CAPrivateKey = ""
 	}},
-	{"missing ca cert private key", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.StateServingInfo
-		info.CAPrivateKey = ""
-		cfg.StateServingInfo = &info
+	{"invalid bootstrap configuration: missing state port", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.StateServingInfo.StatePort = 0
 	}},
-	{"missing state port", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.StateServingInfo
-		info.StatePort = 0
-		cfg.StateServingInfo = &info
-	}},
-	{"missing API port", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.StateServingInfo
-		info.APIPort = 0
-		cfg.StateServingInfo = &info
+	{"invalid bootstrap configuration: missing API port", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.StateServingInfo.APIPort = 0
 	}},
 	{"missing var directory", func(cfg *instancecfg.InstanceConfig) {
 		cfg.DataDir = ""
@@ -1049,42 +983,29 @@ var verifyTests = []struct {
 	{"missing cloud-init output log path", func(cfg *instancecfg.InstanceConfig) {
 		cfg.CloudInitOutputLog = ""
 	}},
-	{"missing tools", func(cfg *instancecfg.InstanceConfig) {
-		// This is handled directly in the loop.
+	{"invalid controller configuration: entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap = nil
+		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("0")
 	}},
-	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		info := *cfg.MongoInfo
-		info.Tag = names.NewMachineTag("0")
-		cfg.MongoInfo = &info
+	{"invalid controller configuration: entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap = nil
+		cfg.Controller.MongoInfo.Tag = nil // admin user
 	}},
-	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		info := *cfg.MongoInfo
-		info.Tag = nil // admin user
-		cfg.MongoInfo = &info
+	{"API entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap = nil
+		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
+		cfg.APIInfo.Tag = names.NewMachineTag("0")
 	}},
-	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		info := *cfg.APIInfo
-		info.Tag = names.NewMachineTag("0")
-		cfg.APIInfo = &info
+	{"API entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap = nil
+		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
+		cfg.APIInfo.Tag = nil
 	}},
-	{"entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		info := *cfg.APIInfo
-		info.Tag = nil
-		cfg.APIInfo = &info
+	{"invalid bootstrap configuration: entity tag must be nil when bootstrapping", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("0")
 	}},
-	{"entity tag must be nil when starting a controller", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.MongoInfo
-		info.Tag = names.NewMachineTag("0")
-		cfg.MongoInfo = &info
-	}},
-	{"entity tag must be nil when starting a controller", func(cfg *instancecfg.InstanceConfig) {
-		info := *cfg.APIInfo
-		info.Tag = names.NewMachineTag("0")
-		cfg.APIInfo = &info
+	{"invalid bootstrap configuration: entity tag must be nil when bootstrapping", func(cfg *instancecfg.InstanceConfig) {
+		cfg.APIInfo.Tag = names.NewMachineTag("0")
 	}},
 	{"missing machine nonce", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineNonce = ""
@@ -1092,17 +1013,8 @@ var verifyTests = []struct {
 	{"missing machine agent service name", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"missing instance-id", func(cfg *instancecfg.InstanceConfig) {
-		cfg.InstanceId = ""
-	}},
-	{"state serving info unexpectedly present", func(cfg *instancecfg.InstanceConfig) {
-		cfg.Bootstrap = false
-		apiInfo := *cfg.APIInfo
-		apiInfo.Tag = names.NewMachineTag("99")
-		cfg.APIInfo = &apiInfo
-		stateInfo := *cfg.MongoInfo
-		stateInfo.Tag = names.NewMachineTag("99")
-		cfg.MongoInfo = &stateInfo
+	{"invalid bootstrap configuration: missing bootstrap machine instance ID", func(cfg *instancecfg.InstanceConfig) {
+		cfg.Bootstrap.BootstrapMachineInstanceId = ""
 	}},
 }
 
@@ -1112,61 +1024,70 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	toolsList := tools.List{
 		newSimpleTools("9.9.9-quantal-arble"),
 	}
-	cfgWithoutTools := &instancecfg.InstanceConfig{
-		Bootstrap:        true,
-		StateServingInfo: stateServingInfo,
-		MachineId:        "99",
-		AuthorizedKeys:   "sshkey1",
-		Series:           "quantal",
-		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:  []string{"host:98765"},
-				CACert: testing.CACert,
+
+	makeCfgWithoutTools := func() instancecfg.InstanceConfig {
+		return instancecfg.InstanceConfig{
+			Bootstrap: &instancecfg.BootstrapConfig{
+				StateInitializationParams: instancecfg.StateInitializationParams{
+					BootstrapMachineInstanceId: "i-bootstrap",
+					ControllerModelConfig:      minimalModelConfig(c),
+					HostedModelConfig:          map[string]interface{}{"name": "hosted-model"},
+				},
+				StateServingInfo: stateServingInfo,
 			},
-			Password: "password",
-		},
-		APIInfo: &api.Info{
-			Addrs:    []string{"host:9999"},
-			CACert:   testing.CACert,
-			ModelTag: testing.ModelTag,
-		},
-		Config:                  minimalModelConfig(c),
-		HostedModelConfig:       map[string]interface{}{"name": "hosted-model"},
-		DataDir:                 jujuDataDir("quantal"),
-		LogDir:                  jujuLogDir("quantal"),
-		MetricsSpoolDir:         metricsSpoolDir("quantal"),
-		Jobs:                    normalMachineJobs,
-		CloudInitOutputLog:      cloudInitOutputLog("quantal"),
-		InstanceId:              "i-bootstrap",
-		MachineNonce:            "FAKE_NONCE",
-		MachineAgentServiceName: "jujud-machine-99",
+			Controller: &instancecfg.ControllerConfig{
+				MongoInfo: &mongo.MongoInfo{
+					Info: mongo.Info{
+						Addrs:  []string{"host:98765"},
+						CACert: testing.CACert,
+					},
+					Password: "password",
+				},
+			},
+			MachineId:        "99",
+			AuthorizedKeys:   "sshkey1",
+			Series:           "quantal",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			APIInfo: &api.Info{
+				Addrs:    []string{"host:9999"},
+				CACert:   testing.CACert,
+				ModelTag: testing.ModelTag,
+			},
+			DataDir:                 jujuDataDir("quantal"),
+			LogDir:                  jujuLogDir("quantal"),
+			MetricsSpoolDir:         metricsSpoolDir("quantal"),
+			Jobs:                    normalMachineJobs,
+			CloudInitOutputLog:      cloudInitOutputLog("quantal"),
+			MachineNonce:            "FAKE_NONCE",
+			MachineAgentServiceName: "jujud-machine-99",
+		}
 	}
-	copied := *cfgWithoutTools
-	cfg := &copied
-	err := cfg.SetTools(toolsList)
-	c.Assert(err, jc.ErrorIsNil)
+
 	// check that the base configuration does not give an error
 	ci, err := cloudinit.New("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// check that missing tools causes an error.
+	cfg := makeCfgWithoutTools()
+	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing tools")
+
 	for i, test := range verifyTests {
+		c.Logf("test %d. %s", i, test.err)
+		cfg := makeCfgWithoutTools()
+		err := cfg.SetTools(toolsList)
+		c.Assert(err, jc.ErrorIsNil)
+
 		// check that the base configuration does not give an error
-		// and that a previous test hasn't mutated it accidentially.
-		udata, err := cloudconfig.NewUserdataConfig(cfg, ci)
+		udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Logf("test %d. %s", i, test.err)
-
-		cfg1 := *cfg
-		if test.err == "missing tools" {
-			cfg1 = *cfgWithoutTools
-		}
-		test.mutate(&cfg1)
-
-		udata, err = cloudconfig.NewUserdataConfig(&cfg1, ci)
+		test.mutate(&cfg)
+		udata, err = cloudconfig.NewUserdataConfig(&cfg, ci)
 		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
@@ -1176,9 +1097,8 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{
@@ -1319,7 +1239,6 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 
 var windowsCloudinitTests = []cloudinitTest{{
 	cfg: makeNormalConfig("win8").setMachineID("10").mutate(func(cfg *testInstanceConfig) {
-		cfg.MongoInfo.Info.CACert = "CA CERT\n" + string(serverCert)
 		cfg.APIInfo.CACert = "CA CERT\n" + string(serverCert)
 	}),
 	setEnvConfig:  false,

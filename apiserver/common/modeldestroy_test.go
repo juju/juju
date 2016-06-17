@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
@@ -70,7 +70,7 @@ func (s *destroyModelSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) 
 	m2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "precise",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, m1.Id(), instance.LXC)
+	}, m1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetProvisioned("container0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,7 +133,7 @@ func (s *destroyModelSuite) TestDestroyModel(c *gc.C) {
 		c.Assert(inst, gc.NotNil)
 	}
 
-	services, err := s.State.AllServices()
+	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.DestroyModel(s.State, s.State.ModelTag())

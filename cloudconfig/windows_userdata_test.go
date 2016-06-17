@@ -734,12 +734,10 @@ cacert: |
   fR+gLQjslxf64w0wCwYJKoZIhvcNAQEFA0EAbn0MaxWVgGYBomeLYfDdb8vCq/5/
   G/2iCUQCXsVrBparMLFnor/iKOkJB5n3z3rtu70rFt+DpX6L8uBR3LB3+A==
   -----END CERTIFICATE-----
-stateaddresses:
-- state-addr.testing.invalid:12345
 model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
 apiaddresses:
 - state-addr.testing.invalid:54321
-oldpassword: arble
+oldpassword: bletch
 values:
   AGENT_SERVICE_NAME: jujud-machine-10
   PROVIDER_TYPE: dummy

@@ -6,11 +6,11 @@ package uniter_test
 import (
 	"path/filepath"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter"
 )
@@ -32,16 +32,16 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 
 	dataDir := c.MkDir()
-	unitTag := names.NewUnitTag("some-service/323")
+	unitTag := names.NewUnitTag("some-application/323")
 	paths := uniter.NewPaths(dataDir, unitTag)
 
 	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
+	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
-		ToolsDir: relData("tools/unit-some-service-323"),
+		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     `\\.\pipe\unit-some-service-323-run`,
-			JujucServerSocket: `\\.\pipe\unit-some-service-323-agent`,
+			JujuRunSocket:     `\\.\pipe\unit-some-application-323-run`,
+			JujucServerSocket: `\\.\pipe\unit-some-application-323-agent`,
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -60,17 +60,17 @@ func (s *PathsSuite) TestWorkerPathsWindows(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Windows })
 
 	dataDir := c.MkDir()
-	unitTag := names.NewUnitTag("some-service/323")
+	unitTag := names.NewUnitTag("some-application/323")
 	worker := "some-worker"
 	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker)
 
 	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
+	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
-		ToolsDir: relData("tools/unit-some-service-323"),
+		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
-			JujuRunSocket:     `\\.\pipe\unit-some-service-323-some-worker-run`,
-			JujucServerSocket: `\\.\pipe\unit-some-service-323-some-worker-agent`,
+			JujuRunSocket:     `\\.\pipe\unit-some-application-323-some-worker-run`,
+			JujucServerSocket: `\\.\pipe\unit-some-application-323-some-worker-agent`,
 		},
 		State: uniter.StatePaths{
 			BaseDir:         relAgent(),
@@ -89,13 +89,13 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Unknown })
 
 	dataDir := c.MkDir()
-	unitTag := names.NewUnitTag("some-service/323")
+	unitTag := names.NewUnitTag("some-application/323")
 	paths := uniter.NewPaths(dataDir, unitTag)
 
 	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
+	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
-		ToolsDir: relData("tools/unit-some-service-323"),
+		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
 			JujuRunSocket:     relAgent("run.socket"),
 			JujucServerSocket: "@" + relAgent("agent.socket"),
@@ -117,14 +117,14 @@ func (s *PathsSuite) TestWorkerPaths(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Unknown })
 
 	dataDir := c.MkDir()
-	unitTag := names.NewUnitTag("some-service/323")
+	unitTag := names.NewUnitTag("some-application/323")
 	worker := "worker-id"
 	paths := uniter.NewWorkerPaths(dataDir, unitTag, worker)
 
 	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
+	relAgent := relPathFunc(relData("agents", "unit-some-application-323"))
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
-		ToolsDir: relData("tools/unit-some-service-323"),
+		ToolsDir: relData("tools/unit-some-application-323"),
 		Runtime: uniter.RuntimePaths{
 			JujuRunSocket:     relAgent(worker + "-run.socket"),
 			JujucServerSocket: "@" + relAgent(worker+"-agent.socket"),

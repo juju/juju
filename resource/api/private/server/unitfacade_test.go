@@ -42,9 +42,9 @@ func (s *UnitFacadeSuite) TestNewUnitFacade(c *gc.C) {
 }
 
 func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
-	opened1 := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	opened1 := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	res1 := opened1.Resource
-	opened2 := resourcetesting.NewResource(c, s.stub, "eggs", "a-service", "other data")
+	opened2 := resourcetesting.NewResource(c, s.stub, "eggs", "a-application", "other data")
 	res2 := opened2.Resource
 	store := &stubUnitDataStore{Stub: s.stub}
 	store.ReturnListResources = resource.ServiceResources{
@@ -68,7 +68,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 }
 
 func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
 	store.ReturnListResources = resource.ServiceResources{
 		Resources: []resource.Resource{opened.Resource},
@@ -87,7 +87,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 }
 
 func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
 	store.ReturnListResources = resource.ServiceResources{
 		Resources: []resource.Resource{opened.Resource},

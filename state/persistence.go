@@ -29,13 +29,13 @@ type Persistence interface {
 	// NewStorage returns a new blob storage for the environment.
 	NewStorage() storage.Storage
 
-	// ServiceExistsOps returns the operations that verify that the
-	// identified service exists.
-	ServiceExistsOps(serviceID string) []txn.Op
+	// ApplicationExistsOps returns the operations that verify that the
+	// identified application exists.
+	ApplicationExistsOps(applicationID string) []txn.Op
 
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
-	// the CharmModifiedVersion field for the given service.
-	IncCharmModifiedVersionOps(serviceID string) []txn.Op
+	// the CharmModifiedVersion field for the given application.
+	IncCharmModifiedVersionOps(applicationID string) []txn.Op
 
 	// NewCleanupOp creates a mgo transaction operation that queues up
 	// some cleanup action in state.
@@ -94,24 +94,24 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 	return store
 }
 
-// ServiceExistsOps returns the operations that verify that the
+// ApplicationExistsOps returns the operations that verify that the
 // identified service exists.
-func (sp *statePersistence) ServiceExistsOps(serviceID string) []txn.Op {
+func (sp *statePersistence) ApplicationExistsOps(applicationID string) []txn.Op {
 	return []txn.Op{{
-		C:      servicesC,
-		Id:     serviceID,
+		C:      applicationsC,
+		Id:     applicationID,
 		Assert: txn.DocExists,
 	}, {
-		C:      servicesC,
-		Id:     serviceID,
+		C:      applicationsC,
+		Id:     applicationID,
 		Assert: isAliveDoc,
 	}}
 }
 
 // IncCharmModifiedVersionOps returns the operations necessary to increment the
 // CharmModifiedVersion field for the given service.
-func (sp *statePersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
-	return incCharmModifiedVersionOps(serviceID)
+func (sp *statePersistence) IncCharmModifiedVersionOps(applicationID string) []txn.Op {
+	return incCharmModifiedVersionOps(applicationID)
 }
 
 // NewCleanupOp creates a mgo transaction operation that queues up

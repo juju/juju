@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
@@ -181,7 +182,7 @@ func prepare(
 	for k, v := range args.BaseConfig {
 		details.Config[k] = v
 	}
-	delete(details.Config, config.ControllerUUIDKey)
+	delete(details.Config, controller.ControllerUUIDKey)
 	delete(details.Config, config.UUIDKey)
 
 	details.CACert = caCert
@@ -231,8 +232,9 @@ func ensureAdminSecret(cfg *config.Config) (*config.Config, string, error) {
 // attaches it to the given controller configuration,
 // unless the configuration already has one.
 func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
-	caCert, hasCACert := cfg.CACert()
-	_, hasCAKey := cfg.CAPrivateKey()
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	caCert, hasCACert := controllerCfg.CACert()
+	_, hasCAKey := controllerCfg.CAPrivateKey()
 	if hasCACert && hasCAKey {
 		return cfg, caCert, nil
 	}
@@ -246,8 +248,8 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 		return nil, "", errors.Trace(err)
 	}
 	cfg, err = cfg.Apply(map[string]interface{}{
-		config.CACertKey: string(caCert),
-		"ca-private-key": string(caKey),
+		controller.CACertKey:    string(caCert),
+		controller.CAPrivateKey: string(caKey),
 	})
 	if err != nil {
 		return nil, "", errors.Trace(err)

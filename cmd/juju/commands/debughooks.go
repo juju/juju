@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/service"
+	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/modelcmd"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
@@ -29,7 +29,7 @@ type debugHooksCommand struct {
 }
 
 const debugHooksDoc = `
-Interactively debug a hook remotely on a service unit.
+Interactively debug a hook remotely on an application unit.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.
@@ -73,14 +73,14 @@ func (c *debugHooksCommand) getServiceAPI() (charmRelationsApi, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return service.NewClient(root), nil
+	return application.NewClient(root), nil
 }
 
 func (c *debugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	service, err := names.UnitService(c.Target)
+	service, err := names.UnitApplication(c.Target)
 	if err != nil {
 		return err
 	}

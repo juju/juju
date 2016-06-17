@@ -30,9 +30,9 @@ type LeadershipContext interface {
 }
 
 type leadershipContext struct {
-	accessor    LeadershipSettingsAccessor
-	tracker     leadership.Tracker
-	serviceName string
+	accessor        LeadershipSettingsAccessor
+	tracker         leadership.Tracker
+	applicationName string
 
 	isMinion bool
 	settings map[string]string
@@ -40,9 +40,9 @@ type leadershipContext struct {
 
 func NewLeadershipContext(accessor LeadershipSettingsAccessor, tracker leadership.Tracker) LeadershipContext {
 	return &leadershipContext{
-		accessor:    accessor,
-		tracker:     tracker,
-		serviceName: tracker.ServiceName(),
+		accessor:        accessor,
+		tracker:         tracker,
+		applicationName: tracker.ApplicationName(),
 	}
 }
 
@@ -77,7 +77,7 @@ func (ctx *leadershipContext) WriteLeaderSettings(settings map[string]string) er
 		// as merged by the server. But we don't need to get them again right now;
 		// the charm may not need to ask again before the hook finishes.
 		ctx.settings = nil
-		err = ctx.accessor.Merge(ctx.serviceName, settings)
+		err = ctx.accessor.Merge(ctx.applicationName, settings)
 	}
 	return errors.Annotate(err, "cannot write settings")
 }
@@ -86,7 +86,7 @@ func (ctx *leadershipContext) WriteLeaderSettings(settings map[string]string) er
 func (ctx *leadershipContext) LeaderSettings() (map[string]string, error) {
 	if ctx.settings == nil {
 		var err error
-		ctx.settings, err = ctx.accessor.Read(ctx.serviceName)
+		ctx.settings, err = ctx.accessor.Read(ctx.applicationName)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot read settings")
 		}

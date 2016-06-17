@@ -12,17 +12,13 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var (
-	senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
-)
+var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
 
-const (
-	senderPeriod = 5 * time.Minute
-)
+const senderPeriod = 5 * time.Minute
 
 // NewSender creates a new periodic worker that sends metrics
 // to a collection service.
-func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
+func newSender(client metricsmanager.MetricsManagerClient, notify chan string) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.SendMetrics()
 		if err != nil {

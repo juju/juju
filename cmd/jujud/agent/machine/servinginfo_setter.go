@@ -5,7 +5,7 @@ package machine
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent"
