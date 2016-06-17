@@ -144,11 +144,6 @@ func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
 	s.checkNotController(c, multiwatcher.JobHostUnits)
 }
 
-func (s *ServingInfoSetterSuite) TestJobManageNetworking(c *gc.C) {
-	// State serving info should NOT be set for JobManageNetworking.
-	s.checkNotController(c, multiwatcher.JobManageNetworking)
-}
-
 func (s *ServingInfoSetterSuite) checkNotController(c *gc.C, job multiwatcher.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(

@@ -1874,23 +1874,6 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
-func (s *StateSuite) TestWatchIPAddresses(c *gc.C) {
-	w := s.State.WatchIPAddresses()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChangeInSingleEvent()
-
-	// add an IP address
-	addr, err := s.State.AddIPAddress(network.NewAddress("0.1.2.3"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(addr.Value())
-
-	// Make it Dead: reported.
-	err = addr.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChangeInSingleEvent(addr.Value())
-}
-
 func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Alive model...
 	alive, err := s.State.Model()

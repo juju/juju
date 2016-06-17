@@ -186,16 +186,13 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	_, err = s.State.AddSpace("space2", "", nil, false) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
-	// Only the first subnet of space2 has AllocatableIPLow|High set.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
-		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
-		AvailabilityZone:  "zone{{.}}",
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:           42,
+		CIDR:             "10.10.{{.}}.0/24",
+		ProviderId:       "subnet-{{.}}",
+		AvailabilityZone: "zone{{.}}",
+		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:          42,
 	})
 }
 

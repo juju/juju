@@ -752,8 +752,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return env, nil
 	case names.RelationTag:
 		return st.KeyRelation(id)
-	case names.IPAddressTag:
-		return st.IPAddressByTag(tag)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
 	case names.CharmTag:
@@ -1270,34 +1268,6 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 		// Otherwise use an existing machine.
 		return st.Machine(data.machineId)
 	}
-}
-
-// AddIPAddress creates and returns a new IP address. It can return an
-// error satisfying IsNotValid() or IsAlreadyExists() when the addr
-// does not contain a valid IP, or when addr is already added.
-func (st *State) AddIPAddress(addr network.Address, subnetID string) (*IPAddress, error) {
-	return addIPAddress(st, addr, subnetID)
-}
-
-// IPAddress returns an existing IP address from the state.
-func (st *State) IPAddress(value string) (*IPAddress, error) {
-	return ipAddress(st, value)
-}
-
-// IPAddressByTag returns an existing IP address from the state
-// identified by its tag.
-func (st *State) IPAddressByTag(tag names.IPAddressTag) (*IPAddress, error) {
-	return ipAddressByTag(st, tag)
-}
-
-// AllocatedIPAddresses returns all the allocated addresses for a machine
-func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
-	return fetchIPAddresses(st, bson.D{{"machineid", machineId}})
-}
-
-// DeadIPAddresses returns all IP addresses with a Life of Dead
-func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
-	return fetchIPAddresses(st, isDeadDoc)
 }
 
 // Service returns a service state by name.

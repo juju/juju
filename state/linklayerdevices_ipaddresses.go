@@ -88,9 +88,6 @@ func IsValidAddressConfigMethod(value string) bool {
 
 // Address represents the state of an IP address assigned to a link-layer
 // network device on a machine.
-//
-// TODO(dimitern): Rename to IPAddress once the IPAddress type is gone
-// along with the addressable containers handling code?
 type Address struct {
 	st  *State
 	doc ipAddressDoc

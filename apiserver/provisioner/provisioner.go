@@ -4,8 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
@@ -224,10 +221,6 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	config, err := p.st.ModelConfig()
-	if err != nil {
-		return result, err
-	}
 	cfg := make(map[string]string)
 	cfg[container.ConfigModelUUID] = p.st.ModelUUID()
 
@@ -237,36 +230,6 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		// TODO(jam): Do we want to handle ImageStream here, or do we
 		// hide it from them? (all cached images must come from the
 		// same image stream?)
-	}
-
-	if !environs.AddressAllocationEnabled(config.Type()) {
-		// No need to even try checking the environ for support.
-		logger.Debugf("address allocation feature flag not enabled")
-		result.ManagerConfig = cfg
-		return result, nil
-	}
-
-	// Create an environment to verify networking support.
-	env, err := environs.GetEnviron(p.st, environs.New)
-	if err != nil {
-		return result, err
-	}
-	if netEnv, ok := environs.SupportsNetworking(env); ok {
-		// Passing network.AnySubnet below should be interpreted by
-		// the provider as "does ANY subnet support this".
-		supported, err := netEnv.SupportsAddressAllocation(network.AnySubnet)
-		if err == nil && supported {
-			cfg[container.ConfigIPForwarding] = "true"
-		} else if err != nil {
-			// We log the error, but it's safe to ignore as it's not
-			// critical.
-			logger.Debugf("address allocation not supported (%v)", err)
-		}
-		// AWS requires NAT in place in order for hosted containers to
-		// reach outside.
-		if config.Type() == provider.EC2 {
-			cfg[container.ConfigEnableNAT] = "true"
-		}
 	}
 
 	result.ManagerConfig = cfg
@@ -542,14 +505,9 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	return result, nil
 }
 
-func containerHostname(containerTag names.Tag) string {
-	return fmt.Sprintf("%s-%s", container.DefaultNamespace, containerTag.String())
-}
-
-// ReleaseContainerAddresses finds addresses allocated to a container
-// and marks them as Dead, to be released and removed. It accepts
-// container tags as arguments. If address allocation feature flag is
-// not enabled, it will return a NotSupported error.
+// ReleaseContainerAddresses finds addresses allocated to a container and marks
+// them as Dead, to be released and removed. It accepts container tags as
+// arguments.
 func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -583,93 +541,35 @@ func (p *ProvisionerAPI) ReleaseContainerAddresses(args params.Entities) (params
 			continue
 		}
 
-		id := container.Id()
-		addresses, err := p.st.AllocatedIPAddresses(id)
+		// TODO(dimitern): Release those via the provider once we have
+		// Environ.ReleaseContainerAddresses. See LP bug http://pad.lv/1585878
+		err = container.RemoveAllAddresses()
 		if err != nil {
-			logger.Warningf("failed to get Id for container %q: %v", tag, err)
+			logger.Warningf("failed to remove container %q addresses: %v", tag, err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
-		}
-
-		deadErrors := []error{}
-		logger.Debugf("for container %q found addresses %v", tag, addresses)
-		for _, addr := range addresses {
-			err = addr.EnsureDead()
-			if err != nil {
-				deadErrors = append(deadErrors, err)
-				continue
-			}
-		}
-		if len(deadErrors) != 0 {
-			err = errors.Errorf("failed to mark all addresses for removal for %q: %v", tag, deadErrors)
-			result.Results[i].Error = common.ServerError(err)
 		}
 	}
 
 	return result, nil
 }
 
-func (p *ProvisionerAPI) legacyAddressAllocationSupported() (bool, error) {
-	config, err := p.st.ModelConfig()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return environs.AddressAllocationEnabled(config.Type()), nil
-}
-
-// PrepareContainerInterfaceInfo allocates an address and returns
-// information to configure networking for a container. It accepts
-// container tags as arguments. If the address allocation feature flag
-// is not enabled, it returns a NotSupported error.
+// PrepareContainerInterfaceInfo allocates an address and returns information to
+// configure networking for a container. It accepts container tags as arguments.
 func (p *ProvisionerAPI) PrepareContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	supported, err := p.legacyAddressAllocationSupported()
-	if err != nil {
-		return params.MachineNetworkConfigResults{}, errors.Trace(err)
-	}
-	if supported {
-		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(true)")
-		return p.legacyPrepareOrGetContainerInterfaceInfo(args, true)
-	}
-	return p.prepareOrGetContainerInterfaceInfo(args, true)
+	return p.prepareOrGetContainerInterfaceInfo(args, false)
 }
 
-// GetContainerInterfaceInfo returns information to configure networking
-// for a container. It accepts container tags as arguments. If the address
-// allocation feature flag is not enabled, it returns a NotSupported error.
+// GetContainerInterfaceInfo returns information to configure networking for a
+// container. It accepts container tags as arguments.
 func (p *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	supported, err := p.legacyAddressAllocationSupported()
-	if err != nil {
-		return params.MachineNetworkConfigResults{}, errors.Trace(err)
-	}
-	if supported {
-		logger.Warningf("address allocation enabled - using legacyPrepareOrGetContainerInterfaceInfo(false)")
-		return p.legacyPrepareOrGetContainerInterfaceInfo(args, false)
-	}
-	return p.prepareOrGetContainerInterfaceInfo(args, false)
-}
-
-// MACAddressTemplate is used to generate a unique MAC address for a
-// container. Every '%x' is replaced by a random hexadecimal digit,
-// while the rest is kept as-is.
-const MACAddressTemplate = "00:16:3e:%02x:%02x:%02x"
-
-// generateMACAddress creates a random MAC address within the space defined by
-// MACAddressTemplate above.
-//
-// TODO(dimitern): We should make a best effort to ensure the MAC address we
-// generate is unique at least within the current environment.
-func generateMACAddress() string {
-	digits := make([]interface{}, 3)
-	for i := range digits {
-		digits[i] = rand.Intn(256)
-	}
-	return fmt.Sprintf(MACAddressTemplate, digits...)
+	return p.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
 func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities, maintain bool) (params.MachineNetworkConfigResults, error) {
@@ -805,157 +705,6 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 	return result, nil
 }
 
-// legacyPrepareOrGetContainerInterfaceInfo optionally allocates an address and
-// returns information for configuring networking on a container. It accepts
-// container tags as arguments.
-func (p *ProvisionerAPI) legacyPrepareOrGetContainerInterfaceInfo(
-	args params.Entities,
-	provisionContainer bool,
-) (
-	params.MachineNetworkConfigResults,
-	error,
-) {
-	result := params.MachineNetworkConfigResults{
-		Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
-	}
-
-	// Some preparations first.
-	environ, host, canAccess, err := p.prepareContainerAccessEnvironment()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	instId, err := host.InstanceId()
-	if err != nil && errors.IsNotProvisioned(err) {
-		// If the host machine is not provisioned yet, we have nothing
-		// to do. NotProvisionedf will append " not provisioned" to
-		// the message.
-		err = errors.NotProvisionedf("cannot allocate addresses: host machine %q", host)
-		return result, err
-	}
-	var subnet *state.Subnet
-	var subnetInfo network.SubnetInfo
-	var interfaceInfo network.InterfaceInfo
-	if environs.AddressAllocationEnabled(environ.Config().Type()) {
-		// We don't need a subnet unless we need to allocate a static IP.
-		subnet, subnetInfo, interfaceInfo, err = p.prepareAllocationNetwork(environ, instId)
-		if err != nil {
-			return result, errors.Annotate(err, "cannot allocate addresses")
-		}
-	} else {
-		var allInterfaceInfos []network.InterfaceInfo
-		allInterfaceInfos, err = environ.NetworkInterfaces(instId)
-		if err != nil {
-			return result, errors.Annotatef(err, "cannot instance %q interfaces", instId)
-		} else if len(allInterfaceInfos) == 0 {
-			return result, errors.New("no interfaces available")
-		}
-		// Currently we only support a single NIC per container, so we only need
-		// the information from the host instance's first NIC.
-		logger.Tracef("interfaces for instance %q: %v", instId, allInterfaceInfos)
-		interfaceInfo = allInterfaceInfos[0]
-	}
-
-	// Loop over the passed container tags.
-	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		// The auth function (canAccess) checks that the machine is a
-		// top level machine (we filter those out next) or that the
-		// machine has the host as a parent.
-		container, err := p.getMachine(canAccess, tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if !container.IsContainer() {
-			err = errors.Errorf("cannot allocate address for %q: not a container", tag)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if ciid, cerr := container.InstanceId(); provisionContainer == true && cerr == nil {
-			// Since we want to configure and create NICs on the
-			// container before it starts, it must also be not
-			// provisioned yet.
-			err = errors.Errorf("container %q already provisioned as %q", container, ciid)
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if cerr != nil && !errors.IsNotProvisioned(cerr) {
-			// Any other error needs to be reported.
-			result.Results[i].Error = common.ServerError(cerr)
-			continue
-		}
-
-		var macAddress string
-		var address *state.IPAddress
-		if provisionContainer {
-			// Allocate and set an address.
-			macAddress = generateMACAddress()
-			address, err = p.allocateAddress(environ, subnet, host, container, instId, macAddress)
-			if err != nil {
-				err = errors.Annotatef(err, "failed to allocate an address for %q", container)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-		} else {
-			id := container.Id()
-			addresses, err := p.st.AllocatedIPAddresses(id)
-			if err != nil {
-				logger.Warningf("failed to get Id for container %q: %v", tag, err)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			// TODO(dooferlad): if we get more than 1 address back, we ignore everything after
-			// the first. The calling function expects exactly one result though,
-			// so we don't appear to have a way of allocating >1 address to a
-			// container...
-			if len(addresses) != 1 {
-				logger.Warningf("got %d addresses for container %q - expected 1: %v", len(addresses), tag, err)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			address = addresses[0]
-			macAddress = address.MACAddress()
-		}
-
-		// Store it on the machine, construct and set an interface result.
-		dnsServers := make([]string, len(interfaceInfo.DNSServers))
-		for l, dns := range interfaceInfo.DNSServers {
-			dnsServers[l] = dns.Value
-		}
-
-		if macAddress == "" {
-			macAddress = interfaceInfo.MACAddress
-		}
-
-		interfaceType := string(interfaceInfo.InterfaceType)
-		if interfaceType == "" {
-			interfaceType = string(network.EthernetInterface)
-		}
-
-		result.Results[i] = params.MachineNetworkConfigResult{
-			Config: []params.NetworkConfig{{
-				DeviceIndex:      interfaceInfo.DeviceIndex,
-				MACAddress:       macAddress,
-				CIDR:             subnetInfo.CIDR,
-				ProviderId:       string(interfaceInfo.ProviderId),
-				ProviderSubnetId: string(subnetInfo.ProviderId),
-				VLANTag:          interfaceInfo.VLANTag,
-				InterfaceType:    interfaceType,
-				InterfaceName:    interfaceInfo.InterfaceName,
-				Disabled:         interfaceInfo.Disabled,
-				NoAutoStart:      interfaceInfo.NoAutoStart,
-				DNSServers:       dnsServers,
-				ConfigType:       string(network.ConfigStatic),
-				Address:          address.Value(),
-				GatewayAddress:   interfaceInfo.GatewayAddress.Value,
-			}},
-		}
-	}
-	return result, nil
-}
-
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
 func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.NetworkingEnviron, *state.Machine, common.AuthFunc, error) {
@@ -981,281 +730,6 @@ func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Networkin
 		return nil, nil, nil, errors.Trace(err)
 	}
 	return netEnviron, host, canAccess, nil
-}
-
-// prepareAllocationNetwork retrieves the subnet, its info, and the interface info
-// for the allocations.
-func (p *ProvisionerAPI) prepareAllocationNetwork(
-	environ environs.NetworkingEnviron,
-	instId instance.Id,
-) (
-	*state.Subnet,
-	network.SubnetInfo,
-	network.InterfaceInfo,
-	error,
-) {
-	var subnetInfo network.SubnetInfo
-	var interfaceInfo network.InterfaceInfo
-
-	interfaces, err := environ.NetworkInterfaces(instId)
-	if err != nil {
-		return nil, subnetInfo, interfaceInfo, errors.Trace(err)
-	} else if len(interfaces) == 0 {
-		return nil, subnetInfo, interfaceInfo, errors.New("no interfaces available")
-	}
-	logger.Tracef("interfaces for instance %q: %v", instId, interfaces)
-
-	subnetSet := make(set.Strings)
-	subnetIds := []network.Id{}
-	subnetIdToInterface := make(map[network.Id]network.InterfaceInfo)
-	for _, iface := range interfaces {
-		if iface.ProviderSubnetId == "" {
-			logger.Debugf("no subnet associated with interface %#v (skipping)", iface)
-			continue
-		} else if iface.Disabled {
-			logger.Debugf("interface %#v disabled (skipping)", iface)
-			continue
-		}
-		if !subnetSet.Contains(string(iface.ProviderSubnetId)) {
-			subnetIds = append(subnetIds, iface.ProviderSubnetId)
-			subnetSet.Add(string(iface.ProviderSubnetId))
-
-			// This means that multiple interfaces on the same subnet will
-			// only appear once.
-			subnetIdToInterface[iface.ProviderSubnetId] = iface
-		}
-	}
-	subnets, err := environ.Subnets(instId, subnetIds)
-	if err != nil {
-		return nil, subnetInfo, interfaceInfo, errors.Trace(err)
-	} else if len(subnets) == 0 {
-		return nil, subnetInfo, interfaceInfo, errors.Errorf("no subnets available")
-	}
-	logger.Tracef("subnets for instance %q: %v", instId, subnets)
-
-	// TODO(mfoord): we need a better strategy for picking a subnet to
-	// allocate an address on. (dimitern): Right now we just pick the
-	// first subnet with allocatable range set. Instead, we should
-	// allocate an address per interface, assuming each interface is
-	// on a subnet with allocatable range set, and skipping those
-	// which do not have a range set.
-	var success bool
-	for _, sub := range subnets {
-		logger.Tracef("trying to allocate a static IP on subnet %q", sub.ProviderId)
-		if sub.AllocatableIPHigh == nil {
-			logger.Tracef("ignoring subnet %q - no allocatable range set", sub.ProviderId)
-			// this subnet has no allocatable IPs
-			continue
-		}
-		if sub.AllocatableIPLow != nil && sub.AllocatableIPLow.To4() == nil {
-			logger.Tracef("ignoring IPv6 subnet %q - allocating IPv6 addresses not yet supported", sub.ProviderId)
-			// Until we change the way we pick addresses, IPv6 subnets with
-			// their *huge* ranges (/64 being the default), there is no point in
-			// allowing such subnets (it won't even work as PickNewAddress()
-			// assumes IPv4 allocatable range anyway).
-			continue
-		}
-		ok, err := environ.SupportsAddressAllocation(sub.ProviderId)
-		if err == nil && ok {
-			subnetInfo = sub
-			interfaceInfo = subnetIdToInterface[sub.ProviderId]
-
-			// Since with addressable containers the host acts like a gateway
-			// for the containers, instead of using the same gateway for the
-			// containers as their host's
-			interfaceInfo.GatewayAddress.Value = interfaceInfo.Address.Value
-
-			success = true
-			break
-		}
-		logger.Tracef(
-			"subnet %q supports address allocation: %v (error: %v)",
-			sub.ProviderId, ok, err,
-		)
-	}
-	if !success {
-		// " not supported" will be appended to the message below.
-		return nil, subnetInfo, interfaceInfo, errors.NotSupportedf(
-			"address allocation on any available subnets is",
-		)
-	}
-	subnet, err := p.createOrFetchStateSubnet(subnetInfo)
-
-	return subnet, subnetInfo, interfaceInfo, nil
-}
-
-// These are defined like this to allow mocking in tests.
-var (
-	allocateAddrTo = func(a *state.IPAddress, m *state.Machine, macAddress string) error {
-		// TODO(mfoord): populate proper interface ID (in state).
-		return a.AllocateTo(m.Id(), "", macAddress)
-	}
-	setAddrsTo = func(a *state.IPAddress, m *state.Machine) error {
-		return m.SetProviderAddresses(a.Address())
-	}
-	setAddrState = func(a *state.IPAddress, st state.AddressState) error {
-		return a.SetState(st)
-	}
-)
-
-// allocateAddress tries to pick an address out of the given subnet and
-// allocates it to the container.
-func (p *ProvisionerAPI) allocateAddress(
-	environ environs.NetworkingEnviron,
-	subnet *state.Subnet,
-	host, container *state.Machine,
-	instId instance.Id,
-	macAddress string,
-) (*state.IPAddress, error) {
-	hostname := containerHostname(container.Tag())
-
-	if !environs.AddressAllocationEnabled(environ.Config().Type()) {
-		// Even if the address allocation feature flag is not enabled, we might
-		// be running on MAAS 1.8+ with devices support, which we can use to
-		// register containers getting IPs via DHCP. However, most of the usual
-		// allocation code can be bypassed, we just need the parent instance ID
-		// and a MAC address (no subnet or IP address).
-		allocatedAddress := network.Address{}
-		err := environ.AllocateAddress(instId, network.AnySubnet, &allocatedAddress, macAddress, hostname)
-		if err != nil {
-			// Not using MAAS 1.8+ or some other error.
-			return nil, errors.Trace(err)
-		}
-
-		logger.Infof(
-			"allocated address %q on instance %q for container %q",
-			allocatedAddress.String(), instId, hostname,
-		)
-
-		// Add the address to state, so we can look it up later by MAC address.
-		stateAddr, err := p.st.AddIPAddress(allocatedAddress, string(network.AnySubnet))
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to save address %q", allocatedAddress)
-		}
-
-		err = p.setAllocatedOrRelease(stateAddr, environ, instId, container, network.AnySubnet, macAddress)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return stateAddr, nil
-	}
-
-	subnetId := network.Id(subnet.ProviderId())
-	for {
-		addr, err := subnet.PickNewAddress()
-		if err != nil {
-			return nil, err
-		}
-		netAddr := addr.Address()
-		logger.Tracef("picked new address %q on subnet %q", addr.String(), subnetId)
-		// Attempt to allocate with environ.
-		err = environ.AllocateAddress(instId, subnetId, &netAddr, macAddress, hostname)
-		if err != nil {
-			logger.Warningf(
-				"allocating address %q on instance %q and subnet %q failed: %v (retrying)",
-				addr.String(), instId, subnetId, err,
-			)
-			// It's as good as unavailable for us, so mark it as
-			// such.
-			err = setAddrState(addr, state.AddressStateUnavailable)
-			if err != nil {
-				logger.Warningf(
-					"cannot set address %q to %q: %v (ignoring and retrying)",
-					addr.String(), state.AddressStateUnavailable, err,
-				)
-				continue
-			}
-			logger.Tracef(
-				"setting address %q to %q and retrying",
-				addr.String(), state.AddressStateUnavailable,
-			)
-			continue
-		}
-		logger.Infof(
-			"allocated address %q on instance %q and subnet %q",
-			addr.String(), instId, subnetId,
-		)
-		err = p.setAllocatedOrRelease(addr, environ, instId, container, subnetId, macAddress)
-		if err != nil {
-			// Something went wrong - retry.
-			continue
-		}
-		return addr, nil
-	}
-}
-
-// setAllocatedOrRelease tries to associate the newly allocated
-// address addr with the container. On failure it makes the best
-// effort to cleanup and release addr, logging issues along the way.
-func (p *ProvisionerAPI) setAllocatedOrRelease(
-	addr *state.IPAddress,
-	environ environs.NetworkingEnviron,
-	instId instance.Id,
-	container *state.Machine,
-	subnetId network.Id,
-	macAddress string,
-) (err error) {
-	defer func() {
-		if errors.Cause(err) == nil {
-			// Success!
-			return
-		}
-		logger.Warningf(
-			"failed to mark address %q as %q to container %q: %v (releasing and retrying)",
-			addr.String(), state.AddressStateAllocated, container, err,
-		)
-		// It's as good as unavailable for us, so mark it as
-		// such.
-		err = setAddrState(addr, state.AddressStateUnavailable)
-		if err != nil {
-			logger.Warningf(
-				"cannot set address %q to %q: %v (ignoring and releasing)",
-				addr.String(), state.AddressStateUnavailable, err,
-			)
-		}
-		err = environ.ReleaseAddress(instId, subnetId, addr.Address(), addr.MACAddress(), "")
-		if err == nil {
-			logger.Infof("address %q released; trying to allocate new", addr.String())
-			return
-		}
-		logger.Warningf(
-			"failed to release address %q on instance %q and subnet %q: %v (ignoring and retrying)",
-			addr.String(), instId, subnetId, err,
-		)
-	}()
-
-	// Any errors returned below will trigger the release/cleanup
-	// steps above.
-	if err = allocateAddrTo(addr, container, macAddress); err != nil {
-		return errors.Trace(err)
-	}
-	if err = setAddrsTo(addr, container); err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Infof("assigned address %q to container %q", addr.String(), container)
-	return nil
-}
-
-func (p *ProvisionerAPI) createOrFetchStateSubnet(subnetInfo network.SubnetInfo) (*state.Subnet, error) {
-	stateSubnetInfo := state.SubnetInfo{
-		ProviderId:        subnetInfo.ProviderId,
-		CIDR:              subnetInfo.CIDR,
-		VLANTag:           subnetInfo.VLANTag,
-		AllocatableIPHigh: subnetInfo.AllocatableIPHigh.String(),
-		AllocatableIPLow:  subnetInfo.AllocatableIPLow.String(),
-	}
-	subnet, err := p.st.AddSubnet(stateSubnetInfo)
-	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			subnet, err = p.st.Subnet(subnetInfo.CIDR)
-		}
-		if err != nil {
-			return subnet, errors.Trace(err)
-		}
-	}
-	return subnet, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.

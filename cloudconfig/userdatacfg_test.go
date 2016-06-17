@@ -53,7 +53,6 @@ var (
 	allMachineJobs = []multiwatcher.MachineJob{
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
-		multiwatcher.JobManageNetworking,
 	}
 	normalMachineJobs = []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,

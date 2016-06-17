@@ -190,17 +190,3 @@ func (s *environPolSuite) TestSupportNetworks(c *gc.C) {
 
 	c.Check(isSupported, jc.IsFalse)
 }
-
-func (s *environPolSuite) TestSupportAddressAllocation(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("some-network")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(isSupported, jc.IsFalse)
-}
-
-func (s *environPolSuite) TestSupportAddressAllocationEmpty(c *gc.C) {
-	isSupported, err := s.Env.SupportAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(isSupported, jc.IsFalse)
-}

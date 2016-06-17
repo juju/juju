@@ -69,6 +69,10 @@ func (a *API) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 		Meta:     aCharm.Meta(),
 		Actions:  aCharm.Actions(),
 	}
+	metrics := aCharm.Metrics()
+	if metrics != nil && len(metrics.Metrics) > 0 {
+		info.Metrics = metrics
+	}
 	return info, nil
 }
 

@@ -95,7 +95,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	c.Assert(uuid, jc.Satisfies, utils.IsValidUUIDString)
 }
 
-func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
+func (suite *EnvironProviderSuite) TestMAASServerFromEndpoint(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "maas",
 	})
@@ -103,8 +103,8 @@ func (suite *EnvironProviderSuite) TestMAASServerFromRegion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := providerInstance.BootstrapConfig(environs.BootstrapConfigParams{
-		Config:      config,
-		CloudRegion: "maas.testing",
+		Config:        config,
+		CloudEndpoint: "maas.testing",
 		Credentials: cloud.NewCredential(
 			cloud.OAuth1AuthType,
 			map[string]string{

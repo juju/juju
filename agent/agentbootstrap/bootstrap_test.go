@@ -374,9 +374,6 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 		name: multiwatcher.JobManageModel,
 		want: state.JobManageModel,
 	}, {
-		name: multiwatcher.JobManageNetworking,
-		want: state.JobManageNetworking,
-	}, {
 		name: "invalid",
 		want: -1,
 		err:  `invalid machine job "invalid"`,

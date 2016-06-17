@@ -14,7 +14,6 @@ var (
 	_ Entity = (*Application)(nil)
 	_ Entity = (*Model)(nil)
 	_ Entity = (*User)(nil)
-	_ Entity = (*IPAddress)(nil)
 
 	_ EntityWithApplication = (*Unit)(nil)
 

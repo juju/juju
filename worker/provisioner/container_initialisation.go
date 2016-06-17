@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
@@ -28,15 +27,13 @@ import (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner                worker.Runner
-	supportedContainers   []instance.ContainerType
-	imageURLGetter        container.ImageURLGetter
-	provisioner           *apiprovisioner.State
-	machine               *apiprovisioner.Machine
-	config                agent.Config
-	initLock              *fslock.Lock
-	addressableContainers bool
-	enableNAT             bool
+	runner              worker.Runner
+	supportedContainers []instance.ContainerType
+	imageURLGetter      container.ImageURLGetter
+	provisioner         *apiprovisioner.State
+	machine             *apiprovisioner.Machine
+	config              agent.Config
+	initLock            *fslock.Lock
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -192,21 +189,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	// Enable IP forwarding and ARP proxying if needed.
-	if ipfwd := managerConfig.PopValue(container.ConfigIPForwarding); ipfwd != "" {
-		if err := setIPAndARPForwarding(true); err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		cs.addressableContainers = true
-		logger.Infof("enabled IP forwarding and ARP proxying for containers")
-	}
-
-	// Enable NAT if needed.
-	if nat := managerConfig.PopValue(container.ConfigEnableNAT); nat != "" {
-		cs.enableNAT = true
-		logger.Infof("enabling NAT for containers")
-	}
-
 	switch containerType {
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
@@ -214,7 +196,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.provisioner,
 			cs.config,
 			managerConfig,
-			cs.enableNAT,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
@@ -235,7 +216,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			cs.provisioner,
 			manager,
 			cs.config,
-			cs.enableNAT,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new lxd broker")
@@ -265,16 +245,7 @@ func containerManagerConfig(
 }
 
 // Override for testing.
-var (
-	StartProvisioner = startProvisionerWorker
-
-	sysctlConfig = "/etc/sysctl.conf"
-)
-
-const (
-	ipForwardSysctlKey = "net.ipv4.ip_forward"
-	arpProxySysctlKey  = "net.ipv4.conf.all.proxy_arp"
-)
+var StartProvisioner = startProvisionerWorker
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
@@ -298,47 +269,4 @@ func startProvisionerWorker(
 		}
 		return w, nil
 	})
-}
-
-// setIPAndARPForwarding enables or disables IP and ARP forwarding on
-// the machine. This is needed when the machine needs to host
-// addressable containers.
-var setIPAndARPForwarding = func(enabled bool) error {
-	val := "0"
-	if enabled {
-		val = "1"
-	}
-
-	runCmds := func(keyAndVal string) (err error) {
-
-		defer errors.DeferredAnnotatef(&err, "cannot set %s", keyAndVal)
-
-		commands := []string{
-			// Change it immediately:
-			fmt.Sprintf("sysctl -w %s", keyAndVal),
-
-			// Change it also on next boot:
-			fmt.Sprintf("echo '%s' | tee -a %s", keyAndVal, sysctlConfig),
-		}
-		for _, cmd := range commands {
-			result, err := exec.RunCommands(exec.RunParams{Commands: cmd})
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Debugf(
-				"command %q returned: code: %d, stdout: %q, stderr: %q",
-				cmd, result.Code, string(result.Stdout), string(result.Stderr),
-			)
-			if result.Code != 0 {
-				return errors.Errorf("unexpected exit code %d", result.Code)
-			}
-		}
-		return nil
-	}
-
-	err := runCmds(fmt.Sprintf("%s=%s", ipForwardSysctlKey, val))
-	if err != nil {
-		return err
-	}
-	return runCmds(fmt.Sprintf("%s=%s", arpProxySysctlKey, val))
 }

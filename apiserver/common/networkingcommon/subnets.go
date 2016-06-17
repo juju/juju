@@ -354,12 +354,6 @@ func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSub
 		AvailabilityZones: zones,
 		SpaceName:         spaceTag.Id(),
 	}
-	if subnetInfo.AllocatableIPLow != nil {
-		backingInfo.AllocatableIPLow = subnetInfo.AllocatableIPLow.String()
-	}
-	if subnetInfo.AllocatableIPHigh != nil {
-		backingInfo.AllocatableIPHigh = subnetInfo.AllocatableIPHigh.String()
-	}
 	if _, err := api.AddSubnet(backingInfo); err != nil {
 		return errors.Trace(err)
 	}

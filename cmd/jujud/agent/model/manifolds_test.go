@@ -32,7 +32,6 @@ func (s *ManifoldsSuite) TestNames(c *gc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.Values(), jc.SameContents, []string{
-		"address-cleaner",
 		"agent",
 		"api-caller",
 		"api-config-watcher",

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
@@ -99,11 +98,4 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 // specify networks for applications and machines.
 func (env *environ) SupportNetworks() bool {
 	return false
-}
-
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netID network.Id) (bool, error) {
-	return false, nil
 }

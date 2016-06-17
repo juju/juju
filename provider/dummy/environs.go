@@ -142,24 +142,6 @@ type OpDestroy struct {
 	Error error
 }
 
-type OpAllocateAddress struct {
-	Env        string
-	InstanceId instance.Id
-	SubnetId   network.Id
-	Address    network.Address
-	MACAddress string
-	HostName   string
-}
-
-type OpReleaseAddress struct {
-	Env        string
-	InstanceId instance.Id
-	SubnetId   network.Id
-	Address    network.Address
-	MACAddress string
-	HostName   string
-}
-
 type OpNetworkInterfaces struct {
 	Env        string
 	InstanceId instance.Id
@@ -1139,95 +1121,6 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 		}}}}, nil
 }
 
-// SupportsAddressAllocation is specified on environs.Networking.
-func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled("dummy") {
-		return false, errors.NotSupportedf("address allocation")
-	}
-
-	if err := env.checkBroken("SupportsAddressAllocation"); err != nil {
-		return false, err
-	}
-	// Any subnetId starting with "noalloc-" will cause this to return
-	// false, so it can be used in tests.
-	if strings.HasPrefix(string(subnetId), "noalloc-") {
-		return false, nil
-	}
-	return true, nil
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled("dummy") {
-		// Any instId starting with "i-alloc-" when the feature flag is off will
-		// still work, in order to be able to test MAAS 1.8+ environment where
-		// we can use devices for containers.
-		if !strings.HasPrefix(string(instId), "i-alloc-") {
-			return errors.NotSupportedf("address allocation")
-		}
-		// Also, in this case we expect addr to be non-nil, but empty, so it can
-		// be used as an output argument (same as in provider/maas).
-		if addr == nil || addr.Value != "" {
-			return errors.NewNotValid(nil, "invalid address: nil or non-empty")
-		}
-	}
-
-	if err := env.checkBroken("AllocateAddress"); err != nil {
-		return err
-	}
-
-	estate, err := env.state()
-	if err != nil {
-		return err
-	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
-	estate.maxAddr++
-
-	if addr.Value == "" {
-		*addr = network.NewAddress(fmt.Sprintf("0.10.0.%v", estate.maxAddr))
-	}
-
-	estate.ops <- OpAllocateAddress{
-		Env:        env.name,
-		InstanceId: instId,
-		SubnetId:   subnetId,
-		Address:    *addr,
-		MACAddress: macAddress,
-		HostName:   hostname,
-	}
-	return nil
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled("dummy") {
-		return errors.NotSupportedf("address allocation")
-	}
-
-	if err := env.checkBroken("ReleaseAddress"); err != nil {
-		return err
-	}
-	estate, err := env.state()
-	if err != nil {
-		return err
-	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
-	estate.maxAddr--
-	estate.ops <- OpReleaseAddress{
-		Env:        env.name,
-		InstanceId: instId,
-		SubnetId:   subnetId,
-		Address:    addr,
-		MACAddress: macAddress,
-		HostName:   hostname,
-	}
-	return nil
-}
-
 // NetworkInterfaces implements Environ.NetworkInterfaces().
 func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
@@ -1265,25 +1158,6 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
 			),
 		}
-	}
-
-	if strings.HasPrefix(string(instId), "i-no-nics-") {
-		// Simulate no NICs on instances with id prefix "i-no-nics-".
-		info = info[:0]
-	} else if strings.HasPrefix(string(instId), "i-nic-no-subnet-") {
-		// Simulate a nic with no subnet on instances with id prefix
-		// "i-nic-no-subnet-"
-		info = []network.InterfaceInfo{{
-			DeviceIndex:   0,
-			ProviderId:    network.Id("dummy-eth0"),
-			InterfaceName: "eth0",
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			Disabled:      false,
-			NoAutoStart:   false,
-			ConfigType:    network.ConfigDHCP,
-		}}
-	} else if strings.HasPrefix(string(instId), "i-disabled-nic-") {
-		info = info[2:]
 	}
 
 	estate.ops <- OpNetworkInterfaces{
@@ -1347,14 +1221,10 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	allSubnets := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
-		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
 		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
-		CIDR:              "0.20.0.0/24",
-		ProviderId:        "dummy-public",
-		AllocatableIPLow:  net.ParseIP("0.20.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.20.0.255"),
+		CIDR:       "0.20.0.0/24",
+		ProviderId: "dummy-public",
 	}}
 
 	// Filter result by ids, if given.
@@ -1370,14 +1240,6 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	if len(subnetIds) == 0 {
 		result = append([]network.SubnetInfo{}, allSubnets...)
 	}
-
-	noSubnets := strings.HasPrefix(string(instId), "i-no-subnets")
-	noNICSubnets := strings.HasPrefix(string(instId), "i-nic-no-subnet-")
-	if noSubnets || noNICSubnets {
-		// Simulate no subnets available if the instance id has prefix
-		// "i-no-subnets-".
-		result = result[:0]
-	}
 	if len(result) == 0 {
 		// No results, so just return them now.
 		estate.ops <- OpSubnets{
@@ -1387,38 +1249,6 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 			Info:       result,
 		}
 		return result, nil
-	}
-
-	makeNoAlloc := func(info network.SubnetInfo) network.SubnetInfo {
-		// Remove the allocatable range and change the provider id
-		// prefix.
-		pid := string(info.ProviderId)
-		pid = strings.TrimPrefix(pid, "dummy-")
-		info.ProviderId = network.Id("noalloc-" + pid)
-		info.AllocatableIPLow = nil
-		info.AllocatableIPHigh = nil
-		return info
-	}
-	if strings.HasPrefix(string(instId), "i-no-alloc-") {
-		iid := strings.TrimPrefix(string(instId), "i-no-alloc-")
-		lastIdx := len(result) - 1
-		if strings.HasPrefix(iid, "all") {
-			// Simulate all subnets have no allocatable ranges set.
-			for i := range result {
-				result[i] = makeNoAlloc(result[i])
-			}
-		} else if idx, err := strconv.Atoi(iid); err == nil {
-			// Simulate only the subnet with index idx in the result
-			// have no allocatable range set.
-			if idx < 0 || idx > lastIdx {
-				err = errors.Errorf("index %d out of range; expected 0..%d", idx, lastIdx)
-				return nil, err
-			}
-			result[idx] = makeNoAlloc(result[idx])
-		} else {
-			err = errors.Errorf("invalid index %q; expected int", iid)
-			return nil, err
-		}
 	}
 
 	estate.ops <- OpSubnets{

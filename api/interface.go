@@ -12,7 +12,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
@@ -213,7 +212,6 @@ type Connection interface {
 	Firewaller() *firewaller.State
 	Upgrader() *upgrader.State
 	Reboot() (reboot.State, error)
-	Addresser() *addresser.API
 	DiscoverSpaces() *discoverspaces.API
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State

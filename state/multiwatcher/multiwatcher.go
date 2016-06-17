@@ -291,9 +291,8 @@ func (i *AnnotationInfo) EntityId() EntityId {
 type MachineJob string
 
 const (
-	JobHostUnits        MachineJob = "JobHostUnits"
-	JobManageModel      MachineJob = "JobManageModel"
-	JobManageNetworking MachineJob = "JobManageNetworking"
+	JobHostUnits   MachineJob = "JobHostUnits"
+	JobManageModel MachineJob = "JobManageModel"
 )
 
 // NeedsState returns true if the job requires a state connection.

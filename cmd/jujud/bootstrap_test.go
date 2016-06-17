@@ -288,7 +288,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		jobs = []multiwatcher.MachineJob{
 			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
-			multiwatcher.JobManageNetworking,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -475,7 +474,6 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageModel,
 		state.JobHostUnits,
-		state.JobManageNetworking,
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)

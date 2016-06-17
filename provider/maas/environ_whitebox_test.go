@@ -522,14 +522,6 @@ func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
-	env := suite.makeEnviron()
-	supported, err := env.SupportsAddressAllocation("")
-	c.Assert(err, gc.ErrorMatches, "legacy address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(supported, jc.IsFalse)
-}
-
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
 	env := suite.makeEnviron()
 	supported, err := env.SupportsSpaces()
@@ -729,20 +721,6 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	matches := errorRe.FindStringSubmatch(errorText)
 	c.Assert(matches, gc.HasLen, 3)
 	c.Assert(matches[1:], jc.SameContents, []string{"3", "6"})
-}
-
-func (suite *environSuite) TestAllocateAddress(c *gc.C) {
-	env := suite.makeEnviron()
-	err := env.AllocateAddress("", "", nil, "", "")
-	c.Assert(err, gc.ErrorMatches, "AllocateAddress not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (suite *environSuite) TestReleaseAddress(c *gc.C) {
-	env := suite.makeEnviron()
-	err := env.ReleaseAddress("", "", network.Address{}, "", "")
-	c.Assert(err, gc.ErrorMatches, "ReleaseAddress not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {

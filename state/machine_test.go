@@ -521,51 +521,6 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
-	err := s.machine.SetProvisioned("fake", "totally-fake", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr1, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr1.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr2, err := s.State.AddIPAddress(network.NewAddress("10.0.0.2"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr2.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr3, err := s.State.AddIPAddress(network.NewAddress("10.0.0.3"), "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr3.AllocateTo(s.machine0.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr4, err := s.State.AddIPAddress(network.NewAddress("10.0.0.4"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr4.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr4.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = addr1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr1.Life(), gc.Equals, state.Dead)
-	err = addr2.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr2.Life(), gc.Equals, state.Dead)
-	err = addr3.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr3.Life(), gc.Equals, state.Alive)
-	err = addr4.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr4.Life(), gc.Equals, state.Dead)
-}
-
 func (s *MachineSuite) TestHasVote(c *gc.C) {
 	c.Assert(s.machine.HasVote(), jc.IsFalse)
 
@@ -1527,31 +1482,11 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	// Create subnet and pick two addresses.
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.10",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ipAddr1, err := subnet.PickNewAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr1.SetState(state.AddressStateAllocated)
-	c.Assert(err, jc.ErrorIsNil)
-	ipAddr2, err := subnet.PickNewAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr2.SetState(state.AddressStateAllocated)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// When setting all addresses the subnet addresses have to be
 	// filtered out.
 	addresses := network.NewAddresses(
 		"127.0.0.1",
 		"8.8.8.8",
-		ipAddr1.Value(),
-		ipAddr2.Value(),
 	)
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1567,20 +1502,6 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	// Create subnet and pick two addresses.
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.10",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ipAddr, err := subnet.PickNewAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.SetState(state.AddressStateAllocated)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Create an LXC container inside the machine.
 	template := state.MachineTemplate{
 		Series: "quantal",
@@ -1590,13 +1511,13 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// When setting all addresses the subnet address has to accepted.
-	addresses := network.NewAddresses("127.0.0.1", ipAddr.Value())
+	addresses := network.NewAddresses("127.0.0.1")
 	err = container.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := network.NewAddresses(ipAddr.Value(), "127.0.0.1")
+	expectedAddresses := network.NewAddresses("127.0.0.1")
 	c.Assert(container.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
