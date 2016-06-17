@@ -22,6 +22,7 @@ class TestGetParser(unittest.TestCase):
         parser = pipdeps.get_parser("pipdeps.py")
         args = parser.parse_args(["-v", "install"])
         self.assertEqual("install", args.command)
+        self.assertEqual(pipdeps.REQUIREMENTS, args.requirements)
         self.assertEqual(True, args.verbose)
 
     def test_update_cloud_city(self):

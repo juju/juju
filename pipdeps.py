@@ -16,6 +16,8 @@ import utility
 
 BUCKET = "juju-pip-archives"
 PREFIX = "juju-ci-tools/"
+REQUIREMENTS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                            "requirements.txt")
 
 
 def s3_anon():
@@ -41,9 +43,7 @@ def run_pip_install(extra_args, verbose=False):
     cmd = ["pip"]
     if not verbose:
         cmd.append("-q")
-    requirements = os.path.join(os.path.realpath(os.path.dirname(__file__)),
-                                "requirements.txt")
-    cmd.extend(["install", "-r", requirements])
+    cmd.extend(["install", "-r", REQUIREMENTS])
     cmd.extend(extra_args)
     subprocess.check_call(cmd)
 
@@ -94,6 +94,9 @@ def get_parser(argv0):
     parser.add_argument(
         "--cloud-city", default="~/cloud-city", type=os.path.expanduser,
         help="Location of cloud-city repository for credentials.")
+    parser.add_argument(
+        "--requirements", default=REQUIREMENTS, type=os.path.expanduser,
+        help="Location requirements file to use.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("install", help="Download deps from S3 and install.")
     subparsers.add_parser(
