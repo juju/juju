@@ -168,3 +168,9 @@ func (env *environ) Destroy() error {
 
 	return destroyEnv(env)
 }
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return env.Destroy()
+}

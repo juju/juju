@@ -67,45 +67,6 @@ func getMAAS2Controller(maasServer, apiKey string) (gomaasapi.Controller, error)
 	})
 }
 
-func subnetToSpaceIds(spaces gomaasapi.MAASObject) (map[string]network.Id, error) {
-	spacesJson, err := spaces.CallGet("", nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	spacesArray, err := spacesJson.GetArray()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnetsMap := make(map[string]network.Id)
-	for _, spaceJson := range spacesArray {
-		spaceMap, err := spaceJson.GetMap()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		providerIdRaw, err := spaceMap["id"].GetFloat64()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		providerId := network.Id(fmt.Sprintf("%.0f", providerIdRaw))
-		subnetsArray, err := spaceMap["subnets"].GetArray()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, subnetJson := range subnetsArray {
-			subnetMap, err := subnetJson.GetMap()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subnet, err := subnetMap["cidr"].GetString()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subnetsMap[subnet] = providerId
-		}
-	}
-	return subnetsMap, nil
-}
-
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
 	return err
@@ -193,7 +154,8 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *maasEnviron) ControllerInstances() ([]instance.Id, error) {
+func (env *maasEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	// TODO(wallyworld) - tag instances with controller UUID so we can use that
 	return common.ProviderStateInstances(env, env.Storage())
 }
 
@@ -1984,6 +1946,12 @@ func (environ *maasEnviron) Destroy() error {
 		return errors.Trace(err)
 	}
 	return environ.Storage().RemoveAll()
+}
+
+// DestroyController implements the Environ interface.
+func (environ *maasEnviron) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return environ.Destroy()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

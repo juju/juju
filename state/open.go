@@ -145,7 +145,7 @@ func (p InitializeParams) Validate() error {
 		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
 	}
 	uuid := p.ControllerModelArgs.Config.UUID()
-	controllerUUID := p.ControllerModelArgs.Config.ControllerUUID()
+	controllerUUID := controller.Config(p.ControllerModelArgs.Config.AllAttrs()).ControllerUUID()
 	if uuid != controllerUUID {
 		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
 	}
@@ -225,7 +225,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	ops := []txn.Op{
 		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
@@ -235,19 +235,19 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud, args.CloudName),
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
 		},
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
-		txn.Op{
+		{
 			C:      controllersC,
 			Id:     hostedModelCountKey,
 			Assert: txn.DocMissing,

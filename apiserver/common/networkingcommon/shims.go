@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -94,10 +93,6 @@ type stateShim struct {
 
 func (s *stateShim) ModelConfig() (*config.Config, error) {
 	return s.st.ModelConfig()
-}
-
-func (s *stateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
 }
 
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {

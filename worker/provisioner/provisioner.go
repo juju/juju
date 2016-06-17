@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -143,11 +144,17 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the controller config.")
+	}
+
 	secureServerConnection := false
 	if info, ok := p.agentConfig.StateServingInfo(); ok {
 		secureServerConnection = info.CAPrivateKey != ""
 	}
 	task, err := NewProvisionerTask(
+		controller.Config(controllerCfg).ControllerUUID(),
 		machineTag,
 		harvestMode,
 		p.st,

@@ -204,8 +204,7 @@ type environProvider struct {
 	statePolicy            state.Policy
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
-	// We have one state for each prepared controller.
-	state map[string]*environState
+	state                  map[string]*environState
 }
 
 // environState represents the state of an environment.
@@ -234,6 +233,7 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name         string
+	modelUUID    string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
@@ -504,7 +504,7 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 func (e *environ) state() (*environState, error) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
-	state, ok := dummy.state[e.Config().ControllerUUID()]
+	state, ok := dummy.state[e.modelUUID]
 	if !ok {
 		return nil, errNotPrepared
 	}
@@ -518,12 +518,10 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := p.state[cfg.ControllerUUID()]; !ok {
-		return nil, errNotPrepared
-	}
 	env := &environ{
 		name:         ecfg.Name(),
 		ecfgUnlocked: ecfg,
+		modelUUID:    cfg.UUID(),
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -566,7 +564,11 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	envState, ok := p.state[args.Config.ControllerUUID()]
+	controllerUUID := controller.Config(args.Config.AllAttrs()).ControllerUUID()
+	if controllerUUID != args.Config.UUID() {
+		return nil, errors.Errorf("invalid bootstrap config, model UUID %v doesn't equal controller UUID %v", controllerUUID, args.Config.UUID())
+	}
+	envState, ok := p.state[controllerUUID]
 	if ok {
 		// BootstrapConfig is expected to return the same result given
 		// the same input. We assume that the args are the same for a
@@ -596,7 +598,7 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 		}
 	}
 	envState.bootstrapConfig = cfg
-	p.state[cfg.ControllerUUID()] = envState
+	p.state[controllerUUID] = envState
 	return cfg, nil
 }
 
@@ -777,7 +779,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
-func (e *environ) ControllerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -841,13 +843,19 @@ func (e *environ) Destroy() (res error) {
 	if !e.ecfg().controller() {
 		return nil
 	}
-	dummy.mu.Lock()
-	delete(dummy.state, estate.bootstrapConfig.ControllerUUID())
-	dummy.mu.Unlock()
-
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.destroy()
+	return nil
+}
+
+func (e *environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return err
+	}
+	dummy.mu.Lock()
+	delete(dummy.state, e.modelUUID)
+	dummy.mu.Unlock()
 	return nil
 }
 

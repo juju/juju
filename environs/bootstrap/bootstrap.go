@@ -46,6 +46,9 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
+	// ControllerUUID is the uuid of the controller to be bootstrapped.
+	ControllerUUID string
+
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the
 	// initial models' states.
@@ -137,6 +140,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
 	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	controllerUUID := controllerCfg.ControllerUUID()
+	if controllerUUID == "" {
+		return errors.Errorf("bootstrap configuration has no controller UUID")
+	}
 	if _, hasCACert := controllerCfg.CACert(); !hasCACert {
 		return errors.Errorf("model configuration has no ca-cert")
 	}
@@ -223,6 +230,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Infof("Starting new instance for initial controller")
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		ControllerUUID:       args.ControllerUUID,
 		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
 		BootstrapSeries:      args.BootstrapSeries,

@@ -120,6 +120,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerUUID:       coretesting.ModelTag.Id(),
 		BootstrapConstraints: checkCons,
 		ModelConstraints:     checkCons,
 		Placement:            checkPlacement,

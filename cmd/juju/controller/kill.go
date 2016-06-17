@@ -115,7 +115,6 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {

@@ -92,6 +92,9 @@ func NewRestoreCommandForTest(
 
 func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
 	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
-		return e, &restoreBootstrapParams{CloudName: cloud}, nil
+		return e, &restoreBootstrapParams{
+			ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+			CloudName:      cloud,
+		}, nil
 	}
 }

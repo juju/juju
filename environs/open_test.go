@@ -64,7 +64,9 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
+		ControllerUUID: controller.Config(cfg.AllAttrs()).ControllerUUID(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// New controller should have been added to collection.
@@ -76,11 +78,12 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
+	uuid := utils.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type":            "dummy",
 		"name":            "admin-model",
-		"controller-uuid": utils.MustNewUUID().String(),
-		"uuid":            utils.MustNewUUID().String(),
+		"controller-uuid": uuid,
+		"uuid":            uuid,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = environs.Prepare(ctx, store, environs.PrepareParams{
@@ -92,7 +95,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 
 	foundController, err := store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(foundController.ControllerUUID, gc.Equals, cfg.ControllerUUID())
+	c.Assert(foundController.ControllerUUID, gc.Not(gc.Equals), "")
 	c.Assert(foundController.CACert, gc.Not(gc.Equals), "")
 	foundModel, err := store.ModelByName("controller-name", "admin@local", "admin-model")
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,8 +125,9 @@ func (*OpenSuite) TestNew(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	e, err := environs.New(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = e.ControllerInstances("uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
-	c.Assert(e, gc.IsNil)
 }
 
 func (*OpenSuite) TestPrepare(c *gc.C) {
@@ -287,7 +291,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
-	_, err = e.ControllerInstances()
+	_, err = e.ControllerInstances("not-used")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

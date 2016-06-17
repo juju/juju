@@ -15,6 +15,9 @@ import (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
+	// ControllerUUID is the uuid of the controller to be bootstrapped.
+	ControllerUUID string
+
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the new
 	// environment's state.

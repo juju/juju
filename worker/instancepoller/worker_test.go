@@ -185,7 +185,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*apiinstancepoller.Machine, []in
 		apiMachine, err := s.api.Machine(names.NewMachineTag(m.Id()))
 		c.Assert(err, jc.ErrorIsNil)
 		machines = append(machines, apiMachine)
-		inst, _ := testing.AssertStartInstance(c, s.Environ, m.Id())
+		inst, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerUUID, m.Id())
 		insts = append(insts, inst)
 	}
 	// Associate the odd-numbered machines with an instance.

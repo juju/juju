@@ -133,6 +133,7 @@ func (c *restoreCommand) Init(args []string) error {
 }
 
 type restoreBootstrapParams struct {
+	ControllerUUID string
 	CloudName      string
 	CloudRegion    string
 	CredentialName string
@@ -163,12 +164,13 @@ func (c *restoreCommand) getEnviron(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	controllerUUID := controller.Config(cfg.AllAttrs()).ControllerUUID()
 
 	// We may have previous controller metadata. We need to update that so it
 	// will contain the new CA Cert and UUID required to connect to the newly
 	// bootstrapped controller API.
 	details := jujuclient.ControllerDetails{
-		ControllerUUID: cfg.ControllerUUID(),
+		ControllerUUID: controllerUUID,
 		CACert:         meta.CACert,
 	}
 	err = store.UpdateController(controllerName, details)
@@ -206,6 +208,7 @@ func (c *restoreCommand) getEnviron(
 	}
 	env, err := environs.New(cfg)
 	return env, &restoreBootstrapParams{
+		ControllerUUID: controllerUUID,
 		CloudName:      config.Cloud,
 		CloudRegion:    config.CloudRegion,
 		CredentialName: config.Credential,
@@ -220,7 +223,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instanceIds, err := env.ControllerInstances()
+	instanceIds, err := env.ControllerInstances(params.ControllerUUID)
 	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
@@ -256,6 +259,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		cred = &params.Credential
 	}
 	args := bootstrap.BootstrapParams{
+		ControllerUUID:      params.ControllerUUID,
 		Cloud:               *cloudParam,
 		CloudName:           params.CloudName,
 		CloudRegion:         params.CloudRegion,

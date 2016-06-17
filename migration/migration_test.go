@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -76,15 +75,13 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	model, err := s.State.Export()
 	c.Check(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ModelConfig()
-	c.Check(err, jc.ErrorIsNil)
-
 	// Update the config values in the exported model for different values for
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
 	// and name so we can import it nicely.
+	uuid := utils.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
 		"name": "new-model",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid,
 	})
 
 	bytes, err := description.Serialize(model)
@@ -96,8 +93,8 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 
 	dbConfig, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
-	attrs := dbConfig.AllAttrs()
-	c.Assert(attrs["controller-uuid"], gc.Equals, controllerConfig.UUID())
+	c.Assert(dbConfig.UUID(), gc.Equals, uuid)
+	c.Assert(dbConfig.Name(), gc.Equals, "new-model")
 }
 
 func (s *ImportSuite) TestUploadBinariesTools(c *gc.C) {
@@ -344,15 +341,6 @@ func (e *stateGetter) Model() (*state.Model, error) {
 
 func (s *stateGetter) ModelConfig() (*config.Config, error) {
 	return s.cfg, nil
-}
-
-func (s *stateGetter) ControllerConfig() (controller.Config, error) {
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: testing.ModelTag.Id(),
-		controller.CACertKey:         testing.CACert,
-		controller.CAPrivateKey:      testing.CAKey,
-		controller.ApiPort:           4321,
-	}, nil
 }
 
 func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {

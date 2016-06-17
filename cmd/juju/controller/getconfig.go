@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/controller"
 )
 
 func NewGetConfigCommand() cmd.Command {
@@ -61,7 +62,7 @@ func (c *getConfigCommand) Init(args []string) (err error) {
 
 type controllerAPI interface {
 	Close() error
-	ControllerConfig() (map[string]interface{}, error)
+	ControllerConfig() (controller.Config, error)
 }
 
 func (c *getConfigCommand) getAPI() (controllerAPI, error) {

@@ -136,7 +136,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"type":            "dummy",
 		"authorized-keys": s.st.controllerModel.cfg.AuthorizedKeys(),
 		"uuid":            uuid,
-		"controller-uuid": s.st.controllerModel.cfg.UUID(),
 		"agent-version":   jujuversion.Current.String(),
 		"bar":             "baz",
 		"controller":      false,

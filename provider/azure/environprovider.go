@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -98,7 +99,11 @@ func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config
 	if err != nil {
 		return nil, errors.Annotate(err, "opening model")
 	}
-	return env.initResourceGroup()
+	controllerUUID := controller.Config(cfg.AllAttrs()).ControllerUUID()
+	if controllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
+	return env.initResourceGroup(controllerUUID)
 }
 
 // BootstrapConfig is specified in the EnvironProvider interface.

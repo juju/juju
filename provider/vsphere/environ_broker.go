@@ -140,14 +140,15 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
 		}
 		spec := &instanceSpec{
-			machineID: machineID,
-			zone:      availZone,
-			hwc:       hwc,
-			img:       img,
-			userData:  userData,
-			sshKey:    args.InstanceConfig.AuthorizedKeys,
-			isState:   isController(args.InstanceConfig),
-			apiPort:   apiPort,
+			machineID:      machineID,
+			zone:           availZone,
+			hwc:            hwc,
+			img:            img,
+			userData:       userData,
+			sshKey:         args.InstanceConfig.AuthorizedKeys,
+			isController:   isController(args.InstanceConfig),
+			controllerUUID: args.ControllerUUID,
+			apiPort:        apiPort,
 		}
 		inst, err = env.client.CreateInstance(env.ecfg, spec)
 		if err != nil {

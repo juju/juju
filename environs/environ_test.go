@@ -24,6 +24,5 @@ func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.Config().UUID(), jc.DeepEquals, config.UUID())
-	c.Check(env.Config().ControllerUUID(), jc.DeepEquals, config.ControllerUUID())
 	c.Check(env, gc.Not(gc.Equals), s.Environ)
 }

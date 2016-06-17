@@ -103,6 +103,11 @@ type AgentEntity interface {
 type ModelAccessor interface {
 	WatchForModelConfigChanges() NotifyWatcher
 	ModelConfig() (*config.Config, error)
+}
+
+// ControllerAccessor defines the methods needed to
+// access controller information.
+type ControllerAccessor interface {
 	ControllerConfig() (controller.Config, error)
 }
 

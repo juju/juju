@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -15,6 +16,7 @@ type provisionerState interface {
 	state.EntityFinder
 	state.ModelAccessor
 
+	ControllerConfig() (controller.Config, error)
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 

@@ -18,25 +18,10 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
-
-// FakeStateInfo holds information about no state - it will always
-// give an error when connected to.  The machine id gives the machine id
-// of the machine to be started.
-func FakeStateInfo(machineId string) *mongo.MongoInfo {
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{"0.1.2.3:17777"},
-			CACert: testing.CACert,
-		},
-		Tag:      names.NewMachineTag(machineId),
-		Password: "unimportant",
-	}
-}
 
 // FakeAPIInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
@@ -72,11 +57,11 @@ func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.
 // AssertStartInstance is a test helper function that starts an instance with a
 // plausible but invalid configuration, and checks that it succeeds.
 func AssertStartInstance(
-	c *gc.C, env environs.Environ, machineId string,
+	c *gc.C, env environs.Environ, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstance(env, machineId)
+	inst, hc, _, err := StartInstance(env, controllerUUID, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -84,22 +69,22 @@ func AssertStartInstance(
 // StartInstance is a test helper function that starts an instance with a plausible
 // but invalid configuration, and returns the result of Environ.StartInstance.
 func StartInstance(
-	env environs.Environ, machineId string,
+	env environs.Environ, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
+	return StartInstanceWithConstraints(env, controllerUUID, machineId, constraints.Value{})
 }
 
 // AssertStartInstanceWithConstraints is a test helper function that starts an instance
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func AssertStartInstanceWithConstraints(
-	c *gc.C, env environs.Environ, machineId string, cons constraints.Value,
+	c *gc.C, env environs.Environ, controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstanceWithConstraints(env, machineId, cons)
+	inst, hc, _, err := StartInstanceWithConstraints(env, controllerUUID, machineId, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -108,11 +93,11 @@ func AssertStartInstanceWithConstraints(
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func StartInstanceWithConstraints(
-	env environs.Environ, machineId string, cons constraints.Value,
+	env environs.Environ, controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	params := environs.StartInstanceParams{Constraints: cons}
+	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons}
 	result, err := StartInstanceWithParams(env, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -130,6 +115,9 @@ func StartInstanceWithParams(
 ) (
 	*environs.StartInstanceResult, error,
 ) {
+	if params.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID in start instance parameters")
+	}
 	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
@@ -173,7 +161,7 @@ func StartInstanceWithParams(
 		return nil, errors.Trace(err)
 	}
 	cfg := env.Config()
-	instanceConfig.Tags = instancecfg.InstanceTags(cfg.UUID(), cfg.ControllerUUID(), cfg, nil)
+	instanceConfig.Tags = instancecfg.InstanceTags(params.ControllerUUID, params.ControllerUUID, cfg, nil)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
 	return env.StartInstance(params)
