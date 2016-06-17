@@ -379,6 +379,30 @@ func (s *ModelSerializationSuite) TestModelValidationChecksAddressValueInvalid(c
 	c.Assert(err, gc.ErrorMatches, `ip address has invalid value "foobar"`)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetEmpty(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{MachineID: "42", DeviceName: "foo", Value: "192.168.1.1"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has empty subnet cidr`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetInvalid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{
+		MachineID:  "42",
+		DeviceName: "foo",
+		Value:      "192.168.1.1",
+		SubnetCIDR: "foo",
+	}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has invalid subnet cidr "foo"`)
+}
 func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachineId(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
