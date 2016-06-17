@@ -482,8 +482,7 @@ func (m *model) machineMaps() (map[string]Machine, map[string]map[string]LinkLay
 		addMachinesToMap(machine, machineIDs)
 	}
 
-	// Build a map of all devices for each machine, in order to validate
-	// parents.
+	// Build a map of all devices for each machine.
 	machineDevices := make(map[string]map[string]LinkLayerDevice)
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
 		_, ok := machineDevices[device.MachineID()]
@@ -493,6 +492,13 @@ func (m *model) machineMaps() (map[string]Machine, map[string]map[string]LinkLay
 		machineDevices[device.MachineID()][device.Name()] = device
 	}
 	return machineIDs, machineDevices
+}
+
+func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
+	machineIDs[machine.Id()] = machine
+	for _, container := range machine.Containers() {
+		addMachinesToMap(container, machineIDs)
+	}
 }
 
 // validateAddresses makes sure that the machine and device  referenced by IP
@@ -525,13 +531,6 @@ func (m *model) validateAddresses() error {
 		}
 	}
 	return nil
-}
-
-func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
-	machineIDs[machine.Id()] = machine
-	for _, container := range machine.Containers() {
-		addMachinesToMap(container, machineIDs)
-	}
 }
 
 // validateLinkLayerDevices makes sure that any machines referenced by link

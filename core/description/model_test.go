@@ -343,6 +343,22 @@ func (s *ModelSerializationSuite) TestModelValidationChecksSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressMachineID(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddIPAddress(IPAddressArgs{Value: "192.168.1.0", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.0" references non-existent machine "42"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressDeviceName(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{Value: "192.168.1.0", MachineID: "42", DeviceName: "foo"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.0" references non-existent device "foo"`)
+}
+
 func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachineId(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
