@@ -5,6 +5,7 @@ from unittest import TestCase
 from azure_publish_tools import (
     BlobBlock,
     DELETE,
+    delete_files,
     get_option_parser,
     get_local_files,
     get_local_sync_files,
@@ -140,11 +141,11 @@ class FakeBlobService:
         self.containers = {JUJU_DIST: blobs}
 
     def list_blobs(self, container_name, prefix=None, marker=None,
-                   maxresults=None, include=None, delimiter=None):
+                   timeout=None, include=None, delimiter=None):
         if marker is not None:
             raise NotImplementedError('marker not implemented.')
-        if maxresults is not None:
-            raise NotImplementedError('maxresults not implemented.')
+        if timeout is not None:
+            raise NotImplementedError('timeout not implemented.')
         if include != Include.METADATA:
             raise NotImplementedError('include must be "Include.METADATA".')
         if delimiter is not None:
@@ -161,6 +162,9 @@ class FakeBlobService:
     def put_block_list(self, container_name, blob_name, block_list,
                        content_settings=None):
         pass
+
+    def delete_blob(self, container_name, blob_name):
+        del self.containers[container_name][blob_name]
 
 
 class TestGetPublishedFiles(QuietTestCase):
@@ -452,3 +456,35 @@ class TestGetLocalSyncFiles(TestCase):
             os.symlink('foo', foo_path)
             result = get_local_sync_files('bools', local_dir)
             self.assertEqual([], result)
+
+
+class TestDeleteFiles(TestCase):
+
+    def test_delete_files(self):
+        args = Namespace(verbose=False, dry_run=False)
+        file1 = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        file2 = SyncFile(
+            'other.json', 33, 'md5-asdf', 'application/json', '')
+        blob_service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(file1),
+            'tools/other.json': FakeBlob.from_sync_file(file2)
+            })
+        delete_files(blob_service, 'released', ['index.json'], args)
+        self.assertIsNone(
+            blob_service.containers[JUJU_DIST].get('tools/index.json'))
+        self.assertEqual(
+            file2.path,
+            blob_service.containers[JUJU_DIST]['tools/other.json'].name)
+
+    def test_delete_files_dry_run(self):
+        args = Namespace(verbose=False, dry_run=True)
+        file1 = SyncFile(
+            'index.json', 33, 'md5-asdf', 'application/json', '')
+        blob_service = FakeBlobService({
+            'tools/index.json': FakeBlob.from_sync_file(file1),
+            })
+        delete_files(blob_service, 'released', ['index.json'], args)
+        self.assertEqual(
+            file1.path,
+            blob_service.containers[JUJU_DIST]['tools/index.json'].name)
