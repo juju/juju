@@ -265,7 +265,7 @@ class NetworkInterfaceParser(object):
         return Stanza(stanza_line.strip(), stanza_options)
 
     def stanzas(self):
-        return [x for x in self._stanzas if not x.is_source]
+        return [x for x in self._stanzas]
 
     def physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}
@@ -334,9 +334,11 @@ def print_stanza(s, stream=sys.stdout):
         print("   ", o, file=stream)
 
 
-def print_stanzas(stanzas, stream=sys.stdout):
+def print_stanzas(stanzas, stream=sys.stdout, keep_source_stanzas=True):
     n = len(stanzas)
     for i, stanza in enumerate(stanzas):
+        if not keep_source_stanzas and stanza.is_source:
+            continue
         print_stanza(stanza, stream)
         if stanza.is_logical_interface and i + 1 < n:
             print(file=stream)
@@ -376,6 +378,7 @@ def arg_parser():
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interface-to-bridge', help="interface to bridge", type=str, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
+    parser.add_argument('--keep-source-stanzas', help='keep any "source" and "source-dir" lines in the new configuration', action='store_true', default=False, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -417,7 +420,7 @@ def main(args):
             stanzas.append(s)
 
     if not args.activate:
-        print_stanzas(stanzas)
+        print_stanzas(stanzas, sys.stdout, args.keep_source_stanzas)
         exit(0)
 
     print("**** Original configuration")
@@ -436,7 +439,7 @@ def main(args):
             shutil.copy2(args.filename, backup_file)
 
     with open(args.filename, 'w') as f:
-        print_stanzas(stanzas, f)
+        print_stanzas(stanzas, f, args.keep_source_stanzas)
         f.close()
 
     print("**** New configuration")
