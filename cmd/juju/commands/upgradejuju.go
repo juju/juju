@@ -18,11 +18,9 @@ import (
 	"github.com/juju/version"
 	"launchpad.net/gnuflag"
 
-	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	coretools "github.com/juju/juju/tools"
@@ -174,29 +172,8 @@ type upgradeJujuAPI interface {
 	Close() error
 }
 
-type controllerAPI interface {
-	ControllerConfig() (controller.Config, error)
-	Close() error
-}
-
 var getUpgradeJujuAPI = func(c *upgradeJujuCommand) (upgradeJujuAPI, error) {
 	return c.NewAPIClient()
-}
-
-var getControllerAPI = func(c *upgradeJujuCommand) (controllerAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apicontroller.NewClient(root), nil
-}
-
-func (c *upgradeJujuCommand) NewControllerAPIClient() (*apicontroller.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apicontroller.NewClient(root), nil
 }
 
 // Run changes the version proposed for the juju envtools.
@@ -207,12 +184,6 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	defer client.Close()
-	controllerClient, err := getControllerAPI(c)
-	if err != nil {
-		return err
-	}
-	defer controllerClient.Close()
-
 	defer func() {
 		if err == errUpToDate {
 			ctx.Infof(err.Error())
@@ -229,12 +200,12 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	controllerCfg, err := controllerClient.ControllerConfig()
+
+	controller, err := c.ClientStore().ControllerByName(c.ControllerName())
 	if err != nil {
 		return err
 	}
-
-	if c.UploadTools && (cfg.UUID() != controllerCfg.ControllerUUID()) {
+	if c.UploadTools && (cfg.UUID() != controller.ControllerUUID) {
 		// For UploadTools, model must be the "controller" model,
 		// that is, modelUUID == controllerUUID
 		return errors.Errorf("--upload-tools can only be used with the controller model")

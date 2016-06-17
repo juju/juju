@@ -154,7 +154,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
-func (env *environ) destroy(allResources bool) error {
+func (env *environ) Destroy() error {
 	ports, err := env.Ports()
 	if err != nil {
 		return errors.Trace(err)
@@ -164,31 +164,21 @@ func (env *environ) destroy(allResources bool) error {
 			return errors.Trace(err)
 		}
 	}
-	if allResources {
-		// This is the controller model, so we'll make sure
-		// there are no resources for hosted models remaining.
-		if err := env.destroyHostedModelResources(); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-// Destroy shuts down all known machines and destroys the rest of the
-// known environment.
-func (env *environ) Destroy() error {
-	return env.destroy(false)
-}
-
 // DestroyController implements the Environ interface.
 func (env *environ) DestroyController(controllerUUID string) error {
-	return env.destroy(true)
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	return env.destroyHostedModelResources(controllerUUID)
 }
 
-func (env *environ) destroyHostedModelResources() error {
+func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	// Destroy all instances where juju-controller-uuid,
 	// but not juju-model-uuid, matches env.uuid.
 	prefix := env.namespace.Prefix()
@@ -203,7 +193,7 @@ func (env *environ) destroyHostedModelResources() error {
 		if metadata[tags.JujuModel] == env.uuid {
 			continue
 		}
-		if metadata[tags.JujuController] != env.uuid {
+		if metadata[tags.JujuController] != controllerUUID {
 			continue
 		}
 		names = append(names, string(inst.Id()))

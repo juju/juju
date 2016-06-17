@@ -261,14 +261,17 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 // its associated configuration data from the given store.
 func Destroy(
 	controllerName string,
-	controllerUUID string,
 	env Environ,
-	store jujuclient.ControllerRemover,
+	store jujuclient.ControllerStore,
 ) error {
-	if err := env.DestroyController(controllerUUID); err != nil {
+	details, err := store.ControllerByName(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	err := store.RemoveController(controllerName)
+	if err := env.DestroyController(details.ControllerUUID); err != nil {
+		return errors.Trace(err)
+	}
+	err = store.RemoveController(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

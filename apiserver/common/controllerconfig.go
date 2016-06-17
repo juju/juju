@@ -11,17 +11,13 @@ import (
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
-	st         state.ControllerAccessor
-	resources  *Resources
-	authorizer Authorizer
+	st state.ControllerAccessor
 }
 
 // NewControllerConfig returns a new NewControllerConfigAPI.
-func NewControllerConfig(st state.ControllerAccessor, resources *Resources, authorizer Authorizer) *ControllerConfigAPI {
+func NewControllerConfig(st state.ControllerAccessor) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
-		st:         st,
-		resources:  resources,
-		authorizer: authorizer,
+		st: st,
 	}
 }
 

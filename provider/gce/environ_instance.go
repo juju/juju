@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -103,8 +104,11 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 	var results []instance.Id
 	for _, inst := range instances {
 		metadata := inst.Metadata()
-		isState, ok := metadata[metadataKeyIsState]
-		if ok && isState == metadataValueTrue {
+		if uuid, ok := metadata[tags.JujuController]; !ok || uuid != controllerUUID {
+			continue
+		}
+		isController, ok := metadata[tags.JujuIsController]
+		if ok && isController == "true" {
 			results = append(results, instance.Id(inst.ID))
 		}
 	}

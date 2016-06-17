@@ -281,14 +281,14 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 
 func (s *localServerSuite) TestBootstrap(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.ControllerUUID, s.env, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestBootstrap(c)
 }
 
 func (s *localServerSuite) TestStartStop(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.ControllerUUID, s.env, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestStartStop(c)
 }
@@ -306,7 +306,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.ControllerUUID, s.env, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a config that matches s.TestConfig but with use-floating-ip set to true
@@ -412,7 +412,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.ControllerUUID, s.env, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := s.TestConfig.Merge(coretesting.Attrs{"use-floating-ip": false})
@@ -443,7 +443,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
-	err := environs.Destroy(s.env.Config().Name(), s.ControllerUUID, s.env, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := s.Prepare(c)

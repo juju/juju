@@ -506,7 +506,7 @@ to clean up the model.`[1:])
 			} else {
 				handleBootstrapError(ctx, resultErr, func() error {
 					return environsDestroy(
-						c.controllerName, controllerUUID.String(), environ, store,
+						c.controllerName, environ, store,
 					)
 				})
 			}

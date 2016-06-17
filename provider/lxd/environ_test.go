@@ -155,8 +155,8 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Ports", []interface{}{fwname}},
+		{"Destroy", nil},
 		{"Instances", []interface{}{prefix, lxdclient.AliveStatuses}},
 		{"RemoveInstances", []interface{}{prefix, []string{machine1.Name}}},
-		{"Destroy", nil},
 	})
 }

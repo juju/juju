@@ -8,10 +8,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
@@ -49,14 +47,8 @@ func (s *controllerConfigSuite) TearDownTest(c *gc.C) {
 }
 
 func (*controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
-	}
 	cc := common.NewControllerConfig(
 		&fakeControllerAccessor{},
-		nil,
-		authorizer,
 	)
 	result, err := cc.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,16 +62,10 @@ func (*controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 }
 
 func (*controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:            names.NewMachineTag("0"),
-		EnvironManager: true,
-	}
 	cc := common.NewControllerConfig(
 		&fakeControllerAccessor{
 			controllerConfigError: fmt.Errorf("pow"),
 		},
-		nil,
-		authorizer,
 	)
 	_, err := cc.ControllerConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")

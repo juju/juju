@@ -79,8 +79,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	prefix := env.namespace.Prefix()
-	instances, err := env.client.Instances(prefix)
+	instances, err := env.client.Instances("juju-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,7 +89,10 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 		metadata := inst.Config.ExtraConfig
 		for _, item := range metadata {
 			value := item.GetOptionValue()
-			if value.Key == metadataKeyIsState && value.Value == metadataValueIsState {
+			if value.Key == metadataKeyControllerUUID && value.Value != controllerUUID {
+				continue
+			}
+			if value.Key == metadataKeyIsController && value.Value == metadataValueIsController {
 				results = append(results, instance.Id(inst.Name))
 				break
 			}

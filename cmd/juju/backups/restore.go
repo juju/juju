@@ -53,7 +53,7 @@ type restoreCommand struct {
 	uploadTools bool
 
 	newAPIClientFunc func() (RestoreAPI, error)
-	getEnvironFunc   func(string, *params.BackupsMetadataResult) (string, environs.Environ, *restoreBootstrapParams, error)
+	getEnvironFunc   func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error)
 	getArchiveFunc   func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
 	waitForAgentFunc func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName string) error
 }
@@ -133,6 +133,7 @@ func (c *restoreCommand) Init(args []string) error {
 }
 
 type restoreBootstrapParams struct {
+	ControllerUUID string
 	CloudName      string
 	CloudRegion    string
 	CredentialName string
@@ -143,7 +144,7 @@ type restoreBootstrapParams struct {
 // mocked out environ for testing.
 func (c *restoreCommand) getEnviron(
 	controllerName string, meta *params.BackupsMetadataResult,
-) (string, environs.Environ, *restoreBootstrapParams, error) {
+) (environs.Environ, *restoreBootstrapParams, error) {
 	// TODO(axw) delete this and -b in 2.0-beta2. We will update bootstrap
 	// with a flag to specify a restore file. When we do that, we'll need
 	// to extract the CA cert from the backup, and we'll need to reset the
@@ -153,15 +154,15 @@ func (c *restoreCommand) getEnviron(
 	store := c.ClientStore()
 	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	provider, err := environs.Provider(params.Config.Type())
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	cfg, err := provider.BootstrapConfig(*params)
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	controllerUUID := controller.Config(cfg.AllAttrs()).ControllerUUID()
 
@@ -174,7 +175,7 @@ func (c *restoreCommand) getEnviron(
 	}
 	err = store.UpdateController(controllerName, details)
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Get the local admin user so we can use the password as the admin secret.
@@ -186,11 +187,11 @@ func (c *restoreCommand) getEnviron(
 		// No relevant local admin user so generate a new secret.
 		buf := make([]byte, 16)
 		if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-			return "", nil, nil, errors.Annotate(err, "generating new admin secret")
+			return nil, nil, errors.Annotate(err, "generating new admin secret")
 		}
 		adminSecret = fmt.Sprintf("%x", buf)
 	} else {
-		return "", nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Turn on safe mode so that the newly bootstrapped instance
@@ -203,10 +204,11 @@ func (c *restoreCommand) getEnviron(
 		"ca-cert":               meta.CACert,
 	})
 	if err != nil {
-		return "", nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
+		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
-	return controllerUUID, env, &restoreBootstrapParams{
+	return env, &restoreBootstrapParams{
+		ControllerUUID: controllerUUID,
 		CloudName:      config.Cloud,
 		CloudRegion:    config.CloudRegion,
 		CredentialName: config.Credential,
@@ -217,11 +219,11 @@ func (c *restoreCommand) getEnviron(
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetadataResult) error {
-	controllerUUID, env, params, err := c.getEnvironFunc(c.ControllerName(), meta)
+	env, params, err := c.getEnvironFunc(c.ControllerName(), meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	instanceIds, err := env.ControllerInstances(controllerUUID)
+	instanceIds, err := env.ControllerInstances(params.ControllerUUID)
 	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
@@ -257,7 +259,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		cred = &params.Credential
 	}
 	args := bootstrap.BootstrapParams{
-		ControllerUUID:      controllerUUID,
+		ControllerUUID:      params.ControllerUUID,
 		Cloud:               *cloudParam,
 		CloudName:           params.CloudName,
 		CloudRegion:         params.CloudRegion,

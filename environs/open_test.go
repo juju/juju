@@ -286,7 +286,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy("controller-name", testing.ModelTag.Id(), e, store)
+	err = environs.Destroy("controller-name", e, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed

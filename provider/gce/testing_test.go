@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -147,10 +148,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.UbuntuMetadata = map[string]string{
-		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: string(userData),
-		metadataKeyEncoding:  "base64",
-		metadataKeySSHKeys:   authKeys,
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID(),
+		metadataKeyCloudInit:  string(userData),
+		metadataKeyEncoding:   "base64",
+		metadataKeySSHKeys:    authKeys,
+	}
+	instanceConfig.Tags = map[string]string{
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID(),
 	}
 	s.WindowsMetadata = map[string]string{
 		metadataKeyWindowsUserdata: string(userData),
@@ -167,6 +173,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID(),
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,

@@ -74,7 +74,7 @@ func NewControllerAPI(
 	}
 
 	return &ControllerAPI{
-		ControllerConfigAPI: common.NewControllerConfig(st, resources, authorizer),
+		ControllerConfigAPI: common.NewControllerConfig(st),
 		state:               st,
 		authorizer:          authorizer,
 		apiUser:             apiUser,

@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	metadataKeyIsState   = "juju_is_state_key"
-	metadataValueIsState = "juju_is_value_value"
+	metadataKeyIsController     = "juju_is_controller_key"
+	metadataValueIsController   = "juju_is_controller_value"
+	metadataKeyControllerUUID   = "juju_controller_uuid_key"
+	metadataValueControllerUUID = "juju_controller_uuid_value"
 )
 
 type client struct {
@@ -68,14 +70,15 @@ var newConnection = func(url *url.URL) (*govmomi.Client, error) {
 }
 
 type instanceSpec struct {
-	machineID string
-	zone      *vmwareAvailZone
-	hwc       *instance.HardwareCharacteristics
-	img       *OvaFileMetadata
-	userData  []byte
-	sshKey    string
-	isState   bool
-	apiPort   int
+	machineID      string
+	zone           *vmwareAvailZone
+	hwc            *instance.HardwareCharacteristics
+	img            *OvaFileMetadata
+	userData       []byte
+	sshKey         string
+	isController   bool
+	controllerUUID string
+	apiPort        int
 }
 
 // CreateInstance create new vm in vsphere and run it

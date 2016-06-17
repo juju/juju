@@ -206,7 +206,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
 	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2.Config().Name(), t.ControllerUUID, e2, t.ControllerStore)
+	err = environs.Destroy(e2.Config().Name(), e2, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
@@ -215,6 +215,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy(e3.Config().Name(), t.ControllerUUID, e3, t.ControllerStore)
+	err = environs.Destroy(e3.Config().Name(), e3, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 }

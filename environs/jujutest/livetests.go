@@ -212,7 +212,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 	if t.Env == nil {
 		return
 	}
-	err := environs.Destroy(t.Env.Config().Name(), t.ControllerUUID, t.Env, t.ControllerStore)
+	err := environs.Destroy(t.Env.Config().Name(), t.Env, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
@@ -816,7 +816,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)
-	defer environs.Destroy("livetests", t.ControllerUUID, env, t.ControllerStore)
+	defer environs.Destroy("livetests", env, t.ControllerStore)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)

@@ -521,9 +521,8 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 // bootstrap will stop immediately. Nothing will be destroyed.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(name, uuid string, _ environs.Environ, _ jujuclient.ControllerRemover) error {
+	s.PatchValue(&environsDestroy, func(name string, _ environs.Environ, _ jujuclient.ControllerStore) error {
 		c.Assert(name, gc.Equals, "decontroller")
-		c.Assert(uuid, gc.Not(gc.Equals), "")
 		destroyed = true
 		return nil
 	})

@@ -223,11 +223,6 @@ type Environ interface {
 	// very recently started instances may not be destroyed
 	// because they are not yet visible.
 	//
-	// If the Environ represents the controller model, then this
-	// method should also destroy any resources relating to hosted
-	// models. This ensures that "kill-controller" can clean up
-	// hosted models when the Juju controller process is unavailable.
-	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid.
 	Destroy() error
@@ -235,7 +230,7 @@ type Environ interface {
 	// DestroyController is similar to Destroy() in that it destroys
 	// the model, which in this case will be the controller model.
 	//
-	// In addition, this method also destroy any resources relating
+	// In addition, this method also destroys any resources relating
 	// to hosted models on the controller on which it is invoked.
 	// This ensures that "kill-controller" can clean up hosted models
 	// when the Juju controller process is unavailable.

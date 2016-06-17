@@ -129,7 +129,6 @@ func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance
 
 	filter := cloudapi.NewFilter()
 	filter.Set(tagKey("group"), "juju")
-	filter.Set(tagKey("model"), environs.ControllerModelName)
 	filter.Set(tagKey(tags.JujuModel), controllerUUID)
 	filter.Set(tagKey(tags.JujuIsController), "true")
 
@@ -155,6 +154,7 @@ func (env *joyentEnviron) Destroy() error {
 
 // DestroyController implements the Environ interface.
 func (env *joyentEnviron) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
 	return env.Destroy()
 }
 
