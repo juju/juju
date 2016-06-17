@@ -113,3 +113,27 @@ type MinionReport struct {
 	Phase       string `json:"phase"`
 	Success     bool   `json:"success"`
 }
+
+// MinionReports holds the details of whether a migration minion
+// succeeded or failed for a specific migration phase.
+type MinionReports struct {
+	MigrationId string `json:"migration-id"`
+	Phase       string `json:"phase"`
+
+	// SuccessCount holds the number of agents which have successfully
+	// completed a given migration phase.
+	SuccessCount int `json:"success-count"`
+
+	// UnknownCount holds the number of agents still to report for a
+	// given migration phase.
+	UnknownCount int `json:"unknown-count"`
+
+	// UnknownSample holds the tags of a limited number of agents
+	// that are still to report for a given migration phase (for
+	// logging or showing in a user interface).
+	UnknownSample []string `json:"unknown-sample"`
+
+	// Failed contains the tags of all agents which have reported a
+	// failed to complete a given migration phase.
+	Failed []string `json:"failed"`
+}
