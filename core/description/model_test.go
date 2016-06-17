@@ -386,7 +386,7 @@ func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetEmpty(c 
 	s.addMachineToModel(model, "42")
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
 	err := model.Validate()
-	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has empty subnet cidr`)
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has empty subnet CIDR`)
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetInvalid(c *gc.C) {
@@ -401,7 +401,7 @@ func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetInvalid(
 	s.addMachineToModel(model, "42")
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
 	err := model.Validate()
-	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has invalid subnet cidr "foo"`)
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has invalid subnet CIDR "foo"`)
 }
 
 func (s *ModelSerializationSuite) TestModelValidationChecksAddressSucceeds(c *gc.C) {
@@ -442,7 +442,7 @@ func (s *ModelSerializationSuite) TestModelValidationChecksAddressGatewayAddress
 		DeviceName:     "foo",
 		Value:          "192.168.1.2",
 		SubnetCIDR:     "192.168.1.0/24",
-		GatewayAddress: "192.68.1.1",
+		GatewayAddress: "192.168.1.1",
 	}
 	model.AddIPAddress(args)
 	s.addMachineToModel(model, "42")

@@ -501,7 +501,7 @@ func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
 	}
 }
 
-// validateAddresses makes sure that the machine and device  referenced by IP
+// validateAddresses makes sure that the machine and device referenced by IP
 // addresses exist.
 func (m *model) validateAddresses() error {
 	machineIDs, machineDevices := m.machineMaps()
@@ -518,10 +518,10 @@ func (m *model) validateAddresses() error {
 			return errors.Errorf("ip address has invalid value %q", addr.Value())
 		}
 		if addr.SubnetCIDR() == "" {
-			return errors.Errorf("ip address %q has empty subnet cidr", addr.Value())
+			return errors.Errorf("ip address %q has empty subnet CIDR", addr.Value())
 		}
 		if _, _, err := net.ParseCIDR(addr.SubnetCIDR()); err != nil {
-			return errors.Errorf("ip address %q has invalid subnet cidr %q", addr.Value(), addr.SubnetCIDR())
+			return errors.Errorf("ip address %q has invalid subnet CIDR %q", addr.Value(), addr.SubnetCIDR())
 		}
 
 		if addr.GatewayAddress() != "" {
