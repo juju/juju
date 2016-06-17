@@ -48,6 +48,15 @@ j=json.load(sys.stdin)
 print ("\n".join(j.get("applications", {}).keys()))' < ${1}
 }
 
+# Print (return) all actions IDS
+_juju_2_0_actions_from_action_status_file() {
+[ -n "${1}" ] || return 0
+${_juju_cmd_PYTHON?} -c '
+import json, sys
+sys.stderr.close()
+print ("\n".join([x["id"] for x in json.load(sys.stdin).get("actions", {})]))' < ${1}
+}
+
 # Print (return) both applications and units, currently used for juju status completion
 _juju_2_0_applications_and_units_from_status_file() {
     _juju_2_0_applications_from_status_file "$@"
@@ -152,6 +161,7 @@ _juju_2_0_completion_func_for_cmd() {
         *\<service*)    echo _juju_2_0_applications_from_status_file;;
         *\<application*)    echo _juju_2_0_applications_from_status_file;;
         *\<machine*)    echo _juju_2_0_machines_from_status_file;;
+        *\<action*)    echo _juju_2_0_actions_from_action_status_file;;
         *pattern*|*application-or-unit*)  echo _juju_2_0_applications_and_units_from_status_file;; # e.g. status
         *\<controller*:*\<model*|*--model*) echo _juju_2_0_list_controllers_models_noflags;;
         *\<controller?name*) echo _juju_2_0_list_controllers_noflags;;
@@ -175,6 +185,12 @@ _get_current_model() {
   # echo "** comp=$(set|egrep ^COMP) ** model=${model} **">&2
   echo "$model"
 }
+# Generic command cache function: caches cmdline output, called as:
+# _juju_2_0_cache_cmd TTL ACTION cmd args ...
+#   TTL:    cache expiration in mins
+#   ACTION: what to do with cached filename:
+#           - cat (return content)
+#           - echo (return cache filename, think "pointer")
 _juju_2_0_cache_cmd() {
     local cache_ttl="${1:?missing TTL}" # TTL in mins
     local ret_action=${2:?missing what to return: "echo" or "cat"}
@@ -206,14 +222,20 @@ _juju_2_0_cache_cmd() {
     # use it:
     "${ret_action}" "${cache_file}"
 }
-# Print (return) filename from juju status cached output (if not expired),
-# create cache dirs if needed
-# - setups caching dir if non-existent
-# - caches juju status output, $cache_mins minutes max
+# Caches "juju status" output, print(return) cache filename
 _juju_2_0_get_status_filename() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
-    _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} echo ${_juju_cmd_JUJU_2_0?} status --model "${model}" --format json
+    _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} \
+      echo ${_juju_cmd_JUJU_2_0?} status --model "${model}" --format json
+    return $?
+}
+# Caches "juju show-action-status" output, print(return) cache filename
+_juju_2_0_get_action_status_filename() {
+    local model=$(_get_current_model)
+    local juju_status_file=${cache_dir}/juju-status-"${model}"
+    _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} \
+      echo ${_juju_cmd_JUJU_2_0?} show-action-status --model "${model}" --format json
     return $?
 }
 # Main completion function wrap:
@@ -232,6 +254,7 @@ _juju_2_0_complete_with_func() {
     # if func name ends with 'from_status_file', set juju_status_file
     juju_status_file=
     [[ ${func} =~ .*from_status_file ]] && juju_status_file=$(_juju_2_0_get_status_filename)
+    [[ ${func} =~ .*from_action_status_file ]] && juju_status_file=$(_juju_2_0_get_action_status_filename)
 
     # build COMPREPLY from passed function stdout, and _juju_2_0_flags_for $action
     # don't clutter with cmd flags for functions named *_noflags
