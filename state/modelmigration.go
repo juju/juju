@@ -727,7 +727,7 @@ func agentTagToGlobalKey(tag names.Tag) (string, error) {
 	case names.MachineTag:
 		return machineGlobalKey(t.Id()), nil
 	case names.UnitTag:
-		return unitGlobalKey(t.Id()), nil
+		return unitAgentGlobalKey(t.Id()), nil
 	default:
 		return "", errors.Errorf("%s is not an agent tag", tag)
 	}
