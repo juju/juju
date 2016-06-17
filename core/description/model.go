@@ -450,6 +450,11 @@ func (m *model) Validate() error {
 		return errors.Trace(err)
 	}
 
+	err = m.validateAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -471,23 +476,13 @@ func (m *model) validateSubnets() error {
 	return nil
 }
 
-func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
-	machineIDs[machine.Id()] = machine
-	for _, container := range machine.Containers() {
-		addMachinesToMap(container, machineIDs)
-	}
-}
-
-// validateLinkLayerDevices makes sure that any machines referenced by link
-// layer devices exist.
-func (m *model) validateLinkLayerDevices() error {
+func (m *model) machineMaps() (map[string]Machine, map[string]map[string]LinkLayerDevice) {
 	machineIDs := make(map[string]Machine)
 	for _, machine := range m.Machines_.Machines_ {
 		addMachinesToMap(machine, machineIDs)
 	}
 
-	// Build a map of all devices for each machine, in order to validate
-	// parents.
+	// Build a map of all devices for each machine.
 	machineDevices := make(map[string]map[string]LinkLayerDevice)
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
 		_, ok := machineDevices[device.MachineID()]
@@ -496,7 +491,52 @@ func (m *model) validateLinkLayerDevices() error {
 		}
 		machineDevices[device.MachineID()][device.Name()] = device
 	}
+	return machineIDs, machineDevices
+}
 
+func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
+	machineIDs[machine.Id()] = machine
+	for _, container := range machine.Containers() {
+		addMachinesToMap(container, machineIDs)
+	}
+}
+
+// validateAddresses makes sure that the machine and device referenced by IP
+// addresses exist.
+func (m *model) validateAddresses() error {
+	machineIDs, machineDevices := m.machineMaps()
+	for _, addr := range m.IPAddresses_.IPAddresses_ {
+		_, ok := machineIDs[addr.MachineID()]
+		if !ok {
+			return errors.Errorf("ip address %q references non-existent machine %q", addr.Value(), addr.MachineID())
+		}
+		_, ok = machineDevices[addr.MachineID()][addr.DeviceName()]
+		if !ok {
+			return errors.Errorf("ip address %q references non-existent device %q", addr.Value(), addr.DeviceName())
+		}
+		if ip := net.ParseIP(addr.Value()); ip == nil {
+			return errors.Errorf("ip address has invalid value %q", addr.Value())
+		}
+		if addr.SubnetCIDR() == "" {
+			return errors.Errorf("ip address %q has empty subnet CIDR", addr.Value())
+		}
+		if _, _, err := net.ParseCIDR(addr.SubnetCIDR()); err != nil {
+			return errors.Errorf("ip address %q has invalid subnet CIDR %q", addr.Value(), addr.SubnetCIDR())
+		}
+
+		if addr.GatewayAddress() != "" {
+			if ip := net.ParseIP(addr.GatewayAddress()); ip == nil {
+				return errors.Errorf("ip address %q has invalid gateway address %q", addr.Value(), addr.GatewayAddress())
+			}
+		}
+	}
+	return nil
+}
+
+// validateLinkLayerDevices makes sure that any machines referenced by link
+// layer devices exist.
+func (m *model) validateLinkLayerDevices() error {
+	machineIDs, machineDevices := m.machineMaps()
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
 		machine, ok := machineIDs[device.MachineID()]
 		if !ok {
