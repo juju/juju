@@ -503,7 +503,8 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
-		// workload uses globalKey, agent uses globalAgentKey, workload version uses globalWorkloadVersionKey.
+		// workload uses globalKey, agent uses globalAgentKey,
+		// workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
 		statusArgs, err := e.statusArgs(globalKey)
 		if err != nil {
