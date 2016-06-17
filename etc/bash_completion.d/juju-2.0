@@ -129,17 +129,13 @@ _juju_2_0_completion_func_for_cmd() {
         echo _juju_2_0_list_commands
         return 0
     fi
-    # parse 1st line of juju help <cmd>, to guess the completion function
+    # normally prev_word is just that ...
     local prev_word=${COMP_WORDS[cword-1]}
-    case ${prev_word} in
-        # special case for eg:
-        #   juju ssh -m myctrl:f<TAB>
-        # ->
-        #   COMP_WORDS[cword-1] is ':'      ($prev_word)
-        #   COMP_WORDS[cword-2] is 'myctrl'
-        #   COMP_WORDS[cword-3] is '-m'
-        :)  prev_word=${COMP_WORDS[cword-3]};;
-    esac
+    # special case for eg:
+    #   juju ssh -m myctrl:<TAB>  => COMP_WORDS[cword] is ':'
+    #   juju ssh -m myctrl:f<TAB> => COMP_WORDS[cword-1] is ':'
+    [[ ${COMP_WORDS[cword]}   == : ]] && prev_word=${COMP_WORDS[cword-2]}
+    [[ ${COMP_WORDS[cword-1]} == : ]] && prev_word=${COMP_WORDS[cword-3]}
     case "${prev_word}" in
         --model|-m) echo _juju_2_0_list_controllers_models_noflags; return 0;;
         --controller|-c) echo _juju_2_0_list_controllers_noflags; return 0;;
@@ -147,6 +143,7 @@ _juju_2_0_completion_func_for_cmd() {
         --unit) echo _juju_2_0_units_from_status_file; return 0;;
         --machine) echo _juju_2_0_machines_from_status_file; return 0;;
     esac
+    # parse 1st line of juju help <cmd>, to guess the completion function
     case $(${_juju_cmd_JUJU_2_0?} help ${action} 2>/dev/null| head -1) in
         # special case for ssh, scp:
         *bootstrap*) echo true ;;  # help ok, existing command, no more expansion
