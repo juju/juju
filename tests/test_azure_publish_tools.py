@@ -3,6 +3,7 @@ import os
 from unittest import TestCase
 
 from azure_publish_tools import (
+    BlobBlock,
     DELETE,
     get_option_parser,
     get_local_files,
@@ -42,13 +43,14 @@ class TestOptionParser(TestCase):
     def test_list(self):
         args = self.parse_args(['list', 'mypurpose'])
         self.assertEqual(Namespace(
-            command=LIST, purpose='mypurpose'), args)
+            command=LIST, purpose='mypurpose',
+            account_key=None, account_name=None), args)
 
     def test_publish(self):
         args = self.parse_args(['publish', 'mypurpose', 'mypath'])
         self.assertEqual(Namespace(
             command=PUBLISH, purpose='mypurpose', dry_run=False, verbose=False,
-            path='mypath'), args)
+            path='mypath', account_key=None, account_name=None), args)
 
     def test_publish_dry_run(self):
         args = self.parse_args(['publish', 'mypurpose', 'mypath', '--dry-run'])
@@ -66,7 +68,7 @@ class TestOptionParser(TestCase):
         args = self.parse_args(['delete', 'mypurpose', 'mypath'])
         self.assertEqual(Namespace(
             command=DELETE, purpose='mypurpose', dry_run=False, verbose=False,
-            path=['mypath']), args)
+            path=['mypath'], account_key=None, account_name=None), args)
 
     def test_delete_dry_run(self):
         args = self.parse_args(['delete', 'mypurpose', 'mypath', '--dry-run'])
@@ -84,7 +86,7 @@ class TestOptionParser(TestCase):
         args = self.parse_args(['sync', 'mypath', 'myprefix'])
         self.assertEqual(Namespace(
             command=SYNC, prefix='myprefix', dry_run=False, verbose=False,
-            local_dir='mypath'), args)
+            local_dir='mypath', account_key=None, account_name=None), args)
 
     def test_sync_dry_run(self):
         args = self.parse_args(['sync', 'mypath', 'myprefix', '--dry-run'])
@@ -99,17 +101,19 @@ class TestOptionParser(TestCase):
         self.assertEqual('mypath2', args.local_dir)
 
 
-class FakeInclude:
+class FakeContentSettings:
 
-    metadata = object()
+    def __init__(self, content_type=None, content_md5=None):
+        self.content_type = content_type
+        self.content_md5 = content_md5
 
 
 class FakeBlobProperties:
 
     def __init__(self, md5, length, content_type):
-        self.content_md5 = md5
         self.content_length = length
-        self.content_type = content_type
+        self.content_settings = FakeContentSettings(
+            content_type=content_type, content_md5=md5)
 
 
 class FakeBlob:
@@ -148,21 +152,14 @@ class FakeBlobService:
         return [b for p, b in self.containers[container_name].items()
                 if p.startswith(prefix)]
 
-    def put_blob(self, container_name, blob_name, blob, x_ms_blob_type):
-        if x_ms_blob_type != 'BlockBlob':
-            raise NotImplementedError('x_ms_blob_type not implemented.')
-        if blob != '':
-            raise NotImplementedError('blob not implemented.')
-        self.containers[container_name][blob_name] = FakeBlob(blob_name)
-
     def put_block(self, container_name, blob_name, block, block_id):
-        self.containers[container_name][blob_name]._blocks[block_id] = block
+        if blob_name not in self.containers[container_name]:
+            self.containers[container_name][blob_name] = FakeBlob(blob_name)
+        self.containers[container_name][blob_name]._blocks[
+            BlobBlock(block_id).id] = block
 
     def put_block_list(self, container_name, blob_name, block_list,
-                       content_md5=None, x_ms_blob_content_type=None,
-                       x_ms_blob_content_encoding=None,
-                       x_ms_blob_content_language=None,
-                       x_ms_blob_content_md5=None):
+                       content_settings=None):
         pass
 
 
@@ -244,7 +241,7 @@ class TestPublishFiles(QuietTestCase):
         self.assertEqual(['tools/index.json', 'tools/index2.json'],
                          service.containers[JUJU_DIST].keys())
         blob = service.containers[JUJU_DIST]['tools/index2.json']
-        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+        self.assertEqual({BlobBlock('MA==').id: '{}\n'}, blob._blocks)
 
     def test_same_local_remote(self):
         args = Namespace(verbose=False, dry_run=False)
@@ -276,7 +273,7 @@ class TestPublishFiles(QuietTestCase):
         self.assertEqual(['tools/index2.json'],
                          service.containers[JUJU_DIST].keys())
         blob = service.containers[JUJU_DIST]['tools/index2.json']
-        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+        self.assertEqual({BlobBlock('MA==').id: '{}\n'}, blob._blocks)
 
     def test_different_local_remote_dry_run(self):
         args = Namespace(verbose=False, dry_run=True)
@@ -328,7 +325,7 @@ class TestSyncFiles(QuietTestCase):
         self.assertEqual(['tools/index.json', 'tools/index2.json'],
                          service.containers[JUJU_DIST].keys())
         blob = service.containers[JUJU_DIST]['tools/index2.json']
-        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+        self.assertEqual({BlobBlock('MA==').id: '{}\n'}, blob._blocks)
 
     def test_different_local_remote(self):
         args = Namespace(verbose=False, dry_run=False)
@@ -343,7 +340,7 @@ class TestSyncFiles(QuietTestCase):
         self.assertEqual(['tools/index2.json'],
                          service.containers[JUJU_DIST].keys())
         blob = service.containers[JUJU_DIST]['tools/index2.json']
-        self.assertEqual({'MA==': '{}\n'}, blob._blocks)
+        self.assertEqual({BlobBlock('MA==').id: '{}\n'}, blob._blocks)
 
     def test_different_local_remote_dry_run(self):
         args = Namespace(verbose=False, dry_run=True)
