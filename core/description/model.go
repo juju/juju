@@ -476,18 +476,33 @@ func (m *model) validateSubnets() error {
 	return nil
 }
 
-// validateAddresses makes sure that any spaces referenced by IP addresses exist.
+// validateAddresses makes sure that the machine and device  referenced by IP
+// addresses exist.
 func (m *model) validateAddresses() error {
-	spaceNames := set.NewStrings()
-	for _, space := range m.Spaces_.Spaces_ {
-		spaceNames.Add(space.Name())
+	machineIDs := make(map[string]Machine)
+	for _, machine := range m.Machines_.Machines_ {
+		addMachinesToMap(machine, machineIDs)
 	}
-	for _, subnet := range m.Subnets_.Subnets_ {
-		if subnet.SpaceName() == "" {
-			continue
+
+	// Build a map of all devices for each machine, in order to validate
+	// parents.
+	machineDevices := make(map[string]map[string]LinkLayerDevice)
+	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
+		_, ok := machineDevices[device.MachineID()]
+		if !ok {
+			machineDevices[device.MachineID()] = make(map[string]LinkLayerDevice)
 		}
-		if !spaceNames.Contains(subnet.SpaceName()) {
-			return errors.Errorf("subnet %q references non-existent space %q", subnet.CIDR(), subnet.SpaceName())
+		machineDevices[device.MachineID()][device.Name()] = device
+	}
+
+	for _, addr := range m.IPAddresses_.IPAddresses_ {
+		_, ok := machineIDs[addr.MachineID()]
+		if !ok {
+			return errors.Errorf("XXX")
+		}
+		_, ok = machineDevices[addr.MachineID()][addr.DeviceName()]
+		if !ok {
+			return errors.Errorf("XXX")
 		}
 	}
 
