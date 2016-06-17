@@ -398,17 +398,13 @@ func SetSupportsSpaceDiscovery(supports bool) bool {
 	return current
 }
 
-// Listen closes the previously registered listener (if any).
-// Subsequent operations on any dummy environment can be received on c
-// (if not nil).
+// Listen directs subsequent operations on any dummy environment
+// to channel c (if not nil).
 func Listen(c chan<- Operation) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	if c == nil {
 		c = discardOperations
-	}
-	if dummy.ops != discardOperations {
-		close(dummy.ops)
 	}
 	dummy.ops = c
 	for _, st := range dummy.state {
