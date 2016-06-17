@@ -521,7 +521,7 @@ func (m *model) validateAddresses() error {
 			return errors.Errorf("ip address %q has empty subnet cidr", addr.Value())
 		}
 		if _, _, err := net.ParseCIDR(addr.SubnetCIDR()); err != nil {
-			return errors.Errorf("ip address %q has invalud subnet cidr %q", addr.Value(), addr.SubnetCIDR())
+			return errors.Errorf("ip address %q has invalid subnet cidr %q", addr.Value(), addr.SubnetCIDR())
 		}
 
 		if addr.GatewayAddress() != "" {

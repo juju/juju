@@ -419,6 +419,22 @@ func (s *ModelSerializationSuite) TestModelValidationChecksAddressSucceeds(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressGatewayAddressInvalid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{
+		MachineID:      "42",
+		DeviceName:     "foo",
+		Value:          "192.168.1.1",
+		SubnetCIDR:     "192.168.1.0/24",
+		GatewayAddress: "foo",
+	}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has invalid gateway address "foo"`)
+}
+
 func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachineId(c *gc.C) {
 	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
