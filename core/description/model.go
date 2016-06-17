@@ -476,9 +476,7 @@ func (m *model) validateSubnets() error {
 	return nil
 }
 
-// validateAddresses makes sure that the machine and device  referenced by IP
-// addresses exist.
-func (m *model) validateAddresses() error {
+func (m *model) machineMaps() (map[string]Machine, map[string]map[string]LinkLayerDevice) {
 	machineIDs := make(map[string]Machine)
 	for _, machine := range m.Machines_.Machines_ {
 		addMachinesToMap(machine, machineIDs)
@@ -494,18 +492,38 @@ func (m *model) validateAddresses() error {
 		}
 		machineDevices[device.MachineID()][device.Name()] = device
 	}
+	return machineIDs, machineDevices
+}
 
+// validateAddresses makes sure that the machine and device  referenced by IP
+// addresses exist.
+func (m *model) validateAddresses() error {
+	machineIDs, machineDevices := m.machineMaps()
 	for _, addr := range m.IPAddresses_.IPAddresses_ {
 		_, ok := machineIDs[addr.MachineID()]
 		if !ok {
-			return errors.Errorf("XXX")
+			return errors.Errorf("ip address %q references non-existent machine %q", addr.Value(), addr.MachineID())
 		}
 		_, ok = machineDevices[addr.MachineID()][addr.DeviceName()]
 		if !ok {
-			return errors.Errorf("XXX")
+			return errors.Errorf("ip address %q references non-existent device %q", addr.Value(), addr.DeviceName())
+		}
+		if ip := net.ParseIP(addr.Value()); ip == nil {
+			return errors.Errorf("ip address has invalid value %q", addr.Value())
+		}
+		if addr.SubnetCIDR() == "" {
+			return errors.Errorf("ip address %q has empty subnet cidr", addr.Value())
+		}
+		if _, _, err := net.ParseCIDR(addr.SubnetCIDR()); err != nil {
+			return errors.Errorf("ip address %q has invalud subnet cidr %q", addr.Value(), addr.SubnetCIDR())
+		}
+
+		if addr.GatewayAddress() != "" {
+			if ip := net.ParseIP(addr.GatewayAddress()); ip == nil {
+				return errors.Errorf("ip address %q has invalud gateway address %q", addr.Value(), addr.GatewayAddress())
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -519,22 +537,7 @@ func addMachinesToMap(machine Machine, machineIDs map[string]Machine) {
 // validateLinkLayerDevices makes sure that any machines referenced by link
 // layer devices exist.
 func (m *model) validateLinkLayerDevices() error {
-	machineIDs := make(map[string]Machine)
-	for _, machine := range m.Machines_.Machines_ {
-		addMachinesToMap(machine, machineIDs)
-	}
-
-	// Build a map of all devices for each machine, in order to validate
-	// parents.
-	machineDevices := make(map[string]map[string]LinkLayerDevice)
-	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
-		_, ok := machineDevices[device.MachineID()]
-		if !ok {
-			machineDevices[device.MachineID()] = make(map[string]LinkLayerDevice)
-		}
-		machineDevices[device.MachineID()][device.Name()] = device
-	}
-
+	machineIDs, machineDevices := m.machineMaps()
 	for _, device := range m.LinkLayerDevices_.LinkLayerDevices_ {
 		machine, ok := machineIDs[device.MachineID()]
 		if !ok {

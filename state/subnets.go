@@ -59,7 +59,7 @@ func (s *Subnet) Life() Life {
 	return s.doc.Life
 }
 
-// ID returns the unique id for the subnet, for other entities to reference it
+// ID returns the unique id for the subnet, for other entities to reference it.
 func (s *Subnet) ID() string {
 	return s.doc.DocID
 }
