@@ -60,6 +60,15 @@ storage_pool_details = {
                 }}
 }
 
+storage_pool_1X = copy.deepcopy(storage_pool_details)
+storage_pool_1X["ebs-ssd"] = {
+    "provider": "ebs",
+    "attrs":
+        {
+            "volume-type": "ssd"
+        }
+}
+
 storage_list_expected = {
     "storage":
         {"data/0":
@@ -103,8 +112,7 @@ storage_list_expected_4["storage"]["data/3"] = {
 
 def storage_list(client):
     """Return the storage list."""
-    list_storage = json.loads(client.get_juju_output(
-        'list-storage', '--format', 'json'))
+    list_storage = json.loads(client.list_storage())
     for instance in list_storage["storage"].keys():
         try:
             list_storage["storage"][instance].pop("status")
@@ -121,28 +129,21 @@ def storage_list(client):
 
 def storage_pool_list(client):
     """Return the list of storage pool."""
-    return json.loads(client.get_juju_output(
-        'list-storage-pools', '--format', 'json'))
+    return json.loads(client.list_storage_pool())
 
 
 def create_storage_charm(charm_dir, name, summary, storage):
     """Manually create a temporary charm to test with storage."""
-    path = os.path.join(charm_dir, name)
-    if not os.path.exists(path):
-        os.makedirs(path)
-    storage_charm = Charm(name, summary, storage=storage)
-    storage_charm.to_dir(path)
+    storage_charm = Charm(name, summary, storage=storage, series=['trusty'])
+    charm_root = storage_charm.to_repo_dir(charm_dir)
+    return charm_root
 
 
 def assess_create_pool(client):
     """Test creating storage pool."""
     for name, pool in storage_pool_details.iteritems():
-        client.juju('create-storage-pool',
-                    (name, pool["provider"],
-                     'size={}'.format(pool["attrs"]["size"])))
-    pool_list = storage_pool_list(client)
-    if pool_list != storage_pool_details:
-        raise JujuAssertionError(pool_list)
+        client.create_storage_pool(name, pool["provider"],
+                                   pool["attrs"]["size"])
 
 
 def assess_add_storage(client, unit, storage_type, amount="1"):
@@ -150,20 +151,18 @@ def assess_add_storage(client, unit, storage_type, amount="1"):
 
     Only type 'disk' is able to add instances.
     """
-    client.juju('add-storage', (unit, storage_type + "=" + amount))
+    client.add_storage(unit, storage_type, amount)
 
 
-def deploy_storage(client, charm, series, pool, amount="1G"):
+def deploy_storage(client, charm, series, pool, amount="1G", charm_repo=None):
     """Test deploying charm with storage."""
     if pool == "loop":
-        client.deploy(charm, series=series,
+        client.deploy(charm, series=series, repository=charm_repo,
                       storage="disks=" + pool + "," + amount)
     else:
-        client.deploy(charm, series=series,
+        client.deploy(charm, series=series, repository=charm_repo,
                       storage="data=" + pool + "," + amount)
     client.wait_for_started()
-    # if storage_list(client) != "TODO":
-    #     raise JujuAssertionError()
 
 
 def assess_deploy_storage(client, charm_series,
@@ -186,18 +185,27 @@ def assess_deploy_storage(client, charm_series,
             }
         }
     with temp_dir() as charm_dir:
-        create_storage_charm(charm_dir, charm_name,
-                             'Test charm for storage', storage)
+        charm_root = create_storage_charm(charm_dir, charm_name,
+                                          'Test charm for storage', storage)
         platform = 'ubuntu'
         charm = local_charm_path(charm=charm_name, juju_ver=client.version,
                                  series=charm_series,
-                                 repository=charm_dir, platform=platform)
-        deploy_storage(client, charm, charm_series, pool, "1G")
+                                 repository=os.path.dirname(charm_root),
+                                 platform=platform)
+        deploy_storage(client, charm, charm_series, pool, "1G", charm_dir)
 
 
 def assess_storage(client, charm_series):
     """Test the storage feature."""
     assess_create_pool(client)
+    pool_list = storage_pool_list(client)
+    if client.version.startswith('2.'):
+        if pool_list != storage_pool_details:
+            raise JujuAssertionError(pool_list)
+    elif client.version.startswith('1.'):
+        print(json.dumps(pool_list))
+        if pool_list != storage_pool_1X:
+            raise JujuAssertionError(pool_list)
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-fs', 'filesystem', 'rootfs')
     storage_list_derived = storage_list(client)
