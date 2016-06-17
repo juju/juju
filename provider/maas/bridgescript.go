@@ -235,6 +235,7 @@ class Stanza(object):
         self.options = options
         self.is_logical_interface = definition.startswith('iface ')
         self.is_physical_interface = definition.startswith('auto ')
+        self.is_source = definition.startswith('source')
         self.iface = None
         self.phy = None
         if self.is_logical_interface:
@@ -276,7 +277,7 @@ class NetworkInterfaceParser(object):
         return Stanza(stanza_line.strip(), stanza_options)
 
     def stanzas(self):
-        return [x for x in self._stanzas]
+        return [x for x in self._stanzas if not x.is_source]
 
     def physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}
