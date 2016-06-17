@@ -3,7 +3,6 @@ import os
 from unittest import TestCase
 
 from azure_publish_tools import (
-    BlobBlock,
     DELETE,
     delete_files,
     get_option_parser,
@@ -11,7 +10,6 @@ from azure_publish_tools import (
     get_local_sync_files,
     get_published_files,
     get_md5content,
-    Include,
     JUJU_DIST,
     LIST,
     list_sync_files,
@@ -26,6 +24,12 @@ from tests import QuietTestCase
 from utils import (
     temp_dir,
     write_file,
+    )
+
+from azure.storage.blob import (
+    BlobBlock,
+    ContentSettings,
+    Include,
     )
 
 
@@ -102,18 +106,11 @@ class TestOptionParser(TestCase):
         self.assertEqual('mypath2', args.local_dir)
 
 
-class FakeContentSettings:
-
-    def __init__(self, content_type=None, content_md5=None):
-        self.content_type = content_type
-        self.content_md5 = content_md5
-
-
 class FakeBlobProperties:
 
     def __init__(self, md5, length, content_type):
         self.content_length = length
-        self.content_settings = FakeContentSettings(
+        self.content_settings = ContentSettings(
             content_type=content_type, content_md5=md5)
 
 
