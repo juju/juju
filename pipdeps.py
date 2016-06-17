@@ -38,24 +38,24 @@ def s3_auth_with_rc(cloud_city):
     return boto.s3.connection.S3Connection(access_key, secret_key)
 
 
-def run_pip_install(extra_args, verbose=False):
+def run_pip_install(extra_args, requirements, verbose=False):
     """Run pip install in a subprocess with given additional arguments."""
     cmd = ["pip"]
     if not verbose:
         cmd.append("-q")
-    cmd.extend(["install", "-r", REQUIREMENTS])
+    cmd.extend(["install", "-r", requirements])
     cmd.extend(extra_args)
     subprocess.check_call(cmd)
 
 
-def command_install(bucket, verbose=False):
+def command_install(bucket, requirements, verbose=False):
     with utility.temp_dir() as archives_dir:
         for key in bucket.list(prefix=PREFIX):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
         archives_url = "file://" + archives_dir
         run_pip_install(["--user", "--no-index", "--find-links", archives_url],
-                        verbose=verbose)
+                        requirements, verbose=verbose)
 
 
 def command_update(s3, verbose=False):
@@ -118,7 +118,7 @@ def main(argv):
     else:
         bucket = s3.get_bucket(BUCKET)
         if args.command == "install":
-            command_install(bucket, args.verbose)
+            command_install(bucket, args.requirements, args.verbose)
         elif args.command == "list":
             command_list(bucket, args.verbose)
         elif args.command == "delete":

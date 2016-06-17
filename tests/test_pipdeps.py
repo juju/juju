@@ -71,12 +71,13 @@ class TestRunPipInstall(unittest.TestCase):
 
     def test_added_args(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
-            pipdeps.run_pip_install(["--user"])
+            pipdeps.run_pip_install(["--user"], self.req_path)
         cc_mock.assert_called_once_with([
             "pip", "-q", "install", "-r", self.req_path, "--user"])
 
     def test_verbose(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
-            pipdeps.run_pip_install(["--download", "/tmp/pip"], verbose=True)
+            pipdeps.run_pip_install(
+                ["--download", "/tmp/pip"], self.req_path, verbose=True)
         cc_mock.assert_called_once_with([
             "pip", "install", "-r", self.req_path, "--download", "/tmp/pip"])
