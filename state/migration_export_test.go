@@ -301,8 +301,10 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	})
 	err := unit.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetWorkloadVersion("garnet")
-	c.Assert(err, jc.ErrorIsNil)
+	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
+		err = unit.SetWorkloadVersion(version)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = s.State.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.StatusActive, addedHistoryCount)
@@ -325,7 +327,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
-	c.Assert(exported.WorkloadVersion(), gc.Equals, "garnet")
+	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
@@ -339,6 +341,16 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	agentHistory := exported.AgentStatusHistory()
 	c.Assert(agentHistory, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, agentHistory[:addedHistoryCount], status.StatusIdle)
+
+	versionHistory := exported.WorkloadVersionHistory()
+	// There are extra entries at the start that we don't care about.
+	c.Assert(len(versionHistory) >= 4, jc.IsTrue)
+	versions := make([]string, 4)
+	for i, status := range versionHistory[:4] {
+		versions[i] = status.Message()
+	}
+	// The exporter reads history in reverse time order.
+	c.Assert(versions, gc.DeepEquals, []string{"steven", "pearl", "amethyst", "garnet"})
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {

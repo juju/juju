@@ -205,6 +205,8 @@ func (u *Unit) WorkloadVersion() (string, error) {
 	return status.Message, nil
 }
 
+// SetWorkloadVersion sets the version of the workload that the unit
+// is currently running.
 func (u *Unit) SetWorkloadVersion(version string) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
@@ -217,6 +219,12 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 		message:   version,
 		updated:   &now,
 	})
+}
+
+// WorkloadVersionHistory returns a HistoryGetter which enables the
+// caller to request past workload version changes.
+func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
+	return &HistoryGetter{st: u.st, globalKey: u.globalWorkloadVersionKey()}
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -2312,4 +2320,20 @@ func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 			Insert: args.unitDoc,
 		},
 	}
+}
+
+// HistoryGetter allows getting the status history based on some identifying key.
+type HistoryGetter struct {
+	st        *State
+	globalKey string
+}
+
+// StatusHistory implements status.StatusHistoryGetter.
+func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        g.st,
+		globalKey: g.globalKey,
+		filter:    filter,
+	}
+	return statusHistory(args)
 }

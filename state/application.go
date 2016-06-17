@@ -998,6 +998,7 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// them cleanly.
 	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
 	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(s.st, globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 

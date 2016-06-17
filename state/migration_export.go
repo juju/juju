@@ -503,7 +503,7 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 			}
 		}
 		exUnit := exApplication.AddUnit(args)
-		// workload uses globalKey, agent uses globalAgentKey.
+		// workload uses globalKey, agent uses globalAgentKey, workload version uses globalWorkloadVersionKey.
 		globalKey := unit.globalKey()
 		statusArgs, err := e.statusArgs(globalKey)
 		if err != nil {
@@ -511,12 +511,16 @@ func (e *exporter) addApplication(application *Application, refcounts map[string
 		}
 		exUnit.SetWorkloadStatus(statusArgs)
 		exUnit.SetWorkloadStatusHistory(e.statusHistoryArgs(globalKey))
+
 		statusArgs, err = e.statusArgs(agentKey)
 		if err != nil {
 			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
 		}
 		exUnit.SetAgentStatus(statusArgs)
 		exUnit.SetAgentStatusHistory(e.statusHistoryArgs(agentKey))
+
+		workloadVersionKey := unit.globalWorkloadVersionKey()
+		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
 		tools, err := unit.AgentTools()
 		if err != nil {
@@ -763,7 +767,10 @@ func (e *exporter) readAllStatusHistory() error {
 	count := 0
 	e.statusHistory = make(map[string][]historicalStatusDoc)
 	var doc historicalStatusDoc
-	iter := statuses.Find(nil).Sort("-updated").Iter()
+	// In tests, sorting by time can leave the results
+	// underconstrained - include document id for deterministic
+	// ordering in those cases.
+	iter := statuses.Find(nil).Sort("-updated", "-_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		history := e.statusHistory[doc.GlobalKey]

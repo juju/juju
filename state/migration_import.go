@@ -665,6 +665,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err := i.importStatusHistory(unit.globalAgentKey(), u.AgentStatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
+	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
+		return errors.Trace(err)
+	}
 
 	return nil
 }
