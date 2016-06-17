@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/internal/observers"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -56,7 +57,7 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, modelUUID string) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *observers.RequestNotifier, modelUUID string) (*apiHandler, error) {
 	r := &apiHandler{
 		state:     st,
 		resources: common.NewResources(),
