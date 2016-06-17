@@ -98,12 +98,7 @@ class CharmCommand:
     def __init__(self, charm_bin, api_url=None):
         """Simple charm command wrapper."""
         self.charm_bin = charm_bin
-        self.api_url = self._sane_charm_store_api_url(api_url)
-
-    def _sane_charm_store_api_url(self, url):
-        if url is None:
-            return CharmCommand.default_api_url
-        return '{}/charmstore'.format(re.sub('\/\/(www\.)?', '//api.', url))
+        self.api_url = sane_charm_store_api_url(api_url)
 
     def _get_env(self):
         return {'JUJU_CHARMSTORE': self.api_url}
@@ -166,3 +161,9 @@ class CharmCommand:
         except subprocess.CalledProcessError as e:
             log.error(e.output)
             raise
+
+
+def sane_charm_store_api_url(url):
+    if url is None:
+        return CharmCommand.default_api_url
+    return '{}/charmstore'.format(re.sub('//(www\.)?', '//api.', url))

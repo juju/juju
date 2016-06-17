@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 from tempfile import NamedTemporaryFile
+from textwrap import dedent
 from uuid import uuid1
 
 import requests
@@ -22,10 +23,10 @@ from utility import (
     scoped_environ,
 )
 
-
 __metaclass__ = type
 log = logging.getLogger("assess_resources_charmstore")
 
+CHARMSTORE_API_VERSION = 'v5'
 
 # Stores credential details for a target charmstore
 CharmstoreDetails = namedtuple(
@@ -157,7 +158,7 @@ def ensure_can_push_and_list_charm_with_resources(charm_bin, cs_details):
 
 def populate_file_data(filepath):
     """Write unique data to file at `filepath`."""
-    datestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    datestamp = datetime.utcnow().isoformat()
     with open(filepath, 'w') as f:
         f.write('{datestamp}:{uuid}'.format(
             datestamp=datestamp,
@@ -211,7 +212,7 @@ def check_resource_uploaded_revno(
                     'Failed to upload resource and increment revision number.')
             return
     raise JujuAssertionError(
-        'Failed to find named resource \'{}\' in output'.format(resource_name))
+        'Failed to find named resource "{}" in output'.format(resource_name))
 
 
 def grant_everyone_access(charm_command, charm_url):
@@ -222,8 +223,9 @@ def grant_everyone_access(charm_command, charm_url):
 def check_resource_uploaded_contents(
         charm_command, charm_url, resource_name, src_file):
     charmname = charm_url.replace('cs:', '')
-    api_url = '{apiurl}/v5/{charmname}/resource/{name}'.format(
+    api_url = '{apiurl}/{api_version}/{charmname}/resource/{name}'.format(
         apiurl=charm_command.api_url,
+        api_version=CHARMSTORE_API_VERSION,
         charmname=charmname,
         name=resource_name,
     )
@@ -239,11 +241,20 @@ def check_resource_uploaded_contents(
         file_contents = f.read()
     resource_contents = res.content
 
+    raise_if_contents_differ(resource_contents, file_contents)
+
+
+def raise_if_contents_differ(resource_contents, file_contents):
     if resource_contents != file_contents:
         raise JujuAssertionError(
-            'Resource contents mismatch.\nExpected:\n{}\nGot:\n{}\n'.format(
+            dedent("""\
+            Resource contents mismatch.
+            Expected:
+            {}
+            Got:
+            {}""".format(
                 file_contents,
-                resource_contents))
+                resource_contents)))
 
 
 def assess_charmstore_resources(charm_bin, credentials_file):

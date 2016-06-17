@@ -8,6 +8,7 @@ from textwrap import dedent
 from fixtures import EnvironmentVariable
 
 import assess_resources_charmstore as arc
+from utility import JujuAssertionError
 from tests import (
     TestCase,
     parse_error,
@@ -157,3 +158,35 @@ class TestRunId(TestCase):
         expected = 'fbc4863a337211e68aa30c8bfd6c5d2c'
         with patch.object(arc, 'uuid1', auto_spec=True, return_value=uuid):
             self.assertEquals(arc.get_run_id(), expected)
+
+
+class TestRaiseIfContentsDiffer(TestCase):
+
+    def test_raises_exception_on_mismatch(self):
+        file_contents = 'abc'
+        resource_contents = 'ab'
+        self.assertRaises(
+            JujuAssertionError,
+            arc.raise_if_contents_differ,
+            resource_contents,
+            file_contents)
+
+    def test_no_raise_on_contents_match(self):
+        file_contents = resource_contents = 'ab'
+        arc.raise_if_contents_differ(
+            resource_contents=resource_contents,
+            file_contents=file_contents)
+
+    def test_exception_message(self):
+        file_contents = 'abc'
+        resource_contents = 'ab'
+        expected_msg = dedent("""\
+        Resource contents mismatch.
+        Expected:
+        {f}
+        Got:
+        {r}""".format(f=file_contents, r=resource_contents))
+        with self.assertRaisesRegexp(JujuAssertionError, expected_msg):
+            arc.raise_if_contents_differ(
+                resource_contents=resource_contents,
+                file_contents=file_contents)

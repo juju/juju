@@ -3,8 +3,6 @@ import logging
 from argparse import Namespace
 from mock import Mock, patch, call
 import StringIO
-from tempfile import NamedTemporaryFile
-from textwrap import dedent
 
 from assess_resources import (
     assess_resources,
