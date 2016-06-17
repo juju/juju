@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
@@ -77,7 +77,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	s.setLatestTools(c, latestTools)
 	c.Assert(s.State.SetModelConstraints(cons), jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
-	fooSeq := s.setRandSequenceValue(c, "service-foo")
+	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
 
 	original, err := s.State.Model()
@@ -127,7 +127,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	seq, err := state.Sequence(newSt, "machine")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(seq, gc.Equals, machineSeq)
-	seq, err = state.Sequence(newSt, "service-foo")
+	seq, err = state.Sequence(newSt, "application-foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(seq, gc.Equals, fooSeq)
 
@@ -304,41 +304,41 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
 }
 
-func (s *MigrationImportSuite) TestServices(c *gc.C) {
-	// Add a service with both settings and leadership settings.
+func (s *MigrationImportSuite) TestApplications(c *gc.C) {
+	// Add a application with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
-	service := s.Factory.MakeService(c, &factory.ServiceParams{
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
 			"foo": "bar",
 		},
 		Constraints: cons,
 	})
-	err := service.UpdateLeaderSettings(&goodToken{}, map[string]string{
+	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = service.SetMetricCredentials([]byte("sekrit"))
+	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
-	// Expose the service.
-	c.Assert(service.SetExposed(), jc.ErrorIsNil)
-	err = s.State.SetAnnotations(service, testAnnotations)
+	// Expose the application.
+	c.Assert(application.SetExposed(), jc.ErrorIsNil)
+	err = s.State.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, service, status.StatusActive, 5)
+	s.primeStatusHistory(c, application, status.StatusActive, 5)
 
-	allServices, err := s.State.AllServices()
+	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allServices, gc.HasLen, 1)
+	c.Assert(allApplications, gc.HasLen, 1)
 
 	_, newSt := s.importModel(c)
 
-	importedServices, err := newSt.AllServices()
+	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedServices, gc.HasLen, 1)
+	c.Assert(importedApplications, gc.HasLen, 1)
 
-	exported := allServices[0]
-	imported := importedServices[0]
+	exported := allApplications[0]
+	imported := importedApplications[0]
 
-	c.Assert(imported.ServiceTag(), gc.Equals, exported.ServiceTag())
+	c.Assert(imported.ApplicationTag(), gc.Equals, exported.ApplicationTag())
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
@@ -356,7 +356,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
 	s.assertAnnotations(c, newSt, imported)
-	s.checkStatusHistory(c, service, imported, 5)
+	s.checkStatusHistory(c, application, imported, 5)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -364,9 +364,9 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
-func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
-	s.makeServiceWithLeader(c, "mysql", 2, 1)
-	s.makeServiceWithLeader(c, "wordpress", 4, 2)
+func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
+	s.makeApplicationWithLeader(c, "mysql", 2, 1)
+	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
 
 	_, newSt := s.importModel(c)
 
@@ -396,11 +396,11 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 
 	_, newSt := s.importModel(c)
 
-	importedServices, err := newSt.AllServices()
+	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedServices, gc.HasLen, 1)
+	c.Assert(importedApplications, gc.HasLen, 1)
 
-	importedUnits, err := importedServices[0].AllUnits()
+	importedUnits, err := importedApplications[0].AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedUnits, gc.HasLen, 1)
 	imported := importedUnits[0]
@@ -435,15 +435,13 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {
-	// Need to remove owner from service.
-	ignored := s.Owner
-	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), ignored)
-	state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"), ignored)
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: wordpress})
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
 	ru, err := rel.Unit(wordpress_0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -455,7 +453,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 
 	_, newSt := s.importModel(c)
 
-	newWordpress, err := newSt.Service("wordpress")
+	newWordpress, err := newSt.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
 	rels, err := newWordpress.Relations()
@@ -520,8 +518,8 @@ func (s *MigrationImportSuite) TestDestroyModelWithMachine(c *gc.C) {
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }
 
-func (s *MigrationImportSuite) TestDestroyModelWithService(c *gc.C) {
-	s.Factory.MakeService(c, nil)
+func (s *MigrationImportSuite) TestDestroyModelWithApplication(c *gc.C) {
+	s.Factory.MakeApplication(c, nil)
 	newModel, _ := s.importModel(c)
 	s.assertDestroyModelAdvancesLife(c, newModel, state.Dying)
 }

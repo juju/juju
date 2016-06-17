@@ -52,7 +52,7 @@ See also: destroy-controller
 `
 var destroyEnvMsg = `
 WARNING! This command will destroy the %q model.
-This includes all machines, services, data and other resources.
+This includes all machines, applications, data and other resources.
 
 Continue [y/N]? `[1:]
 

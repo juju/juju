@@ -178,7 +178,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		},
 	}, {
 		StorageTag: "storage-shared-fs-0",
-		OwnerTag:   "service-transcode",
+		OwnerTag:   "application-transcode",
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
 			Status: status.StatusAttached,

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -86,6 +87,7 @@ func (manager *containerManager) Namespace() instance.Namespace {
 
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
@@ -259,12 +261,6 @@ func networkDevices(networkConfig *container.NetworkConfig) (lxdclient.Devices, 
 				return nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
 			}
 			parentDevice := v.ParentInterfaceName
-			if parentDevice == "" {
-				// This happens on AWS when the
-				// address-allocation feature flag is
-				// enabled.
-				parentDevice = networkConfig.Device
-			}
 			device, err := nicDevice(v.InterfaceName, parentDevice, v.MACAddress, v.MTU)
 			if err != nil {
 				return nil, errors.Trace(err)

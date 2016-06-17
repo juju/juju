@@ -8,12 +8,11 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/api/addresser"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
@@ -235,11 +234,6 @@ func (st *state) Reboot() (reboot.State, error) {
 	default:
 		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-}
-
-// Addresser returns access to the Addresser API.
-func (st *state) Addresser() *addresser.API {
-	return addresser.NewAPI(st)
 }
 
 // DiscoverSpaces returns access to the DiscoverSpacesAPI.

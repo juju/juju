@@ -1,13 +1,10 @@
-package juju
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
-import "github.com/juju/juju/api"
+package juju
 
 var (
 	ProviderConnectDelay   = &providerConnectDelay
 	ResolveOrDropHostnames = &resolveOrDropHostnames
 	ServerAddress          = &serverAddress
 )
-
-func NewAPIFromStore(args NewAPIConnectionParams, open api.OpenFunc) (api.Connection, error) {
-	return newAPIFromStore(args, open)
-}

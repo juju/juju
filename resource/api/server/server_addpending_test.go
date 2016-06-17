@@ -29,7 +29,7 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		Resources: []api.CharmResource{
 			apiRes1.CharmResource,
@@ -38,7 +38,7 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "AddPendingResource")
-	s.stub.CheckCall(c, 0, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 0, "AddPendingResource", "a-application", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -62,7 +62,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "cs:~a-user/trusty/spam-5",
@@ -75,7 +75,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -101,7 +101,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "cs:~a-user/trusty/spam-5",
@@ -114,7 +114,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -150,7 +150,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "cs:~a-user/trusty/spam-5",
@@ -162,7 +162,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "ResourceInfo", "AddPendingResource")
-	s.stub.CheckCall(c, 3, "AddPendingResource", "a-service", "", expected, nil)
+	s.stub.CheckCall(c, 3, "AddPendingResource", "a-application", "", expected, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -192,7 +192,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "cs:~a-user/trusty/spam-5",
@@ -205,7 +205,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -228,7 +228,7 @@ func (s *AddPendingResourcesSuite) TestLocalCharm(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "local:trusty/spam",
@@ -241,7 +241,7 @@ func (s *AddPendingResourcesSuite) TestLocalCharm(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "AddPendingResource")
-	s.stub.CheckCall(c, 0, "AddPendingResource", "a-service", "", expected, nil)
+	s.stub.CheckCall(c, 0, "AddPendingResource", "a-application", "", expected, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -268,7 +268,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "cs:~a-user/trusty/spam-5",
@@ -281,7 +281,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -298,7 +298,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 //
 //	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 //		Entity: params.Entity{
-//			Tag: "service-a-service",
+//			Tag: "application-a-application",
 //		},
 //		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 //			URL: "cs:~a-user/trusty/spam-5",
@@ -334,7 +334,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		AddCharmWithAuthorization: params.AddCharmWithAuthorization{
 			URL: "cs:~a-user/trusty/spam-5",
@@ -346,7 +346,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "newCSClient", "ListResources", "AddPendingResource")
-	s.stub.CheckCall(c, 2, "AddPendingResource", "a-service", "", res1.Resource, nil)
+	s.stub.CheckCall(c, 2, "AddPendingResource", "a-application", "", res1.Resource, nil)
 	c.Check(result, jc.DeepEquals, api.AddPendingResourcesResult{
 		PendingIDs: []string{
 			id1,
@@ -363,7 +363,7 @@ func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 
 	result, err := facade.AddPendingResources(api.AddPendingResourcesArgs{
 		Entity: params.Entity{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		},
 		Resources: []api.CharmResource{
 			apiRes1.CharmResource,

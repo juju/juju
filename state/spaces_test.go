@@ -38,34 +38,13 @@ func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.Stat
 func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []state.SubnetInfo {
 	infos := make([]state.SubnetInfo, len(CIDRs))
 	for i, cidr := range CIDRs {
-		ip, ipNet, err := net.ParseCIDR(cidr)
+		_, _, err := net.ParseCIDR(cidr)
 		c.Assert(err, jc.ErrorIsNil)
 
-		// Generate the high IP address from the CIDR
-		// First create a copy of the low IP address
-		highIp := ip
-
-		// By default we always get 16 bytes for each IP address. We want to
-		// reduce this to 4 if we were provided an IPv4 address.
-		if ip.To4() != nil {
-			highIp = ip.To4()
-			ip = ip.To4()
-		}
-
-		// To generate a high IP address we bitwise not each byte of the subnet
-		// mask and OR it to the low IP address.
-		for j, b := range ipNet.Mask {
-			if j < len(ip) {
-				highIp[j] |= ^b
-			}
-		}
-
 		infos[i] = state.SubnetInfo{
-			CIDR:              cidr,
-			VLANTag:           79,
-			AllocatableIPLow:  ip.String(),
-			AllocatableIPHigh: highIp.String(),
-			AvailabilityZone:  "AvailabilityZone",
+			CIDR:             cidr,
+			VLANTag:          79,
+			AvailabilityZone: "AvailabilityZone",
 		}
 
 	}

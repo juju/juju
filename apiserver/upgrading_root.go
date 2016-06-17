@@ -44,6 +44,9 @@ var allowedMethodsDuringUpgrades = map[string]set.Strings{
 	"Pinger": set.NewStrings(
 		"Ping",
 	),
+	"Backups": set.NewStrings(
+		"FinishRestore",
+	),
 }
 
 func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {

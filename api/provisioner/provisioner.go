@@ -5,8 +5,8 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -165,17 +165,14 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 	return result.OneError()
 }
 
-// PrepareContainerInterfaceInfo allocates an address and returns
-// information to configure networking for a container. It accepts
-// container tags as arguments. If the address allocation feature flag
-// is not enabled, it returns a NotSupported error.
+// PrepareContainerInterfaceInfo allocates an address and returns information to
+// configure networking for a container. It accepts container tags as arguments.
 func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking
-// for a container. It accepts container tags as arguments. If the address
-// allocation feature flag is not enabled, it returns a NotSupported error.
+// for a container. It accepts container tags as arguments.
 func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
 }

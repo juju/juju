@@ -1,11 +1,14 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package agent_test
 
 import (
 	stdtesting "testing"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/common"
@@ -49,7 +52,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXC)
+	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
@@ -85,7 +88,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
 			{Tag: "machine-0"},
-			{Tag: "machine-1-lxc-0"},
+			{Tag: "machine-1-lxd-0"},
 			{Tag: "machine-42"},
 		},
 	}
@@ -117,7 +120,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
 			{Tag: "machine-0"},
-			{Tag: "machine-1-lxc-0"},
+			{Tag: "machine-1-lxd-0"},
 			{Tag: "machine-42"},
 		},
 	}
@@ -129,7 +132,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 			{
 				Life:          "dying",
 				Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				ContainerType: instance.LXC,
+				ContainerType: instance.LXD,
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

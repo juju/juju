@@ -45,20 +45,20 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add second container
 	s.c2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.c1.Id(), instance.LXC)
+	}, s.c1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add container on the same level as the first container.
 	s.c3, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.w = s.machine.WatchForRebootEvent()

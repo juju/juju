@@ -43,7 +43,7 @@ func (s *LegacyHTTPHandlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestIntegration(c *gc.C) {
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.opener.ReturnOpenResource = opened
 	s.deps.ReturnNewResourceOpener = s.opener
 	deps := server.NewLegacyHTTPHandlerDeps(s.deps)
@@ -75,7 +75,7 @@ func (s *LegacyHTTPHandlerSuite) TestNewLegacyHTTPHandler(c *gc.C) {
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadOkay(c *gc.C) {
 	s.deps.ReturnNewResourceOpener = s.opener
-	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.deps.ReturnHandleDownload = opened
 	h := &server.LegacyHTTPHandler{
 		LegacyHTTPHandlerDeps: s.deps,
@@ -120,7 +120,7 @@ func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadHandlerFailed(c *gc.C) {
 }
 
 func (s *LegacyHTTPHandlerSuite) TestServeHTTPDownloadCopyFailed(c *gc.C) {
-	s.deps.ReturnHandleDownload = resourcetesting.NewResource(c, s.stub, "spam", "a-service", "some data")
+	s.deps.ReturnHandleDownload = resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	h := &server.LegacyHTTPHandler{
 		LegacyHTTPHandlerDeps: s.deps,
 	}

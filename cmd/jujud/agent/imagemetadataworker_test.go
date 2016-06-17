@@ -23,11 +23,6 @@ type MachineMockProviderSuite struct {
 
 var _ = gc.Suite(&MachineMockProviderSuite{})
 
-func (s *MachineMockProviderSuite) SetUpTest(c *gc.C) {
-	// Change to environ that supports HasRegion
-	s.commonMachineSuite.SetUpTest(c)
-}
-
 func (s *MachineMockProviderSuite) TestMachineAgentRunsMetadataWorker(c *gc.C) {
 	// Patch out the worker func before starting the agent.
 	started := make(chan struct{})

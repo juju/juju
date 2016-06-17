@@ -36,12 +36,12 @@ func (s *CharmSuite) TestCharmMetadata(c *gc.C) {
 	}
 	st.ReturnMeta = expected
 
-	meta, err := utils.TestingCharmMetadata(st, "a-service")
+	meta, err := utils.TestingCharmMetadata(st, "a-application")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(meta, jc.DeepEquals, expected)
 	s.stub.CheckCallNames(c, "Service", "Charm", "Meta")
-	s.stub.CheckCall(c, 0, "Service", "a-service")
+	s.stub.CheckCall(c, 0, "Service", "a-application")
 }
 
 type stubCharmState struct {

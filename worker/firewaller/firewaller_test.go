@@ -114,7 +114,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Por
 	}
 }
 
-func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *state.Machine) {
+func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Application) (*state.Unit, *state.Machine) {
 	units, err := juju.AddUnits(s.State, svc, 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	u := units[0]

@@ -110,17 +110,32 @@ func (s *Suite) TestLockdownError(c *gc.C) {
 	s.stub.CheckCallNames(c, "Watch", "Lockdown")
 }
 
-func (s *Suite) TestNONE(c *gc.C) {
-	s.client.watcher.changes <- watcher.MigrationStatus{
-		Phase: migration.NONE,
+func (s *Suite) TestNonRunningPhases(c *gc.C) {
+	phases := []migration.Phase{
+		migration.UNKNOWN,
+		migration.NONE,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.REAPFAILED,
+		migration.DONE,
+		migration.ABORT,
+		migration.ABORTDONE,
 	}
+	for _, phase := range phases {
+		s.checkNonRunningPhase(c, phase)
+	}
+}
+
+func (s *Suite) checkNonRunningPhase(c *gc.C, phase migration.Phase) {
+	c.Logf("checking %s", phase)
+	s.stub.ResetCalls()
+	s.client.watcher.changes <- watcher.MigrationStatus{Phase: phase}
 	w, err := migrationminion.New(migrationminion.Config{
 		Facade: s.client,
 		Guard:  s.guard,
 		Agent:  s.agent,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch", "Unlock")
@@ -129,6 +144,7 @@ func (s *Suite) TestNONE(c *gc.C) {
 func (s *Suite) TestSUCCESS(c *gc.C) {
 	addrs := []string{"1.1.1.1:1", "9.9.9.9:9"}
 	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
 		Phase:          migration.SUCCESS,
 		TargetAPIAddrs: addrs,
 		TargetCACert:   "top secret",
@@ -143,12 +159,13 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 	select {
 	case <-s.agent.configChanged:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for config to be changed")
+		c.Fatal("timed out")
 	}
 	workertest.CleanKill(c, w)
 	c.Assert(s.agent.conf.addrs, gc.DeepEquals, addrs)
 	c.Assert(s.agent.conf.caCert, gc.DeepEquals, "top secret")
-	s.stub.CheckCallNames(c, "Watch", "Lockdown")
+	s.stub.CheckCallNames(c, "Watch", "Lockdown", "Report")
+	s.stub.CheckCall(c, 2, "Report", "id", migration.SUCCESS, true)
 }
 
 func newStubGuard(stub *jujutesting.Stub) *stubGuard {
@@ -190,6 +207,11 @@ func (c *stubMinionClient) Watch() (watcher.MigrationStatusWatcher, error) {
 		return nil, c.watchErr
 	}
 	return c.watcher, nil
+}
+
+func (c *stubMinionClient) Report(id string, phase migration.Phase, success bool) error {
+	c.stub.MethodCall(c, "Report", id, phase, success)
+	return nil
 }
 
 func newStubWatcher() *stubWatcher {

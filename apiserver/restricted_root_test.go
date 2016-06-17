@@ -43,10 +43,10 @@ func (r *restrictedRootSuite) TestFindAllowedMethod(c *gc.C) {
 	r.assertMethodAllowed(c, "UserManager", 1, "SetPassword")
 	r.assertMethodAllowed(c, "UserManager", 1, "UserInfo")
 
-	r.assertMethodAllowed(c, "Controller", 2, "AllModels")
-	r.assertMethodAllowed(c, "Controller", 2, "DestroyController")
-	r.assertMethodAllowed(c, "Controller", 2, "ModelConfig")
-	r.assertMethodAllowed(c, "Controller", 2, "ListBlockedModels")
+	r.assertMethodAllowed(c, "Controller", 3, "AllModels")
+	r.assertMethodAllowed(c, "Controller", 3, "DestroyController")
+	r.assertMethodAllowed(c, "Controller", 3, "ModelConfig")
+	r.assertMethodAllowed(c, "Controller", 3, "ListBlockedModels")
 }
 
 func (r *restrictedRootSuite) TestFindDisallowedMethod(c *gc.C) {

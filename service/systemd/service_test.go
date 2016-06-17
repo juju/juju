@@ -11,12 +11,12 @@ import (
 
 	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"

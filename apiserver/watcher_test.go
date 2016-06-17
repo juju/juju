@@ -5,14 +5,15 @@ package apiserver_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -163,6 +164,10 @@ func (b *fakeMigrationBackend) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
+	return nil, nil
+}
+
+func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
 	return nil, nil
 }
 

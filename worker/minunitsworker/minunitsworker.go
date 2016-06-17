@@ -13,7 +13,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")
 
-// MinUnitsWorker ensures the minimum number of units for services is respected.
+// MinUnitsWorker ensures the minimum number of units for applications is respected.
 type MinUnitsWorker struct {
 	st *state.State
 }
@@ -31,7 +31,7 @@ func (mu *MinUnitsWorker) SetUp() (state.StringsWatcher, error) {
 }
 
 func (mu *MinUnitsWorker) handleOneService(serviceName string) error {
-	service, err := mu.st.Service(serviceName)
+	service, err := mu.st.Application(serviceName)
 	if err != nil {
 		return err
 	}

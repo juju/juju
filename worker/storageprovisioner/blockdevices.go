@@ -5,8 +5,8 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )

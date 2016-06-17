@@ -33,7 +33,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -139,24 +140,6 @@ type OpFinalizeBootstrap struct {
 type OpDestroy struct {
 	Env   string
 	Error error
-}
-
-type OpAllocateAddress struct {
-	Env        string
-	InstanceId instance.Id
-	SubnetId   network.Id
-	Address    network.Address
-	MACAddress string
-	HostName   string
-}
-
-type OpReleaseAddress struct {
-	Env        string
-	InstanceId instance.Id
-	SubnetId   network.Id
-	Address    network.Address
-	MACAddress string
-	HostName   string
 }
 
 type OpNetworkInterfaces struct {
@@ -680,15 +663,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if password == "" {
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	if _, ok := e.Config().CACert(); !ok {
+	if _, ok := controller.ControllerConfig(e.Config().AllAttrs()).CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in model configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
-	cfg, err := environs.BootstrapConfig(e.Config())
-	if err != nil {
-		return nil, fmt.Errorf("cannot make bootstrap config: %v", err)
-	}
 
 	estate, err := e.state()
 	if err != nil {
@@ -713,63 +692,83 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		controller:   true,
 	}
 	estate.insts[i.id] = i
-
-	if e.ecfg().controller() {
-		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
-		// so that we can call it here.
-
-		info := stateInfo()
-		// Since the admin user isn't setup until after here,
-		// the password in the info structure is empty, so the admin
-		// user is constructed with an empty password here.
-		// It is set just below.
-		st, err := state.Initialize(
-			names.NewUserTag("admin@local"), info, cfg,
-			mongotest.DialOpts(), estate.statePolicy)
-		if err != nil {
-			panic(err)
-		}
-		if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
-			panic(err)
-		}
-		if err := st.SetAdminMongoPassword(password); err != nil {
-			panic(err)
-		}
-		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
-			panic(err)
-		}
-		env, err := st.Model()
-		if err != nil {
-			panic(err)
-		}
-		owner, err := st.User(env.Owner())
-		if err != nil {
-			panic(err)
-		}
-		// We log this out for test purposes only. No one in real life can use
-		// a dummy provider for anything other than testing, so logging the password
-		// here is fine.
-		logger.Debugf("setting password for %q to %q", owner.Name(), password)
-		owner.SetPassword(password)
-
-		estate.apiStatePool = state.NewStatePool(st)
-
-		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-			Cert:      []byte(testing.ServerCert),
-			Key:       []byte(testing.ServerKey),
-			Tag:       names.NewMachineTag("0"),
-			DataDir:   DataDir,
-			LogDir:    LogDir,
-			StatePool: estate.apiStatePool,
-		})
-		if err != nil {
-			panic(err)
-		}
-		estate.apiState = st
-	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
+
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+		if e.ecfg().controller() {
+			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
+			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
+				return err
+			}
+
+			cloudCredentials := make(map[string]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil {
+				cloudCredentials[icfg.Bootstrap.ControllerCloudCredentialName] =
+					*icfg.Bootstrap.ControllerCloudCredential
+			}
+
+			info := stateInfo()
+			// Since the admin user isn't setup until after here,
+			// the password in the info structure is empty, so the admin
+			// user is constructed with an empty password here.
+			// It is set just below.
+			st, err := state.Initialize(state.InitializeParams{
+				ControllerModelArgs: state.ModelArgs{
+					Owner:           names.NewUserTag("admin@local"),
+					Config:          icfg.Bootstrap.ControllerModelConfig,
+					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
+					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
+				},
+				Cloud:            icfg.Bootstrap.ControllerCloud,
+				CloudName:        icfg.Bootstrap.ControllerCloudName,
+				CloudCredentials: cloudCredentials,
+				MongoInfo:        info,
+				MongoDialOpts:    mongotest.DialOpts(),
+				Policy:           estate.statePolicy,
+			})
+			if err != nil {
+				return err
+			}
+			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				return err
+			}
+			if err := st.SetAdminMongoPassword(password); err != nil {
+				return err
+			}
+			if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
+				return err
+			}
+			env, err := st.Model()
+			if err != nil {
+				return err
+			}
+			owner, err := st.User(env.Owner())
+			if err != nil {
+				return err
+			}
+			// We log this out for test purposes only. No one in real life can use
+			// a dummy provider for anything other than testing, so logging the password
+			// here is fine.
+			logger.Debugf("setting password for %q to %q", owner.Name(), password)
+			owner.SetPassword(password)
+
+			estate.apiStatePool = state.NewStatePool(st)
+
+			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+				Cert:      []byte(testing.ServerCert),
+				Key:       []byte(testing.ServerKey),
+				Tag:       names.NewMachineTag("0"),
+				DataDir:   DataDir,
+				LogDir:    LogDir,
+				StatePool: estate.apiStatePool,
+			})
+			if err != nil {
+				panic(err)
+			}
+			estate.apiState = st
+		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}
@@ -895,11 +894,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.InstanceConfig.MachineNonce == "" {
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
-	if _, ok := e.Config().CACert(); !ok {
-		return nil, errors.New("no CA certificate in model configuration")
-	}
-	if args.InstanceConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
-		return nil, errors.New("entity tag must match started machine")
+	if args.InstanceConfig.Controller != nil {
+		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {
+			return nil, errors.New("entity tag must match started machine")
+		}
 	}
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
@@ -978,6 +976,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			},
 		}
 	}
+	var mongoInfo *mongo.MongoInfo
+	if args.InstanceConfig.Controller != nil {
+		mongoInfo = args.InstanceConfig.Controller.MongoInfo
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -990,7 +992,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Volumes:          volumes,
 		Instance:         i,
 		Jobs:             args.InstanceConfig.Jobs,
-		Info:             args.InstanceConfig.MongoInfo,
+		Info:             mongoInfo,
 		APIInfo:          args.InstanceConfig.APIInfo,
 		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
 		Secret:           e.ecfg().secret(),
@@ -1111,95 +1113,6 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 		}}}}, nil
 }
 
-// SupportsAddressAllocation is specified on environs.Networking.
-func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled("dummy") {
-		return false, errors.NotSupportedf("address allocation")
-	}
-
-	if err := env.checkBroken("SupportsAddressAllocation"); err != nil {
-		return false, err
-	}
-	// Any subnetId starting with "noalloc-" will cause this to return
-	// false, so it can be used in tests.
-	if strings.HasPrefix(string(subnetId), "noalloc-") {
-		return false, nil
-	}
-	return true, nil
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr *network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled("dummy") {
-		// Any instId starting with "i-alloc-" when the feature flag is off will
-		// still work, in order to be able to test MAAS 1.8+ environment where
-		// we can use devices for containers.
-		if !strings.HasPrefix(string(instId), "i-alloc-") {
-			return errors.NotSupportedf("address allocation")
-		}
-		// Also, in this case we expect addr to be non-nil, but empty, so it can
-		// be used as an output argument (same as in provider/maas).
-		if addr == nil || addr.Value != "" {
-			return errors.NewNotValid(nil, "invalid address: nil or non-empty")
-		}
-	}
-
-	if err := env.checkBroken("AllocateAddress"); err != nil {
-		return err
-	}
-
-	estate, err := env.state()
-	if err != nil {
-		return err
-	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
-	estate.maxAddr++
-
-	if addr.Value == "" {
-		*addr = network.NewAddress(fmt.Sprintf("0.10.0.%v", estate.maxAddr))
-	}
-
-	estate.ops <- OpAllocateAddress{
-		Env:        env.name,
-		InstanceId: instId,
-		SubnetId:   subnetId,
-		Address:    *addr,
-		MACAddress: macAddress,
-		HostName:   hostname,
-	}
-	return nil
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled("dummy") {
-		return errors.NotSupportedf("address allocation")
-	}
-
-	if err := env.checkBroken("ReleaseAddress"); err != nil {
-		return err
-	}
-	estate, err := env.state()
-	if err != nil {
-		return err
-	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
-	estate.maxAddr--
-	estate.ops <- OpReleaseAddress{
-		Env:        env.name,
-		InstanceId: instId,
-		SubnetId:   subnetId,
-		Address:    addr,
-		MACAddress: macAddress,
-		HostName:   hostname,
-	}
-	return nil
-}
-
 // NetworkInterfaces implements Environ.NetworkInterfaces().
 func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
@@ -1237,25 +1150,6 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
 			),
 		}
-	}
-
-	if strings.HasPrefix(string(instId), "i-no-nics-") {
-		// Simulate no NICs on instances with id prefix "i-no-nics-".
-		info = info[:0]
-	} else if strings.HasPrefix(string(instId), "i-nic-no-subnet-") {
-		// Simulate a nic with no subnet on instances with id prefix
-		// "i-nic-no-subnet-"
-		info = []network.InterfaceInfo{{
-			DeviceIndex:   0,
-			ProviderId:    network.Id("dummy-eth0"),
-			InterfaceName: "eth0",
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			Disabled:      false,
-			NoAutoStart:   false,
-			ConfigType:    network.ConfigDHCP,
-		}}
-	} else if strings.HasPrefix(string(instId), "i-disabled-nic-") {
-		info = info[2:]
 	}
 
 	estate.ops <- OpNetworkInterfaces{
@@ -1319,14 +1213,10 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	allSubnets := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
-		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
 		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
-		CIDR:              "0.20.0.0/24",
-		ProviderId:        "dummy-public",
-		AllocatableIPLow:  net.ParseIP("0.20.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.20.0.255"),
+		CIDR:       "0.20.0.0/24",
+		ProviderId: "dummy-public",
 	}}
 
 	// Filter result by ids, if given.
@@ -1342,14 +1232,6 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	if len(subnetIds) == 0 {
 		result = append([]network.SubnetInfo{}, allSubnets...)
 	}
-
-	noSubnets := strings.HasPrefix(string(instId), "i-no-subnets")
-	noNICSubnets := strings.HasPrefix(string(instId), "i-nic-no-subnet-")
-	if noSubnets || noNICSubnets {
-		// Simulate no subnets available if the instance id has prefix
-		// "i-no-subnets-".
-		result = result[:0]
-	}
 	if len(result) == 0 {
 		// No results, so just return them now.
 		estate.ops <- OpSubnets{
@@ -1359,38 +1241,6 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 			Info:       result,
 		}
 		return result, nil
-	}
-
-	makeNoAlloc := func(info network.SubnetInfo) network.SubnetInfo {
-		// Remove the allocatable range and change the provider id
-		// prefix.
-		pid := string(info.ProviderId)
-		pid = strings.TrimPrefix(pid, "dummy-")
-		info.ProviderId = network.Id("noalloc-" + pid)
-		info.AllocatableIPLow = nil
-		info.AllocatableIPHigh = nil
-		return info
-	}
-	if strings.HasPrefix(string(instId), "i-no-alloc-") {
-		iid := strings.TrimPrefix(string(instId), "i-no-alloc-")
-		lastIdx := len(result) - 1
-		if strings.HasPrefix(iid, "all") {
-			// Simulate all subnets have no allocatable ranges set.
-			for i := range result {
-				result[i] = makeNoAlloc(result[i])
-			}
-		} else if idx, err := strconv.Atoi(iid); err == nil {
-			// Simulate only the subnet with index idx in the result
-			// have no allocatable range set.
-			if idx < 0 || idx > lastIdx {
-				err = errors.Errorf("index %d out of range; expected 0..%d", idx, lastIdx)
-				return nil, err
-			}
-			result[idx] = makeNoAlloc(result[idx])
-		} else {
-			err = errors.Errorf("invalid index %q; expected int", iid)
-			return nil, err
-		}
 	}
 
 	estate.ops <- OpSubnets{

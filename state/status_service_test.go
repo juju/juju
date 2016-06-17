@@ -15,14 +15,14 @@ import (
 
 type ServiceStatusSuite struct {
 	ConnSuite
-	service *state.Service
+	service *state.Application
 }
 
 var _ = gc.Suite(&ServiceStatusSuite{})
 
 func (s *ServiceStatusSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.service = s.Factory.MakeService(c, nil)
+	s.service = s.Factory.MakeApplication(c, nil)
 }
 
 func (s *ServiceStatusSuite) TestInitialStatus(c *gc.C) {
@@ -83,7 +83,7 @@ func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
 	err := s.service.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	service, err := s.State.Service(s.service.Name())
+	service, err := s.State.Application(s.service.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err := service.Status()
@@ -118,10 +118,10 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Since:   &now,
 	}
 	err = s.service.SetStatus(sInfo)
-	c.Check(err, gc.ErrorMatches, `cannot set status: service not found`)
+	c.Check(err, gc.ErrorMatches, `cannot set status: application not found`)
 
 	statusInfo, err := s.service.Status()
-	c.Check(err, gc.ErrorMatches, `cannot get status: service not found`)
+	c.Check(err, gc.ErrorMatches, `cannot get status: application not found`)
 	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 

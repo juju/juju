@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/instance"

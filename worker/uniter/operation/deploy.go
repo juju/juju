@@ -72,7 +72,7 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	// write out local state referencing the charm url (by returning the new
 	// State to the Executor, below), we have to register our interest in that
 	// charm on the controller. If we neglected to do so, the operation could
-	// race with a new service-charm-url change on the controller, and lead to
+	// race with a new application-charm-url change on the controller, and lead to
 	// failures on resume in which we try to obtain archive info for a charm that
 	// has already been removed from the controller.
 	if err := d.callbacks.SetCurrentCharm(d.charmURL); err != nil {

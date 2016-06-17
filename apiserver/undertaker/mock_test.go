@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/undertaker"
 	"github.com/juju/juju/environs/config"
@@ -82,7 +82,7 @@ func (m *mockState) AllMachines() ([]undertaker.Machine, error) {
 	return m.machines, nil
 }
 
-func (m *mockState) AllServices() ([]undertaker.Service, error) {
+func (m *mockState) AllApplications() ([]undertaker.Service, error) {
 	return m.services, nil
 }
 

@@ -39,8 +39,8 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status.ModelName, gc.Equals, "admin")
-	c.Check(status.Services, gc.HasLen, 0)
+	c.Check(status.Model.Name, gc.Equals, "controller")
+	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
@@ -79,12 +79,12 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 
 func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
 	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
-	lxcHost := s.MakeMachineNested(c, host.Id(), nil)
+	lxdHost := s.MakeMachineNested(c, host.Id(), nil)
 	machines := map[string][]*state.Machine{
 		host.Id(): {
 			host,
-			lxcHost,
-			s.MakeMachineNested(c, lxcHost.Id(), nil),
+			lxdHost,
+			s.MakeMachineNested(c, lxdHost.Id(), nil),
 			s.MakeMachineNested(c, host.Id(), nil),
 		},
 	}
@@ -94,7 +94,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 
 	hostContainer := statuses[host.Id()].Containers
 	c.Check(hostContainer, gc.HasLen, 2)
-	c.Check(hostContainer[lxcHost.Id()].Containers, gc.HasLen, 1)
+	c.Check(hostContainer[lxdHost.Id()].Containers, gc.HasLen, 1)
 }
 
 var testUnits = []struct {
@@ -117,7 +117,7 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
-	service := s.MakeService(c, nil)
+	service := s.MakeApplication(c, nil)
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +137,7 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	serviceStatus, ok := status.Services[service.Name()]
+	serviceStatus, ok := status.Applications[service.Name()]
 	c.Assert(ok, gc.Equals, true)
 
 	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
@@ -198,7 +198,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 	client := s.APIState.Client()
 	status, _ := client.Status(nil)
 
-	serviceStatus, ok := status.Services["mysql"]
+	serviceStatus, ok := status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "")
 
@@ -209,7 +209,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {
 
 	// Check if CanUpgradeTo suggest the latest revision.
 	status, _ = client.Status(nil)
-	serviceStatus, ok = status.Services["mysql"]
+	serviceStatus, ok = status.Applications["mysql"]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(serviceStatus.CanUpgradeTo, gc.Equals, "cs:quantal/mysql-23")
 }

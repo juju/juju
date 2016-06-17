@@ -6,7 +6,7 @@ package firewaller
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
@@ -14,35 +14,35 @@ import (
 )
 
 // Service represents the state of a service.
-type Service struct {
+type Application struct {
 	st   *State
-	tag  names.ServiceTag
+	tag  names.ApplicationTag
 	life params.Life
 }
 
 // Name returns the service name.
-func (s *Service) Name() string {
+func (s *Application) Name() string {
 	return s.tag.Id()
 }
 
 // Tag returns the service tag.
-func (s *Service) Tag() names.ServiceTag {
+func (s *Application) Tag() names.ApplicationTag {
 	return s.tag
 }
 
 // Watch returns a watcher for observing changes to a service.
-func (s *Service) Watch() (watcher.NotifyWatcher, error) {
+func (s *Application) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(s.st.facade, s.tag)
 }
 
 // Life returns the service's current life state.
-func (s *Service) Life() params.Life {
+func (s *Application) Life() params.Life {
 	return s.life
 }
 
 // Refresh refreshes the contents of the Service from the underlying
 // state.
-func (s *Service) Refresh() error {
+func (s *Application) Refresh() error {
 	life, err := s.st.life(s.tag)
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (s *Service) Refresh() error {
 //
 // NOTE: This differs from state.Service.IsExposed() by returning
 // an error as well, because it needs to make an API call.
-func (s *Service) IsExposed() (bool, error) {
+func (s *Application) IsExposed() (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},

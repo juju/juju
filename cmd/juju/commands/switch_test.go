@@ -113,10 +113,10 @@ func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
 	s.store.CurrentControllerName = "old"
-	s.addController(c, "local.new")
+	s.addController(c, "new")
 	context, err := s.run(c, "new")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> local.new (controller)\n")
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
@@ -151,7 +151,6 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
 		{"CurrentAccount", []interface{}{"ctrl"}},
 		{"CurrentModel", []interface{}{"ctrl", "admin@local"}},
 		{"ControllerByName", []interface{}{"mymodel"}},
-		{"ControllerByName", []interface{}{"local.mymodel"}},
 		{"CurrentAccount", []interface{}{"ctrl"}},
 		{"SetCurrentModel", []interface{}{"ctrl", "admin@local", "mymodel"}},
 	})
@@ -175,7 +174,6 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 		{"CurrentController", nil},
 		{"CurrentAccount", []interface{}{"old"}},
 		{"ControllerByName", []interface{}{"new:mymodel"}},
-		{"ControllerByName", []interface{}{"local.new:mymodel"}},
 		{"ControllerByName", []interface{}{"new"}},
 		{"CurrentAccount", []interface{}{"new"}},
 		{"SetCurrentModel", []interface{}{"new", "admin@local", "mymodel"}},
@@ -186,8 +184,8 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(c *gc.C) {
 	s.store.CurrentControllerName = "old"
-	s.addController(c, "local.new")
-	s.store.Models["local.new"] = jujuclient.ControllerAccountModels{
+	s.addController(c, "new")
+	s.store.Models["new"] = jujuclient.ControllerAccountModels{
 		map[string]*jujuclient.AccountModels{
 			"admin@local": {
 				Models: map[string]jujuclient.ModelDetails{"mymodel": {}},
@@ -196,19 +194,17 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 	}
 	context, err := s.run(c, "new:mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> local.new:mymodel\n")
+	c.Assert(coretesting.Stderr(context), gc.Equals, "old (controller) -> new:mymodel\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"CurrentAccount", []interface{}{"old"}},
 		{"ControllerByName", []interface{}{"new:mymodel"}},
-		{"ControllerByName", []interface{}{"local.new:mymodel"}},
 		{"ControllerByName", []interface{}{"new"}},
-		{"ControllerByName", []interface{}{"local.new"}},
-		{"CurrentAccount", []interface{}{"local.new"}},
-		{"SetCurrentModel", []interface{}{"local.new", "admin@local", "mymodel"}},
-		{"SetCurrentController", []interface{}{"local.new"}},
+		{"CurrentAccount", []interface{}{"new"}},
+		{"SetCurrentModel", []interface{}{"new", "admin@local", "mymodel"}},
+		{"SetCurrentController", []interface{}{"new"}},
 	})
-	c.Assert(s.store.Models["local.new"].AccountModels["admin@local"].CurrentModel, gc.Equals, "mymodel")
+	c.Assert(s.store.Models["new"].AccountModels["admin@local"].CurrentModel, gc.Equals, "mymodel")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentModel(c *gc.C) {
@@ -229,7 +225,6 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 		{"CurrentController", nil},
 		{"CurrentAccount", []interface{}{"old"}},
 		{"ControllerByName", []interface{}{"new:mymodel"}},
-		{"ControllerByName", []interface{}{"local.new:mymodel"}},
 		{"ControllerByName", []interface{}{"new"}},
 		{"CurrentAccount", []interface{}{"new"}},
 		{"SetCurrentModel", []interface{}{"new", "admin@local", "mymodel"}},
@@ -243,7 +238,6 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownNoCurrentController(c *gc.C) {
 	s.stubStore.CheckCalls(c, []testing.StubCall{
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"unknown"}},
-		{"ControllerByName", []interface{}{"local.unknown"}},
 	})
 }
 

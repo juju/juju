@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.

@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
@@ -587,13 +587,13 @@ func (s *ModelMigrationSuite) TestMinionReports(c *gc.C) {
 	const phase = migration.QUIESCE
 	c.Assert(mig.MinionReport(m0.Tag(), phase, true), jc.ErrorIsNil)
 	c.Assert(mig.MinionReport(m1.Tag(), phase, false), jc.ErrorIsNil)
-	c.Assert(mig.MinionReport(m2.Tag(), phase, true), jc.ErrorIsNil)
+	c.Assert(mig.MinionReport(u0.Tag(), phase, true), jc.ErrorIsNil)
 
 	reports, err := mig.GetMinionReports()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{m0.Tag(), m2.Tag()})
+	c.Check(reports.Succeeded, jc.SameContents, []names.Tag{m0.Tag(), u0.Tag()})
 	c.Check(reports.Failed, jc.SameContents, []names.Tag{m1.Tag()})
-	c.Check(reports.Unknown, jc.SameContents, []names.Tag{u0.Tag()})
+	c.Check(reports.Unknown, jc.SameContents, []names.Tag{m2.Tag()})
 }
 
 func (s *ModelMigrationSuite) TestDuplicateMinionReportsSameSuccess(c *gc.C) {

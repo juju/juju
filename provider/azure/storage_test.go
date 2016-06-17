@@ -12,9 +12,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"

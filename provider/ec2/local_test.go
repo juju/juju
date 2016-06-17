@@ -5,14 +5,12 @@ package ec2_test
 
 import (
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -25,6 +23,7 @@ import (
 	"gopkg.in/amz.v3/ec2/ec2test"
 	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
@@ -249,7 +247,6 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
-	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 }
@@ -1266,75 +1263,6 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Networ
 	return env, instanceIds[0]
 }
 
-func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-
-	addr := network.Address{Value: "8.0.0.4"}
-	var actualAddr network.Address
-	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
-		actualAddr = addr
-		return nil
-	}
-	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
-
-	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualAddr, gc.Equals, addr)
-}
-
-func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-
-	addr := network.Address{Value: "8.0.0.4"}
-	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
-		return &amzec2.Error{Code: "InvalidParameterValue"}
-	}
-	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
-
-	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
-}
-
-func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-
-	addr := network.Address{Value: "8.0.0.4"}
-	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
-		return &amzec2.Error{Code: "PrivateIpAddressLimitExceeded"}
-	}
-	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
-
-	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
-}
-
-func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	addr := network.Address{Value: "8.0.0.4"}
-	// Allocate the address first so we can release it
-	err := env.AllocateAddress(instId, "", &addr, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = env.ReleaseAddress(instId, "", addr, "", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Releasing a second time tests that the first call actually released
-	// it plus tests the error handling of ReleaseAddress
-	err = env.ReleaseAddress(instId, "", addr, "", "")
-	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
-	c.Assert(err, gc.ErrorMatches, msg)
-}
-
-func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
-	env, _ := t.setUpInstanceWithDefaultVpc(c)
-
-	// We should be able to release an address with an unknown instance id
-	// without it being allocated.
-	addr := network.Address{Value: "8.0.0.4"}
-	err := env.ReleaseAddress(instance.UnknownId, "", addr, "", "")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaces, err := env.NetworkInterfaces(instId)
@@ -1419,22 +1347,16 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
 		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.0.254").To4(),
 		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
 		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("10.10.1.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.1.254").To4(),
 		AvailabilityZones: []string{"test-impaired"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
 		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("10.10.2.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
 
@@ -1470,68 +1392,6 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 
 	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsTrue)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(result, jc.IsFalse)
-}
-
-func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
-	env := t.prepareEnviron(c)
-	addr := network.NewAddresses("1.2.3.4")[0]
-	err := env.AllocateAddress("i-foo", "net1", &addr, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
-	env := t.prepareEnviron(c)
-	err := env.ReleaseAddress("i-foo", "net1", network.NewAddress("1.2.3.4"), "", "")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
-	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
-		"default-vpc": {"none"},
-	})
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(result, jc.IsFalse)
-
-	// this value won't change normally, the change here is to
-	// ensure that subsequent calls use the cached value
-	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
-		"default-vpc": {"vpc-xxxxxxx"},
-	})
-	result, err = env.SupportsAddressAllocation("")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(result, jc.IsFalse)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
-	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
-		"default-vpc": {"none"},
-	})
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(result, jc.IsFalse)
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {

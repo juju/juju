@@ -55,24 +55,24 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 			args:  []string{"-n", "2"},
 			count: 2,
 		}, {
-			args:      []string{"lxc"},
+			args:      []string{"lxd"},
 			count:     1,
-			placement: "lxc:",
+			placement: "lxd:",
 		}, {
-			args:      []string{"lxc", "-n", "2"},
+			args:      []string{"lxd", "-n", "2"},
 			count:     2,
-			placement: "lxc:",
+			placement: "lxd:",
 		}, {
-			args:      []string{"lxc:4"},
+			args:      []string{"lxd:4"},
 			count:     1,
-			placement: "lxc:4",
+			placement: "lxd:4",
 		}, {
 			args:        []string{"--constraints", "mem=8G"},
 			count:       1,
 			constraints: "mem=8192M",
 		}, {
-			args:        []string{"--constraints", "container=lxc"},
-			errorString: `container constraint "lxc" not allowed when adding a machine`,
+			args:        []string{"--constraints", "container=lxd"},
+			errorString: `container constraint "lxd" not allowed when adding a machine`,
 		}, {
 			args:      []string{"ssh:user@10.10.0.3"},
 			count:     1,
@@ -127,7 +127,6 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	param := s.fakeAddMachine.args[0]
 	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
-		multiwatcher.JobManageNetworking,
 	})
 }
 
@@ -187,18 +186,6 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
-}
-
-func (s *AddMachineSuite) TestProviderDoesNotSupportJobManageNetworking(c *gc.C) {
-	s.fakeAddMachine.providerType = "maas"
-	_, err := s.run(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
-	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
-		multiwatcher.JobHostUnits,
-	})
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {

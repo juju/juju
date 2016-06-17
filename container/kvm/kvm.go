@@ -110,6 +110,7 @@ var startParams StartParams
 
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
@@ -149,7 +150,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, err
 	}
 	// Create the container.
-	startParams = ParseConstraintsToStartParams(instanceConfig.Constraints)
+	startParams = ParseConstraintsToStartParams(cons)
 	startParams.Arch = arch.HostArch()
 	startParams.Series = series
 	startParams.Network = networkConfig
@@ -170,7 +171,7 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
-	logger.Tracef("create the container, constraints: %v", instanceConfig.Constraints)
+	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")
 		logger.Infof(err.Error())

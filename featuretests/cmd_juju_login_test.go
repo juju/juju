@@ -35,7 +35,7 @@ func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Conte
 }
 
 func (s *cmdLoginSuite) createTestUser(c *gc.C) {
-	s.run(c, nil, "add-user", "test", "--models", "admin")
+	s.run(c, nil, "add-user", "test", "--models", "controller")
 	s.changeUserPassword(c, "test", "hunter2")
 }
 

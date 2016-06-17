@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -69,7 +68,7 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 	_, err = ru0.ReadSettings("nonsense")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "nonsense" in relation "riak:ring": "nonsense" is not a valid unit name`)
 	_, err = ru0.ReadSettings("unknown/0")
-	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "unknown/0" in relation "riak:ring": service "unknown" is not a member of "riak:ring"`)
+	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "unknown/0" in relation "riak:ring": application "unknown" is not a member of "riak:ring"`)
 	_, err = ru0.ReadSettings("riak/pressure")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/pressure" in relation "riak:ring": "riak/pressure" is not a valid unit name`)
 	_, err = ru0.ReadSettings("riak/1")
@@ -77,7 +76,7 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rus := RUs{pr.ru0, pr.ru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -294,7 +293,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 
 	// Enter two units, and check that Destroying the service sets the
@@ -361,7 +360,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
@@ -412,7 +411,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.modelTag, func(c *gc.C, st *state.State) waiter {
-		pr := NewPeerRelation(c, st, s.Owner)
+		pr := NewPeerRelation(c, st)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()
 		return w
@@ -420,7 +419,7 @@ func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -637,7 +636,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -746,13 +745,13 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 
 type PeerRelation struct {
 	rel                *state.Relation
-	svc                *state.Service
+	svc                *state.Application
 	u0, u1, u2, u3     *state.Unit
 	ru0, ru1, ru2, ru3 *state.RelationUnit
 }
 
-func NewPeerRelation(c *gc.C, st *state.State, owner names.UserTag) *PeerRelation {
-	svc := state.AddTestingService(c, st, "riak", state.AddTestingCharm(c, st, "riak"), owner)
+func NewPeerRelation(c *gc.C, st *state.State) *PeerRelation {
+	svc := state.AddTestingService(c, st, "riak", state.AddTestingCharm(c, st, "riak"))
 	ep, err := svc.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.EndpointsRelation(ep)
@@ -767,14 +766,14 @@ func NewPeerRelation(c *gc.C, st *state.State, owner names.UserTag) *PeerRelatio
 
 type ProReqRelation struct {
 	rel                    *state.Relation
-	psvc, rsvc             *state.Service
+	psvc, rsvc             *state.Application
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 }
 
 func NewProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReqRelation {
 	psvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	var rsvc *state.Service
+	var rsvc *state.Application
 	if scope == charm.ScopeGlobal {
 		rsvc = s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	} else {
@@ -804,7 +803,7 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 	}
 }
 
-func addRU(c *gc.C, svc *state.Service, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
+func addRU(c *gc.C, svc *state.Application, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
 	// Given the service svc in the relation rel, add a unit of svc and create
 	// a RelationUnit with rel. If principal is supplied, svc is assumed to be
 	// subordinate and the unit will be created by temporarily entering the
@@ -998,7 +997,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add some units to the services and set their private addresses.
-	addUnit := func(srv *state.Service, sub string, ep state.Endpoint) *state.RelationUnit {
+	addUnit := func(srv *state.Application, sub string, ep state.Endpoint) *state.RelationUnit {
 		unit, err := srv.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(unit)

@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -345,17 +345,19 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
-	env, err := state.Model()
+	model, err := state.Model()
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
 
 	info := params.ModelInfo{
-		DefaultSeries:  config.PreferredSeries(conf),
-		ProviderType:   conf.Type(),
-		Name:           conf.Name(),
-		UUID:           env.UUID(),
-		ControllerUUID: env.ControllerUUID(),
+		DefaultSeries:   config.PreferredSeries(conf),
+		CloudRegion:     model.CloudRegion(),
+		CloudCredential: model.CloudCredential(),
+		ProviderType:    conf.Type(),
+		Name:            conf.Name(),
+		UUID:            model.UUID(),
+		ControllerUUID:  model.ControllerUUID(),
 	}
 	return info, nil
 }
@@ -394,7 +396,7 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 // get-model-config CLI command.
 func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	// Get the existing environment config from the state.
+	// Get the existing model config from the state.
 	config, err := c.api.stateAccessor.ModelConfig()
 	if err != nil {
 		return result, err
@@ -483,7 +485,7 @@ func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult,
 }
 
 func (c *Client) AddCharm(args params.AddCharm) error {
-	return service.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
+	return application.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
 		URL:     args.URL,
 		Channel: args.Channel,
 	})
@@ -496,13 +498,13 @@ func (c *Client) AddCharm(args params.AddCharm) error {
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
 func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
-	return service.AddCharmWithAuthorization(c.api.state(), args)
+	return application.AddCharmWithAuthorization(c.api.state(), args)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
-	return service.ResolveCharms(c.api.state(), args)
+	return application.ResolveCharms(c.api.state(), args)
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.

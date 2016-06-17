@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 type MachineSuite struct {
@@ -119,7 +120,7 @@ func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, gc.ErrorMatches, `model "testenv" is no longer alive`)
 }
 
@@ -131,7 +132,7 @@ func (s *MachineSuite) TestAddMachineInsideMachineModelMigrating(c *gc.C) {
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, gc.ErrorMatches, `model "testenv" is being migrated`)
 }
 
@@ -140,14 +141,14 @@ func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
 	c1, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add second container.
 	c2, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, c1.Id(), instance.LXC)
+	}, c1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = c2.SetRebootFlag(true)
@@ -199,7 +200,7 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	parentId, ok = container.ParentId()
 	c.Assert(parentId, gc.Equals, s.machine.Id())
@@ -260,7 +261,7 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(machine.IsContainer(), jc.IsFalse)
@@ -283,11 +284,11 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, s.machine.Id(), instance.LXC)
+	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, gc.FitsTypeOf, &state.HasContainersError{})
-	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxc/0"`)
+	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 	err1 := s.machine.EnsureDead()
 	c.Assert(err1, gc.DeepEquals, err)
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -480,7 +481,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Series: "quantal",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
-		}, s.machine.Id(), instance.LXC)
+		}, s.machine.Id(), instance.LXD)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -518,51 +519,6 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	// Removing an already removed machine is OK.
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *MachineSuite) TestRemoveMarksAddressesAsDead(c *gc.C) {
-	err := s.machine.SetProvisioned("fake", "totally-fake", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr1, err := s.State.AddIPAddress(network.NewAddress("10.0.0.1"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr1.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr2, err := s.State.AddIPAddress(network.NewAddress("10.0.0.2"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr2.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr3, err := s.State.AddIPAddress(network.NewAddress("10.0.0.3"), "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr3.AllocateTo(s.machine0.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr4, err := s.State.AddIPAddress(network.NewAddress("10.0.0.4"), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr4.AllocateTo(s.machine.Id(), "bar", "01:23:45:67:89:ab")
-	c.Assert(err, jc.ErrorIsNil)
-	err = addr4.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = addr1.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr1.Life(), gc.Equals, state.Dead)
-	err = addr2.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr2.Life(), gc.Equals, state.Dead)
-	err = addr3.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr3.Life(), gc.Equals, state.Alive)
-	err = addr4.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr4.Life(), gc.Equals, state.Dead)
 }
 
 func (s *MachineSuite) TestHasVote(c *gc.C) {
@@ -627,7 +583,9 @@ func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pinger, gc.NotNil)
-	defer pinger.Stop()
+	defer func() {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	}()
 
 	s.State.StartSync()
 	alive, err = s.machine.AgentPresence()
@@ -710,30 +668,6 @@ func (s *MachineSuite) TestSetPassword(c *gc.C) {
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
-}
-
-func (s *MachineSuite) TestSetPasswordPreModelUUID(c *gc.C) {
-	// Ensure that SetPassword works for machines even when the env
-	// UUID upgrade migrations haven't run yet.
-	type oldMachineDoc struct {
-		Id     string `bson:"_id"`
-		Series string
-	}
-	s.machines.Insert(&oldMachineDoc{"99", "quantal"})
-
-	m, err := s.State.Machine("99")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Set the password and make sure it sticks.
-	c.Assert(m.PasswordValid(goodPassword), jc.IsFalse)
-	err = m.SetPassword(goodPassword)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
-
-	// Check a newly-fetched entity has the same password.
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.PasswordValid(goodPassword), jc.IsTrue)
 }
 
 func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
@@ -1040,7 +974,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	s3 := s.AddTestingService(c, "s3", logging)
 
 	units := make([][]*state.Unit, 4)
-	for i, svc := range []*state.Service{s0, s1, s2} {
+	for i, svc := range []*state.Application{s0, s1, s2} {
 		units[i] = make([]*state.Unit, 3)
 		for j := range units[i] {
 			units[i][j], err = svc.AddUnit()
@@ -1104,7 +1038,7 @@ func sortedUnitNames(units []*state.Unit) []string {
 	return names
 }
 
-func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Service, *state.Unit) {
+func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Application, *state.Unit) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsTrue)
@@ -1548,31 +1482,11 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	// Create subnet and pick two addresses.
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.10",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ipAddr1, err := subnet.PickNewAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr1.SetState(state.AddressStateAllocated)
-	c.Assert(err, jc.ErrorIsNil)
-	ipAddr2, err := subnet.PickNewAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr2.SetState(state.AddressStateAllocated)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// When setting all addresses the subnet addresses have to be
 	// filtered out.
 	addresses := network.NewAddresses(
 		"127.0.0.1",
 		"8.8.8.8",
-		ipAddr1.Value(),
-		ipAddr2.Value(),
 	)
 	err = machine.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1588,36 +1502,22 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	// Create subnet and pick two addresses.
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.10",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ipAddr, err := subnet.PickNewAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	err = ipAddr.SetState(state.AddressStateAllocated)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Create an LXC container inside the machine.
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// When setting all addresses the subnet address has to accepted.
-	addresses := network.NewAddresses("127.0.0.1", ipAddr.Value())
+	addresses := network.NewAddresses("127.0.0.1")
 	err = container.SetProviderAddresses(addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedAddresses := network.NewAddresses(ipAddr.Value(), "127.0.0.1")
+	expectedAddresses := network.NewAddresses("127.0.0.1")
 	c.Assert(container.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
@@ -2202,7 +2102,7 @@ func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.NONE})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.NONE})
 	c.Assert(err, gc.ErrorMatches, `"none" is not a valid container type`)
 	assertSupportedContainersUnknown(c, machine)
 	err = machine.Refresh()
@@ -2211,7 +2111,7 @@ func (s *MachineSuite) TestSetSupportedContainerTypeNoneIsError(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSupportsNoContainersOverwritesExisting(c *gc.C) {
-	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
 	err := machine.SupportsNoContainers()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2222,52 +2122,52 @@ func (s *MachineSuite) TestSetSupportedContainersSingle(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
-	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC})
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD})
 }
 
 func (s *MachineSuite) TestSetSupportedContainersSame(c *gc.C) {
-	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
-	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
-	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC})
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD})
 }
 
 func (s *MachineSuite) TestSetSupportedContainersNew(c *gc.C) {
-	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
-	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
-	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
 func (s *MachineSuite) TestSetSupportedContainersMultipeNew(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err = machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
-	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
 func (s *MachineSuite) TestSetSupportedContainersMultipleExisting(c *gc.C) {
-	machine := s.addMachineWithSupportedContainer(c, instance.LXC)
+	machine := s.addMachineWithSupportedContainer(c, instance.LXD)
 
-	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	err := machine.SetSupportedContainers([]instance.ContainerType{instance.LXD, instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
-	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXC, instance.KVM})
+	assertSupportedContainers(c, machine, []instance.ContainerType{instance.LXD, instance.KVM})
 }
 
 func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
-	// Create a machine and add lxc and kvm containers prior to calling SetSupportedContainers
+	// Create a machine and add lxd and kvm containers prior to calling SetSupportedContainers
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	supportedContainer, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.KVM)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2281,14 +2181,14 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
 
-	// An unsupported (lxc) container will have an error status.
+	// An unsupported (lxd) container will have an error status.
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = container.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
 	c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
-	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": "lxc"})
+	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": "lxd"})
 }
 
 func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {

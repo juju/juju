@@ -9,9 +9,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -40,7 +40,7 @@ func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 
 func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "admin")
+	context := s.run(c, "grant", username, "controller")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -67,7 +67,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	loggo.RemoveWriter("warning")
 
 	// Then test that the unshare command stack is hooked up
-	context := s.run(c, "revoke", username, "admin")
+	context := s.run(c, "revoke", username, "controller")
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
@@ -81,7 +81,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// Firstly share an model with a user
 	username := "bar@ubuntuone"
-	context := s.run(c, "grant", username, "admin")
+	context := s.run(c, "grant", username, "controller")
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.ModelUser(user)
 	c.Assert(err, jc.ErrorIsNil)

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -752,7 +752,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
 		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should not attempt to create it
@@ -932,7 +932,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 		c.Assert(classification, gc.Equals, t.classification)
 	}
 
-	machineIds := []string{"0/lxc/0", "0/kvm/0", "0"}
+	machineIds := []string{"0/kvm/0", "0"}
 	for _, id := range machineIds {
 		tests := machineClassificationTests
 		if id == "0" {
@@ -957,16 +957,13 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 1 subnet into space1, and 2 into space2.
-	// Only the first subnet of space2 has AllocatableIPLow|High set.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
-		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
-		AvailabilityZone:  "zone{{.}}",
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:           42,
+		CIDR:             "10.10.{{.}}.0/24",
+		ProviderId:       "subnet-{{.}}",
+		AvailabilityZone: "zone{{.}}",
+		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:          42,
 	})
 
 	// Add and provision a machine with spaces specified.

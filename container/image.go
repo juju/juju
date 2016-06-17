@@ -69,7 +69,7 @@ func (ug *imageURLGetter) CACert() []byte {
 // image blob with the specified parameters.
 func ImageDownloadURL(kind instance.ContainerType, series, arch, stream, cloudimgBaseUrl string) (string, error) {
 	// TODO - we currently only need to support LXC images - kind is ignored.
-	if kind != instance.LXC {
+	if kind != instance.LXD {
 		return "", errors.Errorf("unsupported container type: %v", kind)
 	}
 

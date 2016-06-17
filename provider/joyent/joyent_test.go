@@ -72,7 +72,7 @@ func (s *providerSuite) TearDownTest(c *gc.C) {
 
 func GetFakeConfig(sdcUrl string) coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"name":          "joyent test model",
+		"name":          "joyent-test-model",
 		"type":          "joyent",
 		"sdc-user":      testUser,
 		"sdc-key-id":    testKeyFingerprint,

@@ -13,7 +13,7 @@ import (
 func (a *API) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
 	var result params.BackupsListResult
 
-	backups, closer := newBackups(a.st)
+	backups, closer := newBackups(a.backend)
 	defer closer.Close()
 
 	metaList, err := backups.List()

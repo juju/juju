@@ -18,11 +18,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -77,6 +77,8 @@ See also:
     change-user-password`
 
 // Info implements Command.Info
+// `register` may seem generic, but is seen as simple and without potential
+// naming collisions in any current or planned features.
 func (c *registerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "register",
@@ -351,7 +353,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 }
 
 func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (string, error) {
-	password, err := c.readPassword("Enter password: ", stderr, stdin)
+	password, err := c.readPassword("Enter a new password: ", stderr, stdin)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

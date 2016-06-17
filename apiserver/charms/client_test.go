@@ -132,6 +132,17 @@ func (s *baseCharmsSuite) TestClientCharmInfo(c *gc.C) {
 		c.Check(info.Actions, jc.DeepEquals, t.expectedActions)
 	}
 }
+
+func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(
+		c, &factory.CharmParams{Name: "metered", URL: "cs:xenial/metered"})
+	info, err := s.api.CharmInfo(params.CharmInfo{
+		CharmURL: meteredCharm.URL().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Metrics, jc.DeepEquals, meteredCharm.Metrics())
+}
+
 func (s *charmsSuite) TestListCharmsNoFilter(c *gc.C) {
 	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:quantal/dummy-1"})
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/network"
 )
 
 type policyProvider interface {
@@ -101,14 +100,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 // common.SupportsUnitPlacementPolicy.
 
 // SupportNetworks returns whether the environment has support to
-// specify networks for services and machines.
+// specify networks for applications and machines.
 func (env *environ) SupportNetworks() bool {
 	return false
-}
-
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netID network.Id) (bool, error) {
-	return false, nil
 }

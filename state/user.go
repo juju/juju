@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -240,11 +240,6 @@ func (u *User) Tag() names.Tag {
 // UserTag returns the Tag for the User.
 func (u *User) UserTag() names.UserTag {
 	name := u.doc.Name
-	if name == "" {
-		// TODO(waigani) This is a hack for upgrades to 1.23. Once we are no
-		// longer tied to 1.23, we can confidently always use u.doc.Name.
-		name = u.doc.DocID
-	}
 	return names.NewLocalUserTag(name)
 }
 

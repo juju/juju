@@ -33,7 +33,7 @@ Examples:
 See also: 
     add-user
     register
-    list-users`[1:]
+    users`[1:]
 
 // UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
@@ -41,7 +41,7 @@ type UserInfoAPI interface {
 	Close() error
 }
 
-// infoCommandBase is a common base for 'juju show-user' and 'juju list-user'.
+// infoCommandBase is a common base for 'juju show-user' and 'juju users'.
 type infoCommandBase struct {
 	modelcmd.ControllerCommandBase
 	api       UserInfoAPI

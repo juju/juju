@@ -58,19 +58,19 @@ var parseConstraintsTests = []struct {
 		summary: "set container to none",
 		args:    []string{"container=none"},
 	}, {
-		summary: "set container lxc",
-		args:    []string{"container=lxc"},
+		summary: "set container lxd",
+		args:    []string{"container=lxd"},
 	}, {
 		summary: "set nonsense container",
 		args:    []string{"container=foo"},
 		err:     `bad "container" constraint: invalid container type "foo"`,
 	}, {
 		summary: "double set container together",
-		args:    []string{"container=lxc container=lxc"},
+		args:    []string{"container=lxd container=lxd"},
 		err:     `bad "container" constraint: already set`,
 	}, {
 		summary: "double set container separately",
-		args:    []string{"container=lxc", "container="},
+		args:    []string{"container=lxd", "container="},
 		err:     `bad "container" constraint: already set`,
 	},
 
@@ -316,14 +316,14 @@ var parseConstraintsTests = []struct {
 	{
 		summary: "kitchen sink together",
 		args: []string{
-			"root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc " +
+			"root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxd " +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
 			"virt-type=kvm"},
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
 			"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf",
-			"container=lxc", "tags=foo,bar", "spaces=space1,^space2",
+			"container=lxd", "tags=foo,bar", "spaces=space1,^space2",
 			"instance-type=foo", "virt-type=kvm"},
 	},
 }
@@ -351,7 +351,7 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	con1 := constraints.MustParse("arch=amd64 mem=4G")
 	con2 := constraints.MustParse("cpu-cores=42")
 	con3 := constraints.MustParse(
-		"root-disk=8G container=lxc spaces=space1,^space2",
+		"root-disk=8G container=lxd spaces=space1,^space2",
 	)
 	merged, err := constraints.Merge(con1, con2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,7 +362,7 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	merged, err = constraints.Merge(con1, con2, con3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, constraints.
-		MustParse("arch=amd64 mem=4G cpu-cores=42 root-disk=8G container=lxc spaces=space1,^space2"),
+		MustParse("arch=amd64 mem=4G cpu-cores=42 root-disk=8G container=lxd spaces=space1,^space2"),
 	)
 	merged, err = constraints.Merge()
 	c.Assert(err, jc.ErrorIsNil)
@@ -475,7 +475,7 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Arch1", constraints.Value{Arch: strp("")}},
 	{"Arch2", constraints.Value{Arch: strp("amd64")}},
 	{"Container1", constraints.Value{Container: ctypep("")}},
-	{"Container2", constraints.Value{Container: ctypep("lxc")}},
+	{"Container2", constraints.Value{Container: ctypep("lxd")}},
 	{"Container3", constraints.Value{Container: nil}},
 	{"CpuCores1", constraints.Value{CpuCores: nil}},
 	{"CpuCores2", constraints.Value{CpuCores: uint64p(0)}},
@@ -499,7 +499,7 @@ var constraintsRoundtripTests = []roundTrip{
 	{"InstanceType2", constraints.Value{InstanceType: strp("foo")}},
 	{"All", constraints.Value{
 		Arch:         strp("i386"),
-		Container:    ctypep("lxc"),
+		Container:    ctypep("lxd"),
 		CpuCores:     uint64p(4096),
 		CpuPower:     uint64p(9001),
 		Mem:          uint64p(18000000000),
@@ -561,7 +561,7 @@ var hasContainerTests = []struct {
 	{
 		hasContainer: false,
 	}, {
-		constraints:  "container=lxc",
+		constraints:  "container=lxd",
 		hasContainer: true,
 	}, {
 		constraints:  "container=none",
@@ -584,7 +584,7 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }
 
-const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 spaces=space1,^space2 tags=foo container=lxc instance-type=bar"
+const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar"
 
 var withoutTests = []struct {
 	initial string
@@ -593,31 +593,31 @@ var withoutTests = []struct {
 }{{
 	initial: initialWithoutCons,
 	without: []string{"root-disk"},
-	final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"mem"},
-	final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"arch"},
-	final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cpu-power"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cpu-cores"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"tags"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"spaces"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"container"},
@@ -625,11 +625,11 @@ var withoutTests = []struct {
 }, {
 	initial: initialWithoutCons,
 	without: []string{"instance-type"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxc",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"root-disk", "mem", "arch"},
-	final:   "cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxc instance-type=bar",
+	final:   "cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }}
 
 func (s *ConstraintsSuite) TestWithout(c *gc.C) {

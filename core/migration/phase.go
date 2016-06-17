@@ -76,6 +76,22 @@ func (p Phase) IsTerminal() bool {
 	return false
 }
 
+// IsRunning returns true if the phase indicates the migration is
+// active and up to or at the SUCCESS phase. It returns false if the
+// phase is one of the final cleanup phases or indicates an failed
+// migration.
+func (p Phase) IsRunning() bool {
+	if p.IsTerminal() {
+		return false
+	}
+	switch p {
+	case QUIESCE, READONLY, PRECHECK, IMPORT, VALIDATION, SUCCESS:
+		return true
+	default:
+		return false
+	}
+}
+
 // Define all possible phase transitions.
 //
 // The keys are the "from" states and the values enumerate the

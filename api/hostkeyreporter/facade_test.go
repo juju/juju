@@ -6,10 +6,10 @@ package hostkeyreporter_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/hostkeyreporter"

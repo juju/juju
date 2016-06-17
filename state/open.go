@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
@@ -37,13 +37,13 @@ func Open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 	}
 	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("error closing state for unreadable model %s: %v", tag.Id(), err)
+			logger.Errorf("closing State for %s: %v", tag, err)
 		}
 		return nil, errors.Annotatef(err, "cannot read model %s", tag.Id())
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
-	// other *States should be created via ForEnviron.
+	// other *States should be created via ForModel.
 	if err := st.start(tag); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -80,9 +80,8 @@ func open(tag names.ModelTag, info *mongo.MongoInfo, opts mongo.DialOpts, policy
 		tag = ssInfo.ModelTag
 	}
 
-	st, err := newState(tag, session, info, opts, policy)
+	st, err := newState(tag, session, info, policy)
 	if err != nil {
-		session.Close()
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -103,13 +102,92 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 	return nil
 }
 
+// InitializeParams contains the parameters for initializing the state database.
+type InitializeParams struct {
+	// ControllerModelArgs contains the arguments for creating
+	// the controller model.
+	ControllerModelArgs ModelArgs
+
+	// CloudName is the name of the cloud that the controller
+	// runs in.
+	CloudName string
+
+	// Cloud contains the properties of the cloud that the
+	// controller runs in.
+	Cloud cloud.Cloud
+
+	// CloudCredentials contains the credentials for the owner of
+	// the controller model to store in the controller.
+	CloudCredentials map[string]cloud.Credential
+
+	// ModelConfigDefaults contains default config attributes for
+	// models.
+	ModelConfigDefaults map[string]interface{}
+
+	// Policy is the set of state policies to apply.
+	Policy Policy
+
+	// MongoInfo contains the information required to address and
+	// authenticate with Mongo.
+	MongoInfo *mongo.MongoInfo
+
+	// MongoDialOpts contains the dial options for connecting to
+	// Mongo.
+	MongoDialOpts mongo.DialOpts
+}
+
+// Validate checks that the state initialization parameters are valid.
+func (p InitializeParams) Validate() error {
+	if err := p.ControllerModelArgs.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if p.ControllerModelArgs.MigrationMode != MigrationModeActive {
+		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
+	}
+	uuid := p.ControllerModelArgs.Config.UUID()
+	controllerUUID := p.ControllerModelArgs.Config.ControllerUUID()
+	if uuid != controllerUUID {
+		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
+	}
+	if p.MongoInfo == nil {
+		return errors.NotValidf("nil MongoInfo")
+	}
+	if p.CloudName == "" {
+		return errors.NotValidf("empty CloudName")
+	}
+	if p.Cloud.Type == "" {
+		return errors.NotValidf("empty Cloud")
+	}
+	// TODO(wallyworld) - TODO check that the cloud has a non-empty list of auth types
+	//
+	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
+		return errors.Annotate(err, "validating controller model cloud region")
+	}
+	if _, err := validateCloudCredentials(p.Cloud, p.CloudCredentials); err != nil {
+		return errors.Annotate(err, "validating cloud credentials")
+	}
+	if _, err := validateCloudCredential(
+		p.Cloud, p.CloudCredentials,
+		p.ControllerModelArgs.CloudCredential,
+		p.ControllerModelArgs.Owner,
+	); err != nil {
+		return errors.Annotate(err, "validating controller model cloud credential")
+	}
+	return nil
+}
+
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (_ *State, err error) {
-	uuid := cfg.UUID()
-	modelTag := names.NewModelTag(uuid)
-	st, err := open(modelTag, info, opts, policy)
+func Initialize(args InitializeParams) (_ *State, err error) {
+	if err := args.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating initialization args")
+	}
+
+	// When creating the controller model, the new model
+	// UUID is also used as the controller UUID.
+	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.Policy)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,6 +198,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			}
 		}
 	}()
+	st.controllerTag = modelTag
 
 	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case
@@ -130,10 +209,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, errors.Trace(err)
 	}
 
-	// When creating the controller model, the new model
-	// UUID is also used as the controller UUID.
-	logger.Infof("initializing controller model %s", uuid)
-	modelOps, err := st.modelSetupOps(cfg, uuid, uuid, owner, MigrationModeActive)
+	logger.Infof("initializing controller model %s", modelTag.Id())
+
+	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ModelConfigDefaults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,16 +219,22 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if err != nil {
 		return nil, err
 	}
+
+	// Extract just the controller config.
+	controllerCfg := controller.ControllerConfig(args.ControllerModelArgs.Config.AllAttrs())
+
 	ops := []txn.Op{
-		createInitialUserOp(st, owner, info.Password, salt),
+		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
 		txn.Op{
 			C:      controllersC,
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &controllersDoc{
+				CloudName: args.CloudName,
 				ModelUUID: st.ModelUUID(),
 			},
 		},
+		createCloudOp(args.Cloud, args.CloudName),
 		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
@@ -169,6 +253,14 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
+		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
+		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.ModelConfigDefaults),
+	}
+	if len(args.CloudCredentials) > 0 {
+		credentialsOps := updateCloudCredentialsOps(
+			args.ControllerModelArgs.Owner, args.CloudCredentials,
+		)
+		ops = append(ops, credentialsOps...)
 	}
 	ops = append(ops, modelOps...)
 
@@ -181,11 +273,17 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
-func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string, owner names.UserTag, mode MigrationMode) ([]txn.Op, error) {
-	if err := checkModelConfig(cfg); err != nil {
+// modelSetupOps returns the transactions necessary to set up a model.
+func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interface{}) ([]txn.Op, error) {
+	if err := checkModelConfigDefaults(configDefaults); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkModelConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	controllerUUID := st.controllerTag.Id()
+	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
 		// TODO(fwereade): 2016-03-17 lp:1558657
@@ -198,22 +296,31 @@ func (st *State) modelSetupOps(cfg *config.Config, modelUUID, serverUUID string,
 
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
-	if serverUUID == "" {
-		serverUUID = modelUUID
-	}
-	modelUserOp := createModelUserOp(modelUUID, owner, owner, owner.Name(), nowToTheSecond(), ModelAdminAccess)
+	isHostedModel := controllerUUID != modelUUID
+
+	modelUserOp := createModelUserOp(
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), ModelAdminAccess,
+	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
-		createConstraintsOp(st, modelGlobalKey, constraints.Value{}),
-		createSettingsOp(modelGlobalKey, cfg.AllAttrs()),
+		createConstraintsOp(st, modelGlobalKey, args.Constraints),
 	}
-	if modelUUID != serverUUID {
+	if isHostedModel {
 		ops = append(ops, incHostedModelCountOp())
 	}
+
+	modelCfg := modelConfig(configDefaults, args.Config.AllAttrs())
 	ops = append(ops,
+		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
 		createModelEntityRefsOp(st, modelUUID),
-		createModelOp(st, owner, cfg.Name(), modelUUID, serverUUID, mode),
-		createUniqueOwnerModelNameOp(owner, cfg.Name()),
+		createModelOp(
+			args.Owner,
+			args.Config.Name(),
+			modelUUID, controllerUUID,
+			args.CloudRegion, args.CloudCredential,
+			args.MigrationMode,
+		),
+		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
 		modelUserOp,
 	)
 	return ops, nil
@@ -252,7 +359,17 @@ func isUnauthorized(err error) bool {
 // newState creates an incomplete *State, with no running workers or
 // controllerTag. You must start() the returned *State before it will
 // function correctly.
-func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, dialOpts mongo.DialOpts, policy Policy) (_ *State, resultErr error) {
+//
+// newState takes responsibility for the supplied *mgo.Session, and will
+// close it if it cannot be returned under the aegis of a *State.
+func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, err error) {
+
+	defer func() {
+		if err != nil {
+			session.Close()
+		}
+	}()
+
 	// Set up database.
 	rawDB := session.DB(jujuDB)
 	database, err := allCollections().Load(rawDB, modelTag.Id())
@@ -265,12 +382,11 @@ func newState(modelTag names.ModelTag, session *mgo.Session, mongoInfo *mongo.Mo
 
 	// Create State.
 	return &State{
-		modelTag:      modelTag,
-		mongoInfo:     mongoInfo,
-		mongoDialOpts: dialOpts,
-		session:       session,
-		database:      database,
-		policy:        policy,
+		modelTag:  modelTag,
+		mongoInfo: mongoInfo,
+		session:   session,
+		database:  database,
+		policy:    policy,
 	}, nil
 }
 

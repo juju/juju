@@ -5,10 +5,10 @@ package server_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
@@ -26,8 +26,8 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	res1, apiRes1 := newResource(c, "spam", "a-user", "spamspamspam")
 	res2, apiRes2 := newResource(c, "eggs", "a-user", "...")
 
-	tag0 := names.NewUnitTag("a-service/0")
-	tag1 := names.NewUnitTag("a-service/1")
+	tag0 := names.NewUnitTag("a-application/0")
+	tag1 := names.NewUnitTag("a-application/1")
 
 	chres1 := res1.Resource
 	chres2 := res2.Resource
@@ -67,7 +67,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
 		Entities: []params.Entity{{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 			UnitResources: []api.UnitResources{
 				{
 					Entity: params.Entity{
-						Tag: "unit-a-service-0",
+						Tag: "unit-a-application-0",
 					},
 					Resources: []api.Resource{
 						apiRes1,
@@ -92,7 +92,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 					// we should have a listing for every unit, even if they
 					// have no resources.
 					Entity: params.Entity{
-						Tag: "unit-a-service-1",
+						Tag: "unit-a-application-1",
 					},
 				},
 			},
@@ -103,7 +103,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		}},
 	})
 	s.stub.CheckCallNames(c, "ListResources")
-	s.stub.CheckCall(c, 0, "ListResources", "a-service")
+	s.stub.CheckCall(c, 0, "ListResources", "a-application")
 }
 
 func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
@@ -112,7 +112,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
 		Entities: []params.Entity{{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -131,7 +131,7 @@ func (s *ListResourcesSuite) TestError(c *gc.C) {
 
 	results, err := facade.ListResources(api.ListResourcesArgs{
 		Entities: []params.Entity{{
-			Tag: "service-a-service",
+			Tag: "application-a-application",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

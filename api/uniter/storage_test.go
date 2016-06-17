@@ -5,9 +5,9 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
@@ -30,7 +30,7 @@ func (s *storageSuite) TestUnitStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "UnitStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
@@ -57,7 +57,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "DestroyUnitStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
@@ -103,7 +103,7 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchUnitStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.Entities{
@@ -129,7 +129,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
@@ -157,7 +157,7 @@ func (s *storageSuite) TestWatchStorageAttachments(c *gc.C) {
 func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	storageAttachment := params.StorageAttachment{
 		StorageTag: "storage-whatever-0",
-		OwnerTag:   "service-mysql",
+		OwnerTag:   "application-mysql",
 		UnitTag:    "unit-mysql-0",
 		Kind:       params.StorageKindBlock,
 		Location:   "/dev/sda",
@@ -166,7 +166,7 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 	var called bool
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "StorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
@@ -195,7 +195,7 @@ func (s *storageSuite) TestStorageAttachments(c *gc.C) {
 func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "StorageAttachmentLife")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{
@@ -225,7 +225,7 @@ func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "Uniter")
-		c.Check(version, gc.Equals, 3)
+		c.Check(version, gc.Equals, 4)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "RemoveStorageAttachments")
 		c.Check(arg, gc.DeepEquals, params.StorageAttachmentIds{

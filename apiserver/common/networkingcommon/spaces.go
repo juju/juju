@@ -5,18 +5,17 @@ package networkingcommon
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/environ"
 )
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(backing environ.ConfigGetter) error {
+func SupportsSpaces(backing environs.EnvironConfigGetter) error {
 	config, err := backing.ModelConfig()
 	if err != nil {
 		return errors.Annotate(err, "getting model config")

@@ -143,38 +143,38 @@ type endpoints struct {
 }
 
 type endpoint struct {
-	ServiceName_ string `yaml:"service-name"`
-	Name_        string `yaml:"name"`
-	Role_        string `yaml:"role"`
-	Interface_   string `yaml:"interface"`
-	Optional_    bool   `yaml:"optional"`
-	Limit_       int    `yaml:"limit"`
-	Scope_       string `yaml:"scope"`
+	ApplicationName_ string `yaml:"application-name"`
+	Name_            string `yaml:"name"`
+	Role_            string `yaml:"role"`
+	Interface_       string `yaml:"interface"`
+	Optional_        bool   `yaml:"optional"`
+	Limit_           int    `yaml:"limit"`
+	Scope_           string `yaml:"scope"`
 
 	UnitSettings_ map[string]map[string]interface{} `yaml:"unit-settings"`
 }
 
 // EndpointArgs is an argument struct used to specify a relation.
 type EndpointArgs struct {
-	ServiceName string
-	Name        string
-	Role        string
-	Interface   string
-	Optional    bool
-	Limit       int
-	Scope       string
+	ApplicationName string
+	Name            string
+	Role            string
+	Interface       string
+	Optional        bool
+	Limit           int
+	Scope           string
 }
 
 func newEndpoint(args EndpointArgs) *endpoint {
 	return &endpoint{
-		ServiceName_:  args.ServiceName,
-		Name_:         args.Name,
-		Role_:         args.Role,
-		Interface_:    args.Interface,
-		Optional_:     args.Optional,
-		Limit_:        args.Limit,
-		Scope_:        args.Scope,
-		UnitSettings_: make(map[string]map[string]interface{}),
+		ApplicationName_: args.ApplicationName,
+		Name_:            args.Name,
+		Role_:            args.Role,
+		Interface_:       args.Interface,
+		Optional_:        args.Optional,
+		Limit_:           args.Limit,
+		Scope_:           args.Scope,
+		UnitSettings_:    make(map[string]map[string]interface{}),
 	}
 }
 
@@ -186,9 +186,9 @@ func (e *endpoint) unitNames() set.Strings {
 	return result
 }
 
-// ServiceName implements Endpoint.
-func (e *endpoint) ServiceName() string {
-	return e.ServiceName_
+// ApplicationName implements Endpoint.
+func (e *endpoint) ApplicationName() string {
+	return e.ApplicationName_
 }
 
 // Name implements Endpoint.
@@ -260,11 +260,11 @@ func importEndpointList(sourceList []interface{}, importFunc endpointDeserializa
 		if !ok {
 			return nil, errors.Errorf("unexpected value for endpoint %d, %T", i, value)
 		}
-		service, err := importFunc(source)
+		application, err := importFunc(source)
 		if err != nil {
 			return nil, errors.Annotatef(err, "endpoint %d", i)
 		}
-		result = append(result, service)
+		result = append(result, application)
 	}
 	return result, nil
 }
@@ -277,14 +277,14 @@ var endpointDeserializationFuncs = map[int]endpointDeserializationFunc{
 
 func importEndpointV1(source map[string]interface{}) (*endpoint, error) {
 	fields := schema.Fields{
-		"service-name":  schema.String(),
-		"name":          schema.String(),
-		"role":          schema.String(),
-		"interface":     schema.String(),
-		"optional":      schema.Bool(),
-		"limit":         schema.Int(),
-		"scope":         schema.String(),
-		"unit-settings": schema.StringMap(schema.StringMap(schema.Any())),
+		"application-name": schema.String(),
+		"name":             schema.String(),
+		"role":             schema.String(),
+		"interface":        schema.String(),
+		"optional":         schema.Bool(),
+		"limit":            schema.Int(),
+		"scope":            schema.String(),
+		"unit-settings":    schema.StringMap(schema.StringMap(schema.Any())),
 	}
 
 	checker := schema.FieldMap(fields, nil) // No defaults.
@@ -298,14 +298,14 @@ func importEndpointV1(source map[string]interface{}) (*endpoint, error) {
 	// contains fields of the right type.
 
 	result := &endpoint{
-		ServiceName_:  valid["service-name"].(string),
-		Name_:         valid["name"].(string),
-		Role_:         valid["role"].(string),
-		Interface_:    valid["interface"].(string),
-		Optional_:     valid["optional"].(bool),
-		Limit_:        int(valid["limit"].(int64)),
-		Scope_:        valid["scope"].(string),
-		UnitSettings_: make(map[string]map[string]interface{}),
+		ApplicationName_: valid["application-name"].(string),
+		Name_:            valid["name"].(string),
+		Role_:            valid["role"].(string),
+		Interface_:       valid["interface"].(string),
+		Optional_:        valid["optional"].(bool),
+		Limit_:           int(valid["limit"].(int64)),
+		Scope_:           valid["scope"].(string),
+		UnitSettings_:    make(map[string]map[string]interface{}),
 	}
 
 	for unitname, settings := range valid["unit-settings"].(map[string]interface{}) {

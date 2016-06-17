@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -147,7 +147,7 @@ func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDe
 		if strings.Contains(tag.String(), "shared") {
 			all[i].Result = &params.StorageDetails{
 				StorageTag: tag.String(),
-				OwnerTag:   "service-transcode",
+				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindFilesystem,
 				Status: params.EntityStatus{
 					Status: "attached",

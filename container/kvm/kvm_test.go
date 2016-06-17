@@ -20,10 +20,8 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -161,7 +159,7 @@ func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
-	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
 	err := s.manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,18 +174,9 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 // Test that CreateContainer creates proper startParams.
 func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 
-	envCfg, err := config.New(
-		config.NoDefaults,
-		dummy.SampleConfig().Merge(
-			coretesting.Attrs{"image-stream": "released"},
-		),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Config = envCfg
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
@@ -308,14 +297,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`arch constraint of "armhf" being ignored as not supported`,
 		},
 	}, {
-		cons: "container=lxc",
+		cons: "container=lxd",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.DefaultCpu,
 			RootDisk: kvm.DefaultDisk,
 		},
 		infoLog: []string{
-			`container constraint of "lxc" being ignored as not supported`,
+			`container constraint of "lxd" being ignored as not supported`,
 		},
 	}, {
 		cons: "cpu-power=100",
@@ -338,7 +327,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}, {
-		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxc tags=foo,bar",
+		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxd tags=foo,bar",
 		expected: kvm.StartParams{
 			Memory:   4 * 1024,
 			CpuCores: 4,
@@ -346,7 +335,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		},
 		infoLog: []string{
 			`arch constraint of "armhf" being ignored as not supported`,
-			`container constraint of "lxc" being ignored as not supported`,
+			`container constraint of "lxd" being ignored as not supported`,
 			`cpu-power constraint of 100 being ignored as not supported`,
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},

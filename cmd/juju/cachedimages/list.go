@@ -26,13 +26,13 @@ The filter attributes are optional.
 Examples:
 
   # List all cached images.
-  juju list-cache-images
+  juju cached-images
 
   # List cached images for xenial.
-  juju list-cache-images --series xenial 
+  juju cached-images --series xenial
 
   # List all cached lxd images for xenial amd64.
-  juju list-cache-images --kind lxd --series xenial --arch amd64
+  juju cached-images --kind lxd --series xenial --arch amd64
 `
 
 // NewListCommand returns a command for listing chached images.
@@ -50,10 +50,10 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-cached-images",
+		Name:    "cached-images",
 		Purpose: "shows cached os images",
 		Doc:     listCommandDoc,
-		Aliases: []string{"cached-images"},
+		Aliases: []string{"list-cached-images"},
 	}
 }
 
@@ -70,7 +70,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements Command.Init.
-func (c *listCommand) Init(args []string) (err error) {
+func (c *listCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 

@@ -6,9 +6,9 @@ package deployer_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/deployer"
@@ -34,8 +34,8 @@ type deployerSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	machine     *state.Machine
-	service0    *state.Service
-	service1    *state.Service
+	service0    *state.Application
+	service1    *state.Application
 	principal   *state.Unit
 	subordinate *state.Unit
 

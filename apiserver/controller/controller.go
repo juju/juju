@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -22,7 +22,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.controller")
 
 func init() {
-	common.RegisterStandardFacade("Controller", 2, NewControllerAPI)
+	common.RegisterStandardFacade("Controller", 3, NewControllerAPI)
 }
 
 // Controller defines the methods on the controller API end point.
@@ -30,6 +30,7 @@ type Controller interface {
 	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
 	ModelConfig() (params.ModelConfigResults, error)
+	ControllerConfig() (params.ControllerConfigResult, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
 	RemoveBlocks(args params.RemoveBlocksArgs) error
 	WatchAllModels() (params.AllWatcherId, error)
@@ -184,17 +185,28 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 
-	controllerEnv, err := s.state.ControllerModel()
+	controllerModel, err := s.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	config, err := controllerEnv.Config()
+	config, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	result.Config = config.AllAttrs()
+	return result, nil
+}
+
+// ControllerConfig returns the controller's configuration.
+func (s *ControllerAPI) ControllerConfig() (params.ControllerConfigResult, error) {
+	result := params.ControllerConfigResult{}
+	config, err := s.state.ControllerConfig()
+	if err != nil {
+		return result, err
+	}
+	result.Config = params.ControllerConfig(config)
 	return result, nil
 }
 
@@ -351,7 +363,7 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		}
 	}
 
-	services, err := st.AllServices()
+	services, err := st.AllApplications()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
@@ -369,7 +381,7 @@ func (c *ControllerAPI) environStatus(tag string) (params.ModelStatus, error) {
 		OwnerTag:           env.Owner().String(),
 		Life:               params.Life(env.Life().String()),
 		HostedMachineCount: len(hostedMachines),
-		ServiceCount:       len(services),
+		ApplicationCount:   len(services),
 	}, nil
 }
 

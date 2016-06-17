@@ -4,15 +4,14 @@
 package subnet_test
 
 import (
-	"net"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
@@ -127,13 +126,11 @@ var _ subnet.SubnetAPI = (*StubAPI)(nil)
 func NewStubAPI() *StubAPI {
 	subnets := []params.Subnet{{
 		// IPv4 subnet.
-		CIDR:              "10.20.0.0/24",
-		ProviderId:        "subnet-foo",
-		Life:              params.Alive,
-		SpaceTag:          "space-public",
-		Zones:             []string{"zone1", "zone2"},
-		StaticRangeLowIP:  net.ParseIP("10.20.0.10"),
-		StaticRangeHighIP: net.ParseIP("10.20.0.100"),
+		CIDR:       "10.20.0.0/24",
+		ProviderId: "subnet-foo",
+		Life:       params.Alive,
+		SpaceTag:   "space-public",
+		Zones:      []string{"zone1", "zone2"},
 	}, {
 		// IPv6 subnet.
 		CIDR:       "2001:db8::/32",

@@ -43,6 +43,9 @@ type ModelInfo struct {
 	ControllerUUID string `json:"ServerUUID"`
 	ProviderType   string `json:"ProviderType"`
 	DefaultSeries  string `json:"DefaultSeries"`
+	CloudRegion    string `json:"CloudRegion,omitempty"`
+	// TODO(axw) make sure we're setting this everywhere
+	CloudCredential string `json:"CloudCredential,omitempty"`
 
 	// OwnerTag is the tag of the user that owns the model.
 	OwnerTag string `json:"OwnerTag"`

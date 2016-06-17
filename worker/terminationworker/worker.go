@@ -30,30 +30,30 @@ type terminationWorker struct {
 // TerminationSignal signal, and then exits
 // with worker.ErrTerminateAgent.
 func NewWorker() worker.Worker {
-	u := &terminationWorker{}
-	go func() {
-		defer u.tomb.Done()
-		u.tomb.Kill(u.loop())
-	}()
-	return u
-}
-
-func (u *terminationWorker) Kill() {
-	u.tomb.Kill(nil)
-}
-
-func (u *terminationWorker) Wait() error {
-	return u.tomb.Wait()
-}
-
-func (u *terminationWorker) loop() (err error) {
+	var w terminationWorker
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, TerminationSignal)
-	defer signal.Stop(c)
+	go func() {
+		defer w.tomb.Done()
+		defer signal.Stop(c)
+		w.tomb.Kill(w.loop(c))
+	}()
+	return &w
+}
+
+func (w *terminationWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *terminationWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
 	select {
 	case <-c:
 		return worker.ErrTerminateAgent
-	case <-u.tomb.Dying():
+	case <-w.tomb.Dying():
 		return tomb.ErrDying
 	}
 }

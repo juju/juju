@@ -84,6 +84,16 @@ func (info *RestoreInfo) Status() (RestoreStatus, error) {
 	return doc.Status, nil
 }
 
+// PurgeTxn purges missing transation from restoreInfoC collection.
+// These can be caused because this collection is heavy use while backing
+// up and mongo 3.2 does not like this.
+func (info *RestoreInfo) PurgeTxn() error {
+	restoreInfo, closer := info.st.getRawCollection(restoreInfoC)
+	defer closer()
+	r := txn.NewRunner(restoreInfo)
+	return r.PurgeMissing(restoreInfoC)
+}
+
 // SetStatus sets the status of the current restore. Checks are made
 // to ensure that status changes are performed in the correct order.
 func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
@@ -106,7 +116,7 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 		return ops, nil
 	}
 	if err := info.st.run(buildTxn); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "setting status %q", status)
 	}
 	return nil
 }
@@ -135,9 +145,17 @@ func setRestoreStatusOps(before, after RestoreStatus) ([]txn.Op, error) {
 			return nil, errInvalid
 		}
 	case RestoreFinished:
-		if before != RestoreInProgress {
+		// RestoreFinished is set after a restore so we cannot ensure
+		// what will be on the db state since it will deppend on
+		// what was set during backup.
+		switch before {
+		case RestoreNotActive:
+			return createRestoreStatusFinishedOps(), nil
+		case RestoreFailed:
+			// except for the case of Failed,this is most likely a race condition.
 			return nil, errInvalid
 		}
+
 	case RestoreChecked:
 		if before != RestoreFinished {
 			return nil, errInvalid
@@ -146,6 +164,17 @@ func setRestoreStatusOps(before, after RestoreStatus) ([]txn.Op, error) {
 		return nil, errInvalid
 	}
 	return updateRestoreStatusChangeOps(before, after), nil
+}
+
+// createRestoreStatusFinishedOps is useful when setting finished on
+// a non initated restore document.
+func createRestoreStatusFinishedOps() []txn.Op {
+	return []txn.Op{{
+		C:      restoreInfoC,
+		Id:     currentRestoreId,
+		Assert: txn.DocMissing,
+		Insert: bson.D{{"status", RestoreFinished}},
+	}}
 }
 
 // createRestoreStatusPendingOps is the only valid way to create a

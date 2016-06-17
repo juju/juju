@@ -46,20 +46,38 @@ type syncToolsCommand struct {
 
 var _ cmd.Command = (*syncToolsCommand)(nil)
 
+const synctoolsDoc = `
+This copies the Juju agent software from the official tools store (located
+at https://streams.canonical.com/juju) into a model. It is generally done
+when the model is without Internet access.
+
+Instead of the above site, a local directory can be specified as source.
+The online store will, of course, need to be contacted at some point to get
+the software.
+
+Examples:
+
+Download the software (version auto-selected) to the model:
+
+    juju sync-tools --debug
+
+Download a specific version of the software locally:
+
+    juju sync-tools --debug --version 2.0 --local-dir=/home/ubuntu/sync-tools
+
+Get locally available software to the model:
+
+    juju sync-tools --debug --source=/home/ubuntu/sync-tools
+
+See also: upgrade-juju
+
+`
+
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "copy tools from the official tool store into a local model",
-		Doc: `
-This copies the Juju tools tarball from the official tools store (located
-at https://streams.canonical.com/juju) into your model.
-This is generally done when you want Juju to be able to run without having to
-access the Internet. Alternatively you can specify a local directory as source.
-
-Sometimes this is because the model does not have public access,
-and sometimes you just want to avoid having to access data outside of
-the local cloud.
-`,
+		Purpose: "Copy tools from the official tool store into a local model.",
+		Doc:     synctoolsDoc,
 	}
 }
 
@@ -72,7 +90,7 @@ func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.source, "source", "", "local source directory")
 	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to sync metadata")
 	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
-	f.StringVar(&c.destination, "destination", "", "local destination directory")
+	f.StringVar(&c.destination, "destination", "", "local destination directory\n    DEPRECATED: use --local-dir instead")
 }
 
 func (c *syncToolsCommand) Init(args []string) error {

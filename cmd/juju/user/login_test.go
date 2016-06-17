@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/juju"

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -55,7 +55,7 @@ func (s *ClientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 		c.Check(request, gc.Equals, "ClaimLeadership")
 		c.Check(arg, jc.DeepEquals, params.ClaimLeadershipBulkParams{
 			Params: []params.ClaimLeadershipParams{{
-				ServiceTag:      "service-stub-service",
+				ApplicationTag:  "application-stub-service",
 				UnitTag:         "unit-stub-unit-0",
 				DurationSeconds: claimTime.Seconds(),
 			}},
@@ -141,7 +141,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	apiCaller := s.apiCaller(c, func(request string, arg, result interface{}) error {
 		numStubCalls++
 		c.Check(request, gc.Equals, "BlockUntilLeadershipReleased")
-		c.Check(arg, jc.DeepEquals, names.NewServiceTag(StubServiceNm))
+		c.Check(arg, jc.DeepEquals, names.NewApplicationTag(StubServiceNm))
 		switch result := result.(type) {
 		case *params.ErrorResult:
 		default:

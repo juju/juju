@@ -20,11 +20,11 @@ import (
 type firewallerSuite struct {
 	testing.JujuConnSuite
 
-	st       api.Connection
-	machines []*state.Machine
-	service  *state.Service
-	charm    *state.Charm
-	units    []*state.Unit
+	st          api.Connection
+	machines    []*state.Machine
+	application *state.Application
+	charm       *state.Charm
+	units       []*state.Unit
 
 	firewaller *firewaller.State
 }
@@ -59,10 +59,10 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	}
 	// Create a service and three units for these machines.
 	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingService(c, "wordpress", s.charm)
+	s.application = s.AddTestingService(c, "wordpress", s.charm)
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
-		s.units[i], err = s.service.AddUnit()
+		s.units[i], err = s.application.AddUnit()
 		c.Check(err, jc.ErrorIsNil)
 		err = s.units[i].AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)

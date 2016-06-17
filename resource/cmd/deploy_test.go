@@ -54,7 +54,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	}
 
 	ids, err := DeployResources(DeployResourcesArgs{
-		ServiceID:          "mysql",
+		ApplicationID:      "mysql",
 		CharmID:            chID,
 		CharmStoreMacaroon: csMac,
 		Filenames:          nil,
@@ -88,10 +88,10 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	}
 	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
-		serviceID: "mysql",
-		chID:      chID,
-		csMac:     csMac,
-		client:    deps,
+		applicationID: "mysql",
+		chID:          chID,
+		csMac:         csMac,
+		client:        deps,
 		resources: map[string]charmresource.Meta{
 			"upload": {
 				Name: "upload",
@@ -145,10 +145,10 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	}
 	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
-		serviceID: "mysql",
-		chID:      chID,
-		csMac:     csMac,
-		client:    deps,
+		applicationID: "mysql",
+		chID:          chID,
+		csMac:         csMac,
+		client:        deps,
 		resources: map[string]charmresource.Meta{
 			"upload": {
 				Name: "upload",
@@ -197,10 +197,10 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	}
 	csMac := &macaroon.Macaroon{}
 	du := deployUploader{
-		serviceID: "mysql",
-		chID:      chID,
-		csMac:     csMac,
-		client:    deps,
+		applicationID: "mysql",
+		chID:          chID,
+		csMac:         csMac,
+		client:        deps,
 		resources: map[string]charmresource.Meta{
 			"upload": {
 				Name: "upload",
@@ -251,8 +251,8 @@ func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	du := deployUploader{
-		serviceID: "mysql",
-		client:    deps,
+		applicationID: "mysql",
+		client:        deps,
 		resources: map[string]charmresource.Meta{
 			"res1": {
 				Name: "res1",
@@ -275,8 +275,8 @@ func (s DeploySuite) TestUploadUnexpectedResourceFile(c *gc.C) {
 func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	du := deployUploader{
-		serviceID: "mysql",
-		client:    deps,
+		applicationID: "mysql",
+		client:        deps,
 		resources: map[string]charmresource.Meta{
 			"res1": {
 				Name: "res1",
@@ -299,8 +299,8 @@ func (s DeploySuite) TestUploadUnexpectedResourceRevision(c *gc.C) {
 func (s DeploySuite) TestMissingResource(c *gc.C) {
 	deps := uploadDeps{s.stub, rsc{&bytes.Buffer{}}}
 	du := deployUploader{
-		serviceID: "mysql",
-		client:    deps,
+		applicationID: "mysql",
+		client:        deps,
 		resources: map[string]charmresource.Meta{
 			"res1": {
 				Name: "res1",
@@ -327,9 +327,9 @@ type uploadDeps struct {
 	ReadSeekCloser ReadSeekCloser
 }
 
-func (s uploadDeps) AddPendingResources(serviceID string, charmID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
+func (s uploadDeps) AddPendingResources(applicationID string, charmID charmstore.CharmID, csMac *macaroon.Macaroon, resources []charmresource.Resource) (ids []string, err error) {
 	charmresource.Sort(resources)
-	s.stub.AddCall("AddPendingResources", serviceID, charmID, csMac, resources)
+	s.stub.AddCall("AddPendingResources", applicationID, charmID, csMac, resources)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -340,8 +340,8 @@ func (s uploadDeps) AddPendingResources(serviceID string, charmID charmstore.Cha
 	return ids, nil
 }
 
-func (s uploadDeps) AddPendingResource(serviceID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
-	s.stub.AddCall("AddPendingResource", serviceID, resource, filename, r)
+func (s uploadDeps) AddPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error) {
+	s.stub.AddCall("AddPendingResource", applicationID, resource, filename, r)
 	if err := s.stub.NextErr(); err != nil {
 		return "", err
 	}

@@ -9,30 +9,22 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
 
-// Client describes the client side API for the MigrationMinion facade
-// (used by the migration minion worker).
-type Client interface {
-	// Watch returns a watcher which reports when the status changes
-	// for the migration for the model associated with the API
-	// connection.
-	Watch() (watcher.MigrationStatusWatcher, error)
-}
-
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller) Client {
-	return &client{base.NewFacadeCaller(caller, "MigrationMinion")}
+func NewClient(caller base.APICaller) *Client {
+	return &Client{base.NewFacadeCaller(caller, "MigrationMinion")}
 }
 
-// client implements Client.
-type client struct {
+type Client struct {
 	caller base.FacadeCaller
 }
 
-// Watch implements Client.
-func (c *client) Watch() (watcher.MigrationStatusWatcher, error) {
+// Watch returns a watcher which reports when the status changes for
+// the migration for the model associated with the API connection.
+func (c *Client) Watch() (watcher.MigrationStatusWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.caller.FacadeCall("Watch", nil, &result)
 	if err != nil {
@@ -43,4 +35,16 @@ func (c *client) Watch() (watcher.MigrationStatusWatcher, error) {
 	}
 	w := apiwatcher.NewMigrationStatusWatcher(c.caller.RawAPICaller(), result.NotifyWatcherId)
 	return w, nil
+}
+
+// Report allows a migration minion to report if it successfully
+// completed its activities for a given migration phase.
+func (c *Client) Report(migrationId string, phase migration.Phase, success bool) error {
+	args := params.MinionReport{
+		MigrationId: migrationId,
+		Phase:       phase.String(),
+		Success:     success,
+	}
+	err := c.caller.FacadeCall("Report", args, nil)
+	return errors.Trace(err)
 }

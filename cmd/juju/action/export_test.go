@@ -5,7 +5,7 @@ package action
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -53,8 +53,8 @@ type ListCommand struct {
 	*listCommand
 }
 
-func (c *ListCommand) ServiceTag() names.ServiceTag {
-	return c.serviceTag
+func (c *ListCommand) ApplicationTag() names.ApplicationTag {
+	return c.applicationTag
 }
 
 func (c *ListCommand) FullSchema() bool {

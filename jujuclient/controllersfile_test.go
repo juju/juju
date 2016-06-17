@@ -22,26 +22,26 @@ var _ = gc.Suite(&ControllersFileSuite{})
 
 const testControllersYAML = `
 controllers:
-  local.aws-test:
+  aws-test:
     unresolved-api-endpoints: [instance-1-2-4.useast.aws.com]
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
     region: us-east-1
-  local.mallards:
+  mallards:
     unresolved-api-endpoints: [maas-1-05.cluster.mallards]
     uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
-  local.mark-test-prodstack:
+  mark-test-prodstack:
     unresolved-api-endpoints: [vm-23532.prodstack.canonical.com, great.test.server.hostname.co.nz]
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack
-current-controller: local.mallards
+current-controller: mallards
 `
 
 func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
@@ -74,8 +74,8 @@ func parseControllers(c *gc.C) *jujuclient.Controllers {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure that multiple server hostnames and eapi endpoints are parsed correctly
-	c.Assert(controllers.Controllers["local.mark-test-prodstack"].UnresolvedAPIEndpoints, gc.HasLen, 2)
-	c.Assert(controllers.Controllers["local.mallards"].APIEndpoints, gc.HasLen, 2)
+	c.Assert(controllers.Controllers["mark-test-prodstack"].UnresolvedAPIEndpoints, gc.HasLen, 2)
+	c.Assert(controllers.Controllers["mallards"].APIEndpoints, gc.HasLen, 2)
 	return controllers
 }
 
@@ -93,9 +93,9 @@ func (s *ControllersFileSuite) TestParseControllerMetadata(c *gc.C) {
 		names = append(names, name)
 	}
 	c.Assert(names, jc.SameContents,
-		[]string{"local.mark-test-prodstack", "local.mallards", "local.aws-test"},
+		[]string{"mark-test-prodstack", "mallards", "aws-test"},
 	)
-	c.Assert(controllers.CurrentController, gc.Equals, "local.mallards")
+	c.Assert(controllers.CurrentController, gc.Equals, "mallards")
 }
 
 func (s *ControllersFileSuite) TestParseControllerMetadataError(c *gc.C) {

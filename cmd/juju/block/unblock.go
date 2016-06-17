@@ -51,7 +51,7 @@ remove-object includes termination commands:
     destroy-model
     remove-machine
     remove-relation
-    remove-service
+    remove-application
     remove-unit
 
 all-changes includes all alteration commands
@@ -67,7 +67,7 @@ all-changes includes all alteration commands
     expose
     remove-machine
     remove-relation
-    remove-service
+    remove-application
     remove-unit
     resolved
     retry-provisioning
@@ -90,7 +90,7 @@ Examples:
    To allow the model to be destroyed:
    juju unblock destroy-model
 
-   To allow the machines, services, units and relations to be removed:
+   To allow the machines, applications, units and relations to be removed:
    juju unblock remove-object
 
    To allow changes to the model:

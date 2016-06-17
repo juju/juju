@@ -8,6 +8,7 @@ import "github.com/juju/juju/core/migration"
 // MigrationStatus is the client side version of
 // params.MigrationStatus.
 type MigrationStatus struct {
+	MigrationId    string
 	Attempt        int
 	Phase          migration.Phase
 	SourceAPIAddrs []string

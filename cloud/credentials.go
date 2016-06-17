@@ -43,6 +43,9 @@ func (c Credential) AuthType() AuthType {
 }
 
 func copyStringMap(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
 	out := make(map[string]string)
 	for k, v := range in {
 		out[k] = v
@@ -55,12 +58,24 @@ func (c Credential) Attributes() map[string]string {
 	return copyStringMap(c.attributes)
 }
 
+type credentialInternal struct {
+	AuthType   AuthType          `yaml:"auth-type"`
+	Attributes map[string]string `yaml:",omitempty,inline"`
+}
+
 // MarshalYAML implements the yaml.Marshaler interface.
 func (c Credential) MarshalYAML() (interface{}, error) {
-	return struct {
-		AuthType   AuthType          `yaml:"auth-type"`
-		Attributes map[string]string `yaml:",omitempty,inline"`
-	}{c.authType, c.attributes}, nil
+	return credentialInternal{c.authType, c.attributes}, nil
+}
+
+// UnmarshalYAML implements the yaml.Marshaler interface.
+func (c *Credential) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var internal credentialInternal
+	if err := unmarshal(&internal); err != nil {
+		return err
+	}
+	*c = Credential{authType: internal.AuthType, attributes: internal.Attributes}
+	return nil
 }
 
 // NewCredential returns a new, immutable, Credential with the supplied
@@ -344,6 +359,9 @@ func (c cloudCredentialValueChecker) Coerce(v interface{}, path []string) (inter
 	delete(mapv, "auth-type")
 	for k, v := range mapv {
 		attrs[k] = v.(string)
+	}
+	if len(attrs) == 0 {
+		attrs = nil
 	}
 	return Credential{authType: AuthType(authType), attributes: attrs}, nil
 }

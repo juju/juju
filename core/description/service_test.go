@@ -4,38 +4,38 @@
 package description
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 )
 
-type ServiceSerializationSuite struct {
+type ApplicationSerializationSuite struct {
 	SliceSerializationSuite
 	StatusHistoryMixinSuite
 }
 
-var _ = gc.Suite(&ServiceSerializationSuite{})
+var _ = gc.Suite(&ApplicationSerializationSuite{})
 
-func (s *ServiceSerializationSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "services"
-	s.sliceName = "services"
+	s.importName = "applications"
+	s.sliceName = "applications"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
-		return importServices(m)
+		return importApplications(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["services"] = []interface{}{}
+		m["applications"] = []interface{}{}
 	}
 	s.StatusHistoryMixinSuite.creator = func() HasStatusHistory {
-		return minimalService()
+		return minimalApplication()
 	}
 	s.StatusHistoryMixinSuite.serializer = func(c *gc.C, initial interface{}) HasStatusHistory {
-		return s.exportImport(c, initial.(*service))
+		return s.exportImport(c, initial.(*application))
 	}
 }
 
-func minimalServiceMap() map[interface{}]interface{} {
+func minimalApplicationMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
 		"name":              "ubuntu",
 		"series":            "trusty",
@@ -62,8 +62,8 @@ func minimalServiceMap() map[interface{}]interface{} {
 	}
 }
 
-func minimalService() *service {
-	s := newService(minimalServiceArgs())
+func minimalApplication() *application {
+	s := newApplication(minimalApplicationArgs())
 	s.SetStatus(minimalStatusArgs())
 	u := s.AddUnit(minimalUnitArgs())
 	u.SetAgentStatus(minimalStatusArgs())
@@ -72,8 +72,8 @@ func minimalService() *service {
 	return s
 }
 
-func addMinimalService(model Model) {
-	s := model.AddService(minimalServiceArgs())
+func addMinimalApplication(model Model) {
+	s := model.AddApplication(minimalApplicationArgs())
 	s.SetStatus(minimalStatusArgs())
 	u := s.AddUnit(minimalUnitArgs())
 	u.SetAgentStatus(minimalStatusArgs())
@@ -81,9 +81,9 @@ func addMinimalService(model Model) {
 	u.SetTools(minimalAgentToolsArgs())
 }
 
-func minimalServiceArgs() ServiceArgs {
-	return ServiceArgs{
-		Tag:                  names.NewServiceTag("ubuntu"),
+func minimalApplicationArgs() ApplicationArgs {
+	return ApplicationArgs{
+		Tag:                  names.NewApplicationTag("ubuntu"),
 		Series:               "trusty",
 		CharmURL:             "cs:trusty/ubuntu",
 		Channel:              "stable",
@@ -100,9 +100,9 @@ func minimalServiceArgs() ServiceArgs {
 	}
 }
 
-func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
-	args := ServiceArgs{
-		Tag:                  names.NewServiceTag("magic"),
+func (s *ApplicationSerializationSuite) TestNewApplication(c *gc.C) {
+	args := ApplicationArgs{
+		Tag:                  names.NewApplicationTag("magic"),
 		Series:               "zesty",
 		Subordinate:          true,
 		CharmURL:             "cs:zesty/magic",
@@ -121,44 +121,44 @@ func (s *ServiceSerializationSuite) TestNewService(c *gc.C) {
 		},
 		MetricsCredentials: []byte("sekrit"),
 	}
-	service := newService(args)
+	application := newApplication(args)
 
-	c.Assert(service.Name(), gc.Equals, "magic")
-	c.Assert(service.Tag(), gc.Equals, names.NewServiceTag("magic"))
-	c.Assert(service.Series(), gc.Equals, "zesty")
-	c.Assert(service.Subordinate(), jc.IsTrue)
-	c.Assert(service.CharmURL(), gc.Equals, "cs:zesty/magic")
-	c.Assert(service.Channel(), gc.Equals, "stable")
-	c.Assert(service.CharmModifiedVersion(), gc.Equals, 1)
-	c.Assert(service.ForceCharm(), jc.IsTrue)
-	c.Assert(service.Exposed(), jc.IsTrue)
-	c.Assert(service.MinUnits(), gc.Equals, 42)
-	c.Assert(service.Settings(), jc.DeepEquals, args.Settings)
-	c.Assert(service.SettingsRefCount(), gc.Equals, 1)
-	c.Assert(service.Leader(), gc.Equals, "magic/1")
-	c.Assert(service.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
-	c.Assert(service.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
+	c.Assert(application.Name(), gc.Equals, "magic")
+	c.Assert(application.Tag(), gc.Equals, names.NewApplicationTag("magic"))
+	c.Assert(application.Series(), gc.Equals, "zesty")
+	c.Assert(application.Subordinate(), jc.IsTrue)
+	c.Assert(application.CharmURL(), gc.Equals, "cs:zesty/magic")
+	c.Assert(application.Channel(), gc.Equals, "stable")
+	c.Assert(application.CharmModifiedVersion(), gc.Equals, 1)
+	c.Assert(application.ForceCharm(), jc.IsTrue)
+	c.Assert(application.Exposed(), jc.IsTrue)
+	c.Assert(application.MinUnits(), gc.Equals, 42)
+	c.Assert(application.Settings(), jc.DeepEquals, args.Settings)
+	c.Assert(application.SettingsRefCount(), gc.Equals, 1)
+	c.Assert(application.Leader(), gc.Equals, "magic/1")
+	c.Assert(application.LeadershipSettings(), jc.DeepEquals, args.LeadershipSettings)
+	c.Assert(application.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
 }
 
-func (s *ServiceSerializationSuite) TestMinimalServiceValid(c *gc.C) {
-	service := minimalService()
-	c.Assert(service.Validate(), jc.ErrorIsNil)
+func (s *ApplicationSerializationSuite) TestMinimalApplicationValid(c *gc.C) {
+	application := minimalApplication()
+	c.Assert(application.Validate(), jc.ErrorIsNil)
 }
 
-func (s *ServiceSerializationSuite) TestMinimalMatches(c *gc.C) {
-	bytes, err := yaml.Marshal(minimalService())
+func (s *ApplicationSerializationSuite) TestMinimalMatches(c *gc.C) {
+	bytes, err := yaml.Marshal(minimalApplication())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var source map[interface{}]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(source, jc.DeepEquals, minimalServiceMap())
+	c.Assert(source, jc.DeepEquals, minimalApplicationMap())
 }
 
-func (s *ServiceSerializationSuite) exportImport(c *gc.C, service_ *service) *service {
-	initial := services{
-		Version:   1,
-		Services_: []*service{service_},
+func (s *ApplicationSerializationSuite) exportImport(c *gc.C, application_ *application) *application {
+	initial := applications{
+		Version:       1,
+		Applications_: []*application{application_},
 	}
 
 	bytes, err := yaml.Marshal(initial)
@@ -168,32 +168,32 @@ func (s *ServiceSerializationSuite) exportImport(c *gc.C, service_ *service) *se
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	services, err := importServices(source)
+	applications, err := importApplications(source)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(services, gc.HasLen, 1)
-	return services[0]
+	c.Assert(applications, gc.HasLen, 1)
+	return applications[0]
 }
 
-func (s *ServiceSerializationSuite) TestParsingSerializedData(c *gc.C) {
-	svc := minimalService()
-	service := s.exportImport(c, svc)
-	c.Assert(service, jc.DeepEquals, svc)
+func (s *ApplicationSerializationSuite) TestParsingSerializedData(c *gc.C) {
+	svc := minimalApplication()
+	application := s.exportImport(c, svc)
+	c.Assert(application, jc.DeepEquals, svc)
 }
 
-func (s *ServiceSerializationSuite) TestAnnotations(c *gc.C) {
-	initial := minimalService()
+func (s *ApplicationSerializationSuite) TestAnnotations(c *gc.C) {
+	initial := minimalApplication()
 	annotations := map[string]string{
 		"string":  "value",
 		"another": "one",
 	}
 	initial.SetAnnotations(annotations)
 
-	service := s.exportImport(c, initial)
-	c.Assert(service.Annotations(), jc.DeepEquals, annotations)
+	application := s.exportImport(c, initial)
+	c.Assert(application.Annotations(), jc.DeepEquals, annotations)
 }
 
-func (s *ServiceSerializationSuite) TestConstraints(c *gc.C) {
-	initial := minimalService()
+func (s *ApplicationSerializationSuite) TestConstraints(c *gc.C) {
+	initial := minimalApplication()
 	args := ConstraintsArgs{
 		Architecture: "amd64",
 		Memory:       8 * gig,
@@ -201,16 +201,16 @@ func (s *ServiceSerializationSuite) TestConstraints(c *gc.C) {
 	}
 	initial.SetConstraints(args)
 
-	service := s.exportImport(c, initial)
-	c.Assert(service.Constraints(), jc.DeepEquals, newConstraints(args))
+	application := s.exportImport(c, initial)
+	c.Assert(application.Constraints(), jc.DeepEquals, newConstraints(args))
 }
 
-func (s *ServiceSerializationSuite) TestLeaderValid(c *gc.C) {
-	args := minimalServiceArgs()
+func (s *ApplicationSerializationSuite) TestLeaderValid(c *gc.C) {
+	args := minimalApplicationArgs()
 	args.Leader = "ubuntu/1"
-	service := newService(args)
-	service.SetStatus(minimalStatusArgs())
+	application := newApplication(args)
+	application.SetStatus(minimalStatusArgs())
 
-	err := service.Validate()
+	err := application.Validate()
 	c.Assert(err, gc.ErrorMatches, `missing unit for leader "ubuntu/1" not valid`)
 }

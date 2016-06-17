@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineactions")

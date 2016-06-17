@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -23,7 +23,7 @@ const (
 	cleanupCharmForDyingService          cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
-	cleanupServicesForDyingModel         cleanupKind = "services"
+	cleanupServicesForDyingModel         cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
 	cleanupForceDestroyedMachine         cleanupKind = "machine"
 	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
@@ -227,14 +227,14 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 	// This won't miss services, because a Dying model cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
-	services, closer := st.getCollection(servicesC)
+	applications, closer := st.getCollection(applicationsC)
 	defer closer()
-	service := Service{st: st}
+	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
-	iter := services.Find(sel).Iter()
+	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading service document")
-	for iter.Next(&service.doc) {
-		if err := service.Destroy(); err != nil {
+	for iter.Next(&application.doc) {
+		if err := application.Destroy(); err != nil {
 			return err
 		}
 	}
@@ -244,7 +244,7 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 // cleanupUnitsForDyingService sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
+func (st *State) cleanupUnitsForDyingService(applicationname string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
@@ -252,7 +252,7 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
 	defer closer()
 
 	unit := Unit{st: st}
-	sel := bson.D{{"service", serviceName}, {"life", Alive}}
+	sel := bson.D{{"application", applicationname}, {"life", Alive}}
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {

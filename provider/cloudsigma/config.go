@@ -4,7 +4,6 @@
 package cloudsigma
 
 import (
-	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
@@ -18,12 +17,7 @@ var configFields = schema.Fields{
 	"endpoint": schema.String(),
 }
 
-var configDefaultFields = schema.Defaults{
-	"username": "",
-	"password": "",
-	"region":   gosigma.DefaultRegion,
-	"endpoint": "",
-}
+var configDefaultFields = schema.Defaults{}
 
 var configSecretFields = []string{
 	"password",

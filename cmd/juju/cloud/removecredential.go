@@ -24,14 +24,14 @@ Removes credentials for a cloud.`[1:]
 var usageRemoveCredentialDetails = `
 The credentials to be removed are specified by a "credential name".
 Credential names, and optionally the corresponding authentication
-material, can be listed with `[1:] + "`juju list-credentials`" + `.
+material, can be listed with `[1:] + "`juju credentials`" + `.
 
 Examples:
     juju remove-credential rackspace credential_name
 
 See also: 
+    credentials
     add-credential
-    list-credentials
     set-default-credential
     autoload-credentials`
 

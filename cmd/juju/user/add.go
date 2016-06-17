@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/juju/block"
@@ -24,26 +24,23 @@ var usageSummary = `
 Adds a Juju user to a controller.`[1:]
 
 var usageDetails = `
-This allows the user to register with the controller and use the 
-optionally shared model.
-A ` + "`juju register`" + ` command will be printed, which
-must be executed by the user to complete the registration process.  The
-user's details are stored within the shared model, and will be removed
-when the model is destroyed.
-Some machine providers will require the user 
-to be in possession of certain credentials in order to create a model.
+A ` + "`juju register`" + ` command will be printed, which must be executed by the
+user to complete the registration process. The user's details are stored
+within the shared model, and will be removed when the model is destroyed.
+
+Some machine providers will require the user to be in possession of certain
+credentials in order to create a model.
 
 Examples:
     juju add-user bob
-    juju add-user --share mymodel bob
     juju add-user --controller mycontroller bob
+    juju add-user --models=mymodel --acl=read bob
 
 See also: 
     register
     grant
+    users
     show-user
-    list-users
-    switch-user
     disable-user
     enable-user
     change-user-password`[1:]

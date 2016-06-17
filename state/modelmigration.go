@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -727,7 +727,7 @@ func agentTagToGlobalKey(tag names.Tag) (string, error) {
 	case names.MachineTag:
 		return machineGlobalKey(t.Id()), nil
 	case names.UnitTag:
-		return unitGlobalKey(t.Id()), nil
+		return unitAgentGlobalKey(t.Id()), nil
 	default:
 		return "", errors.Errorf("%s is not an agent tag", tag)
 	}

@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/addresser"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/applicationscaler"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
-	"github.com/juju/juju/worker/servicescaler"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -214,10 +213,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		unitAssignerName: ifNotDead(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		serviceScalerName: ifNotDead(servicescaler.Manifold(servicescaler.ManifoldConfig{
+		applicationscalerName: ifNotDead(applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 			APICallerName: apiCallerName,
-			NewFacade:     servicescaler.NewFacade,
-			NewWorker:     servicescaler.New,
+			NewFacade:     applicationscaler.NewFacade,
+			NewWorker:     applicationscaler.New,
 		})),
 		instancePollerName: ifNotDead(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			ClockName:     clockName,
@@ -237,9 +236,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 		stateCleanerName: ifNotDead(cleaner.Manifold(cleaner.ManifoldConfig{
-			APICallerName: apiCallerName,
-		})),
-		addressCleanerName: ifNotDead(addresser.Manifold(addresser.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
 		statusHistoryPrunerName: ifNotDead(statushistorypruner.Manifold(statushistorypruner.ManifoldConfig{
@@ -312,11 +308,10 @@ const (
 	storageProvisionerName   = "storage-provisioner"
 	firewallerName           = "firewaller"
 	unitAssignerName         = "unit-assigner"
-	serviceScalerName        = "service-scaler"
+	applicationscalerName    = "application-scaler"
 	instancePollerName       = "instance-poller"
 	charmRevisionUpdaterName = "charm-revision-updater"
 	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
-	addressCleanerName       = "address-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
 )

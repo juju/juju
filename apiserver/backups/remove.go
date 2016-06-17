@@ -10,7 +10,7 @@ import (
 )
 
 func (a *API) Remove(args params.BackupsRemoveArgs) error {
-	backups, closer := newBackups(a.st)
+	backups, closer := newBackups(a.backend)
 	defer closer.Close()
 
 	err := backups.Remove(args.ID)

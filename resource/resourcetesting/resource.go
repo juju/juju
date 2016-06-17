@@ -21,10 +21,10 @@ import (
 // NewResource produces full resource info for the given name and
 // content. The origin is set set to "upload". A reader is also returned
 // which contains the content.
-func NewResource(c *gc.C, stub *testing.Stub, name, serviceID, content string) resource.Opened {
+func NewResource(c *gc.C, stub *testing.Stub, name, applicationID, content string) resource.Opened {
 	username := "a-user"
 	return resource.Opened{
-		Resource:   newResource(c, name, serviceID, username, content),
+		Resource:   newResource(c, name, applicationID, username, content),
 		ReadCloser: newStubReadCloser(stub, content),
 	}
 }
@@ -54,25 +54,25 @@ func NewCharmResource(c *gc.C, name, content string) charmresource.Resource {
 // NewPlaceholderResource returns resource info for a resource that
 // has not been uploaded or pulled from the charm store yet. The origin
 // is set to "upload".
-func NewPlaceholderResource(c *gc.C, name, serviceID string) resource.Resource {
-	res := newResource(c, name, serviceID, "", "")
+func NewPlaceholderResource(c *gc.C, name, applicationID string) resource.Resource {
+	res := newResource(c, name, applicationID, "", "")
 	res.Fingerprint = charmresource.Fingerprint{}
 	return res
 }
 
-func newResource(c *gc.C, name, serviceID, username, content string) resource.Resource {
+func newResource(c *gc.C, name, applicationID, username, content string) resource.Resource {
 	var timestamp time.Time
 	if username != "" {
 		// TODO(perrito666) 2016-05-02 lp:1558657
 		timestamp = time.Now().UTC()
 	}
 	res := resource.Resource{
-		Resource:  NewCharmResource(c, name, content),
-		ID:        serviceID + "/" + name,
-		PendingID: "",
-		ServiceID: serviceID,
-		Username:  username,
-		Timestamp: timestamp,
+		Resource:      NewCharmResource(c, name, content),
+		ID:            applicationID + "/" + name,
+		PendingID:     "",
+		ApplicationID: applicationID,
+		Username:      username,
+		Timestamp:     timestamp,
 	}
 	err := res.Validate()
 	c.Assert(err, jc.ErrorIsNil)

@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -83,7 +84,7 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclient.ClientStore) {
-	const controllerName = "local.my-controller"
+	const controllerName = "my-controller"
 
 	store := jujuclienttesting.NewMemStore()
 
@@ -102,7 +103,13 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
+		CloudName: "dummy",
+		Cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	return env, store
@@ -230,7 +237,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 	st, err := newAPIConnectionFromNames(c, "noconfig", "", "", jujuClient, apiOpen, noBootstrapConfig)
 	// We expect to get the error from apiOpen, because it is not
 	// fatal to have no bootstrap config.
-	c.Assert(err, gc.ErrorMatches, "connecting with cached addresses: an error")
+	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(st, gc.IsNil)
 }
 
@@ -264,7 +271,7 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 
 	startTime := time.Now()
 	st, err := newAPIConnectionFromNames(c,
-		"local.my-controller", "admin@local", "only", store, apiOpen,
+		"my-controller", "admin@local", "only", store, apiOpen,
 		modelcmd.NewGetBootstrapConfigFunc(store),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,11 +297,11 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 
 func setEndpointAddressAndHostname(c *gc.C, store jujuclient.ControllerStore, addr, host string) {
 	// Populate the controller details with known address and hostname.
-	details, err := store.ControllerByName("local.my-controller")
+	details, err := store.ControllerByName("my-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	details.APIEndpoints = []string{addr}
 	details.UnresolvedAPIEndpoints = []string{host}
-	err = store.UpdateController("local.my-controller", *details)
+	err = store.UpdateController("my-controller", *details)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -331,7 +338,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		st, err := newAPIConnectionFromNames(c,
-			"local.my-controller", "admin@local", "only", store, apiOpen,
+			"my-controller", "admin@local", "only", store, apiOpen,
 			modelcmd.NewGetBootstrapConfigFunc(store),
 		)
 		c.Check(err, jc.ErrorIsNil)
@@ -351,7 +358,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 		c.Fatalf("api never opened via config")
 	}
 	// Let the info endpoint open go ahead and
-	// check that the NewAPIFromStore call returns.
+	// check that the NewAPIConnection call returns.
 	infoEndpointOpened <- struct{}{}
 	select {
 	case <-done:
@@ -386,7 +393,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 		}
 		return nil, fmt.Errorf("config connect failed")
 	}
-	st, err := newAPIConnectionFromNames(c, "local.my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
+	st, err := newAPIConnectionFromNames(c, "my-controller", "admin@local", "only", store, apiOpen, getBootstrapConfig)
 	c.Check(err, gc.ErrorMatches, "connecting with bootstrap config: config connect failed")
 	c.Check(st, gc.IsNil)
 }
@@ -814,6 +821,7 @@ func newAPIConnectionFromNames(
 		ControllerName:  controller,
 		BootstrapConfig: getBootstrapConfig,
 		DialOpts:        api.DefaultDialOpts(),
+		OpenAPI:         apiOpen,
 	}
 	if account != "" {
 		accountDetails, err := store.AccountByName(controller, account)
@@ -825,5 +833,5 @@ func newAPIConnectionFromNames(
 		c.Assert(err, jc.ErrorIsNil)
 		params.ModelUUID = modelDetails.ModelUUID
 	}
-	return juju.NewAPIFromStore(params, apiOpen)
+	return juju.NewAPIConnection(params)
 }

@@ -30,7 +30,7 @@ func resourceID(id, subType, subID string) string {
 	return fmt.Sprintf("resource#%s#%s-%s", id, subType, subID)
 }
 
-func serviceResourceID(id string) string {
+func applicationResourceID(id string) string {
 	return resourceID(id, "", "")
 }
 
@@ -39,7 +39,7 @@ func pendingResourceID(id, pendingID string) string {
 }
 
 func charmStoreResourceID(id string) string {
-	return serviceResourceID(id) + resourcesCharmstoreIDSuffix
+	return applicationResourceID(id) + resourcesCharmstoreIDSuffix
 }
 
 func unitResourceID(id, unitID string) string {
@@ -49,7 +49,7 @@ func unitResourceID(id, unitID string) string {
 // stagedResourceID converts an external resource ID into an internal
 // staged one.
 func stagedResourceID(id string) string {
-	return serviceResourceID(id) + resourcesStagedIDSuffix
+	return applicationResourceID(id) + resourcesStagedIDSuffix
 }
 
 // storedResource holds all model-stored information for a resource.
@@ -64,9 +64,9 @@ type storedResource struct {
 // charm store at as specific point in time.
 type charmStoreResource struct {
 	charmresource.Resource
-	id         string
-	serviceID  string
-	lastPolled time.Time
+	id            string
+	applicationID string
+	lastPolled    time.Time
 }
 
 func newInsertStagedResourceOps(stored storedResource) []txn.Op {
@@ -210,10 +210,10 @@ func newResolvePendingResourceOps(pending storedResource, exists bool) []txn.Op 
 
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	csRes := charmStoreResource{
-		Resource:   newRes.Resource.Resource,
-		id:         newRes.ID,
-		serviceID:  newRes.ServiceID,
-		lastPolled: time.Now().UTC(),
+		Resource:      newRes.Resource.Resource,
+		id:            newRes.ID,
+		applicationID: newRes.ApplicationID,
+		lastPolled:    time.Now().UTC(),
 	}
 
 	if exists {
@@ -239,7 +239,7 @@ func newUnitResourceDoc(unitID string, stored storedResource) *resourceDoc {
 
 // newResourceDoc generates a doc that represents the given resource.
 func newResourceDoc(stored storedResource) *resourceDoc {
-	fullID := serviceResourceID(stored.ID)
+	fullID := applicationResourceID(stored.ID)
 	if stored.PendingID != "" {
 		fullID = pendingResourceID(stored.ID, stored.PendingID)
 	}
@@ -253,11 +253,11 @@ func newStagedResourceDoc(stored storedResource) *resourceDoc {
 	return resource2doc(stagedID, stored)
 }
 
-// resources returns the resource docs for the given service.
-func (p ResourcePersistence) resources(serviceID string) ([]resourceDoc, error) {
-	logger.Tracef("querying db for resources for %q", serviceID)
+// resources returns the resource docs for the given application.
+func (p ResourcePersistence) resources(applicationID string) ([]resourceDoc, error) {
+	logger.Tracef("querying db for resources for %q", applicationID)
 	var docs []resourceDoc
-	query := bson.D{{"service-id", serviceID}}
+	query := bson.D{{"application-id", applicationID}}
 	if err := p.base.All(resourcesC, query, &docs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -277,7 +277,7 @@ func (p ResourcePersistence) unitResources(unitID string) ([]resourceDoc, error)
 // getOne returns the resource that matches the provided model ID.
 func (p ResourcePersistence) getOne(resID string) (resourceDoc, error) {
 	logger.Tracef("querying db for resource %q", resID)
-	id := serviceResourceID(resID)
+	id := applicationResourceID(resID)
 	var doc resourceDoc
 	if err := p.base.One(resourcesC, id, &doc); err != nil {
 		return doc, errors.Trace(err)
@@ -299,12 +299,11 @@ func (p ResourcePersistence) getOnePending(resID, pendingID string) (resourceDoc
 // resourceDoc is the top-level document for resources.
 type resourceDoc struct {
 	DocID     string `bson:"_id"`
-	EnvUUID   string `bson:"env-uuid"`
 	ID        string `bson:"resource-id"`
 	PendingID string `bson:"pending-id"`
 
-	ServiceID string `bson:"service-id"`
-	UnitID    string `bson:"unit-id"`
+	ApplicationID string `bson:"application-id"`
+	UnitID        string `bson:"unit-id"`
 
 	Name        string `bson:"name"`
 	Type        string `bson:"type"`
@@ -329,9 +328,9 @@ type resourceDoc struct {
 func charmStoreResource2Doc(id string, res charmStoreResource) *resourceDoc {
 	stored := storedResource{
 		Resource: resource.Resource{
-			Resource:  res.Resource,
-			ID:        res.id,
-			ServiceID: res.serviceID,
+			Resource:      res.Resource,
+			ID:            res.id,
+			ApplicationID: res.applicationID,
 		},
 	}
 	doc := resource2doc(id, stored)
@@ -355,7 +354,7 @@ func resource2doc(id string, stored storedResource) *resourceDoc {
 		ID:        res.ID,
 		PendingID: res.PendingID,
 
-		ServiceID: res.ServiceID,
+		ApplicationID: res.ApplicationID,
 
 		Name:        res.Name,
 		Type:        res.Type.String(),
@@ -420,11 +419,11 @@ func doc2basicResource(doc resourceDoc) (resource.Resource, error) {
 			Fingerprint: fp,
 			Size:        doc.Size,
 		},
-		ID:        doc.ID,
-		PendingID: doc.PendingID,
-		ServiceID: doc.ServiceID,
-		Username:  doc.Username,
-		Timestamp: doc.Timestamp,
+		ID:            doc.ID,
+		PendingID:     doc.PendingID,
+		ApplicationID: doc.ApplicationID,
+		Username:      doc.Username,
+		Timestamp:     doc.Timestamp,
 	}
 	if err := res.Validate(); err != nil {
 		return res, errors.Annotate(err, "got invalid data from DB")

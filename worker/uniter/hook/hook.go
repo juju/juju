@@ -7,8 +7,8 @@ package hook
 import (
 	"fmt"
 
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 )
 
 // TODO(fwereade): move these definitions to juju/charm/hooks.

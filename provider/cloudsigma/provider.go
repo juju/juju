@@ -92,14 +92,20 @@ func (environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*co
 		cfg, err = cfg.Apply(map[string]interface{}{
 			"username": credentialAttributes["username"],
 			"password": credentialAttributes["password"],
-			"region":   args.CloudRegion,
-			"endpoint": args.CloudEndpoint,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)
+	}
+	// Ensure cloud info is in config.
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"region":   args.CloudRegion,
+		"endpoint": args.CloudEndpoint,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return cfg, nil
 }

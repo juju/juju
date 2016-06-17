@@ -5,7 +5,7 @@ package storagecommon
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
@@ -31,6 +31,7 @@ func IsVolumeAlreadyProvisioned(err error) bool {
 func VolumeParams(
 	v state.Volume,
 	storageInstance state.StorageInstance,
+	modelUUID, controllerUUID string,
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
 ) (params.VolumeParams, error) {
@@ -49,7 +50,7 @@ func VolumeParams(
 		size = volumeInfo.Size
 	}
 
-	volumeTags, err := storageTags(storageInstance, environConfig)
+	volumeTags, err := storageTags(storageInstance, modelUUID, controllerUUID, environConfig)
 	if err != nil {
 		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
 	}

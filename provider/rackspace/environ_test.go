@@ -68,9 +68,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	err = s.environ.SetConfig(config)
 	c.Assert(err, gc.IsNil)
 	_, err = s.environ.StartInstance(environs.StartInstanceParams{
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Config: config,
-		},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 		Tools: tools.List{&tools.Tools{
 			Version: version.Binary{Series: "trusty"},
 		}},

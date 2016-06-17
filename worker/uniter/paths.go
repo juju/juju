@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/juju/names"
 	"github.com/juju/utils/os"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent/tools"
 )

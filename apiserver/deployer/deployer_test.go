@@ -31,8 +31,8 @@ type deployerSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 
-	service0     *state.Service
-	service1     *state.Service
+	service0     *state.Application
+	service1     *state.Application
 	machine0     *state.Machine
 	machine1     *state.Machine
 	principal0   *state.Unit

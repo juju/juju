@@ -5,7 +5,7 @@ package firewaller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -16,7 +16,7 @@ import (
 
 func init() {
 	// Version 0 is no longer supported.
-	common.RegisterStandardFacade("Firewaller", 2, NewFirewallerAPI)
+	common.RegisterStandardFacade("Firewaller", 3, NewFirewallerAPI)
 }
 
 // FirewallerAPI provides access to the Firewaller API facade.
@@ -50,7 +50,7 @@ func NewFirewallerAPI(
 	// Set up the various authorization checkers.
 	accessEnviron := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
-	accessService := common.AuthFuncForTagKind(names.ServiceTagKind)
+	accessService := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
@@ -67,7 +67,7 @@ func NewFirewallerAPI(
 		resources,
 		authorizer,
 	)
-	// Watch() is supported for services only.
+	// Watch() is supported for applications only.
 	entityWatcher := common.NewAgentEntityWatcher(
 		st,
 		resources,
@@ -265,7 +265,7 @@ func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, er
 		return params.BoolResults{}, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseServiceTag(entity.Tag)
+		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -325,14 +325,14 @@ func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ServiceTag) (*state.Service, error) {
+func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
 	}
 	// The authorization function guarantees that the tag represents a
 	// service.
-	return entity.(*state.Service), nil
+	return entity.(*state.Application), nil
 }
 
 func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
