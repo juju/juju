@@ -526,7 +526,7 @@ func (m *model) validateAddresses() error {
 
 		if addr.GatewayAddress() != "" {
 			if ip := net.ParseIP(addr.GatewayAddress()); ip == nil {
-				return errors.Errorf("ip address %q has invalud gateway address %q", addr.Value(), addr.GatewayAddress())
+				return errors.Errorf("ip address %q has invalid gateway address %q", addr.Value(), addr.GatewayAddress())
 			}
 		}
 	}
