@@ -182,8 +182,7 @@ class LogicalInterface(object):
             return self._bridge_device(bridge_name)
 
     def _bridge_device(self, bridge_name):
-        stanzas = []
-        stanzas.append(AutoStanza(bridge_name))
+        stanzas = [AutoStanza(bridge_name)]
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
         stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
