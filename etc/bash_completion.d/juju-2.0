@@ -16,7 +16,9 @@
 _juju_2_0_machines_from_status_file() {
 [ -n "${1}" ] || return 0
 ${_juju_cmd_PYTHON?} -c '
-import json, sys; j=json.load(sys.stdin)
+import json, sys
+sys.stderr.close()
+j=json.load(sys.stdin)
 print ("\n".join(j.get("machines", {}).keys()));' < ${1}
 }
 
@@ -25,26 +27,30 @@ _juju_2_0_units_from_status_file() {
 [ -n "${1}" ] || return 0
 ${_juju_cmd_PYTHON?} -c '
 trail="'${2}'"
-import json, sys; j=json.load(sys.stdin)
+import json, sys
+sys.stderr.close()
+j=json.load(sys.stdin)
 all_units=[]
-for k,v in j.get("services", {}).items():
+for k,v in j.get("applications", {}).items():
     if v.get("units"):
         all_units.extend(v["units"].keys())
 print ("\n".join([unit + trail for unit in all_units]))
 ' < ${1}
 }
 
-# Print (return) all services
-_juju_2_0_services_from_status_file() {
+# Print (return) all applications
+_juju_2_0_applications_from_status_file() {
 [ -n "${1}" ] || return 0
 ${_juju_cmd_PYTHON?} -c '
-import json, sys; j=json.load(sys.stdin)
-print ("\n".join(j.get("services", {}).keys()));' < ${1}
+import json, sys
+sys.stderr.close()
+j=json.load(sys.stdin)
+print ("\n".join(j.get("applications", {}).keys()))' < ${1}
 }
 
-# Print (return) both services and units, currently used for juju status completion
-_juju_2_0_services_and_units_from_status_file() {
-    _juju_2_0_services_from_status_file "$@"
+# Print (return) both applications and units, currently used for juju status completion
+_juju_2_0_applications_and_units_from_status_file() {
+    _juju_2_0_applications_from_status_file "$@"
     _juju_2_0_units_from_status_file "$@"
 }
 
@@ -65,11 +71,27 @@ _juju_2_0_flags_for() {
     ${_juju_cmd_JUJU_2_0?} help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|sort -u
 }
 
+_juju_2_0_list_controllers_from_stdin() {
+  sed '1s/^$/{}/' |\
+  ${_juju_cmd_PYTHON?} -c '
+import json, sys; sys.stderr.close();
+print ("\n".join(
+  json.load(sys.stdin).get("controllers", {}).keys())
+)'
+}
+_juju_2_0_list_models_from_stdin() {
+  sed '1s/^$/{}/' |\
+  ${_juju_cmd_PYTHON?} -c '
+import json, sys; sys.stderr.close()
+print ("\n".join(
+  ["'$1'" + m["name"] for m in json.load(sys.stdin).get("models", {})]
+))'
+}
 # List all controllers
 _juju_2_0_list_controllers_noflags() {
-  _juju_2_0_cache_cmd 10 cat \
+  _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} cat \
     ${_juju_cmd_JUJU_2_0?} list-controllers --format json | \
-      ${_juju_cmd_PYTHON?} -c 'import json,sys; print ("\n".join(json.load(sys.stdin).get("controllers", {}).keys()))'
+      _juju_2_0_list_controllers_from_stdin
 }
 # Print:
 # - list of controllers as: <controller>:<current_model>
@@ -84,15 +106,17 @@ _juju_2_0_list_controllers_models_noflags() {
   [ -n "${controllers}" ] || { echo "ERROR: no valid controller found (current: ${cur_controller})" >&2; return 0 ;}
   local controller=
   for controller in ${controllers};do
-    _juju_2_0_cache_cmd 10 cat \
+    _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} cat \
       ${_juju_cmd_JUJU_2_0?} list-models --controller ${controller} --format json |\
-        ${_juju_cmd_PYTHON?} -c 'import json,sys; print ("\n".join(["'$controller:'" + m["name"] for m in json.load(sys.stdin)["models"]]))'
+        _juju_2_0_list_models_from_stdin "${controller}:"
+    # early break, specially if user hit Ctrl-C
+    [ $? -eq 0 ] || return 1
   done
 
   # List all models under current controller
-  _juju_2_0_cache_cmd 10 cat \
-    ${_juju_cmd_JUJU_2_0?} list-models --controller ${cur_controller} --format json | \
-      ${_juju_cmd_PYTHON?} -c 'import json,sys; print ("\n".join([m["name"] for m in json.load(sys.stdin)["models"]]))'
+  _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} cat \
+    ${_juju_cmd_JUJU_2_0?} list-models --controller ${cur_controller} --format json |\
+      _juju_2_0_list_models_from_stdin
 }
 
 # Print (return) guessed completion function for cmd.
@@ -115,14 +139,19 @@ _juju_2_0_completion_func_for_cmd() {
     case "${prev_word}" in
         --model|-m) echo _juju_2_0_list_controllers_models_noflags; return 0;;
         --controller|-c) echo _juju_2_0_list_controllers_noflags; return 0;;
+        --application) echo _juju_2_0_applications_from_status_file; return 0;;
+        --unit) echo _juju_2_0_units_from_status_file; return 0;;
+        --machine) echo _juju_2_0_machines_from_status_file; return 0;;
     esac
     case $(${_juju_cmd_JUJU_2_0?} help ${action} 2>/dev/null| head -1) in
-        # special case for ssh, scp which have 'service' in 1st line of help:
-        *\<unit*)    echo _juju_2_0_units_from_status_file;;
+        # special case for ssh, scp:
+        *bootstrap*) echo true ;;  # help ok, existing command, no more expansion
         *juju?ssh*|*juju?scp*)    echo _juju_2_0_units_and_machines_from_status_file;;
-        *\<service*)    echo _juju_2_0_services_from_status_file;;
+        *\<unit*)    echo _juju_2_0_units_from_status_file;;
+        *\<service*)    echo _juju_2_0_applications_from_status_file;;
+        *\<application*)    echo _juju_2_0_applications_from_status_file;;
         *\<machine*)    echo _juju_2_0_machines_from_status_file;;
-        *pattern*|*service-or-unit*)      echo _juju_2_0_services_and_units_from_status_file;; # e.g. status
+        *pattern*|*application-or-unit*)  echo _juju_2_0_applications_and_units_from_status_file;; # e.g. status
         *\<controller*:*\<model*|*--model*) echo _juju_2_0_list_controllers_models_noflags;;
         *\<controller?name*) echo _juju_2_0_list_controllers_noflags;;
         ?*)     echo true ;;  # help ok, existing command, no more expansion
@@ -163,16 +192,16 @@ _juju_2_0_cache_cmd() {
     # older than TTL => remove
     find "${cache_file}" -mmin +${cache_ttl} -a -size +64c -delete 2> /dev/null
     # older than TTL/2 or missing => refresh in background
-    if [[ -z $(find "${cache_file}" -mmin -$((${cache_ttl}/2)) -a -size +64c 2> /dev/null) ]]; then
+    local cache_refresh=$((${cache_ttl}/2))
+    if [[ -z $(find "${cache_file}" -mmin -${cache_refresh} -a -size +64c 2> /dev/null) ]]; then
         # ... create it in background (locking the .tmp to avoid many runs against same cache file
-        flock -xn "${cache_file}".tmp \
-            sh -c "$cmd > ${cache_file}.tmp && mv -f ${cache_file}.tmp ${cache_file}; rm -f ${cache_file}.tmp" &
-        cmd_pid="$!"
+        coproc flock -xn "${cache_file}".tmp \
+          sh -c "$cmd > ${cache_file}.tmp && mv -f ${cache_file}.tmp ${cache_file}; rm -f ${cache_file}.tmp"
     fi
     # if missing => wait
-    [ ! -r "${cache_file}" -a -n "${cmd_pid}" ] && wait
+    [ ! -s "${cache_file}" -a -n "${COPROC[0]}" ] && read -u ${COPROC[0]}
     # if still missing => fail
-    [ ! -r "${cache_file}" ] && return 1
+    [ ! -s "${cache_file}" ] && echo "" && return 1
     # use it:
     "${ret_action}" "${cache_file}"
 }
@@ -183,7 +212,7 @@ _juju_2_0_cache_cmd() {
 _juju_2_0_get_status_filename() {
     local model=$(_get_current_model)
     local juju_status_file=${cache_dir}/juju-status-"${model}"
-    _juju_2_0_cache_cmd 10 echo ${_juju_cmd_JUJU_2_0?} status --model "${model}" --format json
+    _juju_2_0_cache_cmd ${_juju_2_0_cache_TTL} echo ${_juju_cmd_JUJU_2_0?} status --model "${model}" --format json
     return $?
 }
 # Main completion function wrap:
@@ -243,6 +272,8 @@ _juju_complete_2_0() {
       _juju_2_0_complete_with_func "${action}" "${parsing_func}"
     return $?
 }
+# _juju_2_0_cache_TTL [mins]
+export _juju_2_0_cache_TTL=2
 # All above completion is juju-2.0 specific, uses $_juju_cmd_JUJU_2_0
 export _juju_cmd_JUJU_2_0=/usr/bin/juju-2.0
 # Select python3, else python2
