@@ -131,10 +131,14 @@ _juju_2_0_completion_func_for_cmd() {
     fi
     # parse 1st line of juju help <cmd>, to guess the completion function
     local prev_word=${COMP_WORDS[cword-1]}
-    case ${COMP_WORDS[cword]} in
-        # special case for ':', prev_word is one place behind, needed for eg
-        # juju status --model local.foo:<tab>
-        :)  prev_word=${COMP_WORDS[cword-2]};;
+    case ${prev_word} in
+        # special case for eg:
+        #   juju ssh -m myctrl:f<TAB>
+        # ->
+        #   COMP_WORDS[cword-1] is ':'      ($prev_word)
+        #   COMP_WORDS[cword-2] is 'myctrl'
+        #   COMP_WORDS[cword-3] is '-m'
+        :)  prev_word=${COMP_WORDS[cword-3]};;
     esac
     case "${prev_word}" in
         --model|-m) echo _juju_2_0_list_controllers_models_noflags; return 0;;
