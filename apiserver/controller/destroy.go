@@ -20,11 +20,11 @@ import (
 // that it should wait for hosted models to be completely cleaned up
 // before proceeding.
 func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	controllerEnv, err := s.state.ControllerModel()
+	controllerModel, err := s.state.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	systemTag := controllerEnv.ModelTag()
+	systemTag := controllerModel.ModelTag()
 
 	if err = s.ensureNotBlocked(args); err != nil {
 		return errors.Trace(err)

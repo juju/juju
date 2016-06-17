@@ -79,7 +79,6 @@ func (c ModelConfigCreator) NewModelConfig(
 			}
 		}
 	}
-	attrs[controller.ControllerUUIDKey] = baseAttrs[controller.ControllerUUIDKey]
 
 	// Generate a new UUID for the model as necessary,
 	// and finalize the new config.

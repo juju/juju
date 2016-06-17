@@ -202,7 +202,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		return restore
 	}
 
-	opBootstrap := (<-opc).(dummy.OpBootstrap)
+	op, ok := <-opc
+	c.Assert(ok, gc.Equals, true)
+	opBootstrap := op.(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, environs.ControllerModelName)
 	c.Check(opBootstrap.Args.ModelConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
@@ -520,9 +522,9 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 // When attempting to bootstrap, check that when prepare errors out,
 // bootstrap will stop immediately. Nothing will be destroyed.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
-
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(string, environs.Environ, jujuclient.ControllerRemover) error {
+	s.PatchValue(&environsDestroy, func(name string, _ environs.Environ, _ jujuclient.ControllerStore) error {
+		c.Assert(name, gc.Equals, "decontroller")
 		destroyed = true
 		return nil
 	})

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -33,15 +32,6 @@ type configGetter struct {
 
 func (s *configGetter) ModelConfig() (*config.Config, error) {
 	return s.cfg, nil
-}
-
-func (s *configGetter) ControllerConfig() (controller.Config, error) {
-	return map[string]interface{}{
-		controller.ControllerUUIDKey: coretesting.ModelTag.Id(),
-		controller.CACertKey:         coretesting.CACert,
-		controller.CAPrivateKey:      coretesting.CAKey,
-		controller.ApiPort:           4321,
-	}, nil
 }
 
 func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {

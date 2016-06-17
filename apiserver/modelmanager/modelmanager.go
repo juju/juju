@@ -51,7 +51,7 @@ type ModelManagerAPI struct {
 
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
-func newFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
+func newFacade(st *state.State, _ *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(NewStateBackend(st), auth)
 }
 
@@ -116,15 +116,13 @@ func (mm *ModelManagerAPI) newModelConfig(
 	if _, ok := joint["uuid"]; ok {
 		return nil, errors.New("uuid is generated, you cannot specify one")
 	}
-	if args.Name != "" {
-		// TODO(axw) we should always expect args.Name to be non-empty,
-		// and always fail if the name was specified in config. The
-		// GUI needs to be updated for this to work.
-		if _, ok := joint[config.NameKey]; ok {
-			return nil, errors.New("name must not be specified in config")
-		}
-		joint[config.NameKey] = args.Name
+	if args.Name == "" {
+		return nil, errors.NewNotValid(nil, "Name must be specified")
 	}
+	if _, ok := joint[config.NameKey]; ok {
+		return nil, errors.New("name must not be specified in config")
+	}
+	joint[config.NameKey] = args.Name
 
 	// Copy credential attributes across to model config.
 	// TODO(axw) credentials should not be going into model config.
@@ -150,27 +148,6 @@ func (mm *ModelManagerAPI) newModelConfig(
 		},
 	}
 	return creator.NewModelConfig(mm.isAdmin, baseConfig, joint)
-}
-
-type modelSkeletonConfigArgs struct {
-	Provider string
-	Region   string
-}
-
-// TODO(axw) drop this after beta9. The GUI needs to be updated to stop using this.
-func (mm *ModelManagerAPI) ConfigSkeleton(args modelSkeletonConfigArgs) (params.ModelConfigResult, error) {
-	var result params.ModelConfigResult
-	if args.Region != "" {
-		return result, errors.NotValidf("region value %q", args.Region)
-	}
-	cloud, err := mm.state.Cloud()
-	if err != nil {
-		return result, err
-	}
-	result.Config = params.ModelConfig{
-		config.TypeKey: cloud.Type,
-	}
-	return result, nil
 }
 
 // CreateModel creates a new model using the account and
@@ -408,7 +385,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 }
 
 // ModifyModelAccess changes the model access granted to users.
-func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, err error) {
+func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

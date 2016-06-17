@@ -97,7 +97,7 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	return common.Bootstrap(ctx, env, params)
 }
 
-func (e *environ) ControllerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	return e.client.getControllerIds()
 }
 
@@ -111,6 +111,12 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 func (env *environ) Destroy() error {
 	// You can probably ignore this method; the common implementation should work.
 	return common.Destroy(env)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	// TODO(wallyworld): destroy hosted model resources
+	return env.Destroy()
 }
 
 // PrecheckInstance performs a preflight check on the specified

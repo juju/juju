@@ -32,14 +32,12 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
 const (
-	invalidParameterValue       = "InvalidParameterValue"
-	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
+	invalidParameterValue = "InvalidParameterValue"
 
 	// tagName is the AWS-specific tag key that populates resources'
 	// name columns in the console.
@@ -77,19 +75,6 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
-
-	allocationMutex     sync.Mutex
-	allocationSupported *bool
-}
-
-// AssignPrivateIPAddress is a wrapper around ec2Inst.AssignPrivateIPAddresses.
-var AssignPrivateIPAddress = assignPrivateIPAddress
-
-// assignPrivateIPAddress should not be called directly so tests can patch it (use
-// AssignPrivateIPAddress).
-func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
-	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
-	return err
 }
 
 func (e *environ) Config() *config.Config {
@@ -176,32 +161,6 @@ func (e *environ) SupportsSpaces() (bool, error) {
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (e *environ) SupportsSpaceDiscovery() (bool, error) {
 	return false, nil
-}
-
-// SupportsAddressAllocation is specified on environs.Networking.
-func (e *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	e.allocationMutex.Lock()
-	defer e.allocationMutex.Unlock()
-
-	if e.allocationSupported == nil {
-		var notSupported bool
-		e.allocationSupported = &notSupported
-
-		if environs.AddressAllocationEnabled(provider.EC2) {
-			defaultVPCID, err := findDefaultVPCID(e.ec2())
-			if err == nil {
-				logger.Infof("legacy address allocation supported with default VPC %q", defaultVPCID)
-				*e.allocationSupported = true
-			} else if errors.IsNotFound(err) {
-				logger.Infof("legacy address allocation not supported without a default VPC")
-			}
-		}
-	}
-
-	if *e.allocationSupported {
-		return true, nil
-	}
-	return false, errors.NotSupportedf("address allocation")
 }
 
 var unsupportedConstraints = []string{
@@ -406,6 +365,9 @@ func resourceName(tag names.Tag, envName string) string {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	var inst *ec2Instance
 	defer func() {
 		if resultErr == nil || inst == nil {
@@ -492,7 +454,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	} else {
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
-	groups, err := e.setUpGroups(args.InstanceConfig.MachineId, apiPort)
+	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
@@ -602,7 +564,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewModelTag(cfg.ControllerUUID()),
+			names.NewModelTag(args.ControllerUUID),
 			cfg,
 		)
 		tags[tagName] = instanceName + "-root"
@@ -813,109 +775,6 @@ func (e *environ) gatherInstances(
 	return nil
 }
 
-func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) (string, error) {
-	var err error
-	var instancesResp *ec2.InstancesResp
-	for a := shortAttempt.Start(); a.Next(); {
-		instancesResp, err = ec2Inst.Instances([]string{string(instId)}, nil)
-		if err == nil {
-			break
-		}
-		logger.Tracef("Instances(%q) returned: %v", instId, err)
-	}
-	if err != nil {
-		// either the instance doesn't exist or we couldn't get through to
-		// the ec2 api
-		return "", err
-	}
-
-	if len(instancesResp.Reservations) == 0 {
-		return "", errors.New("unexpected AWS response: reservation not found")
-	}
-	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return "", errors.New("unexpected AWS response: instance not found")
-	}
-	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
-		return "", errors.New("unexpected AWS response: network interface not found")
-	}
-	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
-	return networkInterfaceId, nil
-}
-
-// AllocateAddress requests an address to be allocated for the given
-// instance on the given subnet. Implements NetworkingEnviron.AllocateAddress.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr *network.Address, _, _ string) (err error) {
-	if !environs.AddressAllocationEnabled(provider.EC2) {
-		return errors.NotSupportedf("address allocation")
-	}
-	if addr == nil || addr.Value == "" {
-		return errors.NewNotValid(nil, "invalid address: nil or empty")
-	}
-
-	defer errors.DeferredAnnotatef(&err, "failed to allocate address %q for instance %q", addr, instId)
-
-	var nicId string
-	ec2Inst := e.ec2()
-	nicId, err = e.fetchNetworkInterfaceId(ec2Inst, instId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for a := shortAttempt.Start(); a.Next(); {
-		err = AssignPrivateIPAddress(ec2Inst, nicId, *addr)
-		logger.Tracef("AssignPrivateIPAddresses(%v, %v) returned: %v", nicId, *addr, err)
-		if err == nil {
-			logger.Tracef("allocated address %v for instance %v, NIC %v", *addr, instId, nicId)
-			break
-		}
-		if ec2Err, ok := err.(*ec2.Error); ok {
-			if ec2Err.Code == invalidParameterValue {
-				// Note: this Code is also used if we specify
-				// an IP address outside the subnet. Take care!
-				logger.Tracef("address %q not available for allocation", *addr)
-				return environs.ErrIPAddressUnavailable
-			} else if ec2Err.Code == privateAddressLimitExceeded {
-				logger.Tracef("no more addresses available on the subnet")
-				return environs.ErrIPAddressesExhausted
-			}
-		}
-
-	}
-	return err
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress. Implements NetworkingEnviron.ReleaseAddress.
-func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address, _, _ string) (err error) {
-	if !environs.AddressAllocationEnabled(provider.EC2) {
-		return errors.NotSupportedf("address allocation")
-	}
-
-	defer errors.DeferredAnnotatef(&err, "failed to release address %q from instance %q", addr, instId)
-
-	// If the instance ID is unknown the address has already been released
-	// and we can ignore this request.
-	if instId == instance.UnknownId {
-		logger.Debugf("release address %q with an unknown instance ID is a no-op (ignoring)", addr.Value)
-		return nil
-	}
-
-	var nicId string
-	ec2Inst := e.ec2()
-	nicId, err = e.fetchNetworkInterfaceId(ec2Inst, instId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = ec2Inst.UnassignPrivateIPAddresses(nicId, []string{addr.Value})
-		logger.Tracef("UnassignPrivateIPAddresses(%q, %q) returned: %v", nicId, addr, err)
-		if err == nil {
-			logger.Tracef("released address %q from instance %q, NIC %q", addr, instId, nicId)
-			break
-		}
-	}
-	return err
-}
-
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
 func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	ec2Client := e.ec2()
@@ -977,32 +836,15 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 }
 
 func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
-	ip, ipnet, err := net.ParseCIDR(cidr)
+	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
 	}
-	// ec2 only uses IPv4 addresses for subnets
-	start, err := network.IPv4ToDecimal(ip)
-	if err != nil {
-		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid IP", cidr)
-	}
-	// First four addresses in a subnet are reserved, see
-	// http://goo.gl/rrWTIo
-	allocatableLow := network.DecimalToIPv4(start + 4)
-
-	ones, bits := ipnet.Mask.Size()
-	zeros := bits - ones
-	numIPs := uint32(1) << uint32(zeros)
-	highIP := start + numIPs - 1
-	// The last address in a subnet is also reserved (see same ref).
-	allocatableHigh := network.DecimalToIPv4(highIP - 1)
 
 	info := network.SubnetInfo{
 		CIDR:              cidr,
 		ProviderId:        subnetId,
 		VLANTag:           0, // Not supported on EC2
-		AllocatableIPLow:  allocatableLow,
-		AllocatableIPHigh: allocatableHigh,
 		AvailabilityZones: availZones,
 	}
 	logger.Tracef("found subnet with info %#v", info)
@@ -1094,15 +936,6 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	return results, nil
 }
 
-func getTagByKey(key string, ec2Tags []ec2.Tag) (string, bool) {
-	for _, tag := range ec2Tags {
-		if tag.Key == key {
-			return tag.Value, true
-		}
-	}
-	return "", false
-}
-
 // AllInstances is part of the environs.InstanceBroker interface.
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return e.AllInstancesByState("pending", "running")
@@ -1146,11 +979,11 @@ func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, er
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (e *environ) ControllerInstances() ([]instance.Id, error) {
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
-	e.addModelFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	ids, err := e.allInstanceIDs(filter)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1166,10 +999,10 @@ func (e *environ) ControllerInstances() ([]instance.Id, error) {
 //
 // Note that this requires that all instances are tagged; we cannot filter on
 // security groups, as we do not know the names of the models.
-func (e *environ) allControllerManagedInstances() ([]instance.Id, error) {
+func (e *environ) allControllerManagedInstances(controllerUUID string) ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
-	e.addControllerFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	return e.allInstanceIDs(filter)
 }
 
@@ -1203,15 +1036,6 @@ func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) 
 
 // Destroy is part of the environs.Environ interface.
 func (e *environ) Destroy() error {
-	cfg := e.Config()
-	if cfg.UUID() == cfg.ControllerUUID() {
-		// In case any hosted environment hasn't been cleaned up yet,
-		// we also attempt to delete their resources when the controller
-		// environment is destroyed.
-		if err := e.destroyControllerManagedEnvirons(); err != nil {
-			return errors.Annotate(err, "destroying managed environs")
-		}
-	}
 	if err := common.Destroy(e); err != nil {
 		return errors.Trace(err)
 	}
@@ -1221,12 +1045,23 @@ func (e *environ) Destroy() error {
 	return nil
 }
 
+// DestroyController implements the Environ interface.
+func (e *environ) DestroyController(controllerUUID string) error {
+	// In case any hosted environment hasn't been cleaned up yet,
+	// we also attempt to delete their resources when the controller
+	// environment is destroyed.
+	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed environs")
+	}
+	return e.Destroy()
+}
+
 // destroyControllerManagedEnvirons destroys all environments managed by this
 // environment's controller.
-func (e *environ) destroyControllerManagedEnvirons() error {
+func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error {
 
 	// Terminate all instances managed by the controller.
-	instIds, err := e.allControllerManagedInstances()
+	instIds, err := e.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
@@ -1235,7 +1070,7 @@ func (e *environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Delete all volumes managed by the controller.
-	volIds, err := e.allControllerManagedVolumes()
+	volIds, err := e.allControllerManagedVolumes(controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
@@ -1248,7 +1083,7 @@ func (e *environ) destroyControllerManagedEnvirons() error {
 	}
 
 	// Delete security groups managed by the controller.
-	groups, err := e.controllerSecurityGroups()
+	groups, err := e.controllerSecurityGroups(controllerUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1263,9 +1098,9 @@ func (e *environ) destroyControllerManagedEnvirons() error {
 	return nil
 }
 
-func (e *environ) allControllerManagedVolumes() ([]string, error) {
+func (e *environ) allControllerManagedVolumes(controllerUUID string) ([]string, error) {
 	filter := ec2.NewFilter()
-	e.addControllerFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	return listVolumes(e.ec2(), filter)
 }
 
@@ -1415,9 +1250,9 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 
 // controllerSecurityGroups returns the details of all security groups managed
 // by the environment's controller.
-func (e *environ) controllerSecurityGroups() ([]ec2.SecurityGroup, error) {
+func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.SecurityGroup, error) {
 	filter := ec2.NewFilter()
-	e.addControllerFilter(filter)
+	e.addControllerFilter(filter, controllerUUID)
 	resp, err := e.ec2().SecurityGroups(nil, filter)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing security groups")
@@ -1581,8 +1416,8 @@ func (e *environ) addModelFilter(f *ec2.Filter) {
 	f.Add(fmt.Sprintf("tag:%s", tags.JujuModel), e.uuid())
 }
 
-func (e *environ) addControllerFilter(f *ec2.Filter) {
-	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), e.Config().ControllerUUID())
+func (e *environ) addControllerFilter(f *ec2.Filter, controllerUUID string) {
+	f.Add(fmt.Sprintf("tag:%s", tags.JujuController), controllerUUID)
 }
 
 func (e *environ) uuid() string {
@@ -1608,10 +1443,10 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(controllerUUID, machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
 
 	// Ensure there's a global group for Juju-related traffic.
-	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
+	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(),
 		[]ec2.IPPerm{{
 			Protocol:  "tcp",
 			FromPort:  22,
@@ -1643,9 +1478,9 @@ func (e *environ) setUpGroups(machineId string, apiPort int) ([]ec2.SecurityGrou
 	var machineGroup ec2.SecurityGroup
 	switch e.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = e.ensureGroup(e.machineGroupName(machineId), nil)
+		machineGroup, err = e.ensureGroup(controllerUUID, e.machineGroupName(machineId), nil)
 	case config.FwGlobal:
-		machineGroup, err = e.ensureGroup(e.globalGroupName(), nil)
+		machineGroup, err = e.ensureGroup(controllerUUID, e.globalGroupName(), nil)
 	}
 	if err != nil {
 		return nil, err
@@ -1680,7 +1515,7 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // If it exists, its permissions are set to perms.
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
-func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
 	chosenVPCID := e.ecfg().vpcID()
 	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
@@ -1703,7 +1538,7 @@ func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGr
 		cfg := e.Config()
 		tags := tags.ResourceTags(
 			names.NewModelTag(cfg.UUID()),
-			names.NewModelTag(cfg.ControllerUUID()),
+			names.NewModelTag(controllerUUID),
 			cfg,
 		)
 		if err := tagResources(ec2inst, tags, g.Id); err != nil {

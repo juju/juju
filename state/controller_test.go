@@ -22,8 +22,6 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	// This test ensure that the controller specific attributes have been separated out.
 	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
 	c.Assert(err, jc.ErrorIsNil)
-	modelSettings, err := s.State.ReadSettings(state.SettingsC, "e")
-	c.Assert(err, jc.ErrorIsNil)
 
 	optional := func(attr string) bool {
 		return attr == controller.IdentityURL || attr == controller.IdentityPublicKey
@@ -34,11 +32,6 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(v, gc.Not(gc.Equals), "")
 		}
-
-		// TODO(wallyworld) - we want to remove controller uuid from model config
-		// but it needs to be there for now
-		_, ok = modelSettings.Get(controllerAttr)
-		c.Assert(ok, gc.Equals, controllerAttr == controller.ControllerUUIDKey)
 	}
 }
 

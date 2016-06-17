@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 )
@@ -249,14 +248,6 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
-
-	// In case of MAAS and Joyent JobManageNetworking is not added
-	// to ensure the non-intrusive start of a networker like above
-	// for the manual provisioning. See this related joyent bug
-	// http://pad.lv/1401423
-	if config.Type() != provider.MAAS && config.Type() != provider.Joyent {
-		jobs = append(jobs, multiwatcher.JobManageNetworking)
-	}
 
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,

@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fslock"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/manager"
@@ -30,9 +28,7 @@ import (
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -269,7 +265,7 @@ type ContainerInstance struct {
 	packages [][]string
 }
 
-func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont ContainerInstance, addressable bool) {
+func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont ContainerInstance) {
 	// A noop worker callback.
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
@@ -331,7 +327,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, test := range cont {
-		s.assertContainerInitialised(c, test, false)
+		s.assertContainerInitialised(c, test)
 	}
 }
 
@@ -384,97 +380,10 @@ func AssertFileContents(c *gc.C, checker gc.Checker, filename string, expectedCo
 	}
 }
 
-type SetIPAndARPForwardingSuite struct {
-	coretesting.BaseSuite
-}
-
-func (s *SetIPAndARPForwardingSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping for now")
-	}
-	s.BaseSuite.SetUpSuite(c)
-}
-
-var _ = gc.Suite(&SetIPAndARPForwardingSuite{})
-
-func (s *SetIPAndARPForwardingSuite) TestSuccess(c *gc.C) {
-	// NOTE: Because PatchExecutableAsEchoArgs does not allow us to
-	// assert on earlier invocations of the same binary (each run
-	// overwrites the last args used), we only check sysctl was called
-	// for the second key (arpProxySysctlKey). We do check the config
-	// contains both though.
-	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
-	testing.PatchExecutableAsEchoArgs(c, s, "sysctl")
-	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
-
-	err := provisioner.SetIPAndARPForwarding(true)
-	c.Assert(err, jc.ErrorIsNil)
-	expectConf := fmt.Sprintf(
-		"%s=1\n%s=1",
-		provisioner.IPForwardSysctlKey,
-		provisioner.ARPProxySysctlKey,
-	)
-	AssertFileContains(c, fakeConfig, expectConf)
-	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
-	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
-	expectKeyVal = fmt.Sprintf("%s=1", provisioner.ARPProxySysctlKey)
-	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
-
-	err = provisioner.SetIPAndARPForwarding(false)
-	c.Assert(err, jc.ErrorIsNil)
-	expectConf = fmt.Sprintf(
-		"%s=0\n%s=0",
-		provisioner.IPForwardSysctlKey,
-		provisioner.ARPProxySysctlKey,
-	)
-	AssertFileContains(c, fakeConfig, expectConf)
-	expectKeyVal = fmt.Sprintf("%s=0", provisioner.IPForwardSysctlKey)
-	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
-	expectKeyVal = fmt.Sprintf("%s=0", provisioner.ARPProxySysctlKey)
-	testing.AssertEchoArgs(c, "sysctl", "-w", expectKeyVal)
-}
-
-func (s *SetIPAndARPForwardingSuite) TestFailure(c *gc.C) {
-	fakeConfig := filepath.Join(c.MkDir(), "sysctl.conf")
-	testing.PatchExecutableThrowError(c, s, "sysctl", 123)
-	s.PatchValue(provisioner.SysctlConfig, fakeConfig)
-	expectKeyVal := fmt.Sprintf("%s=1", provisioner.IPForwardSysctlKey)
-
-	err := provisioner.SetIPAndARPForwarding(true)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		`cannot set %s: unexpected exit code 123`, expectKeyVal),
-	)
-	_, err = os.Stat(fakeConfig)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-}
-
 type toolsFinderFunc func(v version.Number, series string, arch string) (tools.List, error)
 
 func (t toolsFinderFunc) FindTools(v version.Number, series string, arch string) (tools.List, error) {
 	return t(v, series, arch)
-}
-
-// AddressableContainerSetupSuite only contains tests depending on the
-// address allocation feature flag being enabled.
-type AddressableContainerSetupSuite struct {
-	ContainerSetupSuite
-}
-
-var _ = gc.Suite(&AddressableContainerSetupSuite{})
-
-func (s *AddressableContainerSetupSuite) enableFeatureFlag() {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
-
-func (s *AddressableContainerSetupSuite) TestContainerInitialised(c *gc.C) {
-	cont, err := getContainerInstance()
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, test := range cont {
-		s.enableFeatureFlag()
-		s.assertContainerInitialised(c, test, true)
-	}
 }
 
 func getContainerInstance() (cont []ContainerInstance, err error) {

@@ -29,7 +29,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -462,6 +462,20 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	s.AssertBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
+}
+
+func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0000-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+	}
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return fakeAPI, nil
+	})
+	cmd := newUpgradeJujuCommand(nil)
+	_, err := coretesting.RunCommand(c, cmd, "--upload-tools", "-m", "dummy-model")
+	c.Assert(err, gc.ErrorMatches, "--upload-tools can only be used with the controller model")
 }
 
 type DryRunTest struct {
@@ -908,4 +922,24 @@ func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number) error {
 
 func (a *fakeUpgradeJujuAPI) Close() error {
 	return nil
+}
+
+// Mock an API with no state
+type fakeUpgradeJujuAPINoState struct {
+	upgradeJujuAPI
+	name           string
+	uuid           string
+	controllerUUID string
+}
+
+func (a *fakeUpgradeJujuAPINoState) Close() error {
+	return nil
+}
+
+func (a *fakeUpgradeJujuAPINoState) ModelGet() (map[string]interface{}, error) {
+	return dummy.SampleConfig().Merge(map[string]interface{}{
+		"name":            a.name,
+		"uuid":            a.uuid,
+		"controller-uuid": a.controllerUUID,
+	}), nil
 }

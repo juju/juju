@@ -93,8 +93,8 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Instance, gc.DeepEquals, s.Instance)
-	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
+	c.Check(result.Instance, jc.DeepEquals, s.Instance)
+	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
 }
 
 func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
@@ -120,8 +120,8 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Instance, gc.DeepEquals, s.Instance)
-	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
+	c.Check(result.Instance, jc.DeepEquals, s.Instance)
+	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
 	c.Check(called, gc.Equals, true)
@@ -148,14 +148,14 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	spec, err := gce.BuildInstanceSpec(s.Env, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec.InstanceType, gc.DeepEquals, s.InstanceType)
+	c.Check(spec.InstanceType, jc.DeepEquals, s.InstanceType)
 }
 
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
 	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec, gc.DeepEquals, s.spec)
+	c.Check(spec, jc.DeepEquals, s.spec)
 }
 
 func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
@@ -168,14 +168,14 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	inst, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(inst, gc.DeepEquals, s.BaseInstance)
+	c.Check(inst, jc.DeepEquals, s.BaseInstance)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Ubuntu)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, gc.DeepEquals, s.UbuntuMetadata)
+	c.Check(metadata, jc.DeepEquals, s.UbuntuMetadata)
 
 }
 
@@ -264,5 +264,5 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
 	c.Check(calls[0].Prefix, gc.Equals, s.Prefix())
-	c.Check(calls[0].IDs, gc.DeepEquals, []string{"spam"})
+	c.Check(calls[0].IDs, jc.DeepEquals, []string{"spam"})
 }

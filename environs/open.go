@@ -81,7 +81,7 @@ func Prepare(
 	ctx BootstrapContext,
 	store jujuclient.ClientStore,
 	args PrepareParams,
-) (_ Environ, resultErr error) {
+) (Environ, error) {
 
 	_, err := store.ControllerByName(args.ControllerName)
 	if err == nil {
@@ -186,7 +186,7 @@ func prepare(
 	delete(details.Config, config.UUIDKey)
 
 	details.CACert = caCert
-	details.ControllerUUID = cfg.ControllerUUID()
+	details.ControllerUUID = controller.Config(cfg.AllAttrs()).ControllerUUID()
 	details.User = AdminUser
 	details.Password = adminSecret
 	details.ModelUUID = cfg.UUID()
@@ -262,12 +262,16 @@ func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
 func Destroy(
 	controllerName string,
 	env Environ,
-	store jujuclient.ControllerRemover,
+	store jujuclient.ControllerStore,
 ) error {
-	if err := env.Destroy(); err != nil {
+	details, err := store.ControllerByName(controllerName)
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	err := store.RemoveController(controllerName)
+	if err := env.DestroyController(details.ControllerUUID); err != nil {
+		return errors.Trace(err)
+	}
+	err = store.RemoveController(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

@@ -48,7 +48,6 @@ var (
 	GetOrCreatePorts              = getOrCreatePorts
 	GetPorts                      = getPorts
 	NowToTheSecond                = nowToTheSecond
-	PickAddress                   = &pickAddress
 	AddVolumeOps                  = (*State).addVolumeOps
 	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey

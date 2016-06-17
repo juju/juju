@@ -6,7 +6,6 @@ package containerinit
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -288,53 +286,12 @@ func TemplateUserData(
 	return data, nil
 }
 
-// defaultEtcNetworkInterfaces is the contents of
-// /etc/network/interfaces file which is left on the template LXC
-// container on shutdown. This is needed to allow cloned containers to
-// start in case no network config is provided during cloud-init, e.g.
-// when AUFS is used.
-const defaultEtcNetworkInterfaces = `
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-`
-
 func shutdownInitCommands(initSystem, series string) ([]string, error) {
-	// These files are removed just before the template shuts down.
-	cleanupOnShutdown := []string{
-		// We remove any dhclient lease files so there's no chance a
-		// clone to reuse a lease from the template it was cloned
-		// from.
-		"/var/lib/dhcp/dhclient*",
-		// Both of these sets of files below are recreated on boot and
-		// if we leave them in the template's rootfs boot logs coming
-		// from cloned containers will be appended. It's better to
-		// keep clean logs for diagnosing issues / debugging.
-		"/var/log/cloud-init*.log",
-	}
-
-	// Using EOC below as the template shutdown script is itself
-	// passed through cat > ... < EOF.
-	replaceNetConfCmd := fmt.Sprintf(
-		"/bin/cat > /etc/network/interfaces << EOC%sEOC\n  ",
-		defaultEtcNetworkInterfaces,
-	)
-	paths := strings.Join(cleanupOnShutdown, " ")
-	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
 	shutdownCmd := "/sbin/shutdown -h now"
 	name := "juju-template-restart"
 	desc := "juju shutdown job"
 
 	execStart := shutdownCmd
-	if environs.AddressAllocationEnabled("") { // we only care the provider is not MAAS here.
-		// Only do the cleanup and replacement of /e/n/i when address
-		// allocation feature flag is enabled.
-		execStart = replaceNetConfCmd + removeCmd + shutdownCmd
-	}
 
 	conf := common.Conf{
 		Desc:         desc,

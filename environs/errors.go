@@ -11,9 +11,4 @@ var (
 	ErrNotBootstrapped  = errors.New("model is not bootstrapped")
 	ErrNoInstances      = errors.NotFoundf("instances")
 	ErrPartialInstances = errors.New("only some instances were found")
-
-	// Errors indicating that the provider can't allocate an IP address to an
-	// instance.
-	ErrIPAddressesExhausted = errors.New("can't allocate a new IP address")
-	ErrIPAddressUnavailable = errors.New("the requested IP address is unavailable")
 )

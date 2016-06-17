@@ -273,7 +273,7 @@ func apiConfigConnect(
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing environ")
 	}
-	apiInfo, err := environs.APIInfo(cfg.UUID(), caCert, apiPort, environ)
+	apiInfo, err := environs.APIInfo(controllerCfg.ControllerUUID(), cfg.UUID(), caCert, apiPort, environ)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API info")
 	}

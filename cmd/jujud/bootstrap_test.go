@@ -38,6 +38,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -287,7 +288,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		jobs = []multiwatcher.MachineJob{
 			multiwatcher.JobManageModel,
 			multiwatcher.JobHostUnits,
-			multiwatcher.JobManageNetworking,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -474,7 +474,6 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageModel,
 		state.JobHostUnits,
-		state.JobManageNetworking,
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -514,18 +513,6 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
-}
-
-func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
-	st, err := state.Open(testing.ModelTag, info, mongotest.DialOpts(), environs.NewStatePolicy())
-	if st != nil {
-		st.Close()
-	}
-	if expectErrType != nil {
-		c.Assert(err, gc.FitsTypeOf, expectErrType)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
@@ -741,7 +728,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}
 }
 
-func createImageMetadata(c *gc.C) []*imagemetadata.ImageMetadata {
+func createImageMetadata() []*imagemetadata.ImageMetadata {
 	return []*imagemetadata.ImageMetadata{{
 		Id:         "imageId",
 		Storage:    "rootStore",
@@ -773,7 +760,7 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata(c)
+	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
 	s.writeBootstrapParamsFile(c)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -798,7 +785,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
-	s.bootstrapParams.CustomImageMetadata = createImageMetadata(c)
+	s.bootstrapParams.CustomImageMetadata = createImageMetadata()
 	s.bootstrapParams.CustomImageMetadata[0].Version = "woat"
 	s.writeBootstrapParamsFile(c)
 
@@ -826,7 +813,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
-	inst, _, _, err := jujutesting.StartInstance(env, "0")
+	inst, _, _, err := jujutesting.StartInstance(env, controller.Config(attrs).ControllerUUID(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses, err := inst.Addresses()

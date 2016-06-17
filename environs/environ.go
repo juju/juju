@@ -6,15 +6,11 @@ package environs
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 )
 
-// EnvironConfigGetter exposes a controller and model configuration to its clients.
-// TODO(wallyworld) - we want to avoid the need to get controller config in future
-// since the controller uuid and api port can be added to StartInstanceParams.
+// EnvironConfigGetter exposes a model configuration to its clients.
 type EnvironConfigGetter interface {
-	ControllerConfig() (controller.Config, error)
 	ModelConfig() (*config.Config, error)
 }
 
@@ -26,18 +22,6 @@ type NewEnvironFunc func(*config.Config) (Environ, error)
 // with the model.
 func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
 	envcfg, err := st.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Add in the controller config as currently environs
-	// use a single config bucket for everything.
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	envcfg, err = envcfg.Apply(map[string]interface{}{
-		controller.ControllerUUIDKey: controllerCfg.ControllerUUID(),
-	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

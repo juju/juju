@@ -21,8 +21,8 @@ var sendMetrics = func(st *state.State) error {
 // model. This function assumes that all necessary authentication checks
 // have been done. If the model is a controller hosting other
 // models, they will also be destroyed.
-func DestroyModelIncludingHosted(st *state.State, modelTag names.ModelTag) error {
-	return destroyModel(st, modelTag, true)
+func DestroyModelIncludingHosted(st *state.State, systemTag names.ModelTag) error {
+	return destroyModel(st, systemTag, true)
 }
 
 // DestroyModel sets the environment to dying. Cleanup jobs then destroy
@@ -44,6 +44,14 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 	}
 
 	if destroyHostedModels {
+		// Check we are operating on the controller state.
+		controllerCfg, err := st.ControllerConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if modelTag.Id() != controllerCfg.ControllerUUID() {
+			return errors.Errorf("expected controller model UUID %v, got %v", modelTag.Id(), controllerCfg.ControllerUUID())
+		}
 		models, err := st.AllModels()
 		if err != nil {
 			return errors.Trace(err)
@@ -66,17 +74,17 @@ func destroyModel(st *state.State, modelTag names.ModelTag, destroyHostedModels 
 		}
 	}
 
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if destroyHostedModels {
-		if err := env.DestroyIncludingHosted(); err != nil {
+		if err := model.DestroyIncludingHosted(); err != nil {
 			return err
 		}
 	} else {
-		if err = env.Destroy(); err != nil {
+		if err = model.Destroy(); err != nil {
 			return errors.Trace(err)
 		}
 	}

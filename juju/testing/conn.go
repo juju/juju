@@ -82,6 +82,7 @@ type JujuConnSuite struct {
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
+	ControllerUUID     string
 	State              *state.State
 	Environ            environs.Environ
 	APIState           api.Connection
@@ -147,7 +148,7 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	controllerCfg := controller.ControllerConfig(s.Environ.Config().AllAttrs())
-	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), s.Environ)
+	apiInfo, err := environs.APIInfo(s.ControllerUUID, testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
@@ -294,8 +295,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	s.ControllerUUID = testing.ModelTag.Id()
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		CloudName: "dummy",
+		ControllerUUID: s.ControllerUUID,
+		CloudName:      "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -311,7 +314,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := controller.ControllerConfig(environ.Config().AllAttrs())
-	apiInfo, err := environs.APIInfo(testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), environ)
+	apiInfo, err := environs.APIInfo(s.ControllerUUID, testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = environ.Config().AdminSecret()

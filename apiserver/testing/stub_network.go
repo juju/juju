@@ -5,13 +5,11 @@ package testing
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -66,8 +64,6 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "sn-zadf00d",
 		AvailabilityZones: []string{"zone1"},
-		AllocatableIPLow:  net.ParseIP("10.10.0.10"),
-		AllocatableIPHigh: net.ParseIP("10.10.0.100"),
 	}, {
 		CIDR:              "2001:db8::/32",
 		ProviderId:        "sn-ipv6",
@@ -405,8 +401,6 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		info0 := networkingcommon.BackingSubnetInfo{
 			CIDR:              ProviderInstance.Subnets[0].CIDR,
 			ProviderId:        ProviderInstance.Subnets[0].ProviderId,
-			AllocatableIPLow:  ProviderInstance.Subnets[0].AllocatableIPLow.String(),
-			AllocatableIPHigh: ProviderInstance.Subnets[0].AllocatableIPHigh.String(),
 			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
 			SpaceName:         "private",
 		}
@@ -430,14 +424,6 @@ func (sb *StubBacking) ModelConfig() (*config.Config, error) {
 		return nil, err
 	}
 	return sb.EnvConfig, nil
-}
-
-func (sb *StubBacking) ControllerConfig() (controller.Config, error) {
-	sb.MethodCall(sb, "ControllerConfig")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	return controller.ControllerConfig(sb.EnvConfig.AllAttrs()), nil
 }
 
 func (sb *StubBacking) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {

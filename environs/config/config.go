@@ -64,22 +64,6 @@ const (
 	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
 	DefaultNumaControlPolicy = false
-
-	// DefaultPreventDestroyEnvironment should not be used by default.
-	// Only prevent destroy-model from running
-	// if user specifically requests it. Otherwise, let it run.
-	DefaultPreventDestroyEnvironment = false
-
-	// DefaultPreventRemoveObject should not be used by default.
-	// Only prevent remove-object from running
-	// if user specifically requests it. Otherwise, let it run.
-	// Object here is a juju artifact - machine, service, unit or relation.
-	DefaultPreventRemoveObject = false
-
-	// DefaultPreventAllChanges should not be used by default.
-	// Only prevent all-changes from running
-	// if user specifically requests it. Otherwise, let them run.
-	DefaultPreventAllChanges = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -203,16 +187,6 @@ var harvestingMethodToFlag = map[HarvestMode]string{
 	HarvestNone:      "none",
 	HarvestUnknown:   "unknown",
 	HarvestDestroyed: "destroyed",
-}
-
-// proxyAttrs contains attribute names that could contain loopback URLs, pointing to localhost
-var ProxyAttributes = []string{
-	HttpProxyKey,
-	HttpsProxyKey,
-	FtpProxyKey,
-	AptHttpProxyKey,
-	AptHttpsProxyKey,
-	AptFtpProxyKey,
 }
 
 // String returns the description of the harvesting mode.
@@ -556,13 +530,6 @@ func (c *Config) Name() string {
 // UUID returns the uuid for the model.
 func (c *Config) UUID() string {
 	return c.mustString(UUIDKey)
-}
-
-// ControllerUUID returns the uuid for the model's controller.
-// Even though this is a controller attribute, we always ensure
-// we also populate it here as environs currently rely on it.
-func (c *Config) ControllerUUID() string {
-	return controller.ControllerConfig(c.defined).ControllerUUID()
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -957,6 +924,7 @@ var alwaysOptional = schema.Defaults{
 	// The following attributes are for the controller config
 	// but are included here because we currently parse model
 	// and controller config together.
+	controller.ControllerUUIDKey:      schema.Omit,
 	controller.CACertKey:              schema.Omit,
 	controller.CAPrivateKey:           schema.Omit,
 	controller.ApiPort:                schema.Omit,

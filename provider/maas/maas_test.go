@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -20,11 +19,11 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -37,6 +36,7 @@ const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabili
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
+	controllerUUID string
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
@@ -66,7 +66,6 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
-	s.SetFeatureFlags(feature.AddressAllocation)
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {
@@ -138,6 +137,7 @@ func (suite *providerSuite) makeEnviron() *maasEnviron {
 	}
 	testAttrs["maas-server"] = suite.testMAASObject.TestServer.URL
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
+	suite.controllerUUID = controller.Config(attrs).ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
 		panic(err)
@@ -180,11 +180,9 @@ func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaas
 
 func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
 	return network.SubnetInfo{
-		CIDR:              fmt.Sprintf("192.168.%d.0/24", ipRange),
-		ProviderId:        network.Id(strconv.Itoa(int(subnetID))),
-		AllocatableIPLow:  net.ParseIP(fmt.Sprintf("192.168.%d.139", ipRange)).To4(),
-		AllocatableIPHigh: net.ParseIP(fmt.Sprintf("192.168.%d.255", ipRange)).To4(),
-		SpaceProviderId:   network.Id(fmt.Sprintf("%d", spaceID)),
+		CIDR:            fmt.Sprintf("192.168.%d.0/24", ipRange),
+		ProviderId:      network.Id(strconv.Itoa(int(subnetID))),
+		SpaceProviderId: network.Id(fmt.Sprintf("%d", spaceID)),
 	}
 }
 

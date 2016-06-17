@@ -49,7 +49,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
-		ControllerUUID: testing.ModelTag.Id(),
+		ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
 		CACert:         testing.CACert,
 		Cloud:          "mycloud",
 		CloudRegion:    "a-region",
@@ -199,7 +199,7 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		Cloud:                  "mycloud",
 		CloudRegion:            "a-region",
 		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
 		APIEndpoints:           []string{"10.0.0.1:100"},
 		UnresolvedAPIEndpoints: []string{"10.0.0.1:100"},
 	})
@@ -221,7 +221,7 @@ type fakeEnviron struct {
 	controllerInstances []instance.Id
 }
 
-func (f fakeEnviron) ControllerInstances() ([]instance.Id, error) {
+func (f fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
 	return f.controllerInstances, nil
 }
 

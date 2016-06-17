@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
@@ -101,7 +102,7 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	t.PrepareOnce(c)
-	inst, hc := testing.AssertStartInstance(c, t.Env, "30")
+	inst, hc := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "30")
 	defer t.Env.StopInstances(inst.Id())
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, gc.NotNil)
@@ -126,7 +127,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	t.PrepareOnce(c)
 	cons := constraints.MustParse("mem=4G")
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "m3.large")
@@ -144,13 +145,14 @@ func (t *LiveTests) TestControllerInstances(c *gc.C) {
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
 
-	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "98")
 	defer t.Env.StopInstances(inst0.Id())
 
-	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
 	defer t.Env.StopInstances(inst1.Id())
 
-	insts, err := t.Env.ControllerInstances()
+	controllerUUID := controller.Config(t.TestConfig).ControllerUUID()
+	insts, err := t.Env.ControllerInstances(controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
@@ -196,14 +198,14 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "98")
 	defer t.Env.StopInstances(inst0.Id())
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
 	defer t.Env.StopInstances(inst1.Id())
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -336,9 +338,9 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, _ := testing.AssertStartInstance(c, t.Env, "40")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
+	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "41")
 
 	err := t.Env.StopInstances(inst0.Id(), inst1.Id(), inst2.Id())
 	c.Check(err, jc.ErrorIsNil)

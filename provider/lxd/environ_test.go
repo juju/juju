@@ -76,7 +76,9 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	}
 
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerUUID: "uuid",
+	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -88,7 +90,9 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerUUID: "uuid",
+	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -144,15 +148,15 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	machine2.InstanceSummary.Metadata["juju-controller-uuid"] = "not-" + s.Config.UUID()
 	s.Client.Insts = append(s.Client.Insts, *machine0, *machine1, *machine2)
 
-	err := s.Env.Destroy()
+	err := s.Env.DestroyController(s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	prefix := s.Prefix()
 	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Ports", []interface{}{fwname}},
+		{"Destroy", nil},
 		{"Instances", []interface{}{prefix, lxdclient.AliveStatuses}},
 		{"RemoveInstances", []interface{}{prefix, []string{machine1.Name}}},
-		{"Destroy", nil},
 	})
 }

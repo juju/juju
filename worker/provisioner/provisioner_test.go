@@ -192,7 +192,7 @@ func stop(c *gc.C, w worker.Worker) {
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Environ, id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerUUID, id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {
@@ -957,16 +957,13 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 1 subnet into space1, and 2 into space2.
-	// Only the first subnet of space2 has AllocatableIPLow|High set.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
-		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
-		AvailabilityZone:  "zone{{.}}",
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:           42,
+		CIDR:             "10.10.{{.}}.0/24",
+		ProviderId:       "subnet-{{.}}",
+		AvailabilityZone: "zone{{.}}",
+		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:          42,
 	})
 
 	// Add and provision a machine with spaces specified.
@@ -1234,6 +1231,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
 	w, err := provisioner.NewProvisionerTask(
+		s.ControllerUUID,
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,

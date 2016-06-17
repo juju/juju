@@ -204,10 +204,8 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
 	metadata := make(map[string]string)
-	if isController(args.InstanceConfig) {
-		metadata[metadataKeyIsState] = metadataValueTrue
-	} else {
-		metadata[metadataKeyIsState] = metadataValueFalse
+	for tag, value := range args.InstanceConfig.Tags {
+		metadata[tag] = value
 	}
 	switch os {
 	case jujuos.Ubuntu:

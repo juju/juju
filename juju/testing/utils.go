@@ -48,8 +48,6 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 //     ProviderId: "subnet-{{.}}",
 //     SpaceName: "space1",
 //     AvailabilityZone: "zone-{{.}}",
-//     AllocatableIPLow: "{{if (gt . 0)}}10.10.{{.}}.5{{end}}",
-//     AllocatableIPHigh: "{{if (gt . 0)}}10.10.{{.}}.254{{end}}",
 //     VLANTag: 42,
 // })
 //
@@ -68,8 +66,6 @@ func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 //     ProviderId: "subnet-1",
 //     SpaceName: "space1",
 //     AvailabilityZone: "zone-1",
-//     AllocatableIPLow: "10.10.1.5",
-//     AllocatableIPHigh: "10.10.1.254",
 //     VLANTag: 42,
 // })
 func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTemplate state.SubnetInfo) {
@@ -90,8 +86,6 @@ func AddSubnetsWithTemplate(c *gc.C, st *state.State, numSubnets uint, infoTempl
 
 		info.ProviderId = network.Id(permute(string(info.ProviderId)))
 		info.CIDR = permute(info.CIDR)
-		info.AllocatableIPHigh = permute(info.AllocatableIPHigh)
-		info.AllocatableIPLow = permute(info.AllocatableIPLow)
 		info.AvailabilityZone = permute(info.AvailabilityZone)
 		info.SpaceName = permute(info.SpaceName)
 

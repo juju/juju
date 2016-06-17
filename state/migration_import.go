@@ -441,8 +441,6 @@ func (i *importer) makeMachineJobs(jobs []string) ([]MachineJob, error) {
 			result = append(result, JobHostUnits)
 		case "api-server":
 			result = append(result, JobManageModel)
-		case "manage-networking":
-			result = append(result, JobManageNetworking)
 		default:
 			return nil, errors.Errorf("unknown machine job: %q", job)
 		}
