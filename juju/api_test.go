@@ -187,40 +187,54 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	c.Assert(st, gc.IsNil)
 }
 
-type mockedStateFlags int
+func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
+	store := newClientStore(c, "ctl")
+	err := store.UpdateController("ctl", jujuclient.ControllerDetails{
+		ControllerUUID: fakeUUID,
+		CACert:         "certificate",
+		APIEndpoints:   []string{"0.1.2.3:5678"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-const (
-	noFlags        mockedStateFlags = 0x0000
-	mockedHostPort mockedStateFlags = 0x0001
-	mockedModelTag mockedStateFlags = 0x0002
-)
+	controllerBefore, err := store.ControllerByName("ctl")
+	c.Assert(err, jc.ErrorIsNil)
 
-func mockedAPIState(flags mockedStateFlags) *mockAPIState {
-	hasHostPort := flags&mockedHostPort == mockedHostPort
-	hasModelTag := flags&mockedModelTag == mockedModelTag
-	addr := ""
-
-	apiHostPorts := [][]network.HostPort{}
-	if hasHostPort {
-		var apiAddrs []network.Address
-		ipv4Address := network.NewAddress("0.1.2.3")
-		ipv6Address := network.NewAddress("2001:db8::1")
-		addr = net.JoinHostPort(ipv4Address.Value, "1234")
-		apiAddrs = append(apiAddrs, ipv4Address, ipv6Address)
-		apiHostPorts = [][]network.HostPort{
-			network.AddressesWithPort(apiAddrs, 1234),
+	redirHPs := []string{"0.0.9.9:1234", "0.0.9.10:1235"}
+	openCount := 0
+	redirOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		c.Check(apiInfo.ModelTag.Id(), gc.Equals, fakeUUID)
+		openCount++
+		switch openCount {
+		case 1:
+			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.1.2.3:5678"})
+			c.Check(apiInfo.CACert, gc.Equals, "certificate")
+			return nil, errors.Trace(&api.RedirectError{
+				Servers: [][]network.HostPort{mustParseHostPorts(redirHPs)},
+				CACert:  "alternative CA cert",
+			})
+		case 2:
+			c.Check(apiInfo.Addrs, jc.DeepEquals, []string{"0.0.9.9:1234", "0.0.9.10:1235"})
+			c.Check(apiInfo.CACert, gc.Equals, "alternative CA cert")
+			st := mockedAPIState(noFlags)
+			st.apiHostPorts = [][]network.HostPort{mustParseHostPorts(redirHPs)}
+			st.modelTag = fakeUUID
+			return st, nil
 		}
+		c.Errorf("OpenAPI called too many times")
+		return nil, fmt.Errorf("OpenAPI called too many times")
 	}
-	modelTag := ""
-	if hasModelTag {
-		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
-	}
-	return &mockAPIState{
-		apiHostPorts:  apiHostPorts,
-		modelTag:      modelTag,
-		controllerTag: modelTag,
-		addr:          addr,
-	}
+
+	st0, err := newAPIConnectionFromNames(c, "ctl", "admin@local", "admin", store, redirOpen, noBootstrapConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(openCount, gc.Equals, 2)
+	st := st0.(*mockAPIState)
+	c.Assert(st.modelTag, gc.Equals, fakeUUID)
+
+	// Check that the addresses of the original controller
+	// have not been changed.
+	controllerAfter, err := store.ControllerByName("ctl")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
 }
 
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
@@ -390,6 +404,7 @@ func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		c.Logf("apiOpen addrs %#v", info.Addrs)
 		if info.Addrs[0] == "infoapi.invalid" {
 			return nil, fmt.Errorf("info connect failed")
 		}
@@ -407,7 +422,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore 
 	err := store.UpdateController(controllerName, jujuclient.ControllerDetails{
 		ControllerUUID: fakeUUID,
 		CACert:         "certificate",
-		APIEndpoints:   []string{"foo.invalid"},
+		APIEndpoints:   []string{"0.1.2.3:5678"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -836,4 +851,12 @@ func newAPIConnectionFromNames(
 		params.ModelUUID = modelDetails.ModelUUID
 	}
 	return juju.NewAPIConnection(params)
+}
+
+func mustParseHostPorts(ss []string) []network.HostPort {
+	hps, err := network.ParseHostPorts(ss...)
+	if err != nil {
+		panic(err)
+	}
+	return hps
 }

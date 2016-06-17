@@ -126,9 +126,29 @@ type state struct {
 	bakeryClient *httpbakery.Client
 }
 
+// RedirectError is returned from Open when the controller
+// needs to inform the client that the model is hosted
+// on a different set of API addresses.
+type RedirectError struct {
+	// Servers holds the sets of addresses of the redirected
+	// servers.
+	Servers [][]network.HostPort
+
+	// CACert holds the certificate of the remote server.
+	CACert string
+}
+
+func (e *RedirectError) Error() string {
+	return fmt.Sprintf("redirection to alternative server required")
+}
+
 // Open establishes a connection to the API server using the Info
 // given, returning a State instance which can be used to make API
 // requests.
+//
+// If the model is hosted on a different server, Open
+// will return an error with a *RedirectError cause
+// holding the details of another server to connect to.
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
@@ -159,8 +179,7 @@ func open(
 	if bakeryClient == nil {
 		bakeryClient = httpbakery.NewClient()
 	} else {
-		// Make a copy of the bakery client and its
-		// HTTP client
+		// Make a copy of the bakery client and its HTTP client
 		c := *opts.BakeryClient
 		bakeryClient = &c
 		httpc := *bakeryClient.Client
@@ -184,8 +203,10 @@ func open(
 		},
 		serverScheme:      "https",
 		serverRootAddress: conn.Config().Location.Host,
-		// why are the contents of the tag (username and password) written into the
-		// state structure BEFORE login ?!?
+		// We populate the username and password before
+		// login because, when doing HTTP requests, we'll want
+		// to use the same username and password for authenticating
+		// those. If login fails, we discard the connection.
 		tag:          tagToString(info.Tag),
 		password:     info.Password,
 		macaroons:    info.Macaroons,
@@ -196,7 +217,7 @@ func open(
 	if !info.SkipLogin {
 		if err := loginFunc(st, info.Tag, info.Password, info.Nonce, info.Macaroons); err != nil {
 			conn.Close()
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	st.broken = make(chan struct{})
@@ -305,7 +326,7 @@ func dialWebSocket(addrs []string, path string, tlsConfig *tls.Config, opts Dial
 	return result.(*websocket.Conn), nil
 }
 
-// ConnectStream implements Connection.ConnectStream.
+// ConnectStream implements Connection.ConnectStream, whatever that is..
 func (st *state) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
 	if !st.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")

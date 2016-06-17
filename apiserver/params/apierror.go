@@ -85,6 +85,7 @@ const (
 	CodeMethodNotAllowed          = "method not allowed"
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
+	CodeRedirect                  = "redirection required"
 )
 
 // ErrCode returns the error code associated with
@@ -213,4 +214,8 @@ func IsBadRequest(err error) bool {
 
 func IsMethodNotAllowed(err error) bool {
 	return ErrCode(err) == CodeMethodNotAllowed
+}
+
+func IsRedirect(err error) bool {
+	return ErrCode(err) == CodeRedirect
 }

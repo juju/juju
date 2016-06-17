@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"fmt"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -36,4 +38,11 @@ func (r *adminApiV3) Admin(id string) (*adminApiV3, error) {
 // connection will act as the authenticated user.
 func (a *adminApiV3) Login(req params.LoginRequest) (params.LoginResultV1, error) {
 	return a.doLogin(req, 3)
+}
+
+// RedirectInfo returns redirected host information for the model.
+// In Juju it always returns an error because the Juju controller
+// does not multiplex controllers.
+func (a *adminApiV3) RedirectInfo() (params.RedirectInfoResult, error) {
+	return params.RedirectInfoResult{}, fmt.Errorf("not redirected")
 }
