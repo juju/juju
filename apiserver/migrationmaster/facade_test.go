@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,6 +30,7 @@ type Suite struct {
 	coretesting.BaseSuite
 
 	model      description.Model
+	stub       *testing.Stub
 	backend    *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -44,8 +46,10 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Owner:              names.NewUserTag("admin"),
 		LatestToolsVersion: jujuversion.Current,
 	})
+	s.stub = new(testing.Stub)
 	s.backend = &stubBackend{
-		migration: new(stubMigration),
+		migration: &stubMigration{stub: s.stub},
+		stub:      s.stub,
 		model:     s.model,
 	}
 
@@ -178,6 +182,66 @@ func (s *Suite) TestReapError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
+func (s *Suite) TestWatchMinionReports(c *gc.C) {
+	api := s.mustMakeAPI(c)
+
+	result := api.WatchMinionReports()
+	c.Assert(result.Error, gc.IsNil)
+
+	s.stub.CheckCallNames(c,
+		"LatestModelMigration",
+		"ModelMigration.WatchMinionReports",
+	)
+
+	resource := s.resources.Get(result.NotifyWatcherId)
+	watcher, _ := resource.(state.NotifyWatcher)
+	c.Assert(watcher, gc.NotNil)
+
+	select {
+	case <-watcher.Changes():
+		c.Fatalf("initial event not consumed")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *Suite) TestGetMinionReports(c *gc.C) {
+	// Report 16 unknowns. These are in reverse order in order to test
+	// sorting.
+	unknown := make([]names.Tag, 0, 16)
+	for i := cap(unknown) - 1; i >= 0; i-- {
+		unknown = append(unknown, names.NewMachineTag(fmt.Sprintf("%d", i)))
+	}
+	m50 := names.NewMachineTag("50")
+	m51 := names.NewMachineTag("51")
+	m52 := names.NewMachineTag("52")
+	u0 := names.NewUnitTag("foo/0")
+	u1 := names.NewUnitTag("foo/1")
+	s.backend.migration.minionReports = &state.MinionReports{
+		Succeeded: []names.Tag{m50, m51, u0},
+		Failed:    []names.Tag{u1, m52},
+		Unknown:   unknown,
+	}
+
+	api := s.mustMakeAPI(c)
+	reports, err := api.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Expect the sample of unknowns to be in order and be limited to
+	// the first 10.
+	expectedSample := make([]string, 0, 10)
+	for i := 0; i < cap(expectedSample); i++ {
+		expectedSample = append(expectedSample, names.NewMachineTag(fmt.Sprintf("%d", i)).String())
+	}
+	c.Assert(reports, gc.DeepEquals, params.MinionReports{
+		MigrationId:   "id",
+		Phase:         "READONLY",
+		SuccessCount:  3,
+		UnknownCount:  len(unknown),
+		UnknownSample: expectedSample,
+		Failed:        []string{m52.String(), u1.String()}, // Note sorting
+	})
+}
+
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 }
@@ -191,7 +255,7 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 type stubBackend struct {
 	migrationmaster.Backend
 
-	stub      testing.Stub
+	stub      *testing.Stub
 	getErr    error
 	removeErr error
 	migration *stubMigration
@@ -223,8 +287,15 @@ func (b *stubBackend) Export() (description.Model, error) {
 
 type stubMigration struct {
 	state.ModelMigration
-	setPhaseErr error
-	phaseSet    coremigration.Phase
+
+	stub          *testing.Stub
+	setPhaseErr   error
+	phaseSet      coremigration.Phase
+	minionReports *state.MinionReports
+}
+
+func (m *stubMigration) Id() string {
+	return "id"
 }
 
 func (m *stubMigration) Phase() (coremigration.Phase, error) {
@@ -255,6 +326,15 @@ func (m *stubMigration) SetPhase(phase coremigration.Phase) error {
 	}
 	m.phaseSet = phase
 	return nil
+}
+
+func (m *stubMigration) WatchMinionReports() (state.NotifyWatcher, error) {
+	m.stub.AddCall("ModelMigration.WatchMinionReports")
+	return apiservertesting.NewFakeNotifyWatcher(), nil
+}
+
+func (m *stubMigration) GetMinionReports() (*state.MinionReports, error) {
+	return m.minionReports, nil
 }
 
 var modelUUID string
