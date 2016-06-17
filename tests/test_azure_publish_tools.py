@@ -9,6 +9,7 @@ from azure_publish_tools import (
     get_local_sync_files,
     get_published_files,
     get_md5content,
+    Include,
     JUJU_DIST,
     LIST,
     list_sync_files,
@@ -98,6 +99,11 @@ class TestOptionParser(TestCase):
         self.assertEqual('mypath2', args.local_dir)
 
 
+class FakeInclude:
+
+    metadata = object()
+
+
 class FakeBlobProperties:
 
     def __init__(self, md5, length, content_type):
@@ -135,8 +141,8 @@ class FakeBlobService:
             raise NotImplementedError('marker not implemented.')
         if maxresults is not None:
             raise NotImplementedError('maxresults not implemented.')
-        if include != 'metadata':
-            raise NotImplementedError('include must be "metadata".')
+        if include != Include.METADATA:
+            raise NotImplementedError('include must be "Include.METADATA".')
         if delimiter is not None:
             raise NotImplementedError('delimiter not implemented.')
         return [b for p, b in self.containers[container_name].items()
