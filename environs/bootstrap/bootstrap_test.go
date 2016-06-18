@@ -539,7 +539,8 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		MetadataDir: metadataDir,
+		ControllerUUID: coretesting.ModelTag.Id(),
+		MetadataDir:    metadataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -567,6 +568,7 @@ func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
 	s.setDummyStorage(c, env)
 	credential := cloud.NewCredential(cloud.EmptyAuthType, map[string]string{"what": "ever"})
 	args := bootstrap.BootstrapParams{
+		ControllerUUID: coretesting.ModelTag.Id(),
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},

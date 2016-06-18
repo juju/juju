@@ -104,7 +104,7 @@ type ConfigSource interface {
 }
 
 func (mm *ModelManagerAPI) newModelConfig(
-	args params.ModelCreateArgs, source ConfigSource, credential *cloud.Credential,
+	args params.ModelCreateArgs, controllerUUID string, source ConfigSource, credential *cloud.Credential,
 ) (*config.Config, error) {
 	// For now, we just smash to the two maps together as we store
 	// the account values and the model config together in the
@@ -147,7 +147,7 @@ func (mm *ModelManagerAPI) newModelConfig(
 			return result.List, nil
 		},
 	}
-	return creator.NewModelConfig(mm.isAdmin, baseConfig, joint)
+	return creator.NewModelConfig(mm.isAdmin, controllerUUID, baseConfig, joint)
 }
 
 // CreateModel creates a new model using the account and
@@ -221,7 +221,12 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		credential = &elem
 	}
 
-	newConfig, err := mm.newModelConfig(args, controllerModel, credential)
+	controllerCfg, err := mm.state.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	newConfig, err := mm.newModelConfig(args, controllerCfg.ControllerUUID(), controllerModel, credential)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
 	}

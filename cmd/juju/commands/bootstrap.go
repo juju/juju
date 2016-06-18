@@ -583,6 +583,7 @@ to clean up the model.`[1:])
 	}
 
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
+		ControllerUUID:       controllerUUID.String(),
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
