@@ -20,8 +20,6 @@ import (
 	internalserver "github.com/juju/juju/payload/api/private/server"
 	"github.com/juju/juju/payload/api/server"
 	"github.com/juju/juju/payload/context"
-	"github.com/juju/juju/payload/persistence"
-	payloadstate "github.com/juju/juju/payload/state"
 	"github.com/juju/juju/payload/status"
 	"github.com/juju/juju/state"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
@@ -33,7 +31,6 @@ const payloadsHookContextFacade = payload.ComponentName + "-hook-context"
 type payloads struct{}
 
 func (c payloads) registerForServer() error {
-	c.registerState()
 	c.registerPublicFacade()
 
 	c.registerHookContext()
@@ -47,7 +44,7 @@ func (c payloads) registerForClient() error {
 }
 
 func (payloads) newPublicFacade(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*server.PublicAPI, error) {
-	up, err := st.EnvPayloads()
+	up, err := st.ModelPayloads()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -194,26 +191,4 @@ func (payloads) registerHookContextCommands() {
 		}
 		return cmd, nil
 	})
-}
-
-func (payloads) registerState() {
-	if !markRegistered(payload.ComponentName, "state") {
-		return
-	}
-
-	newUnitPayloads := func(db state.Persistence, unit, machine string) (state.UnitPayloads, error) {
-		persist := persistence.NewPersistence(db)
-		unitPersist := persistence.NewUnitPersistence(persist, unit)
-		return payloadstate.NewUnitPayloads(unitPersist, unit, machine), nil
-	}
-
-	newEnvPayloads := func(db state.Persistence) (state.EnvPayloads, error) {
-		persist := persistence.NewPersistence(db)
-		envPayloads := payloadstate.EnvPayloads{
-			Persist: persist,
-		}
-		return envPayloads, nil
-	}
-
-	state.SetPayloadsComponent(newEnvPayloads, newUnitPayloads)
 }

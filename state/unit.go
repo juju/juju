@@ -483,8 +483,6 @@ func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 	return ops, nil
 }
 
-var errAlreadyRemoved = errors.New("entity has already been removed")
-
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {

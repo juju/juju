@@ -10,6 +10,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
 )
@@ -53,6 +54,45 @@ type Database interface {
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
 	Schema() collectionSchema
+}
+
+// Change represents any mgo/txn-representable change to a Database.
+type Change interface {
+
+	// Prepare ensures that db is in a valid base state for applying
+	// the change, and returns mgo/txn operations that will fail any
+	// enclosing transaction if the state has materially changed; or
+	// returns an error.
+	Prepare(db Database) ([]txn.Op, error)
+}
+
+// ErrChangeComplete can be returned from Prepare to finish an Apply
+// attempt and report success without taking any further action.
+var ErrChangeComplete = errors.New("change complete")
+
+// Apply runs the supplied Change against the supplied Database. If it
+// returns no error, the change succeeded.
+func Apply(db Database, change Change) error {
+	db, closer := db.CopySession()
+	defer closer()
+
+	buildTxn := func(int) ([]txn.Op, error) {
+		ops, err := change.Prepare(db)
+		if errors.Cause(err) == ErrChangeComplete {
+			return nil, jujutxn.ErrNoOperations
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	}
+
+	runner, closer := db.TransactionRunner()
+	defer closer()
+	if err := runner.Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // collectionInfo describes important features of a collection.
