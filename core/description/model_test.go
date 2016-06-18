@@ -331,3 +331,290 @@ func (s *ModelSerializationSuite) TestModelSerializationWithRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, initial)
 }
+
+func (s *ModelSerializationSuite) TestModelValidationChecksSubnets(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddSubnet(SubnetArgs{CIDR: "10.0.0.0/24", SpaceName: "foo"})
+	model.AddSubnet(SubnetArgs{CIDR: "10.0.1.0/24"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `subnet "10.0.0.0/24" references non-existent space "foo"`)
+	model.AddSpace(SpaceArgs{Name: "foo"})
+	err = model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressMachineID(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddIPAddress(IPAddressArgs{Value: "192.168.1.0", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.0" references non-existent machine "42"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressDeviceName(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{Value: "192.168.1.0", MachineID: "42", DeviceName: "foo"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.0" references non-existent device "foo"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressValueEmpty(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{MachineID: "42", DeviceName: "foo"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address has invalid value ""`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressValueInvalid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{MachineID: "42", DeviceName: "foo", Value: "foobar"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address has invalid value "foobar"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetEmpty(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{MachineID: "42", DeviceName: "foo", Value: "192.168.1.1"}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has empty subnet CIDR`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressSubnetInvalid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{
+		MachineID:  "42",
+		DeviceName: "foo",
+		Value:      "192.168.1.1",
+		SubnetCIDR: "foo",
+	}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has invalid subnet CIDR "foo"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressSucceeds(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{
+		MachineID:  "42",
+		DeviceName: "foo",
+		Value:      "192.168.1.1",
+		SubnetCIDR: "192.168.1.0/24",
+	}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressGatewayAddressInvalid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{
+		MachineID:      "42",
+		DeviceName:     "foo",
+		Value:          "192.168.1.1",
+		SubnetCIDR:     "192.168.1.0/24",
+		GatewayAddress: "foo",
+	}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ip address "192.168.1.1" has invalid gateway address "foo"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksAddressGatewayAddressValid(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := IPAddressArgs{
+		MachineID:      "42",
+		DeviceName:     "foo",
+		Value:          "192.168.1.2",
+		SubnetCIDR:     "192.168.1.0/24",
+		GatewayAddress: "192.168.1.1",
+	}
+	model.AddIPAddress(args)
+	s.addMachineToModel(model, "42")
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerDeviceMachineId(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo", MachineID: "42"})
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" references non-existent machine "42"`)
+	s.addMachineToModel(model, "42")
+	err = model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerName(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{MachineID: "42"})
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, "device has empty name.*")
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksLinkLayerMACAddress(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", MACAddress: "DEADBEEF"}
+	model.AddLinkLayerDevice(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" has invalid MACAddress "DEADBEEF"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksParentExists(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "bar", MACAddress: "01:23:45:67:89:ab"}
+	model.AddLinkLayerDevice(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" has non-existent parent "bar"`)
+	model.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "bar", MachineID: "42"})
+	err = model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksParentIsNotItself(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "foo"}
+	model.AddLinkLayerDevice(args)
+	s.addMachineToModel(model, "42")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" is its own parent`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksParentIsABridge(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar"}
+	model.AddLinkLayerDevice(args2)
+	s.addMachineToModel(model, "42")
+	s.addMachineToModel(model, "43")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `device "foo" on a container but not a bridge`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksChildDeviceContained(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "42", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar", Type: "bridge"}
+	model.AddLinkLayerDevice(args2)
+	s.addMachineToModel(model, "42")
+	s.addMachineToModel(model, "43")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `ParentName "m#43#d#bar" for non-container machine "42"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationChecksParentOnHost(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "41/lxd/0", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar", Type: "bridge"}
+	model.AddLinkLayerDevice(args2)
+	machine := s.addMachineToModel(model, "41")
+	container := machine.AddContainer(MachineArgs{Id: names.NewMachineTag("41/lxd/0")})
+	container.SetInstance(CloudInstanceArgs{InstanceId: "magic"})
+	container.SetTools(minimalAgentToolsArgs())
+	container.SetStatus(minimalStatusArgs())
+	s.addMachineToModel(model, "43")
+	err := model.Validate()
+	c.Assert(err, gc.ErrorMatches, `parent machine of device "foo" not host machine "41"`)
+}
+
+func (s *ModelSerializationSuite) TestModelValidationLinkLayerDeviceContainer(c *gc.C) {
+	model := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	args := LinkLayerDeviceArgs{MachineID: "43/lxd/0", Name: "foo", ParentName: "m#43#d#bar"}
+	model.AddLinkLayerDevice(args)
+	args2 := LinkLayerDeviceArgs{MachineID: "43", Name: "bar", Type: "bridge"}
+	model.AddLinkLayerDevice(args2)
+	machine := s.addMachineToModel(model, "43")
+	container := machine.AddContainer(MachineArgs{Id: names.NewMachineTag("43/lxd/0")})
+	container.SetInstance(CloudInstanceArgs{InstanceId: "magic"})
+	container.SetTools(minimalAgentToolsArgs())
+	container.SetStatus(minimalStatusArgs())
+	err := model.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ModelSerializationSuite) TestSpaces(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	space := initial.AddSpace(SpaceArgs{Name: "special"})
+	c.Assert(space.Name(), gc.Equals, "special")
+	spaces := initial.Spaces()
+	c.Assert(spaces, gc.HasLen, 1)
+	c.Assert(spaces[0], gc.Equals, space)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Spaces(), jc.DeepEquals, spaces)
+
+}
+
+func (s *ModelSerializationSuite) TestLinkLayerDevice(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	device := initial.AddLinkLayerDevice(LinkLayerDeviceArgs{Name: "foo"})
+	c.Assert(device.Name(), gc.Equals, "foo")
+	devices := initial.LinkLayerDevices()
+	c.Assert(devices, gc.HasLen, 1)
+	c.Assert(devices[0], jc.DeepEquals, device)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.LinkLayerDevices(), jc.DeepEquals, devices)
+}
+
+func (s *ModelSerializationSuite) TestSubnets(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	subnet := initial.AddSubnet(SubnetArgs{CIDR: "10.0.0.0/24"})
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	subnets := initial.Subnets()
+	c.Assert(subnets, gc.HasLen, 1)
+	c.Assert(subnets[0], jc.DeepEquals, subnet)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Subnets(), jc.DeepEquals, subnets)
+}
+
+func (s *ModelSerializationSuite) TestIPAddress(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	addr := initial.AddIPAddress(IPAddressArgs{Value: "10.0.0.4"})
+	c.Assert(addr.Value(), gc.Equals, "10.0.0.4")
+	addresses := initial.IPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	c.Assert(addresses[0], jc.DeepEquals, addr)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.IPAddresses(), jc.DeepEquals, addresses)
+}

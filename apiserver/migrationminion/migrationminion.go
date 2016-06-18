@@ -8,12 +8,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/migration"
 )
-
-func init() {
-	common.RegisterStandardFacade("MigrationMinion", 1, NewAPI)
-}
 
 // API implements the API required for the model migration
 // master worker.
@@ -26,7 +22,7 @@ type API struct {
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
-	st *state.State,
+	backend Backend,
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*API, error) {
@@ -34,7 +30,7 @@ func NewAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backend:    getBackend(st),
+		backend:    backend,
 		authorizer: authorizer,
 		resources:  resources,
 	}, nil
@@ -48,11 +44,25 @@ func NewAPI(
 // The MigrationStatusWatcher facade must be used to receive events
 // from the watcher.
 func (api *API) Watch() (params.NotifyWatchResult, error) {
-	w, err := api.backend.WatchMigrationStatus()
-	if err != nil {
-		return params.NotifyWatchResult{}, errors.Trace(err)
-	}
+	w := api.backend.WatchMigrationStatus()
 	return params.NotifyWatchResult{
 		NotifyWatcherId: api.resources.Register(w),
 	}, nil
+}
+
+// Report allows a migration minion to submit whether it succeeded or
+// failed for a specific migration phase.
+func (api *API) Report(info params.MinionReport) error {
+	phase, ok := migration.ParsePhase(info.Phase)
+	if !ok {
+		return errors.New("unable to parse phase")
+	}
+
+	mig, err := api.backend.ModelMigration(info.MigrationId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = mig.MinionReport(api.authorizer.GetAuthTag(), phase, info.Success)
+	return errors.Trace(err)
 }

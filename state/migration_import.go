@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
@@ -102,6 +103,18 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
+	}
+	if err := restore.spaces(); err != nil {
+		return nil, nil, errors.Annotate(err, "spaces")
+	}
+	if err := restore.linklayerdevices(); err != nil {
+		return nil, nil, errors.Annotate(err, "linklayerdevices")
+	}
+	if err := restore.subnets(); err != nil {
+		return nil, nil, errors.Annotate(err, "subnets")
+	}
+	if err := restore.ipaddresses(); err != nil {
+		return nil, nil, errors.Annotate(err, "ipaddresses")
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -316,6 +329,9 @@ func (i *importer) machine(m description.Machine) error {
 	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
+	if err := i.importMachineBlockDevices(machine, m); err != nil {
+		return errors.Trace(err)
+	}
 
 	// Now that this machine exists in the database, process each of the
 	// containers in this machine.
@@ -323,6 +339,29 @@ func (i *importer) machine(m description.Machine) error {
 		if err := i.machine(container); err != nil {
 			return errors.Annotate(err, container.Id())
 		}
+	}
+	return nil
+}
+
+func (i *importer) importMachineBlockDevices(machine *Machine, m description.Machine) error {
+	var devices []BlockDeviceInfo
+	for _, device := range m.BlockDevices() {
+		devices = append(devices, BlockDeviceInfo{
+			DeviceName:     device.Name(),
+			DeviceLinks:    device.Links(),
+			Label:          device.Label(),
+			UUID:           device.UUID(),
+			HardwareId:     device.HardwareID(),
+			BusAddress:     device.BusAddress(),
+			Size:           device.Size(),
+			FilesystemType: device.FilesystemType(),
+			InUse:          device.InUse(),
+			MountPoint:     device.MountPoint(),
+		})
+	}
+
+	if err := machine.SetMachineBlockDevices(devices...); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -805,6 +844,198 @@ func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
 		doc.UnitCount += ep.UnitCount()
 	}
 	return doc
+}
+
+func (i *importer) spaces() error {
+	i.logger.Debugf("importing spaces")
+	for _, s := range i.model.Spaces() {
+		// The subnets are added after the spaces.
+		_, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public())
+		if err != nil {
+			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
+			return errors.Annotate(err, s.Name())
+		}
+	}
+
+	i.logger.Debugf("importing spaces succeeded")
+	return nil
+}
+
+func (i *importer) linklayerdevices() error {
+	i.logger.Debugf("importing linklayerdevices")
+	for _, device := range i.model.LinkLayerDevices() {
+		err := i.addLinkLayerDevice(device)
+		if err != nil {
+			i.logger.Errorf("error importing ip device %v: %s", device, err)
+			return errors.Trace(err)
+		}
+	}
+	// Loop a second time so we can ensure that all devices have had their
+	// parent created.
+	ops := []txn.Op{}
+	for _, device := range i.model.LinkLayerDevices() {
+		if device.ParentName() == "" {
+			continue
+		}
+		parentDocID, err := i.parentDocIDFromDevice(device)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, incrementDeviceNumChildrenOp(parentDocID))
+
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing linklayerdevices succeeded")
+	return nil
+}
+
+func (i *importer) parentDocIDFromDevice(device description.LinkLayerDevice) (string, error) {
+	hostMachineID, parentName, err := parseLinkLayerDeviceParentNameAsGlobalKey(device.ParentName())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if hostMachineID == "" {
+		// ParentName is not a global key, but on the same machine.
+		hostMachineID = device.MachineID()
+		parentName = device.ParentName()
+	}
+	return i.st.docID(linkLayerDeviceGlobalKey(hostMachineID, parentName)), nil
+}
+
+func (i *importer) addLinkLayerDevice(device description.LinkLayerDevice) error {
+	providerID := device.ProviderID()
+	modelUUID := i.st.ModelUUID()
+	localID := linkLayerDeviceGlobalKey(device.MachineID(), device.Name())
+	linkLayerDeviceDocID := i.st.docID(localID)
+	newDoc := &linkLayerDeviceDoc{
+		ModelUUID:   modelUUID,
+		DocID:       linkLayerDeviceDocID,
+		MachineID:   device.MachineID(),
+		ProviderID:  providerID,
+		Name:        device.Name(),
+		MTU:         device.MTU(),
+		Type:        LinkLayerDeviceType(device.Type()),
+		MACAddress:  device.MACAddress(),
+		IsAutoStart: device.IsAutoStart(),
+		IsUp:        device.IsUp(),
+		ParentName:  device.ParentName(),
+	}
+
+	ops := []txn.Op{{
+		C:      linkLayerDevicesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	},
+		insertLinkLayerDevicesRefsOp(modelUUID, linkLayerDeviceDocID),
+	}
+	if providerID != "" {
+		id := network.Id(providerID)
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("linklayerdevice", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) subnets() error {
+	i.logger.Debugf("importing subnets")
+	for _, subnet := range i.model.Subnets() {
+		err := i.addSubnet(SubnetInfo{
+			CIDR:             subnet.CIDR(),
+			ProviderId:       network.Id(subnet.ProviderId()),
+			VLANTag:          subnet.VLANTag(),
+			AvailabilityZone: subnet.AvailabilityZone(),
+			SpaceName:        subnet.SpaceName(),
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing subnets succeeded")
+	return nil
+}
+
+func (i *importer) addSubnet(args SubnetInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		subnet, err := i.st.newSubnetFromArgs(args)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := i.st.addSubnetOps(args)
+		if attempt != 0 {
+			if _, err = i.st.Subnet(args.CIDR); err == nil {
+				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+			}
+			if err := subnet.Refresh(); err != nil {
+				if errors.IsNotFound(err) {
+					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
+				}
+				return nil, errors.Trace(err)
+			}
+		}
+		return ops, nil
+	}
+	err := i.st.run(buildTxn)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) ipaddresses() error {
+	i.logger.Debugf("importing ip addresses")
+	for _, addr := range i.model.IPAddresses() {
+		err := i.addIPAddress(addr)
+		if err != nil {
+			i.logger.Errorf("error importing ip address %v: %s", addr, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ip addresses succeeded")
+	return nil
+}
+
+func (i *importer) addIPAddress(addr description.IPAddress) error {
+	addressValue := addr.Value()
+	subnetCIDR := addr.SubnetCIDR()
+
+	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), addressValue)
+	ipAddressDocID := i.st.docID(globalKey)
+	providerID := addr.ProviderID()
+
+	modelUUID := i.st.ModelUUID()
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       addr.DeviceName(),
+		MachineID:        addr.MachineID(),
+		SubnetCIDR:       subnetCIDR,
+		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		Value:            addressValue,
+		DNSServers:       addr.DNSServers(),
+		DNSSearchDomains: addr.DNSSearchDomains(),
+		GatewayAddress:   addr.GatewayAddress(),
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	}}
+
+	if providerID != "" {
+		id := network.Id(providerID)
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (i *importer) importStatusHistory(globalKey string, history []description.Status) error {

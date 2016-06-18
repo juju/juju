@@ -9,13 +9,15 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	masterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/migration"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
@@ -35,11 +37,12 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 var (
-	fakeSerializedModel = []byte("model")
-	modelTagString      = names.NewModelTag("model-uuid").String()
+	fakeModelBytes = []byte("model")
+	modelTag       = names.NewModelTag("model-uuid")
+	modelTagString = modelTag.String()
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
-	apiOpenCall = jujutesting.StubCall{
+	apiOpenCallController = jujutesting.StubCall{
 		"apiOpen",
 		[]interface{}{
 			&api.Info{
@@ -51,10 +54,23 @@ var (
 			api.DialOpts{},
 		},
 	}
+	apiOpenCallModel = jujutesting.StubCall{
+		"apiOpen",
+		[]interface{}{
+			&api.Info{
+				Addrs:    []string{"1.2.3.4:5"},
+				CACert:   "cert",
+				Tag:      names.NewUserTag("admin"),
+				Password: "secret",
+				ModelTag: modelTag,
+			},
+			api.DialOpts{},
+		},
+	}
 	importCall = jujutesting.StubCall{
 		"APICall:MigrationTarget.Import",
 		[]interface{}{
-			params.SerializedModel{Bytes: fakeSerializedModel},
+			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = jujutesting.StubCall{
@@ -78,7 +94,6 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.stub = new(jujutesting.Stub)
 	s.connection = &stubConnection{stub: s.stub}
 	s.connectionErr = nil
-	s.PatchValue(migrationmaster.ApiOpen, s.apiOpen)
 	s.PatchValue(migrationmaster.TempSuccessSleep, time.Millisecond)
 }
 
@@ -90,18 +105,22 @@ func (s *Suite) apiOpen(info *api.Info, dialOpts api.DialOpts) (api.Connection, 
 	return s.connection, nil
 }
 
-func (s *Suite) triggerMigration(masterClient *stubMasterClient) {
-	masterClient.watcherChanges <- struct{}{}
+func (s *Suite) triggerMigration(masterFacade *stubMasterFacade) {
+	masterFacade.watcherChanges <- struct{}{}
 }
 
 func (s *Suite) TestSuccessfulMigration(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
+	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  makeStubUploadBinaries(s.stub),
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
@@ -110,59 +129,79 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	// connection to the target controller was made, the model was
 	// imported and then the migration completed.
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
-		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
-		{"masterClient.Export", nil},
-		apiOpenCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
+		{"masterFacade.Export", nil},
+		apiOpenCallController,
 		importCall,
-		connCloseCall,
-		{"masterClient.SetPhase", []interface{}{migration.VALIDATION}},
-		apiOpenCall,
+		apiOpenCallModel,
+		{"UploadBinaries", []interface{}{
+			[]string{"charm0", "charm1"},
+			fakeCharmDownloader,
+			map[version.Binary]string{
+				version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+			},
+			fakeToolsDownloader,
+		}},
+		connCloseCall, // for target model
+		connCloseCall, // for target controller
+		{"masterFacade.SetPhase", []interface{}{coremigration.VALIDATION}},
+		apiOpenCallController,
 		activateCall,
 		connCloseCall,
-		{"masterClient.SetPhase", []interface{}{migration.SUCCESS}},
-		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
-		{"masterClient.SetPhase", []interface{}{migration.REAP}},
-		{"masterClient.SetPhase", []interface{}{migration.DONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.SUCCESS}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
+		{"masterFacade.Reap", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.DONE}},
 	})
 }
 
 func (s *Suite) TestMigrationResume(c *gc.C) {
 	// Test that a partially complete migration can be resumed.
 
-	masterClient := newStubMasterClient(s.stub)
+	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	masterClient.status.Phase = migration.SUCCESS
-	s.triggerMigration(masterClient)
+	masterFacade.status.Phase = coremigration.SUCCESS
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterClient.SetPhase", []interface{}{migration.LOGTRANSFER}},
-		{"masterClient.SetPhase", []interface{}{migration.REAP}},
-		{"masterClient.SetPhase", []interface{}{migration.DONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.REAP}},
+		{"masterFacade.Reap", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.DONE}},
 	})
 }
 
 func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.status.Phase = migration.ABORTDONE
-	s.triggerMigration(masterClient)
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.status.Phase = coremigration.ABORTDONE
+	s.triggerMigration(masterFacade)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, worker)
@@ -172,12 +211,16 @@ func (s *Suite) TestPreviouslyAbortedMigration(c *gc.C) {
 }
 
 func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.status.Phase = migration.DONE
-	s.triggerMigration(masterClient)
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.status.Phase = coremigration.DONE
+	s.triggerMigration(masterFacade)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -185,17 +228,21 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrUninstall)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 	})
 }
 
 func (s *Suite) TestWatchFailure(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.watchErr = errors.New("boom")
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.watchErr = errors.New("boom")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, worker)
@@ -203,172 +250,200 @@ func (s *Suite) TestWatchFailure(c *gc.C) {
 }
 
 func (s *Suite) TestStatusError(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.statusErr = errors.New("splat")
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.statusErr = errors.New("splat")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 	})
 }
 
 func (s *Suite) TestStatusNotFound(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.statusErr = &params.Error{Code: params.CodeNotFound}
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.statusErr = &params.Error{Code: params.CodeNotFound}
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Unlock", nil},
 	})
 }
 
 func (s *Suite) TestUnlockError(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.statusErr = &params.Error{Code: params.CodeNotFound}
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.statusErr = &params.Error{Code: params.CodeNotFound}
 	guard := newStubGuard(s.stub)
 	guard.unlockErr = errors.New("pow")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  guard,
+		Facade:          masterFacade,
+		Guard:           guard,
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.ErrorMatches, "pow")
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Unlock", nil},
 	})
 }
 
 func (s *Suite) TestLockdownError(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
+	masterFacade := newStubMasterFacade(s.stub)
 	guard := newStubGuard(s.stub)
 	guard.lockdownErr = errors.New("biff")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  guard,
+		Facade:          masterFacade,
+		Guard:           guard,
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.ErrorMatches, "biff")
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
 	})
 }
 
 func (s *Suite) TestExportFailure(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
-	masterClient.exportErr = errors.New("boom")
+	masterFacade := newStubMasterFacade(s.stub)
+	masterFacade.exportErr = errors.New("boom")
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
-		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
-		{"masterClient.Export", nil},
-		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
-		apiOpenCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
+		{"masterFacade.Export", nil},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
 		abortCall,
 		connCloseCall,
-		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
 }
 
 func (s *Suite) TestAPIOpenFailure(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
+	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connectionErr = errors.New("boom")
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
-		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
-		{"masterClient.Export", nil},
-		apiOpenCall,
-		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
-		apiOpenCall,
-		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
+		{"masterFacade.Export", nil},
+		apiOpenCallController,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
 }
 
 func (s *Suite) TestImportFailure(c *gc.C) {
-	masterClient := newStubMasterClient(s.stub)
+	masterFacade := newStubMasterFacade(s.stub)
 	worker, err := migrationmaster.New(migrationmaster.Config{
-		Facade: masterClient,
-		Guard:  newStubGuard(s.stub),
+		Facade:          masterFacade,
+		Guard:           newStubGuard(s.stub),
+		APIOpen:         s.apiOpen,
+		UploadBinaries:  nullUploadBinaries,
+		CharmDownloader: fakeCharmDownloader,
+		ToolsDownloader: fakeToolsDownloader,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.connection.importErr = errors.New("boom")
-	s.triggerMigration(masterClient)
+	s.triggerMigration(masterFacade)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.Equals, migrationmaster.ErrDoneForNow)
 
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"masterClient.Watch", nil},
-		{"masterClient.GetMigrationStatus", nil},
+		{"masterFacade.Watch", nil},
+		{"masterFacade.GetMigrationStatus", nil},
 		{"guard.Lockdown", nil},
-		{"masterClient.SetPhase", []interface{}{migration.READONLY}},
-		{"masterClient.SetPhase", []interface{}{migration.PRECHECK}},
-		{"masterClient.SetPhase", []interface{}{migration.IMPORT}},
-		{"masterClient.Export", nil},
-		apiOpenCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.READONLY}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.PRECHECK}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.IMPORT}},
+		{"masterFacade.Export", nil},
+		apiOpenCallController,
 		importCall,
 		connCloseCall,
-		{"masterClient.SetPhase", []interface{}{migration.ABORT}},
-		apiOpenCall,
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORT}},
+		apiOpenCallController,
 		abortCall,
 		connCloseCall,
-		{"masterClient.SetPhase", []interface{}{migration.ABORTDONE}},
+		{"masterFacade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 	})
 }
 
@@ -392,15 +467,15 @@ func (g *stubGuard) Unlock() error {
 	return g.unlockErr
 }
 
-func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
-	return &stubMasterClient{
+func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
+	return &stubMasterFacade{
 		stub:           stub,
 		watcherChanges: make(chan struct{}, 1),
 		status: masterapi.MigrationStatus{
 			ModelUUID: "model-uuid",
 			Attempt:   2,
-			Phase:     migration.QUIESCE,
-			TargetInfo: migration.TargetInfo{
+			Phase:     coremigration.QUIESCE,
+			TargetInfo: coremigration.TargetInfo{
 				ControllerTag: names.NewModelTag("controller-uuid"),
 				Addrs:         []string{"1.2.3.4:5"},
 				CACert:        "cert",
@@ -411,8 +486,9 @@ func newStubMasterClient(stub *jujutesting.Stub) *stubMasterClient {
 	}
 }
 
-type stubMasterClient struct {
-	masterapi.Client
+type stubMasterFacade struct {
+	migrationmaster.Facade
+
 	stub           *jujutesting.Stub
 	watcherChanges chan struct{}
 	watchErr       error
@@ -421,8 +497,8 @@ type stubMasterClient struct {
 	exportErr      error
 }
 
-func (c *stubMasterClient) Watch() (watcher.NotifyWatcher, error) {
-	c.stub.AddCall("masterClient.Watch")
+func (c *stubMasterFacade) Watch() (watcher.NotifyWatcher, error) {
+	c.stub.AddCall("masterFacade.Watch")
 	if c.watchErr != nil {
 		return nil, c.watchErr
 	}
@@ -430,24 +506,35 @@ func (c *stubMasterClient) Watch() (watcher.NotifyWatcher, error) {
 	return newMockWatcher(c.watcherChanges), nil
 }
 
-func (c *stubMasterClient) GetMigrationStatus() (masterapi.MigrationStatus, error) {
-	c.stub.AddCall("masterClient.GetMigrationStatus")
+func (c *stubMasterFacade) GetMigrationStatus() (masterapi.MigrationStatus, error) {
+	c.stub.AddCall("masterFacade.GetMigrationStatus")
 	if c.statusErr != nil {
 		return masterapi.MigrationStatus{}, c.statusErr
 	}
 	return c.status, nil
 }
 
-func (c *stubMasterClient) Export() ([]byte, error) {
-	c.stub.AddCall("masterClient.Export")
+func (c *stubMasterFacade) Export() (masterapi.SerializedModel, error) {
+	c.stub.AddCall("masterFacade.Export")
 	if c.exportErr != nil {
-		return nil, c.exportErr
+		return masterapi.SerializedModel{}, c.exportErr
 	}
-	return fakeSerializedModel, nil
+	return masterapi.SerializedModel{
+		Bytes:  fakeModelBytes,
+		Charms: []string{"charm0", "charm1"},
+		Tools: map[version.Binary]string{
+			version.MustParseBinary("2.1.0-trusty-amd64"): "/tools/0",
+		},
+	}, nil
 }
 
-func (c *stubMasterClient) SetPhase(phase migration.Phase) error {
-	c.stub.AddCall("masterClient.SetPhase", phase)
+func (c *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
+	c.stub.AddCall("masterFacade.SetPhase", phase)
+	return nil
+}
+
+func (c *stubMasterFacade) Reap() error {
+	c.stub.AddCall("masterFacade.Reap")
 	return nil
 }
 
@@ -491,7 +578,36 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 	return errors.New("unexpected API call")
 }
 
+func (c *stubConnection) Client() *api.Client {
+	// This is kinda crappy but the *Client doesn't have to be
+	// functional...
+	return new(api.Client)
+}
+
 func (c *stubConnection) Close() error {
 	c.stub.AddCall("Connection.Close")
 	return nil
 }
+
+func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {
+	return func(config migration.UploadBinariesConfig) error {
+		stub.AddCall(
+			"UploadBinaries",
+			config.Charms,
+			config.CharmDownloader,
+			config.Tools,
+			config.ToolsDownloader,
+		)
+		return nil
+	}
+}
+
+// nullUploadBinaries is a UploadBinaries variant which is intended to
+// not get called.
+func nullUploadBinaries(migration.UploadBinariesConfig) error {
+	panic("should not get called")
+}
+
+var fakeCharmDownloader = struct{ migration.CharmDownloader }{}
+
+var fakeToolsDownloader = struct{ migration.ToolsDownloader }{}

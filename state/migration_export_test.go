@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
@@ -235,6 +236,51 @@ func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	c.Assert(container.Tag(), gc.Equals, nested.MachineTag())
 }
 
+func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	// Create two devices, first with all fields set, second just to show that
+	// we do both.
+	sda := state.BlockDeviceInfo{
+		DeviceName:     "sda",
+		DeviceLinks:    []string{"some", "data"},
+		Label:          "sda-label",
+		UUID:           "some-uuid",
+		HardwareId:     "magic",
+		BusAddress:     "bus stop",
+		Size:           16 * 1024 * 1024 * 1024,
+		FilesystemType: "ext4",
+		InUse:          true,
+		MountPoint:     "/",
+	}
+	sdb := state.BlockDeviceInfo{DeviceName: "sdb", MountPoint: "/var/lib/lxd"}
+	err := machine.SetMachineBlockDevices(sda, sdb)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+	machines := model.Machines()
+	c.Assert(machines, gc.HasLen, 1)
+	exported := machines[0]
+
+	devices := exported.BlockDevices()
+	c.Assert(devices, gc.HasLen, 2)
+	ex1, ex2 := devices[0], devices[1]
+
+	c.Check(ex1.Name(), gc.Equals, "sda")
+	c.Check(ex1.Links(), jc.DeepEquals, []string{"some", "data"})
+	c.Check(ex1.Label(), gc.Equals, "sda-label")
+	c.Check(ex1.UUID(), gc.Equals, "some-uuid")
+	c.Check(ex1.HardwareID(), gc.Equals, "magic")
+	c.Check(ex1.BusAddress(), gc.Equals, "bus stop")
+	c.Check(ex1.Size(), gc.Equals, uint64(16*1024*1024*1024))
+	c.Check(ex1.FilesystemType(), gc.Equals, "ext4")
+	c.Check(ex1.InUse(), jc.IsTrue)
+	c.Check(ex1.MountPoint(), gc.Equals, "/")
+
+	c.Check(ex2.Name(), gc.Equals, "sdb")
+	c.Check(ex2.MountPoint(), gc.Equals, "/var/lib/lxd")
+}
+
 func (s *MigrationExportSuite) TestServices(c *gc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Settings: map[string]interface{}{
@@ -436,6 +482,118 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+}
+
+func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces := model.Spaces()
+	c.Assert(spaces, gc.HasLen, 1)
+	space := spaces[0]
+	c.Assert(space.Name(), gc.Equals, "one")
+	c.Assert(space.ProviderID(), gc.Equals, "provider")
+	c.Assert(space.Public(), jc.IsTrue)
+}
+
+func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "one"})
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "two"})
+	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "three"})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Spaces(), gc.HasLen, 3)
+}
+
+func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices := model.LinkLayerDevices()
+	c.Assert(devices, gc.HasLen, 1)
+	device := devices[0]
+	c.Assert(device.Name(), gc.Equals, "foo")
+	c.Assert(device.Type(), gc.Equals, string(state.EthernetDevice))
+}
+
+func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:             "10.0.0.0/24",
+		ProviderId:       network.Id("foo"),
+		VLANTag:          64,
+		AvailabilityZone: "bar",
+		SpaceName:        "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets := model.Subnets()
+	c.Assert(subnets, gc.HasLen, 1)
+	subnet := subnets[0]
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+}
+
+func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:       "foo",
+		ConfigMethod:     state.StaticAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "bar",
+		DNSServers:       []string{"bam", "mam"},
+		DNSSearchDomains: []string{"weeee"},
+		GatewayAddress:   "0.1.2.1",
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := model.IPAddresses()
+	c.Assert(addresses, gc.HasLen, 1)
+	addr := addresses[0]
+	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
+	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
+	c.Assert(addr.DeviceName(), gc.Equals, "foo")
+	c.Assert(addr.ConfigMethod(), gc.Equals, string(state.StaticAddress))
+	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
+	c.Assert(addr.ProviderID(), gc.Equals, "bar")
+	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
+	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
+	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
 }
 
 type goodToken struct{}

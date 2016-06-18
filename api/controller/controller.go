@@ -204,5 +204,5 @@ func (c *Client) InitiateModelMigration(spec ModelMigrationSpec) (string, error)
 	if result.Error != nil {
 		return "", errors.Trace(result.Error)
 	}
-	return result.Id, nil
+	return result.MigrationId, nil
 }

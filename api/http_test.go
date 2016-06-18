@@ -13,8 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type httpSuite struct {
@@ -162,6 +165,54 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(resp, jc.DeepEquals, test.expectResponse)
 	}
+}
+
+func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
+	// Create a controller machine & hosted model.
+	const nonce = "gary"
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs:  []state.MachineJob{state.JobManageModel},
+		Nonce: nonce,
+	})
+	hostedState := s.Factory.MakeModel(c, nil)
+	defer hostedState.Close()
+
+	// Connect to the hosted model using the credentials of the
+	// controller machine.
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = m.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = hostedState.ModelTag()
+	apiInfo.Nonce = nonce
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	httpClient, err := conn.HTTPClient()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Test with a dummy HTTP server returns the auth related headers used.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		username, password, ok := req.BasicAuth()
+		if ok {
+			httprequest.WriteJSON(w, http.StatusOK, map[string]string{
+				"username": username,
+				"password": password,
+				"nonce":    req.Header.Get(params.MachineNonceHeader),
+			})
+		} else {
+			httprequest.WriteJSON(w, http.StatusUnauthorized, params.Error{
+				Message: "no auth header",
+			})
+		}
+	}))
+	defer srv.Close()
+	httpClient.BaseURL = srv.URL
+	var out map[string]string
+	c.Assert(httpClient.Get("/", &out), jc.ErrorIsNil)
+	c.Assert(out, gc.DeepEquals, map[string]string{
+		"username": m.Tag().String(),
+		"password": password,
+		"nonce":    nonce,
+	})
 }
 
 // Note: the fact that the code works against the actual API server is

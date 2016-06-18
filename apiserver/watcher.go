@@ -386,7 +386,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 // migrationBackend defines State functionality required by the
 // migration watchers.
 type migrationBackend interface {
-	GetModelMigration() (state.ModelMigration, error)
+	LatestModelMigration() (state.ModelMigration, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	ControllerConfig() (controller.Config, error)
 }
@@ -433,7 +433,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return empty, err
 	}
 
-	mig, err := w.st.GetModelMigration()
+	mig, err := w.st.LatestModelMigration()
 	if errors.IsNotFound(err) {
 		return params.MigrationStatus{
 			Phase: migration.NONE.String(),
@@ -468,6 +468,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	}
 
 	return params.MigrationStatus{
+		MigrationId:    mig.Id(),
 		Attempt:        attempt,
 		Phase:          phase.String(),
 		SourceAPIAddrs: sourceAddrs,

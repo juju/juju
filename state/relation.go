@@ -4,7 +4,6 @@
 package state
 
 import (
-	stderrors "errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -134,8 +133,6 @@ func (r *Relation) Destroy() (err error) {
 	}
 	return rel.st.run(buildTxn)
 }
-
-var errAlreadyDying = stderrors.New("entity is already dying and cannot be destroyed")
 
 // destroyOps returns the operations necessary to destroy the relation, and
 // whether those operations will lead to the relation's removal. These

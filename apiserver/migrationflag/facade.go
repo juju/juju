@@ -18,7 +18,7 @@ import (
 type Backend interface {
 	ModelUUID() string
 	MigrationPhase() (migration.Phase, error)
-	WatchMigrationPhase() (state.NotifyWatcher, error)
+	WatchMigrationPhase() state.NotifyWatcher
 }
 
 // Facade lets clients watch and get models' migration phases.
@@ -101,10 +101,7 @@ func (facade *Facade) oneWatch(tagString string) (string, error) {
 	if err := facade.auth(tagString); err != nil {
 		return "", errors.Trace(err)
 	}
-	watch, err := facade.backend.WatchMigrationPhase()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+	watch := facade.backend.WatchMigrationPhase()
 	if _, ok := <-watch.Changes(); ok {
 		return facade.resources.Register(watch), nil
 	}

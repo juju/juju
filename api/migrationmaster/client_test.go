@@ -10,6 +10,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -153,16 +154,29 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
 		out := result.(*params.SerializedModel)
-		*out = params.SerializedModel{Bytes: []byte("foo")}
+		*out = params.SerializedModel{
+			Bytes:  []byte("foo"),
+			Charms: []string{"cs:foo-1"},
+			Tools: []params.SerializedModelTools{{
+				Version: "2.0.0-trusty-amd64",
+				URI:     "/tools/0",
+			}},
+		}
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller)
-	bytes, err := client.Export()
+	out, err := client.Export()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationMaster.Export", []interface{}{"", nil}},
 	})
-	c.Assert(string(bytes), gc.Equals, "foo")
+	c.Assert(out, gc.DeepEquals, migrationmaster.SerializedModel{
+		Bytes:  []byte("foo"),
+		Charms: []string{"cs:foo-1"},
+		Tools: map[version.Binary]string{
+			version.MustParseBinary("2.0.0-trusty-amd64"): "/tools/0",
+		},
+	})
 }
 
 func (s *ClientSuite) TestExportError(c *gc.C) {
@@ -171,5 +185,28 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller)
 	_, err := client.Export()
+	c.Assert(err, gc.ErrorMatches, "blam")
+}
+
+func (s *ClientSuite) TestReap(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller)
+	err := client.Reap()
+	c.Check(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.Reap", []interface{}{"", nil}},
+	})
+}
+
+func (s *ClientSuite) TestReapError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller)
+	err := client.Reap()
 	c.Assert(err, gc.ErrorMatches, "blam")
 }

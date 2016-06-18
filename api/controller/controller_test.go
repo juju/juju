@@ -180,7 +180,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	_, err := st.GetModelMigration()
+	_, err := st.LatestModelMigration()
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 
 	spec := controller.ModelMigrationSpec{
@@ -199,7 +199,7 @@ func (s *controllerSuite) TestInitiateModelMigration(c *gc.C) {
 	c.Check(id, gc.Equals, expectedId)
 
 	// Check database.
-	mig, err := st.GetModelMigration()
+	mig, err := st.LatestModelMigration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mig.Id(), gc.Equals, expectedId)
 }

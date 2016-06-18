@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -16,18 +18,17 @@ import (
 	"github.com/juju/juju/apiserver/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
-// Ensure that Backend remains compatible with *state.State
-var _ migrationmaster.Backend = (*state.State)(nil)
-
 type Suite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 
+	model      description.Model
 	backend    *stubBackend
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -38,10 +39,15 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.model = description.NewModel(description.ModelArgs{
+		Config:             map[string]interface{}{"uuid": modelUUID},
+		Owner:              names.NewUserTag("admin"),
+		LatestToolsVersion: jujuversion.Current,
+	})
 	s.backend = &stubBackend{
 		migration: new(stubMigration),
+		model:     s.model,
 	}
-	migrationmaster.PatchState(s, s.backend)
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
@@ -72,7 +78,7 @@ func (s *Suite) TestWatch(c *gc.C) {
 	select {
 	case <-watcher.Changes():
 		c.Fatalf("initial event not consumed")
-	case <-time.After(testing.ShortWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
@@ -130,26 +136,54 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	exportModel := func(migration.StateExporter) ([]byte, error) {
-		return []byte("foo"), nil
-	}
-	migrationmaster.PatchExportModel(s, exportModel)
+	s.model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("foo"),
+		CharmURL: "cs:foo-0",
+	})
+	const tools = "2.0.0-xenial-amd64"
+	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
+	m.SetTools(description.AgentToolsArgs{
+		Version: version.MustParseBinary(tools),
+	})
 	api := s.mustMakeAPI(c)
 
 	serialized, err := api.Export()
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serialized, gc.DeepEquals, params.SerializedModel{
-		Bytes: []byte("foo"),
+	// We don't want to tie this test the serialisation output (that's
+	// tested elsewhere). Just check that at least one thing we expect
+	// is in the serialised output.
+	c.Assert(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
+	c.Assert(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
+	c.Assert(serialized.Tools, gc.DeepEquals, []params.SerializedModelTools{
+		{tools, "/tools/" + tools},
 	})
 }
 
+func (s *Suite) TestReap(c *gc.C) {
+	api := s.mustMakeAPI(c)
+
+	err := api.Reap()
+	c.Check(err, jc.ErrorIsNil)
+	s.backend.stub.CheckCalls(c, []testing.StubCall{
+		{"RemoveExportingModelDocs", []interface{}{}},
+	})
+}
+
+func (s *Suite) TestReapError(c *gc.C) {
+	s.backend.removeErr = errors.New("boom")
+	api := s.mustMakeAPI(c)
+
+	err := api.Reap()
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
 func (s *Suite) makeAPI() (*migrationmaster.API, error) {
-	return migrationmaster.NewAPI(nil, s.resources, s.authorizer)
+	return migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 }
 
 func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
-	api, err := migrationmaster.NewAPI(nil, s.resources, s.authorizer)
+	api, err := migrationmaster.NewAPI(s.backend, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -157,19 +191,34 @@ func (s *Suite) mustMakeAPI(c *gc.C) *migrationmaster.API {
 type stubBackend struct {
 	migrationmaster.Backend
 
+	stub      testing.Stub
 	getErr    error
+	removeErr error
 	migration *stubMigration
+	model     description.Model
 }
 
 func (b *stubBackend) WatchForModelMigration() state.NotifyWatcher {
+	b.stub.AddCall("WatchForModelMigration")
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (b *stubBackend) GetModelMigration() (state.ModelMigration, error) {
+func (b *stubBackend) LatestModelMigration() (state.ModelMigration, error) {
+	b.stub.AddCall("LatestModelMigration")
 	if b.getErr != nil {
 		return nil, b.getErr
 	}
 	return b.migration, nil
+}
+
+func (b *stubBackend) RemoveExportingModelDocs() error {
+	b.stub.AddCall("RemoveExportingModelDocs")
+	return b.removeErr
+}
+
+func (b *stubBackend) Export() (description.Model, error) {
+	b.stub.AddCall("Export")
+	return b.model, nil
 }
 
 type stubMigration struct {
