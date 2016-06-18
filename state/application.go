@@ -1069,7 +1069,6 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO(ericsnow) Use a generic registry instead.
 	resOps, err := removeUnitResourcesOps(s.st, u.doc.Application, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)

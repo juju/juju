@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
@@ -32,10 +33,16 @@ func (l Life) String() string {
 	}
 }
 
-var isAliveDoc = bson.D{{"life", Alive}}
-var isDyingDoc = bson.D{{"life", Dying}}
-var isDeadDoc = bson.D{{"life", Dead}}
-var notDeadDoc = bson.D{{"life", bson.D{{"$ne", Dead}}}}
+var (
+	isAliveDoc = bson.D{{"life", Alive}}
+	isDyingDoc = bson.D{{"life", Dying}}
+	isDeadDoc  = bson.D{{"life", Dead}}
+	notDeadDoc = bson.D{{"life", bson.D{{"$ne", Dead}}}}
+
+	errDeadOrGone     = errors.New("neither alive nor dying")
+	errAlreadyDying   = errors.New("already dying")
+	errAlreadyRemoved = errors.New("already removed")
+)
 
 // Living describes state entities with a lifecycle.
 type Living interface {

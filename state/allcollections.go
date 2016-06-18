@@ -309,14 +309,18 @@ func allCollections() collectionSchema {
 
 		// -----
 
-		// TODO(ericsnow) Use a component-oriented registration mechanism...
-
 		// This collection holds information associated with charm payloads.
-		// See payload/persistence/mongo.go.
-		"payloads": {},
+		payloadsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "unitid"},
+			}, {
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 
 		// This collection holds information associated with charm resources.
-		// See resource/persistence/mongo.go.
+		// See resource/persistence/mongo.go, where it should never have
+		// been put in the first place.
 		"resources": {},
 
 		// -----
@@ -397,6 +401,7 @@ const (
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
+	payloadsC                = "payloads"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
