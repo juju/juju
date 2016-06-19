@@ -4,6 +4,9 @@
 package migrationmaster
 
 import (
+	"sort"
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -144,6 +147,75 @@ func (api *API) Reap() error {
 	return api.backend.RemoveExportingModelDocs()
 }
 
+// WatchMinionReports sets up a watcher which reports when a report
+// for a migration minion has arrived.
+func (api *API) WatchMinionReports() params.NotifyWatchResult {
+	mig, err := api.backend.LatestModelMigration()
+	if err != nil {
+		return params.NotifyWatchResult{Error: common.ServerError(err)}
+	}
+
+	watch, err := mig.WatchMinionReports()
+	if err != nil {
+		return params.NotifyWatchResult{Error: common.ServerError(err)}
+	}
+
+	if _, ok := <-watch.Changes(); ok {
+		return params.NotifyWatchResult{
+			NotifyWatcherId: api.resources.Register(watch),
+		}
+	}
+	return params.NotifyWatchResult{
+		Error: common.ServerError(watcher.EnsureErr(watch)),
+	}
+}
+
+// GetMinionReports returns details of the reports made by migration
+// minions to the controller for the current migration phase.
+func (api *API) GetMinionReports() (params.MinionReports, error) {
+	var out params.MinionReports
+
+	mig, err := api.backend.LatestModelMigration()
+	if err != nil {
+		return out, errors.Trace(err)
+	}
+
+	reports, err := mig.GetMinionReports()
+	if err != nil {
+		return out, errors.Trace(err)
+	}
+
+	out.MigrationId = mig.Id()
+	phase, err := mig.Phase()
+	if err != nil {
+		return out, errors.Trace(err)
+	}
+	out.Phase = phase.String()
+
+	out.SuccessCount = len(reports.Succeeded)
+
+	sort.Sort(tagSlice(reports.Failed))
+	out.Failed = make([]string, len(reports.Failed))
+	for i := 0; i < len(out.Failed); i++ {
+		out.Failed[i] = reports.Failed[i].String()
+	}
+
+	out.UnknownCount = len(reports.Unknown)
+
+	// Limit the number of unknowns reported
+	sampleCount := out.UnknownCount
+	if sampleCount > 10 {
+		sampleCount = 10
+	}
+	sort.Sort(tagSlice(reports.Unknown))
+	out.UnknownSample = make([]string, sampleCount)
+	for i := 0; i < sampleCount; i++ {
+		out.UnknownSample[i] = reports.Unknown[i].String()
+	}
+
+	return out, nil
+}
+
 func getUsedCharms(model description.Model) []string {
 	result := set.NewStrings()
 	for _, application := range model.Applications() {
@@ -184,4 +256,37 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
 	}
+}
+
+// tagSlice implements a sensible sort.Interface for []names.Tag
+type tagSlice []names.Tag
+
+func (s tagSlice) Len() int      { return len(s) }
+func (s tagSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s tagSlice) Less(i, j int) bool {
+	// Sort by tag kind first.
+	ki := s[i].Kind()
+	kj := s[j].Kind()
+	if ki < kj {
+		return true
+	}
+	if ki > kj {
+		return false
+	}
+
+	// Sort machines by integer machine id.
+	if ki == "machine" {
+		ii, err := strconv.Atoi(s[i].Id())
+		if err != nil {
+			return false
+		}
+		ij, err := strconv.Atoi(s[j].Id())
+		if err != nil {
+			return false
+		}
+		return ii < ij
+	}
+
+	// Other tag types get compared by their string id.
+	return s[i].Id() < s[j].Id()
 }
