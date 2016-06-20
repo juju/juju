@@ -369,15 +369,8 @@ type IPAddress interface {
 	GatewayAddress() string
 }
 
-// SSHHostKey represents an IP address.
+// SSHHostKey represents an ssh host key.
 type SSHHostKey interface {
-	ProviderID() string
-	DeviceName() string
 	MachineID() string
-	SubnetCIDR() string
-	ConfigMethod() string
-	Value() string
-	DNSServers() []string
-	DNSSearchDomains() []string
-	GatewayAddress() string
+	Keys() []string
 }
