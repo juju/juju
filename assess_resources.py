@@ -151,6 +151,7 @@ def parse_args(argv):
                         help='The time to wait for agents to start')
     parser.add_argument('--resource-timeout', type=int, default=1800,
                         help='The time to wait for agents to start')
+
     return parser.parse_args(argv)
 
 

@@ -3,14 +3,15 @@
 # the --cloud-city option will also update credential and configs.
 set -eux
 
+HERE=$(pwd)
 SCRIPTS=$(readlink -f $(dirname $0))
-REPOSITORY=${JUJU_REPOSITORY:-$(dirname $SCRIPTS)/repository}
+REPOSITORY_PARENT=$(dirname $SCRIPTS)
 
 MASTER="juju-ci.vapour.ws"
 SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
     wily-slave.vapour.ws xenial-slave.vapour.ws \
     ppc64el-slave.vapour.ws arm64-slave.vapour.ws \
-    kvm-slave.vapour.ws jujuqa-stack-slave.internal \
+    kvm-slave.vapour.ws \
     munna-maas-slave.vapour.ws  silcoon-maas-slave.vapour.ws \
     canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
     cloud-health-slave.vapour.ws certification-slave.vapour.ws \
@@ -70,6 +71,17 @@ EOT
 }
 
 
+update_windows() {
+    hostname=$1
+    scp repository.zip Administrator@$hostname:/cygdrive/c/Users/Administrator/
+    ssh Administrator@$hostname << EOT
+bzr pull -d ./juju-release-tools
+bzr pull -d ./juju-ci-tools
+/cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
+EOT
+}
+
+
 CLOUD_CITY="false"
 while [[ "${1-}" != "" ]]; do
     case $1 in
@@ -88,15 +100,15 @@ for hostname in $MASTER $SLAVES; do
         ssh $hostname sudo apt-get remove -y juju-deployer python-jujuclient
     fi
 done
+
 # win-slaves have a different user and directory layout tan POSIX hosts.
+# Also, win+bzr does not support symlinks, so we zip the local charm repo.
+(cd $REPOSITORY_PARENT; zip -q -r $HERE/repository.zip repository -x *.bzr*)
 for hostname in $WIN_SLAVES; do
-    zip -q -r repository.zip $REPOSITORY -x *.bzr*
-    scp repository.zip Administrator@$hostname:/cygdrive/c/Users/Administrator/
-    ssh Administrator@$hostname << EOT
-bzr pull -d ./juju-release-tools
-bzr pull -d ./juju-ci-tools
-/cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
-EOT
+    update_windows $hostname || update_windows $hostname
+    if [[ $? -ne 0  ]]; then
+        SKIPPED="$SKIPPED $hostname"
+    fi
 done
 
 if [[ -n "$SKIPPED" ]]; then
@@ -104,5 +116,7 @@ if [[ -n "$SKIPPED" ]]; then
     echo
     echo "These hosts were skipped because there was an error"
     echo "$SKIPPED"
+    exit 1
 fi
+echo "All hosts updated."
 
