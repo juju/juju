@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -1042,55 +1043,16 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 }
 
 func (i *importer) sshhostkeys() error {
-	i.logger.Debugf("importing ip addresses")
-	for _, addr := range i.model.SSHHostKeys() {
-		err := i.addSSHHostKey(addr)
+	i.logger.Debugf("importing ssh host keys")
+	for _, key := range i.model.SSHHostKeys() {
+		name := names.NewMachineTag(key.MachineID())
+		err := i.st.SetSSHHostKeys(name, key.Keys())
 		if err != nil {
-			i.logger.Errorf("error importing ip address %v: %s", addr, err)
+			i.logger.Errorf("error importing ssh host keys %v: %s", key, err)
 			return errors.Trace(err)
 		}
 	}
-	i.logger.Debugf("importing ip addresses succeeded")
-	return nil
-}
-
-func (i *importer) addSSHHostKey(addr description.SSHHostKey) error {
-	addressValue := addr.Value()
-	subnetCIDR := addr.SubnetCIDR()
-
-	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), addressValue)
-	ipAddressDocID := i.st.docID(globalKey)
-	providerID := addr.ProviderID()
-
-	modelUUID := i.st.ModelUUID()
-
-	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        modelUUID,
-		ProviderID:       providerID,
-		DeviceName:       addr.DeviceName(),
-		MachineID:        addr.MachineID(),
-		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
-		Value:            addressValue,
-		DNSServers:       addr.DNSServers(),
-		DNSSearchDomains: addr.DNSSearchDomains(),
-		GatewayAddress:   addr.GatewayAddress(),
-	}
-
-	ops := []txn.Op{{
-		C:      ipAddressesC,
-		Id:     newDoc.DocID,
-		Insert: newDoc,
-	}}
-
-	if providerID != "" {
-		id := network.Id(addr.ProviderID())
-		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
-	}
-	if err := i.st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
+	i.logger.Debugf("importing ssh host keys succeeded")
 	return nil
 }
 
