@@ -662,17 +662,18 @@ class EnvJujuClient:
             client_class = EnvJujuClient26
         elif re.match('^1\.', version):
             client_class = EnvJujuClient1X
-        elif re.match('^2\.0-alpha1', version):
+        # Ensure alpha/beta number matches precisely
+        elif re.match('^2\.0-alpha1([^\d]|$)', version):
             client_class = EnvJujuClient2A1
-        elif re.match('^2\.0-alpha2', version):
+        elif re.match('^2\.0-alpha2([^\d]|$)', version):
             client_class = EnvJujuClient2A2
-        elif re.match('^2\.0-(alpha3|beta[12])', version):
+        elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
             client_class = EnvJujuClient2B2
-        elif re.match('^2\.0-(beta[3-6])', version):
+        elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
             client_class = EnvJujuClient2B3
-        elif re.match('^2\.0-(beta7)', version):
+        elif re.match('^2\.0-(beta7)([^\d]|$)', version):
             client_class = EnvJujuClient2B7
-        elif re.match('^2\.0-beta8', version):
+        elif re.match('^2\.0-beta8([^\d]|$)', version):
             client_class = EnvJujuClient2B8
         else:
             client_class = EnvJujuClient
