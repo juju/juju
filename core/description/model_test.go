@@ -621,16 +621,16 @@ func (s *ModelSerializationSuite) TestIPAddress(c *gc.C) {
 
 func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	addr := initial.AddSSHHostKey(SSHHostKeyArgs{Value: "10.0.0.4"})
-	c.Assert(addr.Value(), gc.Equals, "10.0.0.4")
-	addresses := initial.SSHHostKeys()
-	c.Assert(addresses, gc.HasLen, 1)
-	c.Assert(addresses[0], jc.DeepEquals, addr)
+	key := initial.AddSSHHostKey(SSHHostKeyArgs{MachineID: "foo"})
+	c.Assert(key.MachineID(), gc.Equals, "foo")
+	keys := initial.SSHHostKeys()
+	c.Assert(keys, gc.HasLen, 1)
+	c.Assert(keys[0], jc.DeepEquals, key)
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := Deserialize(bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SSHHostKeys(), jc.DeepEquals, addresses)
+	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }

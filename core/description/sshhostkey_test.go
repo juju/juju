@@ -29,26 +29,12 @@ func (s *SSHHostKeySerializationSuite) SetUpTest(c *gc.C) {
 
 func (s *SSHHostKeySerializationSuite) TestNewSSHHostKey(c *gc.C) {
 	args := SSHHostKeyArgs{
-		SubnetCIDR:       "10.0.0.0/24",
-		ProviderID:       "magic",
-		DeviceName:       "foo",
-		MachineID:        "bar",
-		ConfigMethod:     "static",
-		Value:            "10.0.0.4",
-		DNSServers:       []string{"10.1.0.1", "10.2.0.1"},
-		DNSSearchDomains: []string{"bam", "mam"},
-		GatewayAddress:   "10.0.0.1",
+		MachineID: "foo",
+		Keys:      []string{"one", "two", "three"},
 	}
-	address := newSSHHostKey(args)
-	c.Assert(address.SubnetCIDR(), gc.Equals, args.SubnetCIDR)
-	c.Assert(address.ProviderID(), gc.Equals, args.ProviderID)
-	c.Assert(address.DeviceName(), gc.Equals, args.DeviceName)
-	c.Assert(address.MachineID(), gc.Equals, args.MachineID)
-	c.Assert(address.ConfigMethod(), gc.Equals, args.ConfigMethod)
-	c.Assert(address.Value(), gc.Equals, args.Value)
-	c.Assert(address.DNSServers(), jc.DeepEquals, args.DNSServers)
-	c.Assert(address.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
-	c.Assert(address.GatewayAddress(), gc.Equals, args.GatewayAddress)
+	key := newSSHHostKey(args)
+	c.Assert(key.MachineID(), gc.Equals, args.MachineID)
+	c.Assert(key.Keys(), jc.DeepEquals, args.Keys)
 }
 
 func (s *SSHHostKeySerializationSuite) TestParsingSerializedData(c *gc.C) {
@@ -56,17 +42,10 @@ func (s *SSHHostKeySerializationSuite) TestParsingSerializedData(c *gc.C) {
 		Version: 1,
 		SSHHostKeys_: []*sshhostkey{
 			newSSHHostKey(SSHHostKeyArgs{
-				SubnetCIDR:       "10.0.0.0/24",
-				ProviderID:       "magic",
-				DeviceName:       "foo",
-				MachineID:        "bar",
-				ConfigMethod:     "static",
-				Value:            "10.0.0.4",
-				DNSServers:       []string{"10.1.0.1", "10.2.0.1"},
-				DNSSearchDomains: []string{"bam", "mam"},
-				GatewayAddress:   "10.0.0.1",
+				MachineID: "foo",
+				Keys:      []string{"one", "two", "three"},
 			}),
-			newSSHHostKey(SSHHostKeyArgs{Value: "10.0.0.5"}),
+			newSSHHostKey(SSHHostKeyArgs{MachineID: "bar"}),
 		},
 	}
 
@@ -77,8 +56,8 @@ func (s *SSHHostKeySerializationSuite) TestParsingSerializedData(c *gc.C) {
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addresses, err := importSSHHostKeys(source)
+	keys, err := importSSHHostKeys(source)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(addresses, jc.DeepEquals, initial.SSHHostKeys_)
+	c.Assert(keys, jc.DeepEquals, initial.SSHHostKeys_)
 }
