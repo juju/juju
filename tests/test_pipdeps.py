@@ -81,3 +81,20 @@ class TestRunPipInstall(unittest.TestCase):
                 ["--download", "/tmp/pip"], self.req_path, verbose=True)
         cc_mock.assert_called_once_with([
             "pip", "install", "-r", self.req_path, "--download", "/tmp/pip"])
+
+
+class TestRunPipUninstall(unittest.TestCase):
+
+    def test_run_pip_uninstall(self):
+        with utility.temp_dir() as base:
+            obsolete = os.path.join(base, 'obsolete.txt')
+            with open(obsolete, 'w') as o_file:
+                o_file.write('foo (9.7.6)\nazure (0.8.0)')
+            list_output = 'azure (0.8.0)\nbar (1.2.3)'
+            with mock.patch("subprocess.check_output", autospec=True,
+                            return_value=list_output) as co_mock:
+                with mock.patch("subprocess.check_call",
+                                autospec=True) as cc_mock:
+                    pipdeps.run_pip_uninstall(obsolete, verbose=False)
+        co_mock.assert_called_once_with(['pip', '-q', 'list'])
+        cc_mock.assert_called_once_with(['pip', '-q', 'uninstall', 'azure'])

@@ -27,6 +27,7 @@ debtcollector>=0.5.0
 fixtures>=1.3.1
 httplib2>=0.9.1
 iso8601>=0.1.10
+isodate>=0.5.1
 keyring>=5.3
 launchpadlib>=1.10.2
 lazr.authentication>=0.1.3

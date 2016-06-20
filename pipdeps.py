@@ -18,6 +18,8 @@ BUCKET = "juju-pip-archives"
 PREFIX = "juju-ci-tools/"
 REQUIREMENTS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                             "requirements.txt")
+OBSOLETE = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                        "obsolete-requirements.txt")
 
 
 def s3_anon():
@@ -48,12 +50,40 @@ def run_pip_install(extra_args, requirements, verbose=False):
     subprocess.check_call(cmd)
 
 
+def run_pip_uninstall(obsolete_requirements, verbose=False):
+    """Run pip uninstall for each package version in obsolete_requirements.
+
+    pip uninstall the package without regard to its version. In most cases,
+    calling install install with a new package version implicitly upgrades.
+    There are only a few package version that cannot by upgraded, they must
+    be removed before install. This function uninstalls packages only when
+    their version matches the obsolete.
+
+    The obsolete_requirements entries must match the output of pip list. eg:
+        azure (0.8.0)
+        bibbel (1.2.3)
+    """
+    pip_cmd = ['pip']
+    if not verbose:
+        pip_cmd.append('-q')
+    list_cmd = pip_cmd + ['list']
+    installed_packages = set(subprocess.check_output(list_cmd).splitlines())
+    with open(obsolete_requirements, 'r') as o_file:
+        obsolete_packages = o_file.read().splitlines()
+    removable = installed_packages.intersection(obsolete_packages)
+    for package_version in removable:
+        package, version = package_version.split()
+        uninstall_cmd = pip_cmd + ['uninstall', package]
+        subprocess.check_call(uninstall_cmd)
+
+
 def command_install(bucket, requirements, verbose=False):
     with utility.temp_dir() as archives_dir:
         for key in bucket.list(prefix=PREFIX):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
         archives_url = "file://" + archives_dir
+        run_pip_uninstall(OBSOLETE, verbose=verbose)
         run_pip_install(["--user", "--no-index", "--find-links", archives_url],
                         requirements, verbose=verbose)
 
