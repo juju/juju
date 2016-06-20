@@ -100,7 +100,7 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := export.sshhostkeys(); err != nil {
+	if err := export.sshHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -729,7 +729,7 @@ func (e *exporter) ipaddresses() error {
 	return nil
 }
 
-func (e *exporter) sshhostkeys() error {
+func (e *exporter) sshHostKeys() error {
 	machines, err := e.st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)

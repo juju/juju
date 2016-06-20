@@ -8,41 +8,41 @@ import (
 	"github.com/juju/schema"
 )
 
-type sshhostkeys struct {
+type sshHostKeys struct {
 	Version      int           `yaml:"version"`
-	SSHHostKeys_ []*sshhostkey `yaml:"sshhostkeys"`
+	SSHHostKeys_ []*sshHostKey `yaml:"sshhostkeys"`
 }
 
-type sshhostkey struct {
+type sshHostKey struct {
 	MachineID_ string   `yaml:"machineid"`
 	Keys_      []string `yaml:"keys"`
 }
 
 // MachineID implements SSHHostKey.
-func (i *sshhostkey) MachineID() string {
+func (i *sshHostKey) MachineID() string {
 	return i.MachineID_
 }
 
 // Keys implements SSHHostKey.
-func (i *sshhostkey) Keys() []string {
+func (i *sshHostKey) Keys() []string {
 	return i.Keys_
 }
 
 // SSHHostKeyArgs is an argument struct used to create a
-// new internal sshhostkey type that supports the SSHHostKey interface.
+// new internal sshHostKey type that supports the SSHHostKey interface.
 type SSHHostKeyArgs struct {
 	MachineID string
 	Keys      []string
 }
 
-func newSSHHostKey(args SSHHostKeyArgs) *sshhostkey {
-	return &sshhostkey{
+func newSSHHostKey(args SSHHostKeyArgs) *sshHostKey {
+	return &sshHostKey{
 		MachineID_: args.MachineID,
 		Keys_:      args.Keys,
 	}
 }
 
-func importSSHHostKeys(source map[string]interface{}) ([]*sshhostkey, error) {
+func importSSHHostKeys(source map[string]interface{}) ([]*sshHostKey, error) {
 	checker := versionedChecker("sshhostkeys")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
@@ -51,7 +51,7 @@ func importSSHHostKeys(source map[string]interface{}) ([]*sshhostkey, error) {
 	valid := coerced.(map[string]interface{})
 
 	version := int(valid["version"].(int64))
-	importFunc, ok := sshhostkeyDeserializationFuncs[version]
+	importFunc, ok := sshHostKeyDeserializationFuncs[version]
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
@@ -59,29 +59,29 @@ func importSSHHostKeys(source map[string]interface{}) ([]*sshhostkey, error) {
 	return importSSHHostKeyList(sourceList, importFunc)
 }
 
-func importSSHHostKeyList(sourceList []interface{}, importFunc sshhostkeyDeserializationFunc) ([]*sshhostkey, error) {
-	result := make([]*sshhostkey, 0, len(sourceList))
+func importSSHHostKeyList(sourceList []interface{}, importFunc sshHostKeyDeserializationFunc) ([]*sshHostKey, error) {
+	result := make([]*sshHostKey, 0, len(sourceList))
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
 			return nil, errors.Errorf("unexpected value for sshhostkey %d, %T", i, value)
 		}
-		sshhostkey, err := importFunc(source)
+		sshHostKey, err := importFunc(source)
 		if err != nil {
 			return nil, errors.Annotatef(err, "sshhostkey %d", i)
 		}
-		result = append(result, sshhostkey)
+		result = append(result, sshHostKey)
 	}
 	return result, nil
 }
 
-type sshhostkeyDeserializationFunc func(map[string]interface{}) (*sshhostkey, error)
+type sshHostKeyDeserializationFunc func(map[string]interface{}) (*sshHostKey, error)
 
-var sshhostkeyDeserializationFuncs = map[int]sshhostkeyDeserializationFunc{
+var sshHostKeyDeserializationFuncs = map[int]sshHostKeyDeserializationFunc{
 	1: importSSHHostKeyV1,
 }
 
-func importSSHHostKeyV1(source map[string]interface{}) (*sshhostkey, error) {
+func importSSHHostKeyV1(source map[string]interface{}) (*sshHostKey, error) {
 	fields := schema.Fields{
 		"machineid": schema.String(),
 		"keys":      schema.List(schema.String()),
@@ -100,7 +100,7 @@ func importSSHHostKeyV1(source map[string]interface{}) (*sshhostkey, error) {
 	for i, d := range keysInterface {
 		keys[i] = d.(string)
 	}
-	return &sshhostkey{
+	return &sshHostKey{
 		MachineID_: valid["machineid"].(string),
 		Keys_:      keys,
 	}, nil
