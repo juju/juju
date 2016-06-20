@@ -108,7 +108,7 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p EnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
@@ -146,7 +146,7 @@ func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.

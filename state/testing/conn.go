@@ -27,7 +27,10 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	mgoInfo := NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			Config: cfg,
 			Owner:  owner,

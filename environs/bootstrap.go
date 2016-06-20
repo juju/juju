@@ -9,14 +9,16 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/tools"
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// ControllerUUID is the uuid of the controller to be bootstrapped.
-	ControllerUUID string
+	// ControllerConfig contains the configuration attributes for the
+	// bootstrapped controller.
+	ControllerConfig controller.Config
 
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the new

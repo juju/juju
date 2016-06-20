@@ -120,9 +120,13 @@ type InitializeParams struct {
 	// the controller model to store in the controller.
 	CloudCredentials map[string]cloud.Credential
 
-	// ModelConfigDefaults contains default config attributes for
-	// models.
-	ModelConfigDefaults map[string]interface{}
+	// ControllerConfig contains config attributes for
+	// the controller.
+	ControllerConfig controller.Config
+
+	// LocalCloudConfig contains default config attributes for
+	// models on the specified cloud.
+	LocalCloudConfig map[string]interface{}
 
 	// Policy is the set of state policies to apply.
 	Policy Policy
@@ -145,7 +149,7 @@ func (p InitializeParams) Validate() error {
 		return errors.NotValidf("migration mode %q", p.ControllerModelArgs.MigrationMode)
 	}
 	uuid := p.ControllerModelArgs.Config.UUID()
-	controllerUUID := controller.Config(p.ControllerModelArgs.Config.AllAttrs()).ControllerUUID()
+	controllerUUID := p.ControllerConfig.ControllerUUID()
 	if uuid != controllerUUID {
 		return errors.NotValidf("mismatching uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
 	}
@@ -211,7 +215,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ModelConfigDefaults)
+	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.LocalCloudConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -219,9 +223,6 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Extract just the controller config.
-	controllerCfg := controller.ControllerConfig(args.ControllerModelArgs.Config.AllAttrs())
 
 	ops := []txn.Op{
 		createInitialUserOp(st, args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt),
@@ -253,8 +254,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
-		createSettingsOp(controllersC, controllerSettingsGlobalKey, controllerCfg),
-		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.ModelConfigDefaults),
+		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
+		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.LocalCloudConfig),
 	}
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(

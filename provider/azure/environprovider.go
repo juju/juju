@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -94,14 +93,10 @@ func (prov *azureEnvironProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (prov *azureEnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	env, err := newEnviron(prov, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening model")
-	}
-	controllerUUID := controller.Config(cfg.AllAttrs()).ControllerUUID()
-	if controllerUUID == "" {
-		return nil, errors.New("missing controller UUID")
 	}
 	return env.initResourceGroup(controllerUUID)
 }

@@ -95,8 +95,13 @@ func (c ModelConfigCreator) NewModelConfig(
 		return nil, errors.Trace(err)
 	}
 	attrs = cfg.AllAttrs()
-	// Strip out all controller values except uuid before checking validity.
-	controller.RemoveControllerAttributes(attrs)
+
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	for _, attr := range controller.ControllerOnlyConfigAttributes {
+		if _, ok := attrs[attr]; ok {
+			return nil, errors.Errorf("unexpected controller attribute %q in model config", attr)
+		}
+	}
 	// Any values that would normally be copied from the controller
 	// config can also be defined, but if they differ from the controller
 	// values, an error is returned.
@@ -203,13 +208,19 @@ func finalizeConfig(isAdmin bool, controllerUUID string, controllerModelCfg *con
 			attrs[key] = controllerModelCfg.AllAttrs()[key]
 		}
 	}
-	attrs[controller.ControllerUUIDKey] = controllerUUID
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
 
-	cfg, err = provider.PrepareForCreateEnvironment(cfg)
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot remove controller attributes")
+	}
+
+	cfg, err = provider.PrepareForCreateEnvironment(controllerUUID, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

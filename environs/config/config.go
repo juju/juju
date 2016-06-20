@@ -42,12 +42,6 @@ const (
 	// instance security groups.
 	FwNone = "none"
 
-	// DefaultStatePort is the default port the controller is listening on.
-	DefaultStatePort int = 37017
-
-	// DefaultApiPort is the default port the API server is listening on.
-	DefaultAPIPort int = 17070
-
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a controller, in seconds.
 	DefaultBootstrapSSHTimeout int = 600
@@ -60,10 +54,6 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
-
-	// DefaultNumaControlPolicy should not be used by default.
-	// Only use numactl if user specifically requests it
-	DefaultNumaControlPolicy = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -118,9 +108,6 @@ const (
 
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
-
-	// NumaControlPolicyKey stores the value for this setting
-	SetNumaControlPolicyKey = "set-numa-control-policy"
 
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
@@ -548,14 +535,6 @@ func (c *Config) DefaultSeries() (string, bool) {
 	}
 }
 
-// NumaCtlPreference returns if numactl is preferred.
-func (c *Config) NumaCtlPreference() bool {
-	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
-		return numa.(bool)
-	}
-	return DefaultNumaControlPolicy
-}
-
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.mustString("authorized-keys")
@@ -924,15 +903,16 @@ var alwaysOptional = schema.Defaults{
 	// The following attributes are for the controller config
 	// but are included here because we currently parse model
 	// and controller config together.
-	controller.ControllerUUIDKey:      schema.Omit,
-	controller.CACertKey:              schema.Omit,
-	controller.CAPrivateKey:           schema.Omit,
-	controller.ApiPort:                schema.Omit,
-	controller.StatePort:              schema.Omit,
-	controller.IdentityURL:            schema.Omit,
-	controller.IdentityPublicKey:      schema.Omit,
-	controller.CACertKey + "-path":    schema.Omit,
-	controller.CAPrivateKey + "-path": schema.Omit,
+	controller.ControllerUUIDKey:       schema.Omit,
+	controller.CACertKey:               schema.Omit,
+	controller.CAPrivateKey:            schema.Omit,
+	controller.ApiPort:                 schema.Omit,
+	controller.StatePort:               schema.Omit,
+	controller.IdentityURL:             schema.Omit,
+	controller.IdentityPublicKey:       schema.Omit,
+	controller.CACertKey + "-path":     schema.Omit,
+	controller.CAPrivateKey + "-path":  schema.Omit,
+	controller.SetNumaControlPolicyKey: schema.Omit,
 
 	// Model config attributes
 	AgentVersionKey:              schema.Omit,
@@ -955,7 +935,6 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
-	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
 
@@ -988,19 +967,19 @@ var defaults = allDefaults()
 // UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"firewall-mode":              FwInstance,
-		"development":                false,
-		"ssl-hostname-verification":  true,
-		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
-		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
-		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
-		"proxy-ssh":                  false,
-		"disable-network-management": false,
-		IgnoreMachineAddresses:       false,
-		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-		AutomaticallyRetryHooks:      true,
-		controller.StatePort:         DefaultStatePort,
-		controller.ApiPort:           DefaultAPIPort,
+		"firewall-mode":                    FwInstance,
+		"development":                      false,
+		"ssl-hostname-verification":        true,
+		"bootstrap-timeout":                DefaultBootstrapSSHTimeout,
+		"bootstrap-retry-delay":            DefaultBootstrapSSHRetryDelay,
+		"bootstrap-addresses-delay":        DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                        false,
+		"disable-network-management":       false,
+		IgnoreMachineAddresses:             false,
+		AutomaticallyRetryHooks:            true,
+		controller.StatePort:               controller.DefaultStatePort,
+		controller.ApiPort:                 controller.DefaultAPIPort,
+		controller.SetNumaControlPolicyKey: controller.DefaultNumaControlPolicy,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1352,11 +1331,6 @@ global or per instance security groups.`,
 	"rsyslog-ca-cert": {
 		Description: `The certificate of the CA that signed the rsyslog certificate, in PEM format.`,
 		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	SetNumaControlPolicyKey: {
-		Description: "Tune Juju controller to work with NUMA if present (default false)",
-		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 	"ssl-hostname-verification": {

@@ -117,6 +117,7 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 		switch {
 		case errors.Cause(err) == io.EOF,
 			strings.HasSuffix(errorMessage, "connection is shut down"),
+			strings.HasSuffix(errorMessage, "no api connection available"),
 			strings.Contains(errorMessage, "spaces are still being discovered"):
 			ctx.Infof("Waiting for API to become available")
 			continue

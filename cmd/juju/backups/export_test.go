@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -93,8 +94,8 @@ func NewRestoreCommandForTest(
 func GetEnvironFunc(e environs.Environ, cloud string) func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
 	return func(string, *params.BackupsMetadataResult) (environs.Environ, *restoreBootstrapParams, error) {
 		return e, &restoreBootstrapParams{
-			ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-			CloudName:      cloud,
+			ControllerConfig: testing.FakeControllerConfig(),
+			CloudName:        cloud,
 		}, nil
 	}
 }

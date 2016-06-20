@@ -15,6 +15,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/lxd"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -77,7 +78,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerUUID: "uuid",
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +92,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerUUID: "uuid",
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)

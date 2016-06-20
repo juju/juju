@@ -1074,7 +1074,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
-	attrs["set-numa-control-policy"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1137,26 +1136,26 @@ var validationTests = []validationTest{{
 	err:   `cannot change firewall-mode from "global" to "none"`,
 }, {
 	about: "Cannot change the state-port",
-	old:   testing.Attrs{"state-port": config.DefaultStatePort},
+	old:   testing.Attrs{"state-port": controller.DefaultStatePort},
 	new:   testing.Attrs{"state-port": 42},
 	err:   `cannot change state-port from 37017 to 42`,
 }, {
 	about: "Cannot change the api-port",
-	old:   testing.Attrs{"api-port": config.DefaultAPIPort},
+	old:   testing.Attrs{"api-port": controller.DefaultAPIPort},
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
 	about: "Can change the state-port from explicit-default to implicit-default",
-	old:   testing.Attrs{"state-port": config.DefaultStatePort},
+	old:   testing.Attrs{"state-port": controller.DefaultStatePort},
 }, {
 	about: "Can change the api-port from explicit-default to implicit-default",
-	old:   testing.Attrs{"api-port": config.DefaultAPIPort},
+	old:   testing.Attrs{"api-port": controller.DefaultAPIPort},
 }, {
 	about: "Can change the state-port from implicit-default to explicit-default",
-	new:   testing.Attrs{"state-port": config.DefaultStatePort},
+	new:   testing.Attrs{"state-port": controller.DefaultStatePort},
 }, {
 	about: "Can change the api-port from implicit-default to explicit-default",
-	new:   testing.Attrs{"api-port": config.DefaultAPIPort},
+	new:   testing.Attrs{"api-port": controller.DefaultAPIPort},
 }, {
 	about: "Cannot change the state-port from implicit-default to different value",
 	new:   testing.Attrs{"state-port": 42},

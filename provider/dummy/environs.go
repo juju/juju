@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -79,16 +78,11 @@ func SampleConfig() testing.Attrs {
 		"type":                      "dummy",
 		"name":                      "only",
 		"uuid":                      testing.ModelTag.Id(),
-		"controller-uuid":           testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            testing.CAKey,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"state-port":                1234,
-		"api-port":                  4321,
 		"default-series":            series.LatestLts(),
 
 		"secret":     "pork",
@@ -204,7 +198,13 @@ type environProvider struct {
 	statePolicy            state.Policy
 	supportsSpaces         bool
 	supportsSpaceDiscovery bool
+	apiPort                int
 	state                  map[string]*environState
+}
+
+// ApiPort returns the randon api port used by the given provider instance.
+func ApiPort(p environs.EnvironProvider) int {
+	return p.(*environProvider).apiPort
 }
 
 // environState represents the state of an environment.
@@ -535,7 +535,7 @@ func (p *environProvider) RestrictedConfigAttributes() []string {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p *environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	// NOTE: this check might appear redundant, but it's not: some tests
 	// (apiserver/modelmanager) inject a string value and determine that
 	// the config is validated later; validating here would render that
@@ -564,7 +564,7 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	controllerUUID := controller.Config(args.Config.AllAttrs()).ControllerUUID()
+	controllerUUID := args.ControllerUUID
 	if controllerUUID != args.Config.UUID() {
 		return nil, errors.Errorf("invalid bootstrap config, model UUID %v doesn't equal controller UUID %v", controllerUUID, args.Config.UUID())
 	}
@@ -589,13 +589,7 @@ func (p *environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (
 	envState = newState(name, p.ops, p.statePolicy)
 	cfg := args.Config
 	if ecfg.controller() {
-		apiPort := envState.listenAPI()
-		cfg, err = cfg.Apply(map[string]interface{}{
-			"api-port": apiPort,
-		})
-		if err != nil {
-			return nil, err
-		}
+		p.apiPort = envState.listenAPI()
 	}
 	envState.bootstrapConfig = cfg
 	p.state[controllerUUID] = envState
@@ -661,8 +655,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if password == "" {
 		return nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
-	if _, ok := controller.ControllerConfig(e.Config().AllAttrs()).CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in model configuration")
+	if _, ok := args.ControllerConfig.CACert(); !ok {
+		return nil, fmt.Errorf("no CA certificate in controller configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
@@ -712,6 +706,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// user is constructed with an empty password here.
 			// It is set just below.
 			st, err := state.Initialize(state.InitializeParams{
+				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
 					Owner:           names.NewUserTag("admin@local"),
 					Config:          icfg.Bootstrap.ControllerModelConfig,

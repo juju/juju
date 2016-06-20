@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -143,7 +142,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	c.Assert(e, gc.NotNil)
 	t.Env = e
 	t.prepared = true
-	t.ControllerUUID = controller.Config(t.Env.Config().AllAttrs()).ControllerUUID()
+	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
 func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
@@ -152,12 +151,13 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
 		credential = cloud.NewEmptyCredential()
 	}
 	return environs.PrepareParams{
-		BaseConfig:     t.TestConfig,
-		Credential:     credential,
-		CloudEndpoint:  t.CloudEndpoint,
-		CloudRegion:    t.CloudRegion,
-		ControllerName: t.TestConfig["name"].(string),
-		CloudName:      t.TestConfig["type"].(string),
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		BaseConfig:       t.TestConfig,
+		Credential:       credential,
+		CloudEndpoint:    t.CloudEndpoint,
+		CloudRegion:      t.CloudRegion,
+		ControllerName:   t.TestConfig["name"].(string),
+		CloudName:        t.TestConfig["type"].(string),
 	}
 }
 
@@ -174,8 +174,8 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		}}
 	}
 	return bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
-		CloudName:      t.TestConfig["type"].(string),
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
 			AuthTypes: []cloud.AuthType{credential.AuthType()},

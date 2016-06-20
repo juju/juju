@@ -17,15 +17,6 @@ const (
 	defaultModelSettingsGlobalKey = "defaultModelSettings"
 )
 
-func controllerOnlyAttribute(attr string) bool {
-	for _, a := range jujucontroller.ControllerOnlyConfigAttributes {
-		if attr == a {
-			return true
-		}
-	}
-	return false
-}
-
 // modelConfig returns the model config attributes that result when we
 // take what is required for the model and remove any attributes that
 // are specifically controller related or are already present in the
@@ -33,7 +24,7 @@ func controllerOnlyAttribute(attr string) bool {
 func modelConfig(sharedCloudCfg, cfg map[string]interface{}) map[string]interface{} {
 	modelCfg := make(map[string]interface{})
 	for attr, cfgValue := range cfg {
-		if controllerOnlyAttribute(attr) {
+		if jujucontroller.ControllerOnlyAttribute(attr) {
 			continue
 		}
 		if sharedValue, ok := sharedCloudCfg[attr]; !ok || sharedValue != cfgValue {

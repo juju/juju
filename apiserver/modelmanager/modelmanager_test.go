@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 	// Register the providers for the field check test
+	"github.com/juju/juju/controller"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
@@ -136,7 +137,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"name":            "foo",
 		"type":            "dummy",
 		"authorized-keys": s.st.controllerModel.cfg.AuthorizedKeys(),
-		"controller-uuid": coretesting.ModelTag.Id(),
 		"uuid":            uuid,
 		"agent-version":   jujuversion.Current.String(),
 		"bar":             "baz",
@@ -144,6 +144,10 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"broken":          "",
 		"secret":          "pork",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
@@ -768,7 +772,7 @@ func (*fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
-func (*fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (*fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

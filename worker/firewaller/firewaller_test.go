@@ -42,7 +42,7 @@ var _ worker.Worker = (*firewaller.Firewaller)(nil)
 
 func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	add := map[string]interface{}{"firewall-mode": firewallMode}
-	s.DummyConfig = dummy.SampleConfig().Merge(add).Delete("admin-secret", "ca-private-key")
+	s.DummyConfig = dummy.SampleConfig().Merge(add).Delete("admin-secret")
 
 	s.JujuConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
@@ -127,7 +127,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Application) (*state.U
 
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc := testing.AssertStartInstance(c, s.Environ, s.ControllerUUID, m.Id())
+	inst, hc := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst
