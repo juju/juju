@@ -6,7 +6,6 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/fslock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -26,6 +25,7 @@ type ManifoldConfig struct {
 	AgentName             string
 	APICallerName         string
 	MachineLockName       string
+	Clock                 clock.Clock
 	LeadershipTrackerName string
 	CharmDirName          string
 	HookRetryStrategyName string
@@ -39,11 +39,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.LeadershipTrackerName,
-			config.MachineLockName,
 			config.CharmDirName,
 			config.HookRetryStrategyName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
+			if config.Clock == nil {
+				return nil, errors.NotValidf("missing Clock")
+			}
+			if config.MachineLockName == "" {
+				return nil, errors.NotValidf("missing MachineLockName")
+			}
 
 			// Collect all required resources.
 			var agent agent.Agent
@@ -55,10 +60,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
-				return nil, err
-			}
-			var machineLock *fslock.Lock
-			if err := context.Get(config.MachineLockName, &machineLock); err != nil {
 				return nil, err
 			}
 			var leadershipTracker leadership.Tracker
@@ -77,9 +78,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			downloader := api.NewCharmDownloader(apiConn.Client())
 
+			manifoldConfig := config
 			// Configure and start the uniter.
-			config := agent.CurrentConfig()
-			tag := config.Tag()
+			agentConfig := agent.CurrentConfig()
+			tag := agentConfig.Tag()
 			unitTag, ok := tag.(names.UnitTag)
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
@@ -89,14 +91,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
-				DataDir:              config.DataDir(),
+				DataDir:              agentConfig.DataDir(),
 				Downloader:           downloader,
-				MachineLock:          machineLock,
+				MachineLockName:      manifoldConfig.MachineLockName,
 				CharmDirGuard:        charmDirGuard,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,
 				NewOperationExecutor: operation.NewExecutor,
-				Clock:                clock.WallClock,
+				Clock:                manifoldConfig.Clock,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

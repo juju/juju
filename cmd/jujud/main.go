@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
+	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
@@ -202,7 +203,10 @@ func Main(args []string) int {
 		code = exit_err
 		err = fmt.Errorf("jujuc should not be called directly")
 	case names.JujuRun:
-		code = cmd.Main(&RunCommand{}, ctx, args[1:])
+		run := &RunCommand{
+			MachineLockName: agent.MachineLockName,
+		}
+		code = cmd.Main(run, ctx, args[1:])
 	case names.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	default:

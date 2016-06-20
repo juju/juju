@@ -788,10 +788,6 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
-	initLock, err := cmdutil.HookExecutionLock(agentConfig.DataDir())
-	if err != nil {
-		return err
-	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	modelUUID, err := st.ModelTag()
 	if err != nil {
@@ -827,7 +823,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
-		InitLock:            initLock,
+		InitLockName:        agent.MachineLockName,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {

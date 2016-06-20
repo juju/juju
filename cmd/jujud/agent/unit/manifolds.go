@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 
 	coreagent "github.com/juju/juju/agent"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machinelock"
 	"github.com/juju/juju/worker/meterstatus"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/sender"
@@ -78,13 +78,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
-
-		// The machine lock manifold is a thin concurrent wrapper around an
-		// FSLock in an agreed location. We expect it to be replaced with an
-		// in-memory lock when the unit agent moves into the machine agent.
-		machineLockName: machinelock.Manifold(machinelock.ManifoldConfig{
-			AgentName: agentName,
-		}),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -195,10 +188,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// coming weeks, and to need one per unit in a consolidated agent
 		// (and probably one for each component broken out).
 		uniterName: uniter.Manifold(uniter.ManifoldConfig{
-			AgentName:             agentName,
-			APICallerName:         apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			MachineLockName: coreagent.MachineLockName,
+			Clock:           clock.WallClock,
 			LeadershipTrackerName: leadershipTrackerName,
-			MachineLockName:       machineLockName,
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 		}),
@@ -221,7 +215,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		meterStatusName: meterstatus.Manifold(meterstatus.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,
-			MachineLockName:          machineLockName,
+			MachineLockName:          coreagent.MachineLockName,
+			Clock:                    clock.WallClock,
 			NewHookRunner:            meterstatus.NewHookRunner,
 			NewMeterStatusAPIClient:  msapi.NewClient,
 			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
@@ -239,7 +234,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 const (
 	agentName            = "agent"
-	machineLockName      = "machine-lock"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	logSenderName        = "log-sender"

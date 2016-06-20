@@ -26,6 +26,7 @@ github.com/juju/httprequest	git	796aaafaf712f666df58d31a482c51233038bf9f	2016-05
 github.com/juju/idmclient	git	3dda079a75cccb85083d4c3877e638f5d6ab79c2	2016-05-26T05:00:34Z
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
+github.com/juju/mutex	git	59c26ee163447c5c57f63ff71610d433862013de	2016-06-17T01:09:07Z
 github.com/juju/persistent-cookiejar	git	e710b897c13ca52828ca2fc9769465186fd6d15c	2016-03-31T17:12:27Z
 github.com/juju/replicaset	git	fb7294cf57a1e2f08a57691f1246d129a87ab7e8	2015-05-08T02:21:43Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z

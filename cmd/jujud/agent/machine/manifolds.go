@@ -287,8 +287,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// machine when requested. It needs an API connection and
 		// waits for upgrades to be complete.
 		rebootName: ifFullyUpgraded(reboot.Manifold(reboot.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			MachineLockName: coreagent.MachineLockName,
+			Clock:           config.Clock,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
