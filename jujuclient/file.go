@@ -7,19 +7,14 @@
 package jujuclient
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/retry"
+	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
-	// TODO(axw) replace with flock on file in $XDG_RUNTIME_DIR
-	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju/osenv"
 )
 
 var logger = loggo.GetLogger("juju.jujuclient")
@@ -43,61 +38,28 @@ func NewFileCredentialStore() CredentialStore {
 
 type store struct{}
 
-func (s *store) lock(operation string) (*fslock.Lock, error) {
-	lockName := "controllers.lock"
-	lock, err := fslock.NewLock(osenv.JujuXDGDataHome(), lockName, fslock.Defaults())
+func (s *store) acquireLock() (mutex.Releaser, error) {
+	const lockName = "store-lock"
+	spec := mutex.Spec{
+		Name:    lockName,
+		Clock:   clock.WallClock,
+		Delay:   20 * time.Millisecond,
+		Timeout: lockTimeout,
+	}
+	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	message := fmt.Sprintf("pid: %d, operation: %s", os.Getpid(), operation)
-	err = lock.LockWithTimeout(lockTimeout, message)
-	if err == nil {
-		return lock, nil
-	}
-	if errors.Cause(err) != fslock.ErrTimeout {
-		return nil, errors.Trace(err)
-	}
-
-	logger.Infof("breaking jujuclient lock: %s", lockName)
-
-	// If we are unable to acquire the lock within the lockTimeout,
-	// consider it broken for some reason, and break it.
-	err = lock.BreakLock()
-	if err != nil {
-		return nil, errors.Annotatef(err, "unable to break the jujuclient lock %v", lockName)
-	}
-
-	err = lock.LockWithTimeout(lockTimeout, message)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return lock, nil
-}
-
-// It appears that sometimes the lock is not cleared when we expect it to be.
-// Capture and log any errors from the Unlock method and retry a few times.
-func (s *store) unlock(lock *fslock.Lock) {
-	err := retry.Call(retry.CallArgs{
-		Func: lock.Unlock,
-		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("failed to unlock jujuclient lock: %s", err)
-		},
-		Attempts: 10,
-		Delay:    50 * time.Millisecond,
-		Clock:    clock.WallClock,
-	})
-	if err != nil {
-		logger.Errorf("unable to unlock jujuclient lock: %s", err)
-	}
+	return releaser, nil
 }
 
 // AllControllers implements ControllersGetter.
 func (s *store) AllControllers() (map[string]ControllerDetails, error) {
-	lock, err := s.lock("read-all-controllers")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read all controllers")
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -107,11 +69,11 @@ func (s *store) AllControllers() (map[string]ControllerDetails, error) {
 
 // CurrentController implements ControllersGetter.
 func (s *store) CurrentController() (string, error) {
-	lock, err := s.lock("read-current-controller")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get current controller name")
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
 		return "", errors.Trace(err)
@@ -128,11 +90,11 @@ func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 		return nil, errors.Trace(err)
 	}
 
-	lock, err := s.lock("read-controller-by-name")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read controller %v", name)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
@@ -153,11 +115,11 @@ func (s *store) UpdateController(name string, details ControllerDetails) error {
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("update-controller")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err, "cannot update controller %v", name)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	all, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
@@ -178,11 +140,11 @@ func (s *store) SetCurrentController(name string) error {
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("set-current-controller")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotate(err, "cannot set current controller name")
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
@@ -204,11 +166,11 @@ func (s *store) RemoveController(name string) error {
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("remove-controller")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err, "cannot remove controller %v", name)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllers, err := ReadControllersFile(JujuControllersPath())
 	if err != nil {
@@ -293,11 +255,11 @@ func (s *store) UpdateModel(controllerName, accountName, modelName string, detai
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("update-model")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	return errors.Trace(updateAccountModels(
 		controllerName, accountName,
@@ -324,11 +286,11 @@ func (s *store) SetCurrentModel(controllerName, accountName, modelName string) e
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("set-current-model")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	return errors.Trace(updateAccountModels(
 		controllerName, accountName,
@@ -359,11 +321,11 @@ func (s *store) AllModels(controllerName, accountName string) (map[string]ModelD
 		return nil, errors.Trace(err)
 	}
 
-	lock, err := s.lock("read-all-models")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
@@ -395,11 +357,11 @@ func (s *store) CurrentModel(controllerName, accountName string) (string, error)
 		return "", errors.Trace(err)
 	}
 
-	lock, err := s.lock("read-current-model")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
@@ -434,11 +396,11 @@ func (s *store) ModelByName(controllerName, accountName, modelName string) (*Mod
 		return nil, errors.Trace(err)
 	}
 
-	lock, err := s.lock("model-by-name")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
@@ -482,11 +444,11 @@ func (s *store) RemoveModel(controllerName, accountName, modelName string) error
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("remove-model")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	return errors.Trace(updateAccountModels(
 		controllerName, accountName,
@@ -555,11 +517,11 @@ func (s *store) UpdateAccount(controllerName, accountName string, details Accoun
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("update-account")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -604,11 +566,11 @@ func (s *store) SetCurrentAccount(controllerName, accountName string) error {
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("set-current-account")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -635,11 +597,11 @@ func (s *store) AllAccounts(controllerName string) (map[string]AccountDetails, e
 		return nil, errors.Trace(err)
 	}
 
-	lock, err := s.lock("read-all-accounts")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -658,11 +620,11 @@ func (s *store) CurrentAccount(controllerName string) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	lock, err := s.lock("read-current-account")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -684,11 +646,11 @@ func (s *store) AccountByName(controllerName, accountName string) (*AccountDetai
 		return nil, errors.Trace(err)
 	}
 
-	lock, err := s.lock("account-by-name")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -714,11 +676,11 @@ func (s *store) RemoveAccount(controllerName, accountName string) error {
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("remove-account")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	controllerAccounts, err := ReadAccountsFile(JujuAccountsPath())
 	if err != nil {
@@ -741,11 +703,11 @@ func (s *store) RemoveAccount(controllerName, accountName string) error {
 
 // UpdateCredential implements CredentialUpdater.
 func (s *store) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
-	lock, err := s.lock("update-credentials")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err, "cannot update credentials for %v", cloudName)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	all, err := ReadCredentialsFile(JujuCredentialsPath())
 	if err != nil {
@@ -805,11 +767,11 @@ func (s *store) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig
 		return errors.Trace(err)
 	}
 
-	lock, err := s.lock("update-bootstrap-config")
+	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err, "cannot update bootstrap config for controller %s", controllerName)
 	}
-	defer s.unlock(lock)
+	defer releaser.Release()
 
 	all, err := ReadBootstrapConfigFile(JujuBootstrapConfigPath())
 	if err != nil {

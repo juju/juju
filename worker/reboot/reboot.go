@@ -4,9 +4,12 @@
 package reboot
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
@@ -19,29 +22,29 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.reboot")
 
-const RebootMessage = "preparing for reboot"
-
 // The reboot worker listens for changes to the reboot flag and
 // exists with worker.ErrRebootMachine if the machine should reboot or
 // with worker.ErrShutdownMachine if it should shutdown. This will be picked
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	tomb        tomb.Tomb
-	st          reboot.State
-	tag         names.MachineTag
-	machineLock *fslock.Lock
+	tomb            tomb.Tomb
+	st              reboot.State
+	tag             names.MachineTag
+	machineLockName string
+	clock           clock.Clock
 }
 
-func NewReboot(st reboot.State, agentConfig agent.Config, machineLock *fslock.Lock) (worker.Worker, error) {
+func NewReboot(st reboot.State, agentConfig agent.Config, machineLockName string, clock clock.Clock) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())
 	}
 	r := &Reboot{
-		st:          st,
-		tag:         tag,
-		machineLock: machineLock,
+		st:              st,
+		tag:             tag,
+		machineLockName: machineLockName,
+		clock:           clock,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: r,
@@ -49,27 +52,7 @@ func NewReboot(st reboot.State, agentConfig agent.Config, machineLock *fslock.Lo
 	return w, errors.Trace(err)
 }
 
-func (r *Reboot) checkForRebootState() error {
-	if r.machineLock.IsLocked() == false {
-		return nil
-	}
-
-	msg, err := r.machineLock.Message()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if msg != RebootMessage {
-		return nil
-	}
-	// Not a lock held by the machne agent in order to reboot
-	err = r.machineLock.BreakLock()
-	return errors.Trace(err)
-}
-
 func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
-	if err := r.checkForRebootState(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	watcher, err := r.st.WatchForRebootEvent()
 	return watcher, errors.Trace(err)
 }
@@ -80,15 +63,29 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("Reboot worker got action: %v", rAction)
+	// NOTE: Here we explicitly avoid stopping on the abort channel as we are
+	// wanting to make sure that we grab the lock and return an error
+	// sufficiently heavyweight to get the agent to restart.
+	spec := mutex.Spec{
+		Name:  r.machineLockName,
+		Clock: r.clock,
+		Delay: 250 * time.Millisecond,
+	}
+
 	switch rAction {
 	case params.ShouldReboot:
-		r.machineLock.Lock(RebootMessage)
+		if _, err := mutex.Acquire(spec); err != nil {
+			return errors.Trace(err)
+		}
 		return worker.ErrRebootMachine
 	case params.ShouldShutdown:
-		r.machineLock.Lock(RebootMessage)
+		if _, err := mutex.Acquire(spec); err != nil {
+			return errors.Trace(err)
+		}
 		return worker.ErrShutdownMachine
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (r *Reboot) TearDown() error {
