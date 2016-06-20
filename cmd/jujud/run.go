@@ -8,10 +8,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"launchpad.net/gnuflag"
 
@@ -24,6 +27,7 @@ import (
 
 type RunCommand struct {
 	cmd.CommandBase
+	MachineLockName string
 	unit            names.UnitTag
 	commands        string
 	showHelp        bool
@@ -172,15 +176,16 @@ func (c *RunCommand) appendProxyToCommands() string {
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
-	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
+	spec := mutex.Spec{
+		Name:  c.MachineLockName,
+		Clock: clock.WallClock,
+		Delay: 250 * time.Millisecond,
+	}
+	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = lock.Lock("juju-run")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer lock.Unlock()
+	defer releaser.Release()
 
 	runCmd := c.appendProxyToCommands()
 

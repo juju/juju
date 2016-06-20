@@ -11,11 +11,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
-	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/apiserver/common"
 	apihttp "github.com/juju/juju/apiserver/http"
@@ -108,14 +109,16 @@ func (h *imagesDownloadHandler) loadImage(st *state.State, envuuid, kind, series
 ) {
 	// We want to ensure that if an image needs to be downloaded and cached,
 	// this only happens once.
-	imageIdent := fmt.Sprintf("image-%s-%s-%s-%s", envuuid, kind, series, arch)
-	lockDir := filepath.Join(h.dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, imageIdent)
+	spec := mutex.Spec{
+		Name:  fmt.Sprintf("image-%s-%s-%s", kind, series, arch),
+		Clock: clock.WallClock,
+		Delay: time.Second,
+	}
+	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	lock.Lock("fetch and cache image " + imageIdent)
-	defer lock.Unlock()
+	defer releaser.Release()
 	storage := st.ImageStorage()
 	metadata, imageReader, err := storage.Image(kind, series, arch)
 	// Not in storage, so go fetch it.

@@ -28,11 +28,6 @@ func stateStepsFor118() []Step {
 func stepsFor118() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "make $DATADIR/locks owned by ubuntu:ubuntu",
-			targets:     []Target{AllMachines},
-			run:         ensureLockDirExistsAndUbuntuWritable,
-		},
-		&upgradeStep{
 			description: "generate system ssh key",
 			targets:     []Target{StateServer},
 			run:         ensureSystemSSHKey,

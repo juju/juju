@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,11 +12,11 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/juju/mutex"
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -43,10 +44,10 @@ type ContainerSetupSuite struct {
 	p           provisioner.Provisioner
 	agentConfig agent.ConfigSetter
 	// Record the apt commands issued as part of container initialisation
-	aptCmdChan  <-chan *exec.Cmd
-	initLockDir string
-	initLock    *fslock.Lock
-	fakeLXCNet  string
+	aptCmdChan      <-chan *exec.Cmd
+	lockName        string
+	acquireLockFunc func(mutex.Spec) (mutex.Releaser, error)
+	fakeLXCNet      string
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
@@ -79,13 +80,8 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
 	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
-
-	// Create a new container initialisation lock.
-	s.initLockDir = c.MkDir()
-	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
-	c.Assert(err, jc.ErrorIsNil)
-	s.initLock = initLock
-
+	s.lockName = "provisioner-test"
+	s.acquireLockFunc = mutex.Acquire
 	// Patch to isolate the test from the host machine.
 	s.fakeLXCNet = filepath.Join(c.MkDir(), "lxc-net")
 	s.PatchValue(provisioner.EtcDefaultLXCNetPath, s.fakeLXCNet)
@@ -115,7 +111,8 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              cfg,
-		InitLock:            s.initLock,
+		InitLockName:        s.lockName,
+		AcquireLockFunc:     s.acquireLockFunc,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
@@ -348,6 +345,9 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
+	s.acquireLockFunc = func(mutex.Spec) (mutex.Releaser, error) {
+		return nil, errors.New("boom")
+	}
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -357,8 +357,6 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	err = m.SetAgentVersion(version.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = os.RemoveAll(s.initLockDir)
-	c.Assert(err, jc.ErrorIsNil)
 	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
 	runner.Kill()
 	err = runner.Wait()

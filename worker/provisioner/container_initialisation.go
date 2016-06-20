@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -36,7 +38,8 @@ type ContainerSetup struct {
 	provisioner           *apiprovisioner.State
 	machine               *apiprovisioner.Machine
 	config                agent.Config
-	initLock              *fslock.Lock
+	initLockName          string
+	acquireLockFunc       func(mutex.Spec) (mutex.Releaser, error)
 	addressableContainers bool
 	enableNAT             bool
 	lxcDefaultMTU         int
@@ -60,7 +63,8 @@ type ContainerSetupParams struct {
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
-	InitLock            *fslock.Lock
+	InitLockName        string
+	AcquireLockFunc     func(mutex.Spec) (mutex.Releaser, error)
 }
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
@@ -74,7 +78,8 @@ func NewContainerSetupHandler(params ContainerSetupParams) worker.StringsWatchHa
 		provisioner:         params.Provisioner,
 		config:              params.Config,
 		workerName:          params.WorkerName,
-		initLock:            params.InitLock,
+		initLockName:        params.InitLockName,
+		acquireLockFunc:     params.AcquireLockFunc,
 	}
 }
 
@@ -187,10 +192,19 @@ func maybeOverrideDefaultLXCNet(containerType instance.ContainerType, addressabl
 // runInitialiser runs the container initialiser with the initialisation hook held.
 func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
 	logger.Debugf("running initialiser for %s containers", containerType)
-	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
+	spec := mutex.Spec{
+		Name:  cs.initLockName,
+		Clock: clock.WallClock,
+		// If we don't get the lock straigh away, there is no point trying multiple
+		// times per second for an operation that is likelty to ake multiple seconds.
+		Delay: time.Second,
+		// NOTE: no abort channel is passed through with the Handle func.
+	}
+	releaser, err := cs.acquireLockFunc(spec)
+	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
-	defer cs.initLock.Unlock()
+	defer releaser.Release()
 
 	// Only tweak default LXC network config when address allocation
 	// feature flag is enabled.

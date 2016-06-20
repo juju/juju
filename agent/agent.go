@@ -37,6 +37,11 @@ const (
 	// dir that, if it exists, will cause a machine agent to uninstall
 	// when it receives the termination signal.
 	UninstallAgentFile = "uninstall-agent"
+
+	// MachineLockName is the name of the mutex that the agent creates to
+	// ensure serialization of tasks such as uniter hook executions, juju-run,
+	// and others.
+	MachineLockName = "machine-lock"
 )
 
 // These are base values used for the corresponding defaults.

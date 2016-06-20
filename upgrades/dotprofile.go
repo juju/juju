@@ -9,6 +9,8 @@ import (
 	"github.com/juju/utils/exec"
 )
 
+var ubuntuHome = "/home/ubuntu"
+
 // As of the middle of the 1.17 cycle, the proxy settings are written out to
 // /home/ubuntu/.juju-proxy both by cloud-init and the machine environ worker.
 // An older version of juju that has been upgraded will get the proxy settings
