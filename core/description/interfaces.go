@@ -74,6 +74,9 @@ type Model interface {
 	IPAddresses() []IPAddress
 	AddIPAddress(IPAddressArgs) IPAddress
 
+	SSHHostKeys() []SSHHostKey
+	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -364,4 +367,10 @@ type IPAddress interface {
 	DNSServers() []string
 	DNSSearchDomains() []string
 	GatewayAddress() string
+}
+
+// SSHHostKey represents an ssh host key.
+type SSHHostKey interface {
+	MachineID() string
+	Keys() []string
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -90,6 +91,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	}
 	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
 		return nil, nil, errors.Annotate(err, "model constraints")
+	}
+	if err := restore.sshHostKeys(); err != nil {
+		return nil, nil, errors.Annotate(err, "sshHostKeys")
 	}
 
 	if err := restore.modelUsers(); err != nil {
@@ -1035,6 +1039,20 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
+	return nil
+}
+
+func (i *importer) sshHostKeys() error {
+	i.logger.Debugf("importing ssh host keys")
+	for _, key := range i.model.SSHHostKeys() {
+		name := names.NewMachineTag(key.MachineID())
+		err := i.st.SetSSHHostKeys(name, key.Keys())
+		if err != nil {
+			i.logger.Errorf("error importing ssh host keys %v: %s", key, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ssh host keys succeeded")
 	return nil
 }
 

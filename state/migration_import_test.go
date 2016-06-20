@@ -683,6 +683,25 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
 }
 
+func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	machine2, err := newSt.Machine(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	keys, err := newSt.GetSSHHostKeys(machine2.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.

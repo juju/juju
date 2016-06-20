@@ -596,6 +596,23 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
 }
 
+func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	keys := model.SSHHostKeys()
+	c.Assert(keys, gc.HasLen, 1)
+	key := keys[0]
+	c.Assert(key.MachineID(), gc.Equals, machine.Id())
+	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
+}
+
 type goodToken struct{}
 
 // Check implements leadership.Token
