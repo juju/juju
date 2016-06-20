@@ -47,6 +47,7 @@ func NewModel(args ModelArgs) Model {
 	m.setLinkLayerDevices(nil)
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
+	m.setSSHHostKeys(nil)
 	return m
 }
 
@@ -118,6 +119,8 @@ type model struct {
 	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
 	Subnets_          subnets          `yaml:"subnets"`
 
+	SSHHostKeys_ sshhostkeys `yaml:"sshhostkeys"`
+
 	Sequences_ map[string]int `yaml:"sequences"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
@@ -128,7 +131,6 @@ type model struct {
 	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
 
 	// TODO:
-	// Subnets
 	// Storage...
 }
 
@@ -367,6 +369,29 @@ func (m *model) setIPAddresses(addressesList []*ipaddress) {
 	m.IPAddresses_ = ipaddresses{
 		Version:      1,
 		IPAddresses_: addressesList,
+	}
+}
+
+// SSHHostKeys implements Model.
+func (m *model) SSHHostKeys() []SSHHostKey {
+	var result []SSHHostKey
+	for _, addr := range m.SSHHostKeys_.SSHHostKeys_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
+// AddSSHHostKey implements Model.
+func (m *model) AddSSHHostKey(args SSHHostKeyArgs) SSHHostKey {
+	addr := newSSHHostKey(args)
+	m.SSHHostKeys_.SSHHostKeys_ = append(m.SSHHostKeys_.SSHHostKeys_, addr)
+	return addr
+}
+
+func (m *model) setSSHHostKeys(addressesList []*sshhostkey) {
+	m.SSHHostKeys_ = sshhostkeys{
+		Version:      1,
+		SSHHostKeys_: addressesList,
 	}
 }
 
@@ -642,6 +667,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"machines":         schema.StringMap(schema.Any()),
 		"applications":     schema.StringMap(schema.Any()),
 		"relations":        schema.StringMap(schema.Any()),
+		"sshhostkeys":      schema.StringMap(schema.Any()),
 		"ipaddresses":      schema.StringMap(schema.Any()),
 		"spaces":           schema.StringMap(schema.Any()),
 		"subnets":          schema.StringMap(schema.Any()),
@@ -758,5 +784,12 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		return nil, errors.Annotate(err, "ipaddresses")
 	}
 	result.setIPAddresses(addresses)
+
+	sshHostKeyMap := valid["sshhostkeys"].(map[string]interface{})
+	hostKeys, err := importSSHHostKeys(sshHostKeyMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "sshhostkeys")
+	}
+	result.setSSHHostKeys(sshhostkeys)
 	return result, nil
 }

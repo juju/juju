@@ -100,6 +100,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.sshhostkeys(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -711,6 +715,28 @@ func (e *exporter) ipaddresses() error {
 	e.logger.Debugf("read %d ip addresses", len(ipaddresses))
 	for _, addr := range ipaddresses {
 		e.model.AddIPAddress(description.IPAddressArgs{
+			ProviderID:       string(addr.ProviderID()),
+			DeviceName:       addr.DeviceName(),
+			MachineID:        addr.MachineID(),
+			SubnetCIDR:       addr.SubnetCIDR(),
+			ConfigMethod:     string(addr.ConfigMethod()),
+			Value:            addr.Value(),
+			DNSServers:       addr.DNSServers(),
+			DNSSearchDomains: addr.DNSSearchDomains(),
+			GatewayAddress:   addr.GatewayAddress(),
+		})
+	}
+	return nil
+}
+
+func (e *exporter) sshhostkeys() error {
+	sshhostkeys, err := e.st.AllSSHHostKeys()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d ip addresses", len(sshhostkeys))
+	for _, addr := range sshhostkeys {
+		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
 			ProviderID:       string(addr.ProviderID()),
 			DeviceName:       addr.DeviceName(),
 			MachineID:        addr.MachineID(),

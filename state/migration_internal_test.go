@@ -615,6 +615,25 @@ func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
 	s.AssertExportedFields(c, linkLayerDeviceDoc{}, migrated.Union(ignored))
 }
 
+func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
+	ignored := set.NewStrings(
+		"DocID",
+		"ModelUUID",
+	)
+	migrated := set.NewStrings(
+		"DeviceName",
+		"MachineID",
+		"DNSSearchDomains",
+		"GatewayAddress",
+		"ProviderID",
+		"DNSServers",
+		"SubnetCIDR",
+		"ConfigMethod",
+		"Value",
+	)
+	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
+}
+
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
 	expected := getExportedFields(doc)
 	unknown := expected.Difference(fields)

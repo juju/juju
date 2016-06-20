@@ -91,6 +91,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := newSt.SetModelConstraints(restore.constraints(model.Constraints())); err != nil {
 		return nil, nil, errors.Annotate(err, "model constraints")
 	}
+	if err := restore.sshhostkeys(); err != nil {
+		return nil, nil, errors.Annotate(err, "sshhostkeys")
+	}
 
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
@@ -1030,6 +1033,59 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 
 	if providerID != "" {
 		id := network.Id(providerID)
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (i *importer) sshhostkeys() error {
+	i.logger.Debugf("importing ip addresses")
+	for _, addr := range i.model.SSHHostKeys() {
+		err := i.addSSHHostKey(addr)
+		if err != nil {
+			i.logger.Errorf("error importing ip address %v: %s", addr, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ip addresses succeeded")
+	return nil
+}
+
+func (i *importer) addSSHHostKey(addr description.SSHHostKey) error {
+	addressValue := addr.Value()
+	subnetCIDR := addr.SubnetCIDR()
+
+	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), addressValue)
+	ipAddressDocID := i.st.docID(globalKey)
+	providerID := addr.ProviderID()
+
+	modelUUID := i.st.ModelUUID()
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       addr.DeviceName(),
+		MachineID:        addr.MachineID(),
+		SubnetCIDR:       subnetCIDR,
+		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		Value:            addressValue,
+		DNSServers:       addr.DNSServers(),
+		DNSSearchDomains: addr.DNSSearchDomains(),
+		GatewayAddress:   addr.GatewayAddress(),
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	}}
+
+	if providerID != "" {
+		id := network.Id(addr.ProviderID())
 		ops = append(ops, i.st.networkEntityGlobalKeyOp("address", id))
 	}
 	if err := i.st.runTransaction(ops); err != nil {

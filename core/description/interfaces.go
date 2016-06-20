@@ -74,6 +74,9 @@ type Model interface {
 	IPAddresses() []IPAddress
 	AddIPAddress(IPAddressArgs) IPAddress
 
+	SSHHostKeys() []SSHHostKey
+	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -355,6 +358,19 @@ type Subnet interface {
 
 // IPAddress represents an IP address.
 type IPAddress interface {
+	ProviderID() string
+	DeviceName() string
+	MachineID() string
+	SubnetCIDR() string
+	ConfigMethod() string
+	Value() string
+	DNSServers() []string
+	DNSSearchDomains() []string
+	GatewayAddress() string
+}
+
+// SSHHostKey represents an IP address.
+type SSHHostKey interface {
 	ProviderID() string
 	DeviceName() string
 	MachineID() string
