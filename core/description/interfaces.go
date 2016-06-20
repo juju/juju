@@ -77,6 +77,9 @@ type Model interface {
 	SSHHostKeys() []SSHHostKey
 	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
 
+	Actions() []Action
+	AddAction(ActionArgs) Action
+
 	Sequences() map[string]int
 	SetSequence(name string, value int)
 
@@ -373,4 +376,17 @@ type IPAddress interface {
 type SSHHostKey interface {
 	MachineID() string
 	Keys() []string
+}
+
+// Action represents an IP action.
+type Action interface {
+	ProviderID() string
+	DeviceName() string
+	MachineID() string
+	SubnetCIDR() string
+	ConfigMethod() string
+	Value() string
+	DNSServers() []string
+	DNSSearchDomains() []string
+	GatewayAddress() string
 }

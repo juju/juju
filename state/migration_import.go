@@ -95,6 +95,9 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err := restore.sshhostkeys(); err != nil {
 		return nil, nil, errors.Annotate(err, "sshhostkeys")
 	}
+	if err := restore.actions(); err != nil {
+		return nil, nil, errors.Annotate(err, "actions")
+	}
 
 	if err := restore.modelUsers(); err != nil {
 		return nil, nil, errors.Annotate(err, "modelUsers")
@@ -1053,6 +1056,59 @@ func (i *importer) sshhostkeys() error {
 		}
 	}
 	i.logger.Debugf("importing ssh host keys succeeded")
+	return nil
+}
+
+func (i *importer) actions() error {
+	i.logger.Debugf("importing ip actions")
+	for _, addr := range i.model.Actions() {
+		err := i.addAction(addr)
+		if err != nil {
+			i.logger.Errorf("error importing ip action %v: %s", addr, err)
+			return errors.Trace(err)
+		}
+	}
+	i.logger.Debugf("importing ip actions succeeded")
+	return nil
+}
+
+func (i *importer) addAction(addr description.Action) error {
+	actionValue := addr.Value()
+	subnetCIDR := addr.SubnetCIDR()
+
+	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), actionValue)
+	ipAddressDocID := i.st.docID(globalKey)
+	providerID := addr.ProviderID()
+
+	modelUUID := i.st.ModelUUID()
+
+	newDoc := &ipAddressDoc{
+		DocID:            ipAddressDocID,
+		ModelUUID:        modelUUID,
+		ProviderID:       providerID,
+		DeviceName:       addr.DeviceName(),
+		MachineID:        addr.MachineID(),
+		SubnetCIDR:       subnetCIDR,
+		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
+		Value:            actionValue,
+		DNSServers:       addr.DNSServers(),
+		DNSSearchDomains: addr.DNSSearchDomains(),
+		GatewayAddress:   addr.GatewayAddress(),
+	}
+
+	ops := []txn.Op{{
+		C:      ipAddressesC,
+		Id:     newDoc.DocID,
+		Insert: newDoc,
+	}}
+
+	if providerID != "" {
+		id := network.Id(addr.ProviderID())
+		ops = append(ops, i.st.networkEntityGlobalKeyOp("action", id))
+	}
+	if err := i.st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

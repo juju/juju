@@ -634,3 +634,19 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
+
+func (s *ModelSerializationSuite) TestAction(c *gc.C) {
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	addr := initial.AddAction(ActionArgs{Value: "10.0.0.4"})
+	c.Assert(addr.Value(), gc.Equals, "10.0.0.4")
+	actions := initial.Actions()
+	c.Assert(actions, gc.HasLen, 1)
+	c.Assert(actions[0], jc.DeepEquals, addr)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Actions(), jc.DeepEquals, actions)
+}
