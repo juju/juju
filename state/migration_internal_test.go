@@ -54,6 +54,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+
+		sshHostKeysC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -115,10 +117,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// after importing the model. It does not need to be migrated
 		// separately.
 		modelEntityRefsC,
-
-		// The SSH host keys for each machine will be reported as each
-		// machine agent starts up.
-		sshHostKeysC,
 
 		// This is marked as deprecated, and should probably be removed.
 		actionresultsC,
@@ -616,22 +614,11 @@ func (s *MigrationSuite) TestLinkLayerDeviceDocFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocID",
-		"ModelUUID",
-	)
+	ignored := set.NewStrings()
 	migrated := set.NewStrings(
-		"DeviceName",
-		"MachineID",
-		"DNSSearchDomains",
-		"GatewayAddress",
-		"ProviderID",
-		"DNSServers",
-		"SubnetCIDR",
-		"ConfigMethod",
-		"Value",
+		"Keys",
 	)
-	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
+	s.AssertExportedFields(c, sshHostKeysDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
