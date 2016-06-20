@@ -6,7 +6,7 @@ package uniter
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -23,6 +23,7 @@ type ManifoldConfig struct {
 	AgentName             string
 	APICallerName         string
 	MachineLockName       string
+	Clock                 clock.Clock
 	LeadershipTrackerName string
 }
 
@@ -34,9 +35,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.LeadershipTrackerName,
-			config.MachineLockName,
 		},
 		Start: func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
+			if config.Clock == nil {
+				return nil, errors.NotValidf("missing Clock")
+			}
+			if config.MachineLockName == "" {
+				return nil, errors.NotValidf("missing MachineLockName")
+			}
 
 			// Collect all required resources.
 			var agent agent.Agent
@@ -50,18 +56,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// leader-deposed hook -- but that's not done yet.
 				return nil, err
 			}
-			var machineLock *fslock.Lock
-			if err := getResource(config.MachineLockName, &machineLock); err != nil {
-				return nil, err
-			}
 			var leadershipTracker leadership.Tracker
 			if err := getResource(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, err
 			}
 
+			manifoldConfig := config
 			// Configure and start the uniter.
-			config := agent.CurrentConfig()
-			tag := config.Tag()
+			agentConfig := agent.CurrentConfig()
+			tag := agentConfig.Tag()
 			unitTag, ok := tag.(names.UnitTag)
 			if !ok {
 				return nil, errors.Errorf("expected a unit tag, got %v", tag)
@@ -71,11 +74,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
-				DataDir:              config.DataDir(),
-				MachineLock:          machineLock,
+				DataDir:              agentConfig.DataDir(),
+				MachineLockName:      manifoldConfig.MachineLockName,
 				MetricsTimerChooser:  NewMetricsTimerChooser(),
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				NewOperationExecutor: operation.NewExecutor,
+				Clock:                manifoldConfig.Clock,
 			}), nil
 		},
 	}

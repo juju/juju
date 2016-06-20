@@ -154,7 +154,7 @@ func (*jenvSuite) TestWriteError(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, "cannot write the jenv file: cannot write info: .*: permission denied")
+	c.Assert(err, gc.ErrorMatches, "cannot write the jenv file: .*")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 

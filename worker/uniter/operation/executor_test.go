@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -29,7 +30,7 @@ func failGetInstallCharm() (*corecharm.URL, error) {
 	return nil, errors.New("lol!")
 }
 
-func failAcquireLock(string) (func() error, error) {
+func failAcquireLock() (mutex.Releaser, error) {
 	return nil, errors.New("wat")
 }
 
@@ -325,7 +326,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
 }
 
-func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func() error, error)) operation.Executor {
+func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func() (mutex.Releaser, error)) operation.Executor {
 
 	initialState := justInstalledState()
 	statePath := filepath.Join(c.MkDir(), "state")
@@ -346,7 +347,7 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
 	}
 
 	mockLock := &mockLockFunc{op: op}
-	lockFunc := mockLock.newSucceedingLockUnlockSucceeds()
+	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
 	err := executor.Run(op)
@@ -357,52 +358,6 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
 	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
 
 	expectedStepsOnUnlock := []bool{true, true, true}
-	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
-}
-
-func (s *ExecutorSuite) TestLockSucceedsStepsCalledUnlockFails(c *gc.C) {
-	op := &mockOperation{
-		needsLock: true,
-		prepare:   newStep(nil, nil),
-		execute:   newStep(nil, nil),
-		commit:    newStep(nil, nil),
-	}
-
-	mockLock := &mockLockFunc{op: op}
-	lockFunc := mockLock.newSucceedingLockUnlockFails()
-	executor := s.initLockTest(c, lockFunc)
-
-	err := executor.Run(op)
-	c.Assert(err, gc.ErrorMatches, "but why")
-
-	c.Assert(mockLock.calledLock, jc.IsTrue)
-	c.Assert(mockLock.calledUnlock, jc.IsTrue)
-	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
-
-	expectedStepsOnUnlock := []bool{true, true, true}
-	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
-}
-
-func (s *ExecutorSuite) TestOpFailsUnlockFailsUnlockErrPropagated(c *gc.C) {
-	op := &mockOperation{
-		needsLock: true,
-		prepare:   newStep(nil, errors.New("kerblooie")),
-		execute:   newStep(nil, nil),
-		commit:    newStep(nil, nil),
-	}
-
-	mockLock := &mockLockFunc{op: op}
-	lockFunc := mockLock.newSucceedingLockUnlockFails()
-	executor := s.initLockTest(c, lockFunc)
-
-	err := executor.Run(op)
-	c.Assert(err, gc.ErrorMatches, "but why")
-
-	c.Assert(mockLock.calledLock, jc.IsTrue)
-	c.Assert(mockLock.calledUnlock, jc.IsTrue)
-	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
-
-	expectedStepsOnUnlock := []bool{true, false, false}
 	c.Assert(mockLock.stepsCalledOnUnlock, gc.DeepEquals, expectedStepsOnUnlock)
 }
 
@@ -432,7 +387,7 @@ func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *gc.C) {
 
 func (s *ExecutorSuite) testLockUnlocksOnError(c *gc.C, op *mockOperation) (error, *mockLockFunc) {
 	mockLock := &mockLockFunc{op: op}
-	lockFunc := mockLock.newSucceedingLockUnlockSucceeds()
+	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
 	err := executor.Run(op)
@@ -498,10 +453,15 @@ type mockLockFunc struct {
 	calledLock          bool
 	calledUnlock        bool
 	op                  *mockOperation
+	onRelease           func()
 }
 
-func (mock *mockLockFunc) newFailingLock() func(string) (func() error, error) {
-	return func(string) (func() error, error) {
+func (mock *mockLockFunc) Release() {
+	mock.onRelease()
+}
+
+func (mock *mockLockFunc) newFailingLock() func() (mutex.Releaser, error) {
+	return func() (mutex.Releaser, error) {
 		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
 			mock.op.commit.called == false &&
 			mock.op.prepare.called == false
@@ -510,33 +470,22 @@ func (mock *mockLockFunc) newFailingLock() func(string) (func() error, error) {
 
 }
 
-func (mock *mockLockFunc) newSucceedingLock(unlockFails bool) func(string) (func() error, error) {
-	return func(string) (func() error, error) {
+func (mock *mockLockFunc) newSucceedingLock() func() (mutex.Releaser, error) {
+	return func() (mutex.Releaser, error) {
 		mock.calledLock = true
 		// Ensure that when we lock no operation has been called
 		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
 			mock.op.commit.called == false &&
 			mock.op.prepare.called == false
-		return func() error {
+		mock.onRelease = func() {
 			// Record steps called when unlocking
 			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.called,
 				mock.op.execute.called,
 				mock.op.commit.called}
 			mock.calledUnlock = true
-			if unlockFails {
-				return errors.New("but why")
-			}
-			return nil
-		}, nil
+		}
+		return mock, nil
 	}
-}
-
-func (mock *mockLockFunc) newSucceedingLockUnlockFails() func(string) (func() error, error) {
-	return mock.newSucceedingLock(true)
-}
-
-func (mock *mockLockFunc) newSucceedingLockUnlockSucceeds() func(string) (func() error, error) {
-	return mock.newSucceedingLock(false)
 }
 
 type mockStep struct {

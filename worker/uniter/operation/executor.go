@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/mutex"
 	corecharm "gopkg.in/juju/charm.v5"
 )
 
@@ -28,14 +29,14 @@ var (
 type executor struct {
 	file               *StateFile
 	state              *State
-	acquireMachineLock func(string) (func() error, error)
+	acquireMachineLock func() (mutex.Releaser, error)
 }
 
 // NewExecutor returns an Executor which takes its starting state from the
 // supplied path, and records state changes there. If no state file exists,
 // the executor's starting state will include a queued Install hook, for
 // the charm identified by the supplied func.
-func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func() error, error)) (Executor, error) {
+func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (Executor, error) {
 	file := NewStateFile(stateFilePath)
 	state, err := file.Read()
 	if err == ErrNoStateFile {
@@ -68,7 +69,7 @@ func (x *executor) Run(op Operation) (runErr error) {
 	logger.Infof("running operation %v", op)
 
 	if op.NeedsGlobalMachineLock() {
-		unlock, err := x.acquireMachineLock(fmt.Sprintf("executing operation: %s", op.String()))
+		releaser, err := x.acquireMachineLock()
 		if err != nil {
 			return errors.Annotate(err, "could not acquire lock")
 		}
@@ -76,13 +77,7 @@ func (x *executor) Run(op Operation) (runErr error) {
 		// between execute and commit, but since we're not looking for the
 		// efficiency provided by that right now, we prefer to keep the logic
 		// simple. This could be changed in the future.
-		defer func() {
-			unlockErr := unlock()
-			if unlockErr != nil {
-				logger.Errorf("operation failed with error %v; error overriden by unlock failure error", runErr)
-				runErr = unlockErr
-			}
-		}()
+		defer releaser.Release()
 	}
 
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {

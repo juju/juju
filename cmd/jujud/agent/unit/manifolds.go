@@ -6,6 +6,8 @@ package unit
 import (
 	"time"
 
+	"github.com/juju/utils/clock"
+
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -15,7 +17,6 @@ import (
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machinelock"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
@@ -49,13 +50,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		// (Currently, that is "all manifolds", but consider a shared clock.)
 		AgentName: agent.Manifold(config.Agent),
-
-		// The machine lock manifold is a thin concurrent wrapper around an
-		// FSLock in an agreed location. We expect it to be replaced with an
-		// in-memory lock when the unit agent moves into the machine agent.
-		MachineLockName: machinelock.Manifold(machinelock.ManifoldConfig{
-			AgentName: AgentName,
-		}),
 
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
@@ -148,7 +142,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:             AgentName,
 			APICallerName:         APICallerName,
 			LeadershipTrackerName: LeadershipTrackerName,
-			MachineLockName:       MachineLockName,
+			MachineLockName:       coreagent.MachineLockName,
+			Clock:                 clock.WallClock,
 		}),
 	}
 }
@@ -161,7 +156,6 @@ const (
 	LeadershipTrackerName    = "leadership-tracker"
 	LoggingConfigUpdaterName = "logging-config-updater"
 	LogSenderName            = "log-sender"
-	MachineLockName          = "machine-lock"
 	ProxyConfigUpdaterName   = "proxy-config-updater"
 	RsyslogConfigUpdaterName = "rsyslog-config-updater"
 	UniterName               = "uniter"

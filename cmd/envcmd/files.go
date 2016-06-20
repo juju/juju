@@ -12,7 +12,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/juju/osenv"
 )
@@ -21,7 +22,7 @@ const (
 	CurrentEnvironmentFilename = "current-environment"
 	CurrentSystemFilename      = "current-system"
 
-	lockName = "current.lock"
+	lockName = "current-lock"
 
 	systemSuffix = " (system)"
 )
@@ -43,8 +44,9 @@ type ServerFile struct {
 
 // NOTE: synchronisation across functions in this file.
 //
-// Each of the read and write functions use a fslock to synchronise calls
-// across both the current executable and across different executables.
+// Each of the read and write functions use a juju/mutex is used to
+// synchronise calls across both the current executable and across different
+// executables.
 
 func getCurrentEnvironmentFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
@@ -57,11 +59,11 @@ func getCurrentSystemFilePath() string {
 // Read the file $JUJU_HOME/current-environment and return the value stored
 // there.  If the file doesn't exist an empty string is returned and no error.
 func ReadCurrentEnvironment() (string, error) {
-	lock, err := acquireEnvironmentLock("read current-environment")
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer lock.Unlock()
+	defer releaser.Release()
 
 	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
 	if err != nil {
@@ -76,11 +78,11 @@ func ReadCurrentEnvironment() (string, error) {
 // Read the file $JUJU_HOME/current-system and return the value stored there.
 // If the file doesn't exist an empty string is returned and no error.
 func ReadCurrentSystem() (string, error) {
-	lock, err := acquireEnvironmentLock("read current-system")
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer lock.Unlock()
+	defer releaser.Release()
 
 	current, err := ioutil.ReadFile(getCurrentSystemFilePath())
 	if err != nil {
@@ -94,11 +96,11 @@ func ReadCurrentSystem() (string, error) {
 
 // Write the envName to the file $JUJU_HOME/current-environment file.
 func WriteCurrentEnvironment(envName string) error {
-	lock, err := acquireEnvironmentLock("write current-environment")
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer lock.Unlock()
+	defer releaser.Release()
 
 	path := getCurrentEnvironmentFilePath()
 	err = ioutil.WriteFile(path, []byte(envName+"\n"), 0644)
@@ -117,11 +119,11 @@ func WriteCurrentEnvironment(envName string) error {
 
 // Write the systemName to the file $JUJU_HOME/current-system file.
 func WriteCurrentSystem(systemName string) error {
-	lock, err := acquireEnvironmentLock("write current-system")
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer lock.Unlock()
+	defer releaser.Release()
 
 	path := getCurrentSystemFilePath()
 	err = ioutil.WriteFile(path, []byte(systemName+"\n"), 0644)
@@ -138,19 +140,18 @@ func WriteCurrentSystem(systemName string) error {
 	return nil
 }
 
-func acquireEnvironmentLock(operation string) (*fslock.Lock, error) {
-	// NOTE: any reading or writing from the directory should be done with a
-	// fslock to make sure we have a consistent read or write.  Also worth
-	// noting, we should use a very short timeout.
-	lock, err := fslock.NewLock(osenv.JujuHome(), lockName)
+func acquireEnvironmentLock() (mutex.Releaser, error) {
+	spec := mutex.Spec{
+		Name:    lockName,
+		Clock:   clock.WallClock,
+		Delay:   20 * time.Millisecond,
+		Timeout: lockTimeout,
+	}
+	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = lock.LockWithTimeout(lockTimeout, operation)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return lock, nil
+	return releaser, nil
 }
 
 // CurrentConnectionName looks at both the current environment file

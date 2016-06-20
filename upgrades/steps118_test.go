@@ -27,7 +27,6 @@ func (s *steps118Suite) TestStateStepsFor118(c *gc.C) {
 
 func (s *steps118Suite) TestStepsFor118(c *gc.C) {
 	expected := []string{
-		"make $DATADIR/locks owned by ubuntu:ubuntu",
 		"generate system ssh key",
 		"install rsyslog-gnutls",
 		"make /home/ubuntu/.profile source .juju-proxy file",

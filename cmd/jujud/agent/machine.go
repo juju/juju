@@ -18,6 +18,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mutex"
 	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -769,11 +770,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return rebootworker.NewReboot(reboot, agentConfig, lock)
+		return rebootworker.NewReboot(reboot, agentConfig, agent.MachineLockName, clock.WallClock)
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		addressUpdater := agent.APIHostPortsSetter{a}
@@ -974,10 +971,6 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
-	initLock, err := cmdutil.HookExecutionLock(agentConfig.DataDir())
-	if err != nil {
-		return err
-	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	envUUID, err := st.EnvironTag()
 	if err != nil {
@@ -1013,7 +1006,8 @@ func (a *MachineAgent) updateSupportedContainers(
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
-		InitLock:            initLock,
+		InitLockName:        agent.MachineLockName,
+		AcquireLockFunc:     mutex.Acquire,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {

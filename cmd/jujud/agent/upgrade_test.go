@@ -841,12 +841,6 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	cmds := s.getAptCmds()
 	s.assertCommonUpgrades(c, cmds)
 
-	// Lock directory
-	// TODO(bogdanteleaga): Fix this on windows. Currently a bash script is
-	// used to create the directory which partially works on windows 8 but
-	// doesn't work on windows server.
-	lockdir := filepath.Join(s.DataDir(), "locks")
-	c.Assert(lockdir, jc.IsDirectory)
 	// SSH key file should not be generated for hosts.
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)

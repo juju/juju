@@ -109,6 +109,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		return echoUnitNameToFileHelper(testDir, name)
 	}
 
+	var lock hookLock
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"run commands: environment",
@@ -164,10 +165,10 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: waits for lock",
 			quickStart{},
-			acquireHookSyncLock{},
+			lock.acquire(),
 			asyncRunCommands{echoUnitNameToFile("wait.output")},
 			verifyNoFile{testFile("wait.output")},
-			releaseHookSyncLock,
+			lock.release(),
 			verifyFile{testFile("wait.output"), "juju run u/0\n"},
 			waitContextWaitGroup{},
 		),

@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -146,7 +145,8 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	// Cannot use permissions properly on windows for now
 	if runtime.GOOS != "windows" {
 		err = info.Write()
-		c.Assert(err, gc.ErrorMatches, ".* permission denied")
+		c.Log(errors.ErrorStack(err))
+		c.Assert(err, gc.ErrorMatches, "cannot write file: .*")
 	}
 
 	// Make the directory writable again so that gocheck can clean it up.
@@ -222,29 +222,4 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
 	c.Assert(yaInfo.APIEndpoint().Hostnames, gc.DeepEquals, []string{"just this"})
-}
-
-func (*diskStoreSuite) TestConcurrentAccessBreaksIfTimeExceeded(c *gc.C) {
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("test-log", &tw, loggo.DEBUG), gc.IsNil)
-
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envDir := storePath(dir, "")
-	_, err = configstore.AcquireEnvironmentLock(envDir, "blocking-op")
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = store.ReadInfo("someenv")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-
-	// Using . between environments and env.lock so we don't have to care
-	// about forward vs. backwards slash separator.
-	messages := []jc.SimpleMessage{
-		{loggo.WARNING, `breaking configstore lock, lock dir: .*environments.env\.lock`},
-		{loggo.WARNING, `lock holder message: pid: \d+, operation: blocking-op`},
-	}
-
-	c.Check(tw.Log(), jc.LogMatches, messages)
 }

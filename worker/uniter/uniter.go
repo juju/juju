@@ -6,15 +6,15 @@ package uniter
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mutex"
 	"github.com/juju/names"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v5"
 	"launchpad.net/tomb"
 
@@ -72,7 +72,9 @@ type Uniter struct {
 
 	leadershipTracker leadership.Tracker
 
-	hookLock    *fslock.Lock
+	hookLockName string
+	clock        clock.Clock
+
 	runListener *RunListener
 	runCommands chan creator
 
@@ -106,13 +108,14 @@ type UniterParams struct {
 	UnitTag              names.UnitTag
 	LeadershipTracker    leadership.Tracker
 	DataDir              string
-	MachineLock          *fslock.Lock
+	MachineLockName      string
 	MetricsTimerChooser  *timerChooser
 	UpdateStatusSignal   TimedSignal
 	NewOperationExecutor NewExecutorFunc
+	Clock                clock.Clock
 }
 
-type NewExecutorFunc func(string, func() (*corecharm.URL, error), func(string) (func() error, error)) (operation.Executor, error)
+type NewExecutorFunc func(string, func() (*corecharm.URL, error), func() (mutex.Releaser, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
@@ -121,7 +124,8 @@ func NewUniter(uniterParams *UniterParams) *Uniter {
 	u := &Uniter{
 		st:                   uniterParams.UniterFacade,
 		paths:                NewPaths(uniterParams.DataDir, uniterParams.UnitTag),
-		hookLock:             uniterParams.MachineLock,
+		hookLockName:         uniterParams.MachineLockName,
+		clock:                uniterParams.Clock,
 		leadershipTracker:    uniterParams.LeadershipTracker,
 		metricsTimerChooser:  uniterParams.MetricsTimerChooser,
 		collectMetricsAt:     uniterParams.MetricsTimerChooser.inactive,
@@ -200,21 +204,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	return err
 }
 
-func (u *Uniter) setupLocks() (err error) {
-	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
-		// Look to see if it was us that held the lock before.  If it was, we
-		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by the init system.
-		parts := strings.SplitN(message, ":", 2)
-		if len(parts) > 1 && parts[0] == u.unit.Name() {
-			if err := u.hookLock.BreakLock(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -226,9 +215,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
-	}
-	if err = u.setupLocks(); err != nil {
-		return err
 	}
 	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
@@ -430,20 +416,16 @@ func (u *Uniter) runOperation(creator creator) (err error) {
 // acquireExecutionLock acquires the machine-level execution lock, and
 // returns a func that must be called to unlock it. It's used by operation.Executor
 // when running operations that execute external code.
-func (u *Uniter) acquireExecutionLock(message string) (func() error, error) {
-	// We want to make sure we don't block forever when locking, but take the
-	// Uniter's tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			return nil
-		}
+func (u *Uniter) acquireExecutionLock() (mutex.Releaser, error) {
+	spec := mutex.Spec{
+		Name:   u.hookLockName,
+		Clock:  u.clock,
+		Delay:  250 * time.Millisecond,
+		Cancel: u.tomb.Dying(),
 	}
-	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
-	if err := u.hookLock.LockWithFunc(message, checkTomb); err != nil {
-		return nil, err
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return func() error { return u.hookLock.Unlock() }, nil
+	return releaser, nil
 }

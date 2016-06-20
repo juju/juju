@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -28,7 +28,7 @@ var logger = loggo.GetLogger("juju.environs.configstore")
 type configSource string
 
 const (
-	lockName = "env.lock"
+	lockName = "env-lock"
 
 	sourceCreated configSource = "created"
 	sourceJenv    configSource = "jenv"
@@ -187,13 +187,12 @@ func (d *diskStore) ListSystems() ([]string, error) {
 // ReadInfo implements Storage.ReadInfo.
 func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	// NOTE: any reading or writing from the directory should be done with a
-	// fslock to make sure we have a consistent read or write.  Also worth
-	// noting, we should use a very short timeout.
-	lock, err := acquireEnvironmentLock(d.dir, "reading")
+	// cross process lock to make sure we have a consistent read or write.
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot read info")
 	}
-	defer unlockEnvironmentLock(lock)
+	defer releaser.Release()
 
 	info, err := d.readCacheFile(envName)
 	if err != nil {
@@ -305,11 +304,12 @@ func (info *environInfo) Location() string {
 func (info *environInfo) Write() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	lock, err := acquireEnvironmentLock(info.environmentDir, "writing")
+
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return errors.Annotatef(err, "cannot write info")
 	}
-	defer unlockEnvironmentLock(lock)
+	defer releaser.Release()
 
 	// In order to write out the environment info to the cache
 	// file we need to make sure the server UUID is set. Sufficiently
@@ -361,11 +361,11 @@ func (info *environInfo) Write() error {
 func (info *environInfo) Destroy() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	lock, err := acquireEnvironmentLock(info.environmentDir, "destroying")
+	releaser, err := acquireEnvironmentLock()
 	if err != nil {
 		return errors.Annotatef(err, "cannot destroy environment info")
 	}
-	defer unlockEnvironmentLock(lock)
+	defer releaser.Release()
 
 	if info.initialized() {
 		if info.source == sourceJenv {
@@ -462,7 +462,7 @@ func (info *environInfo) writeJENVFile() error {
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal environment info")
 	}
-	// We now use a fslock to sync reads and writes across the environment,
+	// We now use a juju/mutex to sync reads and writes across the environment,
 	// so we don't need to use a temporary file any more.
 
 	flags := os.O_WRONLY
@@ -484,53 +484,16 @@ func (info *environInfo) writeJENVFile() error {
 	return errors.Annotate(err, "cannot write file")
 }
 
-func acquireEnvironmentLock(dir, operation string) (*fslock.Lock, error) {
-	lock, err := fslock.NewLock(dir, lockName)
+func acquireEnvironmentLock() (mutex.Releaser, error) {
+	spec := mutex.Spec{
+		Name:    lockName,
+		Clock:   clock.WallClock,
+		Delay:   20 * time.Millisecond,
+		Timeout: lockTimeout,
+	}
+	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	message := fmt.Sprintf("pid: %d, operation: %s", os.Getpid(), operation)
-	err = lock.LockWithTimeout(lockTimeout, message)
-	if err == nil {
-		return lock, nil
-	}
-	if errors.Cause(err) != fslock.ErrTimeout {
-		return nil, errors.Trace(err)
-	}
-
-	logger.Warningf("breaking configstore lock, lock dir: %s", filepath.Join(dir, lockName))
-	logger.Warningf("  lock holder message: %s", lock.Message())
-
-	// If we are unable to acquire the lock within the lockTimeout,
-	// consider it broken for some reason, and break it.
-	err = lock.BreakLock()
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to break the configstore lock")
-	}
-
-	err = lock.LockWithTimeout(lockTimeout, message)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return lock, nil
-}
-
-// It appears that sometimes the lock is not cleared when we expect it to be.
-// Capture and log any errors from the Unlock method and retry a few times.
-func unlockEnvironmentLock(lock *fslock.Lock) {
-	attempts := utils.AttemptStrategy{
-		Delay: 50 * time.Millisecond,
-		Min:   10,
-	}
-	var err error
-	for a := attempts.Start(); a.Next(); {
-		err = lock.Unlock()
-		if err == nil {
-			return
-		}
-		if a.HasNext() {
-			logger.Debugf("failed to unlock configstore lock: %s, retrying", err)
-		}
-	}
-	logger.Errorf("unable to unlock configstore lock: %s", err)
+	return releaser, nil
 }
