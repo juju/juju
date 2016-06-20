@@ -36,6 +36,7 @@ var envVars = map[string]string{
 	"OS_SECRET_KEY":         "",
 	"OS_TENANT_NAME":        "",
 	"OS_USERNAME":           "",
+	"OS_DOMAIN_NAME":        "",
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -59,6 +60,7 @@ type configTest struct {
 	tenantName              string
 	authMode                AuthMode
 	authURL                 string
+	domainName              string
 	accessKey               string
 	secretKey               string
 	firewallMode            string
@@ -250,6 +252,16 @@ var configTests = []configTest{
 		}),
 		err: `.*expected string, got int\(666\)`,
 	}, {
+		summary: "invalid domain-name",
+		config: requiredConfig.Merge(testing.Attrs{
+			"domain-name": 666,
+		}),
+		err: `.*expected string, got int\(666\)`,
+	}, {
+		summary: "domain-name optional",
+		config:  requiredConfig.Delete("domain-name"),
+		err:     "",
+	}, {
 		summary: "missing tenant in model",
 		config:  requiredConfig.Delete("tenant-name"),
 		err:     "missing tenant-name not valid",
@@ -311,7 +323,24 @@ var configTests = []configTest{
 		username:   "jujuer",
 		password:   "open sesame",
 		tenantName: "juju tenant",
+		domainName: "",
 		authURL:    "http://some.url/v2",
+		authMode:   AuthLegacy,
+	}, {
+		summary: "valid auth args with domain-name",
+		config: requiredConfig.Merge(testing.Attrs{
+			"username":    "jujuer",
+			"password":    "open sesame",
+			"tenant-name": "juju tenant",
+			"auth-mode":   "legacy",
+			"auth-url":    "http://some.url/v3",
+			"domain-name": "somedomain",
+		}),
+		username:   "jujuer",
+		password:   "open sesame",
+		tenantName: "juju tenant",
+		domainName: "somdomain",
+		authURL:    "http://some.url/v3",
 		authMode:   AuthLegacy,
 	}, {
 		summary: "default use floating ip",
@@ -465,6 +494,7 @@ func bootstrapConfigParams(cfg *config.Config) environs.BootstrapConfigParams {
 			"username":    "user",
 			"password":    "secret",
 			"tenant-name": "sometenant",
+			"domain-name": "",
 		}),
 		CloudRegion:   "region",
 		CloudEndpoint: "http://auth",
