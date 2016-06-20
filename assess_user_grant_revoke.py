@@ -21,6 +21,7 @@ from deploy_stack import (
     BootstrapManager,
 )
 
+from jujupy import Controller
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -45,15 +46,16 @@ def register_user(user, client, fake_home):
     # refactor once supported, bug 1573099
     # pexpect has a bug, and doesn't honor env=
     username = user.name
+    controller_name = '{}_controller'.format(username)
     token = client.add_user(username, permissions=user.permissions)
     user_client, user_env = create_cloned_environment(
-        client, fake_home)
+        client, fake_home, controller_name)
 
     with scoped_environ(user_env):
         try:
             child = user_client.expect('register', (token), include_e=False)
             child.expect('(?i)name .*: ')
-            child.sendline(username + '_controller')
+            child.sendline(controller_name)
             child.expect('(?i)password')
             child.sendline(username + '_password')
             child.expect('(?i)password')
@@ -68,9 +70,11 @@ def register_user(user, client, fake_home):
     return user_client
 
 
-def create_cloned_environment(client, cloned_juju_home):
+def create_cloned_environment(client, cloned_juju_home, controller_name):
     user_client = client.clone(env=client.env.clone())
     user_client.env.juju_home = cloned_juju_home
+    # New user names the controller.
+    user_client.env.controller = Controller(controller_name)
     user_client_env = user_client._shell_environ()
     return user_client, user_client_env
 
