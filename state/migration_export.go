@@ -736,7 +736,9 @@ func (e *exporter) sshhostkeys() error {
 	}
 	for _, machine := range machines {
 		keys, err := e.st.GetSSHHostKeys(machine.MachineTag())
-		if err != nil {
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 		if len(keys) == 0 {

@@ -687,24 +687,7 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: "foo",
-		Type: state.EthernetDevice,
-	}
-	err = machine.SetLinkLayerDevices(deviceArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
-	}
-	err = machine.SetDevicesAddresses(args)
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
@@ -712,19 +695,11 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 		c.Assert(newSt.Close(), jc.ErrorIsNil)
 	}()
 
-	addresses, _ := newSt.AllSSHHostKeys()
-	c.Assert(addresses, gc.HasLen, 1)
+	machine2, err := newSt.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	addr := addresses[0]
-	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
-	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
-	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, state.StaticAddress)
-	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
-	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
-	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
-	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
+	keys, err := newSt.GetSSHHostKeys(machine2.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
 }
 
 // newModel replaces the uuid and name of the config attributes so we
