@@ -734,10 +734,17 @@ func (e *exporter) sshhostkeys() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, key := range machines {
+	for _, machine := range machines {
+		keys, err := e.st.GetSSHHostKeys(machine.MachineTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(keys) == 0 {
+			continue
+		}
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
-			MachineID: key.MachineID(),
-			Keys:      key.Keys(),
+			MachineID: machine.Id(),
+			Keys:      keys,
 		})
 	}
 	return nil
