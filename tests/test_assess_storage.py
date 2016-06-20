@@ -15,6 +15,8 @@ from assess_storage import (
     storage_list_expected_2,
     storage_list_expected_3,
     storage_list_expected_4,
+    storage_list_expected_5,
+    storage_list_expected_6,
     storage_pool_details,
 )
 from tests import (
@@ -83,7 +85,9 @@ class TestAssess(TestCase):
             json.dumps(storage_list_expected),
             json.dumps(storage_list_expected_2),
             json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4)
+            json.dumps(storage_list_expected_4),
+            json.dumps(storage_list_expected_5),
+            json.dumps(storage_list_expected_6)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
@@ -116,7 +120,9 @@ class TestAssess(TestCase):
             json.dumps(storage_list_expected),
             json.dumps(storage_list_expected_2),
             json.dumps(storage_list_expected_3),
-            json.dumps(storage_list_expected_4)
+            json.dumps(storage_list_expected_4),
+            json.dumps(storage_list_expected_5),
+            json.dumps(storage_list_expected_6)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(

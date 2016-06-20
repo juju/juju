@@ -108,6 +108,24 @@ storage_list_expected_4["storage"]["data/3"] = {
                 {"dummy-storage-tp/0":
                     {
                         "location": "/srv/data"}}}}
+storage_list_expected_5 = copy.deepcopy(storage_list_expected_4)
+storage_list_expected_5["storage"]["data/4"] = {
+    "kind": "filesystem",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-np/0":
+                    {
+                        "location": "/srv/data"}}}}
+storage_list_expected_6 = copy.deepcopy(storage_list_expected_5)
+storage_list_expected_6["storage"]["data/5"] = {
+    "kind": "filesystem",
+    "attachments":
+        {
+            "units":
+                {"dummy-storage-mp/0":
+                    {
+                        "location": "/srv/data"}}}}
 
 
 def storage_list(client):
@@ -159,6 +177,9 @@ def deploy_storage(client, charm, series, pool, amount="1G", charm_repo=None):
     if pool == "loop":
         client.deploy(charm, series=series, repository=charm_repo,
                       storage="disks=" + pool + "," + amount)
+    elif pool is None:
+        client.deploy(charm, series=series, repository=charm_repo,
+                      storage="data=" + amount)
     else:
         client.deploy(charm, series=series, repository=charm_repo,
                       storage="data=" + pool + "," + amount)
@@ -166,22 +187,22 @@ def deploy_storage(client, charm, series, pool, amount="1G", charm_repo=None):
 
 
 def assess_deploy_storage(client, charm_series,
-                          charm_name, provider_type, pool):
+                          charm_name, provider_type, pool=None):
     """Set up the test for deploying charm with storage."""
-    if provider_type == 'filesystem':
-        storage = {
-            "data": {
-                "type": provider_type,
-                "location": "/srv/data"
-            }
-        }
-    elif provider_type == "block":
+    if provider_type == "block":
         storage = {
             "disks": {
                 "type": provider_type,
                 "multiple": {
                     "range": "0-10"
                 }
+            }
+        }
+    else:
+        storage = {
+            "data": {
+                "type": provider_type,
+                "location": "/srv/data"
             }
         }
     with temp_dir() as charm_dir:
@@ -195,6 +216,47 @@ def assess_deploy_storage(client, charm_series,
         deploy_storage(client, charm, charm_series, pool, "1G", charm_dir)
 
 
+def assess_multiple_provider(client, charm_series, amount, charm_name,
+                             provider_1, provider_2, pool_1, pool_2):
+    storage = {}
+    for provider in [provider_1, provider_2]:
+        if provider == "block":
+            storage.update({
+                "disks": {
+                    "type": provider,
+                    "multiple": {
+                        "range": "0-10"
+                    }
+                }
+            })
+        else:
+            storage.update({
+                "data": {
+                    "type": provider,
+                    "location": "/srv/data"
+                }
+            })
+    with temp_dir() as charm_dir:
+        charm_root = create_storage_charm(charm_dir, charm_name,
+                                          'Test charm for storage', storage)
+        platform = 'ubuntu'
+        charm = local_charm_path(charm=charm_name, juju_ver=client.version,
+                                 series=charm_series,
+                                 repository=os.path.dirname(charm_root),
+                                 platform=platform)
+        if pool_1 == "loop":
+            command = "disks=" + pool_1 + "," + amount
+        else:
+            command = "data=" + pool_1 + "," + amount
+        if pool_2 == "loop":
+            command = command + ",disks=" + pool_2
+        else:
+            command = command + ",data=" + pool_2
+        client.deploy(charm, series=charm_series, repository=charm_dir,
+                      storage=command)
+        client.wait_for_started()
+
+
 def assess_storage(client, charm_series):
     """Test the storage feature."""
     assess_create_pool(client)
@@ -203,7 +265,6 @@ def assess_storage(client, charm_series):
         if pool_list != storage_pool_details:
             raise JujuAssertionError(pool_list)
     elif client.version.startswith('1.'):
-        print(json.dumps(pool_list))
         if pool_list != storage_pool_1X:
             raise JujuAssertionError(pool_list)
     assess_deploy_storage(client, charm_series,
@@ -224,6 +285,16 @@ def assess_storage(client, charm_series):
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
     storage_list_derived = storage_list(client)
     if storage_list_derived != storage_list_expected_4:
+        raise JujuAssertionError(storage_list_derived)
+    assess_deploy_storage(client, charm_series,
+                          'dummy-storage-np', 'filesystem')
+    storage_list_derived = storage_list(client)
+    if storage_list_derived != storage_list_expected_5:
+        raise JujuAssertionError(storage_list_derived)
+    assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
+                             'filesystem', 'block', 'rootfs', 'loop')
+    storage_list_derived = storage_list(client)
+    if storage_list_derived != storage_list_expected_6:
         raise JujuAssertionError(storage_list_derived)
     # storage with provider 'ebs' is only available under 'aws'
     # assess_deploy_storage(client, charm_series,
