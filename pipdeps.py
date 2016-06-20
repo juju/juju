@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import platform
 import subprocess
 import sys
 
@@ -18,8 +19,17 @@ BUCKET = "juju-pip-archives"
 PREFIX = "juju-ci-tools/"
 REQUIREMENTS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                             "requirements.txt")
+MAC_WIN_REQS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                            "mac-win-requirements.txt")
 OBSOLETE = os.path.join(os.path.realpath(os.path.dirname(__file__)),
                         "obsolete-requirements.txt")
+
+
+def get_requirements():
+    if platform.dist()[0] in ('Ubuntu', 'debian'):
+        return REQUIREMENTS
+    else:
+        return MAC_WIN_REQS
 
 
 def s3_anon():
@@ -73,7 +83,7 @@ def run_pip_uninstall(obsolete_requirements, verbose=False):
     removable = installed_packages.intersection(obsolete_packages)
     for package_version in removable:
         package, version = package_version.split()
-        uninstall_cmd = pip_cmd + ['uninstall', package]
+        uninstall_cmd = pip_cmd + ['uninstall', '-y', package]
         subprocess.check_call(uninstall_cmd)
 
 
@@ -125,7 +135,7 @@ def get_parser(argv0):
         "--cloud-city", default="~/cloud-city", type=os.path.expanduser,
         help="Location of cloud-city repository for credentials.")
     parser.add_argument(
-        "--requirements", default=REQUIREMENTS, type=os.path.expanduser,
+        "--requirements", default=get_requirements(), type=os.path.expanduser,
         help="Location requirements file to use.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("install", help="Download deps from S3 and install.")

@@ -22,7 +22,7 @@ class TestGetParser(unittest.TestCase):
         parser = pipdeps.get_parser("pipdeps.py")
         args = parser.parse_args(["-v", "install"])
         self.assertEqual("install", args.command)
-        self.assertEqual(pipdeps.REQUIREMENTS, args.requirements)
+        self.assertEqual(pipdeps.get_requirements(), args.requirements)
         self.assertEqual(True, args.verbose)
 
     def test_update_cloud_city(self):
@@ -97,4 +97,23 @@ class TestRunPipUninstall(unittest.TestCase):
                                 autospec=True) as cc_mock:
                     pipdeps.run_pip_uninstall(obsolete, verbose=False)
         co_mock.assert_called_once_with(['pip', '-q', 'list'])
-        cc_mock.assert_called_once_with(['pip', '-q', 'uninstall', 'azure'])
+        cc_mock.assert_called_once_with(
+            ['pip', '-q', 'uninstall', '-y', 'azure'])
+
+
+class TestGetRequirements(unittest.TestCase):
+
+    def test_get_requirements(self):
+        dists = [
+            ('Ubuntu', '16.04', 'xenial'),
+            ('debian', 'squeeze/sid', ''),
+            ('centos', '7.2.1511', 'Core'),
+            ('', '', ''),  # Windows and MacOS
+            ]
+        with mock.patch('platform.dist', autospec=True,
+                        side_effect=dists):
+            self.assertEqual(pipdeps.REQUIREMENTS, pipdeps.get_requirements())
+            self.assertEqual(pipdeps.REQUIREMENTS, pipdeps.get_requirements())
+            self.assertEqual(pipdeps.MAC_WIN_REQS, pipdeps.get_requirements())
+
+            self.assertEqual(pipdeps.MAC_WIN_REQS, pipdeps.get_requirements())
