@@ -14,8 +14,8 @@ type sshhostkeys struct {
 }
 
 type sshhostkey struct {
-	MachineID_ string `yaml:"machineid"`
-	Keys_      string `yaml:"keys"`
+	MachineID_ string   `yaml:"machineid"`
+	Keys_      []string `yaml:"keys"`
 }
 
 // MachineID implements SSHHostKey.

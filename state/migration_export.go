@@ -730,22 +730,14 @@ func (e *exporter) ipaddresses() error {
 }
 
 func (e *exporter) sshhostkeys() error {
-	sshhostkeys, err := e.st.AllSSHHostKeys()
+	machines, err := e.st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	e.logger.Debugf("read %d ip addresses", len(sshhostkeys))
-	for _, addr := range sshhostkeys {
+	for _, key := range machines {
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
-			ProviderID:       string(addr.ProviderID()),
-			DeviceName:       addr.DeviceName(),
-			MachineID:        addr.MachineID(),
-			SubnetCIDR:       addr.SubnetCIDR(),
-			ConfigMethod:     string(addr.ConfigMethod()),
-			Value:            addr.Value(),
-			DNSServers:       addr.DNSServers(),
-			DNSSearchDomains: addr.DNSSearchDomains(),
-			GatewayAddress:   addr.GatewayAddress(),
+			MachineID: key.MachineID(),
+			Keys:      key.Keys(),
 		})
 	}
 	return nil
