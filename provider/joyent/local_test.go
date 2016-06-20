@@ -159,7 +159,9 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerUUID: s.ControllerUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
@@ -168,7 +170,9 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerUUID: s.ControllerUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, hwc := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
@@ -179,7 +183,9 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerUUID: s.ControllerUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -286,7 +292,9 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerUUID: s.ControllerUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.

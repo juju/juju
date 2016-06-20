@@ -116,6 +116,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ModelUUID",
 		"ControllerModel",
 		"CloudCredentials",
+		"ControllerConfig",
 		"NewModel",
 		"ForModel",
 		"Model",
@@ -127,7 +128,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
 	// same as the controller UUID.
-	newModelArgs := s.st.Calls()[4].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
 	uuid := newModelArgs.Config.UUID()
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
@@ -135,6 +136,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"name":            "foo",
 		"type":            "dummy",
 		"authorized-keys": s.st.controllerModel.cfg.AuthorizedKeys(),
+		"controller-uuid": coretesting.ModelTag.Id(),
 		"uuid":            uuid,
 		"agent-version":   jujuversion.Current.String(),
 		"bar":             "baz",
@@ -160,7 +162,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[4].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudRegion, gc.Equals, "some-region")
 }
 
@@ -172,7 +174,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[4].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "some-credential")
 }
 
@@ -184,7 +186,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[4].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "")
 }
 

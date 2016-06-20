@@ -6,9 +6,11 @@ package provisioner
 import (
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -33,7 +35,7 @@ type ContainerSetup struct {
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
-	initLock            *fslock.Lock
+	initLockName        string
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -54,7 +56,7 @@ type ContainerSetupParams struct {
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
-	InitLock            *fslock.Lock
+	InitLockName        string
 }
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
@@ -68,7 +70,7 @@ func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandle
 		provisioner:         params.Provisioner,
 		config:              params.Config,
 		workerName:          params.WorkerName,
-		initLock:            params.InitLock,
+		initLockName:        params.InitLockName,
 	}
 }
 
@@ -90,7 +92,7 @@ func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
 // Handle is called whenever containers change on the machine being watched.
 // Machines start out with no containers so the first time Handle is called,
 // it will be because a container has been added.
-func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resultError error) {
+func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (resultError error) {
 	// Consume the initial watcher event.
 	if len(containerIds) == 0 {
 		return nil
@@ -103,7 +105,7 @@ func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resu
 		if atomic.LoadInt32(cs.setupDone[containerType]) != 0 {
 			continue
 		}
-		if err := cs.initialiseAndStartProvisioner(containerType); err != nil {
+		if err := cs.initialiseAndStartProvisioner(abort, containerType); err != nil {
 			logger.Errorf("starting container provisioner for %v: %v", containerType, err)
 			// Just because dealing with one type of container fails, we won't exit the entire
 			// function because we still want to try and start other container types. So we
@@ -116,7 +118,7 @@ func (cs *ContainerSetup) Handle(_ <-chan struct{}, containerIds []string) (resu
 	return resultError
 }
 
-func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) (resultError error) {
+func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, containerType instance.ContainerType) (resultError error) {
 	// Flag that this container type has been handled.
 	atomic.StoreInt32(cs.setupDone[containerType], 1)
 
@@ -141,19 +143,28 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	if err != nil {
 		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	}
-	if err := cs.runInitialiser(containerType, initialiser); err != nil {
+	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
 // runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
 	logger.Debugf("running initialiser for %s containers", containerType)
-	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
+	spec := mutex.Spec{
+		Name:  cs.initLockName,
+		Clock: clock.WallClock,
+		// If we don't get the lock straigh away, there is no point trying multiple
+		// times per second for an operation that is likelty to ake multiple seconds.
+		Delay:  time.Second,
+		Cancel: abort,
+	}
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
-	defer cs.initLock.Unlock()
+	defer releaser.Release()
 
 	if err := initialiser.Initialise(); err != nil {
 		return errors.Trace(err)

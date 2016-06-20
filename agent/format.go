@@ -46,7 +46,7 @@ func registerFormat(format formatter) {
 // - Remove the marshal() method from the old format;
 
 // currentFormat holds the current agent config version's formatter.
-var currentFormat = format_1_18
+var currentFormat = format_2_0
 
 // agentConfigFilename is the default file name of used for the agent
 // config.

@@ -53,6 +53,7 @@ type ModelConfigCreator struct {
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
 	isAdmin bool,
+	controllerUUID string,
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
@@ -89,7 +90,7 @@ func (c ModelConfigCreator) NewModelConfig(
 		}
 		attrs[config.UUIDKey] = uuid.String()
 	}
-	cfg, err := finalizeConfig(isAdmin, base, attrs)
+	cfg, err := finalizeConfig(isAdmin, controllerUUID, base, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -188,8 +189,8 @@ func RestrictedProviderFields(providerType string) ([]string, error) {
 // finalizeConfig creates the config object from attributes, calls
 // PrepareForCreateEnvironment, and then finally validates the config
 // before returning it.
-func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
-	provider, err := environs.Provider(controllerCfg.Type())
+func finalizeConfig(isAdmin bool, controllerUUID string, controllerModelCfg *config.Config, attrs map[string]interface{}) (*config.Config, error) {
+	provider, err := environs.Provider(controllerModelCfg.Type())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -199,9 +200,10 @@ func finalizeConfig(isAdmin bool, controllerCfg *config.Config, attrs map[string
 		// copy across authorized-keys from the controller model.
 		const key = "authorized-keys"
 		if _, ok := attrs[key]; !ok {
-			attrs[key] = controllerCfg.AllAttrs()[key]
+			attrs[key] = controllerModelCfg.AllAttrs()[key]
 		}
 	}
+	attrs[controller.ControllerUUIDKey] = controllerUUID
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")

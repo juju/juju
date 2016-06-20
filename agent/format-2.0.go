@@ -17,66 +17,61 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 )
 
-var format_1_18 = formatter_1_18{}
+var format_2_0 = formatter_2_0{}
 
-// formatter_1_18 is the formatter for the 1.18 format.
-type formatter_1_18 struct {
+// formatter_2_0 is the formatter for the 2.0 format.
+type formatter_2_0 struct {
 }
 
-// Ensure that the formatter_1_18 struct implements the formatter interface.
-var _ formatter = formatter_1_18{}
+// Ensure that the formatter_2_0 struct implements the formatter interface.
+var _ formatter = formatter_2_0{}
 
-// format_1_18Serialization holds information for a given agent.
-type format_1_18Serialization struct {
-	Tag               string
-	DataDir           string
-	LogDir            string
-	MetricsSpoolDir   string
-	Nonce             string
-	Jobs              []multiwatcher.MachineJob `yaml:",omitempty"`
+// format_2_0Serialization holds information for a given agent.
+type format_2_0Serialization struct {
+	Tag               string                    `yaml:"tag,omitempty"`
+	DataDir           string                    `yaml:"datadir,omitempty"`
+	LogDir            string                    `yaml:"logdir,omitempty"`
+	MetricsSpoolDir   string                    `yaml:"metricsspooldir,omitempty"`
+	Nonce             string                    `yaml:"nonce,omitempty"`
+	Jobs              []multiwatcher.MachineJob `yaml:"jobs,omitempty"`
 	UpgradedToVersion *version.Number           `yaml:"upgradedToVersion"`
 
-	CACert         string
-	StateAddresses []string `yaml:",omitempty"`
-	StatePassword  string   `yaml:",omitempty"`
+	CACert         string   `yaml:"cacert,omitempty"`
+	StateAddresses []string `yaml:"stateaddresses,omitempty"`
+	StatePassword  string   `yaml:"statepassword,omitempty"`
 
-	Model        string   `yaml:",omitempty"`
-	APIAddresses []string `yaml:",omitempty"`
-	APIPassword  string   `yaml:",omitempty"`
+	Model        string   `yaml:"model,omitempty"`
+	APIAddresses []string `yaml:"apiaddresses,omitempty"`
+	APIPassword  string   `yaml:"apipassword,omitempty"`
 
-	OldPassword string
-	Values      map[string]string
+	OldPassword string            `yaml:"oldpassword,omitempty"`
+	Values      map[string]string `yaml:"values"`
 
 	// Only controller machines have these next items set.
-	ControllerCert string `yaml:",omitempty"`
-	ControllerKey  string `yaml:",omitempty"`
-	CAPrivateKey   string `yaml:",omitempty"`
-	APIPort        int    `yaml:",omitempty"`
-	StatePort      int    `yaml:",omitempty"`
-	SharedSecret   string `yaml:",omitempty"`
-	SystemIdentity string `yaml:",omitempty"`
-	MongoVersion   string `yaml:",omitempty"`
+	ControllerCert string `yaml:"controllercert,omitempty"`
+	ControllerKey  string `yaml:"controllerkey,omitempty"`
+	CAPrivateKey   string `yaml:"caprivatekey,omitempty"`
+	APIPort        int    `yaml:"apiport,omitempty"`
+	StatePort      int    `yaml:"stateport,omitempty"`
+	SharedSecret   string `yaml:"sharedsecret,omitempty"`
+	SystemIdentity string `yaml:"systemidentity,omitempty"`
+	MongoVersion   string `yaml:"mongoversion,omitempty"`
 }
 
 func init() {
-	registerFormat(format_1_18)
+	registerFormat(format_2_0)
 }
 
-func (formatter_1_18) version() string {
-	return "1.18"
+func (formatter_2_0) version() string {
+	return "2.0"
 }
 
-func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
+func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	// NOTE: this needs to handle the absence of StatePort and get it from the
 	// address
-	var format format_1_18Serialization
+	var format format_2_0Serialization
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
-	}
-	if format.UpgradedToVersion == nil || *format.UpgradedToVersion == version.Zero {
-		// Assume we upgrade from 1.16.
-		upgradedToVersion := version.MustParse("1.16.0")
-		format.UpgradedToVersion = &upgradedToVersion
 	}
 	tag, err := names.ParseTag(format.Tag)
 	if err != nil {
@@ -126,9 +121,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 			SharedSecret:   format.SharedSecret,
 			SystemIdentity: format.SystemIdentity,
 		}
-		// There's a private key, then we need the state port,
-		// which wasn't always in the  1.18 format. If it's not present
-		// we can infer it from the ports in the state addresses.
+		// If private key is not present, infer it from the ports in the state addresses.
 		if config.servingInfo.StatePort == 0 {
 			if len(format.StateAddresses) == 0 {
 				return nil, fmt.Errorf("server key found but no state port")
@@ -146,19 +139,25 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		}
 
 	}
-	// Mongo version is set, we might be running a version other than default.
+
+	// TODO (anastasiamac 2016-06-17) Mongo version must be set.
+	// For scenarios where mongo version is not set, we should still
+	// be explicit about what "default" mongo version is. After these lines,
+	// config.mongoVersion should not be empty under any circumstance.
+	// Bug# 1593855
 	if format.MongoVersion != "" {
+		// Mongo version is set, we might be running a version other than default.
 		config.mongoVersion = format.MongoVersion
 	}
 	return config, nil
 }
 
-func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
+func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	var modelTag string
 	if config.model.Id() != "" {
 		modelTag = config.model.String()
 	}
-	format := &format_1_18Serialization{
+	format := &format_2_0Serialization{
 		Tag:               config.tag.String(),
 		DataDir:           config.paths.DataDir,
 		LogDir:            config.paths.LogDir,
@@ -181,12 +180,16 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		format.SystemIdentity = config.servingInfo.SystemIdentity
 	}
 	if config.stateDetails != nil {
-		format.StateAddresses = config.stateDetails.addresses
-		format.StatePassword = config.stateDetails.password
+		if len(config.stateDetails.addresses) > 0 {
+			format.StateAddresses = config.stateDetails.addresses
+			format.StatePassword = config.stateDetails.password
+		}
 	}
 	if config.apiDetails != nil {
-		format.APIAddresses = config.apiDetails.addresses
-		format.APIPassword = config.apiDetails.password
+		if len(config.apiDetails.addresses) > 0 {
+			format.APIAddresses = config.apiDetails.addresses
+			format.APIPassword = config.apiDetails.password
+		}
 	}
 	if config.mongoVersion != "" {
 		format.MongoVersion = string(config.mongoVersion)

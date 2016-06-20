@@ -38,6 +38,11 @@ const (
 
 	// BootstrapMachineId is the ID of the initial controller machine.
 	BootstrapMachineId = "0"
+
+	// MachineLockName is the name of the mutex that the agent creates to
+	// ensure serialization of tasks such as uniter hook executions, juju-run,
+	// and others.
+	MachineLockName = "machine-lock"
 )
 
 // These are base values used for the corresponding defaults.

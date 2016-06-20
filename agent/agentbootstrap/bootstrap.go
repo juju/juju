@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -142,8 +143,9 @@ func InitializeState(
 			attrs[k] = v
 		}
 	}
+	controllerUUID := controller.Config(args.ControllerModelConfig.AllAttrs()).ControllerUUID()
 	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
-		modelmanager.IsAdmin, args.ControllerModelConfig, attrs,
+		modelmanager.IsAdmin, controllerUUID, args.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model config")

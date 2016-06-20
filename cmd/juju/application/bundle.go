@@ -247,6 +247,12 @@ type bundleHandler struct {
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
 	watcher allWatcher
+
+	// warnedLXC indicates whether or not we have warned the user that the
+	// bundle they're deploying uses lxc containers, which will be treated as
+	// LXD.  This flag keeps us from writing the warning more than once per
+	// bundle.
+	warnedLXC bool
 }
 
 // addCharm adds a charm to the environment.
@@ -465,8 +471,17 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		Series:      p.Series,
 		Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
-	if p.ContainerType != "" {
-		containerType, err := instance.ParseContainerType(p.ContainerType)
+	if ct := p.ContainerType; ct != "" {
+		// for backwards compatibility with 1.x bundles, we treat lxc
+		// placement directives as lxd.
+		if ct == "lxc" {
+			if !h.warnedLXC {
+				h.log.Infof("Bundle has one or more containers specified as lxc. lxc containers are deprecated in Juju 2.0. lxd containers will be deployed instead.")
+				h.warnedLXC = true
+			}
+			ct = string(instance.LXD)
+		}
+		containerType, err := instance.ParseContainerType(ct)
 		if err != nil {
 			return errors.Annotatef(err, "cannot create machine for holding %s", msg)
 		}

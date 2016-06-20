@@ -169,7 +169,6 @@ In each worker package, write a `manifold.go` containing the following:
 
         // The names of the various dependencies, e.g.
         APICallerName   string
-        MachineLockName string
 
         // Any other required top-level configuration, e.g.
         Period time.Duration
@@ -193,16 +192,12 @@ In each worker package, write a `manifold.go` containing the following:
                 if err := getResource(config.APICallerName, &apicaller); err != nil {
                     return nil, err
                 }
-                var machineLock *fslock.Lock
-                if err := getResource(config.MachineLockName, &machineLock); err != nil {
-                    return nil, err
-                }
-                return newSomethingWorker(apicaller, machineLock, config.Period)
+                return newSomethingWorker(apicaller, config.Period)
             },
 
             // * output func is not obligatory, and should be skipped if you
             //   don't know what you'll be exposing or to whom.
-            // * see `worker/machinelock`, `worker/gate`, `worker/util`, and
+            // * see `worker/gate`, `worker/util`, and
             //   `worker/dependency/testing` for examples of output funcs.
             // * if you do supply an output func, be sure to document it on the
             //   Manifold func; for example:

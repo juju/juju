@@ -139,11 +139,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// we'll be here to catch this problem early.
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
-	controllerUUID := controllerCfg.ControllerUUID()
-	if controllerUUID == "" {
+	if args.ControllerUUID == "" {
 		return errors.Errorf("bootstrap configuration has no controller UUID")
 	}
+	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
 	if _, hasCACert := controllerCfg.CACert(); !hasCACert {
 		return errors.Errorf("model configuration has no ca-cert")
 	}
