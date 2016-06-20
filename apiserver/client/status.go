@@ -660,6 +660,13 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		result.Charm = curl.String()
 	}
+	workloadVersion, err := unit.WorkloadVersion()
+	if err == nil {
+		result.WorkloadVersion = workloadVersion
+	} else {
+		logger.Debugf("error fetching workload version: %v", err)
+	}
+
 	processUnitAndAgentStatus(unit, &result)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {

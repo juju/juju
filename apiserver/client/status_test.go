@@ -153,6 +153,34 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	}
 }
 
+func (s *statusUnitTestSuite) TestWorkloadVersion(c *gc.C) {
+	application := s.MakeApplication(c, nil)
+
+	u1, err := application.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u1.SetWorkloadVersion("voltron")
+	c.Assert(err, jc.ErrorIsNil)
+
+	u2, err := application.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u2.SetWorkloadVersion("zarkon")
+	c.Assert(err, jc.ErrorIsNil)
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	appStatus, found := status.Applications[application.Name()]
+	c.Assert(found, jc.IsTrue)
+
+	u1Status, found := appStatus.Units[u1.Name()]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(u1Status.WorkloadVersion, gc.Equals, "voltron")
+
+	u2Status, found := appStatus.Units[u2.Name()]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(u2Status.WorkloadVersion, gc.Equals, "zarkon")
+}
+
 type statusUpgradeUnitSuite struct {
 	testing.CharmSuite
 	jujutesting.JujuConnSuite

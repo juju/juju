@@ -79,7 +79,8 @@ type UnitStatus struct {
 	AgentStatus DetailedStatus `json:"agent-status"`
 
 	// WorkloadStatus holds the status for a unit's workload
-	WorkloadStatus DetailedStatus `json:"workload-status"`
+	WorkloadStatus  DetailedStatus `json:"workload-status"`
+	WorkloadVersion string         `json:"workload-version"`
 
 	Machine       string                `json:"machine"`
 	OpenedPorts   []string              `json:"opened-ports"`
