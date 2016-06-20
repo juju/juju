@@ -819,7 +819,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	result.setSSHHostKeys(hostKeys)
 
 	actionsMap := valid["actions"].(map[string]interface{})
-	actions, err := importSSHHostKeys(actionsMap)
+	actions, err := importActions(actionsMap)
 	if err != nil {
 		return nil, errors.Annotate(err, "actions")
 	}
