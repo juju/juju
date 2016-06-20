@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/utils"
 )
 
 // stringKeysFromMap takes a map with keys which are strings and returns
@@ -25,7 +25,7 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 	if len(u.Subordinates) == 0 {
 		return
 	}
-	for _, uName := range common.SortStringsNaturally(stringKeysFromMap(u.Subordinates)) {
+	for _, uName := range utils.SortStringsNaturally(stringKeysFromMap(u.Subordinates)) {
 		unit := u.Subordinates[uName]
 		recurseMap(uName, unit, il)
 		recurseUnits(unit, il+1, recurseMap)
