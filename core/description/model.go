@@ -790,6 +790,6 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "sshhostkeys")
 	}
-	result.setSSHHostKeys(sshhostkeys)
+	result.setSSHHostKeys(hostKeys)
 	return result, nil
 }
