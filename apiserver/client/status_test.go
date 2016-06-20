@@ -153,32 +153,53 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	}
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersion(c *gc.C) {
+func (s *statusUnitTestSuite) checkWorkloadVersionAggregation(
+	c *gc.C, expectedAppVersion string, unitVersions ...string) {
 	application := s.MakeApplication(c, nil)
 
-	u1, err := application.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = u1.SetWorkloadVersion("voltron")
-	c.Assert(err, jc.ErrorIsNil)
-
-	u2, err := application.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = u2.SetWorkloadVersion("zarkon")
-	c.Assert(err, jc.ErrorIsNil)
+	units := make([]*state.Unit, len(unitVersions))
+	for i, version := range unitVersions {
+		unit, err := application.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.SetWorkloadVersion(version)
+		c.Assert(err, jc.ErrorIsNil)
+		units[i] = unit
+	}
 
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, found := status.Applications[application.Name()]
 	c.Assert(found, jc.IsTrue)
+	c.Check(appStatus.WorkloadVersion, gc.Equals, expectedAppVersion)
 
-	u1Status, found := appStatus.Units[u1.Name()]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(u1Status.WorkloadVersion, gc.Equals, "voltron")
+	for i, expectedVersion := range unitVersions {
+		unitStatus, found := appStatus.Units[units[i].Name()]
+		c.Check(found, jc.IsTrue)
+		c.Check(unitStatus.WorkloadVersion, gc.Equals, expectedVersion)
+	}
+}
 
-	u2Status, found := appStatus.Units[u2.Name()]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(u2Status.WorkloadVersion, gc.Equals, "zarkon")
+func (s *statusUnitTestSuite) TestWorkloadVersionModeWins(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron*",
+		"voltron", "zarkon", "voltron")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionInTie(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron*",
+		"allura", "zarkon", "voltron", "zarkon", "voltron")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron", "voltron", "voltron")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionBlanksNeverWin(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron*", "voltron", "", "", "")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionOnlyBlanks(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "", "", "")
 }
 
 type statusUpgradeUnitSuite struct {

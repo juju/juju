@@ -607,6 +607,15 @@ func (context *statusContext) processApplication(service *state.Application) par
 
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
 	}
+
+	unitVersions := make([]string, len(processedStatus.Units))
+	i := 0
+	for _, unit := range processedStatus.Units {
+		unitVersions[i] = unit.WorkloadVersion
+		i++
+	}
+	processedStatus.WorkloadVersion = combineUnitVersions(unitVersions)
+
 	return processedStatus
 }
 
@@ -847,4 +856,71 @@ func processLife(entity lifer) string {
 		return life.String()
 	}
 	return ""
+}
+
+type versionCounts struct {
+	versions []string
+	counts   map[string]int
+}
+
+func newVersionCounts() *versionCounts {
+	return &versionCounts{counts: make(map[string]int)}
+}
+
+func (v *versionCounts) Add(version string) {
+	v.counts[version]++
+	if v.counts[version] == 1 {
+		v.versions = append(v.versions, version)
+	}
+}
+
+func (v *versionCounts) Len() int { return len(v.versions) }
+
+func (v *versionCounts) Swap(a, b int) {
+	v.versions[a], v.versions[b] = v.versions[b], v.versions[a]
+}
+
+func (v *versionCounts) Less(a, b int) bool {
+	// We want the items to sort so that the most frequent versions are
+	// earliest, and within that in lexicographic order.
+	val1 := v.versions[a]
+	val2 := v.versions[b]
+
+	// The empty string should come last - we only pick it if there
+	// aren't any other values.
+	switch {
+	case val1 == "":
+		return false
+	case val2 == "":
+		return true
+	}
+
+	count1 := v.counts[val1]
+	count2 := v.counts[val2]
+	if count1 == count2 {
+		// With the same counts, sort alphabetically.
+		return val1 < val2
+	}
+	// Higher counts are "less" - they come earlier in the slice.
+	return count1 > count2
+}
+
+func (v *versionCounts) Commonest() string {
+	if len(v.versions) == 0 {
+		return ""
+	}
+	sort.Sort(v)
+	return v.versions[0]
+}
+
+func combineUnitVersions(versions []string) string {
+	counts := newVersionCounts()
+	for _, version := range versions {
+		counts.Add(version)
+	}
+	result := counts.Commonest()
+	if counts.Len() > 1 {
+		result += "*"
+	}
+	return result
 }
