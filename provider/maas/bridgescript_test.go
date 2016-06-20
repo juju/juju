@@ -59,7 +59,7 @@ func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string) {
+func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string, keepSourceStanzas bool) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		// To simplify most cases, trim trailing new lines.
@@ -68,30 +68,28 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 		err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
 		c.Check(err, jc.ErrorIsNil)
 		// Run the script and verify the modified config.
-		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
+		output, retcode := s.runScript(c, runArgs{
+			pythonBinary:      python,
+			bridgePrefix:      bridgePrefix,
+			bridgeName:        bridgeName,
+			interfaceToBridge: interfaceToBridge,
+			keepSourceStanzas: keepSourceStanzas,
+		})
 		c.Check(retcode, gc.Equals, 0)
 		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig, gc.Commentf("initial was:\n%s", initialConfig))
 	}
 }
 
-func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string) {
-	s.assertScript(c, initial, expected, prefix, "", "")
+func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string, keepSourceStanzas bool) {
+	s.assertScript(c, initial, expected, prefix, "", "", keepSourceStanzas)
 }
 
-func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected string) {
-	s.assertScript(c, initial, expected, "", "", "")
+func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected string, keepSourceStanzas bool) {
+	s.assertScript(c, initial, expected, "", "", "", keepSourceStanzas)
 }
 
-func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected, bridgeName, interfaceToBridge string) {
-	s.assertScript(c, initial, expected, "", bridgeName, interfaceToBridge)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
-	for i, python := range s.pythonVersions {
-		c.Logf("test #%v using %s", i, python)
-		_, code := s.runScript(c, python, "", "", "", "")
-		c.Check(code, gc.Equals, 1)
-	}
+func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected, bridgeName, interfaceToBridge string, keepSourceStanzas bool) {
+	s.assertScript(c, initial, expected, "", bridgeName, interfaceToBridge, keepSourceStanzas)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
@@ -112,9 +110,9 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
 		{networkWithAliasInitial, networkWithAliasExpected, "test-br-"},
 	} {
 		c.Logf("test #%v - expected transformation", i)
-		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix)
+		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix, false)
 		c.Logf("test #%v - idempotent transformation", i)
-		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix)
+		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix, false)
 	}
 }
 
@@ -133,16 +131,19 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *g
 		{networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
 	} {
 		c.Logf("test #%v - expected transformation", i)
-		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected)
+		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected, false)
 		c.Logf("test #%v - idempotent transformation", i)
-		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected)
+		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected, false)
 	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
-		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
+		output, code := s.runScript(c, runArgs{
+			pythonBinary: python,
+			bridgeName:   "juju-br0",
+		})
 		c.Check(code, gc.Equals, 1)
 		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
 	}
@@ -151,38 +152,72 @@ func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.
 func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
-		output, code := s.runScript(c, python, "# no content", "", "", "eth0")
+		output, code := s.runScript(c, runArgs{
+			pythonBinary:      python,
+			interfaceToBridge: "eth0",
+		})
 		c.Check(code, gc.Equals, 1)
 		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
 	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkStaticInitial, networkStaticInitial, "juju-br0", "eth1234567890")
+	s.assertScriptWithoutPrefix(c, networkStaticInitial, networkStaticInitial, "juju-br0", "eth1234567890", false)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptKeepSourceStanzasFalse(c *gc.C) {
+	s.assertScriptWithDefaultPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithoutSourcesMultiBridgeExpected, false)
+	s.assertScriptWithoutPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithoutSourcesSingleBridgeExpected, "juju-br0", "eth1", false)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptKeepSourceStanzasTrue(c *gc.C) {
+	s.assertScriptWithDefaultPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithSourcesMultiBridgeExpected, true)
+	s.assertScriptWithoutPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithSourcesSingleBridgeExpected, "juju-br0", "eth1", true)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIfaceButMissingAutoStanza(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "juju-br0", "eth1")
+	s.assertScriptWithoutPrefix(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "juju-br0", "eth1", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0")
+	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0", false)
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
-	if bridgePrefix != "" {
-		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
+type runArgs struct {
+	pythonBinary      string
+	bridgePrefix      string
+	bridgeName        string
+	interfaceToBridge string
+	keepSourceStanzas bool
+}
+
+func (s *bridgeConfigSuite) runScript(c *gc.C, args runArgs) (output string, exitCode int) {
+	if args.bridgePrefix != "" {
+		args.bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", args.bridgePrefix)
 	}
 
-	if bridgeName != "" {
-		bridgeName = fmt.Sprintf("--bridge-name=%q", bridgeName)
+	if args.bridgeName != "" {
+		args.bridgeName = fmt.Sprintf("--bridge-name=%q", args.bridgeName)
 	}
 
-	if interfaceToBridge != "" {
-		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
+	if args.interfaceToBridge != "" {
+		args.interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", args.interfaceToBridge)
+	}
+	keepSourceStanzas := "--keep-source-stanzas"
+	if !args.keepSourceStanzas {
+		keepSourceStanzas = ""
 	}
 
-	script := fmt.Sprintf("%q %q %s %s %s %q\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	script := fmt.Sprintf(
+		"%q %q %s %s %s %s %q\n",
+		args.pythonBinary,
+		s.testPythonScript,
+		args.bridgePrefix,
+		args.bridgeName,
+		args.interfaceToBridge,
+		keepSourceStanzas,
+		s.testConfigPath,
+	)
 	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
@@ -216,6 +251,94 @@ iface test-br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0`
+
+const networkDualNICStaticWithSourcesInitial = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+auto eth1
+iface eth1 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+
+source /etc/network/interfaces.d/*.cfg
+source-directory /etc/network/interfaces.d/
+`
+
+const networkDualNICStaticWithoutSourcesMultiBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+auto br-eth1
+iface br-eth1 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1`
+
+const networkDualNICStaticWithoutSourcesSingleBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+auto juju-br0
+iface juju-br0 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1`
+
+const networkDualNICStaticWithSourcesMultiBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+auto br-eth1
+iface br-eth1 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1
+
+source /etc/network/interfaces.d/*.cfg
+source-directory /etc/network/interfaces.d/
+`
+
+const networkDualNICStaticWithSourcesSingleBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+auto juju-br0
+iface juju-br0 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1
+
+source /etc/network/interfaces.d/*.cfg
+source-directory /etc/network/interfaces.d/
+`
 
 const networkDHCPInitial = `auto lo
 iface lo inet loopback
