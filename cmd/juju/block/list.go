@@ -41,7 +41,7 @@ func (c *listCommand) Init(args []string) (err error) {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Purpose: "list juju blocks",
+		Purpose: "List Juju blocks.",
 		Doc:     listCommandDoc,
 	}
 }

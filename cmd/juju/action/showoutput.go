@@ -42,14 +42,14 @@ displayed.  This is also the behavior when any negative time is given.
 // Set up the output.
 func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.StringVar(&c.wait, "wait", "-1s", "wait for results")
+	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
 }
 
 func (c *showOutputCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-action-output",
 		Args:    "<action ID>",
-		Purpose: "show results of an action by ID",
+		Purpose: "Show results of an action by ID.",
 		Doc:     showOutputDoc,
 	}
 }

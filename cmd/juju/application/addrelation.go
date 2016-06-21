@@ -30,7 +30,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-relation",
 		Args:    "<application1>[:<relation name1>] <application2>[:<relation name2>]",
-		Purpose: "add a relation between two applications",
+		Purpose: "Add a relation between two applications.",
 	}
 }
 

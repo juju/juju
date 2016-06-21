@@ -31,7 +31,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "backups",
 		Args:    "",
-		Purpose: "get all metadata",
+		Purpose: "Displays information about all backups.",
 		Doc:     listDoc,
 		Aliases: []string{"list-backups"},
 	}

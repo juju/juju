@@ -40,14 +40,14 @@ For more information, see also the 'run-ation' command, which executes actions.
 // Set up the output.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.BoolVar(&c.fullSchema, "schema", false, "display the full action schema")
+	f.BoolVar(&c.fullSchema, "schema", false, "Display the full action schema")
 }
 
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "actions",
 		Args:    "<application name>",
-		Purpose: "list actions defined for a service",
+		Purpose: "List actions defined for a service.",
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},
 	}

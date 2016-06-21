@@ -29,12 +29,12 @@ func (c *resolvedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resolved",
 		Args:    "<unit>",
-		Purpose: "marks unit errors resolved",
+		Purpose: "Marks unit errors resolved.",
 	}
 }
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Retry, "r", false, "re-execute failed hooks")
+	f.BoolVar(&c.Retry, "r", false, "Re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
 

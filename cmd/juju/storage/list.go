@@ -23,14 +23,6 @@ func NewListCommand() cmd.Command {
 
 const listCommandDoc = `
 List information about storage instances.
-
-options:
--m, --model (= "")
-   juju model to operate in
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
 `
 
 // listCommand returns storage instances.
@@ -54,7 +46,7 @@ func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "storage",
 		Args:    "<machineID> ...",
-		Purpose: "lists storage details",
+		Purpose: "Lists storage details.",
 		Doc:     listCommandDoc,
 		Aliases: []string{"list-storage"},
 	}
@@ -68,8 +60,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatListTabular,
 	})
-	f.BoolVar(&c.filesystem, "filesystem", false, "list filesystem storage")
-	f.BoolVar(&c.volume, "volume", false, "list volume storage")
+	f.BoolVar(&c.filesystem, "filesystem", false, "List filesystem storage")
+	f.BoolVar(&c.volume, "volume", false, "List volume storage")
 }
 
 // Run implements Command.Run.

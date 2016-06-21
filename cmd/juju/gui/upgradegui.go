@@ -61,14 +61,14 @@ List available Juju GUI releases without upgrading:
 func (c *upgradeGUICommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upgrade-gui",
-		Purpose: "upgrade to a new Juju GUI version",
+		Purpose: "Upgrade to a new Juju GUI version.",
 		Doc:     upgradeGUIDoc,
 	}
 }
 
 // SetFlags implements the cmd.Command interface.
 func (c *upgradeGUICommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.list, "list", false, "list available Juju GUI release versions without upgrading")
+	f.BoolVar(&c.list, "list", false, "List available Juju GUI release versions without upgrading")
 }
 
 // Init implements the cmd.Command interface.

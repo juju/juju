@@ -93,7 +93,7 @@ var BootstrapFunc = bootstrap.Bootstrap
 func (c *restoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore-backup",
-		Purpose: "restore from a backup archive to a new controller",
+		Purpose: "Restore from a backup archive to a new controller.",
 		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
 	}
@@ -105,10 +105,10 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set model constraints")
 
-	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
-	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
-	f.StringVar(&c.backupId, "id", "", "provide the name of the backup to be restored.")
-	f.BoolVar(&c.uploadTools, "upload-tools", false, "upload tools if bootstraping a new machine.")
+	f.BoolVar(&c.bootstrap, "b", false, "Bootstrap a new state machine")
+	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
+	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
+	f.BoolVar(&c.uploadTools, "upload-tools", false, "Upload tools if bootstraping a new machine")
 }
 
 // Init is where the preconditions for this commands can be checked.
