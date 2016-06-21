@@ -9,21 +9,27 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
 
+// NewWatcherFunc exists to let us unit test Facade without patching.
+type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
+
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, "MigrationMaster")}
+func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) *Client {
+	return &Client{
+		caller:     base.NewFacadeCaller(caller, "MigrationMaster"),
+		newWatcher: newWatcher,
+	}
 }
 
 // Client describes the client side API for the MigrationMaster facade
 // (used by the migrationmaster worker).
 type Client struct {
-	caller base.FacadeCaller
+	caller     base.FacadeCaller
+	newWatcher NewWatcherFunc
 }
 
 // Watch returns a watcher which reports when a migration is active
@@ -37,8 +43,7 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewNotifyWatcher(c.caller.RawAPICaller(), result)
-	return w, nil
+	return c.newWatcher(c.caller.RawAPICaller(), result), nil
 }
 
 // GetMigrationStatus returns the details and progress of the latest
@@ -138,8 +143,7 @@ func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewNotifyWatcher(c.caller.RawAPICaller(), result)
-	return w, nil
+	return c.newWatcher(c.caller.RawAPICaller(), result), nil
 }
 
 // GetMinionReports returns details of the reports made by migration
