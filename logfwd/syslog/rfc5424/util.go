@@ -13,7 +13,7 @@ func validatePrintUSASCII(val string, size int) error { // RFC 5234
 		return fmt.Errorf("too big (max %d)", size)
 	}
 	for i, c := range val {
-		if c < 32 || c > 126 {
+		if c < 33 || c > 126 {
 			return fmt.Errorf("must be printable US ASCII (\\x%02x at pos %d)", c, i)
 		}
 	}

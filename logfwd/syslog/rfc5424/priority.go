@@ -84,10 +84,10 @@ func (p Priority) String() string {
 // Validated ensures that the priority is correct.
 func (p Priority) Validate() error {
 	if err := p.Severity.Validate(); err != nil {
-		return err
+		return fmt.Errorf("bad Severity: %v", err)
 	}
 	if err := p.Facility.Validate(); err != nil {
-		return err
+		return fmt.Errorf("bad Facility: %v", err)
 	}
 	return nil
 }

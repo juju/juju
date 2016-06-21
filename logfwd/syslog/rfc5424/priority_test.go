@@ -105,7 +105,7 @@ func (s *PrioritySuite) TestValidateBadSeverity(c *gc.C) {
 
 	err := pr.Validate()
 
-	c.Check(err, gc.ErrorMatches, `severity -1 not recognized`)
+	c.Check(err, gc.ErrorMatches, `bad Severity: severity -1 not recognized`)
 }
 
 func (s *PrioritySuite) TestValidateBadFacility(c *gc.C) {
@@ -116,5 +116,5 @@ func (s *PrioritySuite) TestValidateBadFacility(c *gc.C) {
 
 	err := pr.Validate()
 
-	c.Check(err, gc.ErrorMatches, `facility -1 not recognized`)
+	c.Check(err, gc.ErrorMatches, `bad Facility: facility -1 not recognized`)
 }
