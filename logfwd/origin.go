@@ -11,8 +11,12 @@ import (
 	"github.com/juju/version"
 )
 
+// canonicalPEN is the IANA-registered Private Enterprise Number
+// assigned to Canonical. Among other things, this is used in RFC 5424
+// structured data.
+//
 // See https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers.
-const canonicalIANAid = "28978"
+const canonicalPEN = 28978
 
 // These are the recognized origin types.
 const (
@@ -82,11 +86,12 @@ type Origin struct {
 	JujuVersion    version.Number
 }
 
-// PrivateEnterpriseCode returns the IANA-registered "SMI Network
+// PrivateEnterpriseNumber returns the IANA-registered "SMI Network
 // Management Private Enterprise Code" to use for the log record.
-// (see https://tools.ietf.org/html/rfc5424#section-7.2.2)
-func (o Origin) PrivateEnterpriseCode() string {
-	return canonicalIANAid
+//
+// See https://tools.ietf.org/html/rfc5424#section-7.2.2.
+func (o Origin) PrivateEnterpriseNumber() int {
+	return canonicalPEN
 }
 
 // SofwareName identifies the software that generated the log message.
