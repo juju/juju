@@ -600,6 +600,10 @@ type AuthUserInfo struct {
 	// Credentials contains an optional opaque credential value to be held by
 	// the client, if any.
 	Credentials *string `json:"credentials,omitempty"`
+
+	// ReadOnly holds whether the user has read-only access for the
+	// connected model.
+	ReadOnly bool `json:"read-only"`
 }
 
 // LoginResultV1 holds the result of an Admin v1 Login call.
