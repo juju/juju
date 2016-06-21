@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -51,16 +50,22 @@ type LastSentResult struct {
 	Error error
 }
 
+// FacadeCaller provides the functionality to call methods on a facade.
+type FacadeCaller interface {
+	// FacadeCall is the same method as on base.FacadeCaller.
+	FacadeCall(request string, params, response interface{}) error
+}
+
 // LastSentClient exposes the "last sent" methods of the LogForwarding
 // API facade.
 type LastSentClient struct {
-	facade base.FacadeCaller
+	caller FacadeCaller
 }
 
 // NewLastSentClient creates a new API client for the facade.
-func NewLastSentClient(caller base.APICaller) *LastSentClient {
+func NewLastSentClient(newFacadeCaller func(string) FacadeCaller) *LastSentClient {
 	return &LastSentClient{
-		facade: base.NewFacadeCaller(caller, "LogForwarding"),
+		caller: newFacadeCaller("LogForwarding"),
 	}
 }
 
@@ -77,7 +82,7 @@ func (c LastSentClient) GetList(ids []LastSentID) ([]LastSentResult, error) {
 	}
 
 	var apiResults params.LogForwardingGetLastSentResults
-	err := c.facade.FacadeCall("GetLastSent", args, &apiResults)
+	err := c.caller.FacadeCall("GetLastSent", args, &apiResults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -111,7 +116,7 @@ func (c LastSentClient) SetList(reqs []LastSentInfo) ([]LastSentResult, error) {
 	}
 
 	var apiResults params.ErrorResults
-	err := c.facade.FacadeCall("SetLastSent", args, &apiResults)
+	err := c.caller.FacadeCall("SetLastSent", args, &apiResults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
