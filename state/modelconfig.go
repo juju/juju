@@ -5,6 +5,9 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -13,22 +16,11 @@ import (
 // ModelConfig returns the complete config for the model represented
 // by this state.
 func (st *State) ModelConfig() (*config.Config, error) {
-	defaultModelSettings, err := readSettings(st, controllersC, defaultModelSettingsGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attrs := defaultModelSettings.Map()
-
-	// Merge in model specific settings.
-	for k, v := range modelSettings.Map() {
-		attrs[k] = v
-	}
-
-	return config.New(config.NoDefaults, attrs)
+	return config.New(config.NoDefaults, modelSettings.Map())
 }
 
 // checkModelConfig returns an error if the config is definitely invalid.
@@ -42,17 +34,17 @@ func checkModelConfig(cfg *config.Config) error {
 	return nil
 }
 
-// checkModelConfigDefaults returns an error if the shared config is definitely invalid.
-func checkModelConfigDefaults(attrs map[string]interface{}) error {
+// checkLocalCloudConfigDefaults returns an error if the shared local cloud config is definitely invalid.
+func checkLocalCloudConfigDefaults(attrs map[string]interface{}) error {
 	if _, ok := attrs[config.AdminSecretKey]; ok {
-		return errors.Errorf("config defaults cannot contain admin-secret")
+		return errors.Errorf("local cloud config cannot contain admin-secret")
 	}
 	if _, ok := attrs[config.AgentVersionKey]; ok {
-		return errors.Errorf("config defaults cannot contain agent-version")
+		return errors.Errorf("local cloud config cannot contain agent-version")
 	}
 	for _, attrName := range controller.ControllerOnlyConfigAttributes {
 		if _, ok := attrs[attrName]; ok {
-			return errors.Errorf("config defaults cannot contain controller attribute %q", attrName)
+			return errors.Errorf("local cloud config cannot contain controller attribute %q", attrName)
 		}
 	}
 	return nil
@@ -125,22 +117,151 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 		}
 	}
 
-	// Remove any attributes that are the same as what's in cloud config.
-	// TODO(wallyworld) if/when cloud config becomes mutable, we must check
-	// for concurrent changes when writing config to ensure the validation
-	// we do here remains true
-	defaultAttrs, err := st.ModelConfigDefaults()
-	if err != nil {
-		return errors.Trace(err)
+	modelSettings.Update(validAttrs)
+	changes, err := modelSettings.Write()
+
+	// Update the map recording the source of each attribute
+	// in the model config. Any updates are cumulative; even
+	// attribute deletes record the sources as "model", so
+	// it's ok to do this outside the txn to write the updates
+	// themselves.
+	return st.updateModelConfigSources(changes)
+}
+
+func (st *State) updateModelConfigSources(changes []ItemChange) error {
+	var update bson.D
+	var set = make(bson.M)
+	for _, c := range changes {
+		set[c.Key] = "model"
 	}
-	for attr, sharedValue := range defaultAttrs {
-		if newValue, ok := validAttrs[attr]; ok && newValue == sharedValue {
-			delete(validAttrs, attr)
-			modelSettings.Delete(attr)
+	replace := inSubdocReplacer("sources")
+	set = bson.M(copyMap(map[string]interface{}(set), replace))
+	update = append(update,
+		bson.DocElem{"$set", set},
+		bson.DocElem{"$inc", bson.D{{"version", 1}}})
+
+	ops := []txn.Op{{
+		C:      modelSettingsSourcesC,
+		Id:     modelGlobalKey,
+		Assert: txn.DocExists,
+		Update: update,
+	}}
+	err := st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		return errors.NotFoundf("settings sources")
+	}
+	return errors.Trace(err)
+}
+
+// settingsSourcesDoc stores for each model attribute,
+// the source of the attribute.
+type settingsSourcesDoc struct {
+	// Sources defines the named source for each settings attribute.
+	Sources map[string]string `bson:"sources,omitempty"`
+
+	// Version is a version number for the settings sources,
+	// and is increased every time the sources change.
+	Version int64 `bson:"version"`
+}
+
+func createSettingsSourceOp(values map[string]string) txn.Op {
+	return txn.Op{
+		C:      modelSettingsSourcesC,
+		Id:     modelGlobalKey,
+		Assert: txn.DocMissing,
+		Insert: &settingsSourcesDoc{
+			Sources: values,
+		},
+	}
+}
+
+// ModelConfigSources returns the named source for each config attribute.
+func (st *State) ModelConfigSources() (map[string]string, error) {
+	sources, closer := st.getCollection(modelSettingsSourcesC)
+	defer closer()
+
+	var out settingsSourcesDoc
+	err := sources.FindId(modelGlobalKey).One(&out)
+	if err == mgo.ErrNotFound {
+		err = errors.NotFoundf("settings sources")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out.Sources, nil
+}
+
+// These constants define named sources of model config attributes.
+const (
+	// jujuCloudSource is used to label model config attributes that
+	// come from those associated with the host cloud.
+	jujuCloudSource = "juju cloud"
+
+	// jujuModelSource is used to label model config attributes that
+	// come explicitly from the user.
+	jujuModelSource = "model"
+)
+
+type modelConfigSourceFunc func() (map[string]interface{}, error)
+
+type modelConfigSource struct {
+	name       string
+	sourceFunc modelConfigSourceFunc
+}
+
+func modelConfigSources(st *State) []modelConfigSource {
+	return []modelConfigSource{
+		{jujuCloudSource, st.localCloudConfig},
+		// We wil also support local cloud region, tenant, user etc
+	}
+}
+
+// localCloudConfig returns the inherited config values
+// sourced from the local cloud config.
+func (st *State) localCloudConfig() (map[string]interface{}, error) {
+	info, err := st.ControllerInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	settings, err := readSettings(st, modelInheritedSettingsC, cloudGlobalKey(info.CloudName))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return settings.Map(), nil
+}
+
+// composeModelConfigAttributes returns a set of model config settings composed from known
+// sources of default values overridden by model specific attributes.
+// Also returned is a map containing the source location for each model attribute.
+// The source location is the name of the config values from which an attribute came.
+func (st *State) composeModelConfigAttributes(
+	modelAttr map[string]interface{}, extraSources ...modelConfigSource,
+) (map[string]interface{}, map[string]string, error) {
+	resultAttrs := make(map[string]interface{})
+	settingsSources := make(map[string]string)
+
+	configSources := modelConfigSources(st)
+	configSources = append(configSources, extraSources...)
+	// Compose default settings from all known sources.
+	for _, source := range configSources {
+		newSettings, err := source.sourceFunc()
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "reading %s settings", source.name)
+		}
+		for name, val := range newSettings {
+			resultAttrs[name] = val
+			settingsSources[name] = source.name
 		}
 	}
 
-	modelSettings.Update(validAttrs)
-	_, err = modelSettings.Write()
-	return errors.Trace(err)
+	// Merge in model specific settings.
+	for attr, val := range modelAttr {
+		resultAttrs[attr] = val
+		settingsSources[attr] = jujuModelSource
+	}
+
+	return resultAttrs, settingsSources, nil
 }

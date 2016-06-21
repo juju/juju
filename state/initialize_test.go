@@ -90,6 +90,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		ControllerModelArgs: state.ModelArgs{
 			Owner:           owner,
 			Config:          cfg,
+			CloudName:       "dummy",
 			CloudRegion:     "some-region",
 			CloudCredential: "some-credential",
 		},
@@ -166,8 +167,9 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	_, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: modelCfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    modelCfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -201,8 +203,9 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: cfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    cfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -222,9 +225,9 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	modelConfigDefaults, err := s.State.ModelConfigDefaults()
+	localCloudConfig, err := state.ReadSettings(s.State, state.ModelInheritedSettingsC, state.CloudGlobalKey("dummy"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfigDefaults, jc.DeepEquals, modelConfigDefaultsIn)
+	c.Assert(localCloudConfig.Map(), jc.DeepEquals, modelConfigDefaultsIn)
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,8 +246,9 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: cfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    cfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -279,8 +283,9 @@ func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: bad,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    bad,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -324,8 +329,9 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: bad,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    bad,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -370,8 +376,9 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	args := state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  names.NewLocalUserTag("initialize-admin"),
-			Config: modelCfg,
+			CloudName: "dummy",
+			Owner:     names.NewLocalUserTag("initialize-admin"),
+			Config:    modelCfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{
@@ -386,6 +393,6 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
 		args.LocalCloudConfig = badAttrs
 		_, err := state.Initialize(args)
-		c.Assert(err, gc.ErrorMatches, "config defaults cannot contain .*")
+		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }

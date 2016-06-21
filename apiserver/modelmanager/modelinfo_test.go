@@ -240,6 +240,11 @@ func (st *mockState) ControllerModel() (modelmanager.Model, error) {
 	return st.controllerModel, st.NextErr()
 }
 
+func (st *mockState) ControllerInfo() (*state.ControllerInfo, error) {
+	st.MethodCall(st, "ControllerInfo")
+	return &state.ControllerInfo{CloudName: "dummy"}, st.NextErr()
+}
+
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{

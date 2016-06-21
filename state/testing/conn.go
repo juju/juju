@@ -20,7 +20,7 @@ import (
 // Initialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default model
 // configuration will be used.
-func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.Policy) *state.State {
+func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, localCloudConfig map[string]interface{}, policy state.Policy) *state.State {
 	if cfg == nil {
 		cfg = testing.ModelConfig(c)
 	}
@@ -32,10 +32,12 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	st, err := state.Initialize(state.InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Config: cfg,
-			Owner:  owner,
+			CloudName: "dummy",
+			Config:    cfg,
+			Owner:     owner,
 		},
-		CloudName: "dummy",
+		LocalCloudConfig: localCloudConfig,
+		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -65,5 +67,5 @@ func NewState(c *gc.C) *state.State {
 	owner := names.NewLocalUserTag("test-admin")
 	cfg := testing.ModelConfig(c)
 	policy := MockPolicy{}
-	return Initialize(c, owner, cfg, &policy)
+	return Initialize(c, owner, cfg, nil, &policy)
 }

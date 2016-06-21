@@ -55,8 +55,9 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(InitializeParams{
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
-			Owner:  s.owner,
-			Config: modelCfg,
+			CloudName: "dummy",
+			Owner:     s.owner,
+			Config:    modelCfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

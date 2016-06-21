@@ -1752,6 +1752,9 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 
 	var doc controllersDoc
 	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("controllers document")
+	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}

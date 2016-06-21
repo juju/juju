@@ -231,10 +231,16 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Annotate(err, "failed to create config")
 	}
 
+	controllerInfo, err := mm.state.ControllerInfo()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := mm.state.NewModel(state.ModelArgs{
+		CloudName:       controllerInfo.CloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredentialName,
 		Config:          newConfig,

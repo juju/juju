@@ -91,6 +91,7 @@ func InitializeState(
 			Owner:           adminUser,
 			Config:          args.ControllerModelConfig,
 			Constraints:     args.ModelConstraints,
+			CloudName:       args.ControllerCloudName,
 			CloudRegion:     args.ControllerCloudRegion,
 			CloudCredential: args.ControllerCloudCredentialName,
 		},
@@ -154,6 +155,7 @@ func InitializeState(
 		Owner:           adminUser,
 		Config:          hostedModelConfig,
 		Constraints:     args.ModelConstraints,
+		CloudName:       args.ControllerCloudName,
 		CloudRegion:     args.ControllerCloudRegion,
 		CloudCredential: args.ControllerCloudCredentialName,
 	})

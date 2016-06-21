@@ -28,6 +28,10 @@ type Backend interface {
 	NewModel(state.ModelArgs) (Model, Backend, error)
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
+
+	// TODO(wallyworld) - we won't need this once cloud name is stored on model
+	ControllerInfo() (*state.ControllerInfo, error)
+
 	ForModel(tag names.ModelTag) (Backend, error)
 	Model() (Model, error)
 	AddModelUser(state.ModelUserSpec) (*state.ModelUser, error)

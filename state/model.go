@@ -148,6 +148,9 @@ func (st *State) AllModels() ([]*Model, error) {
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
+	// CloudName is the name of the cloud to which the model is deployed.
+	CloudName string
+
 	// CloudRegion is the name of the cloud region to which the model is
 	// deployed. This will be empty for clouds that do not support regions.
 	CloudRegion string
@@ -174,6 +177,9 @@ type ModelArgs struct {
 func (m ModelArgs) Validate() error {
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
+	}
+	if m.CloudName == "" {
+		return errors.NotValidf("empty Cloud Name")
 	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
@@ -245,11 +251,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}()
 	newSt.controllerTag = st.controllerTag
 
-	configDefaults, err := st.ModelConfigDefaults()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "could not read cloud config for new model")
-	}
-	modelOps, err := newSt.modelSetupOps(args, configDefaults)
+	modelOps, err := newSt.modelSetupOps(args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
@@ -579,7 +581,7 @@ func (m *Model) Users() ([]*ModelUser, error) {
 // If called on a controller model, and that controller is
 // hosting any non-Dead models, this method will return an
 // error satisfying IsHasHostedsError.
-func (m *Model) Destroy() (err error) {
+func (m *Model) Destroy() error {
 	ensureNoHostedModels := false
 	if m.doc.UUID == m.doc.ServerUUID {
 		ensureNoHostedModels = true
@@ -921,7 +923,7 @@ func createModelOp(
 	}
 }
 
-func createModelEntityRefsOp(st *State, uuid string) txn.Op {
+func createModelEntityRefsOp(uuid string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     uuid,
@@ -936,10 +938,6 @@ type hostedModelCountDoc struct {
 	// RefCount is the number of models in the Juju system.
 	// We do not count the system model.
 	RefCount int `bson:"refcount"`
-}
-
-func assertNoHostedModelsOp() txn.Op {
-	return assertHostedModelsOp(0)
 }
 
 func assertHostedModelsOp(n int) txn.Op {

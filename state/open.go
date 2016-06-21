@@ -255,7 +255,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			Insert: &hostedModelCountDoc{},
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
-		createSettingsOp(controllersC, defaultModelSettingsGlobalKey, args.LocalCloudConfig),
+		createSettingsOp(modelInheritedSettingsC, cloudGlobalKey(args.CloudName), args.LocalCloudConfig),
 	}
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
@@ -275,8 +275,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interface{}) ([]txn.Op, error) {
-	if err := checkModelConfigDefaults(configDefaults); err != nil {
+func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]interface{}) ([]txn.Op, error) {
+	if err := checkLocalCloudConfigDefaults(localCloudConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := checkModelConfig(args.Config); err != nil {
@@ -310,10 +310,21 @@ func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interfa
 		ops = append(ops, incHostedModelCountOp())
 	}
 
-	modelCfg := modelConfig(configDefaults, args.Config.AllAttrs())
+	// Create the final map of config attributes for the model.
+	// We create a config source containing any passed in local cloud settings.
+	configSource := modelConfigSource{
+		name: jujuCloudSource,
+		sourceFunc: modelConfigSourceFunc(func() (map[string]interface{}, error) {
+			return localCloudConfig, nil
+		})}
+	modelCfg, cfgSource, err := st.composeModelConfigAttributes(args.Config.AllAttrs(), configSource)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ops = append(ops,
 		createSettingsOp(settingsC, modelGlobalKey, modelCfg),
-		createModelEntityRefsOp(st, modelUUID),
+		createSettingsSourceOp(cfgSource),
+		createModelEntityRefsOp(modelUUID),
 		createModelOp(
 			args.Owner,
 			args.Config.Name(),

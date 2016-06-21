@@ -56,7 +56,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	controllerInfo, err := st.ControllerInfo()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	dbModel, newSt, err := st.NewModel(ModelArgs{
+		// TODO(wallyworld) - cloud name needs to be on model
+		CloudName:     controllerInfo.CloudName,
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
 		Owner:         model.Owner(),
