@@ -211,6 +211,8 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	for i := cap(unknown) - 1; i >= 0; i-- {
 		unknown = append(unknown, names.NewMachineTag(fmt.Sprintf("%d", i)))
 	}
+	m50c0 := names.NewMachineTag("50/lxd/0")
+	m50c1 := names.NewMachineTag("50/lxd/1")
 	m50 := names.NewMachineTag("50")
 	m51 := names.NewMachineTag("51")
 	m52 := names.NewMachineTag("52")
@@ -218,7 +220,7 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 	u1 := names.NewUnitTag("foo/1")
 	s.backend.migration.minionReports = &state.MinionReports{
 		Succeeded: []names.Tag{m50, m51, u0},
-		Failed:    []names.Tag{u1, m52},
+		Failed:    []names.Tag{u1, m52, m50c1, m50c0},
 		Unknown:   unknown,
 	}
 
@@ -238,7 +240,13 @@ func (s *Suite) TestGetMinionReports(c *gc.C) {
 		SuccessCount:  3,
 		UnknownCount:  len(unknown),
 		UnknownSample: expectedSample,
-		Failed:        []string{m52.String(), u1.String()}, // Note sorting
+		Failed: []string{
+			// Note sorting
+			m50c0.String(),
+			m50c1.String(),
+			m52.String(),
+			u1.String(),
+		},
 	})
 }
 
