@@ -608,13 +608,14 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
 	}
 
-	unitVersions := make([]string, len(processedStatus.Units))
-	i := 0
+	versions := newVersionCounts()
 	for _, unit := range processedStatus.Units {
-		unitVersions[i] = unit.WorkloadVersion
-		i++
+		versions.Add(unit.WorkloadVersion)
 	}
-	processedStatus.WorkloadVersion = combineUnitVersions(unitVersions)
+	processedStatus.WorkloadVersion = versions.Commonest()
+	if versions.Len() > 1 {
+		processedStatus.WorkloadVersion += "*"
+	}
 
 	return processedStatus
 }
@@ -911,16 +912,4 @@ func (v *versionCounts) Commonest() string {
 	}
 	sort.Sort(v)
 	return v.versions[0]
-}
-
-func combineUnitVersions(versions []string) string {
-	counts := newVersionCounts()
-	for _, version := range versions {
-		counts.Add(version)
-	}
-	result := counts.Commonest()
-	if counts.Len() > 1 {
-		result += "*"
-	}
-	return result
 }
