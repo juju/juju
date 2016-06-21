@@ -7,11 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/migrationmaster"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {
-	facade := migrationmaster.NewClient(apiCaller)
+	facade := migrationmaster.NewClient(apiCaller, watcher.NewNotifyWatcher)
 	return facade, nil
 }
 
