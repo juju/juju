@@ -760,7 +760,7 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 			if !ok {
 				c.Fatalf("tailer died unexpectedly: %v", tailer.Err())
 			}
-			c.Assert(log.Entity, gc.Equals, lt.Entity.String())
+			c.Assert(log.Entity, gc.Equals, lt.Entity)
 			c.Assert(log.Module, gc.Equals, lt.Module)
 			c.Assert(log.Location, gc.Equals, lt.Location)
 			c.Assert(log.Level, gc.Equals, lt.Level)

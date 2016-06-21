@@ -222,6 +222,7 @@ func (als *apiLogStream) send(rec params.LogStreamRecord) error {
 func (als *apiLogStream) rec2api(rec *state.LogRecord) params.LogStreamRecord {
 	apiRec := params.LogStreamRecord{
 		Version:   rec.Version.String(),
+		Entity:    rec.Entity.String(),
 		Timestamp: rec.Time,
 		Module:    rec.Module,
 		Location:  rec.Location,

@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -71,7 +72,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		ModelUUID: "deadbeef-...",
 		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
-		Entity:    "machine-99",
+		Entity:    names.NewMachineTag("99"),
 		Module:    "some.where",
 		Location:  "code.go:42",
 		Level:     loggo.INFO,
@@ -80,7 +81,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		ModelUUID: "deadbeef-...",
 		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
-		Entity:    "unit-foo-2",
+		Entity:    names.NewUnitTag("foo/2"),
 		Module:    "else.where",
 		Location:  "go.go:22",
 		Level:     loggo.ERROR,
@@ -90,6 +91,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	for _, rec := range logs {
 		expected = append(expected, params.LogStreamRecord{
 			ModelUUID: rec.ModelUUID,
+			Entity:    rec.Entity.String(),
 			Version:   version.Current.String(),
 			Timestamp: rec.Time,
 			Module:    rec.Module,

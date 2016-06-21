@@ -212,7 +212,7 @@ type LogTailer interface {
 type LogRecord struct {
 	// origin fields
 	ModelUUID string
-	Entity    string
+	Entity    names.Tag
 	Version   version.Number
 
 	// universal fields
@@ -551,9 +551,14 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
 	}
 
+	entity, err := names.ParseTag(doc.Entity)
+	if err != nil {
+		return nil, errors.Annotate(err, "while parsing entity tag")
+	}
+
 	rec := &LogRecord{
 		ModelUUID: doc.ModelUUID,
-		Entity:    doc.Entity,
+		Entity:    entity,
 		Version:   ver,
 
 		Time:    time.Unix(0, doc.Time).In(time.FixedZone("", doc.Timezone)),
