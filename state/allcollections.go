@@ -152,7 +152,7 @@ func allCollections() collectionSchema {
 
 		// This collection holds settings from various sources which
 		// are inherited and then forked by new models.
-		modelInheritedSettingsC: {global: true},
+		globalSettingsC: {global: true},
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
@@ -176,10 +176,14 @@ func allCollections() collectionSchema {
 		// Local collections
 		// =================
 
+		// This collection holds users related to a model and will be usde as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
+
 		// This collection is basically a standard SQL intersection table; it
 		// references the global records of the users allowed access to a
-		// given collection.
-		modelUsersC: {},
+		// given operation.
+		permissionsC: {},
 
 		// This collection holds the last time the model user connected
 		// to the model.
@@ -382,6 +386,7 @@ const (
 	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
@@ -394,13 +399,13 @@ const (
 	migrationsStatusC        = "migrations.status"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"
-	modelInheritedSettingsC  = "modelInteritedSettings"
 	modelSettingsSourcesC    = "modelSettingsSources"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"
 	modelEntityRefsC         = "modelEntityRefs"
 	openedPortsC             = "openedPorts"
+	permissionsC             = "permissions"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"

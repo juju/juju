@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -20,35 +21,31 @@ import (
 // model user always represents a single user for a single model.
 // There should be no more than one ModelUser per model.
 type ModelUser struct {
-	st  *State
-	doc modelUserDoc
+	st              *State
+	doc             modelUserDoc
+	modelPermission *permission
+}
+
+// NewModelUser returns a ModelUser with permissions.
+func NewModelUser(st *State, doc modelUserDoc) (*ModelUser, error) {
+	mu := &ModelUser{
+		st:  st,
+		doc: doc,
+	}
+	if err := mu.refreshPermission(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mu, nil
 }
 
 type modelUserDoc struct {
-	ID          string      `bson:"_id"`
-	ModelUUID   string      `bson:"model-uuid"`
-	UserName    string      `bson:"user"`
-	DisplayName string      `bson:"displayname"`
-	CreatedBy   string      `bson:"createdby"`
-	DateCreated time.Time   `bson:"datecreated"`
-	Access      ModelAccess `bson:"access"`
+	ID          string    `bson:"_id"`
+	ModelUUID   string    `bson:"model-uuid"`
+	UserName    string    `bson:"user"`
+	DisplayName string    `bson:"displayname"`
+	CreatedBy   string    `bson:"createdby"`
+	DateCreated time.Time `bson:"datecreated"`
 }
-
-// ModelAccess represents the level of access granted to a user on a model.
-type ModelAccess string
-
-const (
-	// ModelUndefinedAccess is not a valid access type. It is the value
-	// unmarshaled when access is not defined by the document at all.
-	ModelUndefinedAccess ModelAccess = ""
-
-	// ModelReadAccess allows a user to read information about a model, without
-	// being able to make any changes.
-	ModelReadAccess ModelAccess = "read"
-
-	// ModelAdminAccess allows a user full control over the model.
-	ModelAdminAccess ModelAccess = "admin"
-)
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user
 // connects over the API. This update is not done using mgo.txn so the values
@@ -97,33 +94,53 @@ func (e *ModelUser) DateCreated() time.Time {
 	return e.doc.DateCreated.UTC()
 }
 
-// ReadOnly returns whether or not the user has write access or only
-// read access to the model.
-func (e *ModelUser) ReadOnly() bool {
-	// Fall back to read-only if access is undefined.
-	return e.doc.Access == ModelUndefinedAccess || e.doc.Access == ModelReadAccess
+// refreshPermission reloads the permission for this model user from persistence.
+func (e *ModelUser) refreshPermission() error {
+	perm, err := e.st.userPermission(modelGlobalKey, e.globalKey())
+	if err != nil {
+		return errors.Annotate(err, "updating permission")
+	}
+	e.modelPermission = perm
+	return nil
 }
 
-// Access returns the access permission that the user has to the model.
-func (e *ModelUser) Access() ModelAccess {
-	return e.doc.Access
+// IsReadOnly returns whether or not the user has write access or only
+// read access to the model.
+func (e *ModelUser) IsReadOnly() bool {
+	return e.modelPermission.isReadOnly()
+}
+
+// IsAdmin is a convenience method that
+// returns whether or not the user has AdminAccess.
+func (e *ModelUser) IsAdmin() bool {
+	return e.modelPermission.isAdmin()
+}
+
+// IsReadWrite is a convenience method that
+// returns whether or not the user has WriteAccess.
+func (e *ModelUser) IsReadWrite() bool {
+	return e.modelPermission.isReadWrite()
+}
+
+// IsGreaterAccess returns true if provided access is higher than
+// the current one.
+func (e *ModelUser) IsGreaterAccess(a Access) bool {
+	return e.modelPermission.isGreaterAccess(a)
 }
 
 // SetAccess changes the user's access permissions on the model.
-func (e *ModelUser) SetAccess(access ModelAccess) error {
+func (e *ModelUser) SetAccess(access Access) error {
 	switch access {
-	case ModelReadAccess, ModelAdminAccess:
+	case ReadAccess, AdminAccess, WriteAccess:
 	default:
 		return errors.Errorf("invalid model access %q", access)
 	}
-	op := txn.Op{
-		C:      modelUsersC,
-		Id:     e.st.docID(strings.ToLower(e.UserName())),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"access", access}}}},
-	}
+	op := updatePermissionOp(modelGlobalKey, e.globalKey(), access)
 	err := e.st.runTransaction([]txn.Op{op})
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return e.refreshPermission()
 }
 
 // LastConnection returns when this ModelUser last connected through the API
@@ -187,6 +204,17 @@ func (e *ModelUser) updateLastConnection(when time.Time) error {
 	return errors.Trace(err)
 }
 
+func modelUserGlobalKey(userID string) string {
+	// mu stands for model user.
+	return fmt.Sprintf("mu#%s", userID)
+}
+
+func (e *ModelUser) globalKey() string {
+	// TODO(perrito666) this asumes out of band knowledge of how modelUserID is crafted
+	username := strings.ToLower(e.UserName())
+	return modelUserGlobalKey(username)
+}
+
 // ModelUser returns the model user.
 func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
 	modelUser := &ModelUser{st: st}
@@ -201,6 +229,9 @@ func (st *State) ModelUser(user names.UserTag) (*ModelUser, error) {
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
 	modelUser.doc.DateCreated = modelUser.doc.DateCreated.UTC()
+	if err := modelUser.refreshPermission(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return modelUser, nil
 }
 
@@ -210,7 +241,7 @@ type ModelUserSpec struct {
 	User        names.UserTag
 	CreatedBy   names.UserTag
 	DisplayName string
-	Access      ModelAccess
+	Access      Access
 }
 
 // AddModelUser adds a new user to the database.
@@ -234,20 +265,21 @@ func (st *State) AddModelUser(spec ModelUserSpec) (*ModelUser, error) {
 	}
 
 	// Default to read access if not otherwise specified.
-	if spec.Access == ModelUndefinedAccess {
-		spec.Access = ModelReadAccess
+	if spec.Access == UndefinedAccess {
+		spec.Access = ReadAccess
 	}
 
 	modelUUID := st.ModelUUID()
-	op := createModelUserOp(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.Access)
-	err := st.runTransaction([]txn.Op{op})
-	if err == txn.ErrAborted {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		return createModelUserOps(modelUUID, spec.User, spec.CreatedBy, spec.DisplayName, nowToTheSecond(), spec.Access), nil
+	}
+	err := st.run(buildTxn)
+	if err == jujutxn.ErrExcessiveContention {
 		err = errors.AlreadyExistsf("model user %q", spec.User.Canonical())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Re-read from DB to get the multi-env updated values.
 	return st.ModelUser(spec.User)
 }
 
@@ -257,33 +289,39 @@ func modelUserID(user names.UserTag) string {
 	return strings.ToLower(username)
 }
 
-func createModelUserOp(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access ModelAccess) txn.Op {
+func createModelUserOps(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access Access) []txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &modelUserDoc{
 		ID:          modelUserID(user),
 		ModelUUID:   modelUUID,
 		UserName:    user.Canonical(),
 		DisplayName: displayName,
-		Access:      access,
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
 	}
-	return txn.Op{
-		C:      modelUsersC,
-		Id:     modelUserID(user),
-		Assert: txn.DocMissing,
-		Insert: doc,
+	ops := []txn.Op{
+		createPermissionOp(modelGlobalKey, modelUserGlobalKey(modelUserID(user)), access),
+		{
+			C:      modelUsersC,
+			Id:     modelUserID(user),
+			Assert: txn.DocMissing,
+			Insert: doc,
+		},
 	}
+	return ops
 }
 
 // RemoveModelUser removes a user from the database.
 func (st *State) RemoveModelUser(user names.UserTag) error {
-	ops := []txn.Op{{
-		C:      modelUsersC,
-		Id:     modelUserID(user),
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
+	ops := []txn.Op{
+		removePermissionOp(modelGlobalKey, modelUserGlobalKey(modelUserID(user))),
+		{
+			C:      modelUsersC,
+			Id:     modelUserID(user),
+			Assert: txn.DocExists,
+			Remove: true,
+		}}
+
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Canonical()))
@@ -357,13 +395,22 @@ func (st *State) IsControllerAdministrator(user names.UserTag) (bool, error) {
 
 	serverUUID := ssinfo.ModelTag.Id()
 
-	modelUsers, userCloser := st.getRawCollection(modelUsersC)
-	defer userCloser()
+	modelPermission, closer := st.getRawCollection(permissionsC)
+	defer closer()
 
-	count, err := modelUsers.Find(bson.D{
-		{"model-uuid", serverUUID},
-		{"user", user.Canonical()},
-		{"access", ModelAdminAccess},
+	username := strings.ToLower(user.Canonical())
+	subjectGlobalKey := modelUserGlobalKey(username)
+
+	// TODO(perrito666) 20160606 this is prone to errors, it will just
+	// yield ErrPerm and be hard to trace, use ModelUser and Permission.
+	// TODO(perrito666) 20160614 since last change on this query it has
+	// too much out of band knowledge, it should go away when controller
+	// permissions are implemented.
+	count, err := modelPermission.Find(bson.D{
+		{"_id", fmt.Sprintf("%s:%s", serverUUID, permissionID(modelGlobalKey, subjectGlobalKey))},
+		{"object-global-key", modelGlobalKey},
+		{"subject-global-key", subjectGlobalKey},
+		{"access", AdminAccess},
 	}).Count()
 	if err != nil {
 		return false, errors.Trace(err)

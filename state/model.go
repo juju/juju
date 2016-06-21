@@ -205,6 +205,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	// For now, the model cloud must be the same as the controller cloud.
+	controllerInfo, err := st.ControllerInfo()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if controllerInfo.CloudName != args.CloudName {
+		return nil, nil, errors.NotValidf("controller cloud %s does not match model cloud %s", controllerInfo.CloudName, args.CloudName)
+	}
 
 	// Ensure that the cloud region is valid, or if one is not specified,
 	// that the cloud does not support regions.
@@ -564,10 +572,11 @@ func (m *Model) Users() ([]*ModelUser, error) {
 
 	var modelUsers []*ModelUser
 	for _, doc := range userDocs {
-		modelUsers = append(modelUsers, &ModelUser{
-			st:  m.st,
-			doc: doc,
-		})
+		mu, err := NewModelUser(m.st, doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelUsers = append(modelUsers, mu)
 	}
 
 	return modelUsers, nil

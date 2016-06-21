@@ -225,7 +225,7 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	localCloudConfig, err := state.ReadSettings(s.State, state.ModelInheritedSettingsC, state.CloudGlobalKey("dummy"))
+	localCloudConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(localCloudConfig.Map(), jc.DeepEquals, modelConfigDefaultsIn)
 

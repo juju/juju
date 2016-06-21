@@ -708,10 +708,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			st, err := state.Initialize(state.InitializeParams{
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
-					CloudName:       icfg.Bootstrap.ControllerCloudName,
 					Owner:           names.NewUserTag("admin@local"),
 					Config:          icfg.Bootstrap.ControllerModelConfig,
 					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudName:       icfg.Bootstrap.ControllerCloudName,
 					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
 					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
 				},

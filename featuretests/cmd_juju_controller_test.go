@@ -110,7 +110,7 @@ models:
   users:
     admin@local:
       display-name: admin
-      access: write
+      access: admin
       last-connection: just now
 current-model: controller
 `[1:])

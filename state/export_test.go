@@ -28,15 +28,15 @@ import (
 )
 
 const (
-	MachinesC               = machinesC
-	ApplicationsC           = applicationsC
-	EndpointBindingsC       = endpointBindingsC
-	ControllersC            = controllersC
-	UsersC                  = usersC
-	BlockDevicesC           = blockDevicesC
-	StorageInstancesC       = storageInstancesC
-	GUISettingsC            = guisettingsC
-	ModelInheritedSettingsC = modelInheritedSettingsC
+	MachinesC         = machinesC
+	ApplicationsC     = applicationsC
+	EndpointBindingsC = endpointBindingsC
+	ControllersC      = controllersC
+	UsersC            = usersC
+	BlockDevicesC     = blockDevicesC
+	StorageInstancesC = storageInstancesC
+	GUISettingsC      = guisettingsC
+	GlobalSettingsC   = globalSettingsC
 )
 
 var (

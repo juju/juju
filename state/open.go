@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
@@ -255,7 +256,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			Insert: &hostedModelCountDoc{},
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
-		createSettingsOp(modelInheritedSettingsC, cloudGlobalKey(args.CloudName), args.LocalCloudConfig),
+		createSettingsOp(globalSettingsC, cloudGlobalKey(args.CloudName), args.LocalCloudConfig),
 	}
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
@@ -299,8 +300,8 @@ func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]inter
 	// UUID is also used as the controller UUID.
 	isHostedModel := controllerUUID != modelUUID
 
-	modelUserOp := createModelUserOp(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), ModelAdminAccess,
+	modelUserOps := createModelUserOps(
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
@@ -311,13 +312,20 @@ func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]inter
 	}
 
 	// Create the final map of config attributes for the model.
-	// We create a config source containing any passed in local cloud settings.
-	configSource := modelConfigSource{
-		name: jujuCloudSource,
-		sourceFunc: modelConfigSourceFunc(func() (map[string]interface{}, error) {
-			return localCloudConfig, nil
-		})}
-	modelCfg, cfgSource, err := st.composeModelConfigAttributes(args.Config.AllAttrs(), configSource)
+	// If we have localCloudConfig passed in, that means state
+	// is being initialised and there won't be any config sources
+	// in state.
+	var configSources []modelConfigSource
+	if len(localCloudConfig) > 0 {
+		configSources = []modelConfigSource{{
+			name: config.JujuCloudSource,
+			sourceFunc: modelConfigSourceFunc(func() (map[string]interface{}, error) {
+				return localCloudConfig, nil
+			})}}
+	} else {
+		configSources = modelConfigSources(st)
+	}
+	modelCfg, cfgSource, err := composeModelConfigAttributes(args.Config.AllAttrs(), configSources...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -333,8 +341,8 @@ func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]inter
 			args.MigrationMode,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
-		modelUserOp,
 	)
+	ops = append(ops, modelUserOps...)
 	return ops, nil
 }
 

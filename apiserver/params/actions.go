@@ -115,7 +115,7 @@ type ActionExecutionResults struct {
 // ActionExecutionResult holds the action tag and output used when
 // recording the result of an action.
 type ActionExecutionResult struct {
-	ActionTag string                 `json:"actiontag"`
+	ActionTag string                 `json:"action-tag"`
 	Status    string                 `json:"status"`
 	Results   map[string]interface{} `json:"results,omitempty"`
 	Message   string                 `json:"message,omitempty"`
@@ -131,7 +131,7 @@ type ApplicationsCharmActionsResults struct {
 // If an error such as a missing charm or malformed application name occurs, it
 // is encapsulated in this type.
 type ApplicationCharmActionsResult struct {
-	ApplicationTag string         `json:"ApplicationTag,omitempty"`
+	ApplicationTag string         `json:"application-tag,omitempty"`
 	Actions        *charm.Actions `json:"actions,omitempty"`
 	Error          *Error         `json:"error,omitempty"`
 }

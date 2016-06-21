@@ -774,6 +774,14 @@ var _ = gc.Suite(&ModelCloudValidationSuite{})
 // TODO(axw) concurrency tests when we can modify the cloud definition,
 // and update/remove credentials.
 
+func (s *ModelCloudValidationSuite) TestNewModelCloudNameMismatch(c *gc.C) {
+	st, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
+	defer st.Close()
+	cfg, _ := createTestModelConfig(c, st.ModelUUID())
+	_, _, err := st.NewModel(state.ModelArgs{CloudName: "another", Config: cfg, Owner: owner})
+	c.Assert(err, gc.ErrorMatches, "controller cloud dummy does not match model cloud another")
+}
+
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
 	st, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer st.Close()

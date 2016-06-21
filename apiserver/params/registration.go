@@ -24,7 +24,7 @@ type SecretKeyLoginRequest struct {
 	// PayloadCiphertext is the encrypted and authenticated
 	// payload. The payload is encrypted/authenticated using
 	// NaCl Secretbox.
-	PayloadCiphertext []byte `json:"ciphertext"`
+	PayloadCiphertext []byte `json:"cipher-text"`
 }
 
 // SecretKeyLoginRequestPayload is JSON-encoded and then encrypted
@@ -45,7 +45,7 @@ type SecretKeyLoginResponse struct {
 
 	// PayloadCiphertext is the encrypted and authenticated
 	// payload, which is a JSON-encoded SecretKeyLoginResponsePayload.
-	PayloadCiphertext []byte `json:"ciphertext"`
+	PayloadCiphertext []byte `json:"cipher-text"`
 }
 
 // SecretKeyLoginResponsePayload is JSON-encoded and then encrypted

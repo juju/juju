@@ -118,27 +118,18 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	}
 
 	modelSettings.Update(validAttrs)
-	changes, err := modelSettings.Write()
-
-	// Update the map recording the source of each attribute
-	// in the model config. Any updates are cumulative; even
-	// attribute deletes record the sources as "model", so
-	// it's ok to do this outside the txn to write the updates
-	// themselves.
-	return st.updateModelConfigSources(changes)
+	changes, ops := modelSettings.settingsUpdateOps()
+	ops = append(ops, updateModelSourcesOps(changes)...)
+	return modelSettings.write(ops)
 }
 
-func (st *State) updateModelConfigSources(changes []ItemChange) error {
+func updateModelSourcesOps(changes []ItemChange) []txn.Op {
 	var update bson.D
 	var set = make(bson.M)
 	for _, c := range changes {
-		set[c.Key] = "model"
+		set["sources."+c.Key] = "model"
 	}
-	replace := inSubdocReplacer("sources")
-	set = bson.M(copyMap(map[string]interface{}(set), replace))
-	update = append(update,
-		bson.DocElem{"$set", set},
-		bson.DocElem{"$inc", bson.D{{"version", 1}}})
+	update = append(update, bson.DocElem{"$set", set})
 
 	ops := []txn.Op{{
 		C:      modelSettingsSourcesC,
@@ -146,11 +137,7 @@ func (st *State) updateModelConfigSources(changes []ItemChange) error {
 		Assert: txn.DocExists,
 		Update: update,
 	}}
-	err := st.runTransaction(ops)
-	if err == txn.ErrAborted {
-		return errors.NotFoundf("settings sources")
-	}
-	return errors.Trace(err)
+	return ops
 }
 
 // settingsSourcesDoc stores for each model attribute,
@@ -158,10 +145,6 @@ func (st *State) updateModelConfigSources(changes []ItemChange) error {
 type settingsSourcesDoc struct {
 	// Sources defines the named source for each settings attribute.
 	Sources map[string]string `bson:"sources,omitempty"`
-
-	// Version is a version number for the settings sources,
-	// and is increased every time the sources change.
-	Version int64 `bson:"version"`
 }
 
 func createSettingsSourceOp(values map[string]string) txn.Op {
@@ -191,17 +174,6 @@ func (st *State) ModelConfigSources() (map[string]string, error) {
 	return out.Sources, nil
 }
 
-// These constants define named sources of model config attributes.
-const (
-	// jujuCloudSource is used to label model config attributes that
-	// come from those associated with the host cloud.
-	jujuCloudSource = "juju cloud"
-
-	// jujuModelSource is used to label model config attributes that
-	// come explicitly from the user.
-	jujuModelSource = "model"
-)
-
 type modelConfigSourceFunc func() (map[string]interface{}, error)
 
 type modelConfigSource struct {
@@ -209,10 +181,14 @@ type modelConfigSource struct {
 	sourceFunc modelConfigSourceFunc
 }
 
+// modelConfigSources returns a slice of named model config
+// sources, in hierarchical order. Starting from the first source,
+// config is retrieved and each subsequent source adds to the
+// overall config values, later values override earlier ones.
 func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
-		{jujuCloudSource, st.localCloudConfig},
-		// We wil also support local cloud region, tenant, user etc
+		{config.JujuCloudSource, st.localCloudConfig},
+		// We will also support local cloud region, tenant, user etc
 	}
 }
 
@@ -223,7 +199,7 @@ func (st *State) localCloudConfig() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	settings, err := readSettings(st, modelInheritedSettingsC, cloudGlobalKey(info.CloudName))
+	settings, err := readSettings(st, globalSettingsC, cloudGlobalKey(info.CloudName))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -234,14 +210,12 @@ func (st *State) localCloudConfig() (map[string]interface{}, error) {
 // sources of default values overridden by model specific attributes.
 // Also returned is a map containing the source location for each model attribute.
 // The source location is the name of the config values from which an attribute came.
-func (st *State) composeModelConfigAttributes(
-	modelAttr map[string]interface{}, extraSources ...modelConfigSource,
+func composeModelConfigAttributes(
+	modelAttr map[string]interface{}, configSources ...modelConfigSource,
 ) (map[string]interface{}, map[string]string, error) {
 	resultAttrs := make(map[string]interface{})
 	settingsSources := make(map[string]string)
 
-	configSources := modelConfigSources(st)
-	configSources = append(configSources, extraSources...)
 	// Compose default settings from all known sources.
 	for _, source := range configSources {
 		newSettings, err := source.sourceFunc()
@@ -260,7 +234,7 @@ func (st *State) composeModelConfigAttributes(
 	// Merge in model specific settings.
 	for attr, val := range modelAttr {
 		resultAttrs[attr] = val
-		settingsSources[attr] = jujuModelSource
+		settingsSources[attr] = config.JujuModelConfigSource
 	}
 
 	return resultAttrs, settingsSources, nil
