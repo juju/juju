@@ -200,12 +200,18 @@ class TestAssess(TestCase):
         fake_client = make_fake_client()
         fake_client.bootstrap()
         fake_client_environ = fake_client._shell_environ()
-        cloned, cloned_environ = create_cloned_environment(fake_client,
-                                                           'fakehome')
+        controller_name = 'user_controller'
+        cloned, cloned_environ = create_cloned_environment(
+            fake_client,
+            'fakehome',
+            controller_name
+        )
         self.assertIs(fake_client.__class__, type(cloned))
         self.assertEqual(cloned.env.juju_home, 'fakehome')
         self.assertNotEqual(cloned_environ, fake_client_environ)
         self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')
+        self.assertEqual(cloned.env.controller.name, controller_name)
+        self.assertEqual(fake_client.env.controller.name, 'name')
 
     def test_register_user(self):
         FakeUser = namedtuple('user', ['name', 'permissions'])
