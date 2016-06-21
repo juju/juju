@@ -313,7 +313,7 @@ func allCollections() collectionSchema {
 
 		// This collection holds information associated with charm payloads.
 		// See payload/persistence/mongo.go.
-		"payloads": {},
+		payloadsC: {},
 
 		// This collection holds information associated with charm resources.
 		// See resource/persistence/mongo.go.

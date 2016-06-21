@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package persistence_test
+package state_test
 
 import (
 	"sort"
@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/payload/persistence"
+	persistence "github.com/juju/juju/state"
 )
 
 type PayloadsPersistenceSuite struct {
