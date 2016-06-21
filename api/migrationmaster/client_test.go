@@ -110,7 +110,7 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 
 	status, err := client.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, migrationmaster.MigrationStatus{
+	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		ModelUUID: modelUUID,
 		Attempt:   3,
 		Phase:     migration.READONLY,
@@ -169,7 +169,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationMaster.Export", []interface{}{"", nil}},
 	})
-	c.Assert(out, gc.DeepEquals, migrationmaster.SerializedModel{
+	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
 		Charms: []string{"cs:foo-1"},
 		Tools: map[version.Binary]string{
@@ -287,7 +287,7 @@ func (s *ClientSuite) TestGetMinionReports(c *gc.C) {
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationMaster.GetMinionReports", []interface{}{"", nil}},
 	})
-	c.Assert(out, gc.DeepEquals, migrationmaster.MinionReports{
+	c.Assert(out, gc.DeepEquals, migration.MinionReports{
 		MigrationId:         "id",
 		Phase:               migration.READONLY,
 		SuccessCount:        4,
