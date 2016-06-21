@@ -105,9 +105,14 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 		Origin: logfwd.Origin{
 			ControllerUUID: cUUID,
 			ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
+			Hostname:       "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
 			Type:           logfwd.OriginTypeMachine,
 			Name:           "99",
-			JujuVersion:    version.Current,
+			Software: logfwd.Software{
+				PrivateEnterpriseNumber: 28978,
+				Name:    "jujud-machine-agent",
+				Version: version.Current,
+			},
 		},
 		Timestamp: ts,
 		Level:     loggo.INFO,

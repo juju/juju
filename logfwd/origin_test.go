@@ -9,147 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/logfwd"
 )
-
-type OriginTypeSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&OriginTypeSuite{})
-
-func (s *OriginTypeSuite) TestZeroValue(c *gc.C) {
-	var ot logfwd.OriginType
-
-	c.Check(ot, gc.Equals, logfwd.OriginTypeUnknown)
-}
-
-func (s *OriginTypeSuite) TestParseOriginTypeValid(c *gc.C) {
-	tests := map[string]logfwd.OriginType{
-		"unknown": logfwd.OriginTypeUnknown,
-		"user":    logfwd.OriginTypeUser,
-		"machine": logfwd.OriginTypeMachine,
-		"unit":    logfwd.OriginTypeUnit,
-	}
-	for str, expected := range tests {
-		c.Logf("trying %q", str)
-
-		ot, err := logfwd.ParseOriginType(str)
-		c.Assert(err, jc.ErrorIsNil)
-
-		c.Check(ot, gc.Equals, expected)
-	}
-}
-
-func (s *OriginTypeSuite) TestParseOriginTypeEmpty(c *gc.C) {
-	_, err := logfwd.ParseOriginType("")
-
-	c.Check(err, gc.ErrorMatches, `unrecognized origin type ""`)
-}
-
-func (s *OriginTypeSuite) TestParseOriginTypeInvalid(c *gc.C) {
-	_, err := logfwd.ParseOriginType("spam")
-
-	c.Check(err, gc.ErrorMatches, `unrecognized origin type "spam"`)
-}
-
-func (s *OriginTypeSuite) TestString(c *gc.C) {
-	tests := map[logfwd.OriginType]string{
-		logfwd.OriginTypeUnknown: "unknown",
-		logfwd.OriginTypeUser:    "user",
-		logfwd.OriginTypeMachine: "machine",
-		logfwd.OriginTypeUnit:    "unit",
-	}
-	for ot, expected := range tests {
-		c.Logf("trying %q", ot)
-
-		str := ot.String()
-
-		c.Check(str, gc.Equals, expected)
-	}
-}
-
-func (s *OriginTypeSuite) TestValidateValid(c *gc.C) {
-	tests := []logfwd.OriginType{
-		logfwd.OriginTypeUnknown,
-		logfwd.OriginTypeUser,
-		logfwd.OriginTypeMachine,
-		logfwd.OriginTypeUnit,
-	}
-	for _, ot := range tests {
-		c.Logf("trying %q", ot)
-
-		err := ot.Validate()
-
-		c.Check(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *OriginTypeSuite) TestValidateZero(c *gc.C) {
-	var ot logfwd.OriginType
-
-	err := ot.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *OriginTypeSuite) TestValidateInvalid(c *gc.C) {
-	ot := logfwd.OriginType(999)
-
-	err := ot.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `unsupported origin type`)
-}
-
-func (s *OriginTypeSuite) TestValidateNameValid(c *gc.C) {
-	tests := map[logfwd.OriginType]string{
-		logfwd.OriginTypeUnknown: "",
-		logfwd.OriginTypeUser:    "a-user",
-		logfwd.OriginTypeMachine: "99",
-		logfwd.OriginTypeUnit:    "svc-a/0",
-	}
-	for ot, name := range tests {
-		c.Logf("trying %q + %q", ot, name)
-
-		err := ot.ValidateName(name)
-
-		c.Check(err, jc.ErrorIsNil)
-	}
-}
-
-func (s *OriginTypeSuite) TestValidateNameInvalid(c *gc.C) {
-	tests := []struct {
-		ot   logfwd.OriginType
-		name string
-		err  string
-	}{{
-		ot:   logfwd.OriginTypeUnknown,
-		name: "...",
-		err:  `origin name must not be set if type is unknown`,
-	}, {
-		ot:   logfwd.OriginTypeUser,
-		name: "...",
-		err:  `bad user name`,
-	}, {
-		ot:   logfwd.OriginTypeMachine,
-		name: "...",
-		err:  `bad machine name`,
-	}, {
-		ot:   logfwd.OriginTypeUnit,
-		name: "...",
-		err:  `bad unit name`,
-	}}
-	for _, test := range tests {
-		c.Logf("trying %q + %q", test.ot, test.name)
-
-		err := test.ot.ValidateName(test.name)
-
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
-		c.Check(err, gc.ErrorMatches, test.err)
-	}
-}
 
 type OriginSuite struct {
 	testing.IsolationSuite
@@ -157,20 +20,62 @@ type OriginSuite struct {
 
 var _ = gc.Suite(&OriginSuite{})
 
-func (s *OriginSuite) TestPrivateEnterpriseNumber(c *gc.C) {
-	var origin logfwd.Origin
+func (s *OriginSuite) TestOriginForMachineAgent(c *gc.C) {
+	tag := names.NewMachineTag("99")
 
-	id := origin.PrivateEnterpriseNumber()
+	origin := logfwd.OriginForMachineAgent(tag, validOrigin.ControllerUUID, validOrigin.ModelUUID, validOrigin.Software.Version)
 
-	c.Check(id, gc.Equals, 28978)
+	c.Check(origin, jc.DeepEquals, logfwd.Origin{
+		ControllerUUID: validOrigin.ControllerUUID,
+		ModelUUID:      validOrigin.ModelUUID,
+		Hostname:       "machine-99." + validOrigin.ModelUUID,
+		Type:           logfwd.OriginTypeMachine,
+		Name:           "99",
+		Software: logfwd.Software{
+			PrivateEnterpriseNumber: 28978,
+			Name:    "jujud-machine-agent",
+			Version: version.MustParse("2.0.1"),
+		},
+	})
 }
 
-func (s *OriginSuite) TestSoftwareName(c *gc.C) {
-	var origin logfwd.Origin
+func (s *OriginSuite) TestOriginForUnitAgent(c *gc.C) {
+	tag := names.NewUnitTag("svc-a/0")
 
-	swName := origin.SoftwareName()
+	origin := logfwd.OriginForUnitAgent(tag, validOrigin.ControllerUUID, validOrigin.ModelUUID, validOrigin.Software.Version)
 
-	c.Check(swName, gc.Equals, "jujud")
+	c.Check(origin, jc.DeepEquals, logfwd.Origin{
+		ControllerUUID: validOrigin.ControllerUUID,
+		ModelUUID:      validOrigin.ModelUUID,
+		Hostname:       "unit-svc-a-0." + validOrigin.ModelUUID,
+		Type:           logfwd.OriginTypeUnit,
+		Name:           "svc-a/0",
+		Software: logfwd.Software{
+			PrivateEnterpriseNumber: 28978,
+			Name:    "jujud-unit-agent",
+			Version: version.MustParse("2.0.1"),
+		},
+	})
+}
+
+func (s *OriginSuite) TestOriginForJuju(c *gc.C) {
+	tag := names.NewUserTag("bob")
+
+	origin, err := logfwd.OriginForJuju(tag, validOrigin.ControllerUUID, validOrigin.ModelUUID, validOrigin.Software.Version)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(origin, jc.DeepEquals, logfwd.Origin{
+		ControllerUUID: validOrigin.ControllerUUID,
+		ModelUUID:      validOrigin.ModelUUID,
+		Hostname:       "",
+		Type:           logfwd.OriginTypeUser,
+		Name:           "bob",
+		Software: logfwd.Software{
+			PrivateEnterpriseNumber: 28978,
+			Name:    "juju",
+			Version: version.MustParse("2.0.1"),
+		},
+	})
 }
 
 func (s *OriginSuite) TestValidateValid(c *gc.C) {
@@ -229,6 +134,15 @@ func (s *OriginSuite) TestValidateBadModelUUID(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `ModelUUID "..." not a valid UUID`)
 }
 
+func (s *OriginSuite) TestValidateEmptyHostname(c *gc.C) {
+	origin := validOrigin
+	origin.Hostname = ""
+
+	err := origin.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func (s *OriginSuite) TestValidateBadOriginType(c *gc.C) {
 	origin := validOrigin
 	origin.Type = logfwd.OriginType(999)
@@ -259,20 +173,34 @@ func (s *OriginSuite) TestValidateBadName(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `invalid Name "...": bad user name`)
 }
 
-func (s *OriginSuite) TestValidateEmptyVersion(c *gc.C) {
+func (s *OriginSuite) TestValidateEmptySoftware(c *gc.C) {
 	origin := validOrigin
-	origin.JujuVersion = version.Zero
+	origin.Software = logfwd.Software{}
+
+	err := origin.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *OriginSuite) TestValidateBadSoftware(c *gc.C) {
+	origin := validOrigin
+	origin.Software.Version = version.Zero
 
 	err := origin.Validate()
 
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty JujuVersion`)
+	c.Check(err, gc.ErrorMatches, `invalid Software: empty Version`)
 }
 
 var validOrigin = logfwd.Origin{
 	ControllerUUID: "9f484882-2f18-4fd2-967d-db9663db7bea",
 	ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
+	Hostname:       "spam.x.y.z.com",
 	Type:           logfwd.OriginTypeUser,
 	Name:           "a-user",
-	JujuVersion:    version.MustParse("2.0.1"),
+	Software: logfwd.Software{
+		PrivateEnterpriseNumber: 28978,
+		Name:    "juju",
+		Version: version.MustParse("2.0.1"),
+	},
 }

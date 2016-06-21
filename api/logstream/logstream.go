@@ -121,29 +121,15 @@ func (ls *LogStream) Close() error {
 // See the counterpart in apiserver/logstream.go.
 func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
 	rec := logfwd.Record{
-		Origin: logfwd.Origin{
-			ControllerUUID: controllerUUID,
-			ModelUUID:      apiRec.ModelUUID,
-		},
 		Timestamp: apiRec.Timestamp,
 		Message:   apiRec.Message,
 	}
 
-	entity, err := names.ParseTag(apiRec.Entity)
+	origin, err := api2origin(apiRec, controllerUUID)
 	if err != nil {
-		return rec, errors.Annotate(err, "invalid entity")
+		return rec, errors.Trace(err)
 	}
-	rec.Origin.Type, err = logfwd.ParseOriginType(entity.Kind())
-	if err != nil {
-		return rec, errors.Annotate(err, "invalid entity")
-	}
-	rec.Origin.Name = entity.Id()
-
-	ver, err := version.Parse(apiRec.Version)
-	if err != nil {
-		return rec, errors.Annotatef(err, "invalid version %q", apiRec.Version)
-	}
-	rec.Origin.JujuVersion = ver
+	rec.Origin = origin
 
 	loc, err := logfwd.ParseLocation(apiRec.Module, apiRec.Location)
 	if err != nil {
@@ -162,4 +148,31 @@ func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Re
 	}
 
 	return rec, nil
+}
+
+func api2origin(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Origin, error) {
+	var origin logfwd.Origin
+
+	tag, err := names.ParseTag(apiRec.Entity)
+	if err != nil {
+		return origin, errors.Annotate(err, "invalid entity")
+	}
+
+	ver, err := version.Parse(apiRec.Version)
+	if err != nil {
+		return origin, errors.Annotatef(err, "invalid version %q", apiRec.Version)
+	}
+
+	switch tag := tag.(type) {
+	case names.MachineTag:
+		origin = logfwd.OriginForMachineAgent(tag, controllerUUID, apiRec.ModelUUID, ver)
+	case names.UnitTag:
+		origin = logfwd.OriginForUnitAgent(tag, controllerUUID, apiRec.ModelUUID, ver)
+	default:
+		origin, err = logfwd.OriginForJuju(tag, controllerUUID, apiRec.ModelUUID, ver)
+		if err != nil {
+			return origin, errors.Annotate(err, "could not extract origin")
+		}
+	}
+	return origin, nil
 }
