@@ -83,6 +83,10 @@ type state struct {
 	// authTag holds the authenticated entity's tag after login.
 	authTag names.Tag
 
+	// readOnly holds whether the user has read-only access for the
+	// connected model.
+	readOnly bool
+
 	// broken is a channel that gets closed when the connection is
 	// broken.
 	broken chan struct{}

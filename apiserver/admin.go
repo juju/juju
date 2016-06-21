@@ -157,7 +157,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		if err != nil {
 			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
 		}
-		if envUser.ReadOnly() {
+		maybeUserInfo.ReadOnly = envUser.ReadOnly()
+		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
 	}
