@@ -92,12 +92,26 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 	return
 }
 
-func (api *AgentAPIV2) StateServingInfo() (result state.StateServingInfo, err error) {
+func (api *AgentAPIV2) StateServingInfo() (result params.StateServingInfo, err error) {
 	if !api.auth.AuthModelManager() {
 		err = common.ErrPerm
 		return
 	}
-	return api.st.StateServingInfo()
+	info, err := api.st.StateServingInfo()
+	if err != nil {
+		return params.StateServingInfo{}, errors.Trace(err)
+	}
+	result = params.StateServingInfo{
+		APIPort:        info.APIPort,
+		StatePort:      info.StatePort,
+		Cert:           info.Cert,
+		PrivateKey:     info.PrivateKey,
+		CAPrivateKey:   info.CAPrivateKey,
+		SharedSecret:   info.SharedSecret,
+		SystemIdentity: info.SystemIdentity,
+	}
+
+	return result, nil
 }
 
 // MongoIsMaster is called by the IsMaster API call
