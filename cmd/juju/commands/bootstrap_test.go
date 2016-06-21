@@ -411,7 +411,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 		"--default-model", "mymodel",
 		"--config", "foo=bar",
 	)
-	c.Assert(utils.IsValidUUIDString(bootstrap.args.ControllerUUID), jc.IsTrue)
+	c.Assert(utils.IsValidUUIDString(bootstrap.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
 	c.Assert(bootstrap.args.HostedModelConfig["name"], gc.Equals, "mymodel")
 	c.Assert(bootstrap.args.HostedModelConfig["foo"], gc.Equals, "bar")
 }

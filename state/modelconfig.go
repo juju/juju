@@ -60,7 +60,7 @@ func checkModelConfigDefaults(attrs map[string]interface{}) error {
 
 func (st *State) buildAndValidateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
 	for attr := range updateAttrs {
-		if controllerOnlyAttribute(attr) {
+		if controller.ControllerOnlyAttribute(attr) {
 			return nil, errors.Errorf("cannot set controller attribute %q on a model", attr)
 		}
 	}

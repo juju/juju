@@ -66,8 +66,8 @@ func (p *fakeProvider) RestrictedConfigAttributes() []string {
 	return nil
 }
 
-func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	p.MethodCall(p, "PrepareForCreateEnvironment", cfg)
+func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "PrepareForCreateEnvironment", controllerUUID, cfg)
 	return nil, nil
 }
 

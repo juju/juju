@@ -526,6 +526,10 @@ func (task *provisionerTask) constructInstanceConfig(
 			PublicImageSigningKey: publicKey,
 			MongoInfo:             stateInfo,
 		}
+		instanceConfig.Controller.Config = make(map[string]interface{})
+		for k, v := range pInfo.ControllerConfig {
+			instanceConfig.Controller.Config[k] = v
+		}
 	}
 
 	return instanceConfig, nil

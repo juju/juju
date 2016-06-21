@@ -91,9 +91,10 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	ctx := envtesting.BootstrapContext(c)
 
 	env, err := environs.Prepare(ctx, store, environs.PrepareParams{
-		ControllerName: controllerName,
-		BaseConfig:     dummy.SampleConfig(),
-		CloudName:      "dummy",
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerName:   controllerName,
+		BaseConfig:       dummy.SampleConfig(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -104,8 +105,8 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
-		ControllerUUID: "uuid",
-		CloudName:      "dummy",
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -310,7 +311,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 
 	_, store := s.bootstrapModel(c)
-	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
+	setEndpointAddressAndHostname(c, store, "0.1.2.3:1234", "infoapi.invalid")
 
 	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
@@ -319,7 +320,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
 	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		if info.Addrs[0] == "0.1.2.3" {
+		if info.Addrs[0] == "0.1.2.3:1234" {
 			infoEndpointOpened <- struct{}{}
 			<-infoEndpointOpened
 			return infoOpenedState, nil
@@ -381,7 +382,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	env, store := s.bootstrapModel(c)
-	setEndpointAddressAndHostname(c, store, "0.1.2.3", "infoapi.invalid")
+	setEndpointAddressAndHostname(c, store, "0.1.2.3:1234", "infoapi.invalid")
 
 	getBootstrapConfig := func(string) (*config.Config, error) {
 		return env.Config(), nil

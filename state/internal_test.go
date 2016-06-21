@@ -49,10 +49,14 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			CACert: testing.CACert,
 		},
 	}
+	modelCfg := testing.ModelConfig(c)
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = modelCfg.UUID()
 	st, err := Initialize(InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
 			Owner:  s.owner,
-			Config: testing.ModelConfig(c),
+			Config: modelCfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

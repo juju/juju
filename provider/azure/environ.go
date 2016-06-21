@@ -89,7 +89,7 @@ func (env *azureEnviron) Bootstrap(
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
-	cfg, err := env.initResourceGroup(args.ControllerUUID)
+	cfg, err := env.initResourceGroup(args.ControllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}

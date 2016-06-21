@@ -65,12 +65,13 @@ func (t *Tests) PrepareParams(c *gc.C) environs.PrepareParams {
 		credential = cloud.NewEmptyCredential()
 	}
 	return environs.PrepareParams{
-		BaseConfig:     testConfigCopy,
-		Credential:     credential,
-		ControllerName: t.TestConfig["name"].(string),
-		CloudName:      t.TestConfig["type"].(string),
-		CloudEndpoint:  t.CloudEndpoint,
-		CloudRegion:    t.CloudRegion,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		BaseConfig:       testConfigCopy,
+		Credential:       credential,
+		ControllerName:   t.TestConfig["name"].(string),
+		CloudName:        t.TestConfig["type"].(string),
+		CloudEndpoint:    t.CloudEndpoint,
+		CloudRegion:      t.CloudRegion,
 	}
 }
 
@@ -107,7 +108,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclienttesting.NewMemStore()
-	t.ControllerUUID = coretesting.ModelTag.Id()
+	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -179,8 +180,8 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	args := bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
-		CloudName:      t.TestConfig["type"].(string),
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
 			AuthTypes: []cloud.AuthType{credential.AuthType()},

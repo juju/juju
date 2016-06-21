@@ -584,6 +584,7 @@ type ProvisioningInfo struct {
 	SubnetsToZones   map[string][]string
 	ImageMetadata    []CloudImageMetadata
 	EndpointBindings map[string]string
+	ControllerConfig map[string]interface{}
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

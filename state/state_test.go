@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -3144,7 +3143,6 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	controller.RemoveControllerAttributes(attrs)
 	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
 }
 
@@ -4100,7 +4098,10 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			Owner:  owner,
 			Config: cfg,

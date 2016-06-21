@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
@@ -151,8 +150,7 @@ func (t *LiveTests) TestControllerInstances(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
 	defer t.Env.StopInstances(inst1.Id())
 
-	controllerUUID := controller.Config(t.TestConfig).ControllerUUID()
-	insts, err := t.Env.ControllerInstances(controllerUUID)
+	insts, err := t.Env.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
@@ -238,7 +236,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	perms := info[0].IPPerms
 	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, coretesting.FakeConfig()["api-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeControllerConfig().APIPort())
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.

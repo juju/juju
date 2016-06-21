@@ -388,6 +388,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 			CloudStorageEndpoint: bootstrapConfig.CloudStorageEndpoint,
 		},
 		&environs.BootstrapConfigParams{
+			controllerDetails.ControllerUUID,
 			cfg, *credential,
 			bootstrapConfig.CloudRegion,
 			bootstrapConfig.CloudEndpoint,

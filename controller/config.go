@@ -44,6 +44,21 @@ const (
 
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
+
+	// NumaControlPolicyKey stores the value for this setting
+	SetNumaControlPolicyKey = "set-numa-control-policy"
+
+	// Attribute Defaults
+
+	// DefaultNumaControlPolicy should not be used by default.
+	// Only use numactl if user specifically requests it
+	DefaultNumaControlPolicy = false
+
+	// DefaultStatePort is the default port the controller is listening on.
+	DefaultStatePort int = 37017
+
+	// DefaultApiPort is the default port the API server is listening on.
+	DefaultAPIPort int = 17070
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -56,6 +71,18 @@ var ControllerOnlyConfigAttributes = []string{
 	ControllerUUIDKey,
 	IdentityURL,
 	IdentityPublicKey,
+	SetNumaControlPolicyKey,
+}
+
+// ControllerOnlyAttribute returns true if the specified attribute name
+// is only relevant for a controller.
+func ControllerOnlyAttribute(attr string) bool {
+	for _, a := range ControllerOnlyConfigAttributes {
+		if attr == a {
+			return true
+		}
+	}
+	return false
 }
 
 type Config map[string]interface{}
@@ -69,13 +96,6 @@ func ControllerConfig(cfg map[string]interface{}) Config {
 		}
 	}
 	return controllerCfg
-}
-
-// RemoveControllerAttributes removes any controller attributes from attrs.
-func RemoveControllerAttributes(attrs map[string]interface{}) {
-	for _, attr := range ControllerOnlyConfigAttributes {
-		delete(attrs, attr)
-	}
 }
 
 // mustInt returns the named attribute as an integer, panicking if
@@ -159,6 +179,14 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 		panic(err)
 	}
 	return &pubKey
+}
+
+// NumaCtlPreference returns if numactl is preferred.
+func (c Config) NumaCtlPreference() bool {
+	if numa, ok := c[SetNumaControlPolicyKey]; ok {
+		return numa.(bool)
+	}
+	return DefaultNumaControlPolicy
 }
 
 // maybeReadAttrFromFile sets defined[attr] to:
@@ -310,6 +338,11 @@ var ConfigSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.JujuGroup,
 		Immutable:   true,
+	},
+	SetNumaControlPolicyKey: {
+		Description: "Tune Juju controller to work with NUMA if present (default false)",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
 	},
 	IdentityURL: {
 		Description: "IdentityURL specifies the URL of the identity manager",

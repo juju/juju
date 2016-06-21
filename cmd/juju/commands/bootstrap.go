@@ -403,10 +403,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
-		"type":                       cloud.Type,
-		"name":                       environs.ControllerModelName,
-		config.UUIDKey:               controllerUUID.String(),
-		controller.ControllerUUIDKey: controllerUUID.String(),
+		"type":         cloud.Type,
+		"name":         environs.ControllerModelName,
+		config.UUIDKey: controllerUUID.String(),
 	}
 	for k, v := range cloud.Config {
 		configAttrs[k] = v
@@ -449,10 +448,24 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}()
 
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Extract any controller attributes from the bucket of config options
+	// the user may have specified.
+	controllerConfig := controller.Config{
+		controller.ControllerUUIDKey: controllerUUID.String(),
+	}
+	for attr, cfgValue := range configAttrs {
+		if !controller.ControllerOnlyAttribute(attr) {
+			continue
+		}
+		controllerConfig[attr] = cfgValue
+	}
+
 	environ, err := environsPrepare(
 		modelcmd.BootstrapContext(ctx), store,
 		environs.PrepareParams{
 			BaseConfig:           configAttrs,
+			ControllerConfig:     controllerConfig,
 			ControllerName:       c.controllerName,
 			CloudName:            c.Cloud,
 			CloudRegion:          region.Name,
@@ -568,10 +581,10 @@ to clean up the model.`[1:])
 
 	// Based on the attribute names in clouds.yaml, create
 	// a map of shared config for all models on this cloud.
-	sharedAttrs := make(map[string]interface{})
+	localCloudAttrs := make(map[string]interface{})
 	for k := range cloud.Config {
 		if v, ok := controllerModelConfigAttrs[k]; ok {
-			sharedAttrs[k] = v
+			localCloudAttrs[k] = v
 		}
 	}
 
@@ -583,7 +596,6 @@ to clean up the model.`[1:])
 	}
 
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		ControllerUUID:       controllerUUID.String(),
 		ModelConstraints:     c.Constraints,
 		BootstrapConstraints: bootstrapConstraints,
 		BootstrapSeries:      c.BootstrapSeries,
@@ -598,7 +610,8 @@ to clean up the model.`[1:])
 		CloudRegion:          region.Name,
 		CloudCredential:      credential,
 		CloudCredentialName:  credentialName,
-		ModelConfigDefaults:  sharedAttrs,
+		ControllerConfig:     controllerConfig,
+		LocalCloudConfig:     localCloudAttrs,
 		HostedModelConfig:    hostedModelConfig,
 		GUIDataSourceBaseURL: guiDataSourceBaseURL,
 	})
@@ -610,8 +623,7 @@ to clean up the model.`[1:])
 		return errors.Trace(err)
 	}
 
-	controllerCfg := controller.ControllerConfig(controllerModelConfigAttrs)
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerCfg.APIPort(), environ)
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, controllerConfig.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}

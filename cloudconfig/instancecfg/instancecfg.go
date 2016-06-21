@@ -156,6 +156,9 @@ type ControllerConfig struct {
 	// or be empty when starting a controller.
 	MongoInfo *mongo.MongoInfo
 
+	// Config contains controller config attributes.
+	Config controller.Config
+
 	// The public key used to sign Juju simplestreams image metadata.
 	PublicImageSigningKey string
 }
@@ -204,9 +207,13 @@ type StateInitializationParams struct {
 	// be bootstrapped with.
 	ControllerCloudCredential *cloud.Credential
 
-	// ModelConfigDefaults is a set of config attributes to be shared by all
-	// models managed by this controller.
-	ModelConfigDefaults map[string]interface{}
+	// ControllerConfig is the set of config attributes relevant
+	// to a controller.
+	ControllerConfig controller.Config
+
+	// LocalCloudConfig is a set of config attributes to be shared by all
+	// models managed by this controller on the specified cloud.
+	LocalCloudConfig map[string]interface{}
 
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
@@ -235,6 +242,7 @@ type StateInitializationParams struct {
 }
 
 type stateInitializationParamsInternal struct {
+	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
 	ModelConfigDefaults                     map[string]interface{}            `yaml:"model-config-defaults,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
@@ -261,8 +269,9 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
 	internal := stateInitializationParamsInternal{
+		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
-		p.ModelConfigDefaults,
+		p.LocalCloudConfig,
 		p.HostedModelConfig,
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
@@ -298,8 +307,9 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 		return errors.Trace(err)
 	}
 	*p = StateInitializationParams{
+		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
-		ModelConfigDefaults:                     internal.ModelConfigDefaults,
+		LocalCloudConfig:                        internal.ModelConfigDefaults,
 		HostedModelConfig:                       internal.HostedModelConfig,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,
@@ -668,6 +678,7 @@ func NewInstanceConfig(
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 func NewBootstrapInstanceConfig(
+	config controller.Config,
 	cons, modelCons constraints.Value,
 	series, publicImageSigningKey string,
 ) (*InstanceConfig, error) {
@@ -679,6 +690,10 @@ func NewBootstrapInstanceConfig(
 	}
 	icfg.Controller = &ControllerConfig{
 		PublicImageSigningKey: publicImageSigningKey,
+	}
+	icfg.Controller.Config = make(map[string]interface{})
+	for k, v := range config {
+		icfg.Controller.Config[k] = v
 	}
 	icfg.Bootstrap = &BootstrapConfig{
 		StateInitializationParams: StateInitializationParams{
@@ -755,9 +770,9 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if icfg.Controller != nil {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sense for controller
-		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
+		logger.Debugf("Setting numa ctl preference to %v", icfg.Controller.Config.NumaCtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
-		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
+		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", icfg.Controller.Config.NumaCtlPreference())
 	}
 
 	// The following settings are only appropriate at bootstrap time.
@@ -767,7 +782,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
 		return errors.New("machine configuration already has api/state info")
 	}
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	controllerCfg := icfg.Controller.Config
 	caCert, hasCACert := controllerCfg.CACert()
 	if !hasCACert {
 		return errors.New("controller configuration has no ca-cert")
@@ -807,6 +822,8 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if icfg.Bootstrap.ControllerModelConfig, err = bootstrapConfig(cfg); err != nil {
 		return errors.Trace(err)
 	}
+	// We never want to save the root CA provide key to the cloud.
+	delete(icfg.Controller.Config, controller.CAPrivateKey)
 
 	return nil
 }
@@ -826,15 +843,12 @@ func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, 
 }
 
 // bootstrapConfig returns a copy of the supplied configuration with the
-// admin-secret and ca-private-key attributes removed. If the resulting
-// config is not suitable for bootstrapping an environment, an error is
-// returned.
-// This function is copied from environs in here so we can avoid an import loop
+// admin-secret attribute removed. If the resulting config is not suitable
+// for bootstrapping an environment, an error is returned.
 func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
 	m := cfg.AllAttrs()
-	// We never want to push admin-secret or the root CA private key to the cloud.
-	delete(m, "admin-secret")
-	delete(m, "ca-private-key")
+	// We never want to push admin-secret to the cloud.
+	delete(m, config.AdminSecretKey)
 	cfg, err := config.New(config.NoDefaults, m)
 	if err != nil {
 		return nil, err

@@ -102,13 +102,7 @@ func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
 	s.FakeEnviron.Inst = s.BaseInstance
 	s.FakeEnviron.Hwc = s.hardware
 
-	// Get the API port from the fake environment config used to
-	// "bootstrap".
-	envConfig := testing.FakeConfig()
-	apiPort, ok := envConfig["api-port"].(int)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiPort, gc.Not(gc.Equals), 0)
-
+	apiPort := testing.FakeControllerConfig().APIPort()
 	// When StateServingInfo is not nil, verify OpenPorts was called
 	// for the API port.
 	s.StartInstArgs.InstanceConfig.Bootstrap = &instancecfg.BootstrapConfig{

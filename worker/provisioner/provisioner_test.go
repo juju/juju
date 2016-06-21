@@ -192,7 +192,7 @@ func stop(c *gc.C, w worker.Worker) {
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerUUID, id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {
@@ -1231,7 +1231,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
 	w, err := provisioner.NewProvisionerTask(
-		s.ControllerUUID,
+		s.ControllerConfig.ControllerUUID(),
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,
