@@ -144,3 +144,87 @@ func (c *Client) Export() (SerializedModel, error) {
 func (c *Client) Reap() error {
 	return c.caller.FacadeCall("Reap", nil, nil)
 }
+
+// WatchMinionReports returns a watcher which reports when a migration
+// minion has made a report for the current migration phase.
+func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := c.caller.FacadeCall("WatchMinionReports", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(c.caller.RawAPICaller(), result)
+	return w, nil
+}
+
+// MinionReports returns information about the migration minion
+// reports received so far for a given migration phase.
+type MinionReports struct {
+	MigrationId         string
+	Phase               migration.Phase
+	SuccessCount        int
+	UnknownCount        int
+	SomeUnknownMachines []string // machine ids
+	SomeUnknownUnits    []string // unit names
+	FailedMachines      []string // machine ids
+	FailedUnits         []string // unit names
+}
+
+// GetMinionReports returns details of the reports made by migration
+// minions to the controller for the current migration phase.
+func (c *Client) GetMinionReports() (MinionReports, error) {
+	var in params.MinionReports
+	var out MinionReports
+
+	err := c.caller.FacadeCall("GetMinionReports", nil, &in)
+	if err != nil {
+		return out, err
+	}
+
+	out.MigrationId = in.MigrationId
+
+	phase, ok := migration.ParsePhase(in.Phase)
+	if !ok {
+		return out, errors.Errorf("invalid phase: %q", in.Phase)
+	}
+	out.Phase = phase
+
+	out.SuccessCount = in.SuccessCount
+	out.UnknownCount = in.UnknownCount
+
+	out.SomeUnknownMachines, out.SomeUnknownUnits, err = groupTags(in.UnknownSample)
+	if err != nil {
+		return out, errors.Annotate(err, "processing unknown agents")
+	}
+
+	out.FailedMachines, out.FailedUnits, err = groupTags(in.Failed)
+	if err != nil {
+		return out, errors.Annotate(err, "processing failed agents")
+	}
+
+	return out, nil
+}
+
+func groupTags(tagStrs []string) ([]string, []string, error) {
+	var machines []string
+	var units []string
+
+	for i := 0; i < len(tagStrs); i++ {
+		tag, err := names.ParseTag(tagStrs[i])
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		switch t := tag.(type) {
+		case names.MachineTag:
+			machines = append(machines, t.Id())
+		case names.UnitTag:
+			units = append(units, t.Id())
+		default:
+			return nil, nil, errors.Errorf("unsupported tag: %q", tag)
+		}
+	}
+	return machines, units, nil
+}
