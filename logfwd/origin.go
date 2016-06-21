@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 )
 
 // canonicalPEN is the IANA-registered Private Enterprise Number
