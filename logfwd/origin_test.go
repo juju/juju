@@ -29,6 +29,8 @@ func (s *OriginTypeSuite) TestParseOriginTypeValid(c *gc.C) {
 	tests := map[string]logfwd.OriginType{
 		"unknown": logfwd.OriginTypeUnknown,
 		"user":    logfwd.OriginTypeUser,
+		"machine": logfwd.OriginTypeMachine,
+		"unit":    logfwd.OriginTypeUnit,
 	}
 	for str, expected := range tests {
 		c.Logf("trying %q", str)
@@ -56,6 +58,8 @@ func (s *OriginTypeSuite) TestString(c *gc.C) {
 	tests := map[logfwd.OriginType]string{
 		logfwd.OriginTypeUnknown: "unknown",
 		logfwd.OriginTypeUser:    "user",
+		logfwd.OriginTypeMachine: "machine",
+		logfwd.OriginTypeUnit:    "unit",
 	}
 	for ot, expected := range tests {
 		c.Logf("trying %q", ot)
@@ -70,6 +74,8 @@ func (s *OriginTypeSuite) TestValidateValid(c *gc.C) {
 	tests := []logfwd.OriginType{
 		logfwd.OriginTypeUnknown,
 		logfwd.OriginTypeUser,
+		logfwd.OriginTypeMachine,
+		logfwd.OriginTypeUnit,
 	}
 	for _, ot := range tests {
 		c.Logf("trying %q", ot)
@@ -101,6 +107,8 @@ func (s *OriginTypeSuite) TestValidateNameValid(c *gc.C) {
 	tests := map[logfwd.OriginType]string{
 		logfwd.OriginTypeUnknown: "",
 		logfwd.OriginTypeUser:    "a-user",
+		logfwd.OriginTypeMachine: "99",
+		logfwd.OriginTypeUnit:    "svc-a/0",
 	}
 	for ot, name := range tests {
 		c.Logf("trying %q + %q", ot, name)
@@ -124,6 +132,14 @@ func (s *OriginTypeSuite) TestValidateNameInvalid(c *gc.C) {
 		ot:   logfwd.OriginTypeUser,
 		name: "...",
 		err:  `bad user name`,
+	}, {
+		ot:   logfwd.OriginTypeMachine,
+		name: "...",
+		err:  `bad machine name`,
+	}, {
+		ot:   logfwd.OriginTypeUnit,
+		name: "...",
+		err:  `bad unit name`,
 	}}
 	for _, test := range tests {
 		c.Logf("trying %q + %q", test.ot, test.name)

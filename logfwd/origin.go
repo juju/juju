@@ -22,11 +22,15 @@ const canonicalPEN = 28978
 const (
 	OriginTypeUnknown OriginType = 0
 	OriginTypeUser               = iota
+	OriginTypeMachine
+	OriginTypeUnit
 )
 
 var originTypes = map[OriginType]string{
 	OriginTypeUnknown: "unknown",
 	OriginTypeUser:    names.UserTagKind,
+	OriginTypeMachine: names.MachineTagKind,
+	OriginTypeUnit:    names.UnitTagKind,
 }
 
 // OriginType is the "enum" type for the different kinds of log record
@@ -72,6 +76,14 @@ func (ot OriginType) ValidateName(name string) error {
 	case OriginTypeUser:
 		if !names.IsValidUser(name) {
 			return errors.NewNotValid(nil, "bad user name")
+		}
+	case OriginTypeMachine:
+		if !names.IsValidMachine(name) {
+			return errors.NewNotValid(nil, "bad machine name")
+		}
+	case OriginTypeUnit:
+		if !names.IsValidUnit(name) {
+			return errors.NewNotValid(nil, "bad unit name")
 		}
 	}
 	return nil

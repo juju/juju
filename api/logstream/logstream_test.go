@@ -67,6 +67,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	ts := time.Now()
 	apiRec := params.LogStreamRecord{
 		ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
+		Entity:    "machine-99",
 		Version:   version.Current.String(),
 		Timestamp: ts,
 		Module:    "api.logstream.test",
@@ -104,6 +105,8 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 		Origin: logfwd.Origin{
 			ControllerUUID: cUUID,
 			ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
+			Type:           logfwd.OriginTypeMachine,
+			Name:           "99",
 			JujuVersion:    version.Current,
 		},
 		Timestamp: ts,

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common/stream"
@@ -127,6 +128,16 @@ func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Re
 		Timestamp: apiRec.Timestamp,
 		Message:   apiRec.Message,
 	}
+
+	entity, err := names.ParseTag(apiRec.Entity)
+	if err != nil {
+		return rec, errors.Annotate(err, "invalid entity")
+	}
+	rec.Origin.Type, err = logfwd.ParseOriginType(entity.Kind())
+	if err != nil {
+		return rec, errors.Annotate(err, "invalid entity")
+	}
+	rec.Origin.Name = entity.Id()
 
 	ver, err := version.Parse(apiRec.Version)
 	if err != nil {
