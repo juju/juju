@@ -98,14 +98,15 @@ def command_install(bucket, requirements, verbose=False):
                         requirements, verbose=verbose)
 
 
-def command_update(s3, verbose=False):
+def command_update(s3, requirements, verbose=False):
     bucket = s3.lookup(BUCKET)
     if bucket is None:
         if verbose:
             print("Creating bucket {}".format(BUCKET))
         bucket = s3.create_bucket(BUCKET, policy="public-read")
     with utility.temp_dir() as archives_dir:
-        run_pip_install(["--download", archives_dir], verbose=verbose)
+        run_pip_install(
+            ["--download", archives_dir], requirements, verbose=verbose)
         for archive in os.listdir(archives_dir):
             filename = os.path.join(archives_dir, archive)
             key = boto.s3.key.Key(bucket)
@@ -154,7 +155,7 @@ def main(argv):
         parser.error("Need cloud-city credentials to modify S3 cache.")
     s3 = s3_auth_with_rc(args.cloud_city) if use_auth else s3_anon()
     if args.command == "update":
-        command_update(s3, args.verbose)
+        command_update(s3, args.requirements, args.verbose)
     else:
         bucket = s3.get_bucket(BUCKET)
         if args.command == "install":
