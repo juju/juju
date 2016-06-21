@@ -109,16 +109,27 @@ type PhaseResult struct {
 // MinionReport holds the details of whether a migration minion
 // succeeded or failed for a specific migration phase.
 type MinionReport struct {
+	// MigrationId holds the id of the migration the agent is
+	// reporting about.
 	MigrationId string `json:"migration-id"`
-	Phase       string `json:"phase"`
-	Success     bool   `json:"success"`
+
+	// Phase holds the phase of the migration the agent is
+	// reporting about.
+	Phase string `json:"phase"`
+
+	// Success is true if the agent successfully completed its actions
+	// for the migration phase, false otherwise.
+	Success bool `json:"success"`
 }
 
 // MinionReports holds the details of whether a migration minion
 // succeeded or failed for a specific migration phase.
 type MinionReports struct {
+	// MigrationId holds the id of the migration the reports related to.
 	MigrationId string `json:"migration-id"`
-	Phase       string `json:"phase"`
+
+	// Phase holds the phase of the migration the reports related to.
+	Phase string `json:"phase"`
 
 	// SuccessCount holds the number of agents which have successfully
 	// completed a given migration phase.
