@@ -3074,7 +3074,7 @@ func (tw *testWatcher) NumDeltas() int {
 		// TODO(mjs) - this is somewhat fragile. There are no
 		// guarentees that the watcher will be able to return deltas
 		// in ShortWait time.
-		deltas := tw.Next(testing.ShortWait)
+		deltas := tw.Next(testing.LongWait)
 		if len(deltas) == 0 {
 			break
 		}
