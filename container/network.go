@@ -23,12 +23,23 @@ type NetworkConfig struct {
 	Interfaces []network.InterfaceInfo
 }
 
-// BridgeNetworkConfig returns a valid NetworkConfig to use the
-// specified device as a network bridge for the container. It also
-// allows passing in specific configuration for the container's
-// network interfaces and default MTU to use. If interfaces is nil the
-// default configuration is used for the respective container type.
+// FallbackInterfaceInfo returns a single "eth0" interface configured with DHCP.
+func FallbackInterfaceInfo() []network.InterfaceInfo {
+	return []network.InterfaceInfo{{
+		InterfaceName: "eth0",
+		ConfigType:    network.ConfigDHCP,
+	}}
+}
+
+// BridgeNetworkConfig returns a valid NetworkConfig to use the specified device
+// as a network bridge for the container. It also allows passing in specific
+// configuration for the container's network interfaces and default MTU to use.
+// If interfaces is empty, FallbackInterfaceInfo() is used to get the a sane
+// default
 func BridgeNetworkConfig(device string, mtu int, interfaces []network.InterfaceInfo) *NetworkConfig {
+	if len(interfaces) == 0 {
+		interfaces = FallbackInterfaceInfo()
+	}
 	return &NetworkConfig{BridgeNetwork, device, mtu, interfaces}
 }
 

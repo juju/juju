@@ -320,26 +320,6 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to reorder network settings")
 	}
 
-	// To speed-up the initial container startup we pre-render the
-	// /etc/network/interfaces directly inside the rootfs. This won't
-	// work if we use AUFS snapshots, so it's disabled if useAUFS is
-	// true (for now).
-	if networkConfig != nil && len(networkConfig.Interfaces) > 0 {
-		interfacesFile := filepath.Join(LxcContainerDir, name, "rootfs", etcNetworkInterfaces)
-		if manager.useAUFS {
-			logger.Tracef("not pre-rendering %q when using AUFS-backed rootfs", interfacesFile)
-		} else {
-			data, err := containerinit.GenerateNetworkConfig(networkConfig)
-			if err != nil {
-				return nil, nil, errors.Annotatef(err, "failed to generate %q", interfacesFile)
-			}
-			if err := utils.AtomicWriteFile(interfacesFile, []byte(data), 0644); err != nil {
-				return nil, nil, errors.Annotatef(err, "cannot write generated %q", interfacesFile)
-			}
-			logger.Tracef("pre-rendered network config in %q", interfacesFile)
-		}
-	}
-
 	// Start the lxc container with the appropriate settings for
 	// grabbing the console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")

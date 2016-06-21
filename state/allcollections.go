@@ -256,9 +256,6 @@ func allCollections() collectionSchema {
 				Key:    []string{"env-uuid", "interfacename", "machineid"},
 				Unique: true,
 			}, {
-				Key:    []string{"env-uuid", "macaddress", "networkname"},
-				Unique: true,
-			}, {
 				Key: []string{"env-uuid", "machineid"},
 			}, {
 				Key: []string{"env-uuid", "networkname"},

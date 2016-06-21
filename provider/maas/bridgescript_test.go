@@ -59,7 +59,7 @@ func (s *bridgeConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string) {
+func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig, bridgePrefix, bridgeName, interfaceToBridge string, keepSourceStanzas bool) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		// To simplify most cases, trim trailing new lines.
@@ -68,30 +68,28 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 		err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
 		c.Check(err, jc.ErrorIsNil)
 		// Run the script and verify the modified config.
-		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
+		output, retcode := s.runScript(c, runArgs{
+			pythonBinary:      python,
+			bridgePrefix:      bridgePrefix,
+			bridgeName:        bridgeName,
+			interfaceToBridge: interfaceToBridge,
+			keepSourceStanzas: keepSourceStanzas,
+		})
 		c.Check(retcode, gc.Equals, 0)
-		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig, gc.Commentf("initial was:\n%s", initialConfig))
 	}
 }
 
-func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string) {
-	s.assertScript(c, initial, expected, prefix, "", "")
+func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string, keepSourceStanzas bool) {
+	s.assertScript(c, initial, expected, prefix, "", "", keepSourceStanzas)
 }
 
-func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected string) {
-	s.assertScript(c, initial, expected, "", "", "")
+func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected string, keepSourceStanzas bool) {
+	s.assertScript(c, initial, expected, "", "", "", keepSourceStanzas)
 }
 
-func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected, bridgeName, interfaceToBridge string) {
-	s.assertScript(c, initial, expected, "", bridgeName, interfaceToBridge)
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
-	for i, python := range s.pythonVersions {
-		c.Logf("test #%v using %s", i, python)
-		_, code := s.runScript(c, python, "", "", "", "")
-		c.Check(code, gc.Equals, 1)
-	}
+func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected, bridgeName, interfaceToBridge string, keepSourceStanzas bool) {
+	s.assertScript(c, initial, expected, "", bridgeName, interfaceToBridge, keepSourceStanzas)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
@@ -112,9 +110,9 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
 		{networkWithAliasInitial, networkWithAliasExpected, "test-br-"},
 	} {
 		c.Logf("test #%v - expected transformation", i)
-		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix)
+		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix, false)
 		c.Logf("test #%v - idempotent transformation", i)
-		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix)
+		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix, false)
 	}
 }
 
@@ -133,16 +131,19 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *g
 		{networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
 	} {
 		c.Logf("test #%v - expected transformation", i)
-		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected)
+		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected, false)
 		c.Logf("test #%v - idempotent transformation", i)
-		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected)
+		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected, false)
 	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
-		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
+		output, code := s.runScript(c, runArgs{
+			pythonBinary: python,
+			bridgeName:   "juju-br0",
+		})
 		c.Check(code, gc.Equals, 1)
 		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
 	}
@@ -151,38 +152,72 @@ func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.
 func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
-		output, code := s.runScript(c, python, "# no content", "", "", "eth0")
+		output, code := s.runScript(c, runArgs{
+			pythonBinary:      python,
+			interfaceToBridge: "eth0",
+		})
 		c.Check(code, gc.Equals, 1)
 		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
 	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkStaticInitial, networkStaticInitial, "juju-br0", "eth1234567890")
+	s.assertScriptWithoutPrefix(c, networkStaticInitial, networkStaticInitial, "juju-br0", "eth1234567890", false)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptKeepSourceStanzasFalse(c *gc.C) {
+	s.assertScriptWithDefaultPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithoutSourcesMultiBridgeExpected, false)
+	s.assertScriptWithoutPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithoutSourcesSingleBridgeExpected, "juju-br0", "eth1", false)
+}
+
+func (s *bridgeConfigSuite) TestBridgeScriptKeepSourceStanzasTrue(c *gc.C) {
+	s.assertScriptWithDefaultPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithSourcesMultiBridgeExpected, true)
+	s.assertScriptWithoutPrefix(c, networkDualNICStaticWithSourcesInitial, networkDualNICStaticWithSourcesSingleBridgeExpected, "juju-br0", "eth1", true)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIfaceButMissingAutoStanza(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "juju-br0", "eth1")
+	s.assertScriptWithoutPrefix(c, networkWithExistingSpecificIfaceInitial, networkWithExistingSpecificIfaceExpected, "juju-br0", "eth1", false)
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIface2(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0")
+	s.assertScriptWithoutPrefix(c, networkLP1532167Initial, networkLP1532167Expected, "juju-br0", "bond0", false)
 }
 
-func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgePrefix, bridgeName, interfaceToBridge string) (output string, exitCode int) {
-	if bridgePrefix != "" {
-		bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", bridgePrefix)
+type runArgs struct {
+	pythonBinary      string
+	bridgePrefix      string
+	bridgeName        string
+	interfaceToBridge string
+	keepSourceStanzas bool
+}
+
+func (s *bridgeConfigSuite) runScript(c *gc.C, args runArgs) (output string, exitCode int) {
+	if args.bridgePrefix != "" {
+		args.bridgePrefix = fmt.Sprintf("--bridge-prefix=%q", args.bridgePrefix)
 	}
 
-	if bridgeName != "" {
-		bridgeName = fmt.Sprintf("--bridge-name=%q", bridgeName)
+	if args.bridgeName != "" {
+		args.bridgeName = fmt.Sprintf("--bridge-name=%q", args.bridgeName)
 	}
 
-	if interfaceToBridge != "" {
-		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
+	if args.interfaceToBridge != "" {
+		args.interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", args.interfaceToBridge)
+	}
+	keepSourceStanzas := "--keep-source-stanzas"
+	if !args.keepSourceStanzas {
+		keepSourceStanzas = ""
 	}
 
-	script := fmt.Sprintf("%q %q %s %s %s %q\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
+	script := fmt.Sprintf(
+		"%q %q %s %s %s %s %q\n",
+		args.pythonBinary,
+		s.testPythonScript,
+		args.bridgePrefix,
+		args.bridgeName,
+		args.interfaceToBridge,
+		keepSourceStanzas,
+		s.testConfigPath,
+	)
 	c.Log(script)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly"))
@@ -210,14 +245,100 @@ iface eth0 inet static
 const networkStaticExpected = `auto lo
 iface lo inet loopback
 
-iface eth0 inet manual
-
 auto test-br-eth0
 iface test-br-eth0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0`
+
+const networkDualNICStaticWithSourcesInitial = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+auto eth1
+iface eth1 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+
+source /etc/network/interfaces.d/*.cfg
+source-directory /etc/network/interfaces.d/
+`
+
+const networkDualNICStaticWithoutSourcesMultiBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+auto br-eth1
+iface br-eth1 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1`
+
+const networkDualNICStaticWithoutSourcesSingleBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+auto juju-br0
+iface juju-br0 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1`
+
+const networkDualNICStaticWithSourcesMultiBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto br-eth0
+iface br-eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+    bridge_ports eth0
+
+auto br-eth1
+iface br-eth1 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1
+
+source /etc/network/interfaces.d/*.cfg
+source-directory /etc/network/interfaces.d/
+`
+
+const networkDualNICStaticWithSourcesSingleBridgeExpected = `auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 1.2.3.4
+    netmask 255.255.255.0
+    gateway 4.3.2.1
+
+auto juju-br0
+iface juju-br0 inet static
+    address 2.2.3.4
+    netmask 255.255.255.0
+    bridge_ports eth1
+
+source /etc/network/interfaces.d/*.cfg
+source-directory /etc/network/interfaces.d/
+`
 
 const networkDHCPInitial = `auto lo
 iface lo inet loopback
@@ -227,8 +348,6 @@ iface eth0 inet dhcp`
 
 const networkDHCPExpected = `auto lo
 iface lo inet loopback
-
-iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet dhcp
@@ -252,16 +371,12 @@ iface eth1 inet static
 const networkDualNICExpected = `auto lo
 iface lo inet loopback
 
-iface eth0 inet manual
-
 auto test-br-eth0
 iface test-br-eth0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
-
-iface eth1 inet manual
 
 auto test-br-eth1
 iface test-br-eth1 inet static
@@ -285,8 +400,6 @@ iface eth0:1 inet static
 
 const networkWithAliasExpected = `auto lo
 iface lo inet loopback
-
-iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet static
@@ -319,8 +432,6 @@ dns-nameserver 192.168.1.142`
 
 const networkDHCPWithAliasExpected = `auto lo
 iface lo inet loopback
-
-iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet static
@@ -356,9 +467,7 @@ iface eth1 inet manual
 dns-nameservers 10.17.20.200
 dns-search maas`
 
-const networkMultipleStaticWithAliasesExpected = `iface eth0 inet manual
-
-auto test-br-eth0
+const networkMultipleStaticWithAliasesExpected = `auto test-br-eth0
 iface test-br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.201/24
@@ -470,19 +579,13 @@ iface eth10:2 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
-const networkMultipleAliasesExpected = `iface eth0 inet manual
-
-auto test-br-eth0
+const networkMultipleAliasesExpected = `auto test-br-eth0
 iface test-br-eth0 inet dhcp
     bridge_ports eth0
-
-iface eth1 inet manual
 
 auto test-br-eth1
 iface test-br-eth1 inet dhcp
     bridge_ports eth1
-
-iface eth10 inet manual
 
 auto test-br-eth10
 iface test-br-eth10 inet static
@@ -634,22 +737,16 @@ iface eth3 inet manual
     mtu 1500
     bond-mode active-backup
 
-iface eth4 inet manual
-
 auto juju-br-eth4
 iface juju-br-eth4 inet static
     address 10.17.20.202/24
     mtu 1500
     bridge_ports eth4
 
-iface eth5 inet manual
-
 auto juju-br-eth5
 iface juju-br-eth5 inet dhcp
     mtu 1500
     bridge_ports eth5
-
-iface eth6 inet manual
 
 auto juju-br-eth6
 iface juju-br-eth6 inet static
@@ -679,8 +776,6 @@ iface eth6:4 inet static
 
 auto bond0
 iface bond0 inet manual
-    gateway 10.17.20.1
-    address 10.17.20.201/24
     bond-lacp_rate slow
     bond-xmit_hash_policy layer2
     bond-miimon 100
@@ -744,9 +839,7 @@ iface eth1.3 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
-const networkVLANExpected = `iface eth0 inet manual
-
-auto vlan-br-eth0
+const networkVLANExpected = `auto vlan-br-eth0
 iface vlan-br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.212/24
@@ -757,29 +850,17 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
-iface eth0.2 inet manual
-    address 192.168.2.3/24
-    vlan-raw-device eth0
-    mtu 1500
-    vlan_id 2
-
 auto vlan-br-eth0.2
 iface vlan-br-eth0.2 inet static
     address 192.168.2.3/24
+    vlan-raw-device eth0
     mtu 1500
     bridge_ports eth0.2
-
-iface eth1.3 inet manual
-    address 192.168.3.3/24
-    vlan-raw-device eth1
-    mtu 1500
-    vlan_id 3
-    dns-nameservers 10.17.20.200
-    dns-search maas19
 
 auto vlan-br-eth1.3
 iface vlan-br-eth1.3 inet static
     address 192.168.3.3/24
+    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.3
     dns-nameservers 10.17.20.200
@@ -839,9 +920,7 @@ iface eth1.2670 inet static
 dns-nameservers 10.245.168.2
 dns-search dellstack`
 
-const networkVLANWithMultipleNameserversExpected = `iface eth0 inet manual
-
-auto br-eth0
+const networkVLANWithMultipleNameserversExpected = `auto br-eth0
 iface br-eth0 inet static
     gateway 10.245.168.1
     address 10.245.168.11/21
@@ -861,59 +940,34 @@ auto eth3
 iface eth3 inet manual
     mtu 1500
 
-iface eth1.2667 inet manual
-    address 10.245.184.2/24
-    vlan-raw-device eth1
-    mtu 1500
-    vlan_id 2667
-    dns-nameservers 10.245.168.2
-
 auto br-eth1.2667
 iface br-eth1.2667 inet static
     address 10.245.184.2/24
-    mtu 1500
-    bridge_ports eth1.2667
-    dns-nameservers 10.245.168.2
-
-iface eth1.2668 inet manual
-    address 10.245.185.1/24
     vlan-raw-device eth1
     mtu 1500
-    vlan_id 2668
+    bridge_ports eth1.2667
     dns-nameservers 10.245.168.2
 
 auto br-eth1.2668
 iface br-eth1.2668 inet static
     address 10.245.185.1/24
-    mtu 1500
-    bridge_ports eth1.2668
-    dns-nameservers 10.245.168.2
-
-iface eth1.2669 inet manual
-    address 10.245.186.1/24
     vlan-raw-device eth1
     mtu 1500
-    vlan_id 2669
+    bridge_ports eth1.2668
     dns-nameservers 10.245.168.2
 
 auto br-eth1.2669
 iface br-eth1.2669 inet static
     address 10.245.186.1/24
+    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2669
     dns-nameservers 10.245.168.2
 
-iface eth1.2670 inet manual
-    address 10.245.187.2/24
-    vlan-raw-device eth1
-    mtu 1500
-    vlan_id 2670
-    dns-nameservers 10.245.168.2
-    dns-search dellstack
-
 auto br-eth1.2670
 iface br-eth1.2670 inet static
     address 10.245.187.2/24
+    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2670
     dns-nameservers 10.245.168.2
@@ -993,8 +1047,6 @@ iface eth1 inet manual
 
 auto bond0
 iface bond0 inet manual
-    address 10.17.20.211/24
-    gateway 10.17.20.1
     bond-slaves none
     bond-mode active-backup
     bond-xmit_hash_policy layer2
@@ -1013,29 +1065,17 @@ iface br-bond0 inet static
     bridge_ports bond0
     dns-nameservers 10.17.20.200
 
-iface bond0.2 inet manual
-    address 192.168.2.102/24
-    vlan-raw-device bond0
-    mtu 1500
-    vlan_id 2
-
 auto br-bond0.2
 iface br-bond0.2 inet static
     address 192.168.2.102/24
-    mtu 1500
-    bridge_ports bond0.2
-
-iface bond0.3 inet manual
-    address 192.168.3.101/24
     vlan-raw-device bond0
     mtu 1500
-    vlan_id 3
-    dns-nameservers 10.17.20.200
-    dns-search maas19
+    bridge_ports bond0.2
 
 auto br-bond0.3
 iface br-bond0.3 inet static
     address 192.168.3.101/24
+    vlan-raw-device bond0
     mtu 1500
     bridge_ports bond0.3
     dns-nameservers 10.17.20.200
@@ -1062,9 +1102,7 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
-const networkVLANWithInactiveDeviceExpected = `iface eth0 inet manual
-
-auto br-eth0
+const networkVLANWithInactiveDeviceExpected = `auto br-eth0
 iface br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.211/24
@@ -1076,15 +1114,9 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
-iface eth1.2 inet manual
-    vlan-raw-device eth1
-    mtu 1500
-    vlan_id 2
-    dns-nameservers 10.17.20.200
-    dns-search maas19
-
 auto br-eth1.2
 iface br-eth1.2 inet dhcp
+    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2
     dns-nameservers 10.17.20.200
@@ -1111,9 +1143,7 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
-const networkVLANWithActiveDHCPDeviceExpected = `iface eth0 inet manual
-
-auto br-eth0
+const networkVLANWithActiveDHCPDeviceExpected = `auto br-eth0
 iface br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.211/24
@@ -1121,22 +1151,14 @@ iface br-eth0 inet static
     bridge_ports eth0
     dns-nameservers 10.17.20.200
 
-iface eth1 inet manual
-
 auto br-eth1
 iface br-eth1 inet dhcp
     mtu 1500
     bridge_ports eth1
 
-iface eth1.2 inet manual
-    vlan-raw-device eth1
-    mtu 1500
-    vlan_id 2
-    dns-nameservers 10.17.20.200
-    dns-search maas19
-
 auto br-eth1.2
 iface br-eth1.2 inet dhcp
+    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2
     dns-nameservers 10.17.20.200
@@ -1182,17 +1204,13 @@ iface eth3 inet static
 dns-search ubuntu juju
 dns-search dellstack ubuntu dellstack`
 
-const networkWithMultipleDNSValuesExpected = `iface eth0 inet manual
-
-auto br-eth0
+const networkWithMultipleDNSValuesExpected = `auto br-eth0
 iface br-eth0 inet static
     gateway 10.245.168.1
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
     dns-nameservers 10.245.168.2 192.168.1.1
-
-iface eth1 inet manual
 
 auto br-eth1
 iface br-eth1 inet static
@@ -1202,8 +1220,6 @@ iface br-eth1 inet static
     bridge_ports eth1
     dns-sortlist 192.168.1.0/24 10.245.168.0/21
 
-iface eth2 inet manual
-
 auto br-eth2
 iface br-eth2 inet static
     gateway 10.245.168.1
@@ -1211,8 +1227,6 @@ iface br-eth2 inet static
     mtu 1500
     bridge_ports eth2
     dns-search juju ubuntu dellstack
-
-iface eth3 inet manual
 
 auto br-eth3
 iface br-eth3 inet static
@@ -1246,16 +1260,12 @@ dns-nameservers
 dns-search
 dns-sortlist`
 
-const networkWithEmptyDNSValuesExpected = `iface eth0 inet manual
-
-auto br-eth0
+const networkWithEmptyDNSValuesExpected = `auto br-eth0
 iface br-eth0 inet static
     gateway 10.245.168.1
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
-
-iface eth1 inet manual
 
 auto br-eth1
 iface br-eth1 inet static
@@ -1412,8 +1422,6 @@ iface eth3 inet manual
 
 auto bond0
 iface bond0 inet manual
-    gateway 10.38.160.1
-    address 10.38.160.24/24
     bond-lacp_rate fast
     bond-xmit_hash_policy layer2+3
     bond-miimon 100
@@ -1513,8 +1521,6 @@ iface eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
 
-iface eth1 inet manual
-
 auto juju-br0
 iface juju-br0 inet static
     address 1.2.3.4
@@ -1551,8 +1557,6 @@ iface br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
-
-iface eth1 inet manual
 
 auto br-eth1
 iface br-eth1 inet static

@@ -831,7 +831,9 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
+lxc.network.name = eth0
 lxc.network.mtu = 4321
+
 
 `
 	// NOTE: no autostart, no mounting the log dir
@@ -981,6 +983,8 @@ func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
+lxc.network.name = eth0
+
 
 lxc.start.auto = 1
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
@@ -1009,7 +1013,9 @@ func (s *LxcSuite) TestCreateContainerWithBlockStorage(c *gc.C) {
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
+lxc.network.name = eth0
 lxc.network.mtu = 4321
+
 
 lxc.start.auto = 1
 lxc.mount.entry = %s var/log/juju none defaults,bind 0 0
@@ -1107,6 +1113,7 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.type = veth",
 			"lxc.network.link = lxcbr0",
 			"lxc.network.flags = up",
+			"lxc.network.name = eth0", // from FallbackInterfaceInfo()
 		},
 		logContains:       `WARNING juju.container.lxc network type missing, using the default "bridge" config`,
 		logDoesNotContain: `INFO juju.container.lxc setting MTU to 0 for LXC network interfaces`,
@@ -1117,20 +1124,22 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.type = veth",
 			"lxc.network.link = lxcbr0",
 			"lxc.network.flags = up",
+			"lxc.network.name = eth0", // from FallbackInterfaceInfo()
 		},
 		logDoesNotContain: `INFO juju.container.lxc setting MTU to 0 for LXC network interfaces`,
 	}, {
-		about:  "bridge config with MTU 1500, device foo, no NICs",
+		about:  "bridge config with MTU 1500, device foo, no NICs (i.e. fallback)",
 		config: container.BridgeNetworkConfig("foo", 1500, nil),
 		rendered: []string{
 			"lxc.network.type = veth",
 			"lxc.network.link = foo",
 			"lxc.network.flags = up",
+			"lxc.network.name = eth0", // from FallbackInterfaceInfo()
 			"lxc.network.mtu = 1500",
 		},
 		logContains: `INFO juju.container.lxc setting MTU to 1500 for all LXC network interfaces`,
 	}, {
-		about:  "phys config with MTU 9000, device foo, no NICs",
+		about:  "phys config with MTU 9000, device foo, no NICs (no fallback)",
 		config: container.PhysicalNetworkConfig("foo", 9000, nil),
 		rendered: []string{
 			"lxc.network.type = phys",

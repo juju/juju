@@ -309,11 +309,6 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		InterfaceName: "eth1.69",
 		IsVirtual:     true,
 	}, {
-		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
-		NetworkTag:    "network-vlan42",
-		InterfaceName: "eth2",
-		IsVirtual:     true,
-	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NetworkTag:    "network-net1",
 		InterfaceName: "eth1", // duplicated name+machine id; ignored

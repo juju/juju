@@ -170,51 +170,46 @@ class LogicalInterface(object):
             return self._bridge_device(bridge_name)
 
     def _bridge_device(self, bridge_name):
-        s1 = IfaceStanza(self.name, self.family, "manual", [])
-        s2 = AutoStanza(bridge_name)
+        stanzas = [AutoStanza(bridge_name)]
         options = list(self.options)
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        return [s1, s2, s3]
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
+        return stanzas
 
     def _bridge_vlan(self, bridge_name, add_auto_stanza):
         stanzas = []
-        s1 = IfaceStanza(self.name, self.family, "manual", self.options)
-        stanzas.append(s1)
         if add_auto_stanza:
             stanzas.append(AutoStanza(bridge_name))
-        options = [x for x in self.options if not x.startswith("vlan")]
+        options = [x for x in self.options if not x.startswith("vlan_id")]
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        stanzas.append(s3)
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
     def _bridge_alias(self, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, self.method, list(self.options))
-        stanzas.append(s1)
+        stanzas.append(IfaceStanza(self.name, self.family, self.method, list(self.options)))
         return stanzas
 
     def _bridge_bond(self, bridge_name, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, "manual", list(self.options))
-        s2 = AutoStanza(bridge_name)
+        options = [x for x in self.options if not x.startswith("address") and not x.startswith("gateway")]
+        stanzas.append(IfaceStanza(self.name, self.family, "manual", list(options)))
+
+        stanzas.append(AutoStanza(bridge_name))
         options = [x for x in self.options if not x.startswith("bond")]
         options.append("bridge_ports {}".format(self.name))
-        s3 = IfaceStanza(bridge_name, self.family, self.method, options)
-        stanzas.extend([s1, s2, s3])
+        stanzas.append(IfaceStanza(bridge_name, self.family, self.method, options))
         return stanzas
 
     def _bridge_unchanged(self, add_auto_stanza):
         stanzas = []
         if add_auto_stanza:
             stanzas.append(AutoStanza(self.name))
-        s1 = IfaceStanza(self.name, self.family, self.method, list(self.options))
-        stanzas.append(s1)
+        stanzas.append(IfaceStanza(self.name, self.family, self.method, list(self.options)))
         return stanzas
 
 
@@ -228,6 +223,7 @@ class Stanza(object):
         self.options = options
         self.is_logical_interface = definition.startswith('iface ')
         self.is_physical_interface = definition.startswith('auto ')
+        self.is_source = definition.startswith('source')
         self.iface = None
         self.phy = None
         if self.is_logical_interface:
@@ -338,9 +334,11 @@ def print_stanza(s, stream=sys.stdout):
         print("   ", o, file=stream)
 
 
-def print_stanzas(stanzas, stream=sys.stdout):
+def print_stanzas(stanzas, stream=sys.stdout, keep_source_stanzas=True):
     n = len(stanzas)
     for i, stanza in enumerate(stanzas):
+        if not keep_source_stanzas and stanza.is_source:
+            continue
         print_stanza(stanza, stream)
         if stanza.is_logical_interface and i + 1 < n:
             print(file=stream)
@@ -380,6 +378,7 @@ def arg_parser():
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
     parser.add_argument('--interface-to-bridge', help="interface to bridge", type=str, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
+    parser.add_argument('--keep-source-stanzas', help='keep any "source" and "source-dir" lines in the new configuration', action='store_true', default=False, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
@@ -421,7 +420,7 @@ def main(args):
             stanzas.append(s)
 
     if not args.activate:
-        print_stanzas(stanzas)
+        print_stanzas(stanzas, sys.stdout, args.keep_source_stanzas)
         exit(0)
 
     print("**** Original configuration")
@@ -440,7 +439,7 @@ def main(args):
             shutil.copy2(args.filename, backup_file)
 
     with open(args.filename, 'w') as f:
-        print_stanzas(stanzas, f)
+        print_stanzas(stanzas, f, args.keep_source_stanzas)
         f.close()
 
     print("**** New configuration")
