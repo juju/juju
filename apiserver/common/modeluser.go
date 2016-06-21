@@ -16,26 +16,31 @@ import (
 // ModelUser defines the subset of the state.ModelUser type
 // that we require to convert to a params.ModelUserInfo.
 type ModelUser interface {
-	Access() state.ModelAccess
 	DisplayName() string
 	LastConnection() (time.Time, error)
 	UserName() string
 	UserTag() names.UserTag
+	IsReadOnly() bool
+	IsReadWrite() bool
+	IsAdmin() bool
 }
 
 // ModelUserInfo converts *state.ModelUser to params.ModelUserInfo.
 func ModelUserInfo(user ModelUser) (params.ModelUserInfo, error) {
-	access, err := StateToParamsModelAccess(user.Access())
-	if err != nil {
-		return params.ModelUserInfo{}, errors.Trace(err)
-	}
-
 	var lastConn *time.Time
 	userLastConn, err := user.LastConnection()
 	if err == nil {
 		lastConn = &userLastConn
 	} else if !state.IsNeverConnectedError(err) {
 		return params.ModelUserInfo{}, errors.Trace(err)
+	}
+
+	access := params.ModelReadAccess
+	switch {
+	case user.IsAdmin():
+		access = params.ModelAdminAccess
+	case user.IsReadWrite():
+		access = params.ModelWriteAccess
 	}
 
 	userInfo := params.ModelUserInfo{
@@ -47,13 +52,15 @@ func ModelUserInfo(user ModelUser) (params.ModelUserInfo, error) {
 	return userInfo, nil
 }
 
-// StateToParamsModelAccess converts state.ModelAccess to params.ModelAccessPermission.
-func StateToParamsModelAccess(stateAccess state.ModelAccess) (params.ModelAccessPermission, error) {
+// StateToParamsModelAccess converts state.Access to params.AccessPermission.
+func StateToParamsModelAccess(stateAccess state.Access) (params.ModelAccessPermission, error) {
 	switch stateAccess {
-	case state.ModelReadAccess:
+	case state.ReadAccess:
 		return params.ModelReadAccess, nil
-	case state.ModelAdminAccess:
+	case state.WriteAccess:
 		return params.ModelWriteAccess, nil
+	case state.AdminAccess:
+		return params.ModelAdminAccess, nil
 	}
 	return "", errors.Errorf("invalid model access permission %q", stateAccess)
 }

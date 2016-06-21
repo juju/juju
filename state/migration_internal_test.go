@@ -23,6 +23,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelsC,
 		modelUsersC,
 		modelUserLastConnectionC,
+		permissionsC,
 		settingsC,
 		sequenceC,
 		statusesC,
@@ -199,9 +200,18 @@ func (s *MigrationSuite) TestEnvUserDocFields(c *gc.C) {
 		"DisplayName",
 		"CreatedBy",
 		"DateCreated",
-		"Access",
 	)
 	s.AssertExportedFields(c, modelUserDoc{}, fields)
+}
+
+func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
+	fields := set.NewStrings(
+		"ID",
+		"ObjectGlobalKey",
+		"SubjectGlobalKey",
+		"Access",
+	)
+	s.AssertExportedFields(c, permissionDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {

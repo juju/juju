@@ -299,8 +299,8 @@ func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interfa
 	// UUID is also used as the controller UUID.
 	isHostedModel := controllerUUID != modelUUID
 
-	modelUserOp := createModelUserOp(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), ModelAdminAccess,
+	modelUserOps := createModelUserOps(
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
@@ -322,8 +322,8 @@ func (st *State) modelSetupOps(args ModelArgs, configDefaults map[string]interfa
 			args.MigrationMode,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
-		modelUserOp,
 	)
+	ops = append(ops, modelUserOps...)
 	return ops, nil
 }
 

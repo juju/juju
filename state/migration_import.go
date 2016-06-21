@@ -195,17 +195,23 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		access := ModelAdminAccess
-		if user.ReadOnly() {
-			access = ModelReadAccess
+		var access Access
+		switch {
+		case user.IsReadOnly():
+			access = ReadAccess
+		case user.IsReadWrite():
+			access = WriteAccess
+		default:
+			access = AdminAccess
 		}
-		ops = append(ops, createModelUserOp(
+		ops = append(ops, createModelUserOps(
 			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			access))
+			access)...,
+		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)

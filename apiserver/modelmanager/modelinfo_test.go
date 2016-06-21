@@ -57,15 +57,15 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 		users: []*mockModelUser{{
 			userName: "admin",
-			access:   state.ModelAdminAccess,
+			access:   state.AdminAccess,
 		}, {
 			userName:    "bob@local",
 			displayName: "Bob",
-			access:      state.ModelReadAccess,
+			access:      state.ReadAccess,
 		}, {
 			userName:    "charlotte@local",
 			displayName: "Charlotte",
-			access:      state.ModelReadAccess,
+			access:      state.ReadAccess,
 		}},
 	}
 	var err error
@@ -82,7 +82,8 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.model.users[1].SetErrors(
-		nil, state.NeverConnectedError("never connected"),
+		state.NeverConnectedError("never connected"),
+		nil, nil, nil, nil,
 	)
 	info := s.getModelInfo(c)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
@@ -102,7 +103,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		Users: []params.ModelUserInfo{{
 			UserName:       "admin",
 			LastConnection: &time.Time{},
-			Access:         params.ModelWriteAccess,
+			Access:         params.ModelAdminAccess,
 		}, {
 			UserName:       "bob@local",
 			DisplayName:    "Bob",
@@ -353,14 +354,26 @@ type mockModelUser struct {
 	gitjujutesting.Stub
 	userName       string
 	displayName    string
-	access         state.ModelAccess
 	lastConnection time.Time
+	access         state.Access
 }
 
-func (u *mockModelUser) Access() state.ModelAccess {
-	u.MethodCall(u, "Access")
+func (u *mockModelUser) IsAdmin() bool {
+	u.MethodCall(u, "IsAdmin")
 	u.PopNoErr()
-	return u.access
+	return u.access == state.AdminAccess
+}
+
+func (u *mockModelUser) IsReadOnly() bool {
+	u.MethodCall(u, "IsReadOnly")
+	u.PopNoErr()
+	return u.access == state.ReadAccess
+}
+
+func (u *mockModelUser) IsReadWrite() bool {
+	u.MethodCall(u, "IsReadWrite")
+	u.PopNoErr()
+	return u.access == state.WriteAccess
 }
 
 func (u *mockModelUser) DisplayName() string {

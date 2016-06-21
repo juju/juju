@@ -146,18 +146,18 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var envUser *state.ModelUser
+	var modelUser *state.ModelUser
 	// Send back user info if user
 	if isUser && !serverOnlyLogin {
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}
-		envUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
+		modelUser, err = a.root.state.ModelUser(entity.Tag().(names.UserTag))
 		if err != nil {
 			return fail, errors.Annotatef(err, "missing ModelUser for logged in user %s", entity.Tag())
 		}
-		maybeUserInfo.ReadOnly = envUser.ReadOnly()
+		maybeUserInfo.ReadOnly = modelUser.IsReadOnly()
 		if maybeUserInfo.ReadOnly {
 			logger.Debugf("model user %s is READ ONLY", entity.Tag())
 		}
@@ -201,8 +201,8 @@ func (a *admin) doLogin(req params.LoginRequest, loginVersion int) (params.Login
 		loginResult.Facades = facades
 	}
 
-	if envUser != nil {
-		authedApi = newClientAuthRoot(authedApi, envUser)
+	if modelUser != nil {
+		authedApi = newClientAuthRoot(authedApi, modelUser)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)

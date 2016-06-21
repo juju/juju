@@ -562,10 +562,11 @@ func (m *Model) Users() ([]*ModelUser, error) {
 
 	var modelUsers []*ModelUser
 	for _, doc := range userDocs {
-		modelUsers = append(modelUsers, &ModelUser{
-			st:  m.st,
-			doc: doc,
-		})
+		mu, err := NewModelUser(m.st, doc)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelUsers = append(modelUsers, mu)
 	}
 
 	return modelUsers, nil
