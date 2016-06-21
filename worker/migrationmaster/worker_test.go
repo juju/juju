@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	masterapi "github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
@@ -471,7 +470,7 @@ func newStubMasterFacade(stub *jujutesting.Stub) *stubMasterFacade {
 	return &stubMasterFacade{
 		stub:           stub,
 		watcherChanges: make(chan struct{}, 1),
-		status: masterapi.MigrationStatus{
+		status: coremigration.MigrationStatus{
 			ModelUUID: "model-uuid",
 			Attempt:   2,
 			Phase:     coremigration.QUIESCE,
@@ -492,7 +491,7 @@ type stubMasterFacade struct {
 	stub           *jujutesting.Stub
 	watcherChanges chan struct{}
 	watchErr       error
-	status         masterapi.MigrationStatus
+	status         coremigration.MigrationStatus
 	statusErr      error
 	exportErr      error
 }
@@ -506,20 +505,20 @@ func (c *stubMasterFacade) Watch() (watcher.NotifyWatcher, error) {
 	return newMockWatcher(c.watcherChanges), nil
 }
 
-func (c *stubMasterFacade) GetMigrationStatus() (masterapi.MigrationStatus, error) {
+func (c *stubMasterFacade) GetMigrationStatus() (coremigration.MigrationStatus, error) {
 	c.stub.AddCall("masterFacade.GetMigrationStatus")
 	if c.statusErr != nil {
-		return masterapi.MigrationStatus{}, c.statusErr
+		return coremigration.MigrationStatus{}, c.statusErr
 	}
 	return c.status, nil
 }
 
-func (c *stubMasterFacade) Export() (masterapi.SerializedModel, error) {
+func (c *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
 	c.stub.AddCall("masterFacade.Export")
 	if c.exportErr != nil {
-		return masterapi.SerializedModel{}, c.exportErr
+		return coremigration.SerializedModel{}, c.exportErr
 	}
-	return masterapi.SerializedModel{
+	return coremigration.SerializedModel{
 		Bytes:  fakeModelBytes,
 		Charms: []string{"charm0", "charm1"},
 		Tools: map[version.Binary]string{

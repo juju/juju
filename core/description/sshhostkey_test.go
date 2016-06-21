@@ -38,9 +38,9 @@ func (s *SSHHostKeySerializationSuite) TestNewSSHHostKey(c *gc.C) {
 }
 
 func (s *SSHHostKeySerializationSuite) TestParsingSerializedData(c *gc.C) {
-	initial := sshhostkeys{
+	initial := sshHostKeys{
 		Version: 1,
-		SSHHostKeys_: []*sshhostkey{
+		SSHHostKeys_: []*sshHostKey{
 			newSSHHostKey(SSHHostKeyArgs{
 				MachineID: "foo",
 				Keys:      []string{"one", "two", "three"},

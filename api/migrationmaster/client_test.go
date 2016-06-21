@@ -4,8 +4,6 @@
 package migrationmaster_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,12 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker"
+	"github.com/juju/juju/watcher"
 )
 
 type ClientSuite struct {
@@ -32,56 +30,30 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
-		switch request {
-		case "Watch":
-			*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
-				NotifyWatcherId: "abc",
-			}
-		case "Next":
-			// The full success case is tested in api/watcher.
-			return errors.New("boom")
-		case "Stop":
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			NotifyWatcherId: "123",
 		}
 		return nil
 	})
-
-	client := migrationmaster.NewClient(apiCaller)
-	w, err := client.Watch()
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(w)
-
-	errC := make(chan error)
-	go func() {
-		errC <- w.Wait()
-	}()
-
-	select {
-	case err := <-errC:
-		c.Assert(err, gc.ErrorMatches, "boom")
-		expectedCalls := []jujutesting.StubCall{
-			{"MigrationMaster.Watch", []interface{}{"", nil}},
-			{"NotifyWatcher.Next", []interface{}{"abc", nil}},
-			{"NotifyWatcher.Stop", []interface{}{"abc", nil}},
-		}
-		// The Stop API call happens in a separate goroutine which
-		// might execute after the worker has exited so wait for the
-		// expected calls to arrive.
-		for a := coretesting.LongAttempt.Start(); a.Next(); {
-			if len(stub.Calls()) >= len(expectedCalls) {
-				return
-			}
-		}
-		stub.CheckCalls(c, expectedCalls)
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for watcher to die")
+	expectWatch := &struct{ watcher.NotifyWatcher }{}
+	newWatcher := func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
+		c.Check(caller, gc.NotNil)
+		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "123"})
+		return expectWatch
 	}
+	client := migrationmaster.NewClient(apiCaller, newWatcher)
+
+	w, err := client.Watch()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(w, gc.Equals, expectWatch)
+	stub.CheckCalls(c, []jujutesting.StubCall{{"MigrationMaster.Watch", []interface{}{"", nil}}})
 }
 
-func (s *ClientSuite) TestWatchErr(c *gc.C) {
+func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("boom")
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	_, err := client.Watch()
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -107,11 +79,11 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 		}
 		return nil
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 
 	status, err := client.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.DeepEquals, migrationmaster.MigrationStatus{
+	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		ModelUUID: modelUUID,
 		Attempt:   3,
 		Phase:     migration.READONLY,
@@ -131,7 +103,7 @@ func (s *ClientSuite) TestSetPhase(c *gc.C) {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.SetPhase(migration.QUIESCE)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
@@ -144,7 +116,7 @@ func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("boom")
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.SetPhase(migration.QUIESCE)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -164,13 +136,13 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		}
 		return nil
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	out, err := client.Export()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationMaster.Export", []interface{}{"", nil}},
 	})
-	c.Assert(out, gc.DeepEquals, migrationmaster.SerializedModel{
+	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
 		Charms: []string{"cs:foo-1"},
 		Tools: map[version.Binary]string{
@@ -183,7 +155,7 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("blam")
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	_, err := client.Export()
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
@@ -194,7 +166,7 @@ func (s *ClientSuite) TestReap(c *gc.C) {
 		stub.AddCall(objType+"."+request, id, arg)
 		return nil
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.Reap()
 	c.Check(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -206,7 +178,131 @@ func (s *ClientSuite) TestReapError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("blam")
 	})
-	client := migrationmaster.NewClient(apiCaller)
+	client := migrationmaster.NewClient(apiCaller, nil)
 	err := client.Reap()
 	c.Assert(err, gc.ErrorMatches, "blam")
+}
+
+func (s *ClientSuite) TestWatchMinionReports(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			NotifyWatcherId: "123",
+		}
+		return nil
+	})
+
+	expectWatch := &struct{ watcher.NotifyWatcher }{}
+	newWatcher := func(caller base.APICaller, result params.NotifyWatchResult) watcher.NotifyWatcher {
+		c.Check(caller, gc.NotNil)
+		c.Check(result, jc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "123"})
+		return expectWatch
+	}
+	client := migrationmaster.NewClient(apiCaller, newWatcher)
+
+	w, err := client.WatchMinionReports()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(w, gc.Equals, expectWatch)
+	stub.CheckCalls(c, []jujutesting.StubCall{{"MigrationMaster.WatchMinionReports", []interface{}{"", nil}}})
+}
+
+func (s *ClientSuite) TestWatchMinionReportsError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("boom")
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	_, err := client.WatchMinionReports()
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestGetMinionReports(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		out := result.(*params.MinionReports)
+		*out = params.MinionReports{
+			MigrationId:  "id",
+			Phase:        "READONLY",
+			SuccessCount: 4,
+			UnknownCount: 3,
+			UnknownSample: []string{
+				names.NewMachineTag("3").String(),
+				names.NewMachineTag("4").String(),
+				names.NewUnitTag("foo/0").String(),
+			},
+			Failed: []string{
+				names.NewMachineTag("5").String(),
+				names.NewUnitTag("foo/1").String(),
+				names.NewUnitTag("foo/2").String(),
+			},
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	out, err := client.GetMinionReports()
+	c.Assert(err, jc.ErrorIsNil)
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"MigrationMaster.GetMinionReports", []interface{}{"", nil}},
+	})
+	c.Assert(out, gc.DeepEquals, migration.MinionReports{
+		MigrationId:         "id",
+		Phase:               migration.READONLY,
+		SuccessCount:        4,
+		UnknownCount:        3,
+		SomeUnknownMachines: []string{"3", "4"},
+		SomeUnknownUnits:    []string{"foo/0"},
+		FailedMachines:      []string{"5"},
+		FailedUnits:         []string{"foo/1", "foo/2"},
+	})
+}
+
+func (s *ClientSuite) TestGetMinionReportsFailedCall(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	_, err := client.GetMinionReports()
+	c.Assert(err, gc.ErrorMatches, "blam")
+}
+
+func (s *ClientSuite) TestGetMinionReportsInvalidPhase(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		out := result.(*params.MinionReports)
+		*out = params.MinionReports{
+			Phase: "BLARGH",
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	_, err := client.GetMinionReports()
+	c.Assert(err, gc.ErrorMatches, `invalid phase: "BLARGH"`)
+}
+
+func (s *ClientSuite) TestGetMinionReportsBadUnknownTag(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		out := result.(*params.MinionReports)
+		*out = params.MinionReports{
+			Phase:         "READONLY",
+			UnknownSample: []string{"carl"},
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	_, err := client.GetMinionReports()
+	c.Assert(err, gc.ErrorMatches, `processing unknown agents: "carl" is not a valid tag`)
+}
+
+func (s *ClientSuite) TestGetMinionReportsBadFailedTag(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _ string, _ string, _ interface{}, result interface{}) error {
+		out := result.(*params.MinionReports)
+		*out = params.MinionReports{
+			Phase:  "READONLY",
+			Failed: []string{"dave"},
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	_, err := client.GetMinionReports()
+	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
 }

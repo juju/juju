@@ -25,6 +25,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		modelUserLastConnectionC,
 		settingsC,
 		sequenceC,
+		sshHostKeysC,
 		statusesC,
 		statusesHistoryC,
 
@@ -54,8 +55,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
-
-		sshHostKeysC,
 	)
 
 	ignoredCollections := set.NewStrings(

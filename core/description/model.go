@@ -121,7 +121,7 @@ type model struct {
 	Subnets_          subnets          `yaml:"subnets"`
 	Actions_          actions          `yaml:"actions"`
 
-	SSHHostKeys_ sshhostkeys `yaml:"sshhostkeys"`
+	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -390,8 +390,8 @@ func (m *model) AddSSHHostKey(args SSHHostKeyArgs) SSHHostKey {
 	return addr
 }
 
-func (m *model) setSSHHostKeys(addressesList []*sshhostkey) {
-	m.SSHHostKeys_ = sshhostkeys{
+func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
+	m.SSHHostKeys_ = sshHostKeys{
 		Version:      1,
 		SSHHostKeys_: addressesList,
 	}
