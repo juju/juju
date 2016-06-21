@@ -199,7 +199,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIUploadGUIArchiveError(c *gc.C) {
 	s.patchClientUploadGUIArchive(c, hash, size, "2.2.0", false, errors.New("bad wolf"))
 	out, err := s.run(c, path)
 	c.Assert(err, gc.ErrorMatches, "cannot upload Juju GUI: bad wolf")
-	c.Assert(out, gc.Equals, "fetching Juju GUI archive\nuploading Juju GUI 2.2.0")
+	c.Assert(out, gc.Equals, "using local Juju GUI archive\nuploading Juju GUI 2.2.0")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUISelectGUIVersionError(c *gc.C) {
@@ -209,7 +209,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISelectGUIVersionError(c *gc.C) {
 	s.patchClientSelectGUIVersion(c, "2.3.0", errors.New("bad wolf"))
 	out, err := s.run(c, path)
 	c.Assert(err, gc.ErrorMatches, "cannot switch to new Juju GUI version: bad wolf")
-	c.Assert(out, gc.Equals, "fetching Juju GUI archive\nuploading Juju GUI 2.3.0\nupload completed")
+	c.Assert(out, gc.Equals, "using local Juju GUI archive\nuploading Juju GUI 2.3.0\nupload completed")
 }
 
 func (s *upgradeGUISuite) TestUpgradeGUIFromSimplestreamsReleaseErrors(c *gc.C) {
@@ -298,7 +298,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 	}{{
 		about:          "archive: first archive",
 		archiveVersion: "2.0.0",
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.0\nupload completed\nJuju GUI switched to version 2.0.0",
+		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.0\nupload completed\nJuju GUI switched to version 2.0.0",
 		uploaded:       true,
 		selected:       true,
 	}, {
@@ -313,7 +313,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.1.0\nupload completed\nJuju GUI switched to version 2.1.0",
+		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.1.0\nupload completed\nJuju GUI switched to version 2.1.0",
 	}, {
 		about:          "archive: new archive, existing non-current version",
 		archiveVersion: "2.0.42",
@@ -330,7 +330,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
+		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
 	}, {
 		about:          "archive: new archive, existing current version",
 		archiveVersion: "2.0.47",
@@ -342,7 +342,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 			}}
 		},
 		uploaded:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.47\nupload completed\nJuju GUI at version 2.0.47",
+		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.47\nupload completed\nJuju GUI at version 2.0.47",
 	}, {
 		about:          "archive: existing archive, existing non-current version",
 		archiveVersion: "2.0.42",
@@ -386,7 +386,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 		},
 		uploaded:       true,
 		selected:       true,
-		expectedOutput: "fetching Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
+		expectedOutput: "using local Juju GUI archive\nuploading Juju GUI 2.0.42\nupload completed\nJuju GUI switched to version 2.0.42",
 	}, {
 		about:            "stream: first archive",
 		archiveVersion:   "2.0.0",
@@ -506,7 +506,7 @@ func (s *upgradeGUISuite) TestUpgradeGUISuccess(c *gc.C) {
 			// Create an fake Juju GUI local archive.
 			arg, hash, size = saveGUIArchive(c, test.archiveVersion)
 		} else {
-			// User the remote metadata information.
+			// Use the remote metadata information.
 			arg = test.returnedMetadata.Version.String()
 			hash = test.returnedMetadata.SHA256
 			size = test.returnedMetadata.Size
@@ -544,7 +544,7 @@ func (s *upgradeGUISuite) TestUpgradeGUIIntegration(c *gc.C) {
 	// Upload the archive from command line.
 	out, err := s.run(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.Equals, "fetching Juju GUI archive\nuploading Juju GUI 2.42.0\nupload completed\nJuju GUI switched to version 2.42.0")
+	c.Assert(out, gc.Equals, "using local Juju GUI archive\nuploading Juju GUI 2.42.0\nupload completed\nJuju GUI switched to version 2.42.0")
 
 	// Check that the archive is present in the GUI storage server side.
 	storage, err := s.State.GUIStorage()
