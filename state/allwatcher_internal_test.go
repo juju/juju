@@ -1052,16 +1052,16 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				if test.setUpState != nil {
 					test.setUpState(st)
 					// Consume events from setup.
-					w.AssertChanges()
-					w.AssertNoChange()
-					otherW.AssertNoChange()
+					w.AssertChanges(c)
+					w.AssertNoChange(c)
+					otherW.AssertNoChange(c)
 				}
 
 				test.triggerEvent(st)
 				// Check event was isolated to the correct watcher.
-				w.AssertChanges()
-				w.AssertNoChange()
-				otherW.AssertNoChange()
+				w.AssertChanges(c)
+				w.AssertNoChange(c)
+				otherW.AssertNoChange(c)
 			}
 			otherState := s.newState(c)
 
@@ -1071,8 +1071,8 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			defer w2.Stop()
 
 			// The first set of deltas is empty, reflecting an empty model.
-			w1.AssertNoChange()
-			w2.AssertNoChange()
+			w1.AssertNoChange(c)
+			w2.AssertNoChange(c)
 			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(otherState, w2, w1)
 		}()
@@ -3047,40 +3047,16 @@ func newTestWatcher(b Backing, st *State, c *gc.C) *testWatcher {
 		deltas: make(chan []multiwatcher.Delta),
 	}
 	go func() {
+		defer close(tw.deltas)
 		for {
 			deltas, err := tw.w.Next()
 			if err != nil {
-				break
+				return
 			}
 			tw.deltas <- deltas
 		}
 	}()
 	return tw
-}
-
-func (tw *testWatcher) Next(timeout time.Duration) []multiwatcher.Delta {
-	select {
-	case d := <-tw.deltas:
-		return d
-	case <-time.After(timeout):
-		return nil
-	}
-}
-
-func (tw *testWatcher) NumDeltas() int {
-	count := 0
-	tw.st.StartSync()
-	for {
-		// TODO(mjs) - this is somewhat fragile. There are no
-		// guarentees that the watcher will be able to return deltas
-		// in ShortWait time.
-		deltas := tw.Next(testing.ShortWait)
-		if len(deltas) == 0 {
-			break
-		}
-		count += len(deltas)
-	}
-	return count
 }
 
 func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
@@ -3096,21 +3072,22 @@ func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
 
 	now := time.Now()
 	maxTime := now.Add(maxDuration)
+done:
 	for {
 		remaining := maxTime.Sub(now)
-		if remaining < time.Duration(0) {
-			break // timed out
-		}
-
-		deltas := tw.Next(remaining)
-		if len(deltas) > 0 {
-			allDeltas = append(allDeltas, deltas...)
-			if len(allDeltas) >= expectedCount {
-				break
+		select {
+		case deltas := <-tw.deltas:
+			if len(deltas) > 0 {
+				allDeltas = append(allDeltas, deltas...)
+				if len(allDeltas) >= expectedCount {
+					break done
+				}
 			}
+			now = time.Now()
+		case <-time.After(remaining):
+			// timed out
+			break done
 		}
-
-		now = time.Now()
 	}
 	return allDeltas
 }
@@ -3121,12 +3098,35 @@ func (tw *testWatcher) Stop() {
 	tw.c.Assert(tw.b.Release(), jc.ErrorIsNil)
 }
 
-func (tw *testWatcher) AssertNoChange() {
-	tw.c.Assert(tw.NumDeltas(), gc.Equals, 0)
+func (tw *testWatcher) AssertNoChange(c *gc.C) {
+	tw.st.StartSync()
+	select {
+	case d := <-tw.deltas:
+		if len(d) > 0 {
+			c.Error("change detected")
+		}
+	case <-time.After(testing.ShortWait):
+		// expected
+	}
 }
 
-func (tw *testWatcher) AssertChanges() {
-	tw.c.Assert(tw.NumDeltas(), jc.GreaterThan, 0)
+func (tw *testWatcher) AssertChanges(c *gc.C) {
+	var count int
+	tw.st.StartSync()
+done:
+	for {
+		select {
+		case d := <-tw.deltas:
+			if len(d) == 0 {
+				break done
+			}
+			count += len(d)
+		case <-time.After(testing.ShortWait):
+			// no change detected
+			break done
+		}
+	}
+	c.Assert(count, jc.GreaterThan, 0)
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
