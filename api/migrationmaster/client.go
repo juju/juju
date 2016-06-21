@@ -15,15 +15,6 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// MigrationStatus returns the details for a migration as needed by
-// the migration master worker.
-type MigrationStatus struct {
-	ModelUUID  string
-	Attempt    int
-	Phase      migration.Phase
-	TargetInfo migration.TargetInfo
-}
-
 // NewClient returns a new Client based on an existing API connection.
 func NewClient(caller base.APICaller) *Client {
 	return &Client{base.NewFacadeCaller(caller, "MigrationMaster")}
@@ -52,8 +43,8 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 
 // GetMigrationStatus returns the details and progress of the latest
 // model migration.
-func (c *Client) GetMigrationStatus() (MigrationStatus, error) {
-	var empty MigrationStatus
+func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
+	var empty migration.MigrationStatus
 	var status params.FullMigrationStatus
 	err := c.caller.FacadeCall("GetMigrationStatus", nil, &status)
 	if err != nil {
@@ -81,7 +72,7 @@ func (c *Client) GetMigrationStatus() (MigrationStatus, error) {
 		return empty, errors.Annotatef(err, "unable to parse auth tag")
 	}
 
-	return MigrationStatus{
+	return migration.MigrationStatus{
 		ModelUUID: modelTag.Id(),
 		Attempt:   status.Attempt,
 		Phase:     phase,
@@ -103,23 +94,14 @@ func (c *Client) SetPhase(phase migration.Phase) error {
 	return c.caller.FacadeCall("SetPhase", args, nil)
 }
 
-// SerializedModel wraps a buffer contain a serialised Juju model as
-// well as containing metadata about the charms and tools used by the
-// model.
-type SerializedModel struct {
-	Bytes  []byte
-	Charms []string
-	Tools  map[version.Binary]string // version -> tools URI
-}
-
 // Export returns a serialized representation of the model associated
 // with the API connection. The charms used by the model are also
 // returned.
-func (c *Client) Export() (SerializedModel, error) {
+func (c *Client) Export() (migration.SerializedModel, error) {
 	var serialized params.SerializedModel
 	err := c.caller.FacadeCall("Export", nil, &serialized)
 	if err != nil {
-		return SerializedModel{}, err
+		return migration.SerializedModel{}, err
 	}
 
 	// Convert tools info to output map.
@@ -127,12 +109,12 @@ func (c *Client) Export() (SerializedModel, error) {
 	for _, toolsInfo := range serialized.Tools {
 		v, err := version.ParseBinary(toolsInfo.Version)
 		if err != nil {
-			return SerializedModel{}, errors.Annotate(err, "error parsing tools version")
+			return migration.SerializedModel{}, errors.Annotate(err, "error parsing tools version")
 		}
 		tools[v] = toolsInfo.URI
 	}
 
-	return SerializedModel{
+	return migration.SerializedModel{
 		Bytes:  serialized.Bytes,
 		Charms: serialized.Charms,
 		Tools:  tools,
@@ -143,4 +125,75 @@ func (c *Client) Export() (SerializedModel, error) {
 // connection.
 func (c *Client) Reap() error {
 	return c.caller.FacadeCall("Reap", nil, nil)
+}
+
+// WatchMinionReports returns a watcher which reports when a migration
+// minion has made a report for the current migration phase.
+func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := c.caller.FacadeCall("WatchMinionReports", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(c.caller.RawAPICaller(), result)
+	return w, nil
+}
+
+// GetMinionReports returns details of the reports made by migration
+// minions to the controller for the current migration phase.
+func (c *Client) GetMinionReports() (migration.MinionReports, error) {
+	var in params.MinionReports
+	var out migration.MinionReports
+
+	err := c.caller.FacadeCall("GetMinionReports", nil, &in)
+	if err != nil {
+		return out, errors.Trace(err)
+	}
+
+	out.MigrationId = in.MigrationId
+
+	phase, ok := migration.ParsePhase(in.Phase)
+	if !ok {
+		return out, errors.Errorf("invalid phase: %q", in.Phase)
+	}
+	out.Phase = phase
+
+	out.SuccessCount = in.SuccessCount
+	out.UnknownCount = in.UnknownCount
+
+	out.SomeUnknownMachines, out.SomeUnknownUnits, err = groupTagIds(in.UnknownSample)
+	if err != nil {
+		return out, errors.Annotate(err, "processing unknown agents")
+	}
+
+	out.FailedMachines, out.FailedUnits, err = groupTagIds(in.Failed)
+	if err != nil {
+		return out, errors.Annotate(err, "processing failed agents")
+	}
+
+	return out, nil
+}
+
+func groupTagIds(tagStrs []string) ([]string, []string, error) {
+	var machines []string
+	var units []string
+
+	for i := 0; i < len(tagStrs); i++ {
+		tag, err := names.ParseTag(tagStrs[i])
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		switch t := tag.(type) {
+		case names.MachineTag:
+			machines = append(machines, t.Id())
+		case names.UnitTag:
+			units = append(units, t.Id())
+		default:
+			return nil, nil, errors.Errorf("unsupported tag: %q", tag)
+		}
+	}
+	return machines, units, nil
 }

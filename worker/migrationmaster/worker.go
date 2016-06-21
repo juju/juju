@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/migrationmaster"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
@@ -40,7 +39,7 @@ type Facade interface {
 
 	// GetMigrationStatus returns the details and progress of the
 	// latest model migration.
-	GetMigrationStatus() (migrationmaster.MigrationStatus, error)
+	GetMigrationStatus() (coremigration.MigrationStatus, error)
 
 	// SetPhase updates the phase of the currently active model
 	// migration.
@@ -48,7 +47,7 @@ type Facade interface {
 
 	// Export returns a serialized representation of the model
 	// associated with the API connection.
-	Export() (migrationmaster.SerializedModel, error)
+	Export() (coremigration.SerializedModel, error)
 
 	// Reap removes all documents of the model associated with the API
 	// connection.
@@ -333,8 +332,8 @@ func (w *Worker) removeImportedModel(targetInfo coremigration.TargetInfo, modelU
 	return errors.Trace(err)
 }
 
-func (w *Worker) waitForActiveMigration() (migrationmaster.MigrationStatus, error) {
-	var empty migrationmaster.MigrationStatus
+func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error) {
+	var empty coremigration.MigrationStatus
 
 	watcher, err := w.config.Facade.Watch()
 	if err != nil {
