@@ -153,6 +153,55 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	}
 }
 
+func (s *statusUnitTestSuite) checkWorkloadVersionAggregation(
+	c *gc.C, expectedAppVersion string, unitVersions ...string) {
+	application := s.MakeApplication(c, nil)
+
+	units := make([]*state.Unit, len(unitVersions))
+	for i, version := range unitVersions {
+		unit, err := application.AddUnit()
+		c.Assert(err, jc.ErrorIsNil)
+		err = unit.SetWorkloadVersion(version)
+		c.Assert(err, jc.ErrorIsNil)
+		units[i] = unit
+	}
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	appStatus, found := status.Applications[application.Name()]
+	c.Assert(found, jc.IsTrue)
+	c.Check(appStatus.WorkloadVersion, gc.Equals, expectedAppVersion)
+
+	for i, expectedVersion := range unitVersions {
+		unitStatus, found := appStatus.Units[units[i].Name()]
+		c.Check(found, jc.IsTrue)
+		c.Check(unitStatus.WorkloadVersion, gc.Equals, expectedVersion)
+	}
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionModeWins(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron*",
+		"voltron", "zarkon", "voltron")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionInTie(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron*",
+		"allura", "zarkon", "voltron", "zarkon", "voltron")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron", "voltron", "voltron")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionBlanksNeverWin(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron*", "voltron", "", "", "")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionOnlyBlanks(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "", "", "")
+}
+
 type statusUpgradeUnitSuite struct {
 	testing.CharmSuite
 	jujutesting.JujuConnSuite

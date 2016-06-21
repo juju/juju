@@ -306,6 +306,18 @@ type EntitiesCharmURL struct {
 	Entities []EntityCharmURL
 }
 
+// EntityWorkloadVersion holds the workload version for an entity.
+type EntityWorkloadVersion struct {
+	Tag             string `json:"tag"`
+	WorkloadVersion string `json:"workload-version"`
+}
+
+// EntityWorkloadVersions holds the parameters for setting the
+// workload version for a set of entities.
+type EntityWorkloadVersions struct {
+	Entities []EntityWorkloadVersion `json:"entities"`
+}
+
 // BytesResult holds the result of an API call that returns a slice
 // of bytes.
 type BytesResult struct {

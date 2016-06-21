@@ -608,10 +608,21 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
 
+	workloadVersion := u.WorkloadVersion()
+	versionStatus := status.StatusActive
+	if workloadVersion == "" {
+		versionStatus = status.StatusUnknown
+	}
+	workloadVersionDoc := statusDoc{
+		Status:     versionStatus,
+		StatusInfo: workloadVersion,
+	}
+
 	ops := addUnitOps(i.st, addUnitOpsArgs{
-		unitDoc:           udoc,
-		agentStatusDoc:    agentStatusDoc,
-		workloadStatusDoc: workloadStatusDoc,
+		unitDoc:            udoc,
+		agentStatusDoc:     agentStatusDoc,
+		workloadStatusDoc:  workloadStatusDoc,
+		workloadVersionDoc: workloadVersionDoc,
 		meterStatusDoc: &meterStatusDoc{
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),
@@ -650,6 +661,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		return errors.Trace(err)
 	}
 	if err := i.importStatusHistory(unit.globalAgentKey(), u.AgentStatusHistory()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -160,6 +160,12 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
+// globalWorkloadVersionKey returns the global database key for the
+// workload version status key for this unit.
+func globalWorkloadVersionKey(name string) string {
+	return unitGlobalKey(name) + "#sat#workload-version"
+}
+
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
@@ -175,9 +181,50 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
+// globalWorkloadVersionKey returns the global database key for the unit's
+// workload version info.
+func (u *Unit) globalWorkloadVersionKey() string {
+	return globalWorkloadVersionKey(u.doc.Name)
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
+}
+
+// WorkloadVersion returns the version of the running workload set by
+// the charm (eg, the version of postgresql that is running, as
+// opposed to the version of the postgresql charm).
+func (u *Unit) WorkloadVersion() (string, error) {
+	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return status.Message, nil
+}
+
+// SetWorkloadVersion sets the version of the workload that the unit
+// is currently running.
+func (u *Unit) SetWorkloadVersion(version string) error {
+	// Store in status rather than an attribute of the unit doc - we
+	// want to avoid everything being an attr of the main docs to
+	// stop a swarm of watchers being notified for irrelevant changes.
+	now := time.Now()
+	return setStatus(u.st, setStatusParams{
+		badge:     "workload",
+		globalKey: u.globalWorkloadVersionKey(),
+		status:    status.StatusActive,
+		message:   version,
+		updated:   &now,
+	})
+}
+
+// WorkloadVersionHistory returns a HistoryGetter which enables the
+// caller to request past workload version changes.
+func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
+	return &HistoryGetter{st: u.st, globalKey: u.globalWorkloadVersionKey()}
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -2245,10 +2292,11 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 }
 
 type addUnitOpsArgs struct {
-	unitDoc           *unitDoc
-	agentStatusDoc    statusDoc
-	workloadStatusDoc statusDoc
-	meterStatusDoc    *meterStatusDoc
+	unitDoc            *unitDoc
+	agentStatusDoc     statusDoc
+	workloadStatusDoc  statusDoc
+	workloadVersionDoc statusDoc
+	meterStatusDoc     *meterStatusDoc
 }
 
 // addUnitOps returns the operations required to add a unit to the units
@@ -2263,6 +2311,7 @@ func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 	return []txn.Op{
 		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
 		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
 		{
 			C:      unitsC,
@@ -2271,4 +2320,20 @@ func addUnitOps(st *State, args addUnitOpsArgs) []txn.Op {
 			Insert: args.unitDoc,
 		},
 	}
+}
+
+// HistoryGetter allows getting the status history based on some identifying key.
+type HistoryGetter struct {
+	st        *State
+	globalKey string
+}
+
+// StatusHistory implements status.StatusHistoryGetter.
+func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        g.st,
+		globalKey: g.globalKey,
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
