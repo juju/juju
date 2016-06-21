@@ -38,7 +38,7 @@ type listBlocksAPI interface {
 func (c *listBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "blocks",
-		Purpose: "list all blocks within the controller",
+		Purpose: "List all blocks within the controller.",
 		Doc:     listBlocksDoc,
 		Aliases: []string{"list-all-blocks", "list-blocks"},
 	}

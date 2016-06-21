@@ -64,14 +64,14 @@ func (c *killCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "kill-controller",
 		Args:    "<controller name>",
-		Purpose: "forcibly terminate all machines and other associated resources for a juju controller",
+		Purpose: "Forcibly terminate all machines and other associated resources for a Juju controller.",
 		Doc:     killDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.assumeYes, "y", false, "do not ask for confirmation")
+	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 

@@ -56,20 +56,17 @@ The online store will, of course, need to be contacted at some point to get
 the software.
 
 Examples:
-
-Download the software (version auto-selected) to the model:
-
+    # Download the software (version auto-selected) to the model:
     juju sync-tools --debug
 
-Download a specific version of the software locally:
-
+    # Download a specific version of the software locally:
     juju sync-tools --debug --version 2.0 --local-dir=/home/ubuntu/sync-tools
 
-Get locally available software to the model:
-
+    # Get locally available software to the model:
     juju sync-tools --debug --source=/home/ubuntu/sync-tools
 
-See also: upgrade-juju
+See Also:
+    juju upgrade-juju
 
 `
 
@@ -82,15 +79,15 @@ func (c *syncToolsCommand) Info() *cmd.Info {
 }
 
 func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
-	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
-	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
-	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
-	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
-	f.StringVar(&c.source, "source", "", "local source directory")
-	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to sync metadata")
-	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
-	f.StringVar(&c.destination, "destination", "", "local destination directory\n    DEPRECATED: use --local-dir instead")
+	f.BoolVar(&c.allVersions, "all", false, "Copy all versions, not just the latest")
+	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
+	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
+	f.BoolVar(&c.dev, "dev", false, "Consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
+	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
+	f.StringVar(&c.source, "source", "", "Local source directory")
+	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
+	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
+	f.StringVar(&c.destination, "destination", "", "Local destination directory\n    DEPRECATED: use --local-dir instead")
 }
 
 func (c *syncToolsCommand) Init(args []string) error {

@@ -202,7 +202,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "deploy",
 		Args:    "<charm or bundle> [<application name>]",
-		Purpose: "deploy a new application or bundle",
+		Purpose: "Deploy a new application or bundle.",
 		Doc:     deployDoc,
 	}
 }
@@ -218,14 +218,14 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "n", 1, "number of application units to deploy for principal charms")
-	f.StringVar((*string)(&c.Channel), "channel", "", "channel to use when getting the charm or bundle from the charm store")
-	f.Var(&c.Config, "config", "path to yaml-formatted application config")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set application constraints")
-	f.StringVar(&c.Series, "series", "", "the series on which to deploy")
-	f.BoolVar(&c.Force, "force", false, "allow a charm to be deployed to a machine running an unsupported series")
-	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "charm storage constraints")
-	f.Var(stringMap{&c.Resources}, "resource", "resource to be uploaded to the controller")
+	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
+	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
+	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set application constraints")
+	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
+	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
+	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
+	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 
 	for _, step := range c.Steps {
