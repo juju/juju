@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	"runtime"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -82,7 +84,7 @@ func (s *lxdBrokerSuite) instanceConfig(c *gc.C, machineId string) *instancecfg.
 	return instanceConfig
 }
 
-func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
+func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) *environs.StartInstanceResult {
 	instanceConfig := s.instanceConfig(c, machineId)
 	cons := constraints.Value{}
 	result, err := s.broker.StartInstance(environs.StartInstanceParams{
@@ -91,7 +93,7 @@ func (s *lxdBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		InstanceConfig: instanceConfig,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return result.Instance
+	return result
 }
 
 func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
@@ -109,6 +111,45 @@ func (s *lxdBrokerSuite) TestStartInstance(c *gc.C) {
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
 	c.Assert(instanceConfig.ToolsList(), gc.HasLen, 1)
 	c.Assert(instanceConfig.ToolsList().Arches(), jc.DeepEquals, []string{"amd64"})
+}
+
+func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
+	patchResolvConf(s, c)
+
+	result := s.startInstance(c, "1/lxd/0")
+	c.Assert(result.NetworkInfo, gc.HasLen, 1)
+	iface := result.NetworkInfo[0]
+	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+		DeviceIndex:         0,
+		CIDR:                "0.1.2.0/24",
+		InterfaceName:       "dummy0",
+		ParentInterfaceName: "lxdbr0",
+		DNSServers:          network.NewAddresses("ns1.dummy"),
+		DNSSearchDomains:    []string{""},
+		MACAddress:          "aa:bb:cc:dd:ee:ff",
+		Address:             network.NewAddress("0.1.2.3"),
+		GatewayAddress:      network.NewAddress("0.1.2.1"),
+	})
+}
+
+func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) {
+	patchResolvConf(s, c)
+
+	s.api.SetErrors(
+		nil, // ContainerConfig succeeds
+		errors.NotSupportedf("container address allocation"),
+	)
+	result := s.startInstance(c, "1/lxd/0")
+
+	c.Assert(result.NetworkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:         0,
+		InterfaceName:       "eth0",
+		InterfaceType:       network.EthernetInterface,
+		ConfigType:          network.ConfigDHCP,
+		ParentInterfaceName: "lxdbr0",
+		DNSServers:          network.NewAddresses("ns1.dummy"),
+		DNSSearchDomains:    []string{""},
+	}})
 }
 
 func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {

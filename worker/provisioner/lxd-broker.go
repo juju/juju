@@ -65,6 +65,11 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}
 
 	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
+	interfaces, err := finishNetworkConfig(bridgeDevice, args.NetworkInfo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	network.Interfaces = interfaces
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -108,7 +113,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	return &environs.StartInstanceResult{
 		Instance:    inst,
 		Hardware:    hardware,
-		NetworkInfo: network.Interfaces,
+		NetworkInfo: interfaces,
 	}, nil
 }
 

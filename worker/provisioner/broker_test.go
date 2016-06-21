@@ -4,9 +4,13 @@
 package provisioner_test
 
 import (
+	"io/ioutil"
 	"net"
+	"path/filepath"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -90,4 +94,15 @@ func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
 		return err
 	}
 	return nil
+}
+
+type patcher interface {
+	PatchValue(destination, source interface{})
+}
+
+func patchResolvConf(s patcher, c *gc.C) {
+	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
+	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
 }

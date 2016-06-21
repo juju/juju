@@ -738,7 +738,7 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 

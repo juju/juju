@@ -49,6 +49,7 @@ var kvmTemplate = `
       <mac address='{{$nic.MACAddress}}'/>
       <model type='virtio'/>
       <source bridge='{{$nic.ParentInterfaceName}}'/>
+      <guest dev='{{$nic.InterfaceName}}'/>
     </interface>
     {{end}}
   </devices>
