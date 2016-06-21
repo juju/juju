@@ -50,7 +50,21 @@ func Open(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID 
 }
 
 // Next returns the next log record from the server. The records are
-// coverted from the wire format into logfwd.Record.
+// coverted from the wire format into logfwd.Record. The first returned
+// record will be the one after the last successfully sent record. If no
+// records have been sent yet then it will be the oldest log record.
+//
+// An error indicates either the streaming connection is closed, the
+// connection failed, or the data read from the connection is corrupted.
+// In each of these cases the stream should be re-opened. It will start
+// at the record after the one marked as successfully sent. So the
+// the record at which Next() failed previously will be streamed again.
+//
+// That is only a problem when the same record is consistently streamed
+// as invalid data. This will happen only if the record was invalid
+// before being stored in the DB or if the DB on-disk storage for the
+// record becomes corrupted. Both scenarios are highly unlikely and
+// the respective systems are managed such that neither should happen.
 func (ls *LogStream) Next() (logfwd.Record, error) {
 	var record logfwd.Record
 	apiRecord, err := ls.next()
@@ -59,6 +73,14 @@ func (ls *LogStream) Next() (logfwd.Record, error) {
 	}
 	record, err = api2record(apiRecord, ls.controllerUUID)
 	if err != nil {
+		// This should only happen if the data got corrupted over the
+		// network. Any other cause should be addressed by fixing the
+		// code that resulted in the bad data that caused the error
+		// here. If that code is between the DB on-disk storage and
+		// the server-side stream then care should be taken to not
+		// block on a consistently invalid record or to throw away
+		// a record. The log stream needs to maintain a high level
+		// of reliable delivery.
 		return record, errors.Trace(err)
 	}
 	return record, nil
