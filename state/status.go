@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/leadership"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -44,31 +45,6 @@ func unixNanoToTime(i int64) *time.Time {
 	return &t
 }
 
-// mapKeys returns a copy of the supplied map, with all nested map[string]interface{}
-// keys transformed by f. All other types are ignored.
-func mapKeys(f func(string) string, input map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for key, value := range input {
-		if submap, ok := value.(map[string]interface{}); ok {
-			value = mapKeys(f, submap)
-		}
-		result[f(key)] = value
-	}
-	return result
-}
-
-// escapeKeys is used to escape bad keys in StatusData. A statusDoc without
-// escaped keys is broken.
-func escapeKeys(input map[string]interface{}) map[string]interface{} {
-	return mapKeys(escapeReplacer.Replace, input)
-}
-
-// unescapeKeys is used to restore escaped keys from StatusData to their
-// original values.
-func unescapeKeys(input map[string]interface{}) map[string]interface{} {
-	return mapKeys(unescapeReplacer.Replace, input)
-}
-
 // getStatus retrieves the status document associated with the given
 // globalKey and converts it to a StatusInfo. If the status document
 // is not found, a NotFoundError referencing badge will be returned.
@@ -88,7 +64,7 @@ func getStatus(st *State, globalKey, badge string) (_ StatusInfo, err error) {
 	return StatusInfo{
 		Status:  doc.Status,
 		Message: doc.StatusInfo,
-		Data:    unescapeKeys(doc.StatusData),
+		Data:    utils.UnescapeKeys(doc.StatusData),
 		Since:   unixNanoToTime(doc.Updated),
 	}, nil
 }
@@ -130,7 +106,7 @@ func setStatus(st *State, params setStatusParams) (err error) {
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
-		StatusData: escapeKeys(params.rawData),
+		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    now,
 	}
 	probablyUpdateStatusHistory(st, params.globalKey, doc)
@@ -239,7 +215,7 @@ func statusHistory(st *State, globalKey string, size int) ([]StatusInfo, error) 
 		results[i] = StatusInfo{
 			Status:  doc.Status,
 			Message: doc.StatusInfo,
-			Data:    unescapeKeys(doc.StatusData),
+			Data:    utils.UnescapeKeys(doc.StatusData),
 			Since:   unixNanoToTime(doc.Updated),
 		}
 	}

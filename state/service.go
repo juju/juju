@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/mongo/utils"
 )
 
 // Service represents the state of a service.
@@ -987,7 +988,7 @@ func (s *Service) LeaderSettings() (map[string]string, error) {
 	}
 	result := make(map[string]string)
 	for escapedKey, interfaceValue := range rawMap {
-		key := unescapeReplacer.Replace(escapedKey)
+		key := utils.UnescapeString(escapedKey)
 		if value, _ := interfaceValue.(string); value != "" {
 			// Empty strings are technically bad data -- when set, they clear.
 			result[key] = value
@@ -1014,7 +1015,7 @@ func (s *Service) UpdateLeaderSettings(token leadership.Token, updates map[strin
 	sets := bson.M{}
 	unsets := bson.M{}
 	for unescapedKey, value := range updates {
-		key := escapeReplacer.Replace(unescapedKey)
+		key := utils.EscapeString(unescapedKey)
 		if value == "" {
 			unsets[key] = 1
 		} else {

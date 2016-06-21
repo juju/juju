@@ -6,24 +6,12 @@ package state
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/mongo/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-)
-
-// See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
-// for why we're using those replacements.
-const (
-	fullWidthDot    = "\uff0e"
-	fullWidthDollar = "\uff04"
-)
-
-var (
-	escapeReplacer   = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
-	unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
 )
 
 const (
@@ -143,7 +131,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 			continue
 		}
 		var change ItemChange
-		escapedKey := escapeReplacer.Replace(key)
+		escapedKey := utils.EscapeString(key)
 		switch {
 		case incore && ondisk:
 			change = ItemChange{ItemModified, key, old, new}
@@ -190,24 +178,14 @@ func newSettings(st *State, key string) *Settings {
 
 // cleanSettingsMap cleans the map of version, env-uuid and _id fields and
 // also unescapes keys coming out of MongoDB.
-func cleanSettingsMap(in map[string]interface{}) {
-	delete(in, "env-uuid")
-	delete(in, "_id")
-	delete(in, "txn-revno")
-	delete(in, "txn-queue")
-	replaceKeys(in, unescapeReplacer.Replace)
-}
+func cleanSettingsMap(in map[string]interface{}) map[string]interface{} {
+	escaped := utils.EscapeKeys(in)
+	delete(escaped, "env-uuid")
+	delete(escaped, "_id")
+	delete(escaped, "txn-revno")
+	delete(escaped, "txn-queue")
 
-// replaceKeys will modify the provided map in place by replacing keys with
-// their replacement if they have been modified.
-func replaceKeys(m map[string]interface{}, replace func(string) string) {
-	for key, value := range m {
-		if newKey := replace(key); newKey != key {
-			delete(m, key)
-			m[newKey] = value
-		}
-	}
-	return
+	return escaped
 }
 
 // copyMap copies the keys and values of one map into a new one.  If replace
@@ -262,7 +240,7 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 		return nil, 0, err
 	}
 	txnRevno := config["txn-revno"].(int64)
-	cleanSettingsMap(config)
+	config = cleanSettingsMap(config)
 	return config, txnRevno, nil
 }
 
@@ -283,7 +261,7 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
-	newValues := copyMap(values, escapeReplacer.Replace)
+	newValues := utils.EscapeKeys(values)
 	newValues["env-uuid"] = st.EnvironUUID()
 	return txn.Op{
 		C:      settingsC,
@@ -336,10 +314,9 @@ func listSettings(st *State, keyPrefix string) (map[string]map[string]interface{
 		return nil, err
 	}
 	result := make(map[string]map[string]interface{})
-	for i := range matchingSettings {
-		id := matchingSettings[i]["_id"].(string)
-		cleanSettingsMap(matchingSettings[i])
-		result[st.localID(id)] = matchingSettings[i]
+	for _, s := range matchingSettings {
+		id := s["_id"].(string)
+		result[st.localID(id)] = cleanSettingsMap(s)
 	}
 	return result, nil
 }
@@ -356,10 +333,10 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	deletes := bson.M{}
 	for k := range s.disk {
 		if _, found := values[k]; !found {
-			deletes[escapeReplacer.Replace(k)] = 1
+			deletes[utils.EscapeString(k)] = 1
 		}
 	}
-	newValues := copyMap(values, escapeReplacer.Replace)
+	newValues := utils.EscapeKeys(values)
 	op := s.assertUnchangedOp()
 	op.Update = setUnsetUpdate(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {

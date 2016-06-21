@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.
@@ -180,7 +181,7 @@ func safeConfig(ch charm.Charm) *charm.Config {
 	cfg := ch.Config()
 	escapedConfig := charm.NewConfig()
 	for optionName, option := range cfg.Options {
-		escapedName := escapeReplacer.Replace(optionName)
+		escapedName := utils.EscapeString(optionName)
 		escapedConfig.Options[escapedName] = option
 	}
 	return escapedConfig
@@ -199,7 +200,7 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 	if cdoc != nil && cdoc.Config != nil {
 		unescapedConfig := charm.NewConfig()
 		for optionName, option := range cdoc.Config.Options {
-			unescapedName := unescapeReplacer.Replace(optionName)
+			unescapedName := utils.UnescapeString(optionName)
 			unescapedConfig.Options[unescapedName] = option
 		}
 		cdoc.Config = unescapedConfig
