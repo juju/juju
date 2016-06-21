@@ -4,10 +4,8 @@
 package migrationmaster
 
 import (
-	"sort"
-	"strconv"
-
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -194,24 +192,26 @@ func (api *API) GetMinionReports() (params.MinionReports, error) {
 
 	out.SuccessCount = len(reports.Succeeded)
 
-	sort.Sort(tagSlice(reports.Failed))
 	out.Failed = make([]string, len(reports.Failed))
 	for i := 0; i < len(out.Failed); i++ {
 		out.Failed[i] = reports.Failed[i].String()
 	}
+	utils.SortStringsNaturally(out.Failed)
 
 	out.UnknownCount = len(reports.Unknown)
 
+	unknown := make([]string, len(reports.Unknown))
+	for i := 0; i < len(unknown); i++ {
+		unknown[i] = reports.Unknown[i].String()
+	}
+	utils.SortStringsNaturally(unknown)
+
 	// Limit the number of unknowns reported
-	sampleCount := out.UnknownCount
-	if sampleCount > 10 {
-		sampleCount = 10
+	numSamples := out.UnknownCount
+	if numSamples > 10 {
+		numSamples = 10
 	}
-	sort.Sort(tagSlice(reports.Unknown))
-	out.UnknownSample = make([]string, sampleCount)
-	for i := 0; i < sampleCount; i++ {
-		out.UnknownSample[i] = reports.Unknown[i].String()
-	}
+	out.UnknownSample = unknown[:numSamples]
 
 	return out, nil
 }
@@ -256,37 +256,4 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
 	}
-}
-
-// tagSlice implements a sensible sort.Interface for []names.Tag
-type tagSlice []names.Tag
-
-func (s tagSlice) Len() int      { return len(s) }
-func (s tagSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s tagSlice) Less(i, j int) bool {
-	// Sort by tag kind first.
-	ki := s[i].Kind()
-	kj := s[j].Kind()
-	if ki < kj {
-		return true
-	}
-	if ki > kj {
-		return false
-	}
-
-	// Sort machines by integer machine id.
-	if ki == "machine" {
-		ii, err := strconv.Atoi(s[i].Id())
-		if err != nil {
-			return false
-		}
-		ij, err := strconv.Atoi(s[j].Id())
-		if err != nil {
-			return false
-		}
-		return ii < ij
-	}
-
-	// Other tag types get compared by their string id.
-	return s[i].Id() < s[j].Id()
 }
