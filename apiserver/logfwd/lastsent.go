@@ -15,22 +15,22 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("LogFwdLastSent", 1, NewLastSentAPI)
+	common.RegisterStandardFacade("LogForwarding", 1, NewLogForwardingAPI)
 }
 
-// LastSentAPI is the concrete implementation of the api end point.
-type LastSentAPI struct {
+// LogForwardingAPI is the concrete implementation of the api end point.
+type LogForwardingAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-// NewLastSentAPI creates a new server-side logger API end point.
-func NewLastSentAPI(st *state.State, res *common.Resources, auth common.Authorizer) (*LastSentAPI, error) {
+// NewLogForwardingAPI creates a new server-side logger API end point.
+func NewLogForwardingAPI(st *state.State, res *common.Resources, auth common.Authorizer) (*LogForwardingAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	api := &LastSentAPI{
+	api := &LogForwardingAPI{
 		state:      st,
 		resources:  res,
 		authorizer: auth,
@@ -38,20 +38,20 @@ func NewLastSentAPI(st *state.State, res *common.Resources, auth common.Authoriz
 	return api, nil
 }
 
-// Get is a bulk call that gets the log forwarding "last sent" timestamp
-// for each requested target.
-func (api *LastSentAPI) Get(args params.LogFwdLastSentGetParams) params.LogFwdLastSentGetResults {
-	results := make([]params.LogFwdLastSentGetResult, len(args.IDs))
+// GetLastSent is a bulk call that gets the log forwarding "last sent"
+// timestamp for each requested target.
+func (api *LogForwardingAPI) GetLastSent(args params.LogForwardingGetLastSentParams) params.LogForwardingGetLastSentResults {
+	results := make([]params.LogForwardingGetLastSentResult, len(args.IDs))
 	for i, id := range args.IDs {
 		results[i] = api.get(id)
 	}
-	return params.LogFwdLastSentGetResults{
+	return params.LogForwardingGetLastSentResults{
 		Results: results,
 	}
 }
 
-func (api *LastSentAPI) get(id params.LogFwdLastSentID) params.LogFwdLastSentGetResult {
-	var res params.LogFwdLastSentGetResult
+func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwardingGetLastSentResult {
+	var res params.LogForwardingGetLastSentResult
 	lsl, err := api.newLastSentLogger(id)
 	if err != nil {
 		res.Error = common.ServerError(err)
@@ -71,9 +71,9 @@ func (api *LastSentAPI) get(id params.LogFwdLastSentID) params.LogFwdLastSentGet
 	return res
 }
 
-// Set is a bulk call that sets the log forwarding "last sent" timestamp
-// for each requested target.
-func (api *LastSentAPI) Set(args params.LogFwdLastSentSetParams) params.ErrorResults {
+// SetLastSent is a bulk call that sets the log forwarding "last sent"
+// timestamp for each requested target.
+func (api *LogForwardingAPI) SetLastSent(args params.LogForwardingSetLastSentParams) params.ErrorResults {
 	results := make([]params.ErrorResult, len(args.Params), len(args.Params))
 	for i, arg := range args.Params {
 		results[i].Error = api.set(arg)
@@ -83,8 +83,8 @@ func (api *LastSentAPI) Set(args params.LogFwdLastSentSetParams) params.ErrorRes
 	}
 }
 
-func (api *LastSentAPI) set(arg params.LogFwdLastSentSetParam) *params.Error {
-	lsl, err := api.newLastSentLogger(arg.LogFwdLastSentID)
+func (api *LogForwardingAPI) set(arg params.LogForwardingSetLastSentParam) *params.Error {
+	lsl, err := api.newLastSentLogger(arg.LogForwardingID)
 	if err != nil {
 		return common.ServerError(err)
 	}
@@ -94,7 +94,7 @@ func (api *LastSentAPI) set(arg params.LogFwdLastSentSetParam) *params.Error {
 	return common.ServerError(err)
 }
 
-func (api *LastSentAPI) newLastSentLogger(id params.LogFwdLastSentID) (*lastSentCloser, error) {
+func (api *LogForwardingAPI) newLastSentLogger(id params.LogForwardingID) (*lastSentCloser, error) {
 	tag, err := names.ParseModelTag(id.ModelTag)
 	if err != nil {
 		return nil, err

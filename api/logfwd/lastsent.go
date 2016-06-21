@@ -39,7 +39,7 @@ type LastSentInfo struct {
 	// down to the nanosecond then the timestamp will not identify any
 	// of them uniquely. However, the likelihood of such a collision
 	// is remote (though it grows with more agents and more activity).
-	Timestamp time.Time `json:"ts"`
+	Timestamp time.Time
 }
 
 // LastSentResult holds a single result from a bulk API call.
@@ -51,7 +51,8 @@ type LastSentResult struct {
 	Error error
 }
 
-// LastSentClient exposes the LogFwdLastSent API facade.
+// LastSentClient exposes the "last sent" methods of the LogForwarding
+// API facade.
 type LastSentClient struct {
 	facade base.FacadeCaller
 }
@@ -59,24 +60,24 @@ type LastSentClient struct {
 // NewLastSentClient creates a new API client for the facade.
 func NewLastSentClient(caller base.APICaller) *LastSentClient {
 	return &LastSentClient{
-		facade: base.NewFacadeCaller(caller, "LogFwdLastSent"),
+		facade: base.NewFacadeCaller(caller, "LogForwarding"),
 	}
 }
 
-// GetBulk make a bulk "Get" call on the facade and returns the results
-// in the same order.
-func (c LastSentClient) GetBulk(ids []LastSentID) ([]LastSentResult, error) {
-	var args params.LogFwdLastSentGetParams
-	args.IDs = make([]params.LogFwdLastSentID, len(ids))
+// GetList makes a "GetLastSent" call on the facade and returns the
+// results in the same order.
+func (c LastSentClient) GetList(ids []LastSentID) ([]LastSentResult, error) {
+	var args params.LogForwardingGetLastSentParams
+	args.IDs = make([]params.LogForwardingID, len(ids))
 	for i, id := range ids {
-		args.IDs[i] = params.LogFwdLastSentID{
+		args.IDs[i] = params.LogForwardingID{
 			ModelTag: id.Model.String(),
 			Sink:     id.Sink,
 		}
 	}
 
-	var apiResults params.LogFwdLastSentGetResults
-	err := c.facade.FacadeCall("Get", args, &apiResults)
+	var apiResults params.LogForwardingGetLastSentResults
+	err := c.facade.FacadeCall("GetLastSent", args, &apiResults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,14 +95,14 @@ func (c LastSentClient) GetBulk(ids []LastSentID) ([]LastSentResult, error) {
 	return results, nil
 }
 
-// SetBulk make a bulk "Set" call on the facade and returns the results
-// in the same order.
-func (c LastSentClient) SetBulk(reqs []LastSentInfo) ([]LastSentResult, error) {
-	var args params.LogFwdLastSentSetParams
-	args.Params = make([]params.LogFwdLastSentSetParam, len(reqs))
+// SetList makes a "SetLastSent" call on the facade and returns the
+// results in the same order.
+func (c LastSentClient) SetList(reqs []LastSentInfo) ([]LastSentResult, error) {
+	var args params.LogForwardingSetLastSentParams
+	args.Params = make([]params.LogForwardingSetLastSentParam, len(reqs))
 	for i, req := range reqs {
-		args.Params[i] = params.LogFwdLastSentSetParam{
-			LogFwdLastSentID: params.LogFwdLastSentID{
+		args.Params[i] = params.LogForwardingSetLastSentParam{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: req.Model.String(),
 				Sink:     req.Sink,
 			},
@@ -110,7 +111,7 @@ func (c LastSentClient) SetBulk(reqs []LastSentInfo) ([]LastSentResult, error) {
 	}
 
 	var apiResults params.ErrorResults
-	err := c.facade.FacadeCall("Set", args, &apiResults)
+	err := c.facade.FacadeCall("SetLastSent", args, &apiResults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

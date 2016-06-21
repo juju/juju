@@ -37,7 +37,7 @@ func (s *LastSentSuite) SetUpTest(c *gc.C) {
 	s.conn, _ = s.OpenAPIAsNewMachine(c)
 }
 
-func (s *LastSentSuite) TestGet(c *gc.C) {
+func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 	s.addModel(c, "other-model", model)
@@ -47,7 +47,7 @@ func (s *LastSentSuite) TestGet(c *gc.C) {
 	s.setLastSent(c, modelTag, "eggs", tsEggs)
 	client := logfwd.NewLastSentClient(s.conn)
 
-	results, err := client.GetBulk([]logfwd.LastSentID{{
+	results, err := client.GetList([]logfwd.LastSentID{{
 		Model: modelTag,
 		Sink:  "spam",
 	}, {
@@ -91,7 +91,7 @@ func (s *LastSentSuite) TestGet(c *gc.C) {
 	}})
 }
 
-func (s *LastSentSuite) TestSet(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSent(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 	s.addModel(c, "other-model", model)
@@ -99,7 +99,7 @@ func (s *LastSentSuite) TestSet(c *gc.C) {
 	tsEggs := time.Unix(12345, 54321)
 	client := logfwd.NewLastSentClient(s.conn)
 
-	results, err := client.SetBulk([]logfwd.LastSentInfo{{
+	results, err := client.SetList([]logfwd.LastSentInfo{{
 		LastSentID: logfwd.LastSentID{
 			Model: modelTag,
 			Sink:  "spam",

@@ -51,35 +51,35 @@ func (s *LastSentSuite) TestAuthRefusesUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = s.AdminUserTag(c)
 
-	_, err := logfwd.NewLastSentAPI(s.State, s.resources, anAuthorizer)
+	_, err := logfwd.NewLogForwardingAPI(s.State, s.resources, anAuthorizer)
 
 	c.Check(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *LastSentSuite) TestGetFound(c *gc.C) {
+func (s *LastSentSuite) TestGetLastSentFound(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
 	s.addModel(c, "other-model", model)
 	ts := time.Unix(12345, 0)
 	s.setLastSent(c, modelTag, "spam", ts)
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Get(params.LogFwdLastSentGetParams{
-		IDs: []params.LogFwdLastSentID{{
+	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+		IDs: []params.LogForwardingID{{
 			ModelTag: modelTag,
 			Sink:     "spam",
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogFwdLastSentGetResults{
-		Results: []params.LogFwdLastSentGetResult{{
+	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+		Results: []params.LogForwardingGetLastSentResult{{
 			Timestamp: ts.UTC(),
 		}},
 	})
 }
 
-func (s *LastSentSuite) TestGetBulk(c *gc.C) {
+func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
 	s.addModel(c, "other-model", model)
@@ -87,11 +87,11 @@ func (s *LastSentSuite) TestGetBulk(c *gc.C) {
 	tsEggs := time.Unix(12345, 54321)
 	s.setLastSent(c, modelTag, "spam", tsSpam)
 	s.setLastSent(c, modelTag, "eggs", tsEggs)
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Get(params.LogFwdLastSentGetParams{
-		IDs: []params.LogFwdLastSentID{{
+	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+		IDs: []params.LogForwardingID{{
 			ModelTag: modelTag,
 			Sink:     "spam",
 		}, {
@@ -103,8 +103,8 @@ func (s *LastSentSuite) TestGetBulk(c *gc.C) {
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogFwdLastSentGetResults{
-		Results: []params.LogFwdLastSentGetResult{{
+	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+		Results: []params.LogForwardingGetLastSentResult{{
 			Timestamp: tsSpam.UTC(),
 		}, {
 			Timestamp: tsEggs.UTC(),
@@ -117,22 +117,22 @@ func (s *LastSentSuite) TestGetBulk(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestGetSinkNotFound(c *gc.C) {
+func (s *LastSentSuite) TestGetLastSentSinkNotFound(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
 	s.addModel(c, "other-model", model)
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Get(params.LogFwdLastSentGetParams{
-		IDs: []params.LogFwdLastSentID{{
+	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+		IDs: []params.LogForwardingID{{
 			ModelTag: modelTag,
 			Sink:     "spam",
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogFwdLastSentGetResults{
-		Results: []params.LogFwdLastSentGetResult{{
+	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+		Results: []params.LogForwardingGetLastSentResult{{
 			Error: &params.Error{
 				Message: `cannot find timestamp of the last forwarded record`,
 				Code:    params.CodeNotFound,
@@ -141,19 +141,19 @@ func (s *LastSentSuite) TestGetSinkNotFound(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestGetBadModel(c *gc.C) {
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+func (s *LastSentSuite) TestGetLastSentBadModel(c *gc.C) {
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Get(params.LogFwdLastSentGetParams{
-		IDs: []params.LogFwdLastSentID{{
+	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+		IDs: []params.LogForwardingID{{
 			ModelTag: "deadbeef-2f18-4fd2-967d-db9663db7bea",
 			Sink:     "spam",
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogFwdLastSentGetResults{
-		Results: []params.LogFwdLastSentGetResult{{
+	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+		Results: []params.LogForwardingGetLastSentResult{{
 			Error: &params.Error{
 				Message: `"deadbeef-2f18-4fd2-967d-db9663db7bea" is not a valid tag`,
 			},
@@ -161,19 +161,19 @@ func (s *LastSentSuite) TestGetBadModel(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestGetModelNotFound(c *gc.C) {
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+func (s *LastSentSuite) TestGetLastSentModelNotFound(c *gc.C) {
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Get(params.LogFwdLastSentGetParams{
-		IDs: []params.LogFwdLastSentID{{
+	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+		IDs: []params.LogForwardingID{{
 			ModelTag: "model-deadbeef-2f18-4fd2-967d-db9663db7bea",
 			Sink:     "spam",
 		}},
 	})
 
-	c.Check(res, jc.DeepEquals, params.LogFwdLastSentGetResults{
-		Results: []params.LogFwdLastSentGetResult{{
+	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
+		Results: []params.LogForwardingGetLastSentResult{{
 			Error: &params.Error{
 				Message: `model not found`,
 				Code:    params.CodeNotFound,
@@ -182,17 +182,17 @@ func (s *LastSentSuite) TestGetModelNotFound(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestSetNew(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentNew(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
 	s.addModel(c, "other-model", model)
 	expected := time.Unix(12345, 0)
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Set(params.LogFwdLastSentSetParams{
-		Params: []params.LogFwdLastSentSetParam{{
-			LogFwdLastSentID: params.LogFwdLastSentID{
+	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+		Params: []params.LogForwardingSetLastSentParam{{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag,
 				Sink:     "spam",
 			},
@@ -209,18 +209,18 @@ func (s *LastSentSuite) TestSetNew(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestSetReplace(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentReplace(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
 	s.addModel(c, "other-model", model)
 	expected := time.Unix(12345, 54321)
 	s.setLastSent(c, modelTag, "spam", time.Unix(12345, 0))
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Set(params.LogFwdLastSentSetParams{
-		Params: []params.LogFwdLastSentSetParam{{
-			LogFwdLastSentID: params.LogFwdLastSentID{
+	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+		Params: []params.LogForwardingSetLastSentParam{{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag,
 				Sink:     "spam",
 			},
@@ -237,25 +237,25 @@ func (s *LastSentSuite) TestSetReplace(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestSetBulk(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
 	s.addModel(c, "other-model", model)
 	expectedSpam := time.Unix(12345, 54321)
 	expectedEggs := time.Unix(98765, 0)
 	s.setLastSent(c, modelTag, "spam", time.Unix(12345, 0))
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Set(params.LogFwdLastSentSetParams{
-		Params: []params.LogFwdLastSentSetParam{{
-			LogFwdLastSentID: params.LogFwdLastSentID{
+	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+		Params: []params.LogForwardingSetLastSentParam{{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag,
 				Sink:     "spam",
 			},
 			Timestamp: expectedSpam,
 		}, {
-			LogFwdLastSentID: params.LogFwdLastSentID{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag,
 				Sink:     "eggs",
 			},
@@ -276,13 +276,13 @@ func (s *LastSentSuite) TestSetBulk(c *gc.C) {
 	c.Check(ts, jc.DeepEquals, expectedEggs.UTC())
 }
 
-func (s *LastSentSuite) TestSetBadModel(c *gc.C) {
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+func (s *LastSentSuite) TestSetLastSentBadModel(c *gc.C) {
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Set(params.LogFwdLastSentSetParams{
-		Params: []params.LogFwdLastSentSetParam{{
-			LogFwdLastSentID: params.LogFwdLastSentID{
+	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+		Params: []params.LogForwardingSetLastSentParam{{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: "deadbeef-2f18-4fd2-967d-db9663db7bea",
 				Sink:     "spam",
 			},
@@ -299,15 +299,15 @@ func (s *LastSentSuite) TestSetBadModel(c *gc.C) {
 	})
 }
 
-func (s *LastSentSuite) TestSetModelNotFound(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentModelNotFound(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model).String()
-	api, err := logfwd.NewLastSentAPI(s.State, s.resources, s.authorizer)
+	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := api.Set(params.LogFwdLastSentSetParams{
-		Params: []params.LogFwdLastSentSetParam{{
-			LogFwdLastSentID: params.LogFwdLastSentID{
+	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+		Params: []params.LogForwardingSetLastSentParam{{
+			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag,
 				Sink:     "spam",
 			},
