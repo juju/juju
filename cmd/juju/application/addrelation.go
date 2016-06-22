@@ -29,6 +29,7 @@ type addRelationCommand struct {
 func (c *addRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-relation",
+		Aliases: []string{"relate"},
 		Args:    "<application1>[:<relation name1>] <application2>[:<relation name2>]",
 		Purpose: "add a relation between two applications",
 	}
