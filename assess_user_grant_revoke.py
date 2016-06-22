@@ -34,6 +34,8 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_user_grant_revoke")
 
+User = namedtuple('User', ['name', 'permissions', 'expect'])
+
 
 # This needs refactored out to utility
 class JujuAssertionError(AssertionError):
@@ -129,9 +131,8 @@ def assess_user_grant_revoke(admin_client):
     admin_client.wait_for_started()
 
     log.debug("Creating Users")
-    user = namedtuple('user', ['name', 'permissions', 'expect'])
-    read_user = user('readuser', 'read', [True, False, False, False])
-    write_user = user('adminuser', 'write', [True, True, True, False])
+    read_user = User('readuser', 'read', [True, False, False, False])
+    write_user = User('adminuser', 'write', [True, True, True, False])
     users = [read_user, write_user]
 
     for user in users:
