@@ -196,14 +196,14 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "98")
+	inst0, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "98")
 	defer t.Env.StopInstances(inst0.Id())
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
+	inst1, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "99")
 	defer t.Env.StopInstances(inst1.Id())
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)

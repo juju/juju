@@ -211,7 +211,8 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 	if controllerInfo.CloudName != args.CloudName {
-		return nil, nil, errors.NotValidf("controller cloud %s does not match model cloud %s", controllerInfo.CloudName, args.CloudName)
+		return nil, nil, errors.NewNotValid(
+			nil, fmt.Sprintf("controller cloud %s does not match model cloud %s", controllerInfo.CloudName, args.CloudName))
 	}
 
 	// Ensure that the cloud region is valid, or if one is not specified,

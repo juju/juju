@@ -102,6 +102,10 @@ func ControllerConfig(cfg map[string]interface{}) Config {
 // it is not found or is zero. Zero values should have been
 // diagnosed at Validate time.
 func (c Config) mustInt(name string) int {
+	// Values obtained over the api are encoded as float64.
+	if value, ok := c[name].(float64); ok {
+		return int(value)
+	}
 	value, _ := c[name].(int)
 	if value == 0 {
 		panic(fmt.Errorf("empty value for %q found in configuration", name))
