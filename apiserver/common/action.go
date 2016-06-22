@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -162,7 +163,7 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 // It needs a tagToActionReceiver function and a registerFunc to register
 // resources.
 // It's a helper function currently used by the uniter and by machineactions
-func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r Resource) string) func(names.Tag) (params.StringsWatchResult, error) {
+func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r facade.Resource) string) func(names.Tag) (params.StringsWatchResult, error) {
 	return func(tag names.Tag) (params.StringsWatchResult, error) {
 		nothing := params.StringsWatchResult{}
 		receiver, err := tagToActionReceiver(tag.String())

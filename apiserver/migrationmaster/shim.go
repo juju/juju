@@ -4,7 +4,7 @@
 package migrationmaster
 
 import (
-	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
 )
 
@@ -12,8 +12,8 @@ import (
 // RegisterStandardFacade, converting st to backend.
 func newAPIForRegistration(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	return NewAPI(st, resources, authorizer)
 }

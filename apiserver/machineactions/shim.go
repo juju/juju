@@ -6,6 +6,7 @@ package machineactions
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"gopkg.in/juju/names.v2"
@@ -15,7 +16,7 @@ func init() {
 	common.RegisterStandardFacade("MachineActions", 1, newFacade)
 }
 
-func newFacade(st *state.State, res *common.Resources, auth common.Authorizer) (*Facade, error) {
+func newFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
 	return NewFacade(backendShim{st}, res, auth)
 }
 

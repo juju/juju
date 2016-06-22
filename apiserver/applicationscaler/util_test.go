@@ -10,13 +10,14 @@ import (
 
 	"github.com/juju/juju/apiserver/applicationscaler"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
-// mockAuth implements common.Authorizer for the tests' convenience.
+// mockAuth implements facade.Authorizer for the tests' convenience.
 type mockAuth struct {
-	common.Authorizer
+	facade.Authorizer
 	modelManager bool
 }
 
@@ -25,7 +26,7 @@ func (mock mockAuth) AuthModelManager() bool {
 }
 
 // auth is a convenience constructor for a mockAuth.
-func auth(modelManager bool) common.Authorizer {
+func auth(modelManager bool) facade.Authorizer {
 	return mockAuth{modelManager: modelManager}
 }
 
