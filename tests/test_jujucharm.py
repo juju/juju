@@ -6,7 +6,9 @@ import yaml
 
 from jujucharm import (
     Charm,
+    CharmCommand,
     local_charm_path,
+    sane_charm_store_api_url,
 )
 from tests import (
     temp_os_env,
@@ -143,3 +145,25 @@ class TestLocalCharm(TestCase):
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
             path = local_charm_path(charm, '2.0.0', platform='centos')
         self.assertEqual(path, '/home/foo/repository/charms-centos/mysql')
+
+
+class TestSaneCharmStoreApiUrl(TestCase):
+
+    def test_returns_default_value(self):
+        self.assertEqual(
+            sane_charm_store_api_url(None),
+            CharmCommand.default_api_url)
+
+    def test_replaces_places_api_characters(self):
+        api = 'https://example.com'
+        expected = 'https://api.example.com/charmstore'
+        self.assertEqual(
+            sane_charm_store_api_url(api),
+            expected)
+
+    def test_replaces_www_characters(self):
+        api = 'https://www.example.com'
+        expected = 'https://api.example.com/charmstore'
+        self.assertEqual(
+            sane_charm_store_api_url(api),
+            expected)

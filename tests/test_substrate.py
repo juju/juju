@@ -172,18 +172,17 @@ class TestTerminateInstances(TestCase):
 
     def test_terminate_maas(self):
         env = get_maas_env()
-        with patch('subprocess.check_call') as cc_mock:
-            terminate_instances(env, ['/A/B/C/D/node-3d/'])
-        expected = (
-            ['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
-             'a:password:string'],
-        )
-        self.assertEqual(expected, cc_mock.call_args_list[0][0])
-        expected = (['maas', 'mas', 'machine', 'release', 'node-3d'],)
-        self.assertEqual(expected, cc_mock.call_args_list[1][0])
-        expected = (['maas', 'logout', 'mas'],)
-        self.assertEqual(expected, cc_mock.call_args_list[2][0])
-        self.assertEqual(3, len(cc_mock.call_args_list))
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with patch('subprocess.check_output', autospec=True,
+                       return_value='{}') as co_mock:
+                terminate_instances(env, ['/A/B/C/D/node-3d/'])
+        self.assertEquals(cc_mock.call_args_list, [
+            call(['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
+                  'a:password:string']),
+            call(['maas', 'logout', 'mas']),
+        ])
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'machine', 'release', 'node-3d'))
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Deleting /A/B/C/D/node-3d/.\n')
@@ -798,17 +797,18 @@ class TestMAASAccount(TestCase):
         account.logout()
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_terminate_instances(self, cc_mock):
+    def test_terminate_instances(self):
         config = get_maas_env().config
         account = MAASAccount(
             config['name'], config['maas-server'], config['maas-oauth'])
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
-        account.terminate_instances(instance_ids)
-        cc_mock.assert_any_call(
-            ['maas', 'mas', 'machine', 'release', 'node-1d'])
-        cc_mock.assert_called_with(
-            ['maas', 'mas', 'machine', 'release', 'node-2d'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{}') as co_mock:
+            account.terminate_instances(instance_ids)
+        co_mock.assert_any_call(
+            ('maas', 'mas', 'machine', 'release', 'node-1d'))
+        co_mock.assert_called_with(
+            ('maas', 'mas', 'machine', 'release', 'node-2d'))
 
     def test_get_allocated_nodes(self):
         config = get_maas_env().config
@@ -820,7 +820,7 @@ class TestMAASAccount(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             allocated = account.get_allocated_nodes()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'machines', 'list-allocated'])
+            ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
     def test_get_allocated_ips(self):
@@ -833,7 +833,7 @@ class TestMAASAccount(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'machines', 'list-allocated'])
+            ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
     def test_get_allocated_ips_empty(self):
@@ -847,7 +847,7 @@ class TestMAASAccount(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'machines', 'list-allocated'])
+            ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual({}, ips)
 
 
@@ -871,17 +871,18 @@ class TestMAAS1Account(TestCase):
         account.logout()
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
-    @patch('subprocess.check_call', autospec=True)
-    def test_terminate_instances(self, cc_mock):
+    def test_terminate_instances(self):
         config = get_maas_env().config
         account = MAAS1Account(
             config['name'], config['maas-server'], config['maas-oauth'])
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
-        account.terminate_instances(instance_ids)
-        cc_mock.assert_any_call(
-            ['maas', 'mas', 'node', 'release', 'node-1d'])
-        cc_mock.assert_called_with(
-            ['maas', 'mas', 'node', 'release', 'node-2d'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{}') as co_mock:
+            account.terminate_instances(instance_ids)
+        co_mock.assert_any_call(
+            ('maas', 'mas', 'node', 'release', 'node-1d'))
+        co_mock.assert_called_with(
+            ('maas', 'mas', 'node', 'release', 'node-2d'))
 
     def test_get_allocated_nodes(self):
         config = get_maas_env().config
@@ -893,7 +894,7 @@ class TestMAAS1Account(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             allocated = account.get_allocated_nodes()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'nodes', 'list-allocated'])
+            ('maas', 'mas', 'nodes', 'list-allocated'))
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
     def test_get_allocated_ips(self):
@@ -906,7 +907,7 @@ class TestMAAS1Account(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'nodes', 'list-allocated'])
+            ('maas', 'mas', 'nodes', 'list-allocated'))
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
     def test_get_allocated_ips_empty(self):
@@ -920,7 +921,7 @@ class TestMAAS1Account(TestCase):
                    return_value=allocated_nodes_string) as co_mock:
             ips = account.get_allocated_ips()
         co_mock.assert_called_once_with(
-            ['maas', 'mas', 'nodes', 'list-allocated'])
+            ('maas', 'mas', 'nodes', 'list-allocated'))
         self.assertEqual({}, ips)
 
 

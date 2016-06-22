@@ -16,10 +16,10 @@ from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
 )
-from jujupy import until_timeout
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    wait_for_removed_services,
 )
 
 
@@ -52,19 +52,13 @@ def test_blocked(client, command, args, include_e=True):
     try:
         if command == 'deploy':
             client.deploy(args)
+        elif command == 'remove-service':
+            client.remove_service(args)
         else:
             client.juju(command, args, include_e=include_e)
         raise JujuAssertionError()
     except Exception:
         pass
-
-
-def wait_for_removed_services(client, charm):
-    """Timeout until the remove process ends"""
-    for ignored in until_timeout(60):
-        status = client.get_status()
-        if charm not in status.status['services']:
-            break
 
 
 def assess_block_destroy_model(client, charm_series):
@@ -99,7 +93,7 @@ def assess_block_remove_object(client, charm_series):
                  ('-y', client.env.environment), include_e=False)
     # Adding and relating are not blocked.
     deploy_dummy_stack(client, charm_series)
-    test_blocked(client, 'remove-service', ('dummy-source',))
+    test_blocked(client, 'remove-service', 'dummy-source')
     test_blocked(client, 'remove-unit', ('dummy-source/1',))
     test_blocked(client, 'remove-relation', ('dummy-source', 'dummy-sink'))
 
@@ -113,13 +107,13 @@ def assess_block_all_changes(client, charm_series):
         raise JujuAssertionError(block_list)
     test_blocked(client, 'add-relation', ('dummy-source', 'dummy-sink'))
     test_blocked(client, 'unexpose', ('dummy-sink',))
-    test_blocked(client, 'remove-service', ('dummy-sink',))
+    test_blocked(client, 'remove-service', 'dummy-sink')
     client.juju('unblock all-changes', ())
     client.juju('unexpose', ('dummy-sink',))
     client.juju('block all-changes', ())
     test_blocked(client, 'expose', ('dummy-sink',))
     client.juju('unblock all-changes', ())
-    client.juju('remove-service', ('dummy-sink',))
+    client.remove_service('dummy-sink')
     wait_for_removed_services(client, 'dummy-sink')
     client.juju('block all-changes', ())
     test_blocked(client, 'deploy', ('dummy-sink',))

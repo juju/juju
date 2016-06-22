@@ -1,3 +1,4 @@
+from contextlib import nested
 import logging
 from argparse import Namespace
 from mock import Mock, patch, call
@@ -21,7 +22,11 @@ from utility import JujuAssertionError
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
+        args = parse_args(
+            ["an-env",
+             "/bin/juju",
+             "/tmp/logs",
+             "an-env-mod"])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual("/tmp/logs", args.logs)
@@ -40,20 +45,24 @@ class TestParseArgs(TestCase):
 class TestMain(TestCase):
 
     def test_main(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        argv = [
+            "an-env",
+            "/bin/juju",
+            "/tmp/logs",
+            "an-env-mod",
+            "--verbose",
+            ]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_resources.configure_logging",
-                   autospec=True) as mock_cl:
-            with patch("assess_resources.BootstrapManager.booted_context",
-                       autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
-                               return_value=client) as mock_c:
-                        with patch("assess_resources.assess_resources",
-                                   autospec=True) as mock_assess:
-                            main(argv)
+        with nested(
+            patch("assess_resources.configure_logging", autospec=True),
+            patch("assess_resources.BootstrapManager.booted_context",
+                  autospec=True),
+            patch("jujupy.SimpleEnvironment.from_config", return_value=env),
+            patch("jujupy.EnvJujuClient.by_version", return_value=client),
+            patch("assess_resources.assess_resources", autospec=True),
+        ) as (mock_cl, mock_bc, mock_e, mock_c, mock_assess):
+            main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_e.assert_called_once_with("an-env")
         mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
@@ -66,6 +75,10 @@ class TestAssessResources(TestCase):
     def test_verify_status(self):
         verify_status(
             make_resource_list(), 'dummy-resource/foo', 'foo', '1234', 27)
+
+    def test_verify_status_serviceid(self):
+        verify_status(make_resource_list('serviceid'), 'dummy-resource/foo',
+                      'foo', '1234', 27)
 
     def test_verify_status_exception(self):
         status = make_resource_list()
@@ -213,17 +226,17 @@ def make_args():
         temp_env_name='an-env-mod', upload_tools=False, verbose=10)
 
 
-def make_resource_list():
+def make_resource_list(service_app_id='applicationId'):
     return {'resources': [{
         'expected': {
             'origin': 'upload', 'used': True, 'description': 'foo resource.',
             'username': 'admin@local', 'resourceid': 'dummy-resource/foo',
-            'name': 'foo', 'serviceid': 'dummy-resource', 'path': 'foo.txt',
-            'fingerprint': '1234', 'type': 'file', 'size': 27},
+            'name': 'foo', service_app_id: 'dummy-resource', 'size': 27,
+            'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
         'unit': {
             'origin': 'upload', 'username': 'admin@local', 'used': True,
             'name': 'foo', 'resourceid': 'dummy-resource/foo',
-            'serviceid': 'dummy-resource', 'fingerprint': '1234',
+            service_app_id: 'dummy-resource', 'fingerprint': '1234',
             'path': 'foo.txt', 'size': 27, 'type': 'file',
             'description': 'foo resource.'}}]}
 
