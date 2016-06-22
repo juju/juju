@@ -10,22 +10,17 @@ import (
 )
 
 const showMachineCommandDoc = `
-Show a specified machine on a model:
+Show a specified machine on a model.  Default format is in yaml,
+other formats can be specified with the "--format" option.
+Available formats are yaml, tabular, and json
 
-juju show-machine <machineID> ...
+Examples:
+    # Display status for machine 0
+    juju show-machine 0
 
-For example:
+    # Display status for machines 1, 2 & 3
+    juju show-machine 1 2 3
 
-juju show-machine 0
-
-or for multiple machines
-(the following will display status for machines 1, 2 & 3):
-
-juju show-machine 1 2 3
-
-Default format is in yaml, other formats can be specified
-with the "--format" option.  Available formats are yaml,
-tabular, and json
 `
 
 // NewShowMachineCommand returns a command that shows details on the specified machine[s].
@@ -50,7 +45,7 @@ func (c *showMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-machine",
 		Args:    "<machineID> ...",
-		Purpose: "show a machines status",
+		Purpose: "Show a machine's status.",
 		Doc:     showMachineCommandDoc,
 		Aliases: []string{"show-machines"},
 	}

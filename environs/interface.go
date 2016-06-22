@@ -27,7 +27,7 @@ type EnvironProvider interface {
 	// for new environments that may be created in an existing juju server.
 	// Note that this is not called in a client context, so environment variables,
 	// local files, etc are not available.
-	PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error)
+	PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error)
 
 	// PrepareForBootstrap prepares an environment for use.
 	PrepareForBootstrap(ctx BootstrapContext, cfg *config.Config) (Environ, error)
@@ -71,6 +71,9 @@ type ProviderSchema interface {
 
 // BootstrapConfigParams contains the parameters for EnvironProvider.BootstrapConfig.
 type BootstrapConfigParams struct {
+	// ControllerUUID is the UUID of the controller to be bootstrapped.
+	ControllerUUID string
+
 	// Config is the base configuration for the provider. This should
 	// be updated with the region, endpoint and credentials.
 	Config *config.Config

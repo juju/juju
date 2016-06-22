@@ -46,9 +46,10 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	env, err := environs.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		environs.PrepareParams{
-			ControllerName: attrs["name"].(string),
-			BaseConfig:     attrs,
-			CloudName:      "dummy",
+			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+			ControllerName:   attrs["name"].(string),
+			BaseConfig:       attrs,
+			CloudName:        "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -56,8 +56,8 @@ Storage constraints can be optionally ommitted.
 Model default values will be used for all ommitted constraint values.
 There is no need to comma-separate ommitted constraints. 
 
-Example:
-    Add 3 ebs storage instances for "data" storage to unit u/0:
+Examples:
+    # Add 3 ebs storage instances for "data" storage to unit u/0:
 
       juju add-storage u/0 data=ebs,1024,3 
     or
@@ -66,8 +66,8 @@ Example:
       juju add-storage u/0 data=ebs,,3 
     
     
-    Add 1 storage instances for "data" storage to unit u/0 
-    using default model provider pool:
+    # Add 1 storage instances for "data" storage to unit u/0
+    # using default model provider pool:
 
       juju add-storage u/0 data=1 
     or
@@ -113,7 +113,7 @@ func (c *addCommand) Init(args []string) (err error) {
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-storage",
-		Purpose: "adds unit storage dynamically",
+		Purpose: "Adds unit storage dynamically.",
 		Doc:     addCommandDoc,
 		Args:    addCommandAgs,
 	}

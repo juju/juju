@@ -32,7 +32,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	case cloud.JSONFileAuthType:
 		var err error
 		filename := args.Credentials.Attributes()["file"]
-		args.Credentials, err = parseJSONAuthFile(filename)
+		args.Credentials, err = ParseJSONAuthFile(filename)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -63,7 +63,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 		return nil, errors.Trace(err)
 	}
 
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap implements environs.EnvironProvider.
@@ -90,7 +90,7 @@ func (environProvider) Schema() environschema.Fields {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return configWithDefaults(cfg)
 }
 

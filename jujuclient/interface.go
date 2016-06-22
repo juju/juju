@@ -59,7 +59,7 @@ type AccountDetails struct {
 // bootstrap configuration. A reference to the credential used will be
 // stored, rather than the credential itself.
 type BootstrapConfig struct {
-	// Config is the base configuration for the provider. This should
+	// ModelConfig is the base configuration for the provider. This should
 	// be updated with the region, endpoint and credentials.
 	Config map[string]interface{} `yaml:"config"`
 

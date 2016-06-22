@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -119,12 +120,15 @@ func (f *fakeDestroyAPIClient) DestroyModel() error {
 
 func createBootstrapInfo(c *gc.C, name string) map[string]interface{} {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":            "dummy",
-		"name":            name,
-		"uuid":            testing.ModelTag.Id(),
-		"controller-uuid": testing.ModelTag.Id(),
-		"controller":      "true",
+		"type":       "dummy",
+		"name":       name,
+		"uuid":       testing.ModelTag.Id(),
+		"controller": "true",
 	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	cfg, err = cfg.Remove(jujucontroller.ControllerOnlyConfigAttributes)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg.AllAttrs()
 }

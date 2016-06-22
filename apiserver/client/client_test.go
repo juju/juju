@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
@@ -82,8 +83,8 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
 	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
-	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw"})
+	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: state.WriteAccess})
+	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: state.WriteAccess})
 
 	results, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,21 +98,21 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 			&params.ModelUserInfo{
 				UserName:    owner.UserName(),
 				DisplayName: owner.DisplayName(),
-				Access:      "write",
+				Access:      "admin",
 			},
 		}, {
 			localUser1,
 			&params.ModelUserInfo{
 				UserName:    "ralphdoe@local",
 				DisplayName: "Ralph Doe",
-				Access:      "write",
+				Access:      "admin",
 			},
 		}, {
 			localUser2,
 			&params.ModelUserInfo{
 				UserName:    "samsmith@local",
 				DisplayName: "Sam Smith",
-				Access:      "write",
+				Access:      "admin",
 			},
 		}, {
 			remoteUser1,
@@ -625,6 +626,7 @@ func (s *clientRepoSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientWatchAll(c *gc.C) {
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageModel)

@@ -12,6 +12,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type environSuite struct {
@@ -71,7 +72,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerUUID: s.ControllerUUID(),
+		ControllerConfig: testing.FakeControllerBootstrapConfig(),
 	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,7 +86,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerUUID: s.ControllerUUID(),
+		ControllerConfig: testing.FakeControllerBootstrapConfig(),
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)

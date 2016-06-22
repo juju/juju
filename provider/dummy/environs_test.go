@@ -116,9 +116,10 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
 		environs.PrepareParams{
-			BaseConfig:     s.TestConfig,
-			ControllerName: s.TestConfig["name"].(string),
-			CloudName:      "dummy",
+			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			BaseConfig:       s.TestConfig,
+			ControllerName:   s.TestConfig["name"].(string),
+			CloudName:        "dummy",
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
@@ -127,8 +128,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	c.Assert(supported, jc.IsTrue)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{
-		ControllerUUID: s.ControllerUUID,
-		CloudName:      "dummy",
+		ControllerConfig: testing.FakeControllerBootstrapConfig(),
+		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},

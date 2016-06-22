@@ -126,8 +126,15 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	modelCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: modelCfg})
+	controllerCfg := testing.FakeControllerConfig()
+	modelCfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Config:         modelCfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(provider)
+	controllerCfg["api-port"] = apiPort
 	defer dummy.Reset(c)
 
 	hostedModelUUID := utils.MustNewUUID().String()
@@ -151,9 +158,10 @@ LXC_BRIDGE="ignored"`[1:])
 			},
 			ControllerCloudName:   "dummy",
 			ControllerCloudRegion: "some-region",
+			ControllerConfig:      controllerCfg,
 			ControllerModelConfig: modelCfg,
 			ModelConstraints:      expectModelConstraints,
-			ModelConfigDefaults:   modelConfigDefaults,
+			LocalCloudConfig:      modelConfigDefaults,
 			HostedModelConfig:     hostedModelConfigAttrs,
 		},
 		BootstrapMachineAddresses: initialAddrs,
@@ -184,15 +192,14 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check controller config
-	controllerCfg, err := st.ControllerConfig()
+	controllerCfg, err = st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
-		"controller-uuid": testing.ModelTag.Id(),
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-		"state-port":      1234,
-		// Dummy provider uses a random port, which is added to cfg used to create environment.
-		"api-port": controller.Config(modelCfg.AllAttrs()).APIPort(),
+		"controller-uuid":         testing.ModelTag.Id(),
+		"ca-cert":                 testing.CACert,
+		"state-port":              1234,
+		"api-port":                apiPort,
+		"set-numa-control-policy": false,
 	})
 
 	// Check that controller model configuration has been added, and
@@ -202,7 +209,6 @@ LXC_BRIDGE="ignored"`[1:])
 	// Add in the cloud attributes.
 	expectedAttrs := modelCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
-	controller.RemoveControllerAttributes(expectedAttrs)
 	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
@@ -339,6 +345,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			},
 			ControllerCloudName:   "dummy",
+			ControllerConfig:      testing.FakeControllerConfig(),
 			ControllerModelConfig: modelCfg,
 			HostedModelConfig:     hostedModelConfigAttrs,
 		},

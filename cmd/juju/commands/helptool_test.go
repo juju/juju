@@ -24,7 +24,7 @@ func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 	c.Assert(output, gc.Equals, `Usage: juju help-tool [tool]
 
 Summary:
-show help on a juju charm tool
+Show help on a Juju charm tool.
 `)
 }
 

@@ -13,6 +13,11 @@ import (
 
 const controllerCloudKey = "controller"
 
+// cloudGlobalKey returns the global database key for the specified cloud.
+func cloudGlobalKey(name string) string {
+	return "cloud#" + name
+}
+
 // cloudDoc records information about the cloud that the controller operates in.
 type cloudDoc struct {
 	DocID           string                       `bson:"_id"`
@@ -98,4 +103,18 @@ func (st *State) Cloud() (cloud.Cloud, error) {
 		return cloud.Cloud{}, errors.Annotatef(err, "cannot get cloud definition")
 	}
 	return doc.toCloud(), nil
+}
+
+// validateCloud checks that the supplied cloud is valid.
+func validateCloud(cloud cloud.Cloud) error {
+	if cloud.Type == "" {
+		return errors.NotValidf("empty Type")
+	}
+	if len(cloud.AuthTypes) == 0 {
+		return errors.NotValidf("empty auth-types")
+	}
+	// TODO(axw) we should ensure that the cloud auth-types is a subset
+	// of the auth-types supported by the provider. To do that, we'll
+	// need a new "policy".
+	return nil
 }

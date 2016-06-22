@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 	// Register the providers for the field check test
+	"github.com/juju/juju/controller"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
@@ -71,7 +72,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			},
 			users: []*mockModelUser{{
 				userName: "admin",
-				access:   state.ModelAdminAccess,
+				access:   state.AdminAccess,
 			}},
 		},
 		model: &mockModel{
@@ -84,7 +85,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			},
 			users: []*mockModelUser{{
 				userName: "admin",
-				access:   state.ModelAdminAccess,
+				access:   state.AdminAccess,
 			}},
 		},
 		creds: map[string]cloud.Credential{
@@ -117,6 +118,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerModel",
 		"CloudCredentials",
 		"ControllerConfig",
+		"ControllerInfo",
 		"NewModel",
 		"ForModel",
 		"Model",
@@ -128,7 +130,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
 	// same as the controller UUID.
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	uuid := newModelArgs.Config.UUID()
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
@@ -136,7 +138,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"name":            "foo",
 		"type":            "dummy",
 		"authorized-keys": s.st.controllerModel.cfg.AuthorizedKeys(),
-		"controller-uuid": coretesting.ModelTag.Id(),
 		"uuid":            uuid,
 		"agent-version":   jujuversion.Current.String(),
 		"bar":             "baz",
@@ -145,9 +146,14 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"secret":          "pork",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
 		Owner:           names.NewUserTag("admin@local"),
+		CloudName:       "dummy",
 		CloudRegion:     "qux",
 		CloudCredential: "some-credential",
 		Config:          cfg,
@@ -162,7 +168,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudRegion, gc.Equals, "some-region")
 }
 
@@ -174,7 +180,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "some-credential")
 }
 
@@ -186,7 +192,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelArgs := s.st.Calls()[5].Args[0].(state.ModelArgs)
+	newModelArgs := s.st.Calls()[6].Args[0].(state.ModelArgs)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, "")
 }
 
@@ -502,14 +508,14 @@ func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelAdminAccess})
+	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.WriteAccess})
 
 	err := s.revoke(c, user.UserTag(), params.ModelWriteAccess, user.ModelTag())
 	c.Assert(err, gc.IsNil)
 
 	modelUser, err := s.State.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
@@ -546,7 +552,7 @@ func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.grant(c, user.UserTag(), params.ModelReadAccess, st.ModelTag())
-	c.Assert(err, gc.ErrorMatches, `user already has "read" access`)
+	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
 }
 
 func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser *state.ModelUser, userTag, creatorTag names.UserTag) {
@@ -569,7 +575,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	modelUser, err := st.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
@@ -586,7 +592,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNewUser(c, modelUser, userTag, apiUser)
-	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
@@ -601,7 +607,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	modelUser, err := st.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.ReadOnly(), jc.IsFalse)
+	c.Assert(modelUser.IsReadOnly(), jc.IsFalse)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
@@ -609,14 +615,14 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
-	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
+	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ReadAccess})
 
 	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := st.ModelUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.Access(), gc.Equals, state.ModelAdminAccess)
+	c.Assert(modelUser.IsReadWrite(), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
@@ -639,7 +645,7 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: state.ModelReadAccess})
+		User: apiUser.Canonical(), Access: state.ReadAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -654,7 +660,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: state.ModelAdminAccess})
+		User: apiUser.Canonical(), Access: state.AdminAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -663,7 +669,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	modelUser, err := st.ModelUser(other)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, other, apiUser)
-	c.Assert(modelUser.ReadOnly(), jc.IsTrue)
+	c.Assert(modelUser.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
@@ -768,7 +774,7 @@ func (*fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
-func (*fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (*fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

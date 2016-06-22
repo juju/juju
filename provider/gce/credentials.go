@@ -73,7 +73,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if possibleFilePath == "" {
 		return nil, errors.NotFoundf("gce credentials")
 	}
-	parsedCred, err := parseJSONAuthFile(possibleFilePath)
+	parsedCred, err := ParseJSONAuthFile(possibleFilePath)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid json credential file %s", possibleFilePath)
 	}
@@ -105,9 +105,11 @@ func wellKnownCredentialsFile() string {
 	return filepath.Join(utils.Home(), ".config", "gcloud", f)
 }
 
-// parseJSONAuthFile parses the file with the given path, and extracts
+// ParseJSONAuthFile parses the file with the given path, and extracts
 // the OAuth2 credentials within.
-func parseJSONAuthFile(filename string) (cloud.Credential, error) {
+//
+// TODO(axw) unexport this after 2.0-beta10 is out.
+func ParseJSONAuthFile(filename string) (cloud.Credential, error) {
 	authFile, err := os.Open(filename)
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)

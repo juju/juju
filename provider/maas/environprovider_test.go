@@ -127,7 +127,7 @@ func (suite *EnvironProviderSuite) TestPrepareSetsAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = providerInstance.PrepareForCreateEnvironment(config)
+	config, err = providerInstance.PrepareForCreateEnvironment(suite.controllerUUID, config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, ok := config.UnknownAttrs()["maas-agent-name"]
@@ -145,7 +145,7 @@ func (suite *EnvironProviderSuite) TestPrepareExistingAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = providerInstance.PrepareForCreateEnvironment(config)
+	_, err = providerInstance.PrepareForCreateEnvironment(suite.controllerUUID, config)
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
 

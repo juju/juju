@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -154,7 +153,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		secureServerConnection = info.CAPrivateKey != ""
 	}
 	task, err := NewProvisionerTask(
-		controller.Config(controllerCfg).ControllerUUID(),
+		controllerCfg.ControllerUUID(),
 		machineTag,
 		harvestMode,
 		p.st,

@@ -652,8 +652,91 @@ var configTests = []configTest{
 			"resource-tags": []string{"a"},
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
-	},
-	{
+	}, {
+		about:       "Invalid syslog server cert",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": invalidCACert,
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey,
+		}),
+		err: `invalid "syslog-server-cert": asn1: syntax error: data truncated`,
+	}, {
+		about:       "Invalid syslog ca cert format",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": caCert2,
+			"syslog-ca-cert":     "abc",
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey,
+		}),
+		err: `invalid "syslog-ca-cert": no certificates found`,
+	}, {
+		about:       "Invalid syslog ca cert",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": caCert2,
+			"syslog-ca-cert":     invalidCACert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey,
+		}),
+		err: `invalid "syslog-ca-cert": asn1: syntax error: data truncated`,
+	}, {
+		about:       "invalid syslog cert",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"syslog-host":        "10.0.0.1:12345",
+			"syslog-server-cert": caCert2,
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": invalidCACert,
+			"syslog-client-key":  caKey,
+		}),
+		err: `invalid "syslog-client-cert": asn1: syntax error: data truncated`,
+	}, {
+		about:       "invalid syslog key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"syslog-host":        "10.0.0.1:12345",
+			"syslog-server-cert": caCert2,
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  invalidCAKey,
+		}),
+		err: `invalid "syslog-client-key": bad key or key does not match certificate: crypto/tls: failed to parse private key`,
+	}, {
+		about:       "Mismatched syslog cert and key",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"syslog-host":        "10.0.0.1:12345",
+			"syslog-server-cert": caCert2,
+			"syslog-ca-cert":     caCert,
+			"syslog-client-cert": caCert,
+			"syslog-client-key":  caKey2,
+		}),
+		err: `invalid "syslog-client-key": bad key or key does not match certificate: crypto/tls: private key does not match public key`,
+	}, {
+		about:       "Valid syslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"syslog-host":        "localhost:1234",
+			"syslog-server-cert": caCert2,
+			"syslog-ca-cert":     testing.CACert,
+			"syslog-client-cert": testing.ServerCert,
+			"syslog-client-key":  testing.ServerKey,
+		}),
+	}, {
 		about:       "Invalid identity URL value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -923,6 +1006,36 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
 	}
 
+	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
+	if v, ok := test.attrs["syslog-server-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ExpectedServerCert, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ExpectedServerCert, gc.Equals, "")
+	}
+	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientCACert, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientCACert, gc.Equals, "")
+	}
+	if v, ok := test.attrs["syslog-client-cert"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientCert, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientCert, gc.Equals, "")
+	}
+	if v, ok := test.attrs["syslog-client-key"].(string); v != "" {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.ClientKey, gc.Equals, v)
+	} else if ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Check(lfCfg.ClientKey, gc.Equals, "")
+	}
+
 	cert, certPresent := controllerCfg.CACert()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, jc.IsTrue)
@@ -1074,7 +1187,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
-	attrs["set-numa-control-policy"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1137,26 +1249,26 @@ var validationTests = []validationTest{{
 	err:   `cannot change firewall-mode from "global" to "none"`,
 }, {
 	about: "Cannot change the state-port",
-	old:   testing.Attrs{"state-port": config.DefaultStatePort},
+	old:   testing.Attrs{"state-port": controller.DefaultStatePort},
 	new:   testing.Attrs{"state-port": 42},
 	err:   `cannot change state-port from 37017 to 42`,
 }, {
 	about: "Cannot change the api-port",
-	old:   testing.Attrs{"api-port": config.DefaultAPIPort},
+	old:   testing.Attrs{"api-port": controller.DefaultAPIPort},
 	new:   testing.Attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
 	about: "Can change the state-port from explicit-default to implicit-default",
-	old:   testing.Attrs{"state-port": config.DefaultStatePort},
+	old:   testing.Attrs{"state-port": controller.DefaultStatePort},
 }, {
 	about: "Can change the api-port from explicit-default to implicit-default",
-	old:   testing.Attrs{"api-port": config.DefaultAPIPort},
+	old:   testing.Attrs{"api-port": controller.DefaultAPIPort},
 }, {
 	about: "Can change the state-port from implicit-default to explicit-default",
-	new:   testing.Attrs{"state-port": config.DefaultStatePort},
+	new:   testing.Attrs{"state-port": controller.DefaultStatePort},
 }, {
 	about: "Can change the api-port from implicit-default to explicit-default",
-	new:   testing.Attrs{"api-port": config.DefaultAPIPort},
+	new:   testing.Attrs{"api-port": controller.DefaultAPIPort},
 }, {
 	about: "Cannot change the state-port from implicit-default to different value",
 	new:   testing.Attrs{"state-port": 42},

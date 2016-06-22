@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -41,7 +40,7 @@ func (suite *maas2Suite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *
 	testAttrs["maas-agent-name"] = "agent-prefix"
 
 	attrs := coretesting.FakeConfig().Merge(testAttrs)
-	suite.controllerUUID = jujucontroller.Config(attrs).ControllerUUID()
+	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := NewEnviron(cfg)

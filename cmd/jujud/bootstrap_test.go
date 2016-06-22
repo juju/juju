@@ -38,7 +38,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -806,14 +805,19 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{Config: cfg})
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
+	cfg, err = provider.BootstrapConfig(environs.BootstrapConfigParams{
+		ControllerUUID: controllerCfg.ControllerUUID(),
+		Config:         cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
-	inst, _, _, err := jujutesting.StartInstance(env, controller.Config(attrs).ControllerUUID(), "0")
+	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses, err := inst.Addresses()
@@ -823,6 +827,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	s.hostedModelUUID = utils.MustNewUUID().String()
 
 	var args instancecfg.StateInitializationParams
+	args.ControllerConfig = controllerCfg
 	args.BootstrapMachineInstanceId = inst.Id()
 	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")

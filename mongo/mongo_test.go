@@ -23,7 +23,7 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
-	environs "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
@@ -86,7 +86,7 @@ var expectedArgs = struct {
 		"mongod_port_t",
 		"-p",
 		"tcp",
-		strconv.Itoa(environs.DefaultStatePort),
+		strconv.Itoa(controller.DefaultStatePort),
 	},
 	Chcon: []string{
 		"-R",
@@ -451,7 +451,7 @@ func (s *MongoSuite) TestInstallFailSemanageMongodCentOS(c *gc.C) {
 	expectedResult := append(expectedArgs.MongoInstall, []jc.SimpleMessage{
 		{loggo.INFO, "running chcon .*"},
 		{loggo.INFO, "running " + execNameFail + " .*"},
-		{loggo.ERROR, execNameFail + " failed to provide access on port " + strconv.Itoa(environs.DefaultStatePort) + " error exit status " + strconv.Itoa(returnCode)},
+		{loggo.ERROR, execNameFail + " failed to provide access on port " + strconv.Itoa(controller.DefaultStatePort) + " error exit status " + strconv.Itoa(returnCode)},
 		{loggo.ERROR, regexp.QuoteMeta("cannot install/upgrade mongod (will proceed anyway): exit status " + strconv.Itoa(returnCode))},
 	}...)
 	s.assertSuccessWithInstallStepFailCentOS(c, exec, execNameFail, returnCode, expectedResult)
@@ -657,16 +657,16 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 		},
-		Port: environs.DefaultStatePort}, {
+		Port: controller.DefaultStatePort}, {
 		Address: network.Address{
 			Value: "8.8.8.8",
 			Type:  network.IPv4Address,
 			Scope: network.ScopePublic,
 		},
-		Port: environs.DefaultStatePort}}
+		Port: controller.DefaultStatePort}}
 
 	address := mongo.SelectPeerHostPort(hostPorts)
-	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(environs.DefaultStatePort))
+	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(controller.DefaultStatePort))
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {

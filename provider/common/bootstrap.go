@@ -107,8 +107,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if err != nil {
 		return nil, "", nil, err
 	}
+	envCfg := env.Config()
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
+		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
 	)
 	if err != nil {
 		return nil, "", nil, err
@@ -116,8 +117,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 
-	envCfg := env.Config()
-	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerUUID, envCfg, instanceConfig.Jobs)
+	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
@@ -138,7 +138,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return nil
 	}
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		ControllerUUID: args.ControllerUUID,
+		ControllerUUID: args.ControllerConfig.ControllerUUID(),
 		Constraints:    args.BootstrapConstraints,
 		Tools:          availableTools,
 		InstanceConfig: instanceConfig,

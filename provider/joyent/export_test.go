@@ -214,9 +214,10 @@ func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		environs.PrepareParams{
-			BaseConfig:     attrs,
-			ControllerName: attrs["name"].(string),
-			CloudName:      "joyent",
+			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			BaseConfig:       attrs,
+			ControllerName:   attrs["name"].(string),
+			CloudName:        "joyent",
 			Credential: cloud.NewCredential(
 				cloud.UserPassAuthType,
 				CredentialsAttributes(attrs),

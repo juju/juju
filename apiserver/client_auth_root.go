@@ -34,12 +34,19 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 	if err != nil {
 		return nil, err
 	}
-	if r.user.ReadOnly() {
+
+	// ReadOnly User
+	if r.user.IsReadOnly() {
 		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||
 			isCallReadOnly(rootName, methodName)
 		if !canCall {
 			return nil, errors.Trace(common.ErrPerm)
 		}
+	}
+
+	// Check if our call requires higher access than the user has.
+	if doesCallRequireAdmin(rootName, methodName) && !r.user.IsAdmin() {
+		return nil, errors.Trace(common.ErrPerm)
 	}
 
 	return caller, nil
@@ -53,4 +60,13 @@ func isCallAllowableByReadOnlyUser(facade, _ /*method*/ string) bool {
 	// have access to those facades if they went through the controller API
 	// endpoint rather than a model oriented one.
 	return restrictedRootNames.Contains(facade)
+}
+
+func doesCallRequireAdmin(facade, method string) bool {
+	// TODO(perrito666) This should filter adding users to controllers.
+	// TODO(perrito666) Add an exaustive list of facades/methods that are
+	// admin only and put them in an authoritative source to be re-used.
+	// TODO(perrito666) This is a stub, the idea is to maintain the current
+	// status of permissions until we decide what goes to admin only.
+	return false
 }

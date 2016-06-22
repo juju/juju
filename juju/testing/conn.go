@@ -82,7 +82,7 @@ type JujuConnSuite struct {
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
-	ControllerUUID     string
+	ControllerConfig   controller.Config
 	State              *state.State
 	Environ            environs.Environ
 	APIState           api.Connection
@@ -147,8 +147,7 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	controllerCfg := controller.ControllerConfig(s.Environ.Config().AllAttrs())
-	apiInfo, err := environs.APIInfo(s.ControllerUUID, testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), s.Environ)
+	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
@@ -264,14 +263,16 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
+	s.ControllerConfig = testing.FakeControllerBootstrapConfig()
 	environ, err := environs.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
 		environs.PrepareParams{
-			BaseConfig:     cfg.AllAttrs(),
-			Credential:     cloud.NewEmptyCredential(),
-			ControllerName: ControllerName,
-			CloudName:      "dummy",
+			ControllerConfig: s.ControllerConfig,
+			BaseConfig:       cfg.AllAttrs(),
+			Credential:       cloud.NewEmptyCredential(),
+			ControllerName:   ControllerName,
+			CloudName:        "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,10 +296,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.DefaultToolsStorage = stor
 
 	s.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	s.ControllerUUID = testing.ModelTag.Id()
+	// Dummy provider uses a random port, which is added to cfg used to create environment.
+	apiPort := dummy.ApiPort(environ.Provider())
+	s.ControllerConfig["api-port"] = apiPort
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		ControllerUUID: s.ControllerUUID,
-		CloudName:      "dummy",
+		ControllerConfig: s.ControllerConfig,
+		CloudName:        "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
@@ -313,8 +316,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := controller.ControllerConfig(environ.Config().AllAttrs())
-	apiInfo, err := environs.APIInfo(s.ControllerUUID, testing.ModelTag.Id(), testing.CACert, controllerCfg.APIPort(), environ)
+	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = environ.Config().AdminSecret()
@@ -341,8 +343,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		Cert:         testing.ServerCert,
 		CAPrivateKey: testing.CAKey,
 		SharedSecret: "really, really secret",
-		APIPort:      controllerCfg.APIPort(),
-		StatePort:    controllerCfg.StatePort(),
+		APIPort:      s.ControllerConfig.APIPort(),
+		StatePort:    s.ControllerConfig.StatePort(),
 	}
 	s.State.SetStateServingInfo(servingInfo)
 }
@@ -526,11 +528,9 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 		s.DummyConfig = dummy.SampleConfig()
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
-		"name":           "controller",
-		"admin-secret":   AdminSecret,
-		"agent-version":  jujuversion.Current.String(),
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+		"name":          "controller",
+		"admin-secret":  AdminSecret,
+		"agent-version": jujuversion.Current.String(),
 	})
 	// Add any custom attributes required.
 	for attr, val := range s.ConfigAttrs {

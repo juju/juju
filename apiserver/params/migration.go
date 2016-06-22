@@ -36,7 +36,7 @@ type InitiateModelMigrationResults struct {
 // model migration initiation attempt.
 type InitiateModelMigrationResult struct {
 	ModelTag string `json:"model-tag"`
-	Error    *Error `json:"error"`
+	Error    *Error `json:"error,omitempty"`
 	Id       string `json:"id"` // the ID for the migration attempt
 }
 
@@ -80,9 +80,9 @@ type FullMigrationStatus struct {
 
 type PhaseResult struct {
 	Phase string `json:"phase"`
-	Error *Error
+	Error *Error `json:"error,omitempty"`
 }
 
 type PhaseResults struct {
-	Results []PhaseResult `json:"Results"`
+	Results []PhaseResult `json:"results"`
 }

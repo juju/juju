@@ -43,8 +43,8 @@ func (s *clientAuthRootSuite) AssertCallErrPerm(c *gc.C, client *clientAuthRoot,
 }
 
 func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
-	envUser := s.Factory.MakeModelUser(c, nil)
-	client := newClientAuthRoot(&fakeFinder{}, envUser)
+	modelUser := s.Factory.MakeModelUser(c, nil)
+	client := newClientAuthRoot(&fakeFinder{}, modelUser)
 	s.AssertCallGood(c, client, "Application", 1, "Deploy")
 	s.AssertCallGood(c, client, "UserManager", 1, "UserInfo")
 	s.AssertCallNotImplemented(c, client, "Client", 1, "Unknown")
@@ -52,8 +52,8 @@ func (s *clientAuthRootSuite) TestNormalUser(c *gc.C) {
 }
 
 func (s *clientAuthRootSuite) TestReadOnlyUser(c *gc.C) {
-	envUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ModelReadAccess})
-	client := newClientAuthRoot(&fakeFinder{}, envUser)
+	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: state.ReadAccess})
+	client := newClientAuthRoot(&fakeFinder{}, modelUser)
 	// deploys are bad
 	s.AssertCallErrPerm(c, client, "Application", 1, "Deploy")
 	// read only commands are fine

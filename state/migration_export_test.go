@@ -13,7 +13,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -111,11 +110,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
-	settings, err := state.ReadSettings(s.State, state.ControllersC, state.DefaultModelSettingsGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
-	settings.Set("apt-mirror", "http://mirror")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,11 +121,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
-	c.Assert(modelAttrs["apt-mirror"], gc.Equals, "http://mirror")
-
-	// Remove all controller and cloud config before comparison.
-	controller.RemoveControllerAttributes(modelAttrs)
-	delete(modelAttrs, "apt-mirror")
 	c.Assert(model.Config(), jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
@@ -163,7 +152,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	bob, err := s.State.AddModelUser(state.ModelUserSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
-		Access:    state.ModelReadAccess,
+		Access:    state.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(bob, lastConnection)
@@ -184,14 +173,14 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedAdmin.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedAdmin.DateCreated(), gc.Equals, owner.DateCreated())
 	c.Assert(exportedAdmin.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedAdmin.ReadOnly(), jc.IsFalse)
+	c.Assert(exportedAdmin.IsReadOnly(), jc.IsFalse)
 
 	c.Assert(exportedBob.Name(), gc.Equals, bobTag)
 	c.Assert(exportedBob.DisplayName(), gc.Equals, "")
 	c.Assert(exportedBob.CreatedBy(), gc.Equals, s.Owner)
 	c.Assert(exportedBob.DateCreated(), gc.Equals, bob.DateCreated())
 	c.Assert(exportedBob.LastConnection(), gc.Equals, lastConnection)
-	c.Assert(exportedBob.ReadOnly(), jc.IsTrue)
+	c.Assert(exportedBob.IsReadOnly(), jc.IsTrue)
 }
 
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {

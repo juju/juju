@@ -28,7 +28,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -324,7 +323,7 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 	c.Check(ok, jc.IsTrue)
 
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -346,7 +345,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
 func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 		// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
 		BootstrapSeries: "xenial",
 	})
@@ -431,8 +430,8 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID:  t.ControllerUUID,
-		BootstrapSeries: "trusty",
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		BootstrapSeries:  "trusty",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -512,7 +511,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -545,7 +544,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -716,7 +715,7 @@ func splitAuthKeys(keys string) []interface{} {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
@@ -990,7 +989,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -1250,12 +1249,11 @@ func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: t.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerUUID := controller.Config(t.TestConfig).ControllerUUID()
-	instanceIds, err := env.ControllerInstances(controllerUUID)
+	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	return env, instanceIds[0]
 }
@@ -1473,7 +1471,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		environs.PrepareParams{
-			BaseConfig: localConfigAttrs,
+			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+			BaseConfig:       localConfigAttrs,
 			Credential: cloud.NewCredential(
 				cloud.AccessKeyAuthType,
 				map[string]string{

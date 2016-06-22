@@ -102,7 +102,7 @@ func (s *environInstSuite) TestBasicInstancesAPI(c *gc.C) {
 func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	ids, err := s.Env.ControllerInstances(s.ControllerUUID())
+	ids, err := s.Env.ControllerInstances(s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
@@ -111,7 +111,7 @@ func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	_, err := s.Env.ControllerInstances(s.ControllerUUID())
+	_, err := s.Env.ControllerInstances(s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -121,7 +121,7 @@ func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.ControllerInstances(s.ControllerUUID())
+	_, err := s.Env.ControllerInstances(s.ControllerUUID)
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
@@ -130,7 +130,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := google.NewInstance(google.InstanceSummary{}, nil)
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance, *other}
 
-	ids, err := s.Env.ControllerInstances(s.ControllerUUID())
+	ids, err := s.Env.ControllerInstances(s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
