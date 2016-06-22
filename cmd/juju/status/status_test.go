@@ -2383,6 +2383,136 @@ var statusTests = []testCase{
 			},
 		},
 	),
+	test( // 19
+		"consistent workload version",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.StatusStarted, ""},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "1"},
+		setUnitWorkloadVersion{"mysql/0", "the best!"},
+
+		expect{
+			"application and unit with correct workload version",
+			M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"applications": M{
+					"mysql": mysqlCharm(M{
+						"workload-version": "the best!",
+						"application-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine":          "1",
+								"workload-version": "the best!",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "controller-1.dns",
+							},
+						},
+					}),
+				},
+			},
+		},
+	),
+	test( // 20
+		"mixed workload version",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.StatusStarted, ""},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "1"},
+		setUnitWorkloadVersion{"mysql/0", "the best!"},
+
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", status.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitWorkloadVersion{"mysql/1", "not as good"},
+
+		expect{
+			"application and unit with correct workload version",
+			M{
+				"model": model,
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+					"2": machine2,
+				},
+				"applications": M{
+					"mysql": mysqlCharm(M{
+						"workload-version": "not as good*",
+						"application-status": M{
+							"current": "unknown",
+							"message": "Waiting for agent initialization to finish",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine":          "1",
+								"workload-version": "the best!",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "controller-1.dns",
+							},
+							"mysql/1": M{
+								"machine":          "2",
+								"workload-version": "not as good",
+								"workload-status": M{
+									"current": "unknown",
+									"message": "Waiting for agent initialization to finish",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"public-address": "controller-2.dns",
+							},
+						},
+					}),
+				},
+			},
+		},
+	),
 }
 
 func mysqlCharm(extras M) M {
@@ -2809,6 +2939,18 @@ func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
+}
+
+type setUnitWorkloadVersion struct {
+	unitName string
+	version  string
+}
+
+func (wv setUnitWorkloadVersion) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(wv.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetWorkloadVersion(wv.version)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type openUnitPort struct {
