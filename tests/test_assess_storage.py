@@ -10,6 +10,13 @@ from assess_storage import (
     assess_storage,
     parse_args,
     main,
+    storage_list_expected,
+    storage_pool_1X,
+    storage_list_expected_2,
+    storage_list_expected_3,
+    storage_list_expected_4,
+    storage_list_expected_5,
+    storage_list_expected_6,
     storage_pool_details,
 )
 from tests import (
@@ -63,38 +70,72 @@ class TestMain(TestCase):
 
 class TestAssess(TestCase):
 
-    def test_storage(self):
+    def test_storage_1x(self):
         mock_client = Mock(spec=["juju", "wait_for_started",
-                                 "deploy", "get_juju_output"])
+                                 "create_storage_pool",
+                                 "list_storage_pool", "deploy",
+                                 "get_juju_output", "add_storage",
+                                 "list_storage"])
         mock_client.series = 'trusty'
         mock_client.version = '1.25'
-        mock_client.get_juju_output.side_effect = [
-            json.dumps(storage_pool_details)
+        mock_client.list_storage_pool.side_effect = [
+            json.dumps(storage_pool_1X)
+        ]
+        mock_client.list_storage.side_effect = [
+            json.dumps(storage_list_expected),
+            json.dumps(storage_list_expected_2),
+            json.dumps(storage_list_expected_3),
+            json.dumps(storage_list_expected_4),
+            json.dumps(storage_list_expected_5),
+            json.dumps(storage_list_expected_6)
         ]
         assess_storage(mock_client, mock_client.series)
         self.assertEqual(
             [
-                call('create-storage-pool',
-                     ('ebsy', 'ebs', 'size=1G')),
-                call('create-storage-pool',
-                     ('loopy', 'loop', 'size=1G')),
-                call('create-storage-pool',
-                     ('rooty', 'rootfs', 'size=1G')),
-                call('create-storage-pool',
-                     ('tempy', 'tmpfs', 'size=1G')),
-                call('add-storage',
-                     ('dummy-storage-fs/0', 'data=1')),
-                call('add-storage',
-                     ('dummy-storage-lp/0', 'disks=1')),
-                call('add-storage',
-                     ('dummy-storage-tp/0', 'data=1'))],
-            mock_client.juju.mock_calls)
+                call('ebsy', 'ebs', '1G'),
+                call('loopy', 'loop', '1G'),
+                call('rooty', 'rootfs', '1G'),
+                call('tempy', 'tmpfs', '1G')
+            ],
+            mock_client.create_storage_pool.mock_calls)
         self.assertEqual(
             [
-                call('local:trusty/dummy-storage-fs',
-                     series='trusty', storage='data=rootfs,1G'),
-                call('local:trusty/dummy-storage-lp',
-                     series='trusty', storage='disks=loop,1G'),
-                call('local:trusty/dummy-storage-tp',
-                     series='trusty', storage='data=tmpfs,1G')],
-            mock_client.deploy.mock_calls)
+                call('dummy-storage-lp/0', 'disks', '1')
+            ],
+            mock_client.add_storage.mock_calls
+        )
+
+    def test_storage_2x(self):
+        mock_client = Mock(spec=["juju", "wait_for_started",
+                                 "create_storage_pool",
+                                 "list_storage_pool", "deploy",
+                                 "get_juju_output", "add_storage",
+                                 "list_storage"])
+        mock_client.series = 'trusty'
+        mock_client.version = '2.0'
+        mock_client.list_storage_pool.side_effect = [
+            json.dumps(storage_pool_details)
+        ]
+        mock_client.list_storage.side_effect = [
+            json.dumps(storage_list_expected),
+            json.dumps(storage_list_expected_2),
+            json.dumps(storage_list_expected_3),
+            json.dumps(storage_list_expected_4),
+            json.dumps(storage_list_expected_5),
+            json.dumps(storage_list_expected_6)
+        ]
+        assess_storage(mock_client, mock_client.series)
+        self.assertEqual(
+            [
+                call('ebsy', 'ebs', '1G'),
+                call('loopy', 'loop', '1G'),
+                call('rooty', 'rootfs', '1G'),
+                call('tempy', 'tmpfs', '1G')
+            ],
+            mock_client.create_storage_pool.mock_calls)
+        self.assertEqual(
+            [
+                call('dummy-storage-lp/0', 'disks', '1')
+            ],
+            mock_client.add_storage.mock_calls
+        )
