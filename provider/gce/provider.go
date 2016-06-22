@@ -32,7 +32,7 @@ func (p environProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	case cloud.JSONFileAuthType:
 		var err error
 		filename := args.Credentials.Attributes()["file"]
-		args.Credentials, err = parseJSONAuthFile(filename)
+		args.Credentials, err = ParseJSONAuthFile(filename)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
