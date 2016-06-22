@@ -16,6 +16,7 @@ type actions struct {
 }
 
 type action struct {
+	Id_         string                 `yaml:"id"`
 	Receiver_   string                 `yaml:"receiver"`
 	Name_       string                 `yaml:"name"`
 	Parameters_ map[string]interface{} `yaml:"parameters"`
@@ -25,6 +26,11 @@ type action struct {
 	Status_     string                 `yaml:"status"`
 	Message_    string                 `yaml:"message"`
 	Results_    map[string]interface{} `yaml:"results"`
+}
+
+// Id implements Action.
+func (i *action) Id() string {
+	return i.Id_
 }
 
 // Receiver implements Action.
@@ -75,6 +81,7 @@ func (i *action) Results() map[string]interface{} {
 // ActionArgs is an argument struct used to create a
 // new internal action type that supports the Action interface.
 type ActionArgs struct {
+	Id         string
 	Receiver   string
 	Name       string
 	Parameters map[string]interface{}
@@ -96,6 +103,7 @@ func newAction(args ActionArgs) *action {
 		Completed_:  args.Completed,
 		Status_:     args.Status,
 		Message_:    args.Message,
+		Id_:         args.Id,
 	}
 }
 
@@ -149,6 +157,7 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		"status":     schema.String(),
 		"message":    schema.String(),
 		"results":    schema.StringMap(schema.Any()),
+		"id":         schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{}
@@ -176,6 +185,7 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		return nil, errors.Annotatef(err, "action v1 schema check failed")
 	}
 	return &action{
+		Id_:         valid["id"].(string),
 		Receiver_:   valid["receiver"].(string),
 		Name_:       valid["name"].(string),
 		Status_:     valid["status"].(string),

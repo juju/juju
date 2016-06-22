@@ -380,6 +380,7 @@ type SSHHostKey interface {
 
 // Action represents an IP action.
 type Action interface {
+	Id() string
 	Receiver() string
 	Name() string
 	Parameters() map[string]interface{}

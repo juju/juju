@@ -774,6 +774,7 @@ func (e *exporter) actions() error {
 			Status:     string(action.Status()),
 			Results:    results,
 			Message:    message,
+			Id:         action.Id(),
 		})
 	}
 	return nil
