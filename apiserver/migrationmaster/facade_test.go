@@ -102,8 +102,9 @@ func (s *Suite) TestGetMigrationStatus(c *gc.C) {
 				Password:      "secret",
 			},
 		},
-		Attempt: 1,
-		Phase:   "READONLY",
+		Attempt:          1,
+		Phase:            "READONLY",
+		PhaseChangedTime: s.backend.migration.PhaseChangedTime(),
 	})
 }
 
@@ -308,6 +309,10 @@ func (m *stubMigration) Id() string {
 
 func (m *stubMigration) Phase() (coremigration.Phase, error) {
 	return coremigration.READONLY, nil
+}
+
+func (m *stubMigration) PhaseChangedTime() time.Time {
+	return time.Date(2016, 6, 22, 16, 38, 0, 0, time.UTC)
 }
 
 func (m *stubMigration) Attempt() (int, error) {
