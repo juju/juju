@@ -126,6 +126,10 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	store := c.ClientStore()
 	controllerName := c.ControllerName()
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	accountName, err := store.CurrentAccount(controllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -142,15 +146,11 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		}
 		modelOwner = names.NewUserTag(c.Owner).Canonical()
 	}
+	forUserSuffix := fmt.Sprintf(" for user '%s'", names.NewUserTag(modelOwner).Name())
 
 	attrs, err := c.getConfigValues(ctx)
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	var forUserSuffix = ""
-	if modelOwner != currentAccount.User {
-		forUserSuffix += fmt.Sprintf(" for %q", c.Owner)
 	}
 
 	// If the user has specified a credential, then we will upload it if
@@ -163,10 +163,6 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		if _, ok := credentials[c.CredentialName]; !ok {
-			controllerDetails, err := store.ControllerByName(controllerName)
-			if err != nil {
-				return errors.Trace(err)
-			}
 			cloudDetails, err := cloud.CloudByName(controllerDetails.Cloud)
 			if err != nil {
 				return errors.Trace(err)
@@ -178,13 +174,13 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			ctx.Infof("uploading credential %q to controller%s", c.CredentialName, forUserSuffix)
+			ctx.Infof("uploading credential '%s' to controller%s", c.CredentialName, forUserSuffix)
 			credentials = map[string]cloud.Credential{c.CredentialName: *credential}
 			if err := cloudClient.UpdateCredentials(modelOwnerTag, credentials); err != nil {
 				return errors.Trace(err)
 			}
 		} else {
-			ctx.Infof("using credential %q cached in controller", c.CredentialName)
+			ctx.Infof("using credential '%s' cached in controller", c.CredentialName)
 		}
 	}
 
@@ -194,7 +190,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	messageFormat := "added model %q"
+	messageFormat := "Added '%s' model"
 	messageArgs := []interface{}{c.Name}
 
 	if modelOwner == currentAccount.User {
@@ -208,18 +204,21 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		if err := store.SetCurrentModel(controllerName, accountName, c.Name); err != nil {
 			return errors.Trace(err)
 		}
-	} else {
-		messageFormat += forUserSuffix
 	}
 
 	if model.CloudRegion != "" {
-		messageFormat += " in region %q"
-		messageArgs = append(messageArgs, model.CloudRegion)
+		messageFormat += " on %s/%s"
+		messageArgs = append(messageArgs, controllerDetails.Cloud, model.CloudRegion)
 	}
 	if model.CloudCredential != "" {
-		messageFormat += " with credential %q"
+		messageFormat += " with credential '%s'"
 		messageArgs = append(messageArgs, model.CloudCredential)
 	}
+
+	messageFormat += forUserSuffix
+
+	// lp#1594335
+	// "Added '<model>' model [on <cloud>/<region>] [with credential '<credential>'] for user '<user namePart>'"
 	ctx.Infof(messageFormat, messageArgs...)
 
 	return nil

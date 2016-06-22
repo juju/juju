@@ -150,7 +150,7 @@ func (s *cmdControllerSuite) TestAddModel(c *gc.C) {
 	// a config value for 'controller'.
 	context := s.run(c, "add-model", "new-model", "authorized-keys=fake-key", "controller=false")
 	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, "added model \"new-model\"\n")
+	c.Check(testing.Stderr(context), gc.Equals, "Added 'new-model' model for user 'admin'\n")
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
