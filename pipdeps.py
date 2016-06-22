@@ -64,7 +64,7 @@ def run_pip_uninstall(obsolete_requirements, verbose=False):
     """Run pip uninstall for each package version in obsolete_requirements.
 
     pip uninstall the package without regard to its version. In most cases,
-    calling install install with a new package version implicitly upgrades.
+    calling install with a new package version implicitly upgrades.
     There are only a few package version that cannot by upgraded, they must
     be removed before install. This function uninstalls packages only when
     their version matches the obsolete.
