@@ -70,7 +70,7 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 		// Run the script and verify the modified config.
 		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
 		c.Check(retcode, gc.Equals, 0)
-		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig, gc.Commentf("initial was:\n%s", initialConfig))
 	}
 }
 
