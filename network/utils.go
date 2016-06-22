@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // DNSConfig holds a list of DNS nameserver addresses and default search
@@ -20,8 +19,9 @@ type DNSConfig struct {
 }
 
 // ParseResolvConf parses the given resolvConfPath (usually "/etc/resolv.conf")
-// file (if present), extracting all 'nameserver' and 'search' stanzas, and
-// returns them.
+// file (if present). It returns the values of any 'nameserver' stanzas, and the
+// first 'search' stanza, as defined by resolv.conf(5). Values in the result
+// will appear in the order found, including duplicates.
 func ParseResolvConf(resolvConfPath string) (*DNSConfig, error) {
 	file, err := os.Open(resolvConfPath)
 	if os.IsNotExist(err) {
@@ -32,18 +32,20 @@ func ParseResolvConf(resolvConfPath string) (*DNSConfig, error) {
 	}
 	defer file.Close()
 
-	nameservers := set.NewStrings()
-	searchDomains := set.NewStrings()
+	var (
+		nameservers   []string
+		searchDomains []string
+	)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if nameserver, ok := parseResolvStanzaValue(line, "nameserver"); ok {
-			nameservers.Add(nameserver)
+		if values, ok := parseResolvStanzaValues(line, "nameserver"); ok {
+			nameservers = append(nameservers, values[0]) // a single value is allowed only
 		}
 
-		if domain, ok := parseResolvStanzaValue(line, "search"); ok {
-			searchDomains.Add(domain)
+		if values, ok := parseResolvStanzaValues(line, "search"); ok && searchDomains == nil {
+			searchDomains = append(searchDomains, values...)
 		}
 	}
 
@@ -52,32 +54,33 @@ func ParseResolvConf(resolvConfPath string) (*DNSConfig, error) {
 	}
 
 	result := new(DNSConfig)
-	if !nameservers.IsEmpty() {
-		result.Nameservers = NewAddresses(nameservers.SortedValues()...)
+	if len(nameservers) > 0 {
+		result.Nameservers = NewAddresses(nameservers...)
 	}
-	if !searchDomains.IsEmpty() {
-		result.SearchDomains = searchDomains.SortedValues()
+	if len(searchDomains) > 0 {
+		result.SearchDomains = searchDomains
 	}
 
 	return result, nil
 }
 
-func parseResolvStanzaValue(inputLine, stanza string) (value string, ok bool) {
-	inputLine = strings.TrimSpace(inputLine)
-	if strings.HasPrefix(inputLine, "#") {
-		// Skip comments.
-		return "", false
+func parseResolvStanzaValues(inputLine, stanza string) (values []string, ok bool) {
+	if strings.IndexAny(inputLine, ";#") == 0 {
+		// ';' or '#', but only in the first column is considered a comment. See
+		// resolv.conf(5).
+		return nil, false
 	}
 
 	if strings.HasPrefix(inputLine, stanza) {
-		value = strings.TrimPrefix(inputLine, stanza)
-		// Drop comments after the value, if any.
-		if strings.Contains(value, "#") {
-			value = value[:strings.Index(value, "#")]
+		// resolv.conf(5) states that to be recognized as valid, the line must
+		// begin with the stanza, followed by whitespace, then the value(s),
+		// also separated with whitespace.
+		values = strings.Fields(inputLine)
+		if len(values) >= 2 {
+			values = values[1:] // skip the stanza
+			ok = true
 		}
-		value = strings.TrimSpace(value)
-		ok = true
 	}
 
-	return value, ok
+	return values, ok
 }
