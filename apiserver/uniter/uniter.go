@@ -656,7 +656,11 @@ func (u *UniterAPIV3) WorkloadVersion(args params.Entities) (params.StringResult
 	for i, entity := range args.Entities {
 		resultItem := &result.Results[i]
 		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil || !canAccess(tag) {
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
 			resultItem.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -688,7 +692,11 @@ func (u *UniterAPIV3) SetWorkloadVersion(args params.EntityWorkloadVersions) (pa
 	for i, entity := range args.Entities {
 		resultItem := &result.Results[i]
 		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil || !canAccess(tag) {
+		if err != nil {
+			resultItem.Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
 			resultItem.Error = common.ServerError(common.ErrPerm)
 			continue
 		}

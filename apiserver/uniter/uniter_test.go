@@ -790,11 +790,10 @@ func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
-		{Tag: "application-mysql"},
 		{Tag: "application-wordpress"},
-		{Tag: "application-foo"},
 		{Tag: "just-foo"},
 	}}
+
 	result, err := s.uniter.WorkloadVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
@@ -802,10 +801,8 @@ func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: "capulet"},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: common.ServerError(errors.New(`"application-wordpress" is not a valid unit tag`))},
+			{Error: common.ServerError(errors.New(`"just-foo" is not a valid tag`))},
 		},
 	})
 }
