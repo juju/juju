@@ -47,7 +47,7 @@ gopkg.in/macaroon-bakery.v0	git	9593b80b01ba04b519769d045dffd6abd827d2fd	2015-04
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	3569c88678d88179dcbd68d02ab081cbca3cd4d0	2015-06-04T15:26:27Z
 gopkg.in/natefinch/lumberjack.v2	git	588a21fb0fa0ebdfde42670fa214576b6f0f22df	2015-05-21T01:59:18Z
-gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	2014-08-11T16:19:00Z
+gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06-21T03:49:01Z
 gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:07Z
 gopkg.in/yaml.v2	git	a83829b6f1293c91addabc89d0571c246397bbf4	2016-03-01T20:40:22Z
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
