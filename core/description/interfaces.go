@@ -380,13 +380,13 @@ type SSHHostKey interface {
 
 // Action represents an IP action.
 type Action interface {
-	ProviderID() string
-	DeviceName() string
-	MachineID() string
-	SubnetCIDR() string
-	ConfigMethod() string
-	Value() string
-	DNSServers() []string
-	DNSSearchDomains() []string
-	GatewayAddress() string
+	Receiver() string
+	Name() string
+	Parameters() map[string]interface{}
+	Enqueued() time.Time
+	Started() time.Time
+	Completed() time.Time
+	Results() map[string]interface{}
+	Status() string
+	Message() string
 }

@@ -146,6 +146,8 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		"enqueued":   schema.String(),
 		"started":    schema.String(),
 		"completed":  schema.String(),
+		"status":     schema.String(),
+		"message":    schema.String(),
 		"results":    schema.StringMap(schema.Any()),
 	}
 	// Some values don't have to be there.
@@ -176,6 +178,8 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 	return &action{
 		Receiver_:   valid["receiver"].(string),
 		Name_:       valid["name"].(string),
+		Status_:     valid["status"].(string),
+		Message_:    valid["message"].(string),
 		Parameters_: valid["parameters"].(map[string]interface{}),
 		Enqueued_:   enqueued,
 		Started_:    started,
