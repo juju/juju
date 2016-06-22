@@ -359,6 +359,21 @@ def main(args):
         print_stanzas(stanzas, f)
         f.close()
 
+    # On configurations that have bonds in 802.3ad mode there is a
+    # race condition betweeen an immediate ifdown then ifup.
+    #
+    # On the h/w I have a 'sleep 0.1' is sufficient but to accommodate
+    # other setups we arbitrarily choose something larger. We don't
+    # want to massively slow bootstrap down but, equally, 0.1 may be
+    # too small for other configurations.
+
+    for s in stanzas:
+        if s.is_logical_interface and s.iface.is_bonded:
+            print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
+            print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
+            print_shell_cmd("sleep 3")
+            break
+
     print_shell_cmd("cat {}".format(args.filename))
     print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery))
     print_shell_cmd("ip link show up")
