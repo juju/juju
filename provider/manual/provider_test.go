@@ -36,7 +36,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 func (s *providerSuite) TestPrepareForCreateEnvironment(c *gc.C) {
 	testConfig, err := config.New(config.UseDefaults, manual.MinimalConfigValues())
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := manual.ProviderInstance.PrepareForCreateEnvironment(testConfig)
+	cfg, err := manual.ProviderInstance.PrepareForCreateEnvironment(coretesting.ModelTag.Id(), testConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.Equals, testConfig)
 }

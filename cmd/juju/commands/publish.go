@@ -54,13 +54,13 @@ func (c *publishCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "publish",
 		Args:    "[<charm url>]",
-		Purpose: "publish charm to the store",
+		Purpose: "Publish charm to the store.",
 		Doc:     publishDoc,
 	}
 }
 
 func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.CharmPath, "from", ".", "path for charm to be published")
+	f.StringVar(&c.CharmPath, "from", ".", "Path for charm to be published")
 }
 
 func (c *publishCommand) Init(args []string) error {

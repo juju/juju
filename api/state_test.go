@@ -110,6 +110,20 @@ func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
 	c.Assert(apistate.AuthTag(), gc.Equals, tag)
 }
 
+func (s *stateSuite) TestLoginReadOnly(c *gc.C) {
+	// The default user has read and write access.
+	c.Assert(s.APIState.ReadOnly(), jc.IsFalse)
+
+	// Check with an user in read-only mode.
+	modeltag, err := s.APIState.ModelTag()
+	c.Assert(err, jc.ErrorIsNil)
+	manager := usermanager.NewClient(s.APIState)
+	usertag, _, err := manager.AddUser("ro", "ro", "ro-password", "read", modeltag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	conn := s.OpenAPIAs(c, usertag, "ro-password")
+	c.Assert(conn.ReadOnly(), jc.IsTrue)
+}
+
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()

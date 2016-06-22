@@ -16,7 +16,6 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
@@ -138,7 +137,9 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	if err == nil {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			cfg, err := apiConfigConnect(
-				cfg, args.AccountDetails,
+				cfg,
+				controllerDetails,
+				args.AccountDetails,
 				args.ModelUUID, args.OpenAPI,
 				stop, abortAPIConfigConnect, delay,
 				args.DialOpts,
@@ -246,6 +247,7 @@ func apiInfoConnect(
 // It returns nil if there was no configuration information found.
 func apiConfigConnect(
 	cfg *config.Config,
+	controllerDetails *jujuclient.ControllerDetails,
 	accountDetails *jujuclient.AccountDetails,
 	modelUUID string,
 	apiOpen api.OpenFunc,
@@ -262,18 +264,20 @@ func apiConfigConnect(
 	case <-abort:
 		return nil, errAborted
 	}
-	controllerCfg := controller.Config(cfg.AllAttrs())
-	caCert, hasCert := controllerCfg.CACert()
-	if !hasCert {
-		return nil, errors.New("config has no CACert")
-	}
-	apiPort := controllerCfg.APIPort()
 
+	if len(controllerDetails.APIEndpoints) == 0 {
+		return nil, errors.New("Juju controller is still bootstrapping, no api connection available")
+	}
 	environ, err := environs.New(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing environ")
 	}
-	apiInfo, err := environs.APIInfo(controllerCfg.ControllerUUID(), cfg.UUID(), caCert, apiPort, environ)
+	// All api ports are the same, so just parse the first one.
+	hosttPort, err := network.ParseHostPort(controllerDetails.APIEndpoints[0])
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing api port")
+	}
+	apiInfo, err := environs.APIInfo(controllerDetails.ControllerUUID, cfg.UUID(), controllerDetails.CACert, hosttPort.Port, environ)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API info")
 	}

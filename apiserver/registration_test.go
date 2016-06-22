@@ -174,7 +174,7 @@ func (s *registrationSuite) TestRegisterInvalidRequestPayload(c *gc.C) {
 	ciphertext := s.sealBox(c, validNonce, s.bob.SecretKey(), "[]")
 	s.testInvalidRequest(c,
 		fmt.Sprintf(
-			`{"user": "user-bob", "nonce": "%s", "ciphertext": "%s"}`,
+			`{"user": "user-bob", "nonce": "%s", "cipher-text": "%s"}`,
 			base64.StdEncoding.EncodeToString(validNonce),
 			base64.StdEncoding.EncodeToString(ciphertext),
 		),

@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -177,7 +176,7 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	c.Assert(s.State.EnsureModelRemoved(), gc.ErrorMatches,
-		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelusers doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
+		fmt.Sprintf("found documents for model with uuid %s: 1 constraints doc, 2 leases doc, 1 modelSettingsSources doc, 1 modelusers doc, 1 permissions doc, 1 settings doc, 1 statuses doc", s.State.ModelUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -2530,15 +2529,6 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	// Initially we get one change notification
-	wc.AssertOneChange()
-
-	// Updating shared model settings triggers the watcher.
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "defaultModelSettings")
-	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("apt-mirror", "http://mirror")
-	_, err = controllerSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
@@ -3144,7 +3134,6 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	controller.RemoveControllerAttributes(attrs)
 	c.Assert(s.State.UpdateModelConfig(attrs, nil, nil), gc.IsNil)
 }
 
@@ -4100,10 +4089,14 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		Password: password,
 	}
 	cfg := testing.ModelConfig(c)
+	controllerCfg := testing.FakeControllerConfig()
+	controllerCfg["controller-uuid"] = cfg.UUID()
 	st, err := state.Initialize(state.InitializeParams{
+		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
-			Owner:  owner,
-			Config: cfg,
+			CloudName: "dummy",
+			Owner:     owner,
+			Config:    cfg,
 		},
 		CloudName: "dummy",
 		Cloud: cloud.Cloud{

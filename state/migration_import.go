@@ -43,20 +43,18 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the config attributes of the model to import.
-	attr, err := st.ControllerConfig()
+	// Create the model.
+	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	for k, v := range model.Config() {
-		attr[k] = v
-	}
-	// Create the model.
-	cfg, err := config.New(config.NoDefaults, attr)
+	controllerInfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	dbModel, newSt, err := st.NewModel(ModelArgs{
+		// TODO(wallyworld) - cloud name needs to be on model
+		CloudName:     controllerInfo.CloudName,
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
 		Owner:         model.Owner(),
@@ -195,17 +193,23 @@ func (i *importer) modelUsers() error {
 	modelUUID := i.dbModel.UUID()
 	var ops []txn.Op
 	for _, user := range users {
-		access := ModelAdminAccess
-		if user.ReadOnly() {
-			access = ModelReadAccess
+		var access Access
+		switch {
+		case user.IsReadOnly():
+			access = ReadAccess
+		case user.IsReadWrite():
+			access = WriteAccess
+		default:
+			access = AdminAccess
 		}
-		ops = append(ops, createModelUserOp(
+		ops = append(ops, createModelUserOps(
 			modelUUID,
 			user.Name(),
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			access))
+			access)...,
+		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)

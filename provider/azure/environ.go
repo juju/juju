@@ -89,7 +89,7 @@ func (env *azureEnviron) Bootstrap(
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
-	cfg, err := env.initResourceGroup(args.ControllerUUID)
+	cfg, err := env.initResourceGroup(args.ControllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
@@ -479,8 +479,9 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// If the machine will run a controller, then we need to open the
 	// API port for it.
 	var apiPortPtr *int
-	if args.InstanceConfig.Bootstrap != nil {
-		apiPortPtr = &args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
+	if args.InstanceConfig.Controller != nil {
+		apiPort := args.InstanceConfig.Controller.Config.APIPort()
+		apiPortPtr = &apiPort
 	}
 
 	vm, err := createVirtualMachine(

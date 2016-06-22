@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/logfwd/syslog"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -42,12 +43,6 @@ const (
 	// instance security groups.
 	FwNone = "none"
 
-	// DefaultStatePort is the default port the controller is listening on.
-	DefaultStatePort int = 37017
-
-	// DefaultApiPort is the default port the API server is listening on.
-	DefaultAPIPort int = 17070
-
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a controller, in seconds.
 	DefaultBootstrapSSHTimeout int = 600
@@ -60,10 +55,6 @@ const (
 	// refreshing the addresses, in seconds. Not too frequent, as we
 	// refresh addresses from the provider each time.
 	DefaultBootstrapSSHAddressesDelay int = 10
-
-	// DefaultNumaControlPolicy should not be used by default.
-	// Only use numactl if user specifically requests it
-	DefaultNumaControlPolicy = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -119,9 +110,6 @@ const (
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
 
-	// NumaControlPolicyKey stores the value for this setting
-	SetNumaControlPolicyKey = "set-numa-control-policy"
-
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -133,6 +121,25 @@ const (
 	// 'ubuntu-cloudimg-query' executable uses to find container images. This
 	// is primarily for enabling Juju to work cleanly in a closed network.
 	CloudImageBaseURL = "cloudimg-base-url"
+
+	// LogFwdSyslogHost sets the hostname:port of the syslog server.
+	LogFwdSyslogHost = "syslog-host"
+
+	// LogFwdSyslogServerCert sets the expected server certificate for
+	// syslog forwarding.
+	LogFwdSyslogServerCert = "syslog-server-cert"
+
+	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
+	// server certificate.
+	LogFwdSyslogCACert = "syslog-ca-cert"
+
+	// LogFwdSyslogClientCert sets the client certificate for syslog
+	// forwarding.
+	LogFwdSyslogClientCert = "syslog-client-cert"
+
+	// LogFwdSyslogClientKey sets the client key for syslog
+	// forwarding.
+	LogFwdSyslogClientKey = "syslog-client-key"
 
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
@@ -439,6 +446,29 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
+		if err := lfCfg.Validate(); err != nil {
+			// Clean up the error messages a bit.
+			msg := err.Error()
+			var field string
+			switch {
+			case strings.Contains(msg, "Host"):
+				field = LogFwdSyslogHost
+			case strings.Contains(msg, "ExpectedServerCert"):
+				field = LogFwdSyslogServerCert
+			case strings.Contains(msg, "ClientCACert"):
+				field = LogFwdSyslogCACert
+			case strings.Contains(msg, "ClientCert"):
+				field = LogFwdSyslogClientCert
+			case strings.Contains(msg, "ClientKey"):
+				field = LogFwdSyslogClientKey
+			default:
+				return errors.Annotate(err, "invalid syslog forwarding config")
+			}
+			return errors.Annotatef(errors.Cause(err), "invalid %q", field)
+		}
+	}
+
 	if uuid := cfg.UUID(); !utils.IsValidUUIDString(uuid) {
 		return errors.Errorf("uuid: expected UUID, got string(%q)", uuid)
 	}
@@ -546,14 +576,6 @@ func (c *Config) DefaultSeries() (string, bool) {
 		logger.Errorf("invalid default-series: %q", s)
 		return "", false
 	}
-}
-
-// NumaCtlPreference returns if numactl is preferred.
-func (c *Config) NumaCtlPreference() bool {
-	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
-		return numa.(bool)
-	}
-	return DefaultNumaControlPolicy
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -665,6 +687,42 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 		opts.AddressesDelay = time.Duration(v) * time.Second
 	}
 	return opts
+}
+
+// LogFwdSyslog returns the syslog forwarding config.
+func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
+	partial := false
+	var lfCfg syslog.RawConfig
+
+	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
+		partial = true
+		lfCfg.Host = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogServerCert]; ok && s != "" {
+		partial = true
+		lfCfg.ExpectedServerCert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
+		partial = true
+		lfCfg.ClientCACert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
+		partial = true
+		lfCfg.ClientCert = s.(string)
+	}
+
+	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
+		partial = true
+		lfCfg.ClientKey = s.(string)
+	}
+
+	if !partial {
+		return nil, false
+	}
+	return &lfCfg, true
 }
 
 // AdminSecret returns the administrator password.
@@ -924,15 +982,16 @@ var alwaysOptional = schema.Defaults{
 	// The following attributes are for the controller config
 	// but are included here because we currently parse model
 	// and controller config together.
-	controller.ControllerUUIDKey:      schema.Omit,
-	controller.CACertKey:              schema.Omit,
-	controller.CAPrivateKey:           schema.Omit,
-	controller.ApiPort:                schema.Omit,
-	controller.StatePort:              schema.Omit,
-	controller.IdentityURL:            schema.Omit,
-	controller.IdentityPublicKey:      schema.Omit,
-	controller.CACertKey + "-path":    schema.Omit,
-	controller.CAPrivateKey + "-path": schema.Omit,
+	controller.ControllerUUIDKey:       schema.Omit,
+	controller.CACertKey:               schema.Omit,
+	controller.CAPrivateKey:            schema.Omit,
+	controller.ApiPort:                 schema.Omit,
+	controller.StatePort:               schema.Omit,
+	controller.IdentityURL:             schema.Omit,
+	controller.IdentityPublicKey:       schema.Omit,
+	controller.CACertKey + "-path":     schema.Omit,
+	controller.CAPrivateKey + "-path":  schema.Omit,
+	controller.SetNumaControlPolicyKey: schema.Omit,
 
 	// Model config attributes
 	AgentVersionKey:              schema.Omit,
@@ -943,7 +1002,11 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-timeout":          schema.Omit,
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
-	"rsyslog-ca-cert":            schema.Omit,
+	LogFwdSyslogHost:             schema.Omit,
+	LogFwdSyslogServerCert:       schema.Omit,
+	LogFwdSyslogCACert:           schema.Omit,
+	LogFwdSyslogClientCert:       schema.Omit,
+	LogFwdSyslogClientKey:        schema.Omit,
 	HttpProxyKey:                 schema.Omit,
 	HttpsProxyKey:                schema.Omit,
 	FtpProxyKey:                  schema.Omit,
@@ -955,7 +1018,6 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	IgnoreMachineAddresses:       schema.Omit,
 	AgentStreamKey:               schema.Omit,
-	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	ResourceTagsKey:              schema.Omit,
 	CloudImageBaseURL:            schema.Omit,
 
@@ -988,19 +1050,19 @@ var defaults = allDefaults()
 // UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"firewall-mode":              FwInstance,
-		"development":                false,
-		"ssl-hostname-verification":  true,
-		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
-		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
-		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
-		"proxy-ssh":                  false,
-		"disable-network-management": false,
-		IgnoreMachineAddresses:       false,
-		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
-		AutomaticallyRetryHooks:      true,
-		controller.StatePort:         DefaultStatePort,
-		controller.ApiPort:           DefaultAPIPort,
+		"firewall-mode":                    FwInstance,
+		"development":                      false,
+		"ssl-hostname-verification":        true,
+		"bootstrap-timeout":                DefaultBootstrapSSHTimeout,
+		"bootstrap-retry-delay":            DefaultBootstrapSSHRetryDelay,
+		"bootstrap-addresses-delay":        DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                        false,
+		"disable-network-management":       false,
+		IgnoreMachineAddresses:             false,
+		AutomaticallyRetryHooks:            true,
+		controller.StatePort:               controller.DefaultStatePort,
+		controller.ApiPort:                 controller.DefaultAPIPort,
+		controller.SetNumaControlPolicyKey: controller.DefaultNumaControlPolicy,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1349,14 +1411,29 @@ global or per instance security groups.`,
 		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
-	"rsyslog-ca-cert": {
-		Description: `The certificate of the CA that signed the rsyslog certificate, in PEM format.`,
+	LogFwdSyslogHost: {
+		Description: `LogFwdSyslogHost specifies the hostname:port of the syslog server.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	SetNumaControlPolicyKey: {
-		Description: "Tune Juju controller to work with NUMA if present (default false)",
-		Type:        environschema.Tbool,
+	LogFwdSyslogServerCert: {
+		Description: `The expected syslog server certificate in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogCACert: {
+		Description: `The certificate of the CA that signed the syslog certificate, in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogClientCert: {
+		Description: `The syslog client certificate in PEM format.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	LogFwdSyslogClientKey: {
+		Description: `The syslog client key in PEM format.`,
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"ssl-hostname-verification": {

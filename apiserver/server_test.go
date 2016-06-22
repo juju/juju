@@ -7,11 +7,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -33,7 +31,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -80,12 +77,10 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = apimachiner.NewState(st).Machine(machine.MachineTag())
-	err = errors.Cause(err)
-	// The client has not necessarily seen the server shutdown yet,
-	// so there are two possible errors.
-	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
-		c.Fatalf("unexpected error from request: %#v, expected rpc.ErrShutdown or io.ErrUnexpectedEOF", err)
-	}
+	// The client has not necessarily seen the server shutdown yet, so there
+	// are multiple possible errors. All we should care about is that there is
+	// an error, not what the error actually is.
+	c.Assert(err, gc.NotNil)
 
 	// Check it can be stopped twice.
 	err = srv.Stop()

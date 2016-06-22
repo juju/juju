@@ -60,9 +60,9 @@ func (s *usermanagerSuite) TestAddUserWithModelAccess(c *gc.C) {
 	for i, u := range users {
 		modelUserTags[i] = u.UserTag()
 		if u.UserTag().Name() == "foobar" {
-			c.Assert(u.ReadOnly(), jc.IsTrue)
+			c.Assert(u.IsReadOnly(), jc.IsTrue)
 		} else {
-			c.Assert(u.ReadOnly(), jc.IsFalse)
+			c.Assert(u.IsReadOnly(), jc.IsFalse)
 		}
 	}
 	c.Assert(modelUserTags, jc.SameContents, []names.UserTag{

@@ -201,6 +201,10 @@ type Connection interface {
 	// connection.
 	AuthTag() names.Tag
 
+	// ReadOnly returns whether the authorized user is connected to the model
+	// in read-only mode.
+	ReadOnly() bool
+
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.
 	// Client in particular is intimately coupled with State -- and the others

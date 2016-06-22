@@ -46,9 +46,6 @@ var (
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
-	// ControllerUUID is the uuid of the controller to be bootstrapped.
-	ControllerUUID string
-
 	// ModelConstraints are merged with the bootstrap constraints
 	// to choose the initial instance, and will be stored in the
 	// initial models' states.
@@ -86,9 +83,13 @@ type BootstrapParams struct {
 	// credentialis.
 	CloudCredential *cloud.Credential
 
-	// ModelConfigDefaults is the set of config attributes to be shared
-	// across all models in the same controller.
-	ModelConfigDefaults map[string]interface{}
+	// ControllerConfig is the set of config attributes relevant
+	// to a controller.
+	ControllerConfig controller.Config
+
+	// LocalCloudConfig is the set of config attributes to be shared
+	// across all models in the same controller on the bootstrap cloud.
+	LocalCloudConfig map[string]interface{}
 
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
@@ -139,15 +140,14 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		// we'll be here to catch this problem early.
 		return errors.Errorf("model configuration has no authorized-keys")
 	}
-	if args.ControllerUUID == "" {
+	if args.ControllerConfig.ControllerUUID() == "" {
 		return errors.Errorf("bootstrap configuration has no controller UUID")
 	}
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
-	if _, hasCACert := controllerCfg.CACert(); !hasCACert {
-		return errors.Errorf("model configuration has no ca-cert")
+	if _, hasCACert := args.ControllerConfig.CACert(); !hasCACert {
+		return errors.Errorf("controller configuration has no ca-cert")
 	}
-	if _, hasCAKey := controllerCfg.CAPrivateKey(); !hasCAKey {
-		return errors.Errorf("model configuration has no ca-private-key")
+	if _, hasCAKey := args.ControllerConfig.CAPrivateKey(); !hasCAKey {
+		return errors.Errorf("controller configuration has no ca-private-key")
 	}
 
 	// Set default tools metadata source, add image metadata source,
@@ -228,8 +228,9 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	ctx.Infof("Starting new instance for initial controller")
+
 	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		ControllerUUID:       args.ControllerUUID,
+		ControllerConfig:     args.ControllerConfig,
 		ModelConstraints:     args.ModelConstraints,
 		BootstrapConstraints: args.BootstrapConstraints,
 		BootstrapSeries:      args.BootstrapSeries,
@@ -284,7 +285,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.BootstrapConstraints, args.ModelConstraints, result.Series, publicKey,
+		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, result.Series, publicKey,
 	)
 	if err != nil {
 		return err
@@ -298,7 +299,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	instanceConfig.Bootstrap.ControllerCloudRegion = args.CloudRegion
 	instanceConfig.Bootstrap.ControllerCloudCredential = args.CloudCredential
 	instanceConfig.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
-	instanceConfig.Bootstrap.ModelConfigDefaults = args.ModelConfigDefaults
+	instanceConfig.Bootstrap.ControllerConfig = args.ControllerConfig
+	instanceConfig.Bootstrap.LocalCloudConfig = args.LocalCloudConfig
 	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)

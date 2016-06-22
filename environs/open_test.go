@@ -52,10 +52,12 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	cache := jujuclienttesting.NewMemStore()
+	controllerCfg := testing.FakeControllerBootstrapConfig()
 	env, err := environs.Prepare(ctx, cache, environs.PrepareParams{
-		ControllerName: cfg.Name(),
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   cfg.Name(),
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -65,7 +67,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
-		ControllerUUID: controller.Config(cfg.AllAttrs()).ControllerUUID(),
+		ControllerConfig: controllerCfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,16 +82,18 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	uuid := utils.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type":            "dummy",
-		"name":            "admin-model",
-		"controller-uuid": uuid,
-		"uuid":            uuid,
+		"type": "dummy",
+		"name": "admin-model",
+		"uuid": uuid,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	controllerCfg := testing.FakeControllerBootstrapConfig()
+	controllerCfg["controller-uuid"] = uuid
 	_, err = environs.Prepare(ctx, store, environs.PrepareParams{
-		ControllerName: "controller-name",
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   "controller-name",
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -135,18 +139,18 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 		"controller": false,
 		"name":       "erewhemos",
 	}).Delete(
-		"ca-cert",
-		"ca-private-key",
 		"admin-secret",
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerStore := jujuclienttesting.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
+	controllerCfg := controller.Config{controller.ControllerUUIDKey: testing.ModelTag.Id()}
 	env, err := environs.Prepare(ctx, controllerStore, environs.PrepareParams{
-		ControllerName: cfg.Name(),
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   cfg.Name(),
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -156,7 +160,6 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(adminSecret, gc.Matches, "^[0-9a-f]*$")
 
 	// Check that the CA cert was generated.
-	controllerCfg := controller.Config(env.Config().AllAttrs())
 	cfgCertPEM, cfgCertOK := controllerCfg.CACert()
 	cfgKeyPEM, cfgKeyOK := controllerCfg.CAPrivateKey()
 	c.Assert(cfgCertOK, jc.IsTrue)
@@ -175,9 +178,10 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 
 	// Check we cannot call Prepare again.
 	env, err = environs.Prepare(ctx, controllerStore, environs.PrepareParams{
-		ControllerName: cfg.Name(),
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   cfg.Name(),
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
@@ -193,9 +197,10 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	env0, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
-		ControllerName: "erewhemos",
-		BaseConfig:     baselineAttrs,
-		CloudName:      "dummy",
+		ControllerConfig: testing.FakeControllerBootstrapConfig(),
+		ControllerName:   "erewhemos",
+		BaseConfig:       baselineAttrs,
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret0 := env0.Config().AdminSecret()
@@ -205,12 +210,14 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	// Allocate a new UUID, or we'll end up with the same config.
 	newUUID := utils.MustNewUUID()
 	baselineAttrs[config.UUIDKey] = newUUID.String()
-	baselineAttrs[controller.ControllerUUIDKey] = newUUID.String()
+	controllerCfg := testing.FakeControllerBootstrapConfig()
+	controllerCfg[controller.ControllerUUIDKey] = newUUID.String()
 
 	env1, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
-		ControllerName: "erewhemos",
-		BaseConfig:     baselineAttrs,
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   "erewhemos",
+		BaseConfig:       baselineAttrs,
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	adminSecret1 := env1.Config().AdminSecret()
@@ -221,19 +228,21 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 }
 
 func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Delete("ca-cert", "ca-private-key").Merge(
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
 			"controller": false,
 			"name":       "erewhemos",
-			"ca-cert":    string(testing.CACert),
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	controllerStore := jujuclienttesting.NewMemStore()
+	controllerCfg := testing.FakeControllerBootstrapConfig()
+	delete(controllerCfg, "ca-private-key")
 	env, err := environs.Prepare(envtesting.BootstrapContext(c), controllerStore, environs.PrepareParams{
-		ControllerName: cfg.Name(),
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   cfg.Name(),
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: controller configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
@@ -242,21 +251,20 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"controller":     false,
-			"name":           "erewhemos",
-			"ca-cert":        string(testing.CACert),
-			"ca-private-key": string(testing.CAKey),
+			"controller": false,
+			"name":       "erewhemos",
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
-		ControllerName: cfg.Name(),
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+	controllerCfg := testing.FakeControllerBootstrapConfig()
+	_, err = environs.Prepare(ctx, jujuclienttesting.NewMemStore(), environs.PrepareParams{
+		ControllerConfig: controllerCfg,
+		ControllerName:   cfg.Name(),
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg := controller.Config(env.Config().AllAttrs())
 	cfgCertPEM, cfgCertOK := controllerCfg.CACert()
 	cfgKeyPEM, cfgKeyOK := controllerCfg.CAPrivateKey()
 	c.Assert(cfgCertOK, jc.IsTrue)
@@ -276,11 +284,13 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
+	controllerCfg := testing.FakeControllerBootstrapConfig()
 	ctx := envtesting.BootstrapContext(c)
 	e, err := environs.Prepare(ctx, store, environs.PrepareParams{
-		ControllerName: "controller-name",
-		BaseConfig:     cfg.AllAttrs(),
-		CloudName:      "dummy",
+		ControllerConfig: controllerCfg,
+		ControllerName:   "controller-name",
+		BaseConfig:       cfg.AllAttrs(),
+		CloudName:        "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.ControllerByName("controller-name")
@@ -291,7 +301,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
-	_, err = e.ControllerInstances("not-used")
+	_, err = e.ControllerInstances(controllerCfg.ControllerUUID())
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

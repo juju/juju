@@ -72,18 +72,18 @@ func (c *runCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "run",
 		Args:    "<commands>",
-		Purpose: "run the commands on the remote targets specified",
+		Purpose: "Run the commands on the remote targets specified.",
 		Doc:     runDoc,
 	}
 }
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.BoolVar(&c.all, "all", false, "run the commands on all the machines")
-	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "how long to wait before the remote command is considered to have failed")
-	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "one or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "one or more application names")
-	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "one or more unit ids")
+	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
+	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
+	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "One or more application names")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "One or more unit ids")
 }
 
 func (c *runCommand) Init(args []string) error {

@@ -28,33 +28,32 @@ import (
 )
 
 const (
-	InstanceDataC     = instanceDataC
 	MachinesC         = machinesC
 	ApplicationsC     = applicationsC
 	EndpointBindingsC = endpointBindingsC
-	SettingsC         = settingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
 	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
 	GUISettingsC      = guisettingsC
+	GlobalSettingsC   = globalSettingsC
 )
 
 var (
-	BinarystorageNew              = &binarystorageNew
-	ImageStorageNewStorage        = &imageStorageNewStorage
-	MachineIdLessThan             = machineIdLessThan
-	ControllerAvailable           = &controllerAvailable
-	GetOrCreatePorts              = getOrCreatePorts
-	GetPorts                      = getPorts
-	NowToTheSecond                = nowToTheSecond
-	AddVolumeOps                  = (*State).addVolumeOps
-	CombineMeterStatus            = combineMeterStatus
-	ApplicationGlobalKey          = applicationGlobalKey
-	ReadSettings                  = readSettings
-	DefaultModelSettingsGlobalKey = defaultModelSettingsGlobalKey
-	MergeBindings                 = mergeBindings
-	UpgradeInProgressError        = errUpgradeInProgress
+	BinarystorageNew       = &binarystorageNew
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	ControllerAvailable    = &controllerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	NowToTheSecond         = nowToTheSecond
+	AddVolumeOps           = (*State).addVolumeOps
+	CombineMeterStatus     = combineMeterStatus
+	ApplicationGlobalKey   = applicationGlobalKey
+	ReadSettings           = readSettings
+	CloudGlobalKey         = cloudGlobalKey
+	MergeBindings          = mergeBindings
+	UpgradeInProgressError = errUpgradeInProgress
 )
 
 type (

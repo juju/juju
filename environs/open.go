@@ -36,11 +36,14 @@ func New(config *config.Config) (Environ, error) {
 // PrepareParams contains the parameters for preparing a controller Environ
 // for bootstrapping.
 type PrepareParams struct {
-	// BaseConfig contains the base configuration for the controller.
+	// BaseConfig contains the base configuration for the controller model.
 	//
 	// This includes the model name, cloud type, and any user-supplied
 	// configuration. It does not include any default attributes.
 	BaseConfig map[string]interface{}
+
+	// ControllerConfig is the configuration of the controller being prepared.
+	ControllerConfig controller.Config
 
 	// ControllerName is the name of the controller being prepared.
 	ControllerName string
@@ -153,17 +156,34 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Config schema is still defined together for model and controller,
+	// hence any defaults are filled in when we construct a new model config above.
+	// Extract any controller specific defaults.
+	for attr, value := range cfg.AllAttrs() {
+		if controller.ControllerOnlyAttribute(attr) {
+			if _, ok := args.ControllerConfig[attr]; !ok {
+				args.ControllerConfig[attr] = value
+			}
+		}
+	}
+	// Remove any remaining controller attributes from the env config.
+	cfg, err = cfg.Remove(controller.ControllerOnlyConfigAttributes)
+	if err != nil {
+		return nil, details, errors.Annotate(err, "cannot remove controller attributes")
+	}
+
 	cfg, adminSecret, err := ensureAdminSecret(cfg)
 	if err != nil {
 		return nil, details, errors.Annotate(err, "cannot generate admin-secret")
 	}
-	cfg, caCert, err := ensureCertificate(cfg)
+	caCert, err := ensureCertificate(cfg.Name(), args.ControllerConfig)
 	if err != nil {
 		return nil, details, errors.Annotate(err, "cannot ensure CA certificate")
 	}
 
 	cfg, err = p.BootstrapConfig(BootstrapConfigParams{
-		cfg, args.Credential, args.CloudRegion,
+		args.ControllerConfig.ControllerUUID(), cfg, args.Credential, args.CloudRegion,
 		args.CloudEndpoint, args.CloudStorageEndpoint,
 	})
 	if err != nil {
@@ -182,11 +202,10 @@ func prepare(
 	for k, v := range args.BaseConfig {
 		details.Config[k] = v
 	}
-	delete(details.Config, controller.ControllerUUIDKey)
 	delete(details.Config, config.UUIDKey)
 
 	details.CACert = caCert
-	details.ControllerUUID = controller.Config(cfg.AllAttrs()).ControllerUUID()
+	details.ControllerUUID = args.ControllerConfig.ControllerUUID()
 	details.User = AdminUser
 	details.Password = adminSecret
 	details.ModelUUID = cfg.UUID()
@@ -231,30 +250,27 @@ func ensureAdminSecret(cfg *config.Config) (*config.Config, string, error) {
 // ensureCertificate generates a new CA certificate and
 // attaches it to the given controller configuration,
 // unless the configuration already has one.
-func ensureCertificate(cfg *config.Config) (*config.Config, string, error) {
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+func ensureCertificate(name string, controllerCfg controller.Config) (string, error) {
 	caCert, hasCACert := controllerCfg.CACert()
 	_, hasCAKey := controllerCfg.CAPrivateKey()
 	if hasCACert && hasCAKey {
-		return cfg, caCert, nil
+		return caCert, nil
 	}
 	if hasCACert && !hasCAKey {
-		return nil, "", errors.Errorf("controller configuration with a certificate but no CA private key")
+		return "", errors.Errorf("controller configuration with a certificate but no CA private key")
 	}
 
 	// TODO(perrito666) 2016-05-02 lp:1558657
-	caCert, caKey, err := cert.NewCA(cfg.Name(), cfg.UUID(), time.Now().UTC().AddDate(10, 0, 0))
+	caCert, caKey, err := cert.NewCA(name, controllerCfg.ControllerUUID(), time.Now().UTC().AddDate(10, 0, 0))
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	cfg, err = cfg.Apply(map[string]interface{}{
-		controller.CACertKey:    string(caCert),
-		controller.CAPrivateKey: string(caKey),
-	})
+	controllerCfg[controller.CACertKey] = string(caCert)
+	controllerCfg[controller.CAPrivateKey] = string(caKey)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	return cfg, string(caCert), nil
+	return string(caCert), nil
 }
 
 // Destroy destroys the controller and, if successful,

@@ -33,7 +33,6 @@ type unblockCommand struct {
 
 var (
 	unblockDoc = `
-
 Juju allows to safeguard deployed models from unintentional damage by preventing
 execution of operations that could alter model.
 
@@ -87,17 +86,17 @@ all-changes includes all alteration commands
     enable-user
 
 Examples:
-   To allow the model to be destroyed:
-   juju unblock destroy-model
+    # To allow the model to be destroyed:
+    juju unblock destroy-model
 
-   To allow the machines, applications, units and relations to be removed:
-   juju unblock remove-object
+    # To allow the machines, applications, units and relations to be removed:
+    juju unblock remove-object
 
-   To allow changes to the model:
-   juju unblock all-changes
+    # To allow changes to the model:
+    juju unblock all-changes
 
 See Also:
-   juju help block
+   juju block
 `
 
 	// blockArgsFmt has formatted representation of block command valid arguments.
@@ -132,7 +131,7 @@ func (c *unblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
 		Args:    blockArgsFmt,
-		Purpose: "unblock an operation that would alter a running model",
+		Purpose: "Unblock an operation that would alter a running model.",
 		Doc:     unblockDoc,
 	}
 }

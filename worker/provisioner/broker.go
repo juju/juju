@@ -112,36 +112,50 @@ func prepareOrGetContainerInterfaceInfo(
 	}
 	log.Tracef("PrepareContainerInterfaceInfo returned %+v", preparedInfo)
 
-	// Use the fallback network config as a last resort.
-	if len(preparedInfo) == 0 {
-		log.Infof("using fallback network config for container %q", machineID)
-		preparedInfo = container.FallbackInterfaceInfo()
+	return preparedInfo, nil
+}
+
+// finishNetworkConfig populates the ParentInterfaceName, DNSServers, and
+// DNSSearchDomains fields on each element, when they are not set. The given
+// bridgeDevice is used for ParentInterfaceName, while the DNS config is
+// discovered using localDNSServers. If interfaces has zero length,
+// container.FallbackInterfaceInfo() is used as fallback.
+func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	haveDNSConfig := false
+	if len(interfaces) == 0 {
+		// Use the fallback network config as a last resort.
+		interfaces = container.FallbackInterfaceInfo()
 	}
 
-	dnsServersFound := false
-	for _, info := range preparedInfo {
-		if len(info.DNSServers) > 0 {
-			dnsServersFound = true
-			break
+	results := make([]network.InterfaceInfo, len(interfaces))
+	for i, info := range interfaces {
+		if info.ParentInterfaceName == "" {
+			info.ParentInterfaceName = bridgeDevice
 		}
+		if len(info.DNSServers) > 0 {
+			haveDNSConfig = true
+		}
+		results[i] = info
 	}
-	if !dnsServersFound {
+
+	if !haveDNSConfig {
 		logger.Warningf("no DNS settings found, discovering the host settings")
 		dnsServers, searchDomain, err := localDNSServers()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		// Since the result is sorted, the first entry is the primary NIC.
-		preparedInfo[0].DNSServers = dnsServers
-		preparedInfo[0].DNSSearchDomains = []string{searchDomain}
+		// Since the result is sorted, the first entry is the primary NIC. Also,
+		// results always contains at least one element.
+		results[0].DNSServers = dnsServers
+		results[0].DNSSearchDomains = []string{searchDomain}
 		logger.Debugf(
 			"setting DNS servers %+v and domains %+v on container interface %q",
-			preparedInfo[0].DNSServers, preparedInfo[0].DNSSearchDomains, preparedInfo[0].InterfaceName,
+			results[0].DNSServers, results[0].DNSSearchDomains, results[0].InterfaceName,
 		)
 	}
 
-	return preparedInfo, nil
+	return results, nil
 }
 
 func releaseContainerAddresses(

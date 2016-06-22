@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -45,6 +46,11 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 			"agent-version": "2.0.0",
 		}),
 	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	baseConfig, err = baseConfig.Remove(controller.ControllerOnlyConfigAttributes)
 	c.Assert(err, jc.ErrorIsNil)
 	s.baseConfig = baseConfig
 	fake.Reset()
@@ -101,6 +107,12 @@ func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	expectedCfg, err = expectedCfg.Remove(controller.ControllerOnlyConfigAttributes)
+	c.Assert(err, jc.ErrorIsNil)
+
 	expected := expectedCfg.AllAttrs()
 	c.Assert(expected["authorized-keys"], gc.Equals, "ssh-key")
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
@@ -150,6 +162,12 @@ func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserPrefersUserSecrets(
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO(wallyworld) - we need to separate controller and model schemas
+	// Remove any remaining controller attributes from the env config.
+	expectedCfg, err = expectedCfg.Remove(controller.ControllerOnlyConfigAttributes)
+	c.Assert(err, jc.ErrorIsNil)
+
 	expected := expectedCfg.AllAttrs()
 	c.Assert(expected["username"], gc.Equals, "anotheruser")
 	c.Assert(expected["password"], gc.Equals, "anotherpassword")
@@ -337,8 +355,8 @@ func (p *fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 	return cfg, p.NextErr()
 }
 
-func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	p.MethodCall(p, "PrepareForCreateEnvironment", cfg)
+func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "PrepareForCreateEnvironment", controllerUUID, cfg)
 	return cfg, p.NextErr()
 }
 

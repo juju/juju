@@ -29,7 +29,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	corejujutesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -48,12 +48,12 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	testServer.AddGetResponse("/api/1.0/version/", http.StatusOK, "<html></html>")
 	testServer.Start()
 	suite.AddCleanup(func(*gc.C) { testServer.Close() })
-	testAttrs := corejujutesting.Attrs{}
+	testAttrs := coretesting.Attrs{}
 	for k, v := range maasEnvAttrs {
 		testAttrs[k] = v
 	}
 	testAttrs["maas-server"] = testServer.Server.URL
-	attrs := corejujutesting.FakeConfig().Merge(testAttrs)
+	attrs := coretesting.FakeConfig().Merge(testAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return NewEnviron(cfg)
@@ -682,7 +682,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: suite.controllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
@@ -699,7 +699,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
 	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: suite.controllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1505,7 +1505,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 
 	env := suite.makeEnviron(c, controller)
 	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: suite.controllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1623,7 +1623,7 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: suite.controllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your model(.|\n)*")
 }
@@ -1634,7 +1634,7 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
 	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: suite.controllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.

@@ -27,12 +27,11 @@ will not be affected by this command; it only affects the local client.
 By default, the controller is the current controller.
 
 Examples:
-
     juju logout
 
-See also:
-    change-user-password
-    login
+See Also:
+    juju change-user-password
+    juju login
 
 `
 
@@ -64,7 +63,7 @@ func (c *logoutCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *logoutCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
-	f.BoolVar(&c.Force, "force", false, "force logout when a locally recorded password is detected")
+	f.BoolVar(&c.Force, "force", false, "Force logout when a locally recorded password is detected")
 }
 
 // Run implements Command.Run.

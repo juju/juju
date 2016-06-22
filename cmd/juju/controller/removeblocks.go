@@ -33,15 +33,15 @@ A controller administrator is able to remove all the blocks that have been added
 in a Juju controller.
 
 See Also:
-    juju help block
-    juju help unblock
+    juju block
+    juju unblock
 `
 
 // Info implements Command.Info
 func (c *removeBlocksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-all-blocks",
-		Purpose: "remove all blocks in the Juju controller",
+		Purpose: "Remove all blocks in the Juju controller.",
 		Doc:     removeBlocksDoc,
 	}
 }

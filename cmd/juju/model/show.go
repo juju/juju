@@ -52,7 +52,7 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 func (c *showModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-model",
-		Purpose: "shows information about the current or specified model",
+		Purpose: "Shows information about the current or specified model.",
 		Doc:     showModelCommandDoc,
 	}
 }

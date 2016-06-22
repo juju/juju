@@ -108,7 +108,7 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 // PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (p EnvironProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 
@@ -146,7 +146,7 @@ func (p EnvironProvider) BootstrapConfig(args environs.BootstrapConfigParams) (*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.PrepareForCreateEnvironment(cfg)
+	return p.PrepareForCreateEnvironment(args.ControllerUUID, cfg)
 }
 
 // PrepareForBootstrap is specified in the EnvironProvider interface.
@@ -967,10 +967,8 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	var apiPort int
-	if args.InstanceConfig.Bootstrap != nil {
-		apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
-	} else {
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	if args.InstanceConfig.Controller != nil {
+		apiPort = args.InstanceConfig.Controller.Config.APIPort()
 	}
 	var groupNames = make([]nova.SecurityGroupName, 0)
 	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)

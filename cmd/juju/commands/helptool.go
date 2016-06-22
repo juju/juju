@@ -98,7 +98,7 @@ func (t *helpToolCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "help-tool",
 		Args:    "[tool]",
-		Purpose: "show help on a juju charm tool",
+		Purpose: "Show help on a Juju charm tool.",
 	}
 }
 

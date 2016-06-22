@@ -100,9 +100,10 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	env, err := environs.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		environs.PrepareParams{
-			ControllerName: attrs["name"].(string),
-			BaseConfig:     attrs,
-			CloudName:      "dummy",
+			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+			ControllerName:   attrs["name"].(string),
+			BaseConfig:       attrs,
+			CloudName:        "dummy",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -53,7 +53,7 @@ func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-subnet",
 		Args:    "<CIDR>|<provider-id> <space> [<zone1> <zone2> ...]",
-		Purpose: "add an existing subnet to Juju",
+		Purpose: "Add an existing subnet to Juju.",
 		Doc:     strings.TrimSpace(addCommandDoc),
 	}
 }

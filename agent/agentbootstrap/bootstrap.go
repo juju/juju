@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -92,16 +91,18 @@ func InitializeState(
 			Owner:           adminUser,
 			Config:          args.ControllerModelConfig,
 			Constraints:     args.ModelConstraints,
+			CloudName:       args.ControllerCloudName,
 			CloudRegion:     args.ControllerCloudRegion,
 			CloudCredential: args.ControllerCloudCredentialName,
 		},
-		CloudName:           args.ControllerCloudName,
-		Cloud:               args.ControllerCloud,
-		CloudCredentials:    cloudCredentials,
-		ModelConfigDefaults: args.ModelConfigDefaults,
-		MongoInfo:           info,
-		MongoDialOpts:       dialOpts,
-		Policy:              policy,
+		CloudName:        args.ControllerCloudName,
+		Cloud:            args.ControllerCloud,
+		CloudCredentials: cloudCredentials,
+		ControllerConfig: args.ControllerConfig,
+		LocalCloudConfig: args.LocalCloudConfig,
+		MongoInfo:        info,
+		MongoDialOpts:    dialOpts,
+		Policy:           policy,
 	})
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
@@ -143,7 +144,7 @@ func InitializeState(
 			attrs[k] = v
 		}
 	}
-	controllerUUID := controller.Config(args.ControllerModelConfig.AllAttrs()).ControllerUUID()
+	controllerUUID := args.ControllerConfig.ControllerUUID()
 	hostedModelConfig, err := modelmanager.ModelConfigCreator{}.NewModelConfig(
 		modelmanager.IsAdmin, controllerUUID, args.ControllerModelConfig, attrs,
 	)
@@ -154,6 +155,7 @@ func InitializeState(
 		Owner:           adminUser,
 		Config:          hostedModelConfig,
 		Constraints:     args.ModelConstraints,
+		CloudName:       args.ControllerCloudName,
 		CloudRegion:     args.ControllerCloudRegion,
 		CloudCredential: args.ControllerCloudCredentialName,
 	})

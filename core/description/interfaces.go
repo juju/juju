@@ -76,7 +76,9 @@ type User interface {
 	CreatedBy() names.UserTag
 	DateCreated() time.Time
 	LastConnection() time.Time
-	ReadOnly() bool
+	IsReadOnly() bool
+	IsReadWrite() bool
+	IsAdmin() bool
 }
 
 // Address represents an IP Address of some form.

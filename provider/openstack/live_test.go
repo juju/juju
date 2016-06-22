@@ -224,7 +224,7 @@ func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault 
 	defer env.Destroy()
 	// Bootstrap and start an instance.
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerUUID: s.ControllerUUID,
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := jujutesting.AssertStartInstance(c, env, s.ControllerUUID, "100")

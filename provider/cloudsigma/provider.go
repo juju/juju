@@ -77,7 +77,7 @@ func (environProvider) RestrictedConfigAttributes() []string {
 // additional configuration attributes are added to the config passed in
 // and returned.  This allows providers to add additional required config
 // for new environments that may be created in an existing juju server.
-func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+func (environProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
 	// Not even sure if this will ever make sense.
 	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
 }

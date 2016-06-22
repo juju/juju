@@ -25,8 +25,7 @@ import (
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.
 const collectMetricsDoc = `
-collect-metrics
-trigger metrics collection
+Trigger metrics collection
 
 This command waits for the metric collection to finish before returning.
 You may abort this command and it will continue to run asynchronously.
@@ -58,7 +57,7 @@ func (c *collectMetricsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "collect-metrics",
 		Args:    "[application or unit]",
-		Purpose: "collect metrics on the given unit/application",
+		Purpose: "Collect metrics on the given unit/application.",
 		Doc:     collectMetricsDoc,
 	}
 }

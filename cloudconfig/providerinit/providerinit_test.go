@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/paths"
@@ -142,8 +141,10 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oldAttrs := cfg.AllAttrs()
 	icfg := &instancecfg.InstanceConfig{
-		Bootstrap:  &instancecfg.BootstrapConfig{},
-		Controller: &instancecfg.ControllerConfig{},
+		Bootstrap: &instancecfg.BootstrapConfig{},
+		Controller: &instancecfg.ControllerConfig{
+			Config: testing.FakeControllerBootstrapConfig(),
+		},
 	}
 	err = instancecfg.FinishInstanceConfig(icfg, cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,13 +158,13 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
-	controllerCfg := controller.ControllerConfig(cfg.AllAttrs())
+	controllerCfg := icfg.Controller.Config
+	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
 	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
 	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
-	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
+	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, testing.FakeControllerBootstrapConfig()["ca-private-key"])
 
 	delete(oldAttrs, "admin-secret")
-	delete(oldAttrs, "ca-private-key")
 	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), jc.DeepEquals, oldAttrs)
 	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
 	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
@@ -235,9 +236,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
-		controllerCfg := controller.ControllerConfig(envConfig.AllAttrs())
+		controllerCfg := testing.FakeControllerBootstrapConfig()
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
+				ControllerConfig:      controllerCfg,
 				ControllerModelConfig: envConfig,
 			},
 			StateServingInfo: params.StateServingInfo{
