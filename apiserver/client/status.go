@@ -608,14 +608,11 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
 	}
 
-	versions := newVersionCounts()
+	versions := make([]string, 0, len(processedStatus.Units))
 	for _, unit := range processedStatus.Units {
-		versions.Add(unit.WorkloadVersion)
+		versions = append(versions, unit.WorkloadVersion)
 	}
-	processedStatus.WorkloadVersion = versions.Commonest()
-	if versions.Len() > 1 {
-		processedStatus.WorkloadVersion += "*"
-	}
+	processedStatus.WorkloadVersion = combineUnitVersions(versions)
 
 	return processedStatus
 }
@@ -859,28 +856,22 @@ func processLife(entity lifer) string {
 	return ""
 }
 
+// versionCounts stores the different versions reported by units, with
+// their counts so that we can find the most common one.
 type versionCounts struct {
 	versions []string
 	counts   map[string]int
 }
 
-func newVersionCounts() *versionCounts {
-	return &versionCounts{counts: make(map[string]int)}
-}
-
-func (v *versionCounts) Add(version string) {
-	v.counts[version]++
-	if v.counts[version] == 1 {
-		v.versions = append(v.versions, version)
-	}
-}
-
+// Len implements sort.Interface.
 func (v *versionCounts) Len() int { return len(v.versions) }
 
+// Swap implements sort.Interface.
 func (v *versionCounts) Swap(a, b int) {
 	v.versions[a], v.versions[b] = v.versions[b], v.versions[a]
 }
 
+// Less implements sort.Interface.
 func (v *versionCounts) Less(a, b int) bool {
 	// We want the items to sort so that the most frequent versions are
 	// earliest, and within that in lexicographic order.
@@ -906,10 +897,26 @@ func (v *versionCounts) Less(a, b int) bool {
 	return count1 > count2
 }
 
-func (v *versionCounts) Commonest() string {
-	if len(v.versions) == 0 {
+// combineUnitVersions determines the application's version from its
+// units' versions. If they're different, it picks the most common one
+// and indicates that the unit versions are mixed with a *.
+func combineUnitVersions(unitVersions []string) string {
+	if len(unitVersions) == 0 {
 		return ""
 	}
-	sort.Sort(v)
-	return v.versions[0]
+
+	vc := versionCounts{counts: make(map[string]int)}
+	for _, version := range unitVersions {
+		vc.counts[version]++
+		if vc.counts[version] == 1 {
+			vc.versions = append(vc.versions, version)
+		}
+	}
+
+	sort.Sort(&vc)
+	result := vc.versions[0]
+	if vc.Len() > 1 {
+		result += "*"
+	}
+	return result
 }
