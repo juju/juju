@@ -59,7 +59,7 @@ func (i *action) Completed() time.Time {
 
 // Status implements Action.
 func (i *action) Status() string {
-	return i._
+	return i.Status_
 }
 
 // Message implements Action.
@@ -88,14 +88,14 @@ type ActionArgs struct {
 
 func newAction(args ActionArgs) *action {
 	return &action{
-		Receiver_:    args.Receiver,
-		Name_:        args.Name,
-		Parameterrs_: args.Parameters,
-		Enqueued_:    args.Enqueued,
-		Started_:     args.Started,
-		Completed_:   args.Completed,
-		Status_:      args.Status,
-		Message_:     args.Message,
+		Receiver_:   args.Receiver,
+		Name_:       args.Name,
+		Parameters_: args.Parameters,
+		Enqueued_:   args.Enqueued,
+		Started_:    args.Started,
+		Completed_:  args.Completed,
+		Status_:     args.Status,
+		Message_:    args.Message,
 	}
 }
 
@@ -157,25 +157,29 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		return nil, errors.Annotatef(err, "action v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	dnsserversInterface := valid["dnsservers"].([]interface{})
-	dnsservers := make([]string, len(dnsserversInterface))
-	for i, d := range dnsserversInterface {
-		dnsservers[i] = d.(string)
+	enqString := valid["enqueued"].(string)
+	startString := valid["started"].(string)
+	compString := valid["completed"].(string)
+	timeFormat := "2006-01-02 15:04:05.999999999 -0700 MST"
+	enqueued, err := time.Parse(timeFormat, enqString)
+	if err != nil {
+		return nil, errors.Annotatef(err, "action v1 schema check failed")
 	}
-	dnssearchInterface := valid["dnssearchdomains"].([]interface{})
-	dnssearch := make([]string, len(dnssearchInterface))
-	for i, d := range dnssearchInterface {
-		dnssearch[i] = d.(string)
+	started, err := time.Parse(timeFormat, startString)
+	if err != nil {
+		return nil, errors.Annotatef(err, "action v1 schema check failed")
+	}
+	completed, err := time.Parse(timeFormat, compString)
+	if err != nil {
+		return nil, errors.Annotatef(err, "action v1 schema check failed")
 	}
 	return &action{
-		ProviderID_:       valid["provider-id"].(string),
-		DeviceName_:       valid["devicename"].(string),
-		MachineID_:        valid["machineid"].(string),
-		SubnetCIDR_:       valid["subnetcidr"].(string),
-		ConfigMethod_:     valid["configmethod"].(string),
-		Value_:            valid["value"].(string),
-		DNSServers_:       dnsservers,
-		DNSSearchDomains_: dnssearch,
-		GatewayAddress_:   valid["gatewayaction"].(string),
+		Receiver_:   valid["receiver"].(string),
+		Name_:       valid["name"].(string),
+		Parameters_: valid["parameters"].(map[string]interface{}),
+		Enqueued_:   enqueued,
+		Started_:    started,
+		Completed_:  completed,
+		Results_:    valid["results"].(map[string]interface{}),
 	}, nil
 }
