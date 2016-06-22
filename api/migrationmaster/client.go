@@ -78,9 +78,10 @@ func (c *Client) GetMigrationStatus() (migration.MigrationStatus, error) {
 	}
 
 	return migration.MigrationStatus{
-		ModelUUID: modelTag.Id(),
-		Attempt:   status.Attempt,
-		Phase:     phase,
+		ModelUUID:        modelTag.Id(),
+		Attempt:          status.Attempt,
+		Phase:            phase,
+		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: controllerTag,
 			Addrs:         target.Addrs,

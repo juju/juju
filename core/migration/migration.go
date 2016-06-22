@@ -3,7 +3,11 @@
 
 package migration
 
-import "github.com/juju/version"
+import (
+	"time"
+
+	"github.com/juju/version"
+)
 
 // MigrationStatus returns the details for a migration as needed by
 // the migration master worker.
@@ -17,6 +21,10 @@ type MigrationStatus struct {
 
 	// Phases indicates the current migration phase.
 	Phase Phase
+
+	// PhaseChangedTime indicates the time the phase was changed to
+	// its current value.
+	PhaseChangedTime time.Time
 
 	// TargetInfo contains the details of how to connect to the target
 	// controller.

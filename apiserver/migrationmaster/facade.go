@@ -97,8 +97,9 @@ func (api *API) GetMigrationStatus() (params.FullMigrationStatus, error) {
 				Password:      target.Password,
 			},
 		},
-		Attempt: attempt,
-		Phase:   phase.String(),
+		Attempt:          attempt,
+		Phase:            phase.String(),
+		PhaseChangedTime: mig.PhaseChangedTime(),
 	}, nil
 }
 
