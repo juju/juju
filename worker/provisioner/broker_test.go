@@ -101,8 +101,14 @@ type patcher interface {
 }
 
 func patchResolvConf(s patcher, c *gc.C) {
-	fakeResolvConf := filepath.Join(c.MkDir(), "resolv.conf")
-	err := ioutil.WriteFile(fakeResolvConf, []byte("nameserver ns1.dummy\n"), 0644)
+	const fakeConf = `
+nameserver ns1.dummy
+search dummy
+nameserver ns2.dummy
+search invalid
+`
+	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
+	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
 }

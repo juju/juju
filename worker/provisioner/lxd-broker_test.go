@@ -124,11 +124,11 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		CIDR:                "0.1.2.0/24",
 		InterfaceName:       "dummy0",
 		ParentInterfaceName: "lxdbr0",
-		DNSServers:          network.NewAddresses("ns1.dummy"),
-		DNSSearchDomains:    []string{""},
 		MACAddress:          "aa:bb:cc:dd:ee:ff",
 		Address:             network.NewAddress("0.1.2.3"),
 		GatewayAddress:      network.NewAddress("0.1.2.1"),
+		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains:    []string{"dummy", "invalid"},
 	})
 }
 
@@ -147,8 +147,8 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 		InterfaceType:       network.EthernetInterface,
 		ConfigType:          network.ConfigDHCP,
 		ParentInterfaceName: "lxdbr0",
-		DNSServers:          network.NewAddresses("ns1.dummy"),
-		DNSSearchDomains:    []string{""},
+		DNSServers:          network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		DNSSearchDomains:    []string{"dummy", "invalid"},
 	}})
 }
 
