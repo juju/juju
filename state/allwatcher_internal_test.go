@@ -3070,11 +3070,8 @@ func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
 		maxDuration = testing.ShortWait
 	}
 
-	now := time.Now()
-	maxTime := now.Add(maxDuration)
 done:
 	for {
-		remaining := maxTime.Sub(now)
 		select {
 		case deltas := <-tw.deltas:
 			if len(deltas) > 0 {
@@ -3083,8 +3080,7 @@ done:
 					break done
 				}
 			}
-			now = time.Now()
-		case <-time.After(remaining):
+		case <-time.After(maxDuration):
 			// timed out
 			break done
 		}
@@ -3121,7 +3117,7 @@ done:
 				break done
 			}
 			count += len(d)
-		case <-time.After(testing.ShortWait):
+		case <-time.After(testing.LongWait):
 			// no change detected
 			break done
 		}
