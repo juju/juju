@@ -5,6 +5,7 @@ package logfwd
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -15,25 +16,42 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("LogForwarding", 1, NewLogForwardingAPI)
+	common.RegisterStandardFacade("LogForwarding", 1, func(st *state.State, _ *common.Resources, auth common.Authorizer) (*LogForwardingAPI, error) {
+		return NewLogForwardingAPI(&stateAdapter{st}, auth)
+	})
+}
+
+// LastSentTracker exposes the functionality of state.LastSentLogger.
+type LastSentTracker interface {
+	io.Closer
+
+	// Get retrieves the timestamp.
+	Get() (time.Time, error)
+
+	// Set records the timestamp.
+	Set(time.Time) error
+}
+
+// LogForwardingState supports interacting with state for the
+// LogForwarding facade.
+type LogForwardingState interface {
+	// NewLastSentTracker creates a new tracker for the given model
+	// and log sink.
+	NewLastSentTracker(tag names.ModelTag, sink string) (LastSentTracker, error)
 }
 
 // LogForwardingAPI is the concrete implementation of the api end point.
 type LogForwardingAPI struct {
-	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	state LogForwardingState
 }
 
 // NewLogForwardingAPI creates a new server-side logger API end point.
-func NewLogForwardingAPI(st *state.State, res *common.Resources, auth common.Authorizer) (*LogForwardingAPI, error) {
-	if !auth.AuthMachineAgent() {
+func NewLogForwardingAPI(st LogForwardingState, auth common.Authorizer) (*LogForwardingAPI, error) {
+	if !auth.AuthMachineAgent() { // the controller's machine agent
 		return nil, common.ErrPerm
 	}
 	api := &LogForwardingAPI{
-		state:      st,
-		resources:  res,
-		authorizer: auth,
+		state: st,
 	}
 	return api, nil
 }
@@ -52,14 +70,14 @@ func (api *LogForwardingAPI) GetLastSent(args params.LogForwardingGetLastSentPar
 
 func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwardingGetLastSentResult {
 	var res params.LogForwardingGetLastSentResult
-	lsl, err := api.newLastSentLogger(id)
+	lst, err := api.newLastSentTracker(id)
 	if err != nil {
 		res.Error = common.ServerError(err)
 		return res
 	}
-	defer lsl.Close()
+	defer lst.Close()
 
-	ts, err := lsl.Get()
+	ts, err := lst.Get()
 	if err != nil {
 		res.Error = common.ServerError(err)
 		if errors.Cause(err) == state.ErrNeverForwarded {
@@ -84,30 +102,43 @@ func (api *LogForwardingAPI) SetLastSent(args params.LogForwardingSetLastSentPar
 }
 
 func (api *LogForwardingAPI) set(arg params.LogForwardingSetLastSentParam) *params.Error {
-	lsl, err := api.newLastSentLogger(arg.LogForwardingID)
+	lst, err := api.newLastSentTracker(arg.LogForwardingID)
 	if err != nil {
 		return common.ServerError(err)
 	}
-	defer lsl.Close()
+	defer lst.Close()
 
-	err = lsl.Set(arg.Timestamp)
+	err = lst.Set(arg.Timestamp)
 	return common.ServerError(err)
 }
 
-func (api *LogForwardingAPI) newLastSentLogger(id params.LogForwardingID) (*lastSentCloser, error) {
+func (api *LogForwardingAPI) newLastSentTracker(id params.LogForwardingID) (LastSentTracker, error) {
 	tag, err := names.ParseModelTag(id.ModelTag)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := api.state.GetModel(tag); err != nil {
-		return nil, err
-	}
-	st, err := api.state.ForModel(tag)
+	tracker, err := api.state.NewLastSentTracker(tag, id.Sink)
 	if err != nil {
 		return nil, err
 	}
-	lastSent := state.NewLastSentLogger(st, id.Sink)
-	return &lastSentCloser{lastSent, st}, nil
+	return tracker, nil
+}
+
+type stateAdapter struct {
+	*state.State
+}
+
+// NewLastSentTracker implements LogForwardingState.
+func (st stateAdapter) NewLastSentTracker(tag names.ModelTag, sink string) (LastSentTracker, error) {
+	if _, err := st.GetModel(tag); err != nil {
+		return nil, err
+	}
+	loggingState, err := st.ForModel(tag)
+	if err != nil {
+		return nil, err
+	}
+	lastSent := state.NewLastSentLogger(loggingState, sink)
+	return &lastSentCloser{lastSent, loggingState}, nil
 }
 
 type lastSentCloser struct {

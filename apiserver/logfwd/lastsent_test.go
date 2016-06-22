@@ -6,6 +6,8 @@ package logfwd_test
 import (
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -14,60 +16,53 @@ import (
 	"github.com/juju/juju/apiserver/logfwd"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type LastSentSuite struct {
-	jujutesting.JujuConnSuite
+	testing.IsolationSuite
 
-	// These are raw State objects. Use them for setup and assertions, but
-	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
-	resources  *common.Resources
+	stub       *testing.Stub
+	state      *stubState
+	machineTag names.MachineTag
 	authorizer apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&LastSentSuite{})
 
 func (s *LastSentSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.IsolationSuite.SetUpTest(c)
 
-	// Create a machine to work with
-	var err error
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
+	s.stub = &testing.Stub{}
+	s.state = &stubState{stub: s.stub}
+	s.machineTag = names.NewMachineTag("99")
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.rawMachine.Tag(),
+		Tag: s.machineTag,
 	}
 }
 
 func (s *LastSentSuite) TestAuthRefusesUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = s.AdminUserTag(c)
+	anAuthorizer.Tag = names.NewUserTag("bob")
 
-	_, err := logfwd.NewLogForwardingAPI(s.State, s.resources, anAuthorizer)
+	_, err := logfwd.NewLogForwardingAPI(s.state, anAuthorizer)
 
 	c.Check(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *LastSentSuite) TestGetLastSentFound(c *gc.C) {
-	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	s.addModel(c, "other-model", model)
+func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 	ts := time.Unix(12345, 0)
-	s.setLastSent(c, modelTag, "spam", ts)
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
+	tracker := s.state.addTracker()
+	tracker.ReturnGet = ts.UTC()
+	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
+	modelTag := names.NewModelTag(model)
 
 	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
 		IDs: []params.LogForwardingID{{
-			ModelTag: modelTag,
+			ModelTag: modelTag.String(),
 			Sink:     "spam",
 		}},
 	})
@@ -77,28 +72,33 @@ func (s *LastSentSuite) TestGetLastSentFound(c *gc.C) {
 			Timestamp: ts.UTC(),
 		}},
 	})
+	s.stub.CheckCallNames(c, "NewLastSentTracker", "Get", "Close")
+	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
 }
 
 func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
-	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	s.addModel(c, "other-model", model)
+	trackerSpam := s.state.addTracker()
 	tsSpam := time.Unix(12345, 0)
+	trackerSpam.ReturnGet = tsSpam.UTC()
+	trackerEggs := s.state.addTracker()
 	tsEggs := time.Unix(12345, 54321)
-	s.setLastSent(c, modelTag, "spam", tsSpam)
-	s.setLastSent(c, modelTag, "eggs", tsEggs)
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
+	trackerEggs.ReturnGet = tsEggs.UTC()
+	s.state.addTracker() // ham
+	s.stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, state.ErrNeverForwarded)
+	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
+	modelTag := names.NewModelTag(model)
 
 	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
 		IDs: []params.LogForwardingID{{
-			ModelTag: modelTag,
+			ModelTag: modelTag.String(),
 			Sink:     "spam",
 		}, {
-			ModelTag: modelTag,
+			ModelTag: modelTag.String(),
 			Sink:     "eggs",
 		}, {
-			ModelTag: modelTag,
+			ModelTag: modelTag.String(),
 			Sink:     "ham",
 		}},
 	})
@@ -115,151 +115,77 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 			},
 		}},
 	})
+	s.stub.CheckCallNames(c,
+		"NewLastSentTracker", "Get", "Close",
+		"NewLastSentTracker", "Get", "Close",
+		"NewLastSentTracker", "Get", "Close",
+	)
+	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
+	s.stub.CheckCall(c, 3, "NewLastSentTracker", modelTag, "eggs")
+	s.stub.CheckCall(c, 6, "NewLastSentTracker", modelTag, "ham")
 }
 
-func (s *LastSentSuite) TestGetLastSentSinkNotFound(c *gc.C) {
+func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
+	s.state.addTracker()
+	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	s.addModel(c, "other-model", model)
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
-		IDs: []params.LogForwardingID{{
-			ModelTag: modelTag,
-			Sink:     "spam",
-		}},
-	})
-
-	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
-		Results: []params.LogForwardingGetLastSentResult{{
-			Error: &params.Error{
-				Message: `cannot find timestamp of the last forwarded record`,
-				Code:    params.CodeNotFound,
-			},
-		}},
-	})
-}
-
-func (s *LastSentSuite) TestGetLastSentBadModel(c *gc.C) {
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
-		IDs: []params.LogForwardingID{{
-			ModelTag: "deadbeef-2f18-4fd2-967d-db9663db7bea",
-			Sink:     "spam",
-		}},
-	})
-
-	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
-		Results: []params.LogForwardingGetLastSentResult{{
-			Error: &params.Error{
-				Message: `"deadbeef-2f18-4fd2-967d-db9663db7bea" is not a valid tag`,
-			},
-		}},
-	})
-}
-
-func (s *LastSentSuite) TestGetLastSentModelNotFound(c *gc.C) {
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
-		IDs: []params.LogForwardingID{{
-			ModelTag: "model-deadbeef-2f18-4fd2-967d-db9663db7bea",
-			Sink:     "spam",
-		}},
-	})
-
-	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
-		Results: []params.LogForwardingGetLastSentResult{{
-			Error: &params.Error{
-				Message: `model not found`,
-				Code:    params.CodeNotFound,
-			},
-		}},
-	})
-}
-
-func (s *LastSentSuite) TestSetLastSentNew(c *gc.C) {
-	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	s.addModel(c, "other-model", model)
-	expected := time.Unix(12345, 0)
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	modelTag := names.NewModelTag(model)
+	ts := time.Unix(12345, 0)
 
 	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
 		Params: []params.LogForwardingSetLastSentParam{{
 			LogForwardingID: params.LogForwardingID{
-				ModelTag: modelTag,
+				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			Timestamp: expected,
+			Timestamp: ts,
 		}},
 	})
 
-	ts := s.getLastSent(c, modelTag, "spam")
-	c.Check(ts, jc.DeepEquals, expected.UTC())
 	c.Check(res, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}},
 	})
-}
-
-func (s *LastSentSuite) TestSetLastSentReplace(c *gc.C) {
-	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	s.addModel(c, "other-model", model)
-	expected := time.Unix(12345, 54321)
-	s.setLastSent(c, modelTag, "spam", time.Unix(12345, 0))
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
-		Params: []params.LogForwardingSetLastSentParam{{
-			LogForwardingID: params.LogForwardingID{
-				ModelTag: modelTag,
-				Sink:     "spam",
-			},
-			Timestamp: expected,
-		}},
-	})
-
-	ts := s.getLastSent(c, modelTag, "spam")
-	c.Check(ts, jc.DeepEquals, expected.UTC())
-	c.Check(res, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: nil,
-		}},
-	})
+	s.stub.CheckCallNames(c, "NewLastSentTracker", "Set", "Close")
+	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
+	s.stub.CheckCall(c, 1, "Set", ts)
 }
 
 func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
-	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	s.addModel(c, "other-model", model)
-	expectedSpam := time.Unix(12345, 54321)
-	expectedEggs := time.Unix(98765, 0)
-	s.setLastSent(c, modelTag, "spam", time.Unix(12345, 0))
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
+	s.state.addTracker() // spam
+	s.state.addTracker() // eggs
+	s.state.addTracker() // ham
+	failure := errors.New("<failed>")
+	s.stub.SetErrors(nil, nil, nil, nil, failure)
+	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
+	modelTag := names.NewModelTag(model)
+	tsSpam := time.Unix(12345, 54321)
+	tsEggs := time.Unix(98765, 0)
+	tsHam := time.Unix(55555, 1)
 
 	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
 		Params: []params.LogForwardingSetLastSentParam{{
 			LogForwardingID: params.LogForwardingID{
-				ModelTag: modelTag,
+				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			Timestamp: expectedSpam,
+			Timestamp: tsSpam,
 		}, {
 			LogForwardingID: params.LogForwardingID{
-				ModelTag: modelTag,
+				ModelTag: modelTag.String(),
 				Sink:     "eggs",
 			},
-			Timestamp: expectedEggs,
+			Timestamp: tsEggs,
+		}, {
+			LogForwardingID: params.LogForwardingID{
+				ModelTag: modelTag.String(),
+				Sink:     "ham",
+			},
+			Timestamp: tsHam,
 		}},
 	})
 
@@ -267,97 +193,79 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}, {
+			Error: common.ServerError(failure),
+		}, {
 			Error: nil,
 		}},
 	})
-	ts := s.getLastSent(c, modelTag, "spam")
-	c.Check(ts, jc.DeepEquals, expectedSpam.UTC())
-	ts = s.getLastSent(c, modelTag, "eggs")
-	c.Check(ts, jc.DeepEquals, expectedEggs.UTC())
+	s.stub.CheckCallNames(c,
+		"NewLastSentTracker", "Set", "Close",
+		"NewLastSentTracker", "Set", "Close",
+		"NewLastSentTracker", "Set", "Close",
+	)
+	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
+	s.stub.CheckCall(c, 1, "Set", tsSpam)
+	s.stub.CheckCall(c, 3, "NewLastSentTracker", modelTag, "eggs")
+	s.stub.CheckCall(c, 4, "Set", tsEggs)
+	s.stub.CheckCall(c, 6, "NewLastSentTracker", modelTag, "ham")
+	s.stub.CheckCall(c, 7, "Set", tsHam)
 }
 
-func (s *LastSentSuite) TestSetLastSentBadModel(c *gc.C) {
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+type stubState struct {
+	stub *testing.Stub
 
-	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
-		Params: []params.LogForwardingSetLastSentParam{{
-			LogForwardingID: params.LogForwardingID{
-				ModelTag: "deadbeef-2f18-4fd2-967d-db9663db7bea",
-				Sink:     "spam",
-			},
-			Timestamp: time.Unix(12345, 54321),
-		}},
-	})
-
-	c.Check(res, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: &params.Error{
-				Message: `"deadbeef-2f18-4fd2-967d-db9663db7bea" is not a valid tag`,
-			},
-		}},
-	})
+	ReturnNewLastSentTracker []logfwd.LastSentTracker
 }
 
-func (s *LastSentSuite) TestSetLastSentModelNotFound(c *gc.C) {
-	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
-	modelTag := names.NewModelTag(model).String()
-	api, err := logfwd.NewLogForwardingAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
-		Params: []params.LogForwardingSetLastSentParam{{
-			LogForwardingID: params.LogForwardingID{
-				ModelTag: modelTag,
-				Sink:     "spam",
-			},
-			Timestamp: time.Unix(12345, 54321),
-		}},
-	})
-
-	c.Check(res, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{
-			Error: &params.Error{
-				Message: `model not found`,
-				Code:    params.CodeNotFound,
-			},
-		}},
-	})
+func (s *stubState) addTracker() *stubTracker {
+	tracker := &stubTracker{stub: s.stub}
+	s.ReturnNewLastSentTracker = append(s.ReturnNewLastSentTracker, tracker)
+	return tracker
 }
 
-func (s *LastSentSuite) addModel(c *gc.C, name, uuid string) {
-	_, modelState, err := s.State.NewModel(state.ModelArgs{
-		Config: testing.CustomModelConfig(c, testing.Attrs{
-			"name": name,
-			"uuid": uuid,
-		}),
-		Owner: s.AdminUserTag(c),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { modelState.Close() })
+func (s *stubState) NewLastSentTracker(tag names.ModelTag, sink string) (logfwd.LastSentTracker, error) {
+	s.stub.AddCall("NewLastSentTracker", tag, sink)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+
+	if len(s.ReturnNewLastSentTracker) == 0 {
+		panic("ran out of trackers")
+	}
+	tracker := s.ReturnNewLastSentTracker[0]
+	s.ReturnNewLastSentTracker = s.ReturnNewLastSentTracker[1:]
+	return tracker, nil
 }
 
-func (s *LastSentSuite) getLastSent(c *gc.C, model, sink string) time.Time {
-	tag, err := names.ParseModelTag(model)
-	c.Assert(err, jc.ErrorIsNil)
-	st, err := s.State.ForModel(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	lsl := state.NewLastSentLogger(st, sink)
+type stubTracker struct {
+	stub *testing.Stub
 
-	ts, err := lsl.Get()
-	c.Assert(err, jc.ErrorIsNil)
-	return ts
+	ReturnGet time.Time
 }
 
-func (s *LastSentSuite) setLastSent(c *gc.C, model, sink string, timestamp time.Time) {
-	tag, err := names.ParseModelTag(model)
-	c.Assert(err, jc.ErrorIsNil)
-	st, err := s.State.ForModel(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	lsl := state.NewLastSentLogger(st, sink)
+func (s *stubTracker) Get() (time.Time, error) {
+	s.stub.AddCall("Get")
+	if err := s.stub.NextErr(); err != nil {
+		return time.Time{}, err
+	}
 
-	err = lsl.Set(timestamp)
-	c.Assert(err, jc.ErrorIsNil)
+	return s.ReturnGet, nil
+}
+
+func (s *stubTracker) Set(ts time.Time) error {
+	s.stub.AddCall("Set", ts)
+	if err := s.stub.NextErr(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *stubTracker) Close() error {
+	s.stub.AddCall("Close")
+	if err := s.stub.NextErr(); err != nil {
+		return err
+	}
+
+	return nil
 }
