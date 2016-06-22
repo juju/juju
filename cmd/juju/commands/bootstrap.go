@@ -348,9 +348,17 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	// Custom clouds may not have explicitly declared support for any auth types.
+	// Custom clouds may not have explicitly declared support for any auth-
+	// types, in which case we'll assume that they support everything that
+	// the provider supports.
 	if len(cloud.AuthTypes) == 0 {
-		cloud.AuthTypes = append(cloud.AuthTypes, jujucloud.EmptyAuthType)
+		provider, err := environs.Provider(cloud.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for authType := range provider.CredentialSchemas() {
+			cloud.AuthTypes = append(cloud.AuthTypes, authType)
+		}
 	}
 
 	// Get the credentials and region name.

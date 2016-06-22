@@ -66,7 +66,7 @@ func init() {
 	environs.RegisterProvider("no-cloud-region-detection", noCloudRegionDetectionProvider{})
 	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
-	environs.RegisterProvider("many-credentials", manyCredentialsProvider{})
+	environs.RegisterProvider("many-credentials", manyCredentialsProvider{dummyProvider})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
@@ -946,6 +946,25 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	c.Assert(stderr, gc.Matches, `region "not-dummy" not found \(expected one of \["dummy"\]\)Specify an alternative region, or try "juju update-clouds".`)
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c *gc.C) {
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	s.patchVersionAndSeries(c, "raring")
+	s.store.Credentials = map[string]cloud.CloudCredential{
+		"many-credentials-no-auth-types": {
+			AuthCredentials: map[string]cloud.Credential{"one": cloud.NewCredential("one", nil)},
+		},
+	}
+	coretesting.RunCommand(c, s.newBootstrapCommand(), "ctrl",
+		"many-credentials-no-auth-types",
+		"--credential", "one",
+	)
+	c.Assert(bootstrap.args.Cloud.AuthTypes, jc.SameContents, []cloud.AuthType{"one", "two"})
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	resetJujuXDGDataHome(c)
 
@@ -1099,21 +1118,22 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), jc.DeepEquals, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
-Cloud                        Credentials  Default Region
-aws                          fred         us-west-1
-                             mary         
-aws-china                                 
-aws-gov                                   
-azure                                     
-azure-china                               
-cloudsigma                                
-google                                    
-joyent                                    
-rackspace                                 
-localhost                                 
-dummy-cloud                  joe          home
-dummy-cloud-with-config                   
-dummy-cloud-without-regions               
+Cloud                           Credentials  Default Region
+aws                             fred         us-west-1
+                                mary         
+aws-china                                    
+aws-gov                                      
+azure                                        
+azure-china                                  
+cloudsigma                                   
+google                                       
+joyent                                       
+rackspace                                    
+localhost                                    
+dummy-cloud                     joe          home
+dummy-cloud-with-config                      
+dummy-cloud-without-regions                  
+many-credentials-no-auth-types               
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
@@ -1179,6 +1199,8 @@ clouds:
         config:
             broken: Bootstrap
             controller: not-a-bool
+    many-credentials-no-auth-types:
+        type: many-credentials
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1297,7 +1319,8 @@ func (manyCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
 func (manyCredentialsProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
-			"one": {}, "two": {},
+			"one": cloud.NewCredential("one", nil),
+			"two": {},
 		},
 	}, nil
 }
