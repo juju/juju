@@ -761,18 +761,19 @@ func (e *exporter) actions() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	e.logger.Debugf("read %d ip actions", len(actions))
-	for _, addr := range actions {
+	e.logger.Debugf("read %d actions", len(actions))
+	for _, action := range actions {
+		results, message := action.Results()
 		e.model.AddAction(description.ActionArgs{
-			ProviderID:       string(addr.ProviderID()),
-			DeviceName:       addr.DeviceName(),
-			MachineID:        addr.MachineID(),
-			SubnetCIDR:       addr.SubnetCIDR(),
-			ConfigMethod:     string(addr.ConfigMethod()),
-			Value:            addr.Value(),
-			DNSServers:       addr.DNSServers(),
-			DNSSearchDomains: addr.DNSSearchDomains(),
-			GatewayAddress:   addr.GatewayAddress(),
+			Receiver:   action.Receiver(),
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+			Enqueued:   action.Enqueued(),
+			Started:    action.Started(),
+			Completed:  action.Completed(),
+			Status:     string(action.Status()),
+			Results:    results,
+			Message:    message,
 		})
 	}
 	return nil
