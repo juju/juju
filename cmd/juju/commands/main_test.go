@@ -443,6 +443,7 @@ var commandNames = []string{
 	"plans",
 	"publish",
 	"register",
+	"relate", //alias for add-relation
 	"remove-all-blocks",
 	"remove-application", // alias for destroy-application
 	"remove-backup",
