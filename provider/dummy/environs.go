@@ -711,6 +711,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 					Owner:           names.NewUserTag("admin@local"),
 					Config:          icfg.Bootstrap.ControllerModelConfig,
 					Constraints:     icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudName:       icfg.Bootstrap.ControllerCloudName,
 					CloudRegion:     icfg.Bootstrap.ControllerCloudRegion,
 					CloudCredential: icfg.Bootstrap.ControllerCloudCredentialName,
 				},

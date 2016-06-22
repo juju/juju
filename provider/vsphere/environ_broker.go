@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -24,10 +23,6 @@ const (
 	DefaultCpuPower = uint64(2000)
 	DefaultMemMb    = uint64(2000)
 )
-
-func isController(mcfg *instancecfg.InstanceConfig) bool {
-	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
-}
 
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
@@ -134,10 +129,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			continue
 		}
 		apiPort := 0
-		if isController(args.InstanceConfig) && args.InstanceConfig.Bootstrap != nil {
-			// TODO(axw) 2016-06-01 #1587739
-			// We should be doing this for non-bootstrap machines as well.
-			apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
 		}
 		spec := &instanceSpec{
 			machineID:      machineID,
@@ -146,7 +139,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			img:            img,
 			userData:       userData,
 			sshKey:         args.InstanceConfig.AuthorizedKeys,
-			isController:   isController(args.InstanceConfig),
+			isController:   args.InstanceConfig.Controller != nil,
 			controllerUUID: args.ControllerUUID,
 			apiPort:        apiPort,
 		}

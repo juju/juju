@@ -967,10 +967,8 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	var apiPort int
-	if args.InstanceConfig.Bootstrap != nil {
-		apiPort = args.InstanceConfig.Bootstrap.StateServingInfo.APIPort
-	} else {
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	if args.InstanceConfig.Controller != nil {
+		apiPort = args.InstanceConfig.Controller.Config.APIPort()
 	}
 	var groupNames = make([]nova.SecurityGroupName, 0)
 	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)

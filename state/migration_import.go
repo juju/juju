@@ -43,20 +43,18 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Create the config attributes of the model to import.
-	attr, err := st.ControllerConfig()
+	// Create the model.
+	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	for k, v := range model.Config() {
-		attr[k] = v
-	}
-	// Create the model.
-	cfg, err := config.New(config.NoDefaults, attr)
+	controllerInfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	dbModel, newSt, err := st.NewModel(ModelArgs{
+		// TODO(wallyworld) - cloud name needs to be on model
+		CloudName:     controllerInfo.CloudName,
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
 		Owner:         model.Owner(),

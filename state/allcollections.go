@@ -150,6 +150,10 @@ func allCollections() collectionSchema {
 			}},
 		},
 
+		// This collection holds settings from various sources which
+		// are inherited and then forked by new models.
+		globalSettingsC: {global: true},
+
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
 		metricsC: {global: true},
@@ -186,6 +190,9 @@ func allCollections() collectionSchema {
 		modelUserLastConnectionC: {
 			rawAccess: true,
 		},
+
+		// This collection holds the source from where model settings came.
+		modelSettingsSourcesC: {},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -379,6 +386,7 @@ const (
 	controllersC             = "controllers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
@@ -391,6 +399,7 @@ const (
 	migrationsStatusC        = "migrations.status"
 	migrationsActiveC        = "migrations.active"
 	migrationsC              = "migrations"
+	modelSettingsSourcesC    = "modelSettingsSources"
 	modelUserLastConnectionC = "modelUserLastConnection"
 	modelUsersC              = "modelusers"
 	modelsC                  = "models"

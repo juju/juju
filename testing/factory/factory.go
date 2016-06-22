@@ -120,6 +120,7 @@ type ModelParams struct {
 	Name            string
 	Owner           names.Tag
 	ConfigAttrs     testing.Attrs
+	CloudName       string
 	CloudRegion     string
 	CloudCredential string
 }
@@ -558,6 +559,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.Name == "" {
 		params.Name = uniqueString("testenv")
 	}
+	if params.CloudName == "" {
+		params.CloudName = "dummy"
+	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -580,6 +584,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		"api-port":   controllerCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
+		CloudName:       params.CloudName,
 		CloudRegion:     params.CloudRegion,
 		CloudCredential: params.CloudCredential,
 		Config:          cfg,
