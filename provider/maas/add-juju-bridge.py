@@ -323,7 +323,7 @@ def main(args):
     # stanza types. The args.interface_to_bridge test is to bridge a
     # single interface only, which is only used for juju < 2.0. And if
     # that argument is specified then args.bridge_name takes
-    # precendence over any args.bridge_prefix.
+    # precedence over any args.bridge_prefix.
 
     for s in config_parser.stanzas():
         if s.is_logical_interface:
