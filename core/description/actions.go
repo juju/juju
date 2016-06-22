@@ -4,97 +4,98 @@
 package description
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 )
 
 type actions struct {
-	Version      int          `yaml:"version"`
+	Version  int       `yaml:"version"`
 	Actions_ []*action `yaml:"actions"`
 }
 
 type action struct {
-	ProviderID_       string   `yaml:"provider-id,omitempty"`
-	DeviceName_       string   `yaml:"devicename"`
-	MachineID_        string   `yaml:"machineid"`
-	SubnetCIDR_       string   `yaml:"subnetcidr"`
-	ConfigMethod_     string   `yaml:"configmethod"`
-	Value_            string   `yaml:"value"`
-	DNSServers_       []string `yaml:"dnsservers"`
-	DNSSearchDomains_ []string `yaml:"dnssearchdomains"`
-	GatewayAddress_   string   `yaml:"gatewayaction"`
+	Receiver_   string                 `yaml:"receiver"`
+	Name_       string                 `yaml:"name"`
+	Parameters_ map[string]interface{} `yaml:"parameters"`
+	Enqueued_   time.Time              `yaml:"enqueued"`
+	Started_    time.Time              `yaml:"started"`
+	Completed_  time.Time              `yaml:"completed"`
+	Status_     string                 `yaml:"status"`
+	Message_    string                 `yaml:"message"`
+	Results_    map[string]interface{} `yaml:"results"`
 }
 
-// ProviderID implements Action.
-func (i *action) ProviderID() string {
-	return i.ProviderID_
+// Receiver implements Action.
+func (i *action) Receiver() string {
+	return i.Receiver_
 }
 
-// DeviceName implements Action.
-func (i *action) DeviceName() string {
-	return i.DeviceName_
+// Name implements Action.
+func (i *action) Name() string {
+	return i.Name_
 }
 
-// MachineID implements Action.
-func (i *action) MachineID() string {
-	return i.MachineID_
+// Parameters implements Action.
+func (i *action) Parameters() map[string]interface{} {
+	return i.Parameters_
 }
 
-// SubnetCIDR implements Action.
-func (i *action) SubnetCIDR() string {
-	return i.SubnetCIDR_
+// Enqueued implements Action.
+func (i *action) Enqueued() time.Time {
+	return i.Enqueued_
 }
 
-// ConfigMethod implements Action.
-func (i *action) ConfigMethod() string {
-	return i.ConfigMethod_
+// Started implements Action.
+func (i *action) Started() time.Time {
+	return i.Started_
 }
 
-// Value implements Action.
-func (i *action) Value() string {
-	return i.Value_
+// Completed implements Action.
+func (i *action) Completed() time.Time {
+	return i.Completed_
 }
 
-// DNSServers implements Action.
-func (i *action) DNSServers() []string {
-	return i.DNSServers_
+// Status implements Action.
+func (i *action) Status() string {
+	return i._
 }
 
-// DNSSearchDomains implements Action.
-func (i *action) DNSSearchDomains() []string {
-	return i.DNSSearchDomains_
+// Message implements Action.
+func (i *action) Message() string {
+	return i.Message_
 }
 
-// GatewayAddress implements Action.
-func (i *action) GatewayAddress() string {
-	return i.GatewayAddress_
+// Results implements Action.
+func (i *action) Results() map[string]interface{} {
+	return i.Results_
 }
 
 // ActionArgs is an argument struct used to create a
 // new internal action type that supports the Action interface.
 type ActionArgs struct {
-	ProviderID       string
-	DeviceName       string
-	MachineID        string
-	SubnetCIDR       string
-	ConfigMethod     string
-	Value            string
-	DNSServers       []string
-	DNSSearchDomains []string
-	GatewayAddress   string
+	Receiver   string
+	Name       string
+	Parameters map[string]interface{}
+	Enqueued   time.Time
+	Started    time.Time
+	Completed  time.Time
+	Status     string
+	Message    string
+	Results    map[string]interface{}
 }
 
 func newAction(args ActionArgs) *action {
 	return &action{
-		ProviderID_:       args.ProviderID,
-		DeviceName_:       args.DeviceName,
-		MachineID_:        args.MachineID,
-		SubnetCIDR_:       args.SubnetCIDR,
-		ConfigMethod_:     args.ConfigMethod,
-		Value_:            args.Value,
-		DNSServers_:       args.DNSServers,
-		DNSSearchDomains_: args.DNSSearchDomains,
-		GatewayAddress_:   args.GatewayAddress,
+		Receiver_:    args.Receiver,
+		Name_:        args.Name,
+		Parameterrs_: args.Parameters,
+		Enqueued_:    args.Enqueued,
+		Started_:     args.Started,
+		Completed_:   args.Completed,
+		Status_:      args.Status,
+		Message_:     args.Message,
 	}
 }
 
@@ -139,20 +140,16 @@ var actionDeserializationFuncs = map[int]actionDeserializationFunc{
 
 func importActionV1(source map[string]interface{}) (*action, error) {
 	fields := schema.Fields{
-		"provider-id":      schema.String(),
-		"devicename":       schema.String(),
-		"machineid":        schema.String(),
-		"subnetcidr":       schema.String(),
-		"configmethod":     schema.String(),
-		"value":            schema.String(),
-		"dnsservers":       schema.List(schema.String()),
-		"dnssearchdomains": schema.List(schema.String()),
-		"gatewayaction":   schema.String(),
+		"receiver":   schema.String(),
+		"name":       schema.String(),
+		"parameters": schema.StringMap(schema.Any()),
+		"enqueued":   schema.String(),
+		"started":    schema.String(),
+		"completed":  schema.String(),
+		"results":    schema.StringMap(schema.Any()),
 	}
 	// Some values don't have to be there.
-	defaults := schema.Defaults{
-		"provider-id": "",
-	}
+	defaults := schema.Defaults{}
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
