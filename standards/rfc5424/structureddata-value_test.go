@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/logfwd/syslog/rfc5424"
+	"github.com/juju/juju/standards/rfc5424"
 )
 
 type StructuredDataParamValueSuite struct {
