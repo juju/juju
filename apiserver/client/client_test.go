@@ -825,7 +825,14 @@ func (s *serverSuite) TestClientModelGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, gc.DeepEquals, modelConfig.AllAttrs())
+	cfg := make(map[string]params.ConfigValue)
+	for name, val := range modelConfig.AllAttrs() {
+		cfg[name] = params.ConfigValue{
+			Value:  val,
+			Source: "model",
+		}
+	}
+	c.Assert(result.Config, gc.DeepEquals, cfg)
 }
 
 func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
@@ -892,7 +899,7 @@ func (s *serverSuite) TestClientModelSetCannotChangeAgentVersion(c *gc.C) {
 	result, err := s.client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["agent-version"], gc.NotNil)
-	args.Config["agent-version"] = result.Config["agent-version"]
+	args.Config["agent-version"] = result.Config["agent-version"].Value
 	err = s.client.ModelSet(args)
 	c.Assert(err, jc.ErrorIsNil)
 }

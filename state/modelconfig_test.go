@@ -167,18 +167,23 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksCloudValue(c *gc.C) {
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
 }
 
-func (s *ModelConfigSourceSuite) TestModelConfigSource(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
 	modelCfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSources := make(map[string]string)
-	for attr := range modelCfg.AllAttrs() {
-		expectedSources[attr] = "model"
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range modelCfg.AllAttrs() {
+		source := "model"
+		if attr == "apt-mirror" || attr == "http-proxy" {
+			source = "controller"
+		}
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
 	}
-	expectedSources["apt-mirror"] = "juju cloud"
-	expectedSources["http-proxy"] = "juju cloud"
-	sources, err := s.State.ModelConfigSources()
+	sources, err := s.State.ModelConfigValues()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedSources)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
 
 func (s *ModelConfigSourceSuite) TestModelConfigUpdateSetsSource(c *gc.C) {
@@ -190,14 +195,20 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSetsSource(c *gc.C) {
 
 	modelCfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSources := make(map[string]string)
-	for attr := range modelCfg.AllAttrs() {
-		expectedSources[attr] = "model"
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range modelCfg.AllAttrs() {
+		source := "model"
+		if attr == "apt-mirror" {
+			source = "controller"
+		}
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
 	}
-	expectedSources["apt-mirror"] = "juju cloud"
-	sources, err := s.State.ModelConfigSources()
+	sources, err := s.State.ModelConfigValues()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedSources)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
 
 func (s *ModelConfigSourceSuite) TestModelConfigDeleteSetsSource(c *gc.C) {
@@ -206,13 +217,18 @@ func (s *ModelConfigSourceSuite) TestModelConfigDeleteSetsSource(c *gc.C) {
 
 	modelCfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedSources := make(map[string]string)
-	for attr := range modelCfg.AllAttrs() {
-		expectedSources[attr] = "model"
+	expectedValues := make(config.ConfigValues)
+	for attr, val := range modelCfg.AllAttrs() {
+		source := "model"
+		if attr == "http-proxy" {
+			source = "controller"
+		}
+		expectedValues[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
 	}
-	expectedSources["http-proxy"] = "juju cloud"
-	expectedSources["apt-mirror"] = "model"
-	sources, err := s.State.ModelConfigSources()
+	sources, err := s.State.ModelConfigValues()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, jc.DeepEquals, expectedSources)
+	c.Assert(sources, jc.DeepEquals, expectedValues)
 }

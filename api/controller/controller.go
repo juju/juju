@@ -61,7 +61,11 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 func (c *Client) ModelConfig() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall("ModelConfig", nil, &result)
-	return result.Config, err
+	values := make(map[string]interface{})
+	for name, val := range result.Config {
+		values[name] = val.Value
+	}
+	return values, err
 }
 
 // DestroyController puts the controller model into a "dying" state,

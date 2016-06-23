@@ -97,20 +97,19 @@ func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 
 // fakeDestroyAPIClient mocks out the client API
 type fakeDestroyAPIClient struct {
-	err           error
-	env           map[string]interface{}
-	envgetcalled  bool
-	destroycalled bool
+	err            error
+	modelgetcalled bool
+	destroycalled  bool
 }
 
 func (f *fakeDestroyAPIClient) Close() error { return nil }
 
 func (f *fakeDestroyAPIClient) ModelGet() (map[string]interface{}, error) {
-	f.envgetcalled = true
+	f.modelgetcalled = true
 	if f.err != nil {
 		return nil, f.err
 	}
-	return f.env, nil
+	return map[string]interface{}{}, nil
 }
 
 func (f *fakeDestroyAPIClient) DestroyModel() error {

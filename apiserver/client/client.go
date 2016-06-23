@@ -396,12 +396,17 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 // get-model-config CLI command.
 func (c *Client) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	// Get the existing model config from the state.
-	config, err := c.api.stateAccessor.ModelConfig()
+	values, err := c.api.stateAccessor.ModelConfigValues()
 	if err != nil {
 		return result, err
 	}
-	result.Config = config.AllAttrs()
+	result.Config = make(map[string]params.ConfigValue)
+	for attr, val := range values {
+		result.Config[attr] = params.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
 	return result, nil
 }
 

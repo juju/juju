@@ -501,6 +501,16 @@ func (m *Model) Config() (*config.Config, error) {
 	return st.ModelConfig()
 }
 
+// ConfigValues returns the config values for the model.
+func (m *Model) ConfigValues() (config.ConfigValues, error) {
+	st, closeState, err := m.getState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closeState()
+	return st.ModelConfigValues()
+}
+
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates environementDoc with it.
 func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {

@@ -11,7 +11,7 @@ import (
 )
 
 // NewGetCommandForTest returns a GetCommand with the api provided as specified.
-func NewGetCommandForTest(api GetEnvironmentAPI) cmd.Command {
+func NewGetCommandForTest(api GetModelAPI) cmd.Command {
 	cmd := &getCommand{
 		api: api,
 	}
@@ -27,7 +27,7 @@ func NewSetCommandForTest(api SetModelAPI) cmd.Command {
 }
 
 // NewUnsetCommandForTest returns an UnsetCommand with the api provided as specified.
-func NewUnsetCommandForTest(api UnsetEnvironmentAPI) cmd.Command {
+func NewUnsetCommandForTest(api UnsetModelAPI) cmd.Command {
 	cmd := &unsetCommand{
 		api: api,
 	}

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
@@ -259,7 +260,26 @@ func (c *Client) Close() error {
 func (c *Client) ModelGet() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
 	err := c.facade.FacadeCall("ModelGet", nil, &result)
-	return result.Config, err
+	values := make(map[string]interface{})
+	for name, val := range result.Config {
+		values[name] = val.Value
+	}
+	return values, err
+}
+
+// ModelGetWithMetadata returns all model settings along with extra
+// metadata like the source of the setting value.
+func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
+	result := params.ModelConfigResults{}
+	err := c.facade.FacadeCall("ModelGet", nil, &result)
+	values := make(config.ConfigValues)
+	for name, val := range result.Config {
+		values[name] = config.ConfigValue{
+			Value:  val.Value,
+			Source: val.Source,
+		}
+	}
+	return values, err
 }
 
 // ModelSet sets the given key-value pairs in the model.

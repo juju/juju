@@ -34,6 +34,39 @@ func checkModelConfig(cfg *config.Config) error {
 	return nil
 }
 
+// ModelConfigValues returns the config values for the model represented
+// by this state.
+func (st *State) ModelConfigValues() (config.ConfigValues, error) {
+	modelSettings, err := readSettings(st, settingsC, modelGlobalKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(wallyworld) - this data should not be stored separately
+	sources, closer := st.getCollection(modelSettingsSourcesC)
+	defer closer()
+
+	var settingsSources settingsSourcesDoc
+	err = sources.FindId(modelGlobalKey).One(&settingsSources)
+	if err == mgo.ErrNotFound {
+		err = errors.NotFoundf("settings sources")
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := make(config.ConfigValues)
+	for attr, val := range modelSettings.Map() {
+		source, ok := settingsSources.Sources[attr]
+		if !ok {
+			source = config.JujuModelConfigSource
+		}
+		result[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+	return result, nil
+}
+
 // checkLocalCloudConfigDefaults returns an error if the shared local cloud config is definitely invalid.
 func checkLocalCloudConfigDefaults(attrs map[string]interface{}) error {
 	if _, ok := attrs[config.AdminSecretKey]; ok {
@@ -158,22 +191,6 @@ func createSettingsSourceOp(values map[string]string) txn.Op {
 	}
 }
 
-// ModelConfigSources returns the named source for each config attribute.
-func (st *State) ModelConfigSources() (map[string]string, error) {
-	sources, closer := st.getCollection(modelSettingsSourcesC)
-	defer closer()
-
-	var out settingsSourcesDoc
-	err := sources.FindId(modelGlobalKey).One(&out)
-	if err == mgo.ErrNotFound {
-		err = errors.NotFoundf("settings sources")
-	}
-	if err != nil {
-		return nil, err
-	}
-	return out.Sources, nil
-}
-
 type modelConfigSourceFunc func() (map[string]interface{}, error)
 
 type modelConfigSource struct {
@@ -187,7 +204,7 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
-		{config.JujuCloudSource, st.localCloudConfig},
+		{config.JujuControllerSource, st.localCloudConfig},
 		// We will also support local cloud region, tenant, user etc
 	}
 }
