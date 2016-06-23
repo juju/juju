@@ -3,8 +3,25 @@ Priority: optional
 Standards-Version: 3.9.2
 
 Package: juju-ci-tools.common
-Version: 0.1.1-0
-Depends: charm, s3cmd, euca2ools, uvtool-libvirt, uvtool, simplestreams, distro-info-data, python-tz, python-mock, python-jenkins, python-launchpadlib, python-yaml, python-boto, python-novaclient, python-pexpect, python-coverage, python-pip
+Version: 0.1.2-0
+Depends: charm,
+         distro-info-data,
+         euca2ools,
+         python-boto,
+         python-coverage,
+         python-fixtures,
+         python-jenkins,
+         python-launchpadlib,
+         python-mock,
+         python-novaclient,
+         python-pexpect,
+         python-pip,
+         python-tz,
+         python-yaml,
+         s3cmd,
+         simplestreams,
+         uvtool,
+         uvtool-libvirt
 Architecture: all
 Description: juju-ci-tools-common
  A metapackage providing the dependencies for juju-reports
