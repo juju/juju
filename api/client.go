@@ -299,14 +299,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) 
 	return result, err
 }
 
-// DestroyModel puts the model into a "dying" state,
-// and removes all non-manager machine instances. DestroyModel
-// will fail if there are any manually-provisioned non-manager machines
-// in state.
-func (c *Client) DestroyModel() error {
-	return c.facade.FacadeCall("DestroyModel", nil, nil)
-}
-
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL.
