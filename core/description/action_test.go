@@ -4,7 +4,6 @@
 package description
 
 import (
-	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -83,14 +82,12 @@ func (s *ActionSerializationSuite) TestParsingSerializedData(c *gc.C) {
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Printf("%#v", initial.Actions_[0])
 
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err := importActions(source)
-	fmt.Printf("%#v", actions[0])
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(actions, jc.DeepEquals, initial.Actions_)
