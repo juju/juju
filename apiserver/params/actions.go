@@ -3,12 +3,7 @@
 
 package params
 
-import (
-	"time"
-
-	// TODO(jcw4) per fwereade 2014-11-21 remove this dependency
-	"gopkg.in/juju/charm.v6-unstable"
-)
+import "time"
 
 const (
 	// ActionCancelled is the status for an Action that has been
@@ -131,7 +126,15 @@ type ApplicationsCharmActionsResults struct {
 // If an error such as a missing charm or malformed application name occurs, it
 // is encapsulated in this type.
 type ApplicationCharmActionsResult struct {
-	ApplicationTag string         `json:"application-tag,omitempty"`
-	Actions        *charm.Actions `json:"actions,omitempty"`
-	Error          *Error         `json:"error,omitempty"`
+	ApplicationTag string                `json:"application-tag,omitempty"`
+	Actions        map[string]ActionSpec `json:"actions,omitempty"`
+	Error          *Error                `json:"error,omitempty"`
+}
+
+// ActionSpec is a definition of the parameters and traits of an Action.
+// The Params map is expected to conform to JSON-Schema Draft 4 as defined at
+// http://json-schema.org/draft-04/schema# (see http://json-schema.org/latest/json-schema-core.html)
+type ActionSpec struct {
+	Description string                 `json:"description"`
+	Params      map[string]interface{} `json:"params"`
 }

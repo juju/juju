@@ -545,13 +545,20 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
-	outEps := make(map[string]charm.Relation)
+	outEps := make(map[string]params.CharmRelation)
 	for _, inEp := range inEps {
 		outEp, err := rel.Endpoint(inEp.ApplicationName)
 		if err != nil {
 			return params.AddRelationResults{}, err
 		}
-		outEps[inEp.ApplicationName] = outEp.Relation
+		outEps[inEp.ApplicationName] = params.CharmRelation{
+			Name:      outEp.Relation.Name,
+			Role:      string(outEp.Relation.Role),
+			Interface: outEp.Relation.Interface,
+			Optional:  outEp.Relation.Optional,
+			Limit:     outEp.Relation.Limit,
+			Scope:     string(outEp.Relation.Scope),
+		}
 	}
 	return params.AddRelationResults{Endpoints: outEps}, nil
 }

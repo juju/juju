@@ -84,14 +84,13 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	output := actions.ActionSpecs
-	if len(output) == 0 {
+	if len(actions) == 0 {
 		return c.out.Write(ctx, "No actions defined for "+c.applicationTag.Id())
 	}
 
 	if c.fullSchema {
 		verboseSpecs := make(map[string]interface{})
-		for k, v := range output {
+		for k, v := range actions {
 			verboseSpecs[k] = v.Params
 		}
 
@@ -100,7 +99,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 
 	shortOutput := make(map[string]string)
 	var sortedNames []string
-	for name, action := range actions.ActionSpecs {
+	for name, action := range actions {
 		shortOutput[name] = action.Description
 		if shortOutput[name] == "" {
 			shortOutput[name] = "No description"

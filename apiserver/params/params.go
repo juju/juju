@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
@@ -107,10 +106,20 @@ type AddRelation struct {
 	Endpoints []string `json:"endpoints"`
 }
 
+// CharmRelation is a mirror struct for charm.Relation.
+type CharmRelation struct {
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	Interface string `json:"interface"`
+	Optional  bool   `json:"optional"`
+	Limit     int    `json:"limit"`
+	Scope     string `json:"scope"`
+}
+
 // AddRelationResults holds the results of a AddRelation call. The Endpoints
 // field maps application names to the involved endpoints.
 type AddRelationResults struct {
-	Endpoints map[string]charm.Relation `json:"endpoints"`
+	Endpoints map[string]CharmRelation `json:"endpoints"`
 }
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
@@ -425,13 +434,14 @@ type SetConstraints struct {
 
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
-	References []charm.URL `json:"references"`
+	References []string `json:"references"`
 }
 
 // ResolveCharmResult holds the result of resolving a charm reference to a URL, or any error that occurred.
 type ResolveCharmResult struct {
-	URL   *charm.URL `json:"url,omitempty"`
-	Error string     `json:"error,omitempty"`
+	// URL is a string representation of charm.URL.
+	URL   string `json:"url,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // ResolveCharmResults holds results of the ResolveCharms call.
