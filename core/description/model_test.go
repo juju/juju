@@ -637,8 +637,8 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 
 func (s *ModelSerializationSuite) TestAction(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	addr := initial.AddAction(ActionArgs{Value: "10.0.0.4"})
-	c.Assert(addr.Value(), gc.Equals, "10.0.0.4")
+	addr := initial.AddAction(ActionArgs{Name: "foo"})
+	c.Assert(addr.Name(), gc.Equals, "foo")
 	actions := initial.Actions()
 	c.Assert(actions, gc.HasLen, 1)
 	c.Assert(actions[0], jc.DeepEquals, addr)

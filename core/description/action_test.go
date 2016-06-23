@@ -4,6 +4,8 @@
 package description
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -29,26 +31,28 @@ func (s *ActionSerializationSuite) SetUpTest(c *gc.C) {
 
 func (s *ActionSerializationSuite) TestNewAction(c *gc.C) {
 	args := ActionArgs{
-		SubnetCIDR:       "10.0.0.0/24",
-		ProviderID:       "magic",
-		DeviceName:       "foo",
-		MachineID:        "bar",
-		ConfigMethod:     "static",
-		Value:            "10.0.0.4",
-		DNSServers:       []string{"10.1.0.1", "10.2.0.1"},
-		DNSSearchDomains: []string{"bam", "mam"},
-		GatewayAddress:   "10.0.0.1",
+		Id:         "foo",
+		Receiver:   "bar",
+		Name:       "bam",
+		Parameters: map[string]interface{}{"foo": 3, "bar": "bam"},
+		Enqueued:   time.Now(),
+		Started:    time.Now(),
+		Completed:  time.Now(),
+		Status:     "happy",
+		Message:    "a message",
+		Results:    map[string]interface{}{"the": 3, "thing": "bam"},
 	}
 	action := newAction(args)
-	c.Assert(action.SubnetCIDR(), gc.Equals, args.SubnetCIDR)
-	c.Assert(action.ProviderID(), gc.Equals, args.ProviderID)
-	c.Assert(action.DeviceName(), gc.Equals, args.DeviceName)
-	c.Assert(action.MachineID(), gc.Equals, args.MachineID)
-	c.Assert(action.ConfigMethod(), gc.Equals, args.ConfigMethod)
-	c.Assert(action.Value(), gc.Equals, args.Value)
-	c.Assert(action.DNSServers(), jc.DeepEquals, args.DNSServers)
-	c.Assert(action.DNSSearchDomains(), jc.DeepEquals, args.DNSSearchDomains)
-	c.Assert(action.GatewayAddress(), gc.Equals, args.GatewayAddress)
+	c.Check(action.Id(), gc.Equals, args.Id)
+	c.Check(action.Receiver(), gc.Equals, args.Receiver)
+	c.Check(action.Name(), gc.Equals, args.Name)
+	c.Check(action.Parameters(), jc.DeepEquals, args.Parameters)
+	c.Check(action.Enqueued(), gc.Equals, args.Enqueued)
+	c.Check(action.Started(), gc.Equals, args.Started)
+	c.Check(action.Completed(), gc.Equals, args.Completed)
+	c.Check(action.Status(), gc.Equals, args.Status)
+	c.Check(action.Message(), gc.Equals, args.Message)
+	c.Check(action.Results(), gc.Equals, args.Results)
 }
 
 func (s *ActionSerializationSuite) TestParsingSerializedData(c *gc.C) {
@@ -56,17 +60,18 @@ func (s *ActionSerializationSuite) TestParsingSerializedData(c *gc.C) {
 		Version: 1,
 		Actions_: []*action{
 			newAction(ActionArgs{
-				SubnetCIDR:       "10.0.0.0/24",
-				ProviderID:       "magic",
-				DeviceName:       "foo",
-				MachineID:        "bar",
-				ConfigMethod:     "static",
-				Value:            "10.0.0.4",
-				DNSServers:       []string{"10.1.0.1", "10.2.0.1"},
-				DNSSearchDomains: []string{"bam", "mam"},
-				GatewayAddress:   "10.0.0.1",
+				Id:         "foo",
+				Receiver:   "bar",
+				Name:       "bam",
+				Parameters: map[string]interface{}{"foo": 3, "bar": "bam"},
+				Enqueued:   time.Now(),
+				Started:    time.Now(),
+				Completed:  time.Now(),
+				Status:     "happy",
+				Message:    "a message",
+				Results:    map[string]interface{}{"the": 3, "thing": "bam"},
 			}),
-			newAction(ActionArgs{Value: "10.0.0.5"}),
+			newAction(ActionArgs{Name: "bing"}),
 		},
 	}
 

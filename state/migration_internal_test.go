@@ -55,6 +55,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+
+		// actions
+		actionsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -123,6 +126,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// These are recreated whilst migrating other network entities.
 		providerIDsC,
 		linkLayerDevicesRefsC,
+
+		// Recreated whilst migrating actions.
+		actionNotificationsC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -147,10 +153,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		storageConstraintsC,
 		volumesC,
 		volumeAttachmentsC,
-
-		// actions
-		actionsC,
-		actionNotificationsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -622,21 +624,12 @@ func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 	ignored := set.NewStrings(
-		"DocID",
 		"ModelUUID",
 	)
 	migrated := set.NewStrings(
-		"DeviceName",
-		"MachineID",
-		"DNSSearchDomains",
-		"GatewayAddress",
-		"ProviderID",
-		"DNSServers",
-		"SubnetCIDR",
-		"ConfigMethod",
-		"Value",
+		"DocID",
 	)
-	s.AssertExportedFields(c, ipAddressDoc{}, migrated.Union(ignored))
+	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
