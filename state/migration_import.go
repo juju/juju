@@ -1087,6 +1087,7 @@ func (i *importer) addAction(action description.Action) error {
 		Completed:  action.Completed(),
 		Status:     ActionStatus(action.Status()),
 	}
+	prefix := ensureActionMarker(action.Receiver())
 	notificationDoc := &actionNotificationDoc{
 		DocId:     i.st.docID(prefix + action.Id()),
 		ModelUUID: modelUUID,
