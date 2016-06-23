@@ -53,6 +53,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		cleanupsC,
 		// We don't export the controller model at this stage.
 		controllersC,
+		// Clouds aren't migrated. They must exist in the
+		// target controller already.
+		cloudsC,
 		// Cloud credentials aren't migrated. They must exist in the
 		// target controller already.
 		cloudCredentialsC,
@@ -186,6 +189,7 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 
 		"MigrationMode",
 		"Owner",
+		"Cloud",
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",

@@ -106,8 +106,10 @@ type AddModelAPI interface {
 }
 
 type CloudAPI interface {
-	Credentials(names.UserTag) (map[string]cloud.Credential, error)
-	UpdateCredentials(names.UserTag, map[string]cloud.Credential) error
+	Cloud(names.CloudTag) (cloud.Cloud, error)
+	CloudDefaults(names.UserTag) (cloud.Defaults, error)
+	Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error)
+	UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error
 }
 
 func (c *addModelCommand) newApiRoot() (api.Connection, error) {
@@ -158,25 +160,32 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if c.CredentialName != "" {
 		cloudClient := c.newCloudAPI(api)
 		modelOwnerTag := names.NewUserTag(modelOwner)
-		credentials, err := cloudClient.Credentials(modelOwnerTag)
+
+		defaults, err := cloudClient.CloudDefaults(modelOwnerTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		cloudTag := names.NewCloudTag(defaults.Cloud)
+		credentials, err := cloudClient.Credentials(modelOwnerTag, cloudTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		if _, ok := credentials[c.CredentialName]; !ok {
-			cloudDetails, err := cloud.CloudByName(controllerDetails.Cloud)
+			cloudDetails, err := cloudClient.Cloud(cloudTag)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			credential, _, _, err := modelcmd.GetCredentials(
 				store, c.CloudRegion, c.CredentialName,
-				controllerDetails.Cloud, cloudDetails.Type,
+				cloudTag.Id(), cloudDetails.Type,
 			)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			ctx.Infof("uploading credential '%s' to controller%s", c.CredentialName, forUserSuffix)
 			credentials = map[string]cloud.Credential{c.CredentialName: *credential}
-			if err := cloudClient.UpdateCredentials(modelOwnerTag, credentials); err != nil {
+			if err := cloudClient.UpdateCredentials(modelOwnerTag, cloudTag, credentials); err != nil {
 				return errors.Trace(err)
 			}
 		} else {

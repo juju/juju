@@ -93,6 +93,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		ControllerUUID:  "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OwnerTag:        "user-bob@local",
 		ProviderType:    "someprovider",
+		Cloud:           "some-cloud",
 		CloudRegion:     "some-region",
 		CloudCredential: "some-credential",
 		DefaultSeries:   series.LatestLts(),
@@ -131,6 +132,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Status", nil},
 		{"Owner", nil},
 		{"Life", nil},
+		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
 	})
@@ -260,11 +262,6 @@ func (st *mockState) ControllerModel() (common.Model, error) {
 	return st.controllerModel, st.NextErr()
 }
 
-func (st *mockState) ControllerInfo() (*state.ControllerInfo, error) {
-	st.MethodCall(st, "ControllerInfo")
-	return &state.ControllerInfo{CloudName: "dummy"}, st.NextErr()
-}
-
 func (st *mockState) ControllerConfig() (controller.Config, error) {
 	st.MethodCall(st, "ControllerConfig")
 	return controller.Config{
@@ -292,13 +289,13 @@ func (st *mockState) AllModels() ([]common.Model, error) {
 	return []common.Model{st.model}, st.NextErr()
 }
 
-func (st *mockState) Cloud() (cloud.Cloud, error) {
-	st.MethodCall(st, "Cloud")
+func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
+	st.MethodCall(st, "Cloud", name)
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockState) CloudCredentials(user names.UserTag) (map[string]cloud.Credential, error) {
-	st.MethodCall(st, "CloudCredentials", user)
+func (st *mockState) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+	st.MethodCall(st, "CloudCredentials", user, cloudName)
 	return st.creds, st.NextErr()
 }
 
@@ -358,6 +355,12 @@ func (m *mockModel) Life() state.Life {
 func (m *mockModel) Status() (status.StatusInfo, error) {
 	m.MethodCall(m, "Status")
 	return m.status, m.NextErr()
+}
+
+func (m *mockModel) Cloud() string {
+	m.MethodCall(m, "Cloud")
+	m.PopNoErr()
+	return "some-cloud"
 }
 
 func (m *mockModel) CloudRegion() string {

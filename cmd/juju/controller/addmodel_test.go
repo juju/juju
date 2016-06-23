@@ -335,12 +335,12 @@ type fakeCloudAPI struct {
 	controller.CloudAPI
 }
 
-func (c *fakeCloudAPI) Credentials(names.UserTag) (map[string]cloud.Credential, error) {
+func (c *fakeCloudAPI) Credentials(names.UserTag, names.CloudTag) (map[string]cloud.Credential, error) {
 	return map[string]cloud.Credential{
 		"default": cloud.NewEmptyCredential(),
 	}, nil
 }
 
-func (c *fakeCloudAPI) UpdateCredentials(names.UserTag, map[string]cloud.Credential) error {
+func (c *fakeCloudAPI) UpdateCredentials(names.UserTag, names.CloudTag, map[string]cloud.Credential) error {
 	return nil
 }

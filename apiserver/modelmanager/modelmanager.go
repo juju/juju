@@ -180,6 +180,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
+	cloudName := controllerModel.Cloud()
 	cloudCredentialName := args.CloudCredential
 	if cloudCredentialName == "" {
 		if ownerTag.Canonical() == controllerModel.Owner().Canonical() {
@@ -189,7 +190,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 			// cloud credential, and if so, use it? For now, we
 			// require the user to specify a credential unless
 			// the cloud does not require one.
-			controllerCloud, err := mm.state.Cloud()
+			controllerCloud, err := mm.state.Cloud(controllerModel.Cloud())
 			if err != nil {
 				return result, errors.Trace(err)
 			}
@@ -214,7 +215,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 
 	var credential *cloud.Credential
 	if cloudCredentialName != "" {
-		ownerCredentials, err := mm.state.CloudCredentials(ownerTag)
+		ownerCredentials, err := mm.state.CloudCredentials(ownerTag, controllerModel.Cloud())
 		if err != nil {
 			return result, errors.Annotate(err, "getting credentials")
 		}
@@ -237,16 +238,11 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Annotate(err, "failed to create config")
 	}
 
-	controllerInfo, err := mm.state.ControllerInfo()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
 	model, st, err := mm.state.NewModel(state.ModelArgs{
-		CloudName:       controllerInfo.CloudName,
+		CloudName:       cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredentialName,
 		Config:          newConfig,
@@ -390,6 +386,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		Status:          common.EntityStatusFromState(status),
 		ProviderType:    cfg.Type(),
 		DefaultSeries:   config.PreferredSeries(cfg),
+		Cloud:           model.Cloud(),
 		CloudRegion:     model.CloudRegion(),
 		CloudCredential: model.CloudCredential(),
 	}

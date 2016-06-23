@@ -26,15 +26,12 @@ type ModelManagerBackend interface {
 	BlockGetter
 	metricsender.MetricsSenderBackend
 
-	Cloud() (cloud.Cloud, error)
-	CloudCredentials(names.UserTag) (map[string]cloud.Credential, error)
+	Cloud(name string) (cloud.Cloud, error)
+	CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error)
 	ModelUUID() string
 	ModelsForUser(names.UserTag) ([]*state.UserModel, error)
 	IsControllerAdministrator(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
-
-	// TODO(wallyworld) - we won't need this once cloud name is stored on model
-	ControllerInfo() (*state.ControllerInfo, error)
 
 	ControllerModel() (Model, error)
 	ControllerConfig() (controller.Config, error)
@@ -57,6 +54,7 @@ type Model interface {
 	ModelTag() names.ModelTag
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
+	Cloud() string
 	CloudCredential() string
 	CloudRegion() string
 	Users() ([]ModelUser, error)

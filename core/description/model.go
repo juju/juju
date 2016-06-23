@@ -21,6 +21,7 @@ type ModelArgs struct {
 	Config             map[string]interface{}
 	LatestToolsVersion version.Number
 	Blocks             map[string]string
+	Cloud              string
 	CloudRegion        string
 	CloudCredential    string
 }
@@ -34,6 +35,7 @@ func NewModel(args ModelArgs) Model {
 		LatestToolsVersion_: args.LatestToolsVersion,
 		Sequences_:          make(map[string]int),
 		Blocks_:             args.Blocks,
+		Cloud_:              args.Cloud,
 		CloudRegion_:        args.CloudRegion,
 		CloudCredential_:    args.CloudCredential,
 	}
@@ -87,6 +89,7 @@ type model struct {
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
+	Cloud_           string `yaml:"cloud"`
 	CloudRegion_     string `yaml:"cloud-region,omitempty"`
 	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
 
@@ -264,6 +267,11 @@ func (m *model) SetConstraints(args ConstraintsArgs) {
 	m.Constraints_ = newConstraints(args)
 }
 
+// Cloud implements Model.
+func (m *model) Cloud() string {
+	return m.Cloud_
+}
+
 // CloudRegion implements Model.
 func (m *model) CloudRegion() string {
 	return m.CloudRegion_
@@ -360,6 +368,7 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
 		"owner":        schema.String(),
+		"cloud":        schema.String(),
 		"cloud-region": schema.String(),
 		"config":       schema.StringMap(schema.Any()),
 		"latest-tools": schema.String(),
@@ -394,6 +403,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		Config_:    valid["config"].(map[string]interface{}),
 		Sequences_: make(map[string]int),
 		Blocks_:    convertToStringMap(valid["blocks"]),
+		Cloud_:     valid["cloud"].(string),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})

@@ -3372,8 +3372,8 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE
-controller  kontroll    dummy  1.2.3    1.2.4
+MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
+controller  kontroll    dummy         1.2.3    1.2.4
 
 APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
 logging                 true     jujucharms  logging    1    ubuntu
@@ -3438,8 +3438,8 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION
-                          
+MODEL  CONTROLLER  CLOUD/REGION  VERSION
+                                 
 
 APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo          false                   0    
@@ -3471,8 +3471,8 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION
-                          
+MODEL  CONTROLLER  CLOUD/REGION  VERSION
+                                 
 
 APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo          false                   0    
@@ -3538,8 +3538,8 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION
-                          
+MODEL  CONTROLLER  CLOUD/REGION  VERSION
+                                 
 
 APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
 foo          false                   0    
