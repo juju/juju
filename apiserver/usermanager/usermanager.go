@@ -125,7 +125,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 					break
 				}
 				err = modelmanager.ChangeModelAccess(
-					modelmanager.NewStateBackend(api.state), modelTag, api.apiUser,
+					common.NewModelManagerBackend(api.state), modelTag, api.apiUser,
 					userTag, params.GrantModelAccess, modelAccess, api.isAdmin)
 				if err != nil {
 					err = errors.Annotatef(err, "user %q created but model %q not shared", arg.Username, modelTagStr)

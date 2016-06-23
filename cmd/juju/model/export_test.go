@@ -57,7 +57,7 @@ func NewShowCommandForTest(api ShowModelAPI, store jujuclient.ClientStore) cmd.C
 }
 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
-func NewDestroyCommandForTest(api DestroyEnvironmentAPI, store jujuclient.ClientStore) cmd.Command {
+func NewDestroyCommandForTest(api DestroyModelAPI, store jujuclient.ClientStore) cmd.Command {
 	cmd := &destroyCommand{
 		api: api,
 	}

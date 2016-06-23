@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -206,6 +207,8 @@ type mockState struct {
 	environs.EnvironConfigGetter
 	common.APIHostPortsGetter
 	common.ToolsStorageGetter
+	common.BlockGetter
+	metricsender.MetricsSenderBackend
 
 	uuid            string
 	cloud           cloud.Cloud
@@ -230,13 +233,13 @@ func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error)
 	return user.Canonical() == "admin@local", st.NextErr()
 }
 
-func (st *mockState) NewModel(args state.ModelArgs) (modelmanager.Model, modelmanager.Backend, error) {
+func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
 	st.MethodCall(st, "NewModel", args)
 	st.model.tag = names.NewModelTag(args.Config.UUID())
 	return st.model, st, st.NextErr()
 }
 
-func (st *mockState) ControllerModel() (modelmanager.Model, error) {
+func (st *mockState) ControllerModel() (common.Model, error) {
 	st.MethodCall(st, "ControllerModel")
 	return st.controllerModel, st.NextErr()
 }
@@ -253,14 +256,24 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	}, st.NextErr()
 }
 
-func (st *mockState) ForModel(tag names.ModelTag) (modelmanager.Backend, error) {
+func (st *mockState) ForModel(tag names.ModelTag) (common.ModelManagerBackend, error) {
 	st.MethodCall(st, "ForModel", tag)
 	return st, st.NextErr()
 }
 
-func (st *mockState) Model() (modelmanager.Model, error) {
+func (st *mockState) Model() (common.Model, error) {
 	st.MethodCall(st, "Model")
 	return st.model, st.NextErr()
+}
+
+func (st *mockState) ModelTag() names.ModelTag {
+	st.MethodCall(st, "ModelTag")
+	return st.model.ModelTag()
+}
+
+func (st *mockState) AllModels() ([]common.Model, error) {
+	st.MethodCall(st, "AllModels")
+	return []common.Model{st.model}, st.NextErr()
 }
 
 func (st *mockState) Cloud() (cloud.Cloud, error) {
@@ -353,6 +366,16 @@ func (m *mockModel) Users() ([]common.ModelUser, error) {
 		users[i] = user
 	}
 	return users, nil
+}
+
+func (m *mockModel) Destroy() error {
+	m.MethodCall(m, "Destroy")
+	return m.NextErr()
+}
+
+func (m *mockModel) DestroyIncludingHosted() error {
+	m.MethodCall(m, "DestroyIncludingHosted")
+	return m.NextErr()
 }
 
 type mockModelUser struct {

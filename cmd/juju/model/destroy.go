@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
@@ -33,7 +34,7 @@ type destroyCommand struct {
 	modelcmd.ModelCommandBase
 	envName   string
 	assumeYes bool
-	api       DestroyEnvironmentAPI
+	api       DestroyModelAPI
 }
 
 var destroyDoc = `
@@ -56,9 +57,9 @@ This includes all machines, applications, data and other resources.
 
 Continue [y/N]? `[1:]
 
-// DestroyEnvironmentAPI defines the methods on the modelmanager
+// DestroyModelAPI defines the methods on the modelmanager
 // API that the destroy command calls. It is exported for mocking in tests.
-type DestroyEnvironmentAPI interface {
+type DestroyModelAPI interface {
 	Close() error
 	DestroyModel() error
 }
@@ -91,11 +92,15 @@ func (c *destroyCommand) Init(args []string) error {
 	}
 }
 
-func (c *destroyCommand) getAPI() (DestroyEnvironmentAPI, error) {
+func (c *destroyCommand) getAPI() (DestroyModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewAPIClient()
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelmanager.NewClient(root), nil
 }
 
 // Run implements Command.Run

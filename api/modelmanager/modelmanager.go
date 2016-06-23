@@ -105,6 +105,14 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 	return results.Results, nil
 }
 
+// DestroyModel puts the model into a "dying" state,
+// and removes all non-manager machine instances. DestroyModel
+// will fail if there are any manually-provisioned non-manager machines
+// in state.
+func (c *Client) DestroyModel() error {
+	return c.facade.FacadeCall("DestroyModel", nil, nil)
+}
+
 // ParseModelAccess parses an access permission argument into
 // a type suitable for making an API facade call.
 func ParseModelAccess(access string) (params.ModelAccessPermission, error) {

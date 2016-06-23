@@ -37,12 +37,13 @@ func init() {
 type ModelManager interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
+	DestroyModel() error
 }
 
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
-	state       Backend
+	state       common.ModelManagerBackend
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
@@ -52,12 +53,12 @@ type ModelManagerAPI struct {
 var _ ModelManager = (*ModelManagerAPI)(nil)
 
 func newFacade(st *state.State, _ *common.Resources, auth common.Authorizer) (*ModelManagerAPI, error) {
-	return NewModelManagerAPI(NewStateBackend(st), auth)
+	return NewModelManagerAPI(common.NewModelManagerBackend(st), auth)
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
-func NewModelManagerAPI(st Backend, authorizer common.Authorizer) (*ModelManagerAPI, error) {
+func NewModelManagerAPI(st common.ModelManagerBackend, authorizer common.Authorizer) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -299,6 +300,23 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 	return result, nil
 }
 
+// DestroyModel will try to destroy the current model.
+// If there is a block on destruction, this method will return an error.
+func (m *ModelManagerAPI) DestroyModel() error {
+	// Any user is able to delete their own model (until real fine
+	// grain permissions are available), and admins (the creator of the state
+	// server model) are able to delete models for other people.
+	model, err := m.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = m.authCheck(model.Owner())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
+}
+
 // ModelInfo returns information about the specified models.
 func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
 	results := params.ModelInfoResults{
@@ -443,7 +461,7 @@ func resolveStateAccess(access permission.ModelAccess) (state.Access, error) {
 	return fail, errors.Errorf("invalid access permission")
 }
 
-func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.UserTag) error {
+func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
 	if userIsAdmin {
 		// Just confirm that the model that has been given is a valid model.
 		_, err := st.Model()
@@ -471,7 +489,7 @@ func userAuthorizedToChangeAccess(st Backend, userIsAdmin bool, userTag names.Us
 
 // ChangeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor Backend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.ModelAccess, userIsAdmin bool) error {
+func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.ModelAccess, userIsAdmin bool) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
