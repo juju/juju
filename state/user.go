@@ -117,12 +117,10 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		if attempt > 0 {
 			// If it is not our first attempt, refresh the user.
 			if err := u.Refresh(); err != nil {
-				// If it was successfully deleted `Refresh` should return a not
-				// found error. That means we were successful and should move on.
-				if errors.IsNotFound(err) {
-					return nil, jujutxn.ErrNoOperations
-				}
 				return nil, errors.Trace(err)
+			}
+			if u.IsDeleted() {
+				return nil, jujutxn.ErrNoOperations
 			}
 		}
 		ops := []txn.Op{{
@@ -163,7 +161,7 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 	defer closer()
 
 	name = strings.ToLower(name)
-	err := users.Find(bson.D{{"_id", name}, {"deleted", false}}).One(udoc)
+	err := users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
@@ -182,6 +180,9 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 	if err := st.getUser(tag.Name(), &user.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if user.doc.Deleted {
+		return nil, errors.NotFoundf("user %q has been deleted", user.Name())
+	}
 	return user, nil
 }
 
@@ -193,6 +194,8 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	defer closer()
 
 	var query bson.D
+	// TODO(redir): Provide option to retrieve deleted users in future PR.
+	query = append(query, bson.DocElem{"deleted", false})
 	if !includeDeactivated {
 		query = append(query, bson.DocElem{"deactivated", false})
 	}
@@ -322,23 +325,11 @@ func IsNeverLoggedInError(err error) bool {
 	return ok
 }
 
-// DeletedUserError is used to indicate when an attempt to mutate a deleted
-// user is attempted.
-type DeletedUserError struct {
-	Action   string
-	UserName string
-}
-
-// Error implements the error interface.
-func (e DeletedUserError) Error() string {
-	return fmt.Sprintf("cannot %q for deleted user, %q", e.Action, e.UserName)
-}
-
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() (err error) {
-	if u.Deleted() {
-		return DeletedUserError{"update last login", u.Name()}
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot update last login")
 	}
 	lastLogins, closer := u.st.getCollection(userLastLoginC)
 	defer closer()
@@ -367,8 +358,8 @@ func (u *User) SecretKey() []byte {
 
 // SetPassword sets the password associated with the User.
 func (u *User) SetPassword(password string) error {
-	if u.Deleted() {
-		return DeletedUserError{"set a password", u.Name()}
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot set password")
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
@@ -381,8 +372,8 @@ func (u *User) SetPassword(password string) error {
 // password. If the User has a secret key set then it
 // will be cleared.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
-	if u.Deleted() {
-		return DeletedUserError{"set password hash", u.Name()}
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot set password hash")
 	}
 	update := bson.D{{"$set", bson.D{
 		{"passwordhash", pwHash},
@@ -408,14 +399,15 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	return nil
 }
 
-// PasswordValid returns whether the given password is valid for the User.
+// PasswordValid returns whether the given password is valid for the User. The
+// caller should call user.Refresh before calling this.
 func (u *User) PasswordValid(password string) bool {
 	// If the User is deactivated or deleted, there no point in carrying on.
 	// Since any authentication checks are done very soon after the user is
 	// read from the database, there is a very small timeframe where an user
 	// could be disabled after it has been read but prior to being checked, but
 	// in practice, this isn't a problem.
-	if u.IsDisabled() || u.Deleted() {
+	if u.IsDisabled() || u.IsDeleted() {
 		return false
 	}
 	if u.doc.PasswordSalt != "" {
@@ -436,8 +428,8 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
-	if u.Deleted() {
-		return DeletedUserError{"disable user", u.Name()}
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot disable")
 	}
 	environment, err := u.st.ControllerModel()
 	if err != nil {
@@ -451,6 +443,9 @@ func (u *User) Disable() error {
 
 // Enable reactivates the user, setting disabled to false.
 func (u *User) Enable() error {
+	if err := u.ensureNotDeleted(); err != nil {
+		return errors.Annotate(err, "cannot enable")
+	}
 	return errors.Annotatef(u.setDeactivated(false), "cannot enable user %q", u.Name())
 }
 
@@ -478,12 +473,31 @@ func (u *User) IsDisabled() bool {
 	return u.doc.Deactivated
 }
 
-// Deleted refreshes the user to ensure it wasn't deleted.
-func (u *User) Deleted() bool {
-	if err := u.Refresh(); errors.IsNotFound(err) {
-		return true
-	}
+// IsDeleted returns whether the user is currenlty deleted.
+func (u *User) IsDeleted() bool {
 	return u.doc.Deleted
+}
+
+// DeletedUserError is used to indicate when an attempt to mutate a deleted
+// user is attempted.
+type DeletedUserError struct {
+	UserName string
+}
+
+// Error implements the error interface.
+func (e DeletedUserError) Error() string {
+	return fmt.Sprintf("user %q deleted", e.UserName)
+}
+
+// Deleted refreshes the user to ensure it wasn't deleted.
+func (u *User) ensureNotDeleted() error {
+	if err := u.Refresh(); err != nil {
+		return errors.Trace(err)
+	}
+	if u.doc.Deleted {
+		return DeletedUserError{u.Name()}
+	}
+	return nil
 }
 
 // userList type is used to provide the methods for sorting.

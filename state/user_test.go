@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 
@@ -134,8 +135,16 @@ func (s *UserSuite) TestRemoveUserNonExistent(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func isDeletedUserError(err error) bool {
+	_, ok := errors.Cause(err).(state.DeletedUserError)
+	return ok
+}
+
 func (s *UserSuite) TestRemoveUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "should fail"})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("should fail"), jc.IsTrue)
 
 	// Look for the user.
 	u, err := s.State.User(user.UserTag())
@@ -145,9 +154,46 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	// Remove the user.
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
 
-	// Check again.
+	// Check that we cannot update last login.
+	err = u.UpdateLastLogin()
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot update last login: user %q deleted", user.Name()))
+
+	// Check that we cannod set a password.
+	err = u.SetPassword("should fail too")
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot set password: user %q deleted", user.Name()))
+
+	// Check that we cannod set the password hash.
+	err = u.SetPasswordHash("also", "fail")
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot set password hash: user %q deleted", user.Name()))
+
+	// Check that we cannod validate a password.
+	c.Assert(u.PasswordValid("should fail"), jc.IsFalse)
+
+	// Check that we cannod enable the user.
+	err = u.Enable()
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot enable: user %q deleted", user.Name()))
+
+	// Check that we cannod disable the user.
+	err = u.Disable()
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot disable: user %q deleted", user.Name()))
+
+	// Check again to verify the user cannot be retrieved.
 	u, err = s.State.User(user.UserTag())
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
