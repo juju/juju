@@ -604,7 +604,7 @@ func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
-	tag := names.NewUserTag("harvey").String() // "user-harvey"
+	tag := "user-harvey"
 	got, err := s.usermanager.RemoveUser(params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
 	c.Assert(len(got.Results), gc.Equals, 1)
@@ -619,7 +619,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 
-	expectedError := fmt.Sprintf("user %q not found", jjam.Name())
+	expectedError := fmt.Sprintf("%q not found", jjam.Name())
 	// Make sure the user exists.
 	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
@@ -638,7 +638,8 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 	// Check if deleted.
 	err = jjam.Refresh()
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 
 	// Try again and verify we get the expected error.
 	got, err = s.usermanager.RemoveUser(params.Entities{
@@ -785,19 +786,15 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Ensure modelusers were removed from model
-	users, err = model.Users()
-	c.Check(err, jc.ErrorIsNil)
-	userNames = []string{}
-	for _, u := range users {
-		userNames = append(userNames, u.UserTag().Name())
-	}
-	c.Assert(userNames, jc.SameContents, []string{"admin", bob.Name()})
+	// There was a test here to ensure modelusers were removed. However, after
+	// moving to the marked deleted implementation of removeing users we AFAIU
+	// don't need this check. Because the apiserver will prevent not permit
+	// calls that involve modelusers if the user no longer exists (is deleted).
 
 	// Also make sure users were removed.
 	err = jjam.Refresh()
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", jjam.Name()))
+	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 	err = alice.Refresh()
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q not found", alice.Name()))
+	c.Assert(alice.IsDeleted(), jc.IsTrue)
 
 }

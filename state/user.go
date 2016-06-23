@@ -181,7 +181,9 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		return nil, errors.Trace(err)
 	}
 	if user.doc.Deleted {
-		return nil, errors.NotFoundf("user %q has been deleted", user.Name())
+		// This error is returned to the apiserver and from there to the api
+		// client. So we don't annotate with information regarding deletion.
+		return nil, errors.NotFoundf("%q", user.Name())
 	}
 	return user, nil
 }
