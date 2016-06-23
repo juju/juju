@@ -511,43 +511,6 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return result.OneError()
 }
 
-// WorkloadVersion returns the version of the workload reported by
-// this unit.
-func (u *Unit) WorkloadVersion() (string, error) {
-	var results params.StringResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("WorkloadVersion", args, &results)
-	if err != nil {
-		return "", err
-	}
-	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Result, nil
-}
-
-// SetWorkloadVersion sets the unit's workload version to the
-// specified value.
-func (u *Unit) SetWorkloadVersion(version string) error {
-	var result params.ErrorResults
-	args := params.EntityWorkloadVersions{
-		Entities: []params.EntityWorkloadVersion{
-			{Tag: u.tag.String(), WorkloadVersion: version},
-		},
-	}
-	err := u.st.facade.FacadeCall("SetWorkloadVersion", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
 	var result params.ErrorResults

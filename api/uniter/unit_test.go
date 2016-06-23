@@ -420,25 +420,6 @@ func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
 	c.Assert(curl.String(), gc.Equals, s.wordpressCharm.String())
 }
 
-func (s *unitSuite) TestGetSetWorkloadVersion(c *gc.C) {
-	// No workload version set yet.
-	version, err := s.wordpressUnit.WorkloadVersion()
-	c.Assert(version, gc.Equals, "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now check the same through the API.
-	result, err := s.apiUnit.WorkloadVersion()
-	c.Assert(result, gc.Equals, "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.apiUnit.SetWorkloadVersion("Pipey")
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err = s.apiUnit.WorkloadVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "Pipey")
-}
-
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	// Make sure ConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
