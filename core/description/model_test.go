@@ -637,11 +637,18 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 
 func (s *ModelSerializationSuite) TestAction(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
-	addr := initial.AddAction(ActionArgs{Name: "foo"})
-	c.Assert(addr.Name(), gc.Equals, "foo")
+	enqueued := time.Now()
+	action := initial.AddAction(ActionArgs{
+		Name:       "foo",
+		Enqueued:   enqueued,
+		Parameters: map[string]interface{}{},
+		Results:    map[string]interface{}{},
+	})
+	c.Assert(action.Name(), gc.Equals, "foo")
+	c.Assert(action.Enqueued(), gc.Equals, enqueued)
 	actions := initial.Actions()
 	c.Assert(actions, gc.HasLen, 1)
-	c.Assert(actions[0], jc.DeepEquals, addr)
+	c.Assert(actions[0], jc.DeepEquals, action)
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)

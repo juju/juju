@@ -4,6 +4,7 @@
 package description
 
 import (
+	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -52,7 +53,7 @@ func (s *ActionSerializationSuite) TestNewAction(c *gc.C) {
 	c.Check(action.Completed(), gc.Equals, args.Completed)
 	c.Check(action.Status(), gc.Equals, args.Status)
 	c.Check(action.Message(), gc.Equals, args.Message)
-	c.Check(action.Results(), gc.Equals, args.Results)
+	c.Check(action.Results(), jc.DeepEquals, args.Results)
 }
 
 func (s *ActionSerializationSuite) TestParsingSerializedData(c *gc.C) {
@@ -71,18 +72,25 @@ func (s *ActionSerializationSuite) TestParsingSerializedData(c *gc.C) {
 				Message:    "a message",
 				Results:    map[string]interface{}{"the": 3, "thing": "bam"},
 			}),
-			newAction(ActionArgs{Name: "bing"}),
+			newAction(ActionArgs{
+				Name:       "bing",
+				Enqueued:   time.Now(),
+				Parameters: map[string]interface{}{"bop": 4, "beep": "fish"},
+				Results:    map[string]interface{}{"eggs": 5, "spam": "wow"},
+			}),
 		},
 	}
 
 	bytes, err := yaml.Marshal(initial)
 	c.Assert(err, jc.ErrorIsNil)
+	fmt.Printf("%#v", initial.Actions_[0])
 
 	var source map[string]interface{}
 	err = yaml.Unmarshal(bytes, &source)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err := importActions(source)
+	fmt.Printf("%#v", actions[0])
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(actions, jc.DeepEquals, initial.Actions_)

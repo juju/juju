@@ -21,11 +21,13 @@ type action struct {
 	Name_       string                 `yaml:"name"`
 	Parameters_ map[string]interface{} `yaml:"parameters"`
 	Enqueued_   time.Time              `yaml:"enqueued"`
-	Started_    time.Time              `yaml:"started"`
-	Completed_  time.Time              `yaml:"completed"`
-	Status_     string                 `yaml:"status"`
-	Message_    string                 `yaml:"message"`
-	Results_    map[string]interface{} `yaml:"results"`
+	// Can't use omitempty with time.Time, it just doesn't work,
+	// so use a pointer in the struct.
+	Started_   *time.Time             `yaml:"started,omitempty"`
+	Completed_ *time.Time             `yaml:"completed,omitempty"`
+	Status_    string                 `yaml:"status"`
+	Message_   string                 `yaml:"message"`
+	Results_   map[string]interface{} `yaml:"results"`
 }
 
 // Id implements Action.
@@ -55,12 +57,20 @@ func (i *action) Enqueued() time.Time {
 
 // Started implements Action.
 func (i *action) Started() time.Time {
-	return i.Started_
+	var zero time.Time
+	if i.Started_ == nil {
+		return zero
+	}
+	return *i.Started_
 }
 
 // Completed implements Action.
 func (i *action) Completed() time.Time {
-	return i.Completed_
+	var zero time.Time
+	if i.Completed_ == nil {
+		return zero
+	}
+	return *i.Completed_
 }
 
 // Status implements Action.
@@ -94,17 +104,25 @@ type ActionArgs struct {
 }
 
 func newAction(args ActionArgs) *action {
-	return &action{
+	action := &action{
 		Receiver_:   args.Receiver,
 		Name_:       args.Name,
 		Parameters_: args.Parameters,
 		Enqueued_:   args.Enqueued,
-		Started_:    args.Started,
-		Completed_:  args.Completed,
 		Status_:     args.Status,
 		Message_:    args.Message,
 		Id_:         args.Id,
+		Results_:    args.Results,
 	}
+	if !args.Started.IsZero() {
+		value := args.Started
+		action.Started_ = &value
+	}
+	if !args.Completed.IsZero() {
+		value := args.Completed
+		action.Completed_ = &value
+	}
+	return action
 }
 
 func importActions(source map[string]interface{}) ([]*action, error) {
@@ -151,16 +169,19 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		"receiver":   schema.String(),
 		"name":       schema.String(),
 		"parameters": schema.StringMap(schema.Any()),
-		"enqueued":   schema.String(),
-		"started":    schema.String(),
-		"completed":  schema.String(),
+		"enqueued":   schema.Time(),
+		"started":    schema.Time(),
+		"completed":  schema.Time(),
 		"status":     schema.String(),
 		"message":    schema.String(),
 		"results":    schema.StringMap(schema.Any()),
 		"id":         schema.String(),
 	}
 	// Some values don't have to be there.
-	defaults := schema.Defaults{}
+	defaults := schema.Defaults{
+		"started":   time.Time{},
+		"completed": time.Time{},
+	}
 	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
@@ -168,32 +189,24 @@ func importActionV1(source map[string]interface{}) (*action, error) {
 		return nil, errors.Annotatef(err, "action v1 schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
-	enqString := valid["enqueued"].(string)
-	startString := valid["started"].(string)
-	compString := valid["completed"].(string)
-	timeFormat := "2006-01-02 15:04:05.999999999 -0700 MST"
-	enqueued, err := time.Parse(timeFormat, enqString)
-	if err != nil {
-		return nil, errors.Annotatef(err, "action v1 schema check failed")
-	}
-	started, err := time.Parse(timeFormat, startString)
-	if err != nil {
-		return nil, errors.Annotatef(err, "action v1 schema check failed")
-	}
-	completed, err := time.Parse(timeFormat, compString)
-	if err != nil {
-		return nil, errors.Annotatef(err, "action v1 schema check failed")
-	}
-	return &action{
+	action := &action{
 		Id_:         valid["id"].(string),
 		Receiver_:   valid["receiver"].(string),
 		Name_:       valid["name"].(string),
 		Status_:     valid["status"].(string),
 		Message_:    valid["message"].(string),
 		Parameters_: valid["parameters"].(map[string]interface{}),
-		Enqueued_:   enqueued,
-		Started_:    started,
-		Completed_:  completed,
+		Enqueued_:   valid["enqueued"].(time.Time),
 		Results_:    valid["results"].(map[string]interface{}),
-	}, nil
+	}
+
+	started := valid["started"].(time.Time)
+	if !started.IsZero() {
+		action.Started_ = &started
+	}
+	completed := valid["completed"].(time.Time)
+	if !started.IsZero() {
+		action.Completed_ = &completed
+	}
+	return action, nil
 }
