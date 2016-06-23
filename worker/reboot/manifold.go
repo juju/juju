@@ -38,11 +38,12 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
+	config := a.CurrentConfig()
+	lock, err := cmdutil.HookExecutionLock(config.DataDir())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := NewReboot(rebootState, a.CurrentConfig(), lock)
+	w, err := NewReboot(rebootState, lock)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start reboot worker")
 	}

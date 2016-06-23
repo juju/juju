@@ -7,10 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/fslock"
-	"gopkg.in/juju/names.v2"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
@@ -29,18 +27,12 @@ const RebootMessage = "preparing for reboot"
 type Reboot struct {
 	tomb        tomb.Tomb
 	st          reboot.State
-	tag         names.MachineTag
 	machineLock *fslock.Lock
 }
 
-func NewReboot(st reboot.State, agentConfig agent.Config, machineLock *fslock.Lock) (worker.Worker, error) {
-	tag, ok := agentConfig.Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())
-	}
+func NewReboot(st reboot.State, machineLock *fslock.Lock) (worker.Worker, error) {
 	r := &Reboot{
 		st:          st,
-		tag:         tag,
 		machineLock: machineLock,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
