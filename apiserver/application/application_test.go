@@ -2439,22 +2439,22 @@ func (s *serviceSuite) TestClientGetServiceConstraints(c *gc.C) {
 	c.Assert(result.Constraints, gc.DeepEquals, cons)
 }
 
-func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relation) {
-	c.Assert(endpoints["wordpress"], gc.DeepEquals, charm.Relation{
+func (s *serviceSuite) checkEndpoints(c *gc.C, endpoints map[string]params.CharmRelation) {
+	c.Assert(endpoints["wordpress"], gc.DeepEquals, params.CharmRelation{
 		Name:      "db",
-		Role:      charm.RelationRole("requirer"),
+		Role:      "requirer",
 		Interface: "mysql",
 		Optional:  false,
 		Limit:     1,
-		Scope:     charm.RelationScope("global"),
+		Scope:     "global",
 	})
-	c.Assert(endpoints["mysql"], gc.DeepEquals, charm.Relation{
+	c.Assert(endpoints["mysql"], gc.DeepEquals, params.CharmRelation{
 		Name:      "server",
-		Role:      charm.RelationRole("provider"),
+		Role:      "provider",
 		Interface: "mysql",
 		Optional:  false,
 		Limit:     0,
-		Scope:     charm.RelationScope("global"),
+		Scope:     "global",
 	})
 }
 

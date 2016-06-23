@@ -13,7 +13,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
@@ -65,37 +64,35 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	)
 }
 
-var someCharmActions = &charm.Actions{
-	ActionSpecs: map[string]charm.ActionSpec{
-		"snapshot": {
-			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
-				"foo": map[string]interface{}{
-					"bar": "baz",
-				},
-				"baz": "bar",
+var someCharmActions = map[string]params.ActionSpec{
+	"snapshot": {
+		Description: "Take a snapshot of the database.",
+		Params: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
 			},
+			"baz": "bar",
 		},
-		"kill": {
-			Description: "Kill the database.",
-			Params: map[string]interface{}{
-				"bar": map[string]interface{}{
-					"baz": "foo",
-				},
-				"foo": "baz",
+	},
+	"kill": {
+		Description: "Kill the database.",
+		Params: map[string]interface{}{
+			"bar": map[string]interface{}{
+				"baz": "foo",
 			},
+			"foo": "baz",
 		},
-		"no-description": {
-			Params: map[string]interface{}{
-				"bar": map[string]interface{}{
-					"baz": "foo",
-				},
-				"foo": "baz",
+	},
+	"no-description": {
+		Params: map[string]interface{}{
+			"bar": map[string]interface{}{
+				"baz": "foo",
 			},
+			"foo": "baz",
 		},
-		"no-params": {
-			Description: "An action with no parameters.",
-		},
+	},
+	"no-params": {
+		Description: "An action with no parameters.",
 	},
 }
 
@@ -129,7 +126,7 @@ type fakeAPIClient struct {
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   params.FindTagsResults
 	actionsByNames     params.ActionsByNames
-	charmActions       *charm.Actions
+	charmActions       map[string]params.ActionSpec
 	apiErr             error
 }
 
@@ -174,7 +171,7 @@ func (c *fakeAPIClient) Cancel(args params.Actions) (params.ActionResults, error
 	}, c.apiErr
 }
 
-func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (*charm.Actions, error) {
+func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error) {
 	return c.charmActions, c.apiErr
 }
 

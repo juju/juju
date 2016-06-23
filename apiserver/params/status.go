@@ -8,8 +8,6 @@ package params
 import (
 	"time"
 
-	"gopkg.in/juju/charm.v6-unstable"
-
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -90,19 +88,19 @@ type UnitStatus struct {
 
 // RelationStatus holds status info about a relation.
 type RelationStatus struct {
-	Id        int                 `json:"id"`
-	Key       string              `json:"key"`
-	Interface string              `json:"interface"`
-	Scope     charm.RelationScope `json:"scope"`
-	Endpoints []EndpointStatus    `json:"endpoints"`
+	Id        int              `json:"id"`
+	Key       string           `json:"key"`
+	Interface string           `json:"interface"`
+	Scope     string           `json:"scope"`
+	Endpoints []EndpointStatus `json:"endpoints"`
 }
 
 // EndpointStatus holds status info about a single endpoint
 type EndpointStatus struct {
-	ApplicationName string             `json:"application"`
-	Name            string             `json:"name"`
-	Role            charm.RelationRole `json:"role"`
-	Subordinate     bool               `json:"subordinate"`
+	ApplicationName string `json:"application"`
+	Name            string `json:"name"`
+	Role            string `json:"role"`
+	Subordinate     bool   `json:"subordinate"`
 }
 
 // TODO(ericsnow) Eliminate the String method.

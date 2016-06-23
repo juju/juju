@@ -439,7 +439,7 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Cha
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.URL{*ref}}
+	args := params.ResolveCharms{References: []string{ref.String()}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
@@ -451,7 +451,11 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 	if urlInfo.Error != "" {
 		return nil, errors.New(urlInfo.Error)
 	}
-	return urlInfo.URL, nil
+	url, err := charm.ParseURL(urlInfo.URL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return url, nil
 }
 
 // OpenCharm streams out the identified charm from the controller via
