@@ -138,45 +138,18 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
 	// Look for the user.
-	u, err := s.State.User(names.NewUserTag(user.Name()))
+	u, err := s.State.User(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(u, jc.DeepEquals, user)
 
 	// Remove the user.
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
+	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
 
 	// Check again.
-	_, err = s.State.User(names.NewUserTag(user.Name()))
+	u, err = s.State.User(user.UserTag())
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-
-	// Try removing a non-existent user and check we failed as expected.
-	err = s.State.RemoveUser(user.UserTag())
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-
-}
-
-func (s *UserSuite) TestRemoveUserWithModel(c *gc.C) {
-	// Create a user.
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoModelUser: true})
-
-	// Create a ModelUser.
-	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	modelUser, err := s.State.AddModelUser(state.ModelUserSpec{
-		User: user.UserTag(), CreatedBy: createdBy.UserTag()})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Remove the user.
-	err = s.State.RemoveUser(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check the user is gone.
-	err = user.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Check that the ModelUser is gone.
-	_, err = s.State.ModelUser(modelUser.UserTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *UserSuite) TestDisable(c *gc.C) {

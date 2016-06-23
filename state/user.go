@@ -102,8 +102,9 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// RemoveUser removes the user with the given name from the User collection as
-// well as any modeluser entries in the ModelUser collection.
+// RemoveUser marks the user as deleted. Which obviates the ability of a user
+// to function, but allows the record to remain for historic purposes, e.g.
+// auditing.
 func (st *State) RemoveUser(tag names.UserTag) error {
 	name := strings.ToLower(tag.Name())
 
@@ -113,118 +114,27 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
 		if attempt > 0 {
 			// If it is not our first attempt, refresh the user.
-			if userErr := u.Refresh(); userErr != nil {
-				if errors.IsNotFound(userErr) {
-					// If there is no user, see if anything was added
-					// elsewhere.
-					ops, err := st.removeUserOpsFromOtherCollections(tag)
-					if err != nil {
-						return nil, err
-					}
-					// If there ops, return them.
-					if len(ops) != 0 {
-						return ops, nil
-					}
-					// Otherwise return ErrNoOperations
+			if err := u.Refresh(); err != nil {
+				// If it was successfully deleted `Refresh` should return a not
+				// found error. That means we were successful and should move on.
+				if errors.IsNotFound(err) {
 					return nil, jujutxn.ErrNoOperations
 				}
-				// Or return the unexpected error.
-				return nil, errors.Trace(userErr)
+				return nil, errors.Trace(err)
 			}
 		}
-		// Otherwise this is our first attempt or our first attempt failed. So
-		// build the slice of transaction ops for UserModels,
-		// UserModelLastConnectionTime, and User.
-		ops, err := st.removeUserOpsFromOtherCollections(tag)
-		if err != nil {
-			return nil, err
-		}
-		ops = append(ops, txn.Op{
+		ops := []txn.Op{{
 			Id:     name,
 			C:      usersC,
 			Assert: txn.DocExists,
-			Remove: true,
-		})
+			Update: bson.M{"$set": bson.M{"deleted": true}},
+		}}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
-		// If there's no error rerun to ensure nothing was added while building
-		// our original ops.
-		return st.run(buildTxn)
-	}
-	// Or return the error
-	return err
-}
 
-func (st *State) removeUserOpsFromOtherCollections(user names.UserTag) ([]txn.Op, error) {
-	var ops []txn.Op
-	ops, err := st.modelUserOps(user)
-	if err != nil {
-		return ops, errors.Trace(err)
-	}
-	muSerLastConOps, err := st.modelUserLastConOps(user)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(muSerLastConOps) > 0 {
-		ops = append(ops, muSerLastConOps...)
-	}
-	return ops, nil
-}
-
-func (st *State) modelUserOps(user names.UserTag) ([]txn.Op, error) {
-	c, closer := st.getRawCollection(modelUsersC)
-	defer closer()
-
-	var (
-		ids []struct {
-			ID string `bson:"_id"`
-		}
-		ops []txn.Op
-	)
-	err := c.Find(bson.D{
-		{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&ids)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, entry := range ids {
-		ops = append(ops, txn.Op{
-			C:      modelUsersC,
-			Id:     entry.ID,
-			Assert: txn.DocExists,
-			Remove: true,
-		})
-	}
-	return ops, nil
-}
-
-func (st *State) modelUserLastConOps(user names.UserTag) ([]txn.Op, error) {
-	c, closer := st.getRawCollection(modelUserLastConnectionC)
-	defer closer()
-
-	var (
-		ids []struct {
-			ID string `bson:"_id"`
-		}
-		ops []txn.Op
-	)
-	err := c.Find(bson.D{
-		{"user", user.Canonical()}}).Select(bson.D{{"_id", 1}}).All(&ids)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, entry := range ids {
-		ops = append(ops, txn.Op{
-			C:      modelUserLastConnectionC,
-			Id:     entry.ID,
-			Assert: txn.DocExists,
-			Remove: true,
-		})
-	}
-	return ops, nil
+	return st.run(buildTxn)
 }
 
 func createInitialUserOp(st *State, user names.UserTag, password, salt string) txn.Op {
@@ -253,7 +163,7 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 	defer closer()
 
 	name = strings.ToLower(name)
-	err := users.Find(bson.D{{"_id", name}}).One(udoc)
+	err := users.Find(bson.D{{"_id", name}, {"deleted", false}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
@@ -309,11 +219,11 @@ type User struct {
 }
 
 type userDoc struct {
-	DocID       string `bson:"_id"`
-	Name        string `bson:"name"`
-	DisplayName string `bson:"displayname"`
-	// Removing users means they still exist, but are marked deactivated
+	DocID        string    `bson:"_id"`
+	Name         string    `bson:"name"`
+	DisplayName  string    `bson:"displayname"`
 	Deactivated  bool      `bson:"deactivated"`
+	Deleted      bool      // Deleted users are marked deleted but not removed
 	SecretKey    []byte    `bson:"secretkey,omitempty"`
 	PasswordHash string    `bson:"passwordhash"`
 	PasswordSalt string    `bson:"passwordsalt"`
@@ -412,9 +322,24 @@ func IsNeverLoggedInError(err error) bool {
 	return ok
 }
 
+// DeletedUserError is used to indicate when an attempt to mutate a deleted
+// user is attempted.
+type DeletedUserError struct {
+	Action   string
+	UserName string
+}
+
+// Error implements the error interface.
+func (e DeletedUserError) Error() string {
+	return fmt.Sprintf("cannot %q for deleted user, %q", e.Action, e.UserName)
+}
+
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() (err error) {
+	if u.Deleted() {
+		return DeletedUserError{"update last login", u.Name()}
+	}
 	lastLogins, closer := u.st.getCollection(userLastLoginC)
 	defer closer()
 
@@ -442,6 +367,9 @@ func (u *User) SecretKey() []byte {
 
 // SetPassword sets the password associated with the User.
 func (u *User) SetPassword(password string) error {
+	if u.Deleted() {
+		return DeletedUserError{"set a password", u.Name()}
+	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
 		return err
@@ -453,6 +381,9 @@ func (u *User) SetPassword(password string) error {
 // password. If the User has a secret key set then it
 // will be cleared.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
+	if u.Deleted() {
+		return DeletedUserError{"set password hash", u.Name()}
+	}
 	update := bson.D{{"$set", bson.D{
 		{"passwordhash", pwHash},
 		{"passwordsalt", pwSalt},
@@ -479,12 +410,12 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 
 // PasswordValid returns whether the given password is valid for the User.
 func (u *User) PasswordValid(password string) bool {
-	// If the User is deactivated, no point in carrying on. Since any
-	// authentication checks are done very soon after the user is read
-	// from the database, there is a very small timeframe where an user
-	// could be disabled after it has been read but prior to being checked,
-	// but in practice, this isn't a problem.
-	if u.IsDisabled() {
+	// If the User is deactivated or deleted, there no point in carrying on.
+	// Since any authentication checks are done very soon after the user is
+	// read from the database, there is a very small timeframe where an user
+	// could be disabled after it has been read but prior to being checked, but
+	// in practice, this isn't a problem.
+	if u.IsDisabled() || u.Deleted() {
 		return false
 	}
 	if u.doc.PasswordSalt != "" {
@@ -505,6 +436,9 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
+	if u.Deleted() {
+		return DeletedUserError{"disable user", u.Name()}
+	}
 	environment, err := u.st.ControllerModel()
 	if err != nil {
 		return errors.Trace(err)
@@ -542,6 +476,14 @@ func (u *User) IsDisabled() bool {
 	// Yes, this is a cached value, but in practice the user object is
 	// never held around for a long time.
 	return u.doc.Deactivated
+}
+
+// Deleted refreshes the user to ensure it wasn't deleted.
+func (u *User) Deleted() bool {
+	if err := u.Refresh(); errors.IsNotFound(err) {
+		return true
+	}
+	return u.doc.Deleted
 }
 
 // userList type is used to provide the methods for sorting.
