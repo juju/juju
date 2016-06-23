@@ -65,6 +65,20 @@ func (st *state) loginForVersion(tag names.Tag, password, nonce string, macaroon
 	}
 	err := st.APICall("Admin", vers, "", "Login", request, &result)
 	if err != nil {
+		var resp params.RedirectInfoResult
+		if params.IsRedirect(err) {
+			// We've been asked to redirect. Find out the redirection info.
+			// If the rpc packet allowed us to return arbitrary information in
+			// an error, we'd probably put this information in the Login response,
+			// but we can't do that currently.
+			if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
+				return errors.Annotatef(err, "cannot get redirect addresses")
+			}
+			return &RedirectError{
+				Servers: params.NetworkHostsPorts(resp.Servers),
+				CACert:  resp.CACert,
+			}
+		}
 		return errors.Trace(err)
 	}
 	if result.DischargeRequired != nil {

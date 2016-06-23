@@ -8,7 +8,7 @@ import (
 	"reflect"
 )
 
-// CallNotImplementedError is an error, returned an attempt to call to
+// CallNotImplementedError is the error returned when an attempt to call to
 // an unknown API method is made.
 type CallNotImplementedError struct {
 	RootMethod string

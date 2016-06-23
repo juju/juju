@@ -594,6 +594,18 @@ type LoginResult struct {
 	Facades        []FacadeVersions `json:"facades"`
 }
 
+// RedirectInfoResult holds the result of a RedirectInfo call.
+type RedirectInfoResult struct {
+	// Servers holds an entry for each server that holds the
+	// addresses for the server.
+	Servers [][]HostPort `json:"servers"`
+
+	// CACert holds the CA certificate for the server.
+	// TODO(rogpeppe) allow this to be empty if the
+	// server has a globally trusted certificate?
+	CACert string `json:"ca-cert"`
+}
+
 // ReauthRequest holds a challenge/response token meaningful to the identity
 // provider.
 type ReauthRequest struct {
