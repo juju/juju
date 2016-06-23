@@ -6,19 +6,24 @@ package model
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api/lifeflag"
+	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/lifeflag"
 )
 
 // ErrRemoved may be returned by some worker started from Manifolds to
 // indicate that the model under management no longer exists.
 var ErrRemoved = errors.New("model removed")
 
-// lifeFilter is used with the lifeflag manifolds -- which do not depend
-// on runFlag -- to return an error that will be trapped by IsFatal.
-func lifeFilter(err error) error {
+// LifeFilter is used with the lifeflag manifolds -- which do not depend
+// on runFlag -- to return appropriate errors for consumption by the
+// enclosing dependency.Engine (and/or its IsFatal check).
+func LifeFilter(err error) error {
 	cause := errors.Cause(err)
-	if cause == lifeflag.ErrNotFound {
+	switch cause {
+	case lifeflag.ErrNotFound:
 		return ErrRemoved
+	case lifeflag.ErrValueChanged:
+		return dependency.ErrBounce
 	}
 	return err
 }

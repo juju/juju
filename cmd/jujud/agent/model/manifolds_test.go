@@ -4,12 +4,11 @@
 package model_test
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/worker/workertest"
