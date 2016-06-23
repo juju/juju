@@ -80,7 +80,7 @@ update_windows() {
 bzr pull -d ./juju-release-tools
 bzr pull -d ./juju-ci-tools
 /cygdrive/c/progra~2/7-Zip/7z.exe x -y repository.zip
-./juju-ci-tools/pipdeps install
+python ./juju-ci-tools/pipdeps.py install
 EOT
 }
 
