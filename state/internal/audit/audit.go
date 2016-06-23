@@ -27,9 +27,9 @@ type auditEntryDoc struct {
 	// unmarshaled via time.Time::UnmarshalText.
 	Timestamp string `bson:"timestamp"`
 
-	// OriginIP is the IP of the machine from which the audit-event
-	// was triggered.
-	OriginIP string `bson:"origin-ip"`
+	// RemoteAddress is the IP of the machine from which the
+	// audit-event was triggered.
+	RemoteAddress string `bson:"remote-address"`
 
 	// OriginType is the type of entity (e.g. model, user, action)
 	// which triggered the audit event.
@@ -72,16 +72,11 @@ func auditEntryDocFromAuditEntry(auditEntry audit.AuditEntry) (auditEntryDoc, er
 		return auditEntryDoc{}, errors.Trace(err)
 	}
 
-	ipAsBlob, err := auditEntry.OriginIP.MarshalText()
-	if err != nil {
-		return auditEntryDoc{}, errors.Trace(err)
-	}
-
 	return auditEntryDoc{
 		JujuServerVersion: auditEntry.JujuServerVersion,
 		ModelUUID:         auditEntry.ModelUUID,
 		Timestamp:         string(timeAsBlob),
-		OriginIP:          string(ipAsBlob),
+		RemoteAddress:     auditEntry.RemoteAddress,
 		OriginType:        auditEntry.OriginType,
 		OriginName:        auditEntry.OriginName,
 		Operation:         auditEntry.Operation,

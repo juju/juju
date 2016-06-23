@@ -4,7 +4,6 @@
 package audit_test
 
 import (
-	"net"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,7 +31,7 @@ func (*AuditSuite) TestPutAuditEntry_PersistAuditEntry(c *gc.C) {
 		JujuServerVersion: version.MustParse("1.0.0"),
 		ModelUUID:         utils.MustNewUUID().String(),
 		Timestamp:         time.Now().UTC(),
-		OriginIP:          net.ParseIP("8.8.8.8"),
+		RemoteAddress:     "8.8.8.8",
 		OriginType:        "user",
 		OriginName:        "bob",
 		Operation:         "status",
@@ -53,9 +52,6 @@ func (*AuditSuite) TestPutAuditEntry_PersistAuditEntry(c *gc.C) {
 		serializedAuditDoc, err := bson.Marshal(docs[0])
 		c.Assert(err, jc.ErrorIsNil)
 
-		requestedIPBlob, err := requested.OriginIP.MarshalText()
-		c.Assert(err, jc.ErrorIsNil)
-
 		requestedTimeBlob, err := requested.Timestamp.MarshalText()
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +59,7 @@ func (*AuditSuite) TestPutAuditEntry_PersistAuditEntry(c *gc.C) {
 			"juju-server-version": requested.JujuServerVersion,
 			"model-uuid":          requested.ModelUUID,
 			"timestamp":           string(requestedTimeBlob),
-			"origin-ip":           string(requestedIPBlob),
+			"remote-address":      "8.8.8.8",
 			"origin-type":         requested.OriginType,
 			"origin-name":         requested.OriginName,
 			"operation":           requested.Operation,
@@ -94,7 +90,7 @@ func (*AuditSuite) TestPutAuditEntry_PropagatesWriteError(c *gc.C) {
 		JujuServerVersion: version.MustParse("1.0.0"),
 		ModelUUID:         uuid.String(),
 		Timestamp:         time.Now().UTC(),
-		OriginIP:          net.ParseIP("8.8.8.8"),
+		RemoteAddress:     "8.8.8.8",
 		OriginType:        "user",
 		OriginName:        "bob",
 		Operation:         "status",
