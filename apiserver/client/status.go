@@ -607,6 +607,13 @@ func (context *statusContext) processApplication(service *state.Application) par
 
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
 	}
+
+	versions := make([]string, 0, len(processedStatus.Units))
+	for _, unit := range processedStatus.Units {
+		versions = append(versions, unit.WorkloadVersion)
+	}
+	processedStatus.WorkloadVersion = combineUnitVersions(versions)
+
 	return processedStatus
 }
 
@@ -660,6 +667,13 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		result.Charm = curl.String()
 	}
+	workloadVersion, err := unit.WorkloadVersion()
+	if err == nil {
+		result.WorkloadVersion = workloadVersion
+	} else {
+		logger.Debugf("error fetching workload version: %v", err)
+	}
+
 	processUnitAndAgentStatus(unit, &result)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
@@ -840,4 +854,69 @@ func processLife(entity lifer) string {
 		return life.String()
 	}
 	return ""
+}
+
+// versionCounts stores the different versions reported by units, with
+// their counts so that we can find the most common one.
+type versionCounts struct {
+	versions []string
+	counts   map[string]int
+}
+
+// Len implements sort.Interface.
+func (v *versionCounts) Len() int { return len(v.versions) }
+
+// Swap implements sort.Interface.
+func (v *versionCounts) Swap(a, b int) {
+	v.versions[a], v.versions[b] = v.versions[b], v.versions[a]
+}
+
+// Less implements sort.Interface.
+func (v *versionCounts) Less(a, b int) bool {
+	// We want the items to sort so that the most frequent versions are
+	// earliest, and within that in lexicographic order.
+	val1 := v.versions[a]
+	val2 := v.versions[b]
+
+	// The empty string should come last - we only pick it if there
+	// aren't any other values.
+	switch {
+	case val1 == "":
+		return false
+	case val2 == "":
+		return true
+	}
+
+	count1 := v.counts[val1]
+	count2 := v.counts[val2]
+	if count1 == count2 {
+		// With the same counts, sort alphabetically.
+		return val1 < val2
+	}
+	// Higher counts are "less" - they come earlier in the slice.
+	return count1 > count2
+}
+
+// combineUnitVersions determines the application's version from its
+// units' versions. If they're different, it picks the most common one
+// and indicates that the unit versions are mixed with a *.
+func combineUnitVersions(unitVersions []string) string {
+	if len(unitVersions) == 0 {
+		return ""
+	}
+
+	vc := versionCounts{counts: make(map[string]int)}
+	for _, version := range unitVersions {
+		vc.counts[version]++
+		if vc.counts[version] == 1 {
+			vc.versions = append(vc.versions, version)
+		}
+	}
+
+	sort.Sort(&vc)
+	result := vc.versions[0]
+	if vc.Len() > 1 {
+		result += "*"
+	}
+	return result
 }
