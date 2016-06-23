@@ -36,7 +36,6 @@ func (cfg Config) ExpectedServerCert() (*x509.Certificate, error) {
 // TLS returns the raw tls.Config that corresponds with this config.
 func (cfg Config) TLS() (*tls.Config, error) {
 	tlsConfig := utils.SecureTLSConfig()
-	//tlsConfig.PreferServerCipherSuites = true
 
 	serverCert, err := cfg.ExpectedServerCert()
 	if err != nil {
@@ -46,9 +45,13 @@ func (cfg Config) TLS() (*tls.Config, error) {
 	serverName := cfg.ServerName
 	if serverName == "" {
 		if len(serverCert.DNSNames) == 0 {
-			return nil, errors.New("empty ServerName")
+			// We're letting this go for now.
+			// TODO(ericsnow) fix this
+			//return nil, errors.New("empty ServerName")
+			serverName = "anything"
+		} else {
+			serverName = serverCert.DNSNames[0]
 		}
-		serverName = serverCert.DNSNames[0]
 	}
 	tlsConfig.ServerName = serverName
 
@@ -94,9 +97,10 @@ func (cfg Config) Validate() error {
 
 		if cfg.ServerName == "" {
 			if len(xCert.DNSNames) == 0 {
-				return errors.NewNotValid(nil, "ExpectedServerCertPEM missing server name")
-			}
-			if len(xCert.DNSNames) > 1 {
+				// We're letting this go for now.
+				// TODO(ericsnow) fix this
+				//return errors.NewNotValid(nil, "ExpectedServerCertPEM missing server name")
+			} else if len(xCert.DNSNames) > 1 {
 				return errors.NewNotValid(nil, "ExpectedServerCertPEM has too many server names set")
 			}
 		}
