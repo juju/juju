@@ -60,7 +60,7 @@ def run_pip_install(extra_args, requirements, verbose=False):
     subprocess.check_call(cmd)
 
 
-def run_pip_uninstall(obsolete_requirements, verbose=False):
+def run_pip_uninstall(obsolete_requirements):
     """Run pip uninstall for each package version in obsolete_requirements.
 
     pip uninstall the package without regard to its version. In most cases,
@@ -74,8 +74,6 @@ def run_pip_uninstall(obsolete_requirements, verbose=False):
         bibbel (1.2.3)
     """
     pip_cmd = ['pip']
-    if not verbose:
-        pip_cmd.append('-q')
     list_cmd = pip_cmd + ['list']
     installed_packages = set(subprocess.check_output(list_cmd).splitlines())
     with open(obsolete_requirements, 'r') as o_file:
@@ -93,7 +91,7 @@ def command_install(bucket, requirements, verbose=False):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
         archives_url = "file://" + archives_dir
-        run_pip_uninstall(OBSOLETE, verbose=verbose)
+        run_pip_uninstall(OBSOLETE)
         run_pip_install(["--user", "--no-index", "--find-links", archives_url],
                         requirements, verbose=verbose)
 

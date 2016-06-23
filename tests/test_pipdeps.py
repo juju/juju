@@ -95,10 +95,10 @@ class TestRunPipUninstall(unittest.TestCase):
                             return_value=list_output) as co_mock:
                 with mock.patch("subprocess.check_call",
                                 autospec=True) as cc_mock:
-                    pipdeps.run_pip_uninstall(obsolete, verbose=False)
-        co_mock.assert_called_once_with(['pip', '-q', 'list'])
+                    pipdeps.run_pip_uninstall(obsolete)
+        co_mock.assert_called_once_with(['pip', 'list'])
         cc_mock.assert_called_once_with(
-            ['pip', '-q', 'uninstall', '-y', 'azure'])
+            ['pip', 'uninstall', '-y', 'azure'])
 
 
 class TestGetRequirements(unittest.TestCase):
