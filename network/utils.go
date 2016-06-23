@@ -18,17 +18,20 @@ type DNSConfig struct {
 	SearchDomains []string
 }
 
-// ParseResolvConf parses the given resolvConfPath (usually "/etc/resolv.conf")
-// file (if present). It returns the values of any 'nameserver' stanzas, and the
-// last 'search' stanza found, as defined by resolv.conf(5). Values in the
-// result will appear in the order found, including duplicates. Parsing errors
-// will be returned in these cases:
+// ParseResolvConf parses a resolv.conf(5) file at the given path (usually
+// "/etc/resolv.conf"), if present. Returns the values of any 'nameserver'
+// stanzas, and the last 'search' stanza found. Values in the result will appear
+// in the order found, including duplicates. Parsing errors will be returned in
+// these cases:
 //
 // 1. if a 'nameserver' or 'search' without a value is found;
 // 2. 'nameserver' with more than one value (trailing comments starting with '#'
 //    or ';' after the value are allowed).
 // 3. if any value containing '#' or ';' (e.g. 'nameserver 8.8.8.8#bad'), because
 //    values and comments following them must be separated by whitespace.
+//
+// No error is returned if the file is missing. See resolv.conf(5) man page for
+// details.
 func ParseResolvConf(path string) (*DNSConfig, error) {
 	file, err := os.Open(path)
 	if os.IsNotExist(err) {
@@ -71,7 +74,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 
 		if len(values) > 0 {
 			// Last 'search' found wins.
-			searchDomains = append([]string(nil), values...)
+			searchDomains = values
 		}
 	}
 
@@ -85,6 +88,31 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 	}, nil
 }
 
+// parseResolvStanza parses a single line from a resolv.conf(5) file, beginning
+// with the given stanza ('nameserver' or 'search' ). If the line does not
+// contain the stanza, no results and no error is returned. Leading and trailing
+// whitespace is removed first, then lines starting with ";" or "#" are treated
+// as comments.
+//
+// Examples:
+// parseResolvStanza(`   # nothing ;to see here`, "doesn't matter")
+// will return (nil, nil) - comments and whitespace are ignored, nothing left.
+//
+// parseResolvStanza(`   nameserver    ns1.example.com   # preferred`, "nameserver")
+// will return ([]string{"ns1.example.com"}, nil).
+//
+// parseResolvStanza(`search ;; bad: no value`, "search")
+// will return (nil, err: `"search": required value(s) missing`)
+//
+// parseResolvStanza(`search foo bar foo foo.bar bar.foo ;; try all`, "search")
+// will return ([]string("foo", "bar", "foo", "foo.bar", "bar.foo"}, nil)
+//
+// parseResolvStanza(`search foo#bad comment`, "nameserver")
+// will return (nil, nil) - line does not start with "nameserver".
+//
+// parseResolvStanza(`search foo#bad comment`, "search")
+// will return (nil, err: `"search": invalid value "foo#bad"`) - no whitespace
+// between the value "foo" and the following comment "#bad comment".
 func parseResolvStanza(line, stanza string) ([]string, error) {
 	const commentChars = ";#"
 	isComment := func(s string) bool {
