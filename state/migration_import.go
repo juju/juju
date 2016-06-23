@@ -1060,52 +1060,49 @@ func (i *importer) sshHostKeys() error {
 }
 
 func (i *importer) actions() error {
-	i.logger.Debugf("importing ip actions")
-	for _, addr := range i.model.Actions() {
-		err := i.addAction(addr)
+	i.logger.Debugf("importing actions")
+	for _, action := range i.model.Actions() {
+		err := i.addAction(action)
 		if err != nil {
-			i.logger.Errorf("error importing ip action %v: %s", addr, err)
+			i.logger.Errorf("error importing action %v: %s", action, err)
 			return errors.Trace(err)
 		}
 	}
-	i.logger.Debugf("importing ip actions succeeded")
+	i.logger.Debugf("importing actions succeeded")
 	return nil
 }
 
-func (i *importer) addAction(addr description.Action) error {
-	actionValue := addr.Value()
-	subnetCIDR := addr.SubnetCIDR()
-
-	globalKey := ipAddressGlobalKey(addr.MachineID(), addr.DeviceName(), actionValue)
-	ipAddressDocID := i.st.docID(globalKey)
-	providerID := addr.ProviderID()
-
+func (i *importer) addAction(action description.Action) error {
 	modelUUID := i.st.ModelUUID()
-
-	newDoc := &ipAddressDoc{
-		DocID:            ipAddressDocID,
-		ModelUUID:        modelUUID,
-		ProviderID:       providerID,
-		DeviceName:       addr.DeviceName(),
-		MachineID:        addr.MachineID(),
-		SubnetCIDR:       subnetCIDR,
-		ConfigMethod:     AddressConfigMethod(addr.ConfigMethod()),
-		Value:            actionValue,
-		DNSServers:       addr.DNSServers(),
-		DNSSearchDomains: addr.DNSSearchDomains(),
-		GatewayAddress:   addr.GatewayAddress(),
+	newDoc := &actionDoc{
+		DocId:      i.st.docID(action.Id()),
+		ModelUUID:  modelUUID,
+		Receiver:   action.Receiver(),
+		Name:       action.Name(),
+		Parameters: action.Parameters(),
+		Enqueued:   action.Enqueued(),
+		Results:    action.Results(),
+		Message:    action.Message(),
+		Started:    action.Started(),
+		Completed:  action.Completed(),
+		Status:     ActionStatus(action.Status()),
 	}
-
+	notificationDoc := &actionNotificationDoc{
+		DocId:     i.st.docID(prefix + action.Id()),
+		ModelUUID: modelUUID,
+		Receiver:  action.Receiver(),
+		ActionID:  action.Id(),
+	}
 	ops := []txn.Op{{
-		C:      ipAddressesC,
-		Id:     newDoc.DocID,
+		C:      actionsC,
+		Id:     newDoc.DocId,
 		Insert: newDoc,
+	}, {
+		C:      actionNotificationsC,
+		Id:     notificationDoc.DocId,
+		Insert: notificationDoc,
 	}}
 
-	if providerID != "" {
-		id := network.Id(addr.ProviderID())
-		ops = append(ops, i.st.networkEntityGlobalKeyOp("action", id))
-	}
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
