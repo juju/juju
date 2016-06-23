@@ -267,6 +267,11 @@ type Unit interface {
 	WorkloadStatusHistory() []Status
 	SetWorkloadStatusHistory([]StatusArgs)
 
+	WorkloadVersion() string
+
+	WorkloadVersionHistory() []Status
+	SetWorkloadVersionHistory([]StatusArgs)
+
 	AgentStatus() Status
 	SetAgentStatus(StatusArgs)
 

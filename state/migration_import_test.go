@@ -270,7 +270,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
-func (s *MigrationImportSuite) TestServices(c *gc.C) {
+func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	// Add a service with both settings and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -331,7 +331,7 @@ func (s *MigrationImportSuite) TestServices(c *gc.C) {
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 }
 
-func (s *MigrationImportSuite) TestServiceLeaders(c *gc.C) {
+func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 	s.makeApplicationWithLeader(c, "mysql", 2, 1)
 	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
 
@@ -357,6 +357,8 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	})
 	err := exported.SetMeterStatus("GREEN", "some info")
 	c.Assert(err, jc.ErrorIsNil)
+	err = exported.SetWorkloadVersion("amethyst")
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, exported, status.StatusActive, 5)
@@ -376,6 +378,9 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 
 	c.Assert(imported.UnitTag(), gc.Equals, exported.UnitTag())
 	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
+	version, err := imported.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(version, gc.Equals, "amethyst")
 
 	exportedMachineId, err := exported.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -396,6 +401,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 	s.assertAnnotations(c, newSt, imported)
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
+	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
