@@ -168,6 +168,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			APICallerName: apiCallerName,
 			FortressName:  migrationFortressName,
+			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
 			NewWorker:     migrationmaster.NewWorker,
 		})),

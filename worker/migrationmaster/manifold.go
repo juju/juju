@@ -5,6 +5,8 @@ package migrationmaster
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/migration"
@@ -19,6 +21,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	FortressName  string
 
+	Clock     clock.Clock
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
 }
@@ -36,6 +39,9 @@ func (config ManifoldConfig) validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -65,6 +71,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		UploadBinaries:  migration.UploadBinaries,
 		CharmDownloader: apiClient,
 		ToolsDownloader: apiClient,
+		Clock:           config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
