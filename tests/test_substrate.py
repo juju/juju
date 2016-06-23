@@ -27,6 +27,7 @@ from jujupy import (
 from substrate import (
     AWSAccount,
     AzureAccount,
+    AzureARMAccount,
     convert_to_azure_ids,
     describe_instances,
     destroy_job_instances,
@@ -638,12 +639,6 @@ def make_sms(instance_ids):
     return client
 
 
-def get_azure_config():
-    return {
-        'type': 'azure', 'subscription_id': 'subscription_id',
-        'client_id': 'client_id', 'secret': 'secret', 'tenant': 'tenant'}
-
-
 class TestAzureAccount(TestCase):
 
     def test_manager_from_config(self):
@@ -693,13 +688,53 @@ class TestAzureAccount(TestCase):
         client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
         client.delete_hosted_service.assert_called_once_with('foo')
 
-    @patch('substrate.winazurearm.ARMClient.init_services',
+
+def get_azure_config():
+    return {
+        'type': 'azure',
+        'subscription-id': 'subscription-id',
+        'application-id': 'application-id',
+        'application-password': 'application-password',
+        'tenant-id': 'tenant-id'
+    }
+
+
+class TestAzureARMAccount(TestCase):
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_manager_from_config(self, is_mock):
+        config = get_azure_config()
+        with AzureARMAccount.manager_from_config(config) as substrate:
+            self.assertEqual(
+                substrate.arm_client.subscription_id, 'subscription-id')
+            self.assertEqual(substrate.arm_client.client_id, 'application-id')
+            self.assertEqual(
+                substrate.arm_client.secret, 'application-password')
+            self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
+            is_mock.assert_called_once_with(substrate.arm_client)
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_terminate_instances(self, is_mock):
+        config = get_azure_config()
+        arm_client = ARMClient(
+            config['subscription-id'], config['application-id'],
+            config['application-password'], config['tenant-id'])
+        account = AzureARMAccount(arm_client)
+        with patch('winazurearm.delete_instance', autospec=True) as di_mock:
+            account.terminate_instances(['foo-bar'])
+        di_mock.assert_called_once_with(
+            arm_client, 'foo-bar', resource_group=None)
+
+    @patch('winazurearm.ARMClient.init_services',
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env)
         arm_client = ARMClient(
-            'subscription_id', 'client_id', 'secret', 'tenant')
+            'subscription-id', 'application-id', 'application-password',
+            'tenant-id')
         group = ResourceGroup(name='juju-controller-model-bar')
         virtual_machine = VirtualMachine('machine-0', 'abcd-1234')
         other_machine = VirtualMachine('machine-1', 'bcde-1234')
@@ -1012,6 +1047,20 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(open(substrate.service_client.cert_file).read(),
                              'ab\ncd\n')
         self.assertFalse(os.path.exists(substrate.service_client.cert_file))
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_make_substrate_manager_azure_arm(self, is_mock):
+        config = get_azure_config()
+        with make_substrate_manager(config) as substrate:
+            self.assertEqual(
+                substrate.arm_client.subscription_id, 'subscription-id')
+            self.assertEqual(
+                substrate.arm_client.client_id, 'application-id')
+            self.assertEqual(
+                substrate.arm_client.secret, 'application-password')
+            self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
+            is_mock.assert_called_once_with(substrate.arm_client)
 
     def test_make_substrate_manager_other(self):
         config = get_os_config()
