@@ -70,7 +70,7 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 		// Run the script and verify the modified config.
 		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
 		c.Check(retcode, gc.Equals, 0)
-		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig)
+		c.Check(strings.Trim(output, "\n"), gc.Equals, expectedConfig, gc.Commentf("initial was:\n%s", initialConfig))
 	}
 }
 
@@ -210,6 +210,8 @@ iface eth0 inet static
 const networkStaticExpected = `auto lo
 iface lo inet loopback
 
+iface eth0 inet manual
+
 auto test-br-eth0
 iface test-br-eth0 inet static
     address 1.2.3.4
@@ -225,6 +227,8 @@ iface eth0 inet dhcp`
 
 const networkDHCPExpected = `auto lo
 iface lo inet loopback
+
+iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet dhcp
@@ -248,12 +252,16 @@ iface eth1 inet static
 const networkDualNICExpected = `auto lo
 iface lo inet loopback
 
+iface eth0 inet manual
+
 auto test-br-eth0
 iface test-br-eth0 inet static
     address 1.2.3.4
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
+
+iface eth1 inet manual
 
 auto test-br-eth1
 iface test-br-eth1 inet static
@@ -277,6 +285,8 @@ iface eth0:1 inet static
 
 const networkWithAliasExpected = `auto lo
 iface lo inet loopback
+
+iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet static
@@ -309,6 +319,8 @@ dns-nameserver 192.168.1.142`
 
 const networkDHCPWithAliasExpected = `auto lo
 iface lo inet loopback
+
+iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet static
@@ -344,7 +356,9 @@ iface eth1 inet manual
 dns-nameservers 10.17.20.200
 dns-search maas`
 
-const networkMultipleStaticWithAliasesExpected = `auto test-br-eth0
+const networkMultipleStaticWithAliasesExpected = `iface eth0 inet manual
+
+auto test-br-eth0
 iface test-br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.201/24
@@ -456,13 +470,19 @@ iface eth10:2 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
-const networkMultipleAliasesExpected = `auto test-br-eth0
+const networkMultipleAliasesExpected = `iface eth0 inet manual
+
+auto test-br-eth0
 iface test-br-eth0 inet dhcp
     bridge_ports eth0
+
+iface eth1 inet manual
 
 auto test-br-eth1
 iface test-br-eth1 inet dhcp
     bridge_ports eth1
+
+iface eth10 inet manual
 
 auto test-br-eth10
 iface test-br-eth10 inet static
@@ -614,16 +634,22 @@ iface eth3 inet manual
     mtu 1500
     bond-mode active-backup
 
+iface eth4 inet manual
+
 auto juju-br-eth4
 iface juju-br-eth4 inet static
     address 10.17.20.202/24
     mtu 1500
     bridge_ports eth4
 
+iface eth5 inet manual
+
 auto juju-br-eth5
 iface juju-br-eth5 inet dhcp
     mtu 1500
     bridge_ports eth5
+
+iface eth6 inet manual
 
 auto juju-br-eth6
 iface juju-br-eth6 inet static
@@ -718,7 +744,9 @@ iface eth1.3 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
-const networkVLANExpected = `auto vlan-br-eth0
+const networkVLANExpected = `iface eth0 inet manual
+
+auto vlan-br-eth0
 iface vlan-br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.212/24
@@ -729,17 +757,29 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
-auto vlan-br-eth0.2
-iface vlan-br-eth0.2 inet static
+iface eth0.2 inet manual
     address 192.168.2.3/24
     vlan-raw-device eth0
     mtu 1500
+    vlan_id 2
+
+auto vlan-br-eth0.2
+iface vlan-br-eth0.2 inet static
+    address 192.168.2.3/24
+    mtu 1500
     bridge_ports eth0.2
+
+iface eth1.3 inet manual
+    address 192.168.3.3/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 3
+    dns-nameservers 10.17.20.200
+    dns-search maas19
 
 auto vlan-br-eth1.3
 iface vlan-br-eth1.3 inet static
     address 192.168.3.3/24
-    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.3
     dns-nameservers 10.17.20.200
@@ -799,7 +839,9 @@ iface eth1.2670 inet static
 dns-nameservers 10.245.168.2
 dns-search dellstack`
 
-const networkVLANWithMultipleNameserversExpected = `auto br-eth0
+const networkVLANWithMultipleNameserversExpected = `iface eth0 inet manual
+
+auto br-eth0
 iface br-eth0 inet static
     gateway 10.245.168.1
     address 10.245.168.11/21
@@ -819,34 +861,59 @@ auto eth3
 iface eth3 inet manual
     mtu 1500
 
-auto br-eth1.2667
-iface br-eth1.2667 inet static
+iface eth1.2667 inet manual
     address 10.245.184.2/24
     vlan-raw-device eth1
     mtu 1500
+    vlan_id 2667
+    dns-nameservers 10.245.168.2
+
+auto br-eth1.2667
+iface br-eth1.2667 inet static
+    address 10.245.184.2/24
+    mtu 1500
     bridge_ports eth1.2667
+    dns-nameservers 10.245.168.2
+
+iface eth1.2668 inet manual
+    address 10.245.185.1/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2668
     dns-nameservers 10.245.168.2
 
 auto br-eth1.2668
 iface br-eth1.2668 inet static
     address 10.245.185.1/24
-    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2668
+    dns-nameservers 10.245.168.2
+
+iface eth1.2669 inet manual
+    address 10.245.186.1/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2669
     dns-nameservers 10.245.168.2
 
 auto br-eth1.2669
 iface br-eth1.2669 inet static
     address 10.245.186.1/24
-    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2669
     dns-nameservers 10.245.168.2
 
+iface eth1.2670 inet manual
+    address 10.245.187.2/24
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2670
+    dns-nameservers 10.245.168.2
+    dns-search dellstack
+
 auto br-eth1.2670
 iface br-eth1.2670 inet static
     address 10.245.187.2/24
-    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2670
     dns-nameservers 10.245.168.2
@@ -946,17 +1013,29 @@ iface br-bond0 inet static
     bridge_ports bond0
     dns-nameservers 10.17.20.200
 
-auto br-bond0.2
-iface br-bond0.2 inet static
+iface bond0.2 inet manual
     address 192.168.2.102/24
     vlan-raw-device bond0
     mtu 1500
+    vlan_id 2
+
+auto br-bond0.2
+iface br-bond0.2 inet static
+    address 192.168.2.102/24
+    mtu 1500
     bridge_ports bond0.2
+
+iface bond0.3 inet manual
+    address 192.168.3.101/24
+    vlan-raw-device bond0
+    mtu 1500
+    vlan_id 3
+    dns-nameservers 10.17.20.200
+    dns-search maas19
 
 auto br-bond0.3
 iface br-bond0.3 inet static
     address 192.168.3.101/24
-    vlan-raw-device bond0
     mtu 1500
     bridge_ports bond0.3
     dns-nameservers 10.17.20.200
@@ -983,7 +1062,9 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
-const networkVLANWithInactiveDeviceExpected = `auto br-eth0
+const networkVLANWithInactiveDeviceExpected = `iface eth0 inet manual
+
+auto br-eth0
 iface br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.211/24
@@ -995,9 +1076,15 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
+iface eth1.2 inet manual
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+
 auto br-eth1.2
 iface br-eth1.2 inet dhcp
-    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2
     dns-nameservers 10.17.20.200
@@ -1024,7 +1111,9 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
-const networkVLANWithActiveDHCPDeviceExpected = `auto br-eth0
+const networkVLANWithActiveDHCPDeviceExpected = `iface eth0 inet manual
+
+auto br-eth0
 iface br-eth0 inet static
     gateway 10.17.20.1
     address 10.17.20.211/24
@@ -1032,14 +1121,22 @@ iface br-eth0 inet static
     bridge_ports eth0
     dns-nameservers 10.17.20.200
 
+iface eth1 inet manual
+
 auto br-eth1
 iface br-eth1 inet dhcp
     mtu 1500
     bridge_ports eth1
 
+iface eth1.2 inet manual
+    vlan-raw-device eth1
+    mtu 1500
+    vlan_id 2
+    dns-nameservers 10.17.20.200
+    dns-search maas19
+
 auto br-eth1.2
 iface br-eth1.2 inet dhcp
-    vlan-raw-device eth1
     mtu 1500
     bridge_ports eth1.2
     dns-nameservers 10.17.20.200
@@ -1085,13 +1182,17 @@ iface eth3 inet static
 dns-search ubuntu juju
 dns-search dellstack ubuntu dellstack`
 
-const networkWithMultipleDNSValuesExpected = `auto br-eth0
+const networkWithMultipleDNSValuesExpected = `iface eth0 inet manual
+
+auto br-eth0
 iface br-eth0 inet static
     gateway 10.245.168.1
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
     dns-nameservers 10.245.168.2 192.168.1.1
+
+iface eth1 inet manual
 
 auto br-eth1
 iface br-eth1 inet static
@@ -1101,6 +1202,8 @@ iface br-eth1 inet static
     bridge_ports eth1
     dns-sortlist 192.168.1.0/24 10.245.168.0/21
 
+iface eth2 inet manual
+
 auto br-eth2
 iface br-eth2 inet static
     gateway 10.245.168.1
@@ -1108,6 +1211,8 @@ iface br-eth2 inet static
     mtu 1500
     bridge_ports eth2
     dns-search juju ubuntu dellstack
+
+iface eth3 inet manual
 
 auto br-eth3
 iface br-eth3 inet static
@@ -1141,12 +1246,16 @@ dns-nameservers
 dns-search
 dns-sortlist`
 
-const networkWithEmptyDNSValuesExpected = `auto br-eth0
+const networkWithEmptyDNSValuesExpected = `iface eth0 inet manual
+
+auto br-eth0
 iface br-eth0 inet static
     gateway 10.245.168.1
     address 10.245.168.11/21
     mtu 1500
     bridge_ports eth0
+
+iface eth1 inet manual
 
 auto br-eth1
 iface br-eth1 inet static
@@ -1404,6 +1513,8 @@ iface eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
 
+iface eth1 inet manual
+
 auto juju-br0
 iface juju-br0 inet static
     address 1.2.3.4
@@ -1440,6 +1551,8 @@ iface br-eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1
     bridge_ports eth0
+
+iface eth1 inet manual
 
 auto br-eth1
 iface br-eth1 inet static

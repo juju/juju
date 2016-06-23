@@ -521,19 +521,9 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 }
 
 func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
-	switch ep.Method {
-	case "GET":
-		mux.Get(ep.Pattern, ep.Handler)
-	case "POST":
-		mux.Post(ep.Pattern, ep.Handler)
-	case "HEAD":
-		mux.Head(ep.Pattern, ep.Handler)
-	case "PUT":
-		mux.Put(ep.Pattern, ep.Handler)
-	case "DEL":
-		mux.Del(ep.Pattern, ep.Handler)
-	case "OPTIONS":
-		mux.Options(ep.Pattern, ep.Handler)
+	mux.Add(ep.Method, ep.Pattern, ep.Handler)
+	if ep.Method == "GET" {
+		mux.Add("HEAD", ep.Pattern, ep.Handler)
 	}
 }
 

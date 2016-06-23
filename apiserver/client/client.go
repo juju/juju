@@ -530,14 +530,3 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
 }
-
-// DestroyModel will try to destroy the current model.
-// If there is a block on destruction, this method will return an error.
-func (c *Client) DestroyModel() (err error) {
-	if err := c.check.DestroyAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelTag := c.api.stateAccessor.ModelTag()
-	return errors.Trace(common.DestroyModel(c.api.state(), modelTag))
-}

@@ -489,7 +489,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.APICall("Client", 1, "", "DestroyModel", nil, nil)
+		err := st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -517,7 +517,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", 1, "", "DestroyModel", nil, nil)
+		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{Message: params.CodeUpgradeInProgress, Code: params.CodeUpgradeInProgress})
 	}
 	s.checkLoginWithValidator(c, validator, checker)

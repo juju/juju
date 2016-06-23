@@ -91,7 +91,7 @@ func (info *Info) Validate() error {
 		return errors.NotValidf("missing addresses")
 	}
 	if _, err := network.ParseHostPorts(info.Addrs...); err != nil {
-		return errors.NotValidf("host addresses")
+		return errors.NotValidf("host addresses: %v", err)
 	}
 	if info.CACert == "" {
 		return errors.NotValidf("missing CA certificate")

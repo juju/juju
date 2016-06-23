@@ -508,7 +508,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			eps = append(eps, params.EndpointStatus{
 				ApplicationName: ep.ApplicationName,
 				Name:            ep.Name,
-				Role:            ep.Role,
+				Role:            string(ep.Role),
 				Subordinate:     context.isSubordinate(&ep),
 			})
 			// these should match on both sides so use the last
@@ -519,7 +519,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			Id:        relation.Id(),
 			Key:       relation.String(),
 			Interface: relationInterface,
-			Scope:     scope,
+			Scope:     string(scope),
 			Endpoints: eps,
 		}
 		out = append(out, relStatus)

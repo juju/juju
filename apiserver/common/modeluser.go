@@ -51,16 +51,3 @@ func ModelUserInfo(user ModelUser) (params.ModelUserInfo, error) {
 	}
 	return userInfo, nil
 }
-
-// StateToParamsModelAccess converts state.Access to params.AccessPermission.
-func StateToParamsModelAccess(stateAccess state.Access) (params.ModelAccessPermission, error) {
-	switch stateAccess {
-	case state.ReadAccess:
-		return params.ModelReadAccess, nil
-	case state.WriteAccess:
-		return params.ModelWriteAccess, nil
-	case state.AdminAccess:
-		return params.ModelAdminAccess, nil
-	}
-	return "", errors.Errorf("invalid model access permission %q", stateAccess)
-}

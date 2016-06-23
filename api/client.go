@@ -299,14 +299,6 @@ func (c *Client) FindTools(majorVersion, minorVersion int, series, arch string) 
 	return result, err
 }
 
-// DestroyModel puts the model into a "dying" state,
-// and removes all non-manager machine instances. DestroyModel
-// will fail if there are any manually-provisioned non-manager machines
-// in state.
-func (c *Client) DestroyModel() error {
-	return c.facade.FacadeCall("DestroyModel", nil, nil)
-}
-
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL.
@@ -439,7 +431,7 @@ func (c *Client) AddCharmWithAuthorization(curl *charm.URL, channel csparams.Cha
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.URL{*ref}}
+	args := params.ResolveCharms{References: []string{ref.String()}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
@@ -451,7 +443,11 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 	if urlInfo.Error != "" {
 		return nil, errors.New(urlInfo.Error)
 	}
-	return urlInfo.URL, nil
+	url, err := charm.ParseURL(urlInfo.URL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return url, nil
 }
 
 // OpenCharm streams out the identified charm from the controller via

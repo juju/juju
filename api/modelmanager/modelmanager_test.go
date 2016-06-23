@@ -38,16 +38,16 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 	modelManager := s.OpenAPI(c)
 	user := s.Factory.MakeUser(c, nil)
 	owner := user.UserTag().Canonical()
-	newEnv, err := modelManager.CreateModel("new-model", owner, "", "", map[string]interface{}{
+	newModel, err := modelManager.CreateModel("new-model", owner, "", "", map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		// dummy needs controller
 		"controller": false,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newEnv.Name, gc.Equals, "new-model")
-	c.Assert(newEnv.OwnerTag, gc.Equals, user.Tag().String())
-	c.Assert(newEnv.CloudRegion, gc.Equals, "")
-	c.Assert(utils.IsValidUUIDString(newEnv.UUID), jc.IsTrue)
+	c.Assert(newModel.Name, gc.Equals, "new-model")
+	c.Assert(newModel.OwnerTag, gc.Equals, user.Tag().String())
+	c.Assert(newModel.CloudRegion, gc.Equals, "")
+	c.Assert(utils.IsValidUUIDString(newModel.UUID), jc.IsTrue)
 }
 
 func (s *modelmanagerSuite) TestListModelsBadUser(c *gc.C) {
@@ -68,8 +68,23 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 2)
 
-	envNames := []string{models[0].Name, models[1].Name}
-	c.Assert(envNames, jc.DeepEquals, []string{"first", "second"})
+	modelNames := []string{models[0].Name, models[1].Name}
+	c.Assert(modelNames, jc.DeepEquals, []string{"first", "second"})
 	ownerNames := []string{models[0].Owner, models[1].Owner}
 	c.Assert(ownerNames, jc.DeepEquals, []string{"user@remote", "user@remote"})
+}
+
+func (s *modelmanagerSuite) TestDestroyEnvironment(c *gc.C) {
+	modelManagerClient := s.OpenAPI(c)
+	var called bool
+	modelmanager.PatchFacadeCall(&s.CleanupSuite, modelManagerClient,
+		func(req string, args interface{}, resp interface{}) error {
+			c.Assert(req, gc.Equals, "DestroyModel")
+			called = true
+			return nil
+		})
+
+	err := modelManagerClient.DestroyModel()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }

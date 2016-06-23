@@ -120,7 +120,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Entity:        modelTag,
 			Result:        life.IsNotDead,
-			Filter:        lifeFilter,
+			Filter:        LifeFilter,
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
@@ -129,7 +129,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Entity:        modelTag,
 			Result:        life.IsNotAlive,
-			Filter:        lifeFilter,
+			Filter:        LifeFilter,
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,

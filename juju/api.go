@@ -74,12 +74,6 @@ type NewAPIConnectionParams struct {
 // with specified account credentials, optionally scoped to the specified model
 // name.
 func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
-
-	controllerDetails, err := args.Store.ControllerByName(args.ControllerName)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting controller details")
-	}
-
 	// Try to connect to the API concurrently using two different
 	// possible sources of truth for the API endpoint. Our
 	// preference is for the API endpoint cached in the API info,
@@ -91,36 +85,30 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	// connection after some suitable delay, so that in the
 	// hopefully usual case, we will make the connection to the API
 	// and never hit the provider.
-	chooseError := func(err0, err1 error) error {
-		if err0 == nil {
-			return err1
-		}
-		if errorImportance(err0) < errorImportance(err1) {
-			err0, err1 = err1, err0
-		}
-		logger.Debugf("discarding API open error: %v", err1)
-		return err0
-	}
 	try := parallel.NewTry(0, chooseError)
 
 	var delay time.Duration
 	abortAPIConfigConnect := make(chan struct{})
-	if len(controllerDetails.APIEndpoints) > 0 {
+
+	apiInfo, controller, err := connectionInfo(args)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot work out how to connect")
+	}
+	if len(apiInfo.Addrs) > 0 {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			closer, err := apiInfoConnect(
-				controllerDetails,
-				args.AccountDetails,
-				args.ModelUUID, args.OpenAPI,
-				stop, args.DialOpts,
-			)
-			if err != nil && isAPIError(err) {
-				// It's an API error rather than a
-				// connection error, so trying to
-				// connect with bootstrap config is
-				// not going to help.
-				close(abortAPIConfigConnect)
+			logger.Infof("connecting to API addresses: %v", apiInfo.Addrs)
+			st, err := args.OpenAPI(apiInfo, args.DialOpts)
+			if err != nil {
+				if isAPIError(err) {
+					// It's an API error rather than
+					// a connection error, so trying
+					// to connect with bootstrap
+					// config is not going to help.
+					close(abortAPIConfigConnect)
+				}
+				return nil, &infoConnectError{err}
 			}
-			return closer, err
+			return st, nil
 		})
 		// Delay the config connection until we've spent
 		// some time trying to connect to the cached info.
@@ -138,56 +126,148 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			cfg, err := apiConfigConnect(
 				cfg,
-				controllerDetails,
-				args.AccountDetails,
-				args.ModelUUID, args.OpenAPI,
-				stop, abortAPIConfigConnect, delay,
+				apiInfo,
+				controller,
+				args.OpenAPI,
+				stop,
+				abortAPIConfigConnect,
+				delay,
 				args.DialOpts,
 			)
-			if err != nil && errors.Cause(err) != errAborted {
+			if err == nil {
+				return cfg, nil
+			}
+			if errors.Cause(err) != errAborted {
 				// Errors are swallowed by parallel.Try, so we
 				// log the failure here to aid in debugging.
 				logger.Debugf("failed to connect via bootstrap config: %v", err)
 			}
-			return cfg, err
+			return cfg, errors.Annotatef(err, "connecting with bootstrap config")
 		})
-	} else if !errors.IsNotFound(err) || len(controllerDetails.APIEndpoints) == 0 {
+	} else if !errors.IsNotFound(err) || len(apiInfo.Addrs) == 0 {
+		try.Close()
 		return nil, err
 	}
 
 	try.Close()
+	redirected := false
 	val0, err := try.Result()
 	if err != nil {
 		if ierr, ok := err.(*infoConnectError); ok {
 			// lose error encapsulation:
 			err = ierr.error
 		}
-		return nil, errors.Trace(err)
+		redirErr, ok := errors.Cause(err).(*api.RedirectError)
+		if !ok {
+			return nil, errors.Trace(err)
+		}
+		// We've been told to connect to a different API server,
+		// so do so. Note that we don't copy the account details
+		// because the account on the redirected server may well
+		// be different - we'll use macaroon authentication
+		// directly without sending account details.
+		// Copy the API info because it's possible that the
+		// apiConfigConnect is still using it concurrently.
+		apiInfo = &api.Info{
+			ModelTag: apiInfo.ModelTag,
+			Addrs:    network.HostPortsToStrings(usableHostPorts(redirErr.Servers)),
+			CACert:   redirErr.CACert,
+		}
+		st, err := args.OpenAPI(apiInfo, args.DialOpts)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot connect to redirected address")
+		}
+		redirected = true
+		val0 = st
 	}
 
 	st := val0.(api.Connection)
+	if redirected {
+		// TODO(rogpeppe) update cached model addresses.
+		return st, nil
+	}
 	addrConnectedTo, err := serverAddress(st.Addr())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
+	// Note that in the redirection case, we won't update the addresses
+	// of the controller we first connected to. This shouldn't be
+	// a problem in practice because the intended scenario for
+	// controllers that redirect involves them having well known
+	// public addresses that won't change over time.
 	hostPorts := st.APIHostPorts()
-	err = updateControllerAddresses(args.Store, args.ControllerName, controllerDetails, hostPorts, addrConnectedTo)
+	err = updateControllerAddresses(args.Store, args.ControllerName, controller, hostPorts, addrConnectedTo)
 	if err != nil {
 		logger.Errorf("cannot cache API addresses: %v", err)
 	}
 	return st, nil
 }
 
-func isAPIError(err error) bool {
-	if ierr, ok := err.(*infoConnectError); ok {
-		err = ierr.error
+// connectionInfo returns connection information suitable for
+// connecting to the controller and model specified in the given
+// parameters. If there are no addresses known for the controller,
+// it may return a *api.Info with no APIEndpoints, but all other
+// information will be populated.
+func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.ControllerDetails, error) {
+	controller, err := args.Store.ControllerByName(args.ControllerName)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "cannot get controller details")
 	}
+	apiInfo := &api.Info{
+		Addrs:  controller.APIEndpoints,
+		CACert: controller.CACert,
+	}
+	if args.ModelUUID != "" {
+		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)
+	}
+	if args.AccountDetails == nil {
+		return apiInfo, controller, nil
+	}
+	account := args.AccountDetails
+	// We only set the tag if either a password or
+	// macaroon is found in the accounts.yaml file.
+	// If neither is found, we'll use external
+	// macaroon authentication which requires that
+	// no tag be specified.
+	userTag := names.NewUserTag(account.User)
+	if args.AccountDetails.Password != "" {
+		// If a password is available, we always use
+		// that.
+		//
+		// TODO(axw) make it invalid to store both
+		// password and macaroon in accounts.yaml?
+		apiInfo.Tag = userTag
+		apiInfo.Password = account.Password
+	} else if args.AccountDetails.Macaroon != "" {
+		var m macaroon.Macaroon
+		if err := json.Unmarshal([]byte(account.Macaroon), &m); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		apiInfo.Tag = userTag
+		apiInfo.Macaroons = []macaroon.Slice{{&m}}
+	}
+	return apiInfo, controller, nil
+}
+
+func isAPIError(err error) bool {
 	type errorCoder interface {
 		ErrorCode() string
 	}
 	_, ok := errors.Cause(err).(errorCoder)
 	return ok
+}
+
+// chooseError returns the error with the greatest importance.
+func chooseError(err0, err1 error) error {
+	if err0 == nil {
+		return err1
+	}
+	if errorImportance(err0) < errorImportance(err1) {
+		err0, err1 = err1, err0
+	}
+	logger.Debugf("discarding API open error: %v", err1)
+	return err0
 }
 
 func errorImportance(err error) int {
@@ -217,39 +297,16 @@ type infoConnectError struct {
 	error
 }
 
-// apiInfoConnect looks for endpoint on the given environment and
-// tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(
-	controller *jujuclient.ControllerDetails,
-	account *jujuclient.AccountDetails,
-	modelUUID string,
-	apiOpen api.OpenFunc,
-	stop <-chan struct{},
-	dialOpts api.DialOpts,
-) (api.Connection, error) {
-
-	logger.Infof("connecting to API addresses: %v", controller.APIEndpoints)
-	apiInfo := &api.Info{
-		Addrs:  controller.APIEndpoints,
-		CACert: controller.CACert,
-	}
-	st, err := commonConnect(apiOpen, apiInfo, account, modelUUID, dialOpts)
-	if err != nil {
-		return nil, &infoConnectError{errors.Trace(err)}
-	}
-	return st, nil
-}
-
-// apiConfigConnect looks for configuration info on the given environment,
-// and tries to use an Environ constructed from that to connect to
-// its endpoint. It only starts the attempt after the given delay,
-// to allow the faster apiInfoConnect to hopefully succeed first.
-// It returns nil if there was no configuration information found.
+// apiConfigConnect tries to use the info in the given environment
+// configuration to connect to its API endpoint. The given
+// api info is used to obtain any other parameters needed.
+// info on the given environment, It only starts the attempt after the
+// given delay, to allow the faster apiInfoConnect to hopefully succeed
+// first.
 func apiConfigConnect(
 	cfg *config.Config,
+	origAPIInfo *api.Info,
 	controllerDetails *jujuclient.ControllerDetails,
-	accountDetails *jujuclient.AccountDetails,
-	modelUUID string,
 	apiOpen api.OpenFunc,
 	stop <-chan struct{},
 	abort <-chan struct{},
@@ -268,62 +325,32 @@ func apiConfigConnect(
 	if len(controllerDetails.APIEndpoints) == 0 {
 		return nil, errors.New("Juju controller is still bootstrapping, no api connection available")
 	}
+
 	environ, err := environs.New(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "constructing environ")
 	}
 	// All api ports are the same, so just parse the first one.
-	hosttPort, err := network.ParseHostPort(controllerDetails.APIEndpoints[0])
+	hostPort, err := network.ParseHostPort(controllerDetails.APIEndpoints[0])
 	if err != nil {
 		return nil, errors.Annotate(err, "parsing api port")
 	}
-	apiInfo, err := environs.APIInfo(controllerDetails.ControllerUUID, cfg.UUID(), controllerDetails.CACert, hosttPort.Port, environ)
+	apiInfo, err := environs.APIInfo(controllerDetails.ControllerUUID, cfg.UUID(), controllerDetails.CACert, hostPort.Port, environ)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API info")
 	}
-	st, err := commonConnect(apiOpen, apiInfo, accountDetails, modelUUID, dialOpts)
+	// Copy account and model details from the API information we used for the
+	// initial connection attempt.
+	apiInfo.Tag = origAPIInfo.Tag
+	apiInfo.Password = origAPIInfo.Password
+	apiInfo.Macaroons = origAPIInfo.Macaroons
+	apiInfo.ModelTag = origAPIInfo.ModelTag
+
+	st, err := apiOpen(apiInfo, dialOpts)
 	if err != nil {
-		return nil, errors.Annotate(err, "connecting with bootstrap config")
+		return nil, errors.Trace(err)
 	}
 	return apiStateCachedInfo{st, apiInfo}, nil
-}
-
-func commonConnect(
-	apiOpen api.OpenFunc,
-	apiInfo *api.Info,
-	accountDetails *jujuclient.AccountDetails,
-	modelUUID string,
-	dialOpts api.DialOpts,
-) (api.Connection, error) {
-	if accountDetails != nil {
-		// We only set the tag if either a password or
-		// macaroon is found in the accounts.yaml file.
-		// If neither is found, we'll use external
-		// macaroon authentication which requires that
-		// no tag be specified.
-		userTag := names.NewUserTag(accountDetails.User)
-		if accountDetails.Password != "" {
-			// If a password is available, we always use
-			// that.
-			//
-			// TODO(axw) make it invalid to store both
-			// password and macaroon in accounts.yaml?
-			apiInfo.Tag = userTag
-			apiInfo.Password = accountDetails.Password
-		} else if accountDetails.Macaroon != "" {
-			var m macaroon.Macaroon
-			if err := json.Unmarshal([]byte(accountDetails.Macaroon), &m); err != nil {
-				return nil, errors.Trace(err)
-			}
-			apiInfo.Tag = userTag
-			apiInfo.Macaroons = []macaroon.Slice{{&m}}
-		}
-	}
-	if modelUUID != "" {
-		apiInfo.ModelTag = names.NewModelTag(modelUUID)
-	}
-	st, err := apiOpen(apiInfo, dialOpts)
-	return st, errors.Trace(err)
 }
 
 var resolveOrDropHostnames = network.ResolveOrDropHostnames
@@ -351,17 +378,17 @@ var resolveOrDropHostnames = network.ResolveOrDropHostnames
 // This is used right after bootstrap to saved the initial API
 // endpoints, as well as on each CLI connection to verify if the
 // saved endpoints need updating.
+//
+// TODO(rogpeppe) this function mixes too many concerns - the
+// logic is difficult to follow and has non-obvious properties.
 func PrepareEndpointsForCaching(
 	controllerDetails jujuclient.ControllerDetails,
 	hostPorts [][]network.HostPort,
 	addrConnectedTo ...network.HostPort,
-) (addresses, hostnames []string, haveChanged bool) {
+) (addrs, unresolvedAddrs []string, haveChanged bool) {
 	processHostPorts := func(allHostPorts [][]network.HostPort) []network.HostPort {
-		collapsedHPs := network.CollapseHostPorts(allHostPorts)
-		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
-		uniqueHPs := network.DropDuplicatedHostPorts(filteredHPs)
+		uniqueHPs := usableHostPorts(allHostPorts)
 		network.SortHostPorts(uniqueHPs)
-
 		for _, addr := range addrConnectedTo {
 			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
 		}
@@ -413,6 +440,15 @@ func PrepareEndpointsForCaching(
 	return nil, nil, false
 }
 
+// usableHostPorts returns hps with unusable and non-unique
+// host-ports filtered out.
+func usableHostPorts(hps [][]network.HostPort) []network.HostPort {
+	collapsed := network.CollapseHostPorts(hps)
+	usable := network.FilterUnusableHostPorts(collapsed)
+	unique := network.DropDuplicatedHostPorts(usable)
+	return unique
+}
+
 // addrsChanged returns true iff the two
 // slices are not equal. Order is important.
 func addrsChanged(a, b []string) bool {
@@ -449,14 +485,14 @@ func updateControllerAddresses(
 	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
 ) error {
 	// Get the new endpoint addresses.
-	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, currentHostPorts, addrConnectedTo...)
+	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, currentHostPorts, addrConnectedTo...)
 	if !addrsChanged {
 		return nil
 	}
 
 	// Write the new controller data.
-	controllerDetails.UnresolvedAPIEndpoints = hosts
 	controllerDetails.APIEndpoints = addrs
+	controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)
 }

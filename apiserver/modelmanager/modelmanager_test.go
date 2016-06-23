@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
 	// Register the providers for the field check test
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
@@ -237,7 +238,7 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		modelmanager.NewStateBackend(s.State), s.authoriser,
+		common.NewModelManagerBackend(s.State), s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
@@ -247,7 +248,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		modelmanager.NewStateBackend(s.State), anAuthoriser,
+		common.NewModelManagerBackend(s.State), anAuthoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -257,7 +258,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		modelmanager.NewStateBackend(s.State), anAuthoriser,
+		common.NewModelManagerBackend(s.State), anAuthoriser,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -463,6 +464,78 @@ func (s *modelManagerStateSuite) TestNonAdminModelManager(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsFalse)
+}
+
+func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	s.setAPIUser(c, owner)
+	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	c.Assert(err, jc.ErrorIsNil)
+	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		common.NewModelManagerBackend(st), s.authoriser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.modelmanager.DestroyModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
+}
+
+func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	s.setAPIUser(c, owner)
+	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	c.Assert(err, jc.ErrorIsNil)
+	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		common.NewModelManagerBackend(st), s.authoriser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	other := s.AdminUserTag(c)
+	s.setAPIUser(c, other)
+	err = s.modelmanager.DestroyModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setAPIUser(c, owner)
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Not(gc.Equals), state.Alive)
+}
+
+func (s *modelManagerStateSuite) TestUserDestroysOtherModelDenied(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	s.setAPIUser(c, owner)
+	m, err := s.modelmanager.CreateModel(s.createArgs(c, owner))
+	c.Assert(err, jc.ErrorIsNil)
+	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		common.NewModelManagerBackend(st), s.authoriser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	user := names.NewUserTag("other@remote")
+	s.setAPIUser(c, user)
+	err = s.modelmanager.DestroyModel()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	s.setAPIUser(c, owner)
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
 func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.ModelAccessPermission, model names.ModelTag) error {

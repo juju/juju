@@ -330,22 +330,6 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 	})
 }
 
-func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	client := s.APIState.Client()
-	var called bool
-	cleanup := api.PatchClientFacadeCall(client,
-		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyModel")
-			called = true
-			return nil
-		})
-	defer cleanup()
-
-	err := client.DestroyModel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	client := s.APIState.Client()
 	// Use the no tail option so we don't try to start a tailing cursor

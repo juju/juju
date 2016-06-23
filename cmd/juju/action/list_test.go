@@ -11,9 +11,9 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -96,7 +96,7 @@ snapshot        Take a snapshot of the database.
 		expectMessage    string
 		withArgs         []string
 		withAPIErr       string
-		withCharmActions *charm.Actions
+		withCharmActions map[string]params.ActionSpec
 		expectedErr      string
 	}{{
 		should:      "pass back API error correctly",
@@ -113,11 +113,10 @@ snapshot        Take a snapshot of the database.
 		expectFullSchema: true,
 		withCharmActions: someCharmActions,
 	}, {
-		should:           "work properly when no results found",
-		withArgs:         []string{validServiceId},
-		expectNoResults:  true,
-		expectMessage:    "No actions defined for " + validServiceId,
-		withCharmActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{}},
+		should:          "work properly when no results found",
+		withArgs:        []string{validServiceId},
+		expectNoResults: true,
+		expectMessage:   "No actions defined for " + validServiceId,
 	}}
 
 	for i, t := range tests {
@@ -155,9 +154,9 @@ snapshot        Take a snapshot of the database.
 	}
 }
 
-func checkFullSchema(c *gc.C, expected *charm.Actions, actual []byte) {
+func checkFullSchema(c *gc.C, expected map[string]params.ActionSpec, actual []byte) {
 	expectedOutput := make(map[string]interface{})
-	for k, v := range expected.ActionSpecs {
+	for k, v := range expected {
 		expectedOutput[k] = v.Params
 	}
 	c.Check(string(actual), jc.YAMLEquals, expectedOutput)

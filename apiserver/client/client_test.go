@@ -1579,15 +1579,3 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
 }
-
-func (s *clientSuite) TestDestroyModel(c *gc.C) {
-	// The full tests for DestroyModel are in modelmanager.
-	// Here we just test that things are hooked up such that we can destroy
-	// the model through the client endpoint to support older juju clients.
-	err := s.APIState.Client().DestroyModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
-}
