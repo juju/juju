@@ -65,20 +65,30 @@ type Priority struct {
 	Facility Facility
 }
 
-func (p Priority) encode() int {
-	return p.Facility.encode()<<3 + p.Severity.encode()
-}
-
-func (p *Priority) decode(code int) {
-	copied := *p
-	copied.Severity.decode(code & 0x07)
-	copied.Facility.decode(code >> 3)
-	*p = copied
+// ParsePriority converts a priority string back into a Priority.
+func ParsePriority(str string) (Priority, error) {
+	var code int
+	if _, err := fmt.Sscanf(str, "<%d>", &code); err != nil {
+		return Priority{}, err
+	}
+	p := decodePriority(code)
+	return p, p.Validate()
 }
 
 // String returns the RFC 5424 representation of the priority.
 func (p Priority) String() string {
 	return fmt.Sprintf("<%d>", p.encode())
+}
+
+func (p Priority) encode() int {
+	return p.Facility.encode()<<3 + p.Severity.encode()
+}
+
+func decodePriority(code int) Priority {
+	return Priority{
+		Severity: decodeSeverity(code & 0x07),
+		Facility: decodeFacility(code >> 3),
+	}
 }
 
 // Validated ensures that the priority is correct.
@@ -99,8 +109,12 @@ func (s Severity) encode() int {
 	return int(s)
 }
 
-func (s *Severity) decode(code int) {
-	*s = Severity(code)
+func decodeSeverity(code int) Severity {
+	// The relationship between the code and the Severity's actual
+	// underlying value is an implementation detail that we hide here.
+	// It so happens that currently each Severity matches its code
+	// exactly.
+	return Severity(code)
 }
 
 // String returns the name of the severity.
@@ -139,17 +153,6 @@ func (s Severity) Validate() error {
 // Facility is the system component for which the log record
 // was created.
 type Facility int
-
-func (f Facility) encode() int {
-	if f == facilityDefault {
-		f = FacilityUser
-	}
-	return int(f) - 1
-}
-
-func (f *Facility) decode(code int) {
-	*f = Facility(code + 1)
-}
 
 // String returns the name of the facility.
 func (f Facility) String() string {
@@ -200,6 +203,17 @@ func (f Facility) String() string {
 	default:
 		return fmt.Sprint("Facility %d", int(f))
 	}
+}
+
+func (f Facility) encode() int {
+	if f == facilityDefault {
+		f = FacilityUser
+	}
+	return int(f) - 1
+}
+
+func decodeFacility(code int) Facility {
+	return Facility(code + 1)
 }
 
 // Validate ensures that the facility is correct.

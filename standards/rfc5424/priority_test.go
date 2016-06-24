@@ -17,6 +17,16 @@ type PrioritySuite struct {
 
 var _ = gc.Suite(&PrioritySuite{})
 
+func (s *PrioritySuite) TestParsePriority(c *gc.C) {
+	p, err := rfc5424.ParsePriority("<28>")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(p, jc.DeepEquals, rfc5424.Priority{
+		Severity: rfc5424.SeverityWarning,
+		Facility: rfc5424.FacilityDaemon,
+	})
+}
+
 func (s *PrioritySuite) TestStringFull(c *gc.C) {
 	pr := rfc5424.Priority{
 		Severity: rfc5424.SeverityWarning,
