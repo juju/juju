@@ -617,24 +617,7 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: "foo",
-		Type: state.EthernetDevice,
-	}
-	err = machine.SetLinkLayerDevices(deviceArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
-	}
-	err = machine.SetDevicesAddresses(args)
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -642,16 +625,11 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 
 	actions := model.Actions()
 	c.Assert(actions, gc.HasLen, 1)
-	addr := actions[0]
-	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
-	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
-	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, string(state.StaticAddress))
-	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(addr.ProviderID(), gc.Equals, "bar")
-	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
-	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
-	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, "pending")
+	c.Check(action.Message(), gc.Equals, "")
 }
 
 type goodToken struct{}

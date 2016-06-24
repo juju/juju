@@ -627,7 +627,16 @@ func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 		"ModelUUID",
 	)
 	migrated := set.NewStrings(
-		"DocID",
+		"DocId",
+		"Receiver",
+		"Name",
+		"Enqueued",
+		"Started",
+		"Completed",
+		"Parameters",
+		"Results",
+		"Message",
+		"Status",
 	)
 	s.AssertExportedFields(c, actionDoc{}, migrated.Union(ignored))
 }

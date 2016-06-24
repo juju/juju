@@ -706,24 +706,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	deviceArgs := state.LinkLayerDeviceArgs{
-		Name: "foo",
-		Type: state.EthernetDevice,
-	}
-	err = machine.SetLinkLayerDevices(deviceArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	args := state.LinkLayerDeviceAddress{
-		DeviceName:       "foo",
-		ConfigMethod:     state.StaticAddress,
-		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "bar",
-		DNSServers:       []string{"bam", "mam"},
-		DNSSearchDomains: []string{"weeee"},
-		GatewayAddress:   "0.1.2.1",
-	}
-	err = machine.SetDevicesAddresses(args)
+	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c)
@@ -733,17 +716,6 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 
 	actions, _ := newSt.AllActions()
 	c.Assert(actions, gc.HasLen, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	addr := actions[0]
-	c.Assert(addr.Value(), gc.Equals, "0.1.2.3")
-	c.Assert(addr.MachineID(), gc.Equals, machine.Id())
-	c.Assert(addr.DeviceName(), gc.Equals, "foo")
-	c.Assert(addr.ConfigMethod(), gc.Equals, state.StaticAddress)
-	c.Assert(addr.SubnetCIDR(), gc.Equals, "0.1.2.0/24")
-	c.Assert(addr.ProviderID(), gc.Equals, network.Id("bar"))
-	c.Assert(addr.DNSServers(), jc.DeepEquals, []string{"bam", "mam"})
-	c.Assert(addr.DNSSearchDomains(), jc.DeepEquals, []string{"weeee"})
-	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
 }
 
 // newModel replaces the uuid and name of the config attributes so we
