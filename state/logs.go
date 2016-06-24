@@ -63,13 +63,35 @@ func InitDbLogs(session *mgo.Session) error {
 	return nil
 }
 
+// TODO(ericsnow) Tracking by timestamp can result in some messages
+// not getting sent. The most problematic case is where log records
+// are added with a timestamp earlier than the last one sent. To
+// address that case we could switch to using a sequence (shared by
+// all models) to generate increasing IDs.
+
 // lastSentDoc captures timestamp of the last log record forwarded
 // to a log sink.
 type lastSentDoc struct {
-	ID        string `bson:"_id"`
+	// ID is the unique ID mongo will use for the doc.
+	ID string `bson:"_id"`
+
+	// ModelUUID identifies the model for which the identified record
+	// was last sent.
 	ModelUUID string `bson:"model-uuid"`
-	Sink      string `bson:"sink"`
-	Time      int64  `bson:"timestamp"`
+
+	// Sink identifies the log forwarding target to which the identified
+	// log record was sent.
+	Sink string `bson:"sink"`
+
+	// Time is the timestamp of the last record sent to the log sink
+	// for the model. Normally it will uniquely identify a record in
+	// a model. The timestamp is used to look up records in the DB.
+	//
+	// Note that log record timestamps have nanosecond precision. The
+	// likelihood of multiple log records having the same timestamp
+	// is small, though it increases with the size and activity of the
+	// model. The RecordIDs field helps mitigate this ambiguity.
+	Time int64 `bson:"timestamp"`
 }
 
 // NewLastSentLogger returns a NewLastSentLogger struct that records and retrieves
