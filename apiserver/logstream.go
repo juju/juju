@@ -208,7 +208,7 @@ func (als *apiLogStream) sendInitial(initial error) {
 }
 
 func (als *apiLogStream) sendRecord(rec *state.LogRecord) error {
-	apiRec := als.rec2api(rec)
+	apiRec := als.apiFromRec(rec)
 	if err := als.send(apiRec); err != nil {
 		return errors.Trace(err)
 	}
@@ -219,7 +219,7 @@ func (als *apiLogStream) send(rec params.LogStreamRecord) error {
 	return als.codec.Send(als.conn, rec)
 }
 
-func (als *apiLogStream) rec2api(rec *state.LogRecord) params.LogStreamRecord {
+func (als *apiLogStream) apiFromRec(rec *state.LogRecord) params.LogStreamRecord {
 	apiRec := params.LogStreamRecord{
 		Version:   rec.Version.String(),
 		Entity:    rec.Entity.String(),

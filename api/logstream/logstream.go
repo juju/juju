@@ -72,7 +72,7 @@ func (ls *LogStream) Next() (logfwd.Record, error) {
 	if err != nil {
 		return record, errors.Trace(err)
 	}
-	record, err = api2record(apiRecord, ls.controllerUUID)
+	record, err = recordFromAPI(apiRecord, ls.controllerUUID)
 	if err != nil {
 		// This should only happen if the data got corrupted over the
 		// network. Any other cause should be addressed by fixing the
@@ -119,13 +119,13 @@ func (ls *LogStream) Close() error {
 }
 
 // See the counterpart in apiserver/logstream.go.
-func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
+func recordFromAPI(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
 	rec := logfwd.Record{
 		Timestamp: apiRec.Timestamp,
 		Message:   apiRec.Message,
 	}
 
-	origin, err := api2origin(apiRec, controllerUUID)
+	origin, err := originFromAPI(apiRec, controllerUUID)
 	if err != nil {
 		return rec, errors.Trace(err)
 	}
@@ -150,7 +150,7 @@ func api2record(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Re
 	return rec, nil
 }
 
-func api2origin(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Origin, error) {
+func originFromAPI(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Origin, error) {
 	var origin logfwd.Origin
 
 	tag, err := names.ParseTag(apiRec.Entity)
