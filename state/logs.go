@@ -138,7 +138,7 @@ type logDoc struct {
 	Version   string        `bson:"r"`
 	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
 	Location  string        `bson:"l"` // "filename:lineno"
-	Level     string        `bson:"v"`
+	Level     int           `bson:"v"`
 	Message   string        `bson:"x"`
 }
 
@@ -174,7 +174,7 @@ func (logger *DbLogger) Log(t time.Time, module string, location string, level l
 		Version:   logger.version,
 		Module:    module,
 		Location:  location,
-		Level:     level.String(),
+		Level:     int(level),
 		Message:   msg,
 	})
 }
@@ -445,7 +445,7 @@ func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bso
 		sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
-		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": params.MinLevel}})
+		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": int(params.MinLevel)}})
 	}
 	if len(params.IncludeEntity) > 0 {
 		sel = append(sel,
@@ -547,8 +547,8 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 		ver = parsed
 	}
 
-	level, ok := loggo.ParseLevel(doc.Level)
-	if !ok {
+	level := loggo.Level(doc.Level)
+	if level > loggo.CRITICAL {
 		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
 	}
 
