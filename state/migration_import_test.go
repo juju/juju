@@ -716,6 +716,10 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 
 	actions, _ := newSt.AllActions()
 	c.Assert(actions, gc.HasLen, 1)
+	action := actions[0]
+	c.Check(action.Receiver(), gc.Equals, machine.Id())
+	c.Check(action.Name(), gc.Equals, "foo")
+	c.Check(action.Status(), gc.Equals, state.ActionPending)
 }
 
 // newModel replaces the uuid and name of the config attributes so we
