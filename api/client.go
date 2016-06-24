@@ -587,6 +587,8 @@ func (c websocketStream) WriteJSON(v interface{}) error {
 	return websocket.JSON.Send(c.Conn, v)
 }
 
+// TODO(ericsnow) Fold DebugLogParams into params.LogStreamConfig.
+
 // DebugLogParams holds parameters for WatchDebugLog that control the
 // filtering of the log messages. If the structure is zero initialized, the
 // entire log file is sent back starting from the end, and until the user
@@ -624,20 +626,7 @@ type DebugLogParams struct {
 	NoTail bool
 }
 
-// WatchDebugLog returns a ReadCloser that the caller can read the log
-// lines from. Only log lines that match the filtering specified in
-// the DebugLogParams are returned. It returns an error that satisfies
-// errors.IsNotImplemented when the API server does not support the
-// end-point.
-func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
-	// The websocket connection just hangs if the server doesn't have the log
-	// end point. So do a version check, as version was added at the same time
-	// as the remote end point.
-	_, err := c.AgentVersion()
-	if err != nil {
-		return nil, errors.NotSupportedf("WatchDebugLog")
-	}
-	// Prepare URL query attributes.
+func (args DebugLogParams) URLQuery() url.Values {
 	attrs := url.Values{
 		"includeEntity": args.IncludeEntity,
 		"includeModule": args.IncludeModule,
@@ -659,6 +648,24 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))
 	}
+	return attrs
+}
+
+// WatchDebugLog returns a ReadCloser that the caller can read the log
+// lines from. Only log lines that match the filtering specified in
+// the DebugLogParams are returned. It returns an error that satisfies
+// errors.IsNotImplemented when the API server does not support the
+// end-point.
+func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
+	// The websocket connection just hangs if the server doesn't have the log
+	// end point. So do a version check, as version was added at the same time
+	// as the remote end point.
+	_, err := c.AgentVersion()
+	if err != nil {
+		return nil, errors.NotSupportedf("WatchDebugLog")
+	}
+	// Prepare URL query attributes.
+	attrs := args.URLQuery()
 
 	connection, err := c.st.ConnectStream("/log", attrs)
 	if err != nil {

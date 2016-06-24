@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
@@ -778,11 +777,11 @@ type RebootActionResult struct {
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
 type LogRecord struct {
-	Time     time.Time   `json:"t"`
-	Module   string      `json:"m"`
-	Location string      `json:"l"`
-	Level    loggo.Level `json:"v"`
-	Message  string      `json:"x"`
+	Time     time.Time `json:"t"`
+	Module   string    `json:"m"`
+	Location string    `json:"l"`
+	Level    string    `json:"v"`
+	Message  string    `json:"x"`
 }
 
 // GetBundleChangesParams holds parameters for making GetBundleChanges calls.

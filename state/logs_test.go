@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type LogsSuite struct {
@@ -82,7 +84,7 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 }
 
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
-	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer logger.Close()
 	t0 := time.Now().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
 	logger.Log(t0, "some.where", "foo.go:99", loggo.INFO, "all is well")
@@ -94,7 +96,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 2)
 
-	c.Assert(docs[0]["t"], gc.Equals, t0)
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
 	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
@@ -102,7 +104,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"], gc.Equals, t1)
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
 	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
@@ -112,7 +114,7 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer dbLogger.Close()
 	log := func(t time.Time, msg string) {
 		err := dbLogger.Log(t, "module", "loc", loggo.INFO, msg)
@@ -180,7 +182,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 		var doc bson.M
 		err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(doc["t"].(time.Time), gc.Equals, now)
+		c.Assert(doc["t"], gc.Equals, now.UnixNano())
 	}
 	assertLatestTs(s0)
 	assertLatestTs(s1)
@@ -188,7 +190,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 }
 
 func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, count int) {
-	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"))
+	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"), jujuversion.Current)
 	defer dbLogger.Close()
 	for i := 0; i < count; i++ {
 		ts := endTime.Add(-time.Duration(i) * time.Second)
@@ -672,6 +674,7 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 type logTemplate struct {
 	ModelUUID string
 	Entity    names.Tag
+	Version   version.Number
 	Module    string
 	Location  string
 	Level     loggo.Level
@@ -721,6 +724,9 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")
 	}
+	if lt.Version == version.Zero {
+		lt.Version = jujuversion.Current
+	}
 	if lt.Module == "" {
 		lt.Module = "module"
 	}
@@ -759,7 +765,8 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 			if !ok {
 				c.Fatalf("tailer died unexpectedly: %v", tailer.Err())
 			}
-			c.Assert(log.Entity, gc.Equals, lt.Entity.String())
+			c.Assert(log.Version, gc.Equals, lt.Version)
+			c.Assert(log.Entity, gc.Equals, lt.Entity)
 			c.Assert(log.Module, gc.Equals, lt.Module)
 			c.Assert(log.Location, gc.Equals, lt.Location)
 			c.Assert(log.Level, gc.Equals, lt.Level)

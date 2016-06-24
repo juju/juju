@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 // logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
@@ -32,7 +33,11 @@ type logsinkBaseSuite struct {
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	query := server.Query()
+	query.Set("jujuclientversion", version.Current.String())
+	server.RawQuery = query.Encode()
+	return server
 }
 
 type logsinkSuite struct {
@@ -112,7 +117,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
-		Level:    loggo.INFO,
+		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +127,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
-		Level:    loggo.ERROR,
+		Level:    loggo.ERROR.String(),
 		Message:  "oh noes",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,7 +151,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 
 	// Check the recorded logs are correct.
 	modelUUID := s.State.ModelUUID()
-	c.Assert(docs[0]["t"].(time.Time).Sub(t0), gc.Equals, time.Duration(0))
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
 	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
@@ -154,7 +159,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"].(time.Time).Sub(t1), gc.Equals, time.Duration(0))
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
 	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")

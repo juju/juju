@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -431,12 +432,13 @@ func MakeLogDoc(
 ) *logDoc {
 	return &logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t,
+		Time:      t.UnixNano(),
 		ModelUUID: modelUUID,
 		Entity:    entity.String(),
+		Version:   version.Current.String(),
 		Module:    module,
 		Location:  location,
-		Level:     level,
+		Level:     int(level),
 		Message:   msg,
 	}
 }

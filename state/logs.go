@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -35,12 +36,18 @@ const (
 // previously forwarded log record could not be found.
 var ErrNeverForwarded = errors.Errorf("cannot find timestamp of the last forwarded record")
 
-// LoggingState describes the methods on State required for logging to
-// the database.
-type LoggingState interface {
-	ModelUUID() string
+// MongoSessioner supports creating new mongo sessions.
+type MongoSessioner interface {
+	// MongoSession creates a new Mongo session.
 	MongoSession() *mgo.Session
-	IsController() bool
+}
+
+// ModelSessioner supports creating new mongo sessions for a model.
+type ModelSessioner interface {
+	MongoSessioner
+
+	// ModelUUID returns the ID of the current model.
+	ModelUUID() string
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
@@ -67,7 +74,7 @@ type lastSentDoc struct {
 
 // NewLastSentLogger returns a NewLastSentLogger struct that records and retrieves
 // the timestamps of the most recent log records forwarded to the log sink.
-func NewLastSentLogger(st LoggingState, sink string) *DbLoggerLastSent {
+func NewLastSentLogger(st ModelSessioner, sink string) *DbLoggerLastSent {
 	return &DbLoggerLastSent{
 		id:      fmt.Sprintf("%v#%v", st.ModelUUID(), sink),
 		model:   st.ModelUUID(),
@@ -104,15 +111,16 @@ func (logger *DbLoggerLastSent) Set(t time.Time) error {
 func (logger *DbLoggerLastSent) Get() (time.Time, error) {
 	zeroTime := time.Time{}
 	collection := logger.session.DB(logsDB).C(forwardedC)
-	var lastSent lastSentDoc
-	err := collection.FindId(logger.id).One(&lastSent)
+	var doc lastSentDoc
+	err := collection.FindId(logger.id).One(&doc)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			return zeroTime, errors.Trace(ErrNeverForwarded)
 		}
 		return zeroTime, errors.Trace(err)
 	}
-	return time.Unix(0, lastSent.Time).UTC(), nil
+	// It isn't worth it to try to preserve the time zone.
+	return time.Unix(0, doc.Time).UTC(), nil
 }
 
 // logDoc describes log messages stored in MongoDB.
@@ -124,12 +132,13 @@ func (logger *DbLoggerLastSent) Get() (time.Time, error) {
 // for increased precision.
 type logDoc struct {
 	Id        bson.ObjectId `bson:"_id"`
-	Time      time.Time     `bson:"t"`
+	Time      int64         `bson:"t"` // unix nano UTC
 	ModelUUID string        `bson:"e"`
 	Entity    string        `bson:"n"` // e.g. "machine-0"
+	Version   string        `bson:"r"`
 	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
 	Location  string        `bson:"l"` // "filename:lineno"
-	Level     loggo.Level   `bson:"v"`
+	Level     int           `bson:"v"`
 	Message   string        `bson:"x"`
 }
 
@@ -137,29 +146,35 @@ type DbLogger struct {
 	logsColl  *mgo.Collection
 	modelUUID string
 	entity    string
+	version   string
 }
 
 // NewDbLogger returns a DbLogger instance which is used to write logs
 // to the database.
-func NewDbLogger(st LoggingState, entity names.Tag) *DbLogger {
+func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
 		modelUUID: st.ModelUUID(),
 		entity:    entity.String(),
+		version:   ver.String(),
 	}
 }
 
 // Log writes a log message to the database.
 func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
+	// since the Unix "epoch".
+	unixEpochNanoUTC := t.UnixNano()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t,
+		Time:      unixEpochNanoUTC,
 		ModelUUID: logger.modelUUID,
 		Entity:    logger.entity,
+		Version:   logger.version,
 		Module:    module,
 		Location:  location,
-		Level:     level,
+		Level:     int(level),
 		Message:   msg,
 	})
 }
@@ -196,13 +211,19 @@ type LogTailer interface {
 // LogRecord defines a single Juju log message as returned by
 // LogTailer.
 type LogRecord struct {
-	Time      time.Time
-	Entity    string
-	Module    string
-	Location  string
-	Level     loggo.Level
-	Message   string
+	// origin fields
 	ModelUUID string
+	Entity    names.Tag
+	Version   version.Number
+
+	// universal fields
+	Time time.Time
+
+	// logging-specific fields
+	Level    loggo.Level
+	Module   string
+	Location string
+	Message  string
 }
 
 // LogTailerParams specifies the filtering a LogTailer should apply to
@@ -237,9 +258,18 @@ const oplogOverlap = time.Minute
 // output of large broken models with logging at DEBUG.
 var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
+// LogTailerState describes the methods on State required for logging to
+// the database.
+type LogTailerState interface {
+	ModelSessioner
+
+	// IsController indicates whether or not the model is the admin model.
+	IsController() bool
+}
+
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LoggingState, params *LogTailerParams) (LogTailer, error) {
+func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
 	if !st.IsController() && params.AllModels {
 		return nil, errors.NewNotValid(nil, "not allowed to tail logs from all models: not a controller")
 	}
@@ -334,11 +364,15 @@ func (t *logTailer) processCollection() error {
 	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
+		rec, err := logDocToRecord(doc)
+		if err != nil {
+			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+		}
 		select {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
-		case t.logCh <- logDocToRecord(doc):
-			t.lastTime = doc.Time
+		case t.logCh <- rec:
+			t.lastTime = rec.Time
 			t.recentIds.Add(doc.Id)
 		}
 	}
@@ -390,10 +424,14 @@ func (t *logTailer) tailOplog() error {
 				}
 				continue
 			}
+			rec, err := logDocToRecord(doc)
+			if err != nil {
+				return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+			}
 			select {
 			case <-t.tomb.Dying():
 				return errors.Trace(tomb.ErrDying)
-			case t.logCh <- logDocToRecord(doc):
+			case t.logCh <- rec:
 			}
 		}
 	}
@@ -401,13 +439,13 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"t", bson.M{"$gte": params.StartTime}},
+		{"t", bson.M{"$gte": params.StartTime.UnixNano()}},
 	}
 	if !params.AllModels {
 		sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
-		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": params.MinLevel}})
+		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": int(params.MinLevel)}})
 	}
 	if len(params.IncludeEntity) > 0 {
 		sel = append(sel,
@@ -499,23 +537,47 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(doc *logDoc) *LogRecord {
-	return &LogRecord{
-		Time:      doc.Time,
-		Entity:    doc.Entity,
-		Module:    doc.Module,
-		Location:  doc.Location,
-		Level:     doc.Level,
-		Message:   doc.Message,
-		ModelUUID: doc.ModelUUID,
+func logDocToRecord(doc *logDoc) (*LogRecord, error) {
+	var ver version.Number
+	if doc.Version != "" {
+		parsed, err := version.Parse(doc.Version)
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid version %q", doc.Version)
+		}
+		ver = parsed
 	}
+
+	level := loggo.Level(doc.Level)
+	if level > loggo.CRITICAL {
+		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
+	}
+
+	entity, err := names.ParseTag(doc.Entity)
+	if err != nil {
+		return nil, errors.Annotate(err, "while parsing entity tag")
+	}
+
+	rec := &LogRecord{
+
+		ModelUUID: doc.ModelUUID,
+		Entity:    entity,
+		Version:   ver,
+
+		Time:    time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
+		Message: doc.Message,
+
+		Level:    level,
+		Module:   doc.Module,
+		Location: doc.Location,
+	}
+	return rec, nil
 }
 
 // PruneLogs removes old log documents in order to control the size of
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
+func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 	session, logsColl := initLogsSession(st)
 	defer session.Close()
 
@@ -531,7 +593,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 	for _, modelUUID := range modelUUIDs {
 		removeInfo, err := logsColl.RemoveAll(bson.M{
 			"e": modelUUID,
-			"t": bson.M{"$lt": minLogTime},
+			"t": bson.M{"$lt": minLogTime.UnixNano()},
 		})
 		if err != nil {
 			return errors.Annotate(err, "failed to prune logs by time")
@@ -572,7 +634,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 		if err != nil {
 			return errors.Annotate(err, "log pruning timestamp query failed")
 		}
-		thresholdTs := doc["t"].(time.Time)
+		thresholdTs := doc["t"]
 
 		// Remove old records.
 		removeInfo, err := logsColl.RemoveAll(bson.M{
@@ -596,7 +658,7 @@ func PruneLogs(st LoggingState, minLogTime time.Time, maxLogsMB int) error {
 // initLogsSession creates a new session suitable for logging updates,
 // returning the session and a logs mgo.Collection connected to that
 // session.
-func initLogsSession(st LoggingState) (*mgo.Session, *mgo.Collection) {
+func initLogsSession(st MongoSessioner) (*mgo.Session, *mgo.Collection) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
 	// when the replicaset only has one member (i.e. a single primary).

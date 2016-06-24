@@ -31,7 +31,7 @@ type debugLogHandler struct {
 }
 
 type debugLogHandlerFunc func(
-	state.LoggingState,
+	state.LogTailerState,
 	*debugLogParams,
 	debugLogSocket,
 	<-chan struct{},

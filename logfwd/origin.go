@@ -22,11 +22,15 @@ const canonicalPEN = 28978
 const (
 	OriginTypeUnknown OriginType = 0
 	OriginTypeUser               = iota
+	OriginTypeMachine
+	OriginTypeUnit
 )
 
 var originTypes = map[OriginType]string{
 	OriginTypeUnknown: "unknown",
 	OriginTypeUser:    names.UserTagKind,
+	OriginTypeMachine: names.MachineTagKind,
+	OriginTypeUnit:    names.UnitTagKind,
 }
 
 // OriginType is the "enum" type for the different kinds of log record
@@ -73,31 +77,79 @@ func (ot OriginType) ValidateName(name string) error {
 		if !names.IsValidUser(name) {
 			return errors.NewNotValid(nil, "bad user name")
 		}
+	case OriginTypeMachine:
+		if !names.IsValidMachine(name) {
+			return errors.NewNotValid(nil, "bad machine name")
+		}
+	case OriginTypeUnit:
+		if !names.IsValidUnit(name) {
+			return errors.NewNotValid(nil, "bad unit name")
+		}
 	}
 	return nil
 }
 
-// Validate ensures that the origin is correct.
+// Origin describes what created the record.
 type Origin struct {
+	// ControllerUUID is the ID of the Juju controller under which the
+	// record originated.
 	ControllerUUID string
-	ModelUUID      string
-	Type           OriginType
-	Name           string
-	JujuVersion    version.Number
+
+	// ModelUUID is the ID of the Juju model under which the record
+	// originated.
+	ModelUUID string
+
+	// Hostname identifies the host where the record originated.
+	Hostname string
+
+	// Type identifies the kind of thing that generated the record.
+	Type OriginType
+
+	// Name identifies the thing that generated the record.
+	Name string
+
+	// Software identifies the running software that created the record.
+	Software Software
 }
 
-// PrivateEnterpriseNumber returns the IANA-registered "SMI Network
-// Management Private Enterprise Code" to use for the log record.
-//
-// See https://tools.ietf.org/html/rfc5424#section-7.2.2.
-func (o Origin) PrivateEnterpriseNumber() int {
-	return canonicalPEN
+// OriginForMachineAgent populates a new origin for the agent.
+func OriginForMachineAgent(tag names.MachineTag, controller, model string, ver version.Number) Origin {
+	return originForAgent(OriginTypeMachine, tag, controller, model, ver)
 }
 
-// SofwareName identifies the software that generated the log message.
-// It is unique within the context of the enterprise ID.
-func (o Origin) SoftwareName() string {
-	return "jujud"
+// OriginForUnitAgent populates a new origin for the agent.
+func OriginForUnitAgent(tag names.UnitTag, controller, model string, ver version.Number) Origin {
+	return originForAgent(OriginTypeUnit, tag, controller, model, ver)
+}
+
+func originForAgent(oType OriginType, tag names.Tag, controller, model string, ver version.Number) Origin {
+	origin := originForJuju(oType, tag.Id(), controller, model, ver)
+	origin.Hostname = fmt.Sprintf("%s.%s", tag, model)
+	origin.Software.Name = fmt.Sprintf("jujud-%s-agent", tag.Kind())
+	return origin
+}
+
+// OriginForJuju populates a new origin for the juju client.
+func OriginForJuju(tag names.Tag, controller, model string, ver version.Number) (Origin, error) {
+	oType, err := ParseOriginType(tag.Kind())
+	if err != nil {
+		return Origin{}, errors.Annotate(err, "invalid tag")
+	}
+	return originForJuju(oType, tag.Id(), controller, model, ver), nil
+}
+
+func originForJuju(oType OriginType, name, controller, model string, ver version.Number) Origin {
+	return Origin{
+		ControllerUUID: controller,
+		ModelUUID:      model,
+		Type:           oType,
+		Name:           name,
+		Software: Software{
+			PrivateEnterpriseNumber: canonicalPEN,
+			Name:    "juju",
+			Version: ver,
+		},
+	}
 }
 
 // Validate ensures that the origin is correct.
@@ -127,9 +179,53 @@ func (o Origin) Validate() error {
 		return errors.Annotatef(err, "invalid Name %q", o.Name)
 	}
 
-	if o.JujuVersion == version.Zero {
-		return errors.NewNotValid(nil, "empty JujuVersion")
+	if !o.Software.isZero() {
+		if err := o.Software.Validate(); err != nil {
+			return errors.Annotate(err, "invalid Software")
+		}
 	}
 
+	return nil
+}
+
+// Software describes a running application.
+type Software struct {
+	// PrivateEnterpriseNumber is the IANA-registered "SMI Network
+	// Management Private Enterprise Code" for the software's vendor.
+	//
+	// See https://tools.ietf.org/html/rfc5424#section-7.2.2.
+	PrivateEnterpriseNumber int
+
+	// Name identifies the software (relative to the vendor).
+	Name string
+
+	// Version is the software's version.
+	Version version.Number
+}
+
+func (sw Software) isZero() bool {
+	if sw.PrivateEnterpriseNumber > 0 {
+		return false
+	}
+	if sw.Name != "" {
+		return false
+	}
+	if sw.Version != version.Zero {
+		return false
+	}
+	return true
+}
+
+// Validate ensures that the software info is correct.
+func (sw Software) Validate() error {
+	if sw.PrivateEnterpriseNumber <= 0 {
+		return errors.NewNotValid(nil, "missing PrivateEnterpriseNumber")
+	}
+	if sw.Name == "" {
+		return errors.NewNotValid(nil, "empty Name")
+	}
+	if sw.Version == version.Zero {
+		return errors.NewNotValid(nil, "empty Version")
+	}
 	return nil
 }

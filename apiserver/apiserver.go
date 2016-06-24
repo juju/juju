@@ -387,11 +387,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		}
 	}
 
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.controllerModelOnly = true
+
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
 	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
+	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
 	add("/model/:modeluuid/logsink", logSinkHandler)
+	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 	add("/model/:modeluuid/charms",
 		&charmsHandler{
@@ -408,9 +414,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			ctxt: httpCtxt,
 		},
 	)
-	strictCtxt := httpCtxt
-	strictCtxt.strictValidation = true
-	strictCtxt.controllerModelOnly = true
 	add("/model/:modeluuid/backups",
 		&backupHandler{
 			ctxt: strictCtxt,
