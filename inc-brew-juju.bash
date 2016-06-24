@@ -33,8 +33,9 @@ if [[ $PURPOSE == 'stable' ]]; then
 else
     # The development block is indented 4 spaces.
     FORMULA=$(cat juju.rb |
-        sed -e "/devel do/,/bottle do/ s,^    url [\'\"].*juju-core.*.tar.gz[\'\"],    url \"$URI\",;" |
-        sed -e "/devel do/,/bottle do/s,^    sha256 [\'\"].*[\'\"],    sha256 \"$SHASUM\",;")
+        sed -e "/devel do/,/depends_on/s,^    url [\'\"].*juju-core.*.tar.gz[\'\"],    url \"$URI\",;" |
+        sed -e "/devel do/,/depends_on/s,^    sha256 [\'\"].*[\'\"],    sha256 \"$SHASUM\",;" |
+        sed -e "/devel do/,/depends_on/s,^    version [\'\"].*[\'\"],    version \"$VERSION\",;")
     OPT="--devel"
 fi
 echo "$FORMULA" > juju.rb
