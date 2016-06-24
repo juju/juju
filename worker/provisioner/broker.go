@@ -71,7 +71,7 @@ func prepareOrGetContainerInterfaceInfo(
 // discovered using network.ParseResolvConf(). If interfaces has zero length,
 // container.FallbackInterfaceInfo() is used as fallback.
 func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
-	haveDNSConfig := false
+	haveNameservers, haveSearchDomains := false, false
 	if len(interfaces) == 0 {
 		// Use the fallback network config as a last resort.
 		interfaces = container.FallbackInterfaceInfo()
@@ -82,14 +82,19 @@ func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo
 		if info.ParentInterfaceName == "" {
 			info.ParentInterfaceName = bridgeDevice
 		}
+
 		if len(info.DNSServers) > 0 {
-			haveDNSConfig = true
+			haveNameservers = true
+		}
+
+		if len(info.DNSSearchDomains) > 0 {
+			haveSearchDomains = true
 		}
 		results[i] = info
 	}
 
-	if !haveDNSConfig {
-		logger.Warningf("no DNS settings found, discovering the host settings")
+	if !haveNameservers || !haveSearchDomains {
+		logger.Warningf("incomplete DNS config found, discovering host's DNS config")
 		dnsConfig, err := network.ParseResolvConf(resolvConf)
 		if err != nil {
 			return nil, errors.Trace(err)
