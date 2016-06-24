@@ -57,6 +57,11 @@ var fakeInterfaceInfo network.InterfaceInfo = network.InterfaceInfo{
 	InterfaceName:  "dummy0",
 	Address:        network.NewAddress("0.1.2.3"),
 	GatewayAddress: network.NewAddress("0.1.2.1"),
+	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
+	// detected and the latter populated by parsing the fake resolv.conf created
+	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
+	DNSServers:       network.NewAddresses("ns1.dummy"),
+	DNSSearchDomains: nil,
 }
 
 var fakeContainerConfig = params.ContainerConfig{
@@ -116,6 +121,7 @@ nameserver ns1.dummy
 search dummy invalid
 nameserver ns2.dummy
 `
+
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
 	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
