@@ -114,16 +114,16 @@ type Origin struct {
 
 // OriginForMachineAgent populates a new origin for the agent.
 func OriginForMachineAgent(tag names.MachineTag, controller, model string, ver version.Number) Origin {
-	return originForAgent(tag, controller, model, ver)
+	return originForAgent(OriginTypeMachine, tag, controller, model, ver)
 }
 
 // OriginForUnitAgent populates a new origin for the agent.
 func OriginForUnitAgent(tag names.UnitTag, controller, model string, ver version.Number) Origin {
-	return originForAgent(tag, controller, model, ver)
+	return originForAgent(OriginTypeUnit, tag, controller, model, ver)
 }
 
-func originForAgent(tag names.Tag, controller, model string, ver version.Number) Origin {
-	origin, _ := OriginForJuju(tag, controller, model, ver)
+func originForAgent(oType OriginType, tag names.Tag, controller, model string, ver version.Number) Origin {
+	origin := originForJuju(oType, tag.Id(), controller, model, ver)
 	origin.Hostname = fmt.Sprintf("%s.%s", tag, model)
 	origin.Software.Name = fmt.Sprintf("jujud-%s-agent", tag.Kind())
 	return origin
@@ -135,18 +135,21 @@ func OriginForJuju(tag names.Tag, controller, model string, ver version.Number) 
 	if err != nil {
 		return Origin{}, errors.Annotate(err, "invalid tag")
 	}
-	origin := Origin{
+	return originForJuju(oType, tag.Id(), controller, model, ver), nil
+}
+
+func originForJuju(oType OriginType, name, controller, model string, ver version.Number) Origin {
+	return Origin{
 		ControllerUUID: controller,
 		ModelUUID:      model,
 		Type:           oType,
-		Name:           tag.Id(),
+		Name:           name,
 		Software: Software{
 			PrivateEnterpriseNumber: canonicalPEN,
 			Name:    "juju",
 			Version: ver,
 		},
 	}
-	return origin, nil
 }
 
 // Validate ensures that the origin is correct.
