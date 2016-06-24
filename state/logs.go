@@ -163,10 +163,13 @@ func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLog
 
 // Log writes a log message to the database.
 func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
+	// since the Unix "epoch".
+	unixEpochNanoUTC := t.UnixNano()
 	_, zone := t.Zone()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
-		Time:      t.UnixNano(),
+		Time:      unixEpochNanoUTC,
 		Timezone:  zone,
 		ModelUUID: logger.modelUUID,
 		Entity:    logger.entity,
