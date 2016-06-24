@@ -72,7 +72,15 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			tag := entity.Tag()
 
-			ver, err := versionFromReq(req)
+			// Note that this endpoint is agent-only. Thus the only
+			// callers will necessarily provide their Juju version.
+			//
+			// This would be a problem if non-Juju clients (e.g. the
+			// GUI) could use this endpoint since we require that the
+			// *Juju* version be provided as part of the request. Any
+			// attempt to open this endpoint to broader access must
+			// address this caveat appropriately.
+			ver, err := jujuClientVersionFromReq(req)
 			if err != nil {
 				h.sendError(socket, req, err)
 				return
@@ -112,7 +120,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server.ServeHTTP(w, req)
 }
 
-func versionFromReq(req *http.Request) (version.Number, error) {
+func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
 	verStr := req.URL.Query().Get("jujuclientversion")
 	if verStr == "" {
 		return version.Zero, errors.New(`missing "jujuclientversion" in URL query`)
