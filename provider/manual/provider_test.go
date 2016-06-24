@@ -44,7 +44,7 @@ func (s *providerSuite) TestPrepareForCreateEnvironment(c *gc.C) {
 func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
 	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
 	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "public auth key\n", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "", ctx.GetStdin(), ctx.GetStdout())
 }
 
 func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {

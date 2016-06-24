@@ -241,9 +241,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(bootstrapConfig.Cloud, gc.Equals, "dummy")
 	c.Assert(bootstrapConfig.Credential, gc.Equals, "")
 	c.Assert(bootstrapConfig.Config, jc.DeepEquals, map[string]interface{}{
-		"name":           environs.ControllerModelName,
-		"type":           "dummy",
-		"default-series": "raring",
+		"name":            environs.ControllerModelName,
+		"type":            "dummy",
+		"default-series":  "raring",
+		"authorized-keys": "public auth key\n",
 	})
 
 	return restore

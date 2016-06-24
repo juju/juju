@@ -91,63 +91,11 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	c.Assert(validateCall.Args[1], gc.IsNil)
 }
 
-func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserCopiesSecrets(c *gc.C) {
-	var err error
-	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
-		"authorized-keys": "ssh-key",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	newModelUUID := utils.MustNewUUID().String()
-	newAttrs := coretesting.Attrs{
-		"name":       "new-model",
-		"additional": "value",
-		"uuid":       newModelUUID,
-	}
-	cfg, err := s.newModelConfigAdmin(newAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedCfg, err := config.New(config.UseDefaults, newAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// TODO(wallyworld) - we need to separate controller and model schemas
-	// Remove any remaining controller attributes from the env config.
-	expectedCfg, err = expectedCfg.Remove(controller.ControllerOnlyConfigAttributes)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := expectedCfg.AllAttrs()
-	c.Assert(expected["authorized-keys"], gc.Equals, "ssh-key")
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
-
-	fake.Stub.CheckCallNames(c,
-		"RestrictedConfigAttributes",
-		"PrepareForCreateEnvironment",
-		"Validate",
-	)
-	validateCall := fake.Stub.Calls()[2]
-	c.Assert(validateCall.Args, gc.HasLen, 2)
-	c.Assert(validateCall.Args[0], gc.Equals, cfg)
-	c.Assert(validateCall.Args[1], gc.IsNil)
-}
-
-func (s *ModelConfigCreatorSuite) TestCreateModelEnsuresRequiredFields(c *gc.C) {
-	var err error
-	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
-		"authorized-keys": "ssh-key",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	newAttrs := coretesting.Attrs{
-		"name": "new-model",
-	}
-	_, err = s.newModelConfigAdmin(newAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newAttrs["authorized-keys"], gc.Equals, "ssh-key")
-}
-
 func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserPrefersUserSecrets(c *gc.C) {
 	var err error
 	s.baseConfig, err = s.baseConfig.Apply(coretesting.Attrs{
-		"username":        "user",
-		"password":        "password",
-		"authorized-keys": "ssh-key",
+		"username": "user",
+		"password": "password",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	newModelUUID := utils.MustNewUUID().String()
@@ -171,7 +119,6 @@ func (s *ModelConfigCreatorSuite) TestCreateModelForAdminUserPrefersUserSecrets(
 	expected := expectedCfg.AllAttrs()
 	c.Assert(expected["username"], gc.Equals, "anotheruser")
 	c.Assert(expected["password"], gc.Equals, "anotherpassword")
-	c.Assert(expected["authorized-keys"], gc.Equals, "ssh-key")
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 
 	fake.Stub.CheckCallNames(c,

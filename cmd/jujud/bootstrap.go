@@ -183,7 +183,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Annotate(err, "failed to generate system key")
 	}
 	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthKeysConfig] = authorizedKeys
+	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()

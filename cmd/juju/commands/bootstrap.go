@@ -437,6 +437,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	for k, v := range userConfigAttrs {
 		configAttrs[k] = v
 	}
+	if err := common.FinalizeAuthorizedKeys(ctx, configAttrs); err != nil {
+		return errors.Trace(err)
+	}
 	logger.Debugf("preparing controller with config: %v", configAttrs)
 
 	// Read existing current controller so we can clean up on error.
@@ -596,7 +599,7 @@ to clean up the model.`[1:])
 	// model config. These attributes may be modified during bootstrap; by
 	// removing them from this map, we ensure the modified values are
 	// inherited.
-	delete(hostedModelConfig, config.AuthKeysConfig)
+	delete(hostedModelConfig, config.AuthorizedKeysKey)
 	delete(hostedModelConfig, config.AgentVersionKey)
 
 	// Based on the attribute names in clouds.yaml, create

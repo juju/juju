@@ -200,14 +200,6 @@ func finalizeConfig(isAdmin bool, controllerUUID string, controllerModelCfg *con
 		return nil, errors.Trace(err)
 	}
 
-	if isAdmin {
-		// If the user is an administrator, and has not supplied authorized-keys,
-		// copy across authorized-keys from the controller model.
-		const key = "authorized-keys"
-		if _, ok := attrs[key]; !ok {
-			attrs[key] = controllerModelCfg.AllAttrs()[key]
-		}
-	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")

@@ -80,6 +80,9 @@ const (
 	// UUIDKey is the key for the model UUID attribute.
 	UUIDKey = "uuid"
 
+	// AuthorizedKeysKey is the key for the authorized-keys attribute.
+	AuthorizedKeysKey = "authorized-keys"
+
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
@@ -256,23 +259,14 @@ const (
 // environment providers are verified.  If useDefaults is UseDefaults,
 // default values will be taken from the environment.
 //
-// Specifically, the "authorized-keys-path" key
-// is translated into "authorized-keys" by loading the content from
-// respective file.  Similarly, "ca-cert-path" and "ca-private-key-path"
-// are translated into the "ca-cert" and "ca-private-key" values.  If
-// not specified, authorized SSH keys and CA details will be read from:
+// "ca-cert-path" and "ca-private-key-path" are translated into the
+// "ca-cert" and "ca-private-key" values.  If not specified, CA details
+// will be read from:
 //
-//     ~/.ssh/id_dsa.pub
-//     ~/.ssh/id_rsa.pub
-//     ~/.ssh/identity.pub
 //     ~/.local/share/juju/<name>-cert.pem
 //     ~/.local/share/juju/<name>-private-key.pem
 //
 // if $XDG_DATA_HOME is defined it will be used instead of ~/.local/share
-//
-// The required keys (after any files have been read) are "name",
-// "type" and "authorized-keys", all of type string.  Additional keys
-// recognised are "agent-version" (string) and "development" (bool).
 func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error) {
 	checker := noDefaultsChecker
 	if withDefaults {
@@ -336,18 +330,6 @@ func (c *Config) fillInDefaults() error {
 	// out their defaults accordingly.
 	c.fillInStringDefault("firewall-mode")
 
-	// Load authorized-keys-path into authorized-keys if necessary.
-	path := c.asString("authorized-keys-path")
-	keys := c.asString("authorized-keys")
-	if path != "" || keys == "" {
-		var err error
-		c.defined["authorized-keys"], err = ReadAuthorizedKeys(path)
-		if err != nil {
-			return err
-		}
-	}
-	delete(c.defined, "authorized-keys-path")
-
 	// Don't use c.Name() because the name hasn't
 	// been verified yet.
 	name := c.asString(NameKey)
@@ -407,12 +389,6 @@ func Validate(cfg, old *Config) error {
 	for _, attr := range allowedWithDefaultsOnly {
 		if _, ok := cfg.defined[attr]; ok {
 			return fmt.Errorf("attribute %q is not allowed in configuration", attr)
-		}
-	}
-	// Check that mandatory fields are specified.
-	for _, attr := range mandatoryWithoutDefaults {
-		if _, ok := cfg.defined[attr]; !ok {
-			return fmt.Errorf("%s missing from model configuration", attr)
 		}
 	}
 
@@ -580,7 +556,8 @@ func (c *Config) DefaultSeries() (string, bool) {
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
-	return c.mustString("authorized-keys")
+	value, _ := c.defined[AuthorizedKeysKey].(string)
+	return value
 }
 
 // ProxySSH returns a flag indicating whether SSH commands
@@ -995,8 +972,7 @@ var alwaysOptional = schema.Defaults{
 
 	// Model config attributes
 	AgentVersionKey:              schema.Omit,
-	"authorized-keys":            schema.Omit,
-	"authorized-keys-path":       schema.Omit,
+	AuthorizedKeysKey:            schema.Omit,
 	"logging-config":             schema.Omit,
 	ProvisionerHarvestModeKey:    schema.Omit,
 	"bootstrap-timeout":          schema.Omit,
@@ -1078,14 +1054,6 @@ func allDefaults() schema.Defaults {
 var allowedWithDefaultsOnly = []string{
 	"ca-cert-path",
 	"ca-private-key-path",
-	"authorized-keys-path",
-}
-
-// mandatoryWithoutDefaults holds those attributes
-// that are mandatory if the configuration is created
-// with no defaults but optional otherwise.
-var mandatoryWithoutDefaults = []string{
-	"authorized-keys",
 }
 
 // immutableAttributes holds those attributes
@@ -1269,15 +1237,10 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"authorized-keys": {
-		// TODO what to do about authorized-keys-path ?
+	AuthorizedKeysKey: {
 		Description: "Any authorized SSH public keys for the model, as found in a ~/.ssh/authorized_keys file",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
-	},
-	"authorized-keys-path": {
-		Description: "Path to file containing SSH authorized keys",
-		Type:        environschema.Tstring,
 	},
 	"bootstrap-addresses-delay": {
 		Description: "The amount of time between refreshing the addresses in seconds. Not too frequent as we refresh addresses from the provider each time.",

@@ -134,12 +134,6 @@ var configTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 		}),
 	}, {
-		about:       "Load authorized-keys from path",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys-path": "~/.ssh/authorized_keys2",
-		}),
-	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -209,37 +203,32 @@ var configTests = []configTest{
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"agent-version":   "1.2.3",
+			"agent-version": "1.2.3",
 		}),
 	}, {
 		about:       "Specified development flag",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"development":     true,
+			"development": true,
 		}),
 	}, {
 		about:       "Specified admin secret",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"development":     false,
-			"admin-secret":    "pork",
+			"development":  false,
+			"admin-secret": "pork",
 		}),
 	}, {
 		about:       "Invalid development flag",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"development":     "invalid",
+			"development": "invalid",
 		}),
 		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
 		about:       "Invalid disable-network-management flag",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys":            testing.FakeAuthKeys,
 			"disable-network-management": "invalid",
 		}),
 		err: `disable-network-management: expected bool, got string\("invalid"\)`,
@@ -290,8 +279,7 @@ var configTests = []configTest{
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"authorized-keys": testing.FakeAuthKeys,
-			"agent-version":   "2",
+			"agent-version": "2",
 		}),
 		err: `invalid agent version in model configuration: "2"`,
 	}, {
@@ -549,16 +537,6 @@ var configTests = []configTest{
 		attrs:       sampleConfig.Merge(testing.Attrs{"ca-private-key-path": "arble"}),
 		err:         `attribute "ca-private-key-path" is not allowed in configuration`,
 	}, {
-		about:       "No defaults: with authorized-keys-path",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Merge(testing.Attrs{"authorized-keys-path": "arble"}),
-		err:         `attribute "authorized-keys-path" is not allowed in configuration`,
-	}, {
-		about:       "No defaults: missing authorized-keys",
-		useDefaults: config.NoDefaults,
-		attrs:       sampleConfig.Delete("authorized-keys"),
-		err:         `authorized-keys missing from model configuration`,
-	}, {
 		about:       "Config settings from juju actual installation",
 		useDefaults: config.NoDefaults,
 		attrs: map[string]interface{}{
@@ -812,7 +790,6 @@ var noCertFilesTests = []configTest{
 			"name":            "my-name",
 			"uuid":            testing.ModelTag.Id(),
 			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
 		},
 	}, {
 		about:       "Unspecified certificate, specified key",
@@ -822,7 +799,6 @@ var noCertFilesTests = []configTest{
 			"name":            "my-name",
 			"uuid":            testing.ModelTag.Id(),
 			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: "bad CA certificate/key in configuration: .*tls:.*",
@@ -845,7 +821,6 @@ var emptyCertFilesTests = []configTest{
 			"name":            "my-name",
 			"uuid":            testing.ModelTag.Id(),
 			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
 		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
@@ -857,7 +832,6 @@ var emptyCertFilesTests = []configTest{
 			"name":            "my-name",
 			"uuid":            testing.ModelTag.Id(),
 			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
 		},
 		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, {
@@ -868,7 +842,6 @@ var emptyCertFilesTests = []configTest{
 			"name":            "my-name",
 			"uuid":            testing.ModelTag.Id(),
 			"controller-uuid": testing.ModelTag.Id(),
-			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
 		err: fmt.Sprintf(`file ".*%smy-name-private-key.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
@@ -878,7 +851,6 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 			"ca-private-key":  "",
 		},
@@ -888,7 +860,6 @@ var emptyCertFilesTests = []configTest{
 		attrs: testing.Attrs{
 			"type":            "my-type",
 			"name":            "my-name",
-			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
@@ -916,7 +887,6 @@ func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
 		"name":            "my-name",
 		"uuid":            testing.ModelTag.Id(),
 		"controller-uuid": testing.ModelTag.Id(),
-		"authorized-keys": testing.FakeAuthKeys,
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	}
@@ -996,15 +966,8 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.AdminSecret(), gc.Equals, secret)
 	}
 
-	if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, home.FileContents(c, path))
-		c.Assert(cfg.AllAttrs()["authorized-keys-path"], gc.IsNil)
-	} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
-	} else {
-		// Content of all the files that are read by default.
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
-	}
+	keys, _ := test.attrs["authorized-keys"].(string)
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
 
 	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
 	if v, ok := test.attrs["syslog-server-cert"].(string); v != "" {
