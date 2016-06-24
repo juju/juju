@@ -192,12 +192,17 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	config, err := controllerModel.Config()
+	cfg, err := controllerModel.Config()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	result.Config = config.AllAttrs()
+	result.Config = make(map[string]params.ConfigValue)
+	for name, val := range cfg.AllAttrs() {
+		result.Config[name] = params.ConfigValue{
+			Value: val,
+		}
+	}
 	return result, nil
 }
 

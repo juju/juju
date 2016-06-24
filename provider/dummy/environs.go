@@ -1531,8 +1531,8 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 }
 
 // MigrationConfigUpdate implements MigrationConfigUpdater.
-func (*environ) MigrationConfigUpdate(controllerConfig *config.Config) map[string]interface{} {
+func (*environ) MigrationConfigUpdate(controllerModelConfig *config.Config) map[string]interface{} {
 	return map[string]interface{}{
-		"controller-uuid": controllerConfig.UUID(),
+		"controller-uuid": controllerModelConfig.UUID(),
 	}
 }

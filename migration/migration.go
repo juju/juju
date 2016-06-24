@@ -80,7 +80,7 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 	return dbModel, dbState, nil
 }
 
-func updateConfigFromProvider(model description.Model, getter environs.EnvironConfigGetter, controllerConfig *config.Config) error {
+func updateConfigFromProvider(model description.Model, getter environs.EnvironConfigGetter, controllerModelConfig *config.Config) error {
 	provider, err := environs.GetEnviron(getter, environs.New)
 	if err != nil {
 		return errors.Trace(err)
@@ -91,7 +91,7 @@ func updateConfigFromProvider(model description.Model, getter environs.EnvironCo
 		return nil
 	}
 
-	model.UpdateConfig(updater.MigrationConfigUpdate(controllerConfig))
+	model.UpdateConfig(updater.MigrationConfigUpdate(controllerModelConfig))
 	return nil
 }
 

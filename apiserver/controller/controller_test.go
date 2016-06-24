@@ -151,7 +151,7 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
 	env, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], gc.Equals, "controller")
+	c.Assert(env.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
 
 func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
@@ -164,7 +164,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Config["name"], gc.Equals, "controller")
+	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
 
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {

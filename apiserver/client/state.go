@@ -43,6 +43,7 @@ type stateInterface interface {
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	ModelConstraints() (constraints.Value, error)
 	ModelConfig() (*config.Config, error)
+	ModelConfigValues() (config.ConfigValues, error)
 	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 	SetModelConstraints(constraints.Value) error
 	ModelUUID() string

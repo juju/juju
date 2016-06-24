@@ -9,10 +9,17 @@ import (
 	"github.com/juju/version"
 )
 
+// ConfigValue encapsulates a configuration
+// value and its source.
+type ConfigValue struct {
+	Value  interface{} `json:"value"`
+	Source string      `json:"source"`
+}
+
 // ModelConfigResults contains the result of client API calls
 // to get model config values.
 type ModelConfigResults struct {
-	Config map[string]interface{} `json:"config"`
+	Config map[string]ConfigValue `json:"config"`
 }
 
 // ModelSet contains the arguments for ModelSet client API

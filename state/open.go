@@ -319,7 +319,7 @@ func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]inter
 	var configSources []modelConfigSource
 	if len(localCloudConfig) > 0 {
 		configSources = []modelConfigSource{{
-			name: config.JujuCloudSource,
+			name: config.JujuControllerSource,
 			sourceFunc: modelConfigSourceFunc(func() (map[string]interface{}, error) {
 				return localCloudConfig, nil
 			})}}
