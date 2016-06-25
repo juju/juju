@@ -40,22 +40,22 @@ type Origin struct {
 }
 
 // ID returns the SD-ID for this element.
-func (sde Origin) ID() rfc5424.StructuredDataName {
+func (origin Origin) ID() rfc5424.StructuredDataName {
 	return "origin"
 }
 
 // Params returns the []SD-PARAM for this element.
-func (sde Origin) Params() []rfc5424.StructuredDataParam {
+func (origin Origin) Params() []rfc5424.StructuredDataParam {
 	var params []rfc5424.StructuredDataParam
 
-	for _, ip := range sde.IPs {
+	for _, ip := range origin.IPs {
 		params = append(params, rfc5424.StructuredDataParam{
 			Name:  "ip",
 			Value: rfc5424.StructuredDataParamValue(ip.String()),
 		})
 	}
 
-	enterpriseID := sde.EnterpriseID.String()
+	enterpriseID := origin.EnterpriseID.String()
 	if enterpriseID != "" {
 		params = append(params, rfc5424.StructuredDataParam{
 			Name:  "enterpriseID",
@@ -63,17 +63,17 @@ func (sde Origin) Params() []rfc5424.StructuredDataParam {
 		})
 	}
 
-	if sde.SoftwareName != "" {
+	if origin.SoftwareName != "" {
 		params = append(params, rfc5424.StructuredDataParam{
 			Name:  "sofware",
-			Value: rfc5424.StructuredDataParamValue(sde.SoftwareName),
+			Value: rfc5424.StructuredDataParamValue(origin.SoftwareName),
 		})
 	}
 
-	if sde.SoftwareVersion != version.Zero {
+	if origin.SoftwareVersion != version.Zero {
 		params = append(params, rfc5424.StructuredDataParam{
 			Name:  "swVersion",
-			Value: rfc5424.StructuredDataParamValue(sde.SoftwareVersion.String()),
+			Value: rfc5424.StructuredDataParamValue(origin.SoftwareVersion.String()),
 		})
 	}
 
@@ -81,32 +81,32 @@ func (sde Origin) Params() []rfc5424.StructuredDataParam {
 }
 
 // Validate ensures that the element is correct.
-func (sde Origin) Validate() error {
+func (origin Origin) Validate() error {
 	// Any IPs is fine.
 
-	if sde.EnterpriseID.isZero() {
-		if sde.SoftwareName != "" {
+	if origin.EnterpriseID.isZero() {
+		if origin.SoftwareName != "" {
 			return fmt.Errorf("empty EnterpriseID")
 		}
 	} else {
-		if err := sde.EnterpriseID.Validate(); err != nil {
+		if err := origin.EnterpriseID.Validate(); err != nil {
 			return fmt.Errorf("bad EnterpriseID: %v", err)
 		}
 	}
 
-	if sde.SoftwareName == "" {
-		if sde.SoftwareVersion == version.Zero {
+	if origin.SoftwareName == "" {
+		if origin.SoftwareVersion == version.Zero {
 			return fmt.Errorf("empty SoftwareName")
 		}
 	} else {
-		size := utf8.RuneCountInString(sde.SoftwareName)
+		size := utf8.RuneCountInString(origin.SoftwareName)
 		if size > originSoftwareMax {
 			return fmt.Errorf("SoftwareName too big (%d UTF-8 > %d max)", size, originSoftwareMax)
 		}
 	}
 
-	if sde.SoftwareVersion != version.Zero {
-		size := utf8.RuneCountInString(sde.SoftwareVersion.String())
+	if origin.SoftwareVersion != version.Zero {
+		size := utf8.RuneCountInString(origin.SoftwareVersion.String())
 		if size > originVersionMax {
 			return fmt.Errorf("SoftwareVersion too big (%d UTF-8 > %d max)", size, originVersionMax)
 		}
