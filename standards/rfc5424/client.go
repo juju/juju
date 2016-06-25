@@ -125,8 +125,7 @@ func (client Client) serialize(msg Message) []byte {
 	case *net.TCPConn, *stdtls.Conn:
 		msgStr += "\n"
 	case *net.UDPConn:
-		const UDPMaxSize = 1024
-		msgStr = msgStr[:UDPMaxSize]
+		// For now do nothing.
 	}
 	return []byte(msgStr)
 }
