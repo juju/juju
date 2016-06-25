@@ -201,7 +201,7 @@ func (f Facility) String() string {
 	case FacilityLocal7:
 		return "LOCAL7"
 	default:
-		return fmt.Sprint("Facility %d", int(f))
+		return fmt.Sprintf("Facility %d", int(f))
 	}
 }
 
