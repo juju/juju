@@ -301,9 +301,6 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 			Data:    normaliseStatusData(unitStatus.Data),
 			Since:   unitStatus.Since,
 		}
-		if u.Tools != nil {
-			info.JujuStatus.Version = u.Tools.Version.Number.String()
-		}
 		info.JujuStatus = multiwatcher.StatusInfo{
 			Current: status.Status(agentStatus.Status),
 			Message: agentStatus.Message,

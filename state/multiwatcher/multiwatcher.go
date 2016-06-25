@@ -146,7 +146,6 @@ type StatusInfo struct {
 	Current status.Status
 	Message string
 	Since   *time.Time
-	Version string
 	Data    map[string]interface{}
 }
 
