@@ -37,32 +37,6 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 	s.sender = &stubSender{stub: s.stub}
 }
 
-func (s *ClientSuite) DialFunc(cfg tls.Config, timeout time.Duration) (rfc5424.DialFunc, error) {
-	s.stub.AddCall("DialFunc", cfg, timeout)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-
-	dial := func(network, address string) (rfc5424.Conn, error) {
-		s.stub.AddCall("dial", network, address)
-		if err := s.stub.NextErr(); err != nil {
-			return nil, err
-		}
-
-		return nil, nil
-	}
-	return dial, nil
-}
-
-func (s *ClientSuite) Open(host string, cfg rfc5424.ClientConfig, dial rfc5424.DialFunc) (syslog.Sender, error) {
-	s.stub.AddCall("Open", host, cfg, dial)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-
-	return s.sender, nil
-}
-
 func (s *ClientSuite) TestOpen(c *gc.C) {
 	cfg := syslog.RawConfig{
 		Host:               "a.b.c:9876",
@@ -71,8 +45,12 @@ func (s *ClientSuite) TestOpen(c *gc.C) {
 		ClientCert:         coretesting.ServerCert,
 		ClientKey:          coretesting.ServerKey,
 	}
+	senderOpener := &stubSenderOpener{
+		stub:       s.stub,
+		ReturnOpen: s.sender,
+	}
 
-	client, err := syslog.OpenForSender(cfg, s)
+	client, err := syslog.OpenForSender(cfg, senderOpener)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "DialFunc", "Open")
@@ -165,6 +143,42 @@ func (s *ClientSuite) TestSend(c *gc.C) {
 		},
 		Msg: "(╯°□°)╯︵ ┻━┻",
 	})
+}
+
+type stubSenderOpener struct {
+	stub *testing.Stub
+
+	ReturnDialFunc rfc5424.DialFunc
+	ReturnOpen     syslog.Sender
+}
+
+func (s *stubSenderOpener) DialFunc(cfg tls.Config, timeout time.Duration) (rfc5424.DialFunc, error) {
+	s.stub.AddCall("DialFunc", cfg, timeout)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+
+	dial := s.ReturnDialFunc
+	if dial == nil {
+		dial = func(network, address string) (rfc5424.Conn, error) {
+			s.stub.AddCall("dial", network, address)
+			if err := s.stub.NextErr(); err != nil {
+				return nil, err
+			}
+
+			return nil, nil
+		}
+	}
+	return dial, nil
+}
+
+func (s *stubSenderOpener) Open(host string, cfg rfc5424.ClientConfig, dial rfc5424.DialFunc) (syslog.Sender, error) {
+	s.stub.AddCall("Open", host, cfg, dial)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+
+	return s.ReturnOpen, nil
 }
 
 type stubSender struct {
