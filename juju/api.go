@@ -6,18 +6,14 @@ package juju
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/parallel"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
@@ -55,10 +51,6 @@ type NewAPIConnectionParams struct {
 	// DialOpts contains the options used to dial the API connection.
 	DialOpts api.DialOpts
 
-	// BootstrapConfig returns the bootstrap configuration for the named
-	// controller.
-	BootstrapConfig func(controllerName string) (*config.Config, error)
-
 	// AccountDetails contains the account details to use for logging
 	// in to the Juju API. If this is nil, then no login will take
 	// place.
@@ -74,89 +66,16 @@ type NewAPIConnectionParams struct {
 // with specified account credentials, optionally scoped to the specified model
 // name.
 func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
-	// Try to connect to the API concurrently using two different
-	// possible sources of truth for the API endpoint. Our
-	// preference is for the API endpoint cached in the API info,
-	// because we know that without needing to access any remote
-	// provider. However, the addresses stored there may no longer
-	// be current (and the network connection may take a very long
-	// time to time out) so we also try to connect using information
-	// found from the provider. We only start to make that
-	// connection after some suitable delay, so that in the
-	// hopefully usual case, we will make the connection to the API
-	// and never hit the provider.
-	try := parallel.NewTry(0, chooseError)
-
-	var delay time.Duration
-	abortAPIConfigConnect := make(chan struct{})
-
 	apiInfo, controller, err := connectionInfo(args)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot work out how to connect")
 	}
-	if len(apiInfo.Addrs) > 0 {
-		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			logger.Infof("connecting to API addresses: %v", apiInfo.Addrs)
-			st, err := args.OpenAPI(apiInfo, args.DialOpts)
-			if err != nil {
-				if isAPIError(err) {
-					// It's an API error rather than
-					// a connection error, so trying
-					// to connect with bootstrap
-					// config is not going to help.
-					close(abortAPIConfigConnect)
-				}
-				return nil, &infoConnectError{err}
-			}
-			return st, nil
-		})
-		// Delay the config connection until we've spent
-		// some time trying to connect to the cached info.
-		delay = providerConnectDelay
-	} else {
-		logger.Debugf("no cached API connection settings found")
+	if len(apiInfo.Addrs) == 0 {
+		return nil, errors.New("no API addresses")
 	}
-
-	// If the client has bootstrap config for the controller, we'll also
-	// attempt to connect by fetching new addresses from the cloud
-	// directly. This is only attempted after a delay, to give the
-	// faster cached-addresses method a chance to complete.
-	cfg, err := args.BootstrapConfig(args.ControllerName)
-	if err == nil {
-		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			cfg, err := apiConfigConnect(
-				cfg,
-				apiInfo,
-				controller,
-				args.OpenAPI,
-				stop,
-				abortAPIConfigConnect,
-				delay,
-				args.DialOpts,
-			)
-			if err == nil {
-				return cfg, nil
-			}
-			if errors.Cause(err) != errAborted {
-				// Errors are swallowed by parallel.Try, so we
-				// log the failure here to aid in debugging.
-				logger.Debugf("failed to connect via bootstrap config: %v", err)
-			}
-			return cfg, errors.Annotatef(err, "connecting with bootstrap config")
-		})
-	} else if !errors.IsNotFound(err) || len(apiInfo.Addrs) == 0 {
-		try.Close()
-		return nil, err
-	}
-
-	try.Close()
-	redirected := false
-	val0, err := try.Result()
+	logger.Infof("connecting to API addresses: %v", apiInfo.Addrs)
+	st, err := args.OpenAPI(apiInfo, args.DialOpts)
 	if err != nil {
-		if ierr, ok := err.(*infoConnectError); ok {
-			// lose error encapsulation:
-			err = ierr.error
-		}
 		redirErr, ok := errors.Cause(err).(*api.RedirectError)
 		if !ok {
 			return nil, errors.Trace(err)
@@ -173,16 +92,10 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 			Addrs:    network.HostPortsToStrings(usableHostPorts(redirErr.Servers)),
 			CACert:   redirErr.CACert,
 		}
-		st, err := args.OpenAPI(apiInfo, args.DialOpts)
+		st, err = args.OpenAPI(apiInfo, args.DialOpts)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot connect to redirected address")
 		}
-		redirected = true
-		val0 = st
-	}
-
-	st := val0.(api.Connection)
-	if redirected {
 		// TODO(rogpeppe) update cached model addresses.
 		return st, nil
 	}
@@ -254,101 +167,6 @@ func isAPIError(err error) bool {
 	}
 	_, ok := errors.Cause(err).(errorCoder)
 	return ok
-}
-
-// chooseError returns the error with the greatest importance.
-func chooseError(err0, err1 error) error {
-	if err0 == nil {
-		return err1
-	}
-	if errorImportance(err0) < errorImportance(err1) {
-		err0, err1 = err1, err0
-	}
-	logger.Debugf("discarding API open error: %v", err1)
-	return err0
-}
-
-func errorImportance(err error) int {
-	if err == nil {
-		return 0
-	}
-	if errors.IsNotFound(err) {
-		// An error from an actual connection attempt
-		// is more interesting than the fact that there's
-		// no environment info available.
-		return 3
-	}
-	if err == errAborted {
-		// A request to abort is less important than any other
-		// error.
-		return 1
-	}
-	if _, ok := err.(*infoConnectError); ok {
-		// A connection to a potentially stale cached address
-		// is less important than a connection from fresh info.
-		return 2
-	}
-	return 4
-}
-
-type infoConnectError struct {
-	error
-}
-
-// apiConfigConnect tries to use the info in the given environment
-// configuration to connect to its API endpoint. The given
-// api info is used to obtain any other parameters needed.
-// info on the given environment, It only starts the attempt after the
-// given delay, to allow the faster apiInfoConnect to hopefully succeed
-// first.
-func apiConfigConnect(
-	cfg *config.Config,
-	origAPIInfo *api.Info,
-	controllerDetails *jujuclient.ControllerDetails,
-	apiOpen api.OpenFunc,
-	stop <-chan struct{},
-	abort <-chan struct{},
-	delay time.Duration,
-	dialOpts api.DialOpts,
-) (api.Connection, error) {
-	select {
-	case <-time.After(delay):
-		// TODO(fwereade): 2016-03-17 lp:1558657
-	case <-stop:
-		return nil, errAborted
-	case <-abort:
-		return nil, errAborted
-	}
-
-	if len(controllerDetails.APIEndpoints) == 0 {
-		return nil, errors.New("Juju controller is still bootstrapping, no api connection available")
-	}
-
-	environ, err := environs.New(cfg)
-	if err != nil {
-		return nil, errors.Annotate(err, "constructing environ")
-	}
-	// All api ports are the same, so just parse the first one.
-	hostPort, err := network.ParseHostPort(controllerDetails.APIEndpoints[0])
-	if err != nil {
-		return nil, errors.Annotate(err, "parsing api port")
-	}
-	apiInfo, err := environs.APIInfo(controllerDetails.ControllerUUID, cfg.UUID(), controllerDetails.CACert, hostPort.Port, environ)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting API info")
-	}
-	// Copy account and model details from the API information we used for the
-	// initial connection attempt.
-	apiInfo.Tag = origAPIInfo.Tag
-	apiInfo.Password = origAPIInfo.Password
-	apiInfo.Macaroons = origAPIInfo.Macaroons
-	apiInfo.ModelTag = origAPIInfo.ModelTag
-
-	st, err := apiOpen(apiInfo, dialOpts)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apiStateCachedInfo{st, apiInfo}, nil
 }
 
 var resolveOrDropHostnames = network.ResolveOrDropHostnames

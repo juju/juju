@@ -288,13 +288,12 @@ To log back in, run the following command:
 	}
 
 	return juju.NewAPIConnectionParams{
-		Store:           store,
-		ControllerName:  controllerName,
-		BootstrapConfig: NewGetBootstrapConfigFunc(store),
-		AccountDetails:  accountDetails,
-		ModelUUID:       modelUUID,
-		DialOpts:        dialOpts,
-		OpenAPI:         openAPI,
+		Store:          store,
+		ControllerName: controllerName,
+		AccountDetails: accountDetails,
+		ModelUUID:      modelUUID,
+		DialOpts:       dialOpts,
+		OpenAPI:        openAPI,
 	}, nil
 }
 
