@@ -39,8 +39,7 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 
 	stub := &testing.Stub{}
 	source := &stubSource{stub: stub}
-	start := time.Unix(12345, 0)
-	source.ReturnGetStart = start
+	source.ReturnGetStart = 10
 	handler := logStreamEndpointHandler{
 		stopCh:    nil,
 		newSource: source.newSource,
@@ -51,9 +50,9 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 
 	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
-	stub.CheckCall(c, 1, "getStart", "spam")
+	stub.CheckCall(c, 1, "getStart", "spam", true)
 	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
-		StartTime: start,
+		StartID:   10,
 		AllModels: true,
 	})
 }
@@ -66,9 +65,9 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	req := s.newReq(c, cfg)
 	stub := &testing.Stub{}
 	source := &stubSource{stub: stub}
-	start := time.Unix(12345, 0)
-	source.ReturnGetStart = start
+	source.ReturnGetStart = 10
 	logs := []state.LogRecord{{
+		ID:        10,
 		ModelUUID: "deadbeef-...",
 		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
@@ -78,6 +77,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		Level:     loggo.INFO,
 		Message:   "stuff happened",
 	}, {
+		ID:        20,
 		ModelUUID: "deadbeef-...",
 		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
@@ -90,6 +90,7 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	var expected []params.LogStreamRecord
 	for _, rec := range logs {
 		expected = append(expected, params.LogStreamRecord{
+			ID:        rec.ID,
 			ModelUUID: rec.ModelUUID,
 			Entity:    rec.Entity.String(),
 			Version:   version.Current.String(),
@@ -180,7 +181,7 @@ func (s *LogStreamIntSuite) newReq(c *gc.C, cfg params.LogStreamConfig) *http.Re
 type stubSource struct {
 	stub *testing.Stub
 
-	ReturnGetStart  time.Time
+	ReturnGetStart  int64
 	ReturnNewTailer state.LogTailer
 }
 
@@ -193,10 +194,10 @@ func (s *stubSource) newSource(req *http.Request) (logStreamSource, error) {
 	return s, nil
 }
 
-func (s *stubSource) getStart(sink string) (time.Time, error) {
-	s.stub.AddCall("getStart", sink)
+func (s *stubSource) getStart(sink string, allModels bool) (int64, error) {
+	s.stub.AddCall("getStart", sink, allModels)
 	if err := s.stub.NextErr(); err != nil {
-		return time.Time{}, errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
 
 	return s.ReturnGetStart, nil
