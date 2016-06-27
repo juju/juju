@@ -46,7 +46,6 @@ MERGE_REF=""
 MERGE_REV=""
 
 REVISION=$1
-SHORT_REVISION=$(echo $REVISION|head -c7)
 JUJU_CORE_REPO=${2:-$DEFAULT_GIT_JUJU_CORE}
 if [[ $# -ge 4 ]]; then
     MERGE_REF=$3
@@ -65,8 +64,9 @@ WORKPACKAGE=$WORK/src/$PACKAGE
 echo "Getting juju core from $JUJU_CORE_REPO."
 mkdir -p $WORKPACKAGE
 git clone $JUJU_CORE_REPO $WORKPACKAGE
-echo "Setting juju core tree to $SHORT_REVISION."
 cd $WORKPACKAGE
+SHORT_REVISION=$(git rev-parse --short  $REVISION)
+echo "Setting juju core tree to $SHORT_REVISION."
 if git ls-remote ./  | grep origin/$REVISION; then
     git checkout origin/$REVISION
 else
