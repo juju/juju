@@ -15,6 +15,10 @@ import (
 
 // Record holds all the information for a single log record.
 type Record struct {
+	// ID identifies the record and its position in a sequence
+	// of records.
+	ID int64
+
 	// Origin describes what created the record.
 	Origin Origin
 
