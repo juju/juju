@@ -9,6 +9,10 @@ import subprocess
 
 import yaml
 
+from utility import (
+    ensure_deleted,
+)
+
 
 __metaclass__ = type
 
@@ -106,8 +110,6 @@ class CharmCommand:
     @contextmanager
     def logged_in_user(self, user_email, password):
         """Contextmanager that logs in and ensures user logs out."""
-        from utility import ensure_deleted  # Workaround circular import
-
         try:
             self.login(user_email, password)
             yield
