@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/worker/logforwarder"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/provisioner"
@@ -246,6 +247,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			// TODO(fwereade): 2016-03-17 lp:1558657
 			NewTimer: worker.NewTimer,
 		})),
+		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
+			APICallerName: apiCallerName,
+			AgentName:     agentName,
+		})),
 	}
 }
 
@@ -314,4 +319,5 @@ const (
 	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
+	logForwarderName         = "log-forwarder"
 )
