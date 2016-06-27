@@ -42,6 +42,14 @@ type MongoSessioner interface {
 	MongoSession() *mgo.Session
 }
 
+// ModelSessioner supports creating new mongo sessions for the controller.
+type ControllerSessioner interface {
+	MongoSessioner
+
+	// IsController indicates if current state is controller.
+	IsController() bool
+}
+
 // ModelSessioner supports creating new mongo sessions for a model.
 type ModelSessioner interface {
 	MongoSessioner
@@ -94,19 +102,6 @@ type lastSentDoc struct {
 	Time int64 `bson:"timestamp"`
 }
 
-// NewLastSentLogTracker returns a new tracker that records and retrieves
-// the timestamps of the most recent log records forwarded to the
-// identified log sink.
-func NewLastSentLogTracker(st ModelSessioner, sink string) *LastSentLogTracker {
-	// TODO(ericsnow) We need to copy the session.
-	return &LastSentLogTracker{
-		id:      fmt.Sprintf("%v#%v", st.ModelUUID(), sink),
-		model:   st.ModelUUID(),
-		sink:    sink,
-		session: st.MongoSession(),
-	}
-}
-
 // LastSentLogTracker records and retrieves timestamps of the most recent
 // log records forwarded to a log sink for a model.
 type LastSentLogTracker struct {
@@ -114,6 +109,34 @@ type LastSentLogTracker struct {
 	id      string
 	model   string
 	sink    string
+}
+
+// NewLastSentLogTracker returns a new tracker that records and retrieves
+// the timestamps of the most recent log records forwarded to the
+// identified log sink for the current model.
+func NewLastSentLogTracker(st ModelSessioner, sink string) *LastSentLogTracker {
+	return newLastSentLogTracker(st, st.ModelUUID(), sink)
+}
+
+// NewAllLastSentLogTracker returns a new tracker that records and retrieves
+// the timestamps of the most recent log records forwarded to the
+// identified log sink for *all* models.
+func NewAllLastSentLogTracker(st ControllerSessioner, sink string) (*LastSentLogTracker, error) {
+	if !st.IsController() {
+		return nil, errors.New("only the admin model can track all log records")
+	}
+	return newLastSentLogTracker(st, "", sink), nil
+}
+
+func newLastSentLogTracker(st MongoSessioner, model, sink string) *LastSentLogTracker {
+	// TODO(ericsnow) We need to copy the session.
+	session := st.MongoSession()
+	return &LastSentLogTracker{
+		id:      fmt.Sprintf("%s#%s", model, sink),
+		model:   model,
+		sink:    sink,
+		session: session,
+	}
 }
 
 // Set records the timestamp.
