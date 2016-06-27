@@ -50,7 +50,7 @@ func (s *LogStreamIntSuite) TestParamConversion(c *gc.C) {
 
 	c.Check(reqHandler.sendModelUUID, jc.IsTrue)
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
-	stub.CheckCall(c, 1, "getStart", "spam")
+	stub.CheckCall(c, 1, "getStart", "spam", true)
 	stub.CheckCall(c, 2, "newTailer", &state.LogTailerParams{
 		StartID:   10,
 		AllModels: true,
@@ -194,8 +194,8 @@ func (s *stubSource) newSource(req *http.Request) (logStreamSource, error) {
 	return s, nil
 }
 
-func (s *stubSource) getStart(sink string) (int64, error) {
-	s.stub.AddCall("getStart", sink)
+func (s *stubSource) getStart(sink string, allModels bool) (int64, error) {
+	s.stub.AddCall("getStart", sink, allModels)
 	if err := s.stub.NextErr(); err != nil {
 		return 0, errors.Trace(err)
 	}

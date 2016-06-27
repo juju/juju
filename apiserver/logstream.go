@@ -15,7 +15,7 @@ import (
 )
 
 type logStreamSource interface {
-	getStart(sink string) (int64, error)
+	getStart(sink string, allModels bool) (int64, error)
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
 }
 
@@ -87,7 +87,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 }
 
 func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig) (state.LogTailer, error) {
-	start, err := source.getStart(cfg.Sink)
+	start, err := source.getStart(cfg.Sink, cfg.AllModels)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,18 +107,26 @@ type logStreamState struct {
 	state.LogTailerState
 }
 
-func (st logStreamState) getStart(sink string) (int64, error) {
-	// TODO(ericsnow) Resume for the sink...
-	//   This will be addressed in a follow-up patch.
-	//tracker := state.NewLastSentLogTracker(st, sink)
-	//lastSent, err := tracker.Get()
-	//if err != nil {
-	//	return nil, errors.Trace(err)
-	//}
-	//// Using the same timestamp will cause at least 1 duplicate
-	//// entry, but that is better than dropping records.
-	//start := lastSent
-	var start int64
+func (st logStreamState) getStart(sink string, allModels bool) (int64, error) {
+	tracker := state.NewLastSentLogTracker(st, sink)
+	if allModels {
+		allTracker, err := state.NewAllLastSentLogTracker(st, sink)
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		tracker = allTracker
+	}
+
+	// Resume for the sink...
+	lastSent, err := tracker.Get()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	// Using the same timestamp will cause at least 1 duplicate
+	// entry, but that is better than dropping records.
+	// TODO(ericsnow) Add 1 to start once we track by sequential int ID
+	// instead of by timestamp.
+	start := lastSent
 
 	return start, nil
 }
