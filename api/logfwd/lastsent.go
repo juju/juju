@@ -4,8 +4,6 @@
 package logfwd
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -15,7 +13,7 @@ import (
 
 // LastSentID is the data that identifies a log forwarding
 // "last sent" value. The controller has a mapping from a set of IDs
-// to a timestamp (for each ID). The timestamp corresponds to the last
+// to a record ID (for each ID). The record ID corresponds to the last
 // log record that the specific log forwarding machinery sent to the
 // identified "sink" (for a given model).
 type LastSentID struct {
@@ -31,14 +29,9 @@ type LastSentID struct {
 type LastSentInfo struct {
 	LastSentID
 
-	// Timestamp identifies the last log record that was forwarded
+	// RecordID identifies the last log record that was forwarded
 	// for a given model and sink.
-	//
-	// Note that if more than one log record has the same timestamp
-	// down to the nanosecond then the timestamp will not identify any
-	// of them uniquely. However, the likelihood of such a collision
-	// is remote (though it grows with more agents and more activity).
-	Timestamp time.Time
+	RecordID int64
 }
 
 // LastSentResult holds a single result from a bulk API call.
@@ -92,7 +85,7 @@ func (c LastSentClient) GetList(ids []LastSentID) ([]LastSentResult, error) {
 		results[i] = LastSentResult{
 			LastSentInfo: LastSentInfo{
 				LastSentID: ids[i],
-				Timestamp:  apiRes.Timestamp,
+				RecordID:   apiRes.RecordID,
 			},
 			Error: common.RestoreError(apiRes.Error),
 		}
@@ -111,7 +104,7 @@ func (c LastSentClient) SetList(reqs []LastSentInfo) ([]LastSentResult, error) {
 				ModelTag: req.Model.String(),
 				Sink:     req.Sink,
 			},
-			Timestamp: req.Timestamp,
+			RecordID: req.RecordID,
 		}
 	}
 

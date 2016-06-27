@@ -5,7 +5,6 @@ package logfwd
 
 import (
 	"io"
-	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -25,11 +24,11 @@ func init() {
 type LastSentTracker interface {
 	io.Closer
 
-	// Get retrieves the timestamp.
-	Get() (time.Time, error)
+	// Get retrieves the record ID.
+	Get() (int64, error)
 
-	// Set records the timestamp.
-	Set(time.Time) error
+	// Set records the record ID.
+	Set(recID int64) error
 }
 
 // LogForwardingState supports interacting with state for the
@@ -57,7 +56,7 @@ func NewLogForwardingAPI(st LogForwardingState, auth common.Authorizer) (*LogFor
 }
 
 // GetLastSent is a bulk call that gets the log forwarding "last sent"
-// timestamp for each requested target.
+// record ID for each requested target.
 func (api *LogForwardingAPI) GetLastSent(args params.LogForwardingGetLastSentParams) params.LogForwardingGetLastSentResults {
 	results := make([]params.LogForwardingGetLastSentResult, len(args.IDs))
 	for i, id := range args.IDs {
@@ -77,7 +76,7 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 	}
 	defer lst.Close()
 
-	ts, err := lst.Get()
+	recID, err := lst.Get()
 	if err != nil {
 		res.Error = common.ServerError(err)
 		if errors.Cause(err) == state.ErrNeverForwarded {
@@ -85,12 +84,12 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 		}
 		return res
 	}
-	res.Timestamp = ts
+	res.RecordID = recID
 	return res
 }
 
 // SetLastSent is a bulk call that sets the log forwarding "last sent"
-// timestamp for each requested target.
+// record ID for each requested target.
 func (api *LogForwardingAPI) SetLastSent(args params.LogForwardingSetLastSentParams) params.ErrorResults {
 	results := make([]params.ErrorResult, len(args.Params), len(args.Params))
 	for i, arg := range args.Params {
@@ -108,7 +107,7 @@ func (api *LogForwardingAPI) set(arg params.LogForwardingSetLastSentParam) *para
 	}
 	defer lst.Close()
 
-	err = lst.Set(arg.Timestamp)
+	err = lst.Set(arg.RecordID)
 	return common.ServerError(err)
 }
 

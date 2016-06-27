@@ -38,38 +38,26 @@ func (s *LogsSuite) SetUpTest(c *gc.C) {
 
 func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
 	tracker := state.NewLastSentLogTracker(s.State, "test-sink")
-	tA := time.Date(2016, 04, 15, 16, 0, 0, 42, time.UTC)
-	tB := tA.Add(time.Hour)
 
-	err := tracker.Set(tA)
+	err := tracker.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
-	t1, err := tracker.Get()
+	id1, err := tracker.Get()
 	c.Assert(err, jc.ErrorIsNil)
-	err = tracker.Set(tB)
+	err = tracker.Set(20)
 	c.Assert(err, jc.ErrorIsNil)
-	t2, err := tracker.Get()
+	id2, err := tracker.Get()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(t1, gc.DeepEquals, tA)
-	c.Check(t2, gc.DeepEquals, tB)
-}
-
-func (s *LogsSuite) TestLastSentLogTrackerGetAlwaysUTC(c *gc.C) {
-	tracker := state.NewLastSentLogTracker(s.State, "test-sink")
-	local := time.Date(2016, 4, 15, 16, 0, 0, 43, time.Local)
-
-	err := tracker.Set(local)
-	c.Assert(err, jc.ErrorIsNil)
-	t, err := tracker.Get()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(t, jc.DeepEquals, local.UTC())
+	c.Check(id1, gc.Equals, int64(10))
+	c.Check(id2, gc.Equals, int64(20))
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerGetNeverSet(c *gc.C) {
-	logger := state.NewLastSentLogTracker(s.State, "test")
-	_, err := logger.Get()
-	c.Assert(err, gc.ErrorMatches, state.ErrNeverForwarded.Error())
+	tracker := state.NewLastSentLogTracker(s.State, "test")
+
+	_, err := tracker.Get()
+
+	c.Check(err, gc.ErrorMatches, state.ErrNeverForwarded.Error())
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerIndependentModels(c *gc.C) {
@@ -77,49 +65,45 @@ func (s *LogsSuite) TestLastSentLogTrackerIndependentModels(c *gc.C) {
 	otherModel := s.NewStateForModelNamed(c, "test-model")
 	defer otherModel.Close()
 	tracker1 := state.NewLastSentLogTracker(otherModel, "test-sink") // same sink
-	tA := time.Date(2016, 04, 15, 16, 0, 0, 42, time.UTC)
-	tB := tA.Add(time.Hour)
-	err := tracker0.Set(tA)
+	err := tracker0.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
-	t0, err := tracker0.Get()
+	id0, err := tracker0.Get()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t0, jc.DeepEquals, tA)
+	c.Assert(id0, gc.Equals, int64(10))
 
 	_, errBefore := tracker1.Get()
-	err = tracker1.Set(tB)
+	err = tracker1.Set(20)
 	c.Assert(err, jc.ErrorIsNil)
-	t1, errAfter := tracker1.Get()
+	id1, errAfter := tracker1.Get()
 	c.Assert(errAfter, jc.ErrorIsNil)
-	t0, err = tracker0.Get()
+	id0, err = tracker0.Get()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(errBefore, gc.ErrorMatches, state.ErrNeverForwarded.Error())
-	c.Check(t0, jc.DeepEquals, tA)
-	c.Check(t1, jc.DeepEquals, tB)
+	c.Check(id1, gc.Equals, int64(20))
+	c.Check(id0, gc.Equals, int64(10))
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerIndependentSinks(c *gc.C) {
 	tracker0 := state.NewLastSentLogTracker(s.State, "test-sink0")
 	tracker1 := state.NewLastSentLogTracker(s.State, "test-sink1")
-	tA := time.Date(2016, 04, 15, 16, 0, 0, 42, time.UTC)
-	tB := tA.Add(time.Hour)
-	err := tracker0.Set(tA)
+	err := tracker0.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
-	t0, err := tracker0.Get()
+	id0, err := tracker0.Get()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(t0, jc.DeepEquals, tA)
+	c.Assert(id0, gc.Equals, int64(10))
 
 	_, errBefore := tracker1.Get()
-	err = tracker1.Set(tB)
+	err = tracker1.Set(20)
 	c.Assert(err, jc.ErrorIsNil)
-	t1, errAfter := tracker1.Get()
+	id1, errAfter := tracker1.Get()
 	c.Assert(errAfter, jc.ErrorIsNil)
-	t0, err = tracker0.Get()
+	id0, err = tracker0.Get()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(errBefore, gc.ErrorMatches, state.ErrNeverForwarded.Error())
-	c.Check(t0, jc.DeepEquals, tA)
-	c.Check(t1, jc.DeepEquals, tB)
+	c.Check(id1, gc.Equals, int64(20))
+	c.Check(id0, gc.Equals, int64(10))
 }
 
 func (s *LogsSuite) TestAllLastSentLogTrackerSetGet(c *gc.C) {
@@ -128,20 +112,18 @@ func (s *LogsSuite) TestAllLastSentLogTrackerSetGet(c *gc.C) {
 	defer st.Close()
 	tracker, err := state.NewAllLastSentLogTracker(st, "test-sink")
 	c.Assert(err, jc.ErrorIsNil)
-	tA := time.Date(2016, 04, 15, 16, 0, 0, 42, time.UTC)
-	tB := tA.Add(time.Hour)
 
-	err = tracker.Set(tA)
+	err = tracker.Set(10)
 	c.Assert(err, jc.ErrorIsNil)
-	t1, err := tracker.Get()
+	id1, err := tracker.Get()
 	c.Assert(err, jc.ErrorIsNil)
-	err = tracker.Set(tB)
+	err = tracker.Set(20)
 	c.Assert(err, jc.ErrorIsNil)
-	t2, err := tracker.Get()
+	id2, err := tracker.Get()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(t1, gc.DeepEquals, tA)
-	c.Check(t2, gc.DeepEquals, tB)
+	c.Check(id1, gc.Equals, int64(10))
+	c.Check(id2, gc.Equals, int64(20))
 }
 
 func (s *LogsSuite) TestAllLastSentLogTrackerNotController(c *gc.C) {

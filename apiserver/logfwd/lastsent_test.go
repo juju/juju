@@ -4,8 +4,6 @@
 package logfwd_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -52,9 +50,8 @@ func (s *LastSentSuite) TestAuthRefusesUser(c *gc.C) {
 }
 
 func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
-	ts := time.Unix(12345, 0)
 	tracker := s.state.addTracker()
-	tracker.ReturnGet = ts.UTC()
+	tracker.ReturnGet = 10
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
@@ -69,7 +66,7 @@ func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
-			Timestamp: ts.UTC(),
+			RecordID: 10,
 		}},
 	})
 	s.stub.CheckCallNames(c, "NewLastSentTracker", "Get", "Close")
@@ -78,11 +75,9 @@ func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 
 func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 	trackerSpam := s.state.addTracker()
-	tsSpam := time.Unix(12345, 0)
-	trackerSpam.ReturnGet = tsSpam.UTC()
+	trackerSpam.ReturnGet = 10
 	trackerEggs := s.state.addTracker()
-	tsEggs := time.Unix(12345, 54321)
-	trackerEggs.ReturnGet = tsEggs.UTC()
+	trackerEggs.ReturnGet = 20
 	s.state.addTracker() // ham
 	s.stub.SetErrors(nil, nil, nil, nil, nil, nil, nil, state.ErrNeverForwarded)
 	api, err := logfwd.NewLogForwardingAPI(s.state, s.authorizer)
@@ -105,12 +100,12 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 
 	c.Check(res, jc.DeepEquals, params.LogForwardingGetLastSentResults{
 		Results: []params.LogForwardingGetLastSentResult{{
-			Timestamp: tsSpam.UTC(),
+			RecordID: 10,
 		}, {
-			Timestamp: tsEggs.UTC(),
+			RecordID: 20,
 		}, {
 			Error: &params.Error{
-				Message: `cannot find timestamp of the last forwarded record`,
+				Message: `cannot find ID of the last forwarded record`,
 				Code:    params.CodeNotFound,
 			},
 		}},
@@ -131,7 +126,6 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
-	ts := time.Unix(12345, 0)
 
 	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
 		Params: []params.LogForwardingSetLastSentParam{{
@@ -139,7 +133,7 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			Timestamp: ts,
+			RecordID: 10,
 		}},
 	})
 
@@ -150,7 +144,7 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 	})
 	s.stub.CheckCallNames(c, "NewLastSentTracker", "Set", "Close")
 	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
-	s.stub.CheckCall(c, 1, "Set", ts)
+	s.stub.CheckCall(c, 1, "Set", int64(10))
 }
 
 func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
@@ -163,9 +157,6 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
-	tsSpam := time.Unix(12345, 54321)
-	tsEggs := time.Unix(98765, 0)
-	tsHam := time.Unix(55555, 1)
 
 	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
 		Params: []params.LogForwardingSetLastSentParam{{
@@ -173,19 +164,19 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 				ModelTag: modelTag.String(),
 				Sink:     "spam",
 			},
-			Timestamp: tsSpam,
+			RecordID: 10,
 		}, {
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
 				Sink:     "eggs",
 			},
-			Timestamp: tsEggs,
+			RecordID: 20,
 		}, {
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
 				Sink:     "ham",
 			},
-			Timestamp: tsHam,
+			RecordID: 15,
 		}},
 	})
 
@@ -204,11 +195,11 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 		"NewLastSentTracker", "Set", "Close",
 	)
 	s.stub.CheckCall(c, 0, "NewLastSentTracker", modelTag, "spam")
-	s.stub.CheckCall(c, 1, "Set", tsSpam)
+	s.stub.CheckCall(c, 1, "Set", int64(10))
 	s.stub.CheckCall(c, 3, "NewLastSentTracker", modelTag, "eggs")
-	s.stub.CheckCall(c, 4, "Set", tsEggs)
+	s.stub.CheckCall(c, 4, "Set", int64(20))
 	s.stub.CheckCall(c, 6, "NewLastSentTracker", modelTag, "ham")
-	s.stub.CheckCall(c, 7, "Set", tsHam)
+	s.stub.CheckCall(c, 7, "Set", int64(15))
 }
 
 type stubState struct {
@@ -240,20 +231,20 @@ func (s *stubState) NewLastSentTracker(tag names.ModelTag, sink string) (logfwd.
 type stubTracker struct {
 	stub *testing.Stub
 
-	ReturnGet time.Time
+	ReturnGet int64
 }
 
-func (s *stubTracker) Get() (time.Time, error) {
+func (s *stubTracker) Get() (int64, error) {
 	s.stub.AddCall("Get")
 	if err := s.stub.NextErr(); err != nil {
-		return time.Time{}, err
+		return 0, err
 	}
 
 	return s.ReturnGet, nil
 }
 
-func (s *stubTracker) Set(ts time.Time) error {
-	s.stub.AddCall("Set", ts)
+func (s *stubTracker) Set(recID int64) error {
+	s.stub.AddCall("Set", recID)
 	if err := s.stub.NextErr(); err != nil {
 		return err
 	}

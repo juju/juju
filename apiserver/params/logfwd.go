@@ -3,10 +3,6 @@
 
 package params
 
-import (
-	"time"
-)
-
 // LogForwardingID is the API data that identifies a log forwarding
 // "last sent" value. The controller has a mapping from a set of IDs
 // to a timestamp (for each ID). The timestamp corresponds to the last
@@ -40,17 +36,10 @@ type LogForwardingGetLastSentResults struct {
 // LogForwardingGetLastSentResult holds a single result from a call
 // to the GetLastSent method of the LogForwarding facade.
 type LogForwardingGetLastSentResult struct {
-	// Timestamp is the timestamp of the last log record that was
+	// RecordID is the ID of the last log record that was
 	// forwarded for a given model and sink. If Error is set then the
 	// meaning of this value is undefined.
-	//
-	// Note that Timestamp only *effectively* identifies the last log
-	// record that was sent. If more than one log record has the same
-	// timestamp down to the nanosecond then the timestamp will not
-	// identify any of them uniquely. The likelihood of such a
-	// collision is remote (though it grows with more agents and more
-	// activity).
-	Timestamp time.Time `json:"timestamp"`
+	RecordID int64 `json:"record-id"`
 
 	// Error holds the error, if any, that resulted while handling the
 	// request for a specific ID.
@@ -70,6 +59,6 @@ type LogForwardingSetLastSentParams struct {
 type LogForwardingSetLastSentParam struct {
 	LogForwardingID
 
-	// Timestamp identifies the timestamp to set for the given ID.
-	Timestamp time.Time `json:"timestamp"`
+	// RecordID identifies the record ID to set for the given ID.
+	RecordID int64 `json:"record-id"`
 }

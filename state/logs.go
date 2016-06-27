@@ -32,9 +32,9 @@ const (
 	forwardedC = "forwarded"
 )
 
-// ErrNeverForwarded signals to the caller that the timestamp of a
+// ErrNeverForwarded signals to the caller that the ID of a
 // previously forwarded log record could not be found.
-var ErrNeverForwarded = errors.Errorf("cannot find timestamp of the last forwarded record")
+var ErrNeverForwarded = errors.Errorf("cannot find ID of the last forwarded record")
 
 // MongoSessioner supports creating new mongo sessions.
 type MongoSessioner interface {
@@ -71,12 +71,6 @@ func InitDbLogs(session *mgo.Session) error {
 	return nil
 }
 
-// TODO(ericsnow) Tracking by timestamp can result in some messages
-// not getting sent. The most problematic case is where log records
-// are added with a timestamp earlier than the last one sent. To
-// address that case we could switch to using a sequence (shared by
-// all models) to generate increasing IDs.
-
 // lastSentDoc captures timestamp of the last log record forwarded
 // to a log sink.
 type lastSentDoc struct {
@@ -91,15 +85,26 @@ type lastSentDoc struct {
 	// log record was sent.
 	Sink string `bson:"sink"`
 
-	// Time is the timestamp of the last record sent to the log sink
-	// for the model. Normally it will uniquely identify a record in
-	// a model. The timestamp is used to look up records in the DB.
+	// TODO(ericsnow) Solve the problems with using the timestamp
+	// as the record ID.
+
+	// RecordID identifies the last record sent to the log sink
+	// for the model. The ID is used to look up log records in the DB.
 	//
-	// Note that log record timestamps have nanosecond precision. The
-	// likelihood of multiple log records having the same timestamp
-	// is small, though it increases with the size and activity of the
-	// model. The RecordIDs field helps mitigate this ambiguity.
-	Time int64 `bson:"timestamp"`
+	// Currently we use the record's timestamp (unix nano UTC), which
+	// has a risk of collisions. Log record timestamps have nanosecond
+	// precision. The likelihood of multiple log records having the
+	// same timestamp is small, though it increases with the size and
+	// activity of the model.
+	//
+	// Using the timestamp also has the problem that a faulty clock may
+	// introduce records with a timestamp earlier that the "last sent"
+	// value. Such records would never get forwarded.
+	//
+	// The solution to both these issues will likely involve using an
+	// int sequence for the ID rather than the timestamp. That sequence
+	// would be shared by all models.
+	RecordID int64 `bson:"record-id"`
 }
 
 // LastSentLogTracker records and retrieves timestamps of the most recent
@@ -140,7 +145,9 @@ func newLastSentLogTracker(st MongoSessioner, model, sink string) *LastSentLogTr
 }
 
 // Set records the timestamp.
-func (logger *LastSentLogTracker) Set(t time.Time) error {
+func (logger *LastSentLogTracker) Set(recID int64) error {
+	//recID := t.UnixNano()
+
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	_, err := collection.UpsertId(
 		logger.id,
@@ -148,26 +155,24 @@ func (logger *LastSentLogTracker) Set(t time.Time) error {
 			ID:        logger.id,
 			ModelUUID: logger.model,
 			Sink:      logger.sink,
-			Time:      t.UnixNano(),
+			RecordID:  recID,
 		},
 	)
 	return errors.Trace(err)
 }
 
 // Get retrieves the timestamp.
-func (logger *LastSentLogTracker) Get() (time.Time, error) {
-	zeroTime := time.Time{}
+func (logger *LastSentLogTracker) Get() (int64, error) {
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	var doc lastSentDoc
 	err := collection.FindId(logger.id).One(&doc)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return zeroTime, errors.Trace(ErrNeverForwarded)
+			return 0, errors.Trace(ErrNeverForwarded)
 		}
-		return zeroTime, errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
-	// It isn't worth it to try to preserve the time zone.
-	return time.Unix(0, doc.Time).UTC(), nil
+	return doc.RecordID, nil
 }
 
 // logDoc describes log messages stored in MongoDB.
