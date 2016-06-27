@@ -467,7 +467,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	pingTimeout := newPingTimeout(action, maxClientPingInterval)
+	pingTimeout := newPingTimeout(action, clock.WallClock, maxClientPingInterval)
 	return root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 }
 
