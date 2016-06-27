@@ -215,6 +215,8 @@ func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLog
 
 // Log writes a log message to the database.
 func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	// TODO(ericsnow) Use a controller-global int sequence for Id.
+
 	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
 	// since the Unix "epoch".
 	unixEpochNanoUTC := t.UnixNano()
@@ -263,13 +265,14 @@ type LogTailer interface {
 // LogRecord defines a single Juju log message as returned by
 // LogTailer.
 type LogRecord struct {
+	// universal fields
+	ID   int64
+	Time time.Time
+
 	// origin fields
 	ModelUUID string
 	Entity    names.Tag
 	Version   version.Number
-
-	// universal fields
-	Time time.Time
 
 	// logging-specific fields
 	Level    loggo.Level
@@ -281,6 +284,7 @@ type LogRecord struct {
 // LogTailerParams specifies the filtering a LogTailer should apply to
 // logs in order to decide which to return.
 type LogTailerParams struct {
+	StartID       int64
 	StartTime     time.Time
 	MinLevel      loggo.Level
 	InitialLines  int
@@ -352,6 +356,7 @@ type logTailer struct {
 	logsColl  *mgo.Collection
 	params    *LogTailerParams
 	logCh     chan *LogRecord
+	lastID    int64
 	lastTime  time.Time
 	recentIds *recentIdTracker
 }
@@ -413,6 +418,7 @@ func (t *logTailer) processCollection() error {
 	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
 	// and the tests only run one mongod process, including _id
 	// guarantees getting log messages in a predictable order.
+	// TODO(ericsnow) Sort only by _id once it is a sequential int.
 	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
@@ -424,6 +430,7 @@ func (t *logTailer) processCollection() error {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case t.logCh <- rec:
+			t.lastID = rec.ID
 			t.lastTime = rec.Time
 			t.recentIds.Add(doc.Id)
 		}
@@ -435,7 +442,7 @@ func (t *logTailer) tailOplog() error {
 	recentIds := t.recentIds.AsSet()
 
 	newParams := t.params
-	newParams.StartTime = t.lastTime
+	newParams.StartID = t.lastID // (t.lastID + 1) once Id is a sequential int.
 	oplogSel := append(t.paramsToSelector(newParams, "o."),
 		bson.DocElem{"ns", logsDB + "." + logsC},
 	)
@@ -491,7 +498,11 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"t", bson.M{"$gte": params.StartTime.UnixNano()}},
+		// "t" -> "_id" once it is a sequential int.
+		{"t", bson.M{"$gte": params.StartID}},
+	}
+	if !params.StartTime.IsZero() {
+		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
 	}
 	if !params.AllModels {
 		sel = append(sel, bson.DocElem{"e", t.modelUUID})
@@ -610,17 +621,17 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 	}
 
 	rec := &LogRecord{
+		ID:   doc.Time,
+		Time: time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 
 		ModelUUID: doc.ModelUUID,
 		Entity:    entity,
 		Version:   ver,
 
-		Time:    time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
-		Message: doc.Message,
-
 		Level:    level,
 		Module:   doc.Module,
 		Location: doc.Location,
+		Message:  doc.Message,
 	}
 	return rec, nil
 }

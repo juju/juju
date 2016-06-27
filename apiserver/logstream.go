@@ -4,12 +4,10 @@
 package apiserver
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/gorilla/schema"
 	"github.com/juju/errors"
 	"golang.org/x/net/websocket"
+	"net/http"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -17,7 +15,7 @@ import (
 )
 
 type logStreamSource interface {
-	getStart(sink string) (time.Time, error)
+	getStart(sink string) (int64, error)
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
 }
 
@@ -45,7 +43,7 @@ func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
 //
 // Args for the HTTP request are as follows:
 //   all -> string - one of [true, false], if true, include records from all models
-//   start -> string - the unix timestamp of where to start ("sec.microsec")
+//   sink -> string - the name of the the log forwarding target
 func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger.Infof("log stream request handler starting")
 	reqHandler, initial := eph.newLogStreamRequestHandler(req)
@@ -94,7 +92,7 @@ func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params
 		return nil, errors.Trace(err)
 	}
 	tailerArgs := &state.LogTailerParams{
-		StartTime: start,
+		StartID:   start,
 		AllModels: cfg.AllModels,
 	}
 	tailer, err := source.newTailer(tailerArgs)
@@ -109,18 +107,18 @@ type logStreamState struct {
 	state.LogTailerState
 }
 
-func (st logStreamState) getStart(sink string) (time.Time, error) {
+func (st logStreamState) getStart(sink string) (int64, error) {
 	// TODO(ericsnow) Resume for the sink...
 	//   This will be addressed in a follow-up patch.
-	//lastLogger := state.NewLastSentLogTracker(st, sink)
-	//lastSent, err := lastLogger.Get()
+	//tracker := state.NewLastSentLogTracker(st, sink)
+	//lastSent, err := tracker.Get()
 	//if err != nil {
 	//	return nil, errors.Trace(err)
 	//}
 	//// Using the same timestamp will cause at least 1 duplicate
 	//// entry, but that is better than dropping records.
 	//start := lastSent
-	var start time.Time
+	var start int64
 
 	return start, nil
 }
@@ -221,6 +219,7 @@ func (als *apiLogStream) send(rec params.LogStreamRecord) error {
 
 func (als *apiLogStream) apiFromRec(rec *state.LogRecord) params.LogStreamRecord {
 	apiRec := params.LogStreamRecord{
+		ID:        rec.ID,
 		Version:   rec.Version.String(),
 		Entity:    rec.Entity.String(),
 		Timestamp: rec.Time,
