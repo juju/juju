@@ -36,9 +36,9 @@ func (s *LogsSuite) SetUpTest(c *gc.C) {
 	s.logsColl = session.DB("logs").C("logs")
 }
 
-func (s *LogsSuite) TestLastSentLoggerSetGet(c *gc.C) {
-	logger0 := state.NewLastSentLogger(s.State, "test-sink0")
-	logger1 := state.NewLastSentLogger(s.State, "test-sink1")
+func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
+	logger0 := state.NewLastSentLogTracker(s.State, "test-sink0")
+	logger1 := state.NewLastSentLogTracker(s.State, "test-sink1")
 	t := time.Date(2016, 04, 15, 16, 0, 0, 42, time.UTC)
 	err := logger0.Set(t)
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,8 +62,8 @@ func (s *LogsSuite) TestLastSentLoggerSetGet(c *gc.C) {
 	c.Assert(t6, gc.DeepEquals, t5.UTC())
 }
 
-func (s *LogsSuite) TestLastSentLoggerNoSet(c *gc.C) {
-	logger := state.NewLastSentLogger(s.State, "test")
+func (s *LogsSuite) TestLastSentLogTrackerNoSet(c *gc.C) {
+	logger := state.NewLastSentLogTracker(s.State, "test")
 	_, err := logger.Get()
 	c.Assert(err, gc.ErrorMatches, state.ErrNeverForwarded.Error())
 }

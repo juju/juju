@@ -112,7 +112,7 @@ type logStreamState struct {
 func (st logStreamState) getStart(sink string) (time.Time, error) {
 	// TODO(ericsnow) Resume for the sink...
 	//   This will be addressed in a follow-up patch.
-	//lastLogger := state.NewLastSentLogger(st, sink)
+	//lastLogger := state.NewLastSentLogTracker(st, sink)
 	//lastSent, err := lastLogger.Get()
 	//if err != nil {
 	//	return nil, errors.Trace(err)

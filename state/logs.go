@@ -94,10 +94,12 @@ type lastSentDoc struct {
 	Time int64 `bson:"timestamp"`
 }
 
-// NewLastSentLogger returns a NewLastSentLogger struct that records and retrieves
-// the timestamps of the most recent log records forwarded to the log sink.
-func NewLastSentLogger(st ModelSessioner, sink string) *DbLoggerLastSent {
-	return &DbLoggerLastSent{
+// NewLastSentLogTracker returns a new tracker that records and retrieves
+// the timestamps of the most recent log records forwarded to the
+// identified log sink.
+func NewLastSentLogTracker(st ModelSessioner, sink string) *LastSentLogTracker {
+	// TODO(ericsnow) We need to copy the session.
+	return &LastSentLogTracker{
 		id:      fmt.Sprintf("%v#%v", st.ModelUUID(), sink),
 		model:   st.ModelUUID(),
 		sink:    sink,
@@ -105,9 +107,9 @@ func NewLastSentLogger(st ModelSessioner, sink string) *DbLoggerLastSent {
 	}
 }
 
-// DBLoggerLastSent returns a struct that records and retrieves timestamps of the
-// most recent log records forwarded to the log sink.
-type DbLoggerLastSent struct {
+// LastSentLogTracker records and retrieves timestamps of the most recent
+// log records forwarded to a log sink for a model.
+type LastSentLogTracker struct {
 	session *mgo.Session
 	id      string
 	model   string
@@ -115,7 +117,7 @@ type DbLoggerLastSent struct {
 }
 
 // Set records the timestamp.
-func (logger *DbLoggerLastSent) Set(t time.Time) error {
+func (logger *LastSentLogTracker) Set(t time.Time) error {
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	_, err := collection.UpsertId(
 		logger.id,
@@ -130,7 +132,7 @@ func (logger *DbLoggerLastSent) Set(t time.Time) error {
 }
 
 // Get retrieves the timestamp.
-func (logger *DbLoggerLastSent) Get() (time.Time, error) {
+func (logger *LastSentLogTracker) Get() (time.Time, error) {
 	zeroTime := time.Time{}
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	var doc lastSentDoc

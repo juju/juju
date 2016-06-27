@@ -21,7 +21,7 @@ func init() {
 	})
 }
 
-// LastSentTracker exposes the functionality of state.LastSentLogger.
+// LastSentTracker exposes the functionality of state.LastSentTracker.
 type LastSentTracker interface {
 	io.Closer
 
@@ -137,11 +137,11 @@ func (st stateAdapter) NewLastSentTracker(tag names.ModelTag, sink string) (Last
 	if err != nil {
 		return nil, err
 	}
-	lastSent := state.NewLastSentLogger(loggingState, sink)
+	lastSent := state.NewLastSentLogTracker(loggingState, sink)
 	return &lastSentCloser{lastSent, loggingState}, nil
 }
 
 type lastSentCloser struct {
-	*state.DbLoggerLastSent
+	*state.LastSentLogTracker
 	io.Closer
 }
