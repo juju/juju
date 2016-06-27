@@ -156,7 +156,7 @@ func (s *relationsSuite) TestNewRelationsWithExistingRelations(c *gc.C) {
 				Life: params.Alive,
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        charm.Relation{Name: "mysql", Role: charm.RoleProvider, Interface: "db"},
+					Relation:        multiwatcher.CharmRelation{Name: "mysql", Role: string(charm.RoleProvider), Interface: "db"},
 				}},
 		},
 	}
@@ -221,7 +221,7 @@ func relationJoinedApiCalls() []apiCall {
 				Life: params.Alive,
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        charm.Relation{Name: "mysql", Role: charm.RoleRequirer, Interface: "db", Scope: "global"},
+					Relation:        multiwatcher.CharmRelation{Name: "mysql", Role: string(charm.RoleRequirer), Interface: "db", Scope: "global"},
 				}},
 		},
 	}
@@ -479,7 +479,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 				Life: params.Alive,
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        charm.Relation{Name: "juju-info", Role: charm.RoleProvider, Interface: "juju-info", Scope: "global"},
+					Relation:        multiwatcher.CharmRelation{Name: "juju-info", Role: string(charm.RoleProvider), Interface: "juju-info", Scope: "global"},
 				}},
 		},
 	}

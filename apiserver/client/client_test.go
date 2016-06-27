@@ -644,20 +644,18 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	c.Assert(len(deltas), gc.Equals, 1)
 	d0, ok := deltas[0].Entity.(*multiwatcher.MachineInfo)
 	c.Assert(ok, jc.IsTrue)
-	d0.JujuStatus.Since = nil
-	d0.MachineStatus.Since = nil
-	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
+	d0.AgentStatus.Since = nil
+	d0.InstanceStatus.Since = nil
+	if !c.Check(deltas, jc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			JujuStatus: multiwatcher.StatusInfo{
+			AgentStatus: multiwatcher.StatusInfo{
 				Current: status.StatusPending,
-				Data:    map[string]interface{}{},
 			},
-			MachineStatus: multiwatcher.StatusInfo{
+			InstanceStatus: multiwatcher.StatusInfo{
 				Current: status.StatusPending,
-				Data:    map[string]interface{}{},
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
