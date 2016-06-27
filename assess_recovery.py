@@ -14,6 +14,9 @@ from deploy_stack import (
     BootstrapManager,
     wait_for_state_server_to_shutdown,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from jujupy import (
     parse_new_state_server_from_error,
 )
@@ -24,7 +27,6 @@ from substrate import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    local_charm_path,
     LoggedException,
 )
 
