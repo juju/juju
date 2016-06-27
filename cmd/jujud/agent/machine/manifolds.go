@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
+	"github.com/juju/juju/worker/logforwarder"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
@@ -399,6 +400,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
+		logForwarderName: ifFullyUpgraded(logforwarder.Manifold(logforwarder.ManifoldConfig{
+			StateName:     stateName,
+			APICallerName: apiCallerName,
+		})),
 	}
 }
 
@@ -445,4 +450,5 @@ const (
 	apiConfigWatcherName     = "api-config-watcher"
 	machineActionName        = "machine-action-runner"
 	hostKeyReporterName      = "host-key-reporter"
+	logForwarderName         = "log-forwarder"
 )

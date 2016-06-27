@@ -6,7 +6,7 @@ package logforwarder
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/agent"
+	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -15,7 +15,7 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
-	AgentName     string
+	StateName     string
 	APICallerName string
 }
 
@@ -24,7 +24,7 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
+			config.StateName, // ...just to force it to run only on the controller.
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -33,9 +33,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
-				return nil, errors.Trace(err)
+			agentFacade := apiagent.NewState(apiCaller)
+			modelConfig, err := agentFacade.ModelConfig()
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot read environment config")
+			}
+			if modelConfig.Name() != environs.ControllerModelName {
+				return nil, errors.New("model-level log forwarding not supported")
 			}
 
 			return nil, errors.Errorf("finish me")
