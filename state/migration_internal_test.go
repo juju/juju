@@ -155,6 +155,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
+		auditingC,
 	)
 
 	envCollections := set.NewStrings()
