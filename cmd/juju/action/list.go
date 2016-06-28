@@ -104,8 +104,6 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		shortOutput[name] = action.Description
 		if shortOutput[name] == "" {
 			shortOutput[name] = "No description"
-		} else if shortOutput[name] == "\n" {
-			break
 		}
 		sortedNames = append(sortedNames, name)
 	}
