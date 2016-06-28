@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"runtime"
 	"sync"
 	"time"
 
@@ -56,6 +57,9 @@ var _ = gc.Suite(&serviceSuite{})
 var _ application.Application = (*application.API)(nil)
 
 func (s *serviceSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1596960: Skipping this on windows for now")
+	}
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
