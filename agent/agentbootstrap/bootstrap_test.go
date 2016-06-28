@@ -69,7 +69,6 @@ anything else ignored
 LXC_BRIDGE="ignored"`[1:])
 	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	lxdbridge, err := network.GetDefaultLXDBridgeName()
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
 		if name == "foobar" {
@@ -78,7 +77,7 @@ LXC_BRIDGE="ignored"`[1:])
 				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
 				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
 			}, nil
-		} else if name == lxdbridge {
+		} else if name == network.DefaultLXDBridge {
 			// The addresses on the LXD bridge
 			return []net.Addr{
 				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},

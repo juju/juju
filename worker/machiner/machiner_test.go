@@ -456,6 +456,7 @@ LXC_BRIDGE="ignored"`[1:])
 		return addrs, nil
 	})
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
+		// XXX: handle lxdbr0
 		c.Assert(name, gc.Equals, "foobar")
 		return []net.Addr{
 			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
