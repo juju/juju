@@ -31,6 +31,9 @@ type Record struct {
 	// Location describes where the record was created.
 	Location SourceLocation
 
+	// Audit holds controller activity audit info.
+	Audit Audit
+
 	// Message is the record's body. It may be empty.
 	Message string
 }
