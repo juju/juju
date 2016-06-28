@@ -560,6 +560,11 @@ class Juju1XBackend(Juju2A2Backend):
                 args)
 
 
+def client_from_config(config, juju_path, debug=False):
+    env = SimpleEnvironment.from_config(config)
+    return EnvJujuClient.by_version(env, juju_path, debug)
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.

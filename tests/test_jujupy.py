@@ -37,6 +37,7 @@ from jujuconfig import (
 from jujupy import (
     BootstrapMismatch,
     CannotConnectEnv,
+    client_from_config,
     CONTROLLER,
     Controller,
     EnvJujuClient,
@@ -1005,6 +1006,99 @@ def observable_temp_file():
             # File may have already been deleted, e.g. by temp_yaml_file.
             if e.errno != errno.ENOENT:
                 raise
+
+
+class TestClientFromConfig(ClientTest):
+
+    @patch.object(JujuData, 'from_config', return_value=JujuData('', {}))
+    @patch.object(SimpleEnvironment, 'from_config',
+                  return_value=SimpleEnvironment('', {}))
+    @patch.object(EnvJujuClient, 'get_full_path', return_value='fake-path')
+    def test_from_config(self, gfp_mock, se_fc_mock, jd_fc_mock):
+        def juju_cmd_iterator():
+            yield '1.17'
+            yield '1.16'
+            yield '1.16.1'
+            yield '1.15'
+            yield '1.22.1'
+            yield '1.24-alpha1'
+            yield '1.24.7'
+            yield '1.25.1'
+            yield '1.26.1'
+            yield '1.27.1'
+            yield '2.0-alpha1'
+            yield '2.0-alpha2'
+            yield '2.0-alpha3'
+            yield '2.0-beta1'
+            yield '2.0-beta2'
+            yield '2.0-beta3'
+            yield '2.0-beta4'
+            yield '2.0-beta5'
+            yield '2.0-beta6'
+            yield '2.0-beta7'
+            yield '2.0-beta8'
+            yield '2.0-beta9'
+            yield '2.0-delta1'
+
+        context = patch.object(
+            EnvJujuClient, 'get_version',
+            side_effect=juju_cmd_iterator().send)
+        with context:
+            self.assertIs(EnvJujuClient1X,
+                          type(client_from_config('foo', None)))
+            with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
+                client_from_config('foo', None)
+            with self.assertRaisesRegexp(Exception,
+                                         'Unsupported juju: 1.16.1'):
+                client_from_config('foo', None)
+
+            def test_fc(version, cls):
+                client = client_from_config('foo', None)
+                if isinstance(client, EnvJujuClient2A2):
+                    self.assertEqual(se_fc_mock.return_value, client.env)
+                else:
+                    self.assertEqual(jd_fc_mock.return_value, client.env)
+                self.assertIs(cls, type(client))
+                self.assertEqual(version, client.version)
+
+            test_fc('1.15', EnvJujuClient1X)
+            test_fc('1.22.1', EnvJujuClient22)
+            test_fc('1.24-alpha1', EnvJujuClient24)
+            test_fc('1.24.7', EnvJujuClient24)
+            test_fc('1.25.1', EnvJujuClient25)
+            test_fc('1.26.1', EnvJujuClient26)
+            test_fc('1.27.1', EnvJujuClient1X)
+            test_fc('2.0-alpha1', EnvJujuClient2A1)
+            test_fc('2.0-alpha2', EnvJujuClient2A2)
+            test_fc('2.0-alpha3', EnvJujuClient2B2)
+            test_fc('2.0-beta1', EnvJujuClient2B2)
+            test_fc('2.0-beta2', EnvJujuClient2B2)
+            test_fc('2.0-beta3', EnvJujuClient2B3)
+            test_fc('2.0-beta4', EnvJujuClient2B3)
+            test_fc('2.0-beta5', EnvJujuClient2B3)
+            test_fc('2.0-beta6', EnvJujuClient2B3)
+            test_fc('2.0-beta7', EnvJujuClient2B7)
+            test_fc('2.0-beta8', EnvJujuClient2B8)
+            test_fc('2.0-beta9', EnvJujuClient)
+            test_fc('2.0-delta1', EnvJujuClient)
+            with self.assertRaises(StopIteration):
+                client_from_config('foo', None)
+
+    def test_client_from_config_path(self):
+        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+            with patch.object(SimpleEnvironment, 'from_config'):
+                client = client_from_config('foo', 'foo/bar/qux')
+        vsn.assert_called_once_with(('foo/bar/qux', '--version'))
+        self.assertNotEqual(client.full_path, 'foo/bar/qux')
+        self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
+
+    def test_by_version_keep_home(self):
+        env = JujuData({}, juju_home='/foo/bar')
+        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
+            with patch.object(SimpleEnvironment, 'from_config',
+                              side_effect=lambda x:SimpleEnvironment(x, {})):
+                client = client_from_config('foo', 'foo/bar/qux')
+        self.assertEqual('/foo/bar', env.juju_home)
 
 
 class TestEnvJujuClient(ClientTest):
