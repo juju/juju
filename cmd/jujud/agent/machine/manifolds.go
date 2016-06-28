@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logforwarder"
+	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
@@ -403,6 +404,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		logForwarderName: ifFullyUpgraded(logforwarder.Manifold(logforwarder.ManifoldConfig{
 			StateName:     stateName,
 			APICallerName: apiCallerName,
+			SinkOpeners: []logforwarder.LogSinkFn{
+				sinks.OpenSyslog,
+			},
 		})),
 	}
 }
