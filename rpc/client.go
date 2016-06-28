@@ -65,6 +65,7 @@ func (conn *Conn) send(call *Call) {
 	hdr := &Header{
 		RequestId: reqId,
 		Request:   call.Request,
+		Version:   1,
 	}
 	params := call.Params
 	if params == nil {

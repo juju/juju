@@ -62,6 +62,9 @@ type Header struct {
 
 	// ErrorCode holds the code of the error, if any.
 	ErrorCode string
+
+	// Version defines the wire format of the request and response structure.
+	Version int
 }
 
 // Request represents an RPC to be performed, absent its parameters.
@@ -487,7 +490,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, startTime)
+		go conn.runRequest(req, arg, startTime, hdr.Version)
 	}
 	conn.mutex.Unlock()
 	if closing {
@@ -502,6 +505,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.T
 	defer conn.sending.Unlock()
 	hdr := &Header{
 		RequestId: reqHdr.RequestId,
+		Version:   reqHdr.Version,
 	}
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
@@ -553,7 +557,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
+func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time, version int) {
 	defer conn.srvPending.Done()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
@@ -561,6 +565,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
+			Version:   version,
 		}
 		var rvi interface{}
 		if rv.IsValid() {
