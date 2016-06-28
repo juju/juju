@@ -1403,7 +1403,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        wpEp.Relation,
+					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
 				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1440,7 +1440,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        wpEp.Relation,
+					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
 				},
 			},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -6,9 +6,11 @@ package uniter
 import (
 	"fmt"
 
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -62,6 +64,17 @@ func (r *Relation) Refresh() error {
 	return nil
 }
 
+func (r *Relation) toCharmRelation(cr multiwatcher.CharmRelation) charm.Relation {
+	return charm.Relation{
+		Name:      cr.Name,
+		Role:      charm.RelationRole(cr.Role),
+		Interface: cr.Interface,
+		Optional:  cr.Optional,
+		Limit:     cr.Limit,
+		Scope:     charm.RelationScope(cr.Scope),
+	}
+}
+
 // Endpoint returns the endpoint of the relation for the application the
 // uniter's managed unit belongs to.
 func (r *Relation) Endpoint() (*Endpoint, error) {
@@ -72,7 +85,7 @@ func (r *Relation) Endpoint() (*Endpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Endpoint{result.Endpoint.Relation}, nil
+	return &Endpoint{r.toCharmRelation(result.Endpoint.Relation)}, nil
 }
 
 // Unit returns a RelationUnit for the supplied unit.
@@ -87,7 +100,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 	return &RelationUnit{
 		relation: r,
 		unit:     u,
-		endpoint: Endpoint{result.Endpoint.Relation},
+		endpoint: Endpoint{r.toCharmRelation(result.Endpoint.Relation)},
 		st:       r.st,
 	}, nil
 }

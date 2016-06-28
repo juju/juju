@@ -156,7 +156,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(modelInfo.Name, gc.Equals, env.Name())
 		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
 		c.Assert(modelInfo.Owner, gc.Equals, env.Owner().Id())
-		c.Assert(modelInfo.ServerUUID, gc.Equals, env.ControllerUUID())
+		c.Assert(modelInfo.ControllerUUID, gc.Equals, env.ControllerUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

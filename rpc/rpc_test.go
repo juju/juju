@@ -522,6 +522,7 @@ func (root *Root) assertClientNotified(c *gc.C, p testCallParams, r interface{})
 	clientReq.hdr.RequestId = 0 // Ignore the exact value of the request id to start with.
 	c.Assert(clientReq.hdr, gc.DeepEquals, rpc.Header{
 		Request: p.request(),
+		Version: 1,
 	})
 	c.Assert(clientReq.body, gc.Equals, stringVal{"arg"})
 
@@ -538,10 +539,12 @@ func (root *Root) assertClientNotified(c *gc.C, p testCallParams, r interface{})
 		c.Assert(clientReply.hdr, gc.DeepEquals, rpc.Header{
 			RequestId: requestId,
 			Error:     p.errorMessage(),
+			Version:   1,
 		})
 	} else {
 		c.Assert(clientReply.hdr, gc.DeepEquals, rpc.Header{
 			RequestId: requestId,
+			Version:   1,
 		})
 	}
 	return requestId
@@ -561,6 +564,7 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 	c.Assert(serverReq.hdr, gc.DeepEquals, rpc.Header{
 		RequestId: requestId,
 		Request:   p.request(),
+		Version:   1,
 	})
 	if p.narg > 0 {
 		c.Assert(serverReq.body, gc.Equals, stringVal{"arg"})
@@ -581,10 +585,12 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 		c.Assert(serverReply.hdr, gc.Equals, rpc.Header{
 			RequestId: requestId,
 			Error:     p.errorMessage(),
+			Version:   1,
 		})
 	} else {
 		c.Assert(serverReply.hdr, gc.Equals, rpc.Header{
 			RequestId: requestId,
+			Version:   1,
 		})
 	}
 }
@@ -909,6 +915,7 @@ func (*rpcSuite) TestCompatibility(c *gc.C) {
 }
 
 func (*rpcSuite) TestBadCall(c *gc.C) {
+	loggo.GetLogger("juju.rpc").SetLogLevel(loggo.TRACE)
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
@@ -963,6 +970,7 @@ func testBadCall(
 		hdr: rpc.Header{
 			RequestId: requestId,
 			Request:   req,
+			Version:   1,
 		},
 		body: struct{}{},
 	})
@@ -975,6 +983,7 @@ func testBadCall(
 			RequestId: requestId,
 			Error:     expectedErr,
 			ErrorCode: expectedErrCode,
+			Version:   1,
 		},
 	})
 
@@ -993,6 +1002,7 @@ func testBadCall(
 		hdr: rpc.Header{
 			RequestId: requestId,
 			Request:   req,
+			Version:   1,
 		},
 		body: expectBody,
 	})
@@ -1005,6 +1015,7 @@ func testBadCall(
 			RequestId: requestId,
 			Error:     expectedErr,
 			ErrorCode: expectedErrCode,
+			Version:   1,
 		},
 		req:  req,
 		body: struct{}{},

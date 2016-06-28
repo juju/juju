@@ -32,14 +32,22 @@ const (
 	forwardedC = "forwarded"
 )
 
-// ErrNeverForwarded signals to the caller that the timestamp of a
+// ErrNeverForwarded signals to the caller that the ID of a
 // previously forwarded log record could not be found.
-var ErrNeverForwarded = errors.Errorf("cannot find timestamp of the last forwarded record")
+var ErrNeverForwarded = errors.Errorf("cannot find ID of the last forwarded record")
 
 // MongoSessioner supports creating new mongo sessions.
 type MongoSessioner interface {
 	// MongoSession creates a new Mongo session.
 	MongoSession() *mgo.Session
+}
+
+// ModelSessioner supports creating new mongo sessions for the controller.
+type ControllerSessioner interface {
+	MongoSessioner
+
+	// IsController indicates if current state is controller.
+	IsController() bool
 }
 
 // ModelSessioner supports creating new mongo sessions for a model.
@@ -66,34 +74,80 @@ func InitDbLogs(session *mgo.Session) error {
 // lastSentDoc captures timestamp of the last log record forwarded
 // to a log sink.
 type lastSentDoc struct {
-	ID        string `bson:"_id"`
+	// ID is the unique ID mongo will use for the doc.
+	ID string `bson:"_id"`
+
+	// ModelUUID identifies the model for which the identified record
+	// was last sent.
 	ModelUUID string `bson:"model-uuid"`
-	Sink      string `bson:"sink"`
-	Time      int64  `bson:"timestamp"`
+
+	// Sink identifies the log forwarding target to which the identified
+	// log record was sent.
+	Sink string `bson:"sink"`
+
+	// TODO(ericsnow) Solve the problems with using the timestamp
+	// as the record ID.
+
+	// RecordID identifies the last record sent to the log sink
+	// for the model. The ID is used to look up log records in the DB.
+	//
+	// Currently we use the record's timestamp (unix nano UTC), which
+	// has a risk of collisions. Log record timestamps have nanosecond
+	// precision. The likelihood of multiple log records having the
+	// same timestamp is small, though it increases with the size and
+	// activity of the model.
+	//
+	// Using the timestamp also has the problem that a faulty clock may
+	// introduce records with a timestamp earlier that the "last sent"
+	// value. Such records would never get forwarded.
+	//
+	// The solution to both these issues will likely involve using an
+	// int sequence for the ID rather than the timestamp. That sequence
+	// would be shared by all models.
+	RecordID int64 `bson:"record-id"`
 }
 
-// NewLastSentLogger returns a NewLastSentLogger struct that records and retrieves
-// the timestamps of the most recent log records forwarded to the log sink.
-func NewLastSentLogger(st ModelSessioner, sink string) *DbLoggerLastSent {
-	return &DbLoggerLastSent{
-		id:      fmt.Sprintf("%v#%v", st.ModelUUID(), sink),
-		model:   st.ModelUUID(),
-		sink:    sink,
-		session: st.MongoSession(),
-	}
-}
-
-// DBLoggerLastSent returns a struct that records and retrieves timestamps of the
-// most recent log records forwarded to the log sink.
-type DbLoggerLastSent struct {
+// LastSentLogTracker records and retrieves timestamps of the most recent
+// log records forwarded to a log sink for a model.
+type LastSentLogTracker struct {
 	session *mgo.Session
 	id      string
 	model   string
 	sink    string
 }
 
+// NewLastSentLogTracker returns a new tracker that records and retrieves
+// the timestamps of the most recent log records forwarded to the
+// identified log sink for the current model.
+func NewLastSentLogTracker(st ModelSessioner, sink string) *LastSentLogTracker {
+	return newLastSentLogTracker(st, st.ModelUUID(), sink)
+}
+
+// NewAllLastSentLogTracker returns a new tracker that records and retrieves
+// the timestamps of the most recent log records forwarded to the
+// identified log sink for *all* models.
+func NewAllLastSentLogTracker(st ControllerSessioner, sink string) (*LastSentLogTracker, error) {
+	if !st.IsController() {
+		return nil, errors.New("only the admin model can track all log records")
+	}
+	return newLastSentLogTracker(st, "", sink), nil
+}
+
+func newLastSentLogTracker(st MongoSessioner, model, sink string) *LastSentLogTracker {
+	// TODO(ericsnow) We need to copy the session.
+	session := st.MongoSession()
+	return &LastSentLogTracker{
+		id:      fmt.Sprintf("%s#%s", model, sink),
+		model:   model,
+		sink:    sink,
+		session: session,
+	}
+}
+
 // Set records the timestamp.
-func (logger *DbLoggerLastSent) Set(t time.Time) error {
+func (logger *LastSentLogTracker) Set(recID int64) error {
+	//recID := t.UnixNano()
+
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	_, err := collection.UpsertId(
 		logger.id,
@@ -101,26 +155,24 @@ func (logger *DbLoggerLastSent) Set(t time.Time) error {
 			ID:        logger.id,
 			ModelUUID: logger.model,
 			Sink:      logger.sink,
-			Time:      t.UnixNano(),
+			RecordID:  recID,
 		},
 	)
 	return errors.Trace(err)
 }
 
 // Get retrieves the timestamp.
-func (logger *DbLoggerLastSent) Get() (time.Time, error) {
-	zeroTime := time.Time{}
+func (logger *LastSentLogTracker) Get() (int64, error) {
 	collection := logger.session.DB(logsDB).C(forwardedC)
 	var doc lastSentDoc
 	err := collection.FindId(logger.id).One(&doc)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return zeroTime, errors.Trace(ErrNeverForwarded)
+			return 0, errors.Trace(ErrNeverForwarded)
 		}
-		return zeroTime, errors.Trace(err)
+		return 0, errors.Trace(err)
 	}
-	// It isn't worth it to try to preserve the time zone.
-	return time.Unix(0, doc.Time).UTC(), nil
+	return doc.RecordID, nil
 }
 
 // logDoc describes log messages stored in MongoDB.
@@ -163,6 +215,8 @@ func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLog
 
 // Log writes a log message to the database.
 func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	// TODO(ericsnow) Use a controller-global int sequence for Id.
+
 	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
 	// since the Unix "epoch".
 	unixEpochNanoUTC := t.UnixNano()
@@ -211,13 +265,14 @@ type LogTailer interface {
 // LogRecord defines a single Juju log message as returned by
 // LogTailer.
 type LogRecord struct {
+	// universal fields
+	ID   int64
+	Time time.Time
+
 	// origin fields
 	ModelUUID string
 	Entity    names.Tag
 	Version   version.Number
-
-	// universal fields
-	Time time.Time
 
 	// logging-specific fields
 	Level    loggo.Level
@@ -229,6 +284,7 @@ type LogRecord struct {
 // LogTailerParams specifies the filtering a LogTailer should apply to
 // logs in order to decide which to return.
 type LogTailerParams struct {
+	StartID       int64
 	StartTime     time.Time
 	MinLevel      loggo.Level
 	InitialLines  int
@@ -300,6 +356,7 @@ type logTailer struct {
 	logsColl  *mgo.Collection
 	params    *LogTailerParams
 	logCh     chan *LogRecord
+	lastID    int64
 	lastTime  time.Time
 	recentIds *recentIdTracker
 }
@@ -361,6 +418,7 @@ func (t *logTailer) processCollection() error {
 	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
 	// and the tests only run one mongod process, including _id
 	// guarantees getting log messages in a predictable order.
+	// TODO(ericsnow) Sort only by _id once it is a sequential int.
 	iter := query.Sort("t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
@@ -372,6 +430,7 @@ func (t *logTailer) processCollection() error {
 		case <-t.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case t.logCh <- rec:
+			t.lastID = rec.ID
 			t.lastTime = rec.Time
 			t.recentIds.Add(doc.Id)
 		}
@@ -383,7 +442,7 @@ func (t *logTailer) tailOplog() error {
 	recentIds := t.recentIds.AsSet()
 
 	newParams := t.params
-	newParams.StartTime = t.lastTime
+	newParams.StartID = t.lastID // (t.lastID + 1) once Id is a sequential int.
 	oplogSel := append(t.paramsToSelector(newParams, "o."),
 		bson.DocElem{"ns", logsDB + "." + logsC},
 	)
@@ -439,7 +498,11 @@ func (t *logTailer) tailOplog() error {
 
 func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
 	sel := bson.D{
-		{"t", bson.M{"$gte": params.StartTime.UnixNano()}},
+		// "t" -> "_id" once it is a sequential int.
+		{"t", bson.M{"$gte": params.StartID}},
+	}
+	if !params.StartTime.IsZero() {
+		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
 	}
 	if !params.AllModels {
 		sel = append(sel, bson.DocElem{"e", t.modelUUID})
@@ -558,17 +621,17 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 	}
 
 	rec := &LogRecord{
+		ID:   doc.Time,
+		Time: time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 
 		ModelUUID: doc.ModelUUID,
 		Entity:    entity,
 		Version:   ver,
 
-		Time:    time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
-		Message: doc.Message,
-
 		Level:    level,
 		Module:   doc.Module,
 		Location: doc.Location,
+		Message:  doc.Message,
 	}
 	return rec, nil
 }

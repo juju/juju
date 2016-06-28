@@ -10,7 +10,8 @@ import (
 // LogStreamRecord describes a single log record being streamed from
 // the server.
 type LogStreamRecord struct {
-	ModelUUID string    `json:"id"`
+	ID        int64     `json:"id"`
+	ModelUUID string    `json:"mid"`
 	Entity    string    `json:"ent"`
 	Version   string    `json:"ver,omitempty"`
 	Timestamp time.Time `json:"ts"`

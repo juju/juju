@@ -1317,7 +1317,7 @@ func (u *UniterAPIV3) prepareRelationResult(rel *state.Relation, unit *state.Uni
 		Life: params.Life(rel.Life().String()),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
-			Relation:        ep.Relation,
+			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
 		},
 	}, nil
 }

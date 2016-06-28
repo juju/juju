@@ -13,11 +13,6 @@ import (
 
 const controllerCloudKey = "controller"
 
-// cloudGlobalKey returns the global database key for the specified cloud.
-func cloudGlobalKey(name string) string {
-	return "cloud#" + name
-}
-
 // cloudDoc records information about the cloud that the controller operates in.
 type cloudDoc struct {
 	DocID           string                       `bson:"_id"`

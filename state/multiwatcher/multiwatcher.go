@@ -32,18 +32,18 @@ type EntityInfo interface {
 // EntityId uniquely identifies an entity being tracked by the
 // multiwatcherStore.
 type EntityId struct {
-	Kind      string
-	ModelUUID string
-	Id        string
+	Kind      string `json:"kind"`
+	ModelUUID string `json:"model-uuid"`
+	Id        string `json:"id"`
 }
 
 // Delta holds details of a change to the model.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
 	// otherwise it has been created or changed.
-	Removed bool
+	Removed bool `json:"removed"`
 	// Entity holds data about the entity that has changed.
-	Entity EntityInfo
+	Entity EntityInfo `json:"entity"`
 }
 
 // MarshalJSON implements json.Marshaler.
@@ -113,20 +113,20 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 // MachineInfo holds the information about a machine
 // that is tracked by multiwatcherStore.
 type MachineInfo struct {
-	ModelUUID                string
-	Id                       string
-	InstanceId               string
-	JujuStatus               StatusInfo
-	MachineStatus            StatusInfo
-	Life                     Life
-	Series                   string
-	SupportedContainers      []instance.ContainerType
-	SupportedContainersKnown bool
-	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
-	Jobs                     []MachineJob
-	Addresses                []network.Address
-	HasVote                  bool
-	WantsVote                bool
+	ModelUUID                string                            `json:"model-uuid"`
+	Id                       string                            `json:"id"`
+	InstanceId               string                            `json:"instance-id"`
+	AgentStatus              StatusInfo                        `json:"agent-status"`
+	InstanceStatus           StatusInfo                        `json:"instance-status"`
+	Life                     Life                              `json:"life"`
+	Series                   string                            `json:"series"`
+	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
+	SupportedContainersKnown bool                              `json:"supported-containers-known"`
+	HardwareCharacteristics  *instance.HardwareCharacteristics `json:"hardware-characteristics,omitempty"`
+	Jobs                     []MachineJob                      `json:"jobs"`
+	Addresses                []network.Address                 `json:"addresses"`
+	HasVote                  bool                              `json:"has-vote"`
+	WantsVote                bool                              `json:"wants-vote"`
 }
 
 // EntityId returns a unique identifier for a machine across
@@ -142,12 +142,12 @@ func (i *MachineInfo) EntityId() EntityId {
 // StatusInfo holds the unit and machine status information. It is
 // used by ApplicationInfo and UnitInfo.
 type StatusInfo struct {
-	Err     error
-	Current status.Status
-	Message string
-	Since   *time.Time
-	Version string
-	Data    map[string]interface{}
+	Err     error                  `json:"err,omitempty"`
+	Current status.Status          `json:"current"`
+	Message string                 `json:"message"`
+	Since   *time.Time             `json:"since,omitempty"`
+	Version string                 `json:"version"`
+	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
 // NewStatusInfo return a new multiwatcher StatusInfo from a
@@ -165,17 +165,17 @@ func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
 // ApplicationInfo holds the information about an application that is tracked
 // by multiwatcherStore.
 type ApplicationInfo struct {
-	ModelUUID   string
-	Name        string
-	Exposed     bool
-	CharmURL    string
-	OwnerTag    string
-	Life        Life
-	MinUnits    int
-	Constraints constraints.Value
-	Config      map[string]interface{}
-	Subordinate bool
-	Status      StatusInfo
+	ModelUUID   string                 `json:"model-uuid"`
+	Name        string                 `json:"name"`
+	Exposed     bool                   `json:"exposed"`
+	CharmURL    string                 `json:"charm-url"`
+	OwnerTag    string                 `json:"owner-tag"`
+	Life        Life                   `json:"life"`
+	MinUnits    int                    `json:"min-units"`
+	Constraints constraints.Value      `json:"constraints"`
+	Config      map[string]interface{} `json:"config,omitempty"`
+	Subordinate bool                   `json:"subordinate"`
+	Status      StatusInfo             `json:"status"`
 }
 
 // EntityId returns a unique identifier for an application across
@@ -188,23 +188,36 @@ func (i *ApplicationInfo) EntityId() EntityId {
 	}
 }
 
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string `json:"protocol"`
+	Number   int    `json:"number"`
+}
+
+// PortRange represents a single range of ports.
+type PortRange struct {
+	FromPort int    `json:"from-port"`
+	ToPort   int    `json:"to-port"`
+	Protocol string `json:"protocol"`
+}
+
 // UnitInfo holds the information about a unit
 // that is tracked by multiwatcherStore.
 type UnitInfo struct {
-	ModelUUID      string
-	Name           string
-	Application    string
-	Series         string
-	CharmURL       string
-	PublicAddress  string
-	PrivateAddress string
-	MachineId      string
-	Ports          []network.Port
-	PortRanges     []network.PortRange
-	Subordinate    bool
+	ModelUUID      string      `json:"model-uuid"`
+	Name           string      `json:"name"`
+	Application    string      `json:"application"`
+	Series         string      `json:"series"`
+	CharmURL       string      `json:"charm-url"`
+	PublicAddress  string      `json:"public-address"`
+	PrivateAddress string      `json:"private-address"`
+	MachineId      string      `json:"machine-id"`
+	Ports          []Port      `json:"ports"`
+	PortRanges     []PortRange `json:"port-ranges"`
+	Subordinate    bool        `json:"subordinate"`
 	// Workload and agent state are modelled separately.
-	WorkloadStatus StatusInfo
-	JujuStatus     StatusInfo
+	WorkloadStatus StatusInfo `json:"workload-status"`
+	AgentStatus    StatusInfo `json:"agent-status"`
 }
 
 // EntityId returns a unique identifier for a unit across
@@ -220,17 +233,17 @@ func (i *UnitInfo) EntityId() EntityId {
 // ActionInfo holds the information about a action that is tracked by
 // multiwatcherStore.
 type ActionInfo struct {
-	ModelUUID  string
-	Id         string
-	Receiver   string
-	Name       string
-	Parameters map[string]interface{}
-	Status     string
-	Message    string
-	Results    map[string]interface{}
-	Enqueued   time.Time
-	Started    time.Time
-	Completed  time.Time
+	ModelUUID  string                 `json:"model-uuid"`
+	Id         string                 `json:"id"`
+	Receiver   string                 `json:"receiver"`
+	Name       string                 `json:"name"`
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	Status     string                 `json:"status"`
+	Message    string                 `json:"message"`
+	Results    map[string]interface{} `json:"results,omitempty"`
+	Enqueued   time.Time              `json:"enqueued"`
+	Started    time.Time              `json:"started"`
+	Completed  time.Time              `json:"completed"`
 }
 
 // EntityId returns a unique identifier for an action across
@@ -246,16 +259,41 @@ func (i *ActionInfo) EntityId() EntityId {
 // RelationInfo holds the information about a relation that is tracked
 // by multiwatcherStore.
 type RelationInfo struct {
-	ModelUUID string
-	Key       string
-	Id        int
-	Endpoints []Endpoint
+	ModelUUID string     `json:"model-uuid"`
+	Key       string     `json:"key"`
+	Id        int        `json:"id"`
+	Endpoints []Endpoint `json:"endpoints"`
+}
+
+// CharmRelation is a mirror struct for charm.Relation.
+type CharmRelation struct {
+	Name      string `json:"name"`
+	Role      string `json:"role"`
+	Interface string `json:"interface"`
+	Optional  bool   `json:"optional"`
+	Limit     int    `json:"limit"`
+	Scope     string `json:"scope"`
+}
+
+// NewCharmRelation creates a new local CharmRelation structure from  the
+// charm.Relation structure. NOTE: when we update the database to not store a
+// charm.Relation directly in the database, this method should take the state
+// structure type.
+func NewCharmRelation(cr charm.Relation) CharmRelation {
+	return CharmRelation{
+		Name:      cr.Name,
+		Role:      string(cr.Role),
+		Interface: cr.Interface,
+		Optional:  cr.Optional,
+		Limit:     cr.Limit,
+		Scope:     string(cr.Scope),
+	}
 }
 
 // Endpoint holds an application-relation pair.
 type Endpoint struct {
-	ApplicationName string
-	Relation        charm.Relation
+	ApplicationName string        `json:"application-name"`
+	Relation        CharmRelation `json:"relation"`
 }
 
 // EntityId returns a unique identifier for a relation across
@@ -271,9 +309,9 @@ func (i *RelationInfo) EntityId() EntityId {
 // AnnotationInfo holds the information about an annotation that is
 // tracked by multiwatcherStore.
 type AnnotationInfo struct {
-	ModelUUID   string
-	Tag         string
-	Annotations map[string]string
+	ModelUUID   string            `json:"model-uuid"`
+	Tag         string            `json:"tag"`
+	Annotations map[string]string `json:"annotations"`
 }
 
 // EntityId returns a unique identifier for an annotation across
@@ -314,11 +352,11 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 // BlockInfo holds the information about a block that is tracked by
 // multiwatcherStore.
 type BlockInfo struct {
-	ModelUUID string
-	Id        string
-	Type      BlockType
-	Message   string
-	Tag       string
+	ModelUUID string    `json:"model-uuid"`
+	Id        string    `json:"id"`
+	Type      BlockType `json:"type"`
+	Message   string    `json:"message"`
+	Tag       string    `json:"tag"`
 }
 
 // EntityId returns a unique identifier for a block across
@@ -348,11 +386,11 @@ const (
 // ModelInfo holds the information about an model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
-	ModelUUID  string
-	Name       string
-	Life       Life
-	Owner      string
-	ServerUUID string
+	ModelUUID      string `json:"model-uuid"`
+	Name           string `json:"name"`
+	Life           Life   `json:"life"`
+	Owner          string `json:"owner"`
+	ControllerUUID string `json:"controller-uuid"`
 }
 
 // EntityId returns a unique identifier for an model.

@@ -548,9 +548,6 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, modelUUID string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
-	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
-		codec.SetLogging(true)
-	}
 	var notifier rpc.RequestNotifier
 	if logger.EffectiveLogLevel() <= loggo.DEBUG {
 		// Incur request monitoring overhead only if we

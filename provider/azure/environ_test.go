@@ -948,14 +948,9 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	}
 	c.Assert(groupsDeleted, jc.SameContents, []string{"group1", "group2"})
 
-	// The errors are guaranteed to be in the order that the names appeared
-	// in the list response.
-	firstErr := "foo"
-	secondErr := "bar"
-	if groupsDeleted[0] == "group2" {
-		firstErr, secondErr = secondErr, firstErr
-	}
-	c.Assert(destroyErr, gc.ErrorMatches,
-		`deleting resource group "group1":.* failed with `+firstErr+`; `+
-			`deleting resource group "group2":.* failed with `+secondErr)
+	c.Check(destroyErr, gc.ErrorMatches,
+		`deleting resource group "group1":.* failed with .*; `+
+			`deleting resource group "group2":.* failed with .*`)
+	c.Check(destroyErr, gc.ErrorMatches, ".*failed with foo.*")
+	c.Check(destroyErr, gc.ErrorMatches, ".*failed with bar.*")
 }
