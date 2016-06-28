@@ -108,7 +108,6 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		sortedNames = append(sortedNames, name)
 	}
 	sortedNames = common.SortStringsNaturally(sortedNames)
-	fmt.Printf("sortedNames\n")
 	return c.printTabular(ctx, shortOutput, sortedNames)
 }
 
