@@ -113,11 +113,11 @@ type backingModel modelDoc
 
 func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
 	store.Update(&multiwatcher.ModelInfo{
-		ModelUUID:  e.UUID,
-		Name:       e.Name,
-		Life:       multiwatcher.Life(e.Life.String()),
-		Owner:      e.Owner,
-		ServerUUID: e.ServerUUID,
+		ModelUUID:      e.UUID,
+		Name:           e.Name,
+		Life:           multiwatcher.Life(e.Life.String()),
+		Owner:          e.Owner,
+		ControllerUUID: e.ServerUUID,
 	})
 	return nil
 }
@@ -163,28 +163,28 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		if !ok {
 			return errors.Errorf("the given entity does not support Status %v", entity)
 		}
-		jujuStatus, err := machine.Status()
+		agentStatus, err := machine.Status()
 		if err != nil {
-			return errors.Annotatef(err, "retrieving juju status for machine %q", m.Id)
+			return errors.Annotatef(err, "retrieving agent status for machine %q", m.Id)
 		}
-		info.JujuStatus = multiwatcher.NewStatusInfo(jujuStatus, err)
+		info.AgentStatus = multiwatcher.NewStatusInfo(agentStatus, nil)
 
 		inst := machine.(status.InstanceStatusGetter)
 		if !ok {
 			return errors.Errorf("the given entity does not support InstanceStatus %v", entity)
 		}
 
-		machineStatus, err := inst.InstanceStatus()
+		instanceStatus, err := inst.InstanceStatus()
 		if err != nil {
 			return errors.Annotatef(err, "retrieving instance status for machine %q", m.Id)
 		}
-		info.MachineStatus = multiwatcher.NewStatusInfo(machineStatus, err)
+		info.InstanceStatus = multiwatcher.NewStatusInfo(instanceStatus, nil)
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
 		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
-		info.JujuStatus = oldInfo.JujuStatus
-		info.MachineStatus = oldInfo.MachineStatus
+		info.AgentStatus = oldInfo.AgentStatus
+		info.InstanceStatus = oldInfo.InstanceStatus
 		info.InstanceId = oldInfo.InstanceId
 		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
@@ -257,20 +257,21 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	return portRanges, compatiblePorts, nil
 }
 
-func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus *status.StatusInfo, err error) {
+func unitAndAgentStatus(st *State, name string) (unitStatus, agentStatus status.StatusInfo, err error) {
+	var empty status.StatusInfo
 	unit, err := st.Unit(name)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return empty, empty, errors.Trace(err)
 	}
 	unitStatusResult, err := unit.Status()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return empty, empty, errors.Trace(err)
 	}
 	agentStatusResult, err := unit.AgentStatus()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return empty, empty, errors.Trace(err)
 	}
-	return &unitStatusResult, &agentStatusResult, nil
+	return unitStatusResult, agentStatusResult, nil
 }
 
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) error {
@@ -295,34 +296,25 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 			return errors.Annotatef(err, "reading unit and agent status for %q", u.Name)
 		}
 		// Unit and workload status.
-		info.WorkloadStatus = multiwatcher.StatusInfo{
-			Current: status.Status(unitStatus.Status),
-			Message: unitStatus.Message,
-			Data:    normaliseStatusData(unitStatus.Data),
-			Since:   unitStatus.Since,
-		}
+		info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatus, nil)
+		info.AgentStatus = multiwatcher.NewStatusInfo(agentStatus, nil)
 		if u.Tools != nil {
-			info.JujuStatus.Version = u.Tools.Version.Number.String()
-		}
-		info.JujuStatus = multiwatcher.StatusInfo{
-			Current: status.Status(agentStatus.Status),
-			Message: agentStatus.Message,
-			Data:    normaliseStatusData(agentStatus.Data),
-			Since:   agentStatus.Since,
+			info.AgentStatus.Version = u.Tools.Version.Number.String()
 		}
 
 		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		info.PortRanges = portRanges
-		info.Ports = compatiblePorts
+
+		info.PortRanges = toMultiwatcherPortRanges(portRanges)
+		info.Ports = toMultiwatcherPorts(compatiblePorts)
 
 	} else {
 		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
 		// Unit and workload status.
-		info.JujuStatus = oldInfo.JujuStatus
+		info.AgentStatus = oldInfo.AgentStatus
 		info.WorkloadStatus = oldInfo.WorkloadStatus
 		info.Ports = oldInfo.Ports
 		info.PortRanges = oldInfo.PortRanges
@@ -508,7 +500,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 	for i, ep := range r.Endpoints {
 		eps[i] = multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
-			Relation:        ep.Relation,
+			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
 		}
 	}
 	info := &multiwatcher.RelationInfo{
@@ -592,6 +584,15 @@ func (a *backingBlock) mongoId() string {
 
 type backingStatus statusDoc
 
+func (s *backingStatus) toStatusInfo() multiwatcher.StatusInfo {
+	return multiwatcher.StatusInfo{
+		Current: s.Status,
+		Message: s.StatusInfo,
+		Data:    s.StatusData,
+		Since:   unixNanoToTime(s.Updated),
+	}
+}
+
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) error {
 	parentID, ok := backingEntityIdForGlobalKey(st.ModelUUID(), id)
 	if !ok {
@@ -616,25 +617,15 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		info0 = &newInfo
 	case *multiwatcher.ApplicationInfo:
 		newInfo := *info
-		newInfo.Status.Current = s.Status
-		newInfo.Status.Message = s.StatusInfo
-		newInfo.Status.Data = normaliseStatusData(s.StatusData)
-		newInfo.Status.Since = unixNanoToTime(s.Updated)
+		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
 		// lets dissambiguate between juju machine agent and provider instance statuses.
 		if strings.HasSuffix(id, "#instance") {
-			newInfo.MachineStatus.Current = s.Status
-			newInfo.MachineStatus.Message = s.StatusInfo
-			newInfo.MachineStatus.Data = normaliseStatusData(s.StatusData)
-			newInfo.MachineStatus.Since = unixNanoToTime(s.Updated)
-
+			newInfo.InstanceStatus = s.toStatusInfo()
 		} else {
-			newInfo.JujuStatus.Current = s.Status
-			newInfo.JujuStatus.Message = s.StatusInfo
-			newInfo.JujuStatus.Data = normaliseStatusData(s.StatusData)
-			newInfo.JujuStatus.Since = unixNanoToTime(s.Updated)
+			newInfo.AgentStatus = s.toStatusInfo()
 		}
 		info0 = &newInfo
 	default:
@@ -646,32 +637,28 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus status.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
+	// NOTE: thumper 2016-06-27, this is truely horrible, and we are lying to our users.
+	// however, this is explicitly what has been asked for as much as we dislike it.
 	if strings.HasSuffix(id, "#charm") || s.Status == status.StatusError {
-		newInfo.WorkloadStatus.Current = s.Status
-		newInfo.WorkloadStatus.Message = s.StatusInfo
-		newInfo.WorkloadStatus.Data = normaliseStatusData(s.StatusData)
-		newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
+		newInfo.WorkloadStatus = s.toStatusInfo()
 	} else {
-		newInfo.JujuStatus.Current = s.Status
-		newInfo.JujuStatus.Message = s.StatusInfo
-		newInfo.JujuStatus.Data = normaliseStatusData(s.StatusData)
-		newInfo.JujuStatus.Since = unixNanoToTime(s.Updated)
+		newInfo.AgentStatus = s.toStatusInfo()
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
 		if newInfo.WorkloadStatus.Current == status.StatusError {
 			newInfo.WorkloadStatus.Current = unitStatus.Status
 			newInfo.WorkloadStatus.Message = unitStatus.Message
-			newInfo.WorkloadStatus.Data = normaliseStatusData(unitStatus.Data)
+			newInfo.WorkloadStatus.Data = unitStatus.Data
 			newInfo.WorkloadStatus.Since = unixNanoToTime(s.Updated)
 		}
 	}
 
 	// A change in a unit's status might also affect it's application.
-	service, err := st.Application(newInfo.Application)
+	application, err := st.Application(newInfo.Application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	applicationId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), service.globalKey())
+	applicationId, ok := backingEntityIdForGlobalKey(st.ModelUUID(), application.globalKey())
 	if !ok {
 		return nil
 	}
@@ -679,15 +666,12 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	if applicationInfo == nil {
 		return nil
 	}
-	status, err := service.Status()
+	status, err := application.Status()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
-	newApplicationInfo.Status.Current = status.Status
-	newApplicationInfo.Status.Message = status.Message
-	newApplicationInfo.Status.Data = normaliseStatusData(status.Data)
-	newApplicationInfo.Status.Since = status.Since
+	newApplicationInfo.Status = multiwatcher.NewStatusInfo(status, nil)
 	store.Update(&newApplicationInfo)
 	return nil
 }
@@ -878,6 +862,29 @@ func (p *backingOpenedPorts) mongoId() string {
 	panic("cannot find mongo id from openedPorts document")
 }
 
+func toMultiwatcherPortRanges(portRanges []network.PortRange) []multiwatcher.PortRange {
+	result := make([]multiwatcher.PortRange, len(portRanges))
+	for i, pr := range portRanges {
+		result[i] = multiwatcher.PortRange{
+			FromPort: pr.FromPort,
+			ToPort:   pr.ToPort,
+			Protocol: pr.Protocol,
+		}
+	}
+	return result
+}
+
+func toMultiwatcherPorts(ports []network.Port) []multiwatcher.Port {
+	result := make([]multiwatcher.Port, len(ports))
+	for i, p := range ports {
+		result[i] = multiwatcher.Port{
+			Number:   p.Number,
+			Protocol: p.Protocol,
+		}
+	}
+	return result
+}
+
 // updateUnitPorts updates the Ports and PortRanges info of the given unit.
 func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 	eid, ok := backingEntityIdForGlobalKey(st.ModelUUID(), u.globalKey())
@@ -896,8 +903,8 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 			return errors.Trace(err)
 		}
 		unitInfo := *oldInfo
-		unitInfo.PortRanges = portRanges
-		unitInfo.Ports = compatiblePorts
+		unitInfo.PortRanges = toMultiwatcherPortRanges(portRanges)
+		unitInfo.Ports = toMultiwatcherPorts(compatiblePorts)
 		store.Update(&unitInfo)
 	default:
 		return nil
