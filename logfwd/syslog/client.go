@@ -146,19 +146,44 @@ func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
 					Value: rfc5424.StructuredDataParamValue(rec.Origin.ModelUUID),
 				}},
 			},
-			&sdelements.Private{
-				Name: "log",
-				PEN:  sdelements.PrivateEnterpriseNumber(rec.Origin.Software.PrivateEnterpriseNumber),
-				Data: []rfc5424.StructuredDataParam{{
-					Name:  "module",
-					Value: rfc5424.StructuredDataParamValue(rec.Location.Module),
-				}, {
-					Name:  "source",
-					Value: rfc5424.StructuredDataParamValue(fmt.Sprintf("%s:%d", rec.Location.Filename, rec.Location.Line)),
-				}},
-			},
 		},
 		Msg: rec.Message,
+	}
+
+	if rec.Audit.IsZero() {
+		msg.StructuredData = append(msg.StructuredData, &sdelements.Private{
+			Name: "log",
+			PEN:  sdelements.PrivateEnterpriseNumber(rec.Origin.Software.PrivateEnterpriseNumber),
+			Data: []rfc5424.StructuredDataParam{{
+				Name:  "module",
+				Value: rfc5424.StructuredDataParamValue(rec.Location.Module),
+			}, {
+				Name:  "source",
+				Value: rfc5424.StructuredDataParamValue(fmt.Sprintf("%s:%d", rec.Location.Filename, rec.Location.Line)),
+			}},
+		})
+	} else {
+		elem := &sdelements.Private{
+			Name: "audit",
+			PEN:  sdelements.PrivateEnterpriseNumber(rec.Origin.Software.PrivateEnterpriseNumber),
+			Data: []rfc5424.StructuredDataParam{{
+				Name:  "origin-type",
+				Value: rfc5424.StructuredDataParamValue(rec.Origin.Type.String()),
+			}, {
+				Name:  "origin-name",
+				Value: rfc5424.StructuredDataParamValue(rec.Origin.Name),
+			}, {
+				Name:  "operation",
+				Value: rfc5424.StructuredDataParamValue(rec.Audit.Operation),
+			}},
+		}
+		for name, value := range rec.Audit.Args {
+			elem.Data = append(elem.Data, rfc5424.StructuredDataParam{
+				Name:  rfc5424.StructuredDataName(name),
+				Value: rfc5424.StructuredDataParamValue(value),
+			})
+		}
+		msg.StructuredData = append(msg.StructuredData, elem)
 	}
 
 	switch rec.Level {
