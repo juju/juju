@@ -95,14 +95,14 @@ func InitializeState(
 			CloudRegion:     args.ControllerCloudRegion,
 			CloudCredential: args.ControllerCloudCredentialName,
 		},
-		CloudName:        args.ControllerCloudName,
-		Cloud:            args.ControllerCloud,
-		CloudCredentials: cloudCredentials,
-		ControllerConfig: args.ControllerConfig,
-		LocalCloudConfig: args.LocalCloudConfig,
-		MongoInfo:        info,
-		MongoDialOpts:    dialOpts,
-		Policy:           policy,
+		CloudName:                 args.ControllerCloudName,
+		Cloud:                     args.ControllerCloud,
+		CloudCredentials:          cloudCredentials,
+		ControllerConfig:          args.ControllerConfig,
+		ControllerInheritedConfig: args.ControllerInheritedConfig,
+		MongoInfo:                 info,
+		MongoDialOpts:             dialOpts,
+		Policy:                    policy,
 	})
 	if err != nil {
 		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
