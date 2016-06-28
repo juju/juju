@@ -211,9 +211,9 @@ type StateInitializationParams struct {
 	// to a controller.
 	ControllerConfig controller.Config
 
-	// LocalCloudConfig is a set of config attributes to be shared by all
-	// models managed by this controller on the specified cloud.
-	LocalCloudConfig map[string]interface{}
+	// ControllerInheritedConfig is a set of config attributes to be shared by all
+	// models managed by this controller.
+	ControllerInheritedConfig map[string]interface{}
 
 	// HostedModelConfig is a set of config attributes to be overlaid
 	// on the controller model config (Config, above) to construct the
@@ -244,7 +244,7 @@ type StateInitializationParams struct {
 type stateInitializationParamsInternal struct {
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
-	ModelConfigDefaults                     map[string]interface{}            `yaml:"model-config-defaults,omitempty"`
+	ControllerInheritedConfig               map[string]interface{}            `yaml:"controller-config-defaults,omitempty"`
 	HostedModelConfig                       map[string]interface{}            `yaml:"hosted-model-config,omitempty"`
 	BootstrapMachineInstanceId              instance.Id                       `yaml:"bootstrap-machine-instance-id"`
 	BootstrapMachineConstraints             constraints.Value                 `yaml:"bootstrap-machine-constraints"`
@@ -271,7 +271,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 	internal := stateInitializationParamsInternal{
 		p.ControllerConfig,
 		p.ControllerModelConfig.AllAttrs(),
-		p.LocalCloudConfig,
+		p.ControllerInheritedConfig,
 		p.HostedModelConfig,
 		p.BootstrapMachineInstanceId,
 		p.BootstrapMachineConstraints,
@@ -309,7 +309,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	*p = StateInitializationParams{
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
-		LocalCloudConfig:                        internal.ModelConfigDefaults,
+		ControllerInheritedConfig:               internal.ControllerInheritedConfig,
 		HostedModelConfig:                       internal.HostedModelConfig,
 		BootstrapMachineInstanceId:              internal.BootstrapMachineInstanceId,
 		BootstrapMachineConstraints:             internal.BootstrapMachineConstraints,

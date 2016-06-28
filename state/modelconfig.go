@@ -67,8 +67,8 @@ func (st *State) ModelConfigValues() (config.ConfigValues, error) {
 	return result, nil
 }
 
-// checkLocalCloudConfigDefaults returns an error if the shared local cloud config is definitely invalid.
-func checkLocalCloudConfigDefaults(attrs map[string]interface{}) error {
+// checkControllerInheritedConfig returns an error if the shared local cloud config is definitely invalid.
+func checkControllerInheritedConfig(attrs map[string]interface{}) error {
 	if _, ok := attrs[config.AdminSecretKey]; ok {
 		return errors.Errorf("local cloud config cannot contain admin-secret")
 	}
@@ -204,19 +204,15 @@ type modelConfigSource struct {
 // overall config values, later values override earlier ones.
 func modelConfigSources(st *State) []modelConfigSource {
 	return []modelConfigSource{
-		{config.JujuControllerSource, st.localCloudConfig},
+		{config.JujuControllerSource, st.ControllerInheritedConfig},
 		// We will also support local cloud region, tenant, user etc
 	}
 }
 
-// localCloudConfig returns the inherited config values
+// ControllerInheritedConfig returns the inherited config values
 // sourced from the local cloud config.
-func (st *State) localCloudConfig() (map[string]interface{}, error) {
-	info, err := st.ControllerInfo()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	settings, err := readSettings(st, globalSettingsC, cloudGlobalKey(info.CloudName))
+func (st *State) ControllerInheritedConfig() (map[string]interface{}, error) {
+	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

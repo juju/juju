@@ -94,16 +94,16 @@ type ModelConfigSourceSuite struct {
 var _ = gc.Suite(&ModelConfigSourceSuite{})
 
 func (s *ModelConfigSourceSuite) SetUpTest(c *gc.C) {
-	s.LocalCloudConfig = map[string]interface{}{
+	s.ControllerInheritedConfig = map[string]interface{}{
 		"apt-mirror": "http://cloud-mirror",
 		"http-proxy": "http://proxy",
 	}
 	s.ConnSuite.SetUpTest(c)
 
-	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
+	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
-	localCloudSettings.Set("apt-mirror", "http://mirror")
-	_, err = localCloudSettings.Write()
+	localControllerSettings.Set("apt-mirror", "http://mirror")
+	_, err = localControllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -120,16 +120,16 @@ func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesCloudValue(c *gc
 	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://anothermirror")
 }
 
-func (s *ModelConfigSourceSuite) TestControllerModelConfigForksCloudValue(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c *gc.C) {
 	modelCfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 
-	// Change the local cloud settings and ensure the model setting stays the same.
-	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
+	// Change the local controller settings and ensure the model setting stays the same.
+	localControllerSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
-	localCloudSettings.Set("apt-mirror", "http://anothermirror")
-	_, err = localCloudSettings.Write()
+	localControllerSettings.Set("apt-mirror", "http://anothermirror")
+	_, err = localControllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelCfg, err = s.State.ModelConfig()
@@ -137,7 +137,7 @@ func (s *ModelConfigSourceSuite) TestControllerModelConfigForksCloudValue(c *gc.
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 }
 
-func (s *ModelConfigSourceSuite) TestNewModelConfigForksCloudValue(c *gc.C) {
+func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
@@ -155,8 +155,8 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksCloudValue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
 
-	// Change the local cloud settings and ensure the model setting stays the same.
-	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
+	// Change the local controller settings and ensure the model setting stays the same.
+	localCloudSettings, err := s.State.ReadSettings(state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	localCloudSettings.Set("apt-mirror", "http://anothermirror")
 	_, err = localCloudSettings.Write()

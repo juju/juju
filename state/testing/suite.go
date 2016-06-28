@@ -21,12 +21,12 @@ var _ = gc.Suite(&StateSuite{})
 type StateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
-	Policy           state.Policy
-	State            *state.State
-	Owner            names.UserTag
-	Factory          *factory.Factory
-	InitialConfig    *config.Config
-	LocalCloudConfig map[string]interface{}
+	Policy                    state.Policy
+	State                     *state.State
+	Owner                     names.UserTag
+	Factory                   *factory.Factory
+	InitialConfig             *config.Config
+	ControllerInheritedConfig map[string]interface{}
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -44,7 +44,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.State = Initialize(c, s.Owner, s.InitialConfig, s.LocalCloudConfig, s.Policy)
+	s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.Policy)
 	s.AddCleanup(func(*gc.C) { s.State.Close() })
 	s.Factory = factory.NewFactory(s.State)
 }
