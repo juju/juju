@@ -25,28 +25,35 @@ class Task:
         self._done = False
 
     def run(self):
-        """Run a task in a subprocess."""
+        """Run a task in a subprocess and log std out and err."""
         self._open_logs()
-        self.proc = subprocess.Popen(self.command)
+        self.proc = subprocess.Popen(
+            self.command, stdout=self._stdout, stderr=self._stderr)
 
     def _open_logs(self):
-        self._stdout = open(self.out_log_name, 'w')
-        self._stderr = open(self.err_log_name, 'w')
+        """Open the tasks out and err logs for appending."""
+        self._stdout = open(self.out_log_name, 'ab')
+        self._stderr = open(self.err_log_name, 'ab')
 
     def _close_logs(self):
+        """Close the tasks out and err logs."""
         self._stdout.close()
         self._stderr.close()
 
     def is_done(self):
-        """Is the process None."""
-        if self.proc.poll() is not None:
+        """Is the process complete.
+
+        This call implicitly closes the std out and error logs.
+        """
+        if self.proc and self.proc.poll() is not None:
             self._close_logs()
+            self.returncode = self.proc.returncode
             self._done = True
         return self._done
 
     def is_success(self):
         """Is the process successful."""
-        return self.proc.returncode == 0
+        return self.returncode == 0
 
 
 class TaskManager:
@@ -61,19 +68,21 @@ class TaskManager:
         """Exec tasks in parallel."""
         while True:
             while self.backlog and len(self.running) < self.concurrency:
-                task = self.tasks.pop()
+                task = self.backlog.pop()
                 self.running.append(task)
                 print(task.commandline)
                 task.run()
             for task in self.running:
                 if task.is_done():
-                    self.complete.append(self.complete.pop(task))
+                    self.running.remove(task)
+                    self.complete.append(task)
             if not self.backlog and not self.running:
                 break
             else:
                 time.sleep(0.05)
 
-    def get_retuncode(self):
+    def get_returncode(self):
+        """Return the sum of all return codes."""
         return sum([t.returncode for t in self.complete])
 
 
