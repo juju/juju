@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -21,6 +23,9 @@ type LogStream interface {
 	// Next returns the next log record from the stream.
 	Next() (logfwd.Record, error)
 }
+
+// LogStreamFn is a function that opens a log stream.
+type LogStreamFn func(_ base.APICaller, _ params.LogStreamConfig, controllerUUID string) (LogStream, error)
 
 // SendCloser is responsible for sending log records to a log sink.
 type SendCloser interface {
@@ -43,6 +48,53 @@ type LogForwarder struct {
 	catacomb catacomb.Catacomb
 	stream   LogStream
 	sender   sender
+}
+
+// OpenLogForwarderArgs holds the info needed to open a LogForwarder.
+type OpenLogForwarderArgs struct {
+	// AllModels indicates that the tracker is handling all models.
+	AllModels bool
+
+	// ControllerUUID identifies the controller.
+	ControllerUUID string
+
+	// Config is the logging config that will be used.
+	Config LoggingConfig
+
+	// Caller is the API caller that will be used.
+	Caller base.APICaller
+
+	// OpenSink is the function that opens the underlying log sink that
+	// will be wrapped.
+	OpenSink LogSinkFn
+
+	// OpenLogStream is the function that will be used to for the
+	// log stream.
+	OpenLogStream LogStreamFn
+}
+
+func openLogForwarder(args OpenLogForwarderArgs) (*LogForwarder, error) {
+	sink, err := OpenTrackingSink(TrackingSinkArgs{
+		AllModels: args.AllModels,
+		Config:    args.Config,
+		Caller:    args.Caller,
+		OpenSink:  args.OpenSink,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	streamCfg := params.LogStreamConfig{
+		AllModels: args.AllModels,
+		Sink:      sink.Name,
+	}
+	stream, err := args.OpenLogStream(args.Caller, streamCfg, args.ControllerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	lf, err := NewLogForwarder(stream, sink)
+	return lf, errors.Trace(err)
 }
 
 // NewLogForwarder returns a worker that forwards logs received from
