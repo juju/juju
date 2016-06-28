@@ -111,7 +111,7 @@ func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 }
 
 // TestingRestrictedApiHandler returns a restricted srvRoot as if accessed
-// from the root of the API path with a recent (verison > 1) login.
+// from the root of the API path.
 func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
 	return newRestrictedRoot(r)

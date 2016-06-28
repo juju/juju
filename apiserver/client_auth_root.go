@@ -34,7 +34,6 @@ func (r *clientAuthRoot) FindMethod(rootName string, version int, methodName str
 	if err != nil {
 		return nil, err
 	}
-
 	// ReadOnly User
 	if r.user.IsReadOnly() {
 		canCall := isCallAllowableByReadOnlyUser(rootName, methodName) ||

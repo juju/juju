@@ -230,7 +230,23 @@ func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, erro
 
 func (st *mockState) IsControllerAdministrator(user names.UserTag) (bool, error) {
 	st.MethodCall(st, "IsControllerAdministrator", user)
-	return user.Canonical() == "admin@local", st.NextErr()
+	if st.controllerModel == nil {
+		return user.Canonical() == "admin@local", st.NextErr()
+	}
+	if st.controllerModel.users == nil {
+		return user.Canonical() == "admin@local", st.NextErr()
+	}
+
+	for _, u := range st.controllerModel.users {
+		if user.Name() == u.UserName() && u.access == state.AdminAccess {
+			nextErr := st.NextErr()
+			if user.Name() != "admin" {
+				panic(user.Name())
+			}
+			return true, nextErr
+		}
+	}
+	return false, st.NextErr()
 }
 
 func (st *mockState) NewModel(args state.ModelArgs) (common.Model, common.ModelManagerBackend, error) {
