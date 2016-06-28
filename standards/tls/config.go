@@ -23,6 +23,9 @@ type Config struct {
 
 	// ExpectedServerCertPEM is the TLS certificate that the server must
 	// use when the client connects.
+	//
+	// TODO(axw) this is nonsense, the client should not know the certificate
+	// of the server up front, it just needs to be able to validate it.
 	ExpectedServerCertPEM string
 }
 
@@ -55,20 +58,15 @@ func (cfg Config) TLS() (*tls.Config, error) {
 	}
 	tlsConfig.ServerName = serverName
 
-	pool := x509.NewCertPool()
-	serverCert.IsCA = true
-	serverCert.KeyUsage = x509.KeyUsageCertSign
-	pool.AddCert(serverCert)
-	tlsConfig.RootCAs = pool
-
 	if cfg.CACertPEM != "" {
+		// TODO(axw) CACertPEM should be required.
 		caCert, err := cfg.CACert()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pool := x509.NewCertPool()
 		pool.AddCert(caCert)
-		tlsConfig.ClientCAs = pool
+		tlsConfig.RootCAs = pool
 	}
 
 	cert, err := cfg.Cert()

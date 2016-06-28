@@ -88,12 +88,12 @@ func open(cfg RawConfig, opener SenderOpener) (Sender, error) {
 	var timeout time.Duration
 	dial, err := opener.DialFunc(tlsCfg, timeout)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "obtaining dialer")
 	}
 
 	var clientCfg rfc5424.ClientConfig
 	client, err := opener.Open(cfg.Host, clientCfg, dial)
-	return client, errors.Trace(err)
+	return client, errors.Annotate(err, "opening client connection")
 }
 
 // Close closes the client's connection.

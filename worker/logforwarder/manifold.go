@@ -72,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				OpenLogStream:    openLogStream,
 				OpenLogForwarder: openForwarder,
 			})
-			return orchestrator, errors.Trace(err)
+			return orchestrator, errors.Annotate(err, "creating log forwarding orchestrator")
 		},
 	}
 }

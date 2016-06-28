@@ -4,10 +4,11 @@
 package apiserver
 
 import (
+	"net/http"
+
 	"github.com/gorilla/schema"
 	"github.com/juju/errors"
 	"golang.org/x/net/websocket"
-	"net/http"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -46,14 +47,22 @@ func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
 //   sink -> string - the name of the the log forwarding target
 func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger.Infof("log stream request handler starting")
-	reqHandler, initial := eph.newLogStreamRequestHandler(req)
-	defer reqHandler.tailer.Stop()
-
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			defer conn.Close()
-
-			reqHandler.serveWebsocket(conn, initial, eph.stopCh)
+			reqHandler, err := eph.newLogStreamRequestHandler(req)
+			if err == nil {
+				defer reqHandler.tailer.Stop()
+			}
+			stream, initErr := initStream(conn, err)
+			if initErr != nil {
+				logger.Debugf("failed to send initial error (%v): %v", err, initErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			reqHandler.serveWebsocket(conn, stream, eph.stopCh)
 		},
 	}
 	server.ServeHTTP(w, req)
@@ -69,13 +78,15 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	}
 
 	var cfg params.LogStreamConfig
-	if err := schema.NewDecoder().Decode(&cfg, req.URL.Query()); err != nil {
-		return nil, errors.Trace(err)
+	query := req.URL.Query()
+	query.Del(":modeluuid")
+	if err := schema.NewDecoder().Decode(&cfg, query); err != nil {
+		return nil, errors.Annotate(err, "decoding schema")
 	}
 
 	tailer, err := eph.newTailer(source, cfg)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "creating new tailer")
 	}
 
 	reqHandler := &logStreamRequestHandler{
@@ -89,7 +100,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig) (state.LogTailer, error) {
 	start, err := source.getStart(cfg.Sink, cfg.AllModels)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting log start position")
 	}
 	tailerArgs := &state.LogTailerParams{
 		StartID:   start,
@@ -97,7 +108,7 @@ func (eph logStreamEndpointHandler) newTailer(source logStreamSource, cfg params
 	}
 	tailer, err := source.newTailer(tailerArgs)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "tailing logs")
 	}
 	return tailer, nil
 }
@@ -119,9 +130,14 @@ func (st logStreamState) getStart(sink string, allModels bool) (int64, error) {
 
 	// Resume for the sink...
 	lastSent, err := tracker.Get()
-	if err != nil {
+	if errors.Cause(err) == state.ErrNeverForwarded {
+		// If we've never forwarded a message, we start from
+		// position zero.
+		lastSent = 0
+	} else if err != nil {
 		return 0, errors.Trace(err)
 	}
+
 	// Using the same timestamp will cause at least 1 duplicate
 	// entry, but that is better than dropping records.
 	// TODO(ericsnow) Add 1 to start once we track by sequential int ID
@@ -147,12 +163,8 @@ type logStreamRequestHandler struct {
 	stream *apiLogStream
 }
 
-func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, initial error, stop <-chan struct{}) {
+func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *apiLogStream, stop <-chan struct{}) {
 	logger.Infof("log stream request handler starting")
-
-	if ok := rh.initStream(conn, initial); !ok {
-		return
-	}
 
 	for {
 		select {
@@ -163,8 +175,7 @@ func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, initial 
 				logger.Errorf("tailer stopped: %v", rh.tailer.Err())
 				return
 			}
-
-			if err := rh.stream.sendRecord(rec); err != nil {
+			if err := stream.sendRecord(rec, rh.sendModelUUID); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("logstream handler stopped (client disconnected)")
 				} else {
@@ -175,26 +186,23 @@ func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, initial 
 	}
 }
 
-func (rh *logStreamRequestHandler) initStream(conn *websocket.Conn, initial error) bool {
+func initStream(conn *websocket.Conn, initial error) (*apiLogStream, error) {
 	stream := &apiLogStream{
-		conn:          conn,
-		codec:         websocket.JSON,
-		sendModelUUID: rh.sendModelUUID,
+		conn:  conn,
+		codec: websocket.JSON,
 	}
-	stream.sendInitial(initial)
-
-	rh.stream = stream
-	return (initial == nil)
+	if err := stream.sendInitial(initial); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stream, nil
 }
 
 type apiLogStream struct {
 	conn  *websocket.Conn
 	codec websocket.Codec
-
-	sendModelUUID bool
 }
 
-func (als *apiLogStream) sendInitial(initial error) {
+func (als *apiLogStream) sendInitial(err error) error {
 	// The client is waiting for an indication that the stream
 	// is ready (or that it failed).
 	// See api/apiclient.go:readInitialStreamError().
@@ -208,13 +216,13 @@ func (als *apiLogStream) sendInitial(initial error) {
 			return append(data, '\n'), payloadType, nil
 		},
 	}
-	initialCodec.Send(als.conn, &params.ErrorResult{
-		Error: common.ServerError(initial),
+	return initialCodec.Send(als.conn, &params.ErrorResult{
+		Error: common.ServerError(err),
 	})
 }
 
-func (als *apiLogStream) sendRecord(rec *state.LogRecord) error {
-	apiRec := als.apiFromRec(rec)
+func (als *apiLogStream) sendRecord(rec *state.LogRecord, sendModelUUID bool) error {
+	apiRec := als.apiFromRec(rec, sendModelUUID)
 	if err := als.send(apiRec); err != nil {
 		return errors.Trace(err)
 	}
@@ -225,7 +233,7 @@ func (als *apiLogStream) send(rec params.LogStreamRecord) error {
 	return als.codec.Send(als.conn, rec)
 }
 
-func (als *apiLogStream) apiFromRec(rec *state.LogRecord) params.LogStreamRecord {
+func (als *apiLogStream) apiFromRec(rec *state.LogRecord, sendModelUUID bool) params.LogStreamRecord {
 	apiRec := params.LogStreamRecord{
 		ID:        rec.ID,
 		Version:   rec.Version.String(),
@@ -236,7 +244,7 @@ func (als *apiLogStream) apiFromRec(rec *state.LogRecord) params.LogStreamRecord
 		Level:     rec.Level.String(),
 		Message:   rec.Message,
 	}
-	if als.sendModelUUID {
+	if sendModelUUID {
 		apiRec.ModelUUID = rec.ModelUUID
 	}
 	return apiRec

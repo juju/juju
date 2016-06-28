@@ -114,8 +114,11 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	stop := make(chan struct{})
 	client := newWebsocketServer(c, func(conn *websocket.Conn) {
 		defer conn.Close()
-		initial := error(nil)
-		reqHandler.serveWebsocket(conn, initial, stop)
+		stream, err := initStream(conn, nil)
+		if err != nil {
+			panic(err)
+		}
+		reqHandler.serveWebsocket(conn, stream, stop)
 	})
 	defer client.Close()
 	defer close(stop)

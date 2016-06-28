@@ -36,11 +36,13 @@ func OpenTrackingSink(args TrackingSinkArgs) (*LogSink, error) {
 		return nil, errors.Trace(err)
 	}
 
-	sink.SendCloser = &trackingSender{
-		SendCloser: sink,
-		tracker:    newLastSentTracker(sink.Name, args.Caller),
-	}
-	return sink, nil
+	return &LogSink{
+		&trackingSender{
+			SendCloser: sink,
+			tracker:    newLastSentTracker(sink.Name, args.Caller),
+		},
+		sink.Name,
+	}, nil
 }
 
 type trackingSender struct {
@@ -50,7 +52,7 @@ type trackingSender struct {
 }
 
 // Send implements Sender.
-func (s trackingSender) Send(rec logfwd.Record) error {
+func (s *trackingSender) Send(rec logfwd.Record) error {
 	if err := s.SendCloser.Send(rec); err != nil {
 		return errors.Trace(err)
 	}

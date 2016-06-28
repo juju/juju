@@ -58,5 +58,5 @@ func newOrchestratorForController(args OrchestratorArgs) (*orchestrator, error) 
 		OpenSink:       args.SinkOpeners[0],
 		OpenLogStream:  args.OpenLogStream,
 	})
-	return &orchestrator{lf}, errors.Trace(err)
+	return &orchestrator{lf}, errors.Annotate(err, "opening log forwarder")
 }

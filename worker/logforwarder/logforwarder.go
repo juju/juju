@@ -130,7 +130,7 @@ func (lf *LogForwarder) loop() error {
 		for {
 			rec, err := lf.stream.Next()
 			if err != nil {
-				lf.catacomb.Kill(errors.Trace(err))
+				lf.catacomb.Kill(errors.Annotate(err, "getting next log record"))
 				break
 			}
 
