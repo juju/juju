@@ -43,8 +43,7 @@ sys.stderr.close()
 j = json.load(sys.stdin)
 all_units = []
 for k, v in j.get("applications", {}).items():
-    if v.get("units"):
-        all_units.extend(v["units"].keys())
+    all_units.extend(v.get("units", {}).keys())
 print ("\n".join([unit + trail for unit in all_units]))
 '   < ${cache_fname}
 }
@@ -241,7 +240,6 @@ _get_current_model() {
     if [ -z "${model}" ];then
        model=${JUJU_MODEL:-$(${_juju_cmd_JUJU_2_0?} switch)}
     fi
-    # echo "** comp=$(set|egrep ^COMP) ** model=${model} **">&2
     echo "$model"
 }
 # Generic command cache function: caches cmdline output, called as:
