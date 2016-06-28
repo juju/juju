@@ -27,7 +27,7 @@ _juju_2_0_machines_from_status() {
 ${_juju_cmd_PYTHON?} -c '
 import json, sys
 sys.stderr.close()
-j=json.load(sys.stdin)
+j = json.load(sys.stdin)
 print ("\n".join(j.get("machines", {}).keys()));
 '   < ${cache_fname}
 }
@@ -37,12 +37,12 @@ _juju_2_0_units_from_status() {
     local cache_fname=$(_juju_2_0_juju_status_cache_fname)
     [ -n "${cache_fname}" ] || return 0
 ${_juju_cmd_PYTHON?} -c '
-trail="'${2}'"
+trail = "'${2}'"
 import json, sys
 sys.stderr.close()
-j=json.load(sys.stdin)
-all_units=[]
-for k,v in j.get("applications", {}).items():
+j = json.load(sys.stdin)
+all_units = []
+for k, v in j.get("applications", {}).items():
     if v.get("units"):
         all_units.extend(v["units"].keys())
 print ("\n".join([unit + trail for unit in all_units]))
@@ -56,7 +56,7 @@ _juju_2_0_applications_from_status() {
     ${_juju_cmd_PYTHON?} -c '
 import json, sys
 sys.stderr.close()
-j=json.load(sys.stdin)
+j = json.load(sys.stdin)
 print ("\n".join(j.get("applications", {}).keys()))
 '   < ${cache_fname}
 }
@@ -120,7 +120,8 @@ _juju_2_0_flags_for() {
 _juju_2_0_list_controllers_from_stdin() {
     sed '1s/^$/{}/' |\
     ${_juju_cmd_PYTHON?} -c '
-import json, sys; sys.stderr.close();
+import json, sys
+sys.stderr.close()
 print ("\n".join(
   json.load(sys.stdin).get("controllers", {}).keys())
 )'
@@ -128,7 +129,8 @@ print ("\n".join(
 _juju_2_0_list_models_from_stdin() {
     sed '1s/^$/{}/' |\
     ${_juju_cmd_PYTHON?} -c '
-import json, sys; sys.stderr.close()
+import json, sys
+sys.stderr.close()
 print ("\n".join(
   ["'$1'" + m["name"] for m in json.load(sys.stdin).get("models", {})]
 ))'
