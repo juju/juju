@@ -21,12 +21,7 @@ type CatacombSuite struct {
 	fix *fixture
 }
 
-type RunSafelySuite struct {
-	testing.IsolationSuite
-}
-
 var _ = gc.Suite(&CatacombSuite{})
-var _ = gc.Suite(&RunSafelySuite{})
 
 func (s *CatacombSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
@@ -487,34 +482,4 @@ func checkInvalid(c *gc.C, plan catacomb.Plan, match string) {
 	}
 	check(plan.Validate())
 	check(catacomb.Invoke(plan))
-}
-
-func (s *RunSafelySuite) TestNoError(c *gc.C) {
-	myFunc := func() error {
-		return nil
-	}
-	c.Check(catacomb.RunSafely(myFunc), jc.ErrorIsNil)
-}
-
-func (s *RunSafelySuite) TestWithError(c *gc.C) {
-	err := errors.Errorf("my custom error")
-	myFunc := func() error {
-		return err
-	}
-	c.Check(catacomb.RunSafely(myFunc), gc.Equals, err)
-}
-
-func (s *RunSafelySuite) TestWithPanicString(c *gc.C) {
-	myFunc := func() error {
-		panic("couldn't make it work")
-	}
-	c.Check(catacomb.RunSafely(myFunc), gc.ErrorMatches, "panic resulted in: couldn't make it work")
-}
-
-func (s *RunSafelySuite) TestWithPanicError(c *gc.C) {
-	err := errors.Errorf("my custom error")
-	myFunc := func() error {
-		panic(err)
-	}
-	c.Check(catacomb.RunSafely(myFunc), gc.Equals, err)
 }
