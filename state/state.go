@@ -31,12 +31,14 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/workers"
 	"github.com/juju/juju/status"
@@ -1918,6 +1920,20 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
+}
+
+// PutAuditEntryFn returns a function which will persist
+// audit.AuditEntry instances to the database.
+func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
+	insert := func(collectionName string, docs ...interface{}) error {
+		collection, closeCollection := st.getCollection(collectionName)
+		defer closeCollection()
+
+		writeableCollection := collection.Writeable()
+
+		return errors.Trace(writeableCollection.Insert(docs...))
+	}
+	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
 var tagPrefix = map[byte]string{

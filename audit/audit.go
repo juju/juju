@@ -5,7 +5,6 @@
 package audit
 
 import (
-	"net"
 	"time"
 
 	"github.com/juju/errors"
@@ -24,9 +23,9 @@ type AuditEntry struct {
 	// Timestamp is when the audit entry was generated. It must be
 	// stored with the UTC locale.
 	Timestamp time.Time
-	// OriginIP is the IP of the machine from which the audit-event
-	// was triggered.
-	OriginIP net.IP
+	// RemoteAddress is the IP of the machine from which the
+	// audit-event was triggered.
+	RemoteAddress string
 	// OriginType is the type of entity (e.g. model, user, action)
 	// which triggered the audit event.
 	OriginType string
@@ -58,8 +57,8 @@ func (e AuditEntry) Validate() error {
 	if e.Timestamp.Location() != time.UTC {
 		return errors.NewNotValid(errors.NotValidf("Timestamp"), "must be set to UTC")
 	}
-	if e.OriginIP == nil || e.OriginIP.IsUnspecified() {
-		return errors.NewNotValid(errors.NotAssignedf("OriginIP"), "")
+	if e.RemoteAddress == "" {
+		return errors.NewNotValid(errors.NotAssignedf("RemoteAddress"), "")
 	}
 	if e.OriginType == "" {
 		return errors.NewNotValid(errors.NotAssignedf("OriginType"), "")

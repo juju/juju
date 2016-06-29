@@ -1048,6 +1048,13 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		return nil, err
 	}
 
+	// TODO(katco): We should be doing something more serious than
+	// logging audit errors. Failures in the auditing systems should
+	// stop the api server until the problem can be corrected.
+	auditErrorHandler := func(err error) {
+		logger.Criticalf("%v", err)
+	}
+
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Cert:        cert,
 		Key:         key,
@@ -1056,7 +1063,13 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		LogDir:      logDir,
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
-		NewObserver: newObserverFn(clock.WallClock),
+		NewObserver: newObserverFn(
+			clock.WallClock,
+			jujuversion.Current,
+			agentConfig.Model().String(),
+			st.PutAuditEntryFn(),
+			auditErrorHandler,
+		),
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
@@ -1067,6 +1080,10 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 
 func newObserverFn(
 	clock clock.Clock,
+	jujuServerVersion version.Number,
+	modelUUID string,
+	persistAuditEntry observer.AuditEntrySinkFn,
+	auditErrorHandler observer.ErrorHandler,
 ) observer.ObserverFactory {
 	var connectionID int64
 	return observer.ObserverFactoryMultiplexer(
@@ -1077,6 +1094,14 @@ func newObserverFn(
 				Logger: logger,
 			}
 			return observer.NewRequestNotifier(ctx, atomic.AddInt64(&connectionID, 1))
+		},
+		func() observer.Observer {
+			ctx := &observer.AuditContext{
+				JujuServerVersion: jujuServerVersion,
+				ModelUUID:         modelUUID,
+			}
+			// TODO(katco): Pass in an error channel
+			return observer.NewAudit(ctx, persistAuditEntry, auditErrorHandler)
 		},
 	)
 }
