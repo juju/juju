@@ -140,6 +140,34 @@ func isDeletedUserError(err error) bool {
 	return ok
 }
 
+func (s *UserSuite) TestRemoveUserAllUsers(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "one"})
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "two"})
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "three"})
+
+	all, err := s.State.AllUsers(true)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(all), jc.DeepEquals, 4)
+
+	var got []string
+	for _, u := range all {
+		got = append(got, u.Name())
+	}
+	c.Check(got, jc.SameContents, []string{"test-admin", "one", "two", "three"})
+
+	s.State.RemoveUser(user.UserTag())
+
+	all, err = s.State.AllUsers(true)
+	got = nil
+	for _, u := range all {
+		got = append(got, u.Name())
+	}
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(all), jc.DeepEquals, 3)
+	c.Check(got, jc.SameContents, []string{"test-admin", "two", "three"})
+
+}
+
 func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "should fail"})
 
@@ -195,7 +223,7 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 
 	// Check again to verify the user cannot be retrieved.
 	u, err = s.State.User(user.UserTag())
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.Satisfies, errors.IsUserNotFound)
 }
 
 func (s *UserSuite) TestDisable(c *gc.C) {

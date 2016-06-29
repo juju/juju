@@ -109,7 +109,7 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 	name := strings.ToLower(tag.Name())
 
 	u, err := st.User(tag)
-	if errors.IsNotFound(err) {
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -183,7 +183,9 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 	if user.doc.Deleted {
 		// This error is returned to the apiserver and from there to the api
 		// client. So we don't annotate with information regarding deletion.
-		return nil, errors.NotFoundf("%q", user.Name())
+		// TODO(redir): We'll return a deletedUserError in the future so we can
+		// return more approriate errors, e.g. username not available.
+		return nil, errors.UserNotFoundf("%q", user.Name())
 	}
 	return user, nil
 }
@@ -197,7 +199,14 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 
 	var query bson.D
 	// TODO(redir): Provide option to retrieve deleted users in future PR.
-	query = append(query, bson.DocElem{"deleted", false})
+	// e.g. if !includeDelted.
+	// Ensure the query checks that user -- if it has the deleted attribute --
+	// the value is not true. fwereade wanted to be sure we cannot miss users
+	// that previously existed without the deleted attr. Since this will only
+	// be in 2.0 that should never happen, but... belt and suspenders.
+	query = append(query, bson.D{
+		{"deleted", bson.D{{"$ne", true}}},
+		{"deleted", bson.D{{"$exists", false}}}}...)
 	if !includeDeactivated {
 		query = append(query, bson.DocElem{"deactivated", false})
 	}
@@ -228,7 +237,7 @@ type userDoc struct {
 	Name         string    `bson:"name"`
 	DisplayName  string    `bson:"displayname"`
 	Deactivated  bool      `bson:"deactivated"`
-	Deleted      bool      // Deleted users are marked deleted but not removed
+	Deleted      bool      `bson:"deleted,omitempty"` // Deleted users are marked deleted but not removed.
 	SecretKey    []byte    `bson:"secretkey,omitempty"`
 	PasswordHash string    `bson:"passwordhash"`
 	PasswordSalt string    `bson:"passwordsalt"`
@@ -375,6 +384,8 @@ func (u *User) SetPassword(password string) error {
 // will be cleared.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	if err := u.ensureNotDeleted(); err != nil {
+		// If we do get a late set of the password this is fine b/c we have an
+		// explicit check before login.
 		return errors.Annotate(err, "cannot set password hash")
 	}
 	update := bson.D{{"$set", bson.D{
