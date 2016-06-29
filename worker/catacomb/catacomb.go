@@ -248,7 +248,7 @@ func (err dyingError) Error() string {
 	return fmt.Sprintf("catacomb %p is dying", err.catacomb)
 }
 
-// RunSafely will ensure that the function is run, and any error is returned.
+// runSafely will ensure that the function is run, and any error is returned.
 // If there is a panic, then that will be returned as an error.
 func runSafely(f func() error) (err error) {
 	defer func() {
