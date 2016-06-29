@@ -22,9 +22,9 @@ type RawCert struct {
 	// when connecting.
 	KeyPEM string
 
-	// CACertPEM is the CA cert PEM to use for the client cert. It is
-	// not necessary if the system already has the CA cert for the
-	// config's cert.
+	// CACertPEM is the CA cert PEM to use to validate the server cert.
+	// It is not necessary if the system already has the CA cert that
+	// signed the server's cert.
 	CACertPEM string
 }
 

@@ -51,14 +51,18 @@ func TLSDialFunc(cfg tls.Config, timeout time.Duration) (DialFunc, error) {
 		if network != "tcp" {
 			return nil, errors.Errorf("unsupported network %q", network)
 		}
-		if _, _, err := net.SplitHostPort(address); err == nil {
+		if _, _, err := net.SplitHostPort(address); err != nil {
 			address = net.JoinHostPort(address, defaultSyslogTLSPort)
 		}
-		return tls.DialTCP(tls.DialOpts{
+		conn, err := tls.DialTCP(tls.DialOpts{
 			Address:        address,
 			TLSConfig:      cfg,
 			ConnectTimeout: timeout,
 		})
+		if err != nil {
+			return nil, errors.Annotate(err, "dialing TLS")
+		}
+		return conn, nil
 	}
 	return dial, nil
 }

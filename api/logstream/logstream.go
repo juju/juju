@@ -121,6 +121,7 @@ func (ls *LogStream) Close() error {
 // See the counterpart in apiserver/logstream.go.
 func recordFromAPI(apiRec params.LogStreamRecord, controllerUUID string) (logfwd.Record, error) {
 	rec := logfwd.Record{
+		ID:        apiRec.ID,
 		Timestamp: apiRec.Timestamp,
 		Message:   apiRec.Message,
 	}

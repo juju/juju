@@ -36,17 +36,9 @@ func (ConfigSuite) TestTLSFull(c *gc.C) {
 	cert, err := cfg.Cert()
 	c.Assert(err, jc.ErrorIsNil)
 	serverCAs := x509.NewCertPool()
-	serverCert, err := cfg.ExpectedServerCert()
-	c.Assert(err, jc.ErrorIsNil)
-	serverCert.IsCA = true
-	serverCert.KeyUsage = x509.KeyUsageCertSign
-	serverCAs.AddCert(serverCert)
-	c.Assert(err, jc.ErrorIsNil)
-	clientCAs := x509.NewCertPool()
 	caCert, err := cfg.CACert()
 	c.Assert(err, jc.ErrorIsNil)
-	clientCAs.AddCert(caCert)
-	c.Assert(err, jc.ErrorIsNil)
+	serverCAs.AddCert(caCert)
 
 	tlsConfig, err := cfg.TLS()
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,7 +48,6 @@ func (ConfigSuite) TestTLSFull(c *gc.C) {
 		MinVersion:   secureConfig.MinVersion,
 		ServerName:   "a.b.c",
 		RootCAs:      serverCAs,
-		ClientCAs:    clientCAs,
 		Certificates: []stdtls.Certificate{
 			cert,
 		},
