@@ -57,9 +57,6 @@ var _ = gc.Suite(&serviceSuite{})
 var _ application.Application = (*application.API)(nil)
 
 func (s *serviceSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1596960: Skipping this on windows for now")
-	}
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
@@ -558,6 +555,9 @@ func (s *serviceSuite) TestAddCharmWithAuthorization(c *gc.C) {
 }
 
 func (s *serviceSuite) TestAddCharmConcurrently(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1596960: Skipping this on windows for now")
+	}
 	var putBarrier sync.WaitGroup
 	var blobs blobs
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
