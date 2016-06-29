@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/juju/network"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
@@ -39,7 +39,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	machineId := args.InstanceConfig.MachineId
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = lxdclient.DefaultLXDBridge
+		bridgeDevice = network.DefaultLXDBridge
 	}
 
 	config, err := broker.api.ContainerConfig()
@@ -144,7 +144,7 @@ func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) err
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxdBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = lxdclient.DefaultLXDBridge
+		bridgeDevice = network.DefaultLXDBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.
