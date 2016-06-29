@@ -21,6 +21,8 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -576,11 +578,12 @@ func (s *baseLoginSuite) setupServerForEnvironmentWithValidator(c *gc.C, modelTa
 		s.State,
 		listener,
 		apiserver.ServerConfig{
-			Cert:      []byte(coretesting.ServerCert),
-			Key:       []byte(coretesting.ServerKey),
-			Validator: validator,
-			Tag:       names.NewMachineTag("0"),
-			LogDir:    c.MkDir(),
+			Cert:        []byte(coretesting.ServerCert),
+			Key:         []byte(coretesting.ServerKey),
+			Validator:   validator,
+			Tag:         names.NewMachineTag("0"),
+			LogDir:      c.MkDir(),
+			NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
