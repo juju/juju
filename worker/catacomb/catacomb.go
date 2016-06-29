@@ -112,7 +112,7 @@ func Invoke(plan Plan) (err error) {
 	go func() {
 		defer catacomb.tomb.Done()
 		defer catacomb.wg.Wait()
-		catacomb.Kill(plan.Work())
+		catacomb.Kill(RunSafely(plan.Work))
 	}()
 	return nil
 }
@@ -246,4 +246,22 @@ type dyingError struct {
 // Error is part of the error interface.
 func (err dyingError) Error() string {
 	return fmt.Sprintf("catacomb %p is dying", err.catacomb)
+}
+
+// RunSafely will ensure that the function is run, and any error is returned.
+// If there is a panic, then that will be returned as an error.
+func RunSafely(f func() error) (err error) {
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			var ok bool
+			if err, ok = panicResult.(error); !ok {
+				err = errors.Errorf("panic resulted in: %v", panicResult)
+			}
+		}
+	}()
+	err = f()
+	if err != nil {
+		return err
+	}
+	return nil
 }
