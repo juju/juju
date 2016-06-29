@@ -45,6 +45,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -751,12 +753,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			estate.apiStatePool = state.NewStatePool(st)
 
 			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-				Cert:      []byte(testing.ServerCert),
-				Key:       []byte(testing.ServerKey),
-				Tag:       names.NewMachineTag("0"),
-				DataDir:   DataDir,
-				LogDir:    LogDir,
-				StatePool: estate.apiStatePool,
+				Cert:        []byte(testing.ServerCert),
+				Key:         []byte(testing.ServerKey),
+				Tag:         names.NewMachineTag("0"),
+				DataDir:     DataDir,
+				LogDir:      LogDir,
+				StatePool:   estate.apiStatePool,
+				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 			})
 			if err != nil {
 				panic(err)

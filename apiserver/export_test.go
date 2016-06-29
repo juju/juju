@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -98,7 +99,7 @@ func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state:    srvSt,
 		tag:      names.NewMachineTag("0"),
 	}
-	h, err := newApiHandler(srv, st, nil, nil, st.ModelUUID())
+	h, err := newApiHandler(srv, st, nil, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }
@@ -111,7 +112,7 @@ func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 }
 
 // TestingRestrictedApiHandler returns a restricted srvRoot as if accessed
-// from the root of the API path with a recent (verison > 1) login.
+// from the root of the API path.
 func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
 	return newRestrictedRoot(r)
@@ -119,7 +120,7 @@ func TestingRestrictedApiHandler(st *state.State) rpc.MethodFinder {
 
 type preFacadeAdminApi struct{}
 
-func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newPreFacadeAdminApi(srv *Server, root *apiHandler, observer observer.Observer) interface{} {
 	return &preFacadeAdminApi{}
 }
 
@@ -137,7 +138,7 @@ func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 
 type failAdminApi struct{}
 
-func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newFailAdminApi(srv *Server, root *apiHandler, observer observer.Observer) interface{} {
 	return &failAdminApi{}
 }
 

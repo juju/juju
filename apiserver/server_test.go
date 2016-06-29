@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
@@ -448,10 +450,11 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Cert:   []byte(coretesting.ServerCert),
-		Key:    []byte(coretesting.ServerKey),
-		Tag:    names.NewMachineTag("0"),
-		LogDir: c.MkDir(),
+		Cert:        []byte(coretesting.ServerCert),
+		Key:         []byte(coretesting.ServerKey),
+		Tag:         names.NewMachineTag("0"),
+		LogDir:      c.MkDir(),
+		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv

@@ -27,6 +27,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -172,7 +173,7 @@ func open(
 		return nil, errors.Trace(err)
 	}
 
-	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), nil)
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn), observer.None())
 	client.Start()
 
 	bakeryClient := opts.BakeryClient

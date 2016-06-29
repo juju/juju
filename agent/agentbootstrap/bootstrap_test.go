@@ -142,7 +142,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"name": "hosted",
 		"uuid": hostedModelUUID,
 	}
-	modelConfigDefaults := map[string]interface{}{
+	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
 	}
 
@@ -156,13 +156,13 @@ LXC_BRIDGE="ignored"`[1:])
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 				Regions:   []cloud.Region{{Name: "some-region"}},
 			},
-			ControllerCloudName:   "dummy",
-			ControllerCloudRegion: "some-region",
-			ControllerConfig:      controllerCfg,
-			ControllerModelConfig: modelCfg,
-			ModelConstraints:      expectModelConstraints,
-			LocalCloudConfig:      modelConfigDefaults,
-			HostedModelConfig:     hostedModelConfigAttrs,
+			ControllerCloudName:       "dummy",
+			ControllerCloudRegion:     "some-region",
+			ControllerConfig:          controllerCfg,
+			ControllerModelConfig:     modelCfg,
+			ModelConstraints:          expectModelConstraints,
+			ControllerInheritedConfig: controllerInheritedConfig,
+			HostedModelConfig:         hostedModelConfigAttrs,
 		},
 		BootstrapMachineAddresses: initialAddrs,
 		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},

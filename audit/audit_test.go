@@ -4,7 +4,6 @@
 package audit_test
 
 import (
-	"net"
 	"time"
 
 	"github.com/juju/errors"
@@ -61,20 +60,11 @@ func (s *auditSuite) TestValidate_NonUTCTimestampInvalid(c *gc.C) {
 
 func (s *auditSuite) TestValidate_NilOriginIPErrors(c *gc.C) {
 	invalidEntry := validEntry()
-	invalidEntry.OriginIP = nil
+	invalidEntry.RemoteAddress = ""
 
 	validationErr := invalidEntry.Validate()
 	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
-	c.Check(validationErr, gc.ErrorMatches, "OriginIP not assigned")
-}
-
-func (s *auditSuite) TestValidate_ZeroOriginIPErrors(c *gc.C) {
-	invalidEntry := validEntry()
-	invalidEntry.OriginIP = net.IPv4zero
-
-	validationErr := invalidEntry.Validate()
-	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
-	c.Check(validationErr, gc.ErrorMatches, "OriginIP not assigned")
+	c.Check(validationErr, gc.ErrorMatches, "RemoteAddress not assigned")
 }
 
 func (s *auditSuite) TestValidate_EmptyOriginTypeErrors(c *gc.C) {
@@ -118,7 +108,7 @@ func validEntry() audit.AuditEntry {
 		JujuServerVersion: version.MustParse("1.0.0"),
 		ModelUUID:         utils.MustNewUUID().String(),
 		Timestamp:         time.Now().UTC(),
-		OriginIP:          net.IPv4(8, 8, 8, 8),
+		RemoteAddress:     "8.8.8.8",
 		OriginType:        ".",
 		OriginName:        ".",
 		Operation:         ".",

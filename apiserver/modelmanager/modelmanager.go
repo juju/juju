@@ -155,6 +155,11 @@ func (mm *ModelManagerAPI) newModelConfig(
 // model config specified in the args.
 func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
+	// TODO(perrito666) this check should be part of the authCheck, without this check
+	// any user in the controller may create models.
+	if !mm.isAdmin {
+		return result, errors.Trace(common.ErrPerm)
+	}
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
 	controllerModel, err := mm.state.ControllerModel()
@@ -452,6 +457,8 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 func resolveStateAccess(access permission.ModelAccess) (state.Access, error) {
 	var fail state.Access
 	switch access {
+	case permission.ModelAdminAccess:
+		return state.AdminAccess, nil
 	case permission.ModelReadAccess:
 		return state.ReadAccess, nil
 	case permission.ModelWriteAccess:

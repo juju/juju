@@ -87,9 +87,9 @@ type BootstrapParams struct {
 	// to a controller.
 	ControllerConfig controller.Config
 
-	// LocalCloudConfig is the set of config attributes to be shared
+	// ControllerInheritedConfig is the set of config attributes to be shared
 	// across all models in the same controller on the bootstrap cloud.
-	LocalCloudConfig map[string]interface{}
+	ControllerInheritedConfig map[string]interface{}
 
 	// HostedModelConfig is the set of config attributes to be overlaid
 	// on the controller config to construct the initial hosted model
@@ -300,7 +300,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	instanceConfig.Bootstrap.ControllerCloudCredential = args.CloudCredential
 	instanceConfig.Bootstrap.ControllerCloudCredentialName = args.CloudCredentialName
 	instanceConfig.Bootstrap.ControllerConfig = args.ControllerConfig
-	instanceConfig.Bootstrap.LocalCloudConfig = args.LocalCloudConfig
+	instanceConfig.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
 	instanceConfig.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	instanceConfig.Bootstrap.GUI = guiArchive(args.GUIDataSourceBaseURL, func(msg string) {
 		ctx.Infof(msg)

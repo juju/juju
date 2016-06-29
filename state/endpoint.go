@@ -30,6 +30,9 @@ func counterpartRole(r charm.RelationRole) charm.RelationRole {
 // Endpoint represents one endpoint of a relation.
 type Endpoint struct {
 	ApplicationName string
+	// TODO: thumper 2016-06-27
+	// This is pure evil and we should not be storing structures from
+	// external packages directly in mongo.
 	charm.Relation
 }
 

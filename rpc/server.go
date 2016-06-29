@@ -7,7 +7,6 @@ import (
 	"io"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -62,6 +61,9 @@ type Header struct {
 
 	// ErrorCode holds the code of the error, if any.
 	ErrorCode string
+
+	// Version defines the wire format of the request and response structure.
+	Version int
 }
 
 // Request represents an RPC to be performed, absent its parameters.
@@ -168,22 +170,7 @@ type RequestNotifier interface {
 	// body sent as reply.
 	//
 	// ServerReply is called just before the reply is written.
-	ServerReply(req Request, hdr *Header, body interface{}, timeSpent time.Duration)
-
-	// ClientRequest informs the RequestNotifier of a request
-	// made from the Conn. It is called just before the request is
-	// written.
-	ClientRequest(hdr *Header, body interface{})
-
-	// ClientReply informs the RequestNotifier of a reply received
-	// to a request. If the reply was to an unrecognised request,
-	// the Request will be zero-valued. If the reply contained an
-	// error, body will be nil; otherwise body will be the value that
-	// was passed to the Conn.Call method.
-	//
-	// ClientReply is called just before the reply is handed to
-	// back to the caller.
-	ClientReply(req Request, hdr *Header, body interface{})
+	ServerReply(req Request, hdr *Header, body interface{})
 }
 
 // NewConn creates a new connection that uses the given codec for
@@ -191,23 +178,12 @@ type RequestNotifier interface {
 // any requests are sent or received. If notifier is non-nil, the
 // appropriate method will be called for every RPC request.
 func NewConn(codec Codec, notifier RequestNotifier) *Conn {
-	if notifier == nil {
-		notifier = new(dummyNotifier)
-	}
 	return &Conn{
 		codec:         codec,
 		clientPending: make(map[uint64]*Call),
 		notifier:      notifier,
 	}
 }
-
-// dummyNotifier is used when no notifier is provided to NewConn.
-type dummyNotifier struct{}
-
-func (*dummyNotifier) ServerRequest(*Header, interface{})                       {}
-func (*dummyNotifier) ServerReply(Request, *Header, interface{}, time.Duration) {}
-func (*dummyNotifier) ClientRequest(*Header, interface{})                       {}
-func (*dummyNotifier) ClientReply(Request, *Header, interface{})                {}
 
 // Start starts the RPC connection running.  It must be called at least
 // once for any RPC connection (client or server side) It has no effect
@@ -442,8 +418,6 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	startTime := time.Now()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
 		conn.notifier.ServerRequest(hdr, nil)
@@ -452,7 +426,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		return conn.writeErrorResponse(hdr, err, startTime)
+		return conn.writeErrorResponse(hdr, err)
 	}
 	var argp interface{}
 	var arg reflect.Value
@@ -463,6 +437,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	if err := conn.readBody(argp, true); err != nil {
 		conn.notifier.ServerRequest(hdr, nil)
+
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -476,7 +451,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
+		return conn.writeErrorResponse(hdr, req.transformErrors(err))
 	}
 	if req.ParamsType() != nil {
 		conn.notifier.ServerRequest(hdr, arg.Interface())
@@ -487,21 +462,22 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, startTime)
+		go conn.runRequest(req, arg, hdr.Version)
 	}
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), startTime)
+		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown))
 	}
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.Time) error {
+func (conn *Conn) writeErrorResponse(reqHdr *Header, err error) error {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	hdr := &Header{
 		RequestId: reqHdr.RequestId,
+		Version:   reqHdr.Version,
 	}
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
@@ -509,7 +485,8 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, startTime time.T
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{}, time.Since(startTime))
+	conn.notifier.ServerReply(reqHdr.Request, hdr, struct{}{})
+
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
 
@@ -553,14 +530,15 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time.Time) {
+func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int) {
 	defer conn.srvPending.Done()
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), startTime)
+		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err))
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
+			Version:   version,
 		}
 		var rvi interface{}
 		if rv.IsValid() {
@@ -568,7 +546,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, startTime time
 		} else {
 			rvi = struct{}{}
 		}
-		conn.notifier.ServerReply(req.hdr.Request, hdr, rvi, time.Since(startTime))
+		conn.notifier.ServerReply(req.hdr.Request, hdr, rvi)
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
 		conn.sending.Unlock()

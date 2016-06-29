@@ -601,10 +601,10 @@ to clean up the model.`[1:])
 
 	// Based on the attribute names in clouds.yaml, create
 	// a map of shared config for all models on this cloud.
-	localCloudAttrs := make(map[string]interface{})
+	inheritedControllerAttrs := make(map[string]interface{})
 	for k := range cloud.Config {
 		if v, ok := controllerModelConfigAttrs[k]; ok {
-			localCloudAttrs[k] = v
+			inheritedControllerAttrs[k] = v
 		}
 	}
 
@@ -616,24 +616,24 @@ to clean up the model.`[1:])
 	}
 
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		ModelConstraints:     c.Constraints,
-		BootstrapConstraints: bootstrapConstraints,
-		BootstrapSeries:      c.BootstrapSeries,
-		BootstrapImage:       c.BootstrapImage,
-		Placement:            c.Placement,
-		UploadTools:          c.UploadTools,
-		BuildToolsTarball:    sync.BuildToolsTarball,
-		AgentVersion:         c.AgentVersion,
-		MetadataDir:          metadataDir,
-		Cloud:                *cloud,
-		CloudName:            c.Cloud,
-		CloudRegion:          region.Name,
-		CloudCredential:      credential,
-		CloudCredentialName:  credentialName,
-		ControllerConfig:     controllerConfig,
-		LocalCloudConfig:     localCloudAttrs,
-		HostedModelConfig:    hostedModelConfig,
-		GUIDataSourceBaseURL: guiDataSourceBaseURL,
+		ModelConstraints:          c.Constraints,
+		BootstrapConstraints:      bootstrapConstraints,
+		BootstrapSeries:           c.BootstrapSeries,
+		BootstrapImage:            c.BootstrapImage,
+		Placement:                 c.Placement,
+		UploadTools:               c.UploadTools,
+		BuildToolsTarball:         sync.BuildToolsTarball,
+		AgentVersion:              c.AgentVersion,
+		MetadataDir:               metadataDir,
+		Cloud:                     *cloud,
+		CloudName:                 c.Cloud,
+		CloudRegion:               region.Name,
+		CloudCredential:           credential,
+		CloudCredentialName:       credentialName,
+		ControllerConfig:          controllerConfig,
+		ControllerInheritedConfig: inheritedControllerAttrs,
+		HostedModelConfig:         hostedModelConfig,
+		GUIDataSourceBaseURL:      guiDataSourceBaseURL,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")

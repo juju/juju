@@ -189,11 +189,11 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	)
 }
 
-func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
+func (s *InitializeSuite) TestInitializeWithControllerinheritedconfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	uuid := cfg.UUID()
 	initial := cfg.AllAttrs()
-	modelConfigDefaultsIn := map[string]interface{}{
+	controllerInheritedConfigIn := map[string]interface{}{
 		"default-series": initial["default-series"],
 	}
 	owner := names.NewLocalUserTag("initialize-admin")
@@ -212,9 +212,9 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		LocalCloudConfig: modelConfigDefaultsIn,
-		MongoInfo:        statetesting.NewMongoInfo(),
-		MongoDialOpts:    mongotest.DialOpts(),
+		ControllerInheritedConfig: controllerInheritedConfigIn,
+		MongoInfo:                 statetesting.NewMongoInfo(),
+		MongoDialOpts:             mongotest.DialOpts(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
@@ -225,9 +225,9 @@ func (s *InitializeSuite) TestInitializeWithModelConfigDefaults(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	localCloudConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.CloudGlobalKey("dummy"))
+	ControllerInheritedConfig, err := state.ReadSettings(s.State, state.GlobalSettingsC, state.ControllerInheritedSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(localCloudConfig.Map(), jc.DeepEquals, modelConfigDefaultsIn)
+	c.Assert(ControllerInheritedConfig.Map(), jc.DeepEquals, controllerInheritedConfigIn)
 
 	cfg, err = s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -391,7 +391,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 
 	for _, badAttrName := range badAttrNames {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
-		args.LocalCloudConfig = badAttrs
+		args.ControllerInheritedConfig = badAttrs
 		_, err := state.Initialize(args)
 		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}

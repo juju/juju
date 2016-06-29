@@ -125,9 +125,9 @@ type InitializeParams struct {
 	// the controller.
 	ControllerConfig controller.Config
 
-	// LocalCloudConfig contains default config attributes for
+	// ControllerInheritedConfig contains default config attributes for
 	// models on the specified cloud.
-	LocalCloudConfig map[string]interface{}
+	ControllerInheritedConfig map[string]interface{}
 
 	// Policy is the set of state policies to apply.
 	Policy Policy
@@ -217,7 +217,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 
 	logger.Infof("initializing controller model %s", modelTag.Id())
 
-	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.LocalCloudConfig)
+	modelOps, err := st.modelSetupOps(args.ControllerModelArgs, args.ControllerInheritedConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -257,7 +257,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 			Insert: &hostedModelCountDoc{},
 		},
 		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
-		createSettingsOp(globalSettingsC, cloudGlobalKey(args.CloudName), args.LocalCloudConfig),
+		createSettingsOp(globalSettingsC, controllerInheritedSettingsGlobalKey, args.ControllerInheritedConfig),
 	}
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
@@ -277,8 +277,8 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 }
 
 // modelSetupOps returns the transactions necessary to set up a model.
-func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]interface{}) ([]txn.Op, error) {
-	if err := checkLocalCloudConfigDefaults(localCloudConfig); err != nil {
+func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[string]interface{}) ([]txn.Op, error) {
+	if err := checkControllerInheritedConfig(ControllerInheritedConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := checkModelConfig(args.Config); err != nil {
@@ -313,15 +313,15 @@ func (st *State) modelSetupOps(args ModelArgs, localCloudConfig map[string]inter
 	}
 
 	// Create the final map of config attributes for the model.
-	// If we have localCloudConfig passed in, that means state
+	// If we have ControllerInheritedConfig passed in, that means state
 	// is being initialised and there won't be any config sources
 	// in state.
 	var configSources []modelConfigSource
-	if len(localCloudConfig) > 0 {
+	if len(ControllerInheritedConfig) > 0 {
 		configSources = []modelConfigSource{{
 			name: config.JujuControllerSource,
 			sourceFunc: modelConfigSourceFunc(func() (map[string]interface{}, error) {
-				return localCloudConfig, nil
+				return ControllerInheritedConfig, nil
 			})}}
 	} else {
 		configSources = modelConfigSources(st)

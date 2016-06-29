@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -14,12 +15,12 @@ type adminApiV3 struct {
 	*admin
 }
 
-func newAdminApiV3(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newAdminApiV3(srv *Server, root *apiHandler, apiObserver observer.Observer) interface{} {
 	return &adminApiV3{
 		&admin{
 			srv:         srv,
 			root:        root,
-			reqNotifier: reqNotifier,
+			apiObserver: apiObserver,
 		},
 	}
 }
