@@ -20,7 +20,7 @@ import (
 const showModelCommandDoc = `Show information about the current or specified model`
 
 func NewShowCommand() cmd.Command {
-	return modelcmd.Wrap(&showModelCommand{})
+	return modelcmd.Wrap(&showModelCommand{}, modelcmd.ModelSkipFlags)
 }
 
 // showModelCommand shows all the users with access to the current model.
@@ -52,6 +52,7 @@ func (c *showModelCommand) getAPI() (ShowModelAPI, error) {
 func (c *showModelCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-model",
+		Args:    "<model name>",
 		Purpose: "Shows information about the current or specified model.",
 		Doc:     showModelCommandDoc,
 	}
@@ -63,6 +64,25 @@ func (c *showModelCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
+}
+
+// Init implements Command.Init.
+func (c *showModelCommand) Init(args []string) error {
+	if len(args) > 0 {
+		c.SetModelName(args[0])
+		args = args[1:]
+	}
+	if err := c.ModelCommandBase.Init(args); err != nil {
+		return err
+	}
+	if c.ModelName() == "" {
+		defaultModel, err := modelcmd.GetCurrentModel(c.ClientStore())
+		if err != nil {
+			return err
+		}
+		c.SetModelName(defaultModel)
+	}
+	return nil
 }
 
 // Run implements Command.Run.
