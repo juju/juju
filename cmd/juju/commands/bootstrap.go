@@ -364,6 +364,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// Get the credentials and region name.
 	store := c.ClientStore()
+	var detectedCredentialName string
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
 		store, c.Region, c.CredentialName, c.Cloud, cloud.Type,
 	)
@@ -380,14 +381,18 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		// We have one credential so extract it from the map.
 		var oneCredential jujucloud.Credential
-		for _, oneCredential = range detected.AuthCredentials {
+		for detectedCredentialName, oneCredential = range detected.AuthCredentials {
 		}
 		credential = &oneCredential
 		regionName = c.Region
 		if regionName == "" {
 			regionName = detected.DefaultRegion
 		}
-		logger.Tracef("authenticating with region %q and %v", regionName, credential)
+		logger.Debugf(
+			"authenticating with region %q and credential %q (%v)",
+			regionName, detectedCredentialName, credential.Label,
+		)
+		logger.Tracef("credential: %v", credential)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -613,6 +618,13 @@ to clean up the model.`[1:])
 	var guiDataSourceBaseURL string
 	if !c.noGUI {
 		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
+	}
+
+	if credentialName == "" {
+		// credentialName will be empty if the credential was detected.
+		// We must supply a name for the credential in the database,
+		// so choose one.
+		credentialName = detectedCredentialName
 	}
 
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
