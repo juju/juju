@@ -180,9 +180,18 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
+	s.testCreateModelDefaultCredentialAdmin(c, "user-admin@local")
+}
+
+func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdminNoDomain(c *gc.C) {
+	s.testCreateModelDefaultCredentialAdmin(c, "user-admin")
+}
+
+func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, ownerTag string) {
+	s.st.cloud.AuthTypes = []cloud.AuthType{"userpass"}
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-admin@local",
+		OwnerTag: ownerTag,
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
