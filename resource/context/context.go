@@ -21,7 +21,7 @@ import (
 var logger = loggo.GetLogger("juju.resource.context")
 
 // HookContextFacade is the name of the API facade for resources in the uniter.
-const HookContextFacade = resource.ComponentName + "-hook-context"
+const HookContextFacade = "ResourcesHookContext"
 
 // APIClient exposes the uniter API functionality needed for resources.
 type APIClient interface {
