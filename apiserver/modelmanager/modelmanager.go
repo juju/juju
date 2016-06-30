@@ -182,7 +182,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 
 	cloudCredentialName := args.CloudCredential
 	if cloudCredentialName == "" {
-		if ownerTag == controllerModel.Owner() {
+		if ownerTag.Canonical() == controllerModel.Owner().Canonical() {
 			cloudCredentialName = controllerModel.CloudCredential()
 		} else {
 			// TODO(axw) check if the user has one and only one
