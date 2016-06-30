@@ -12,6 +12,10 @@ import (
 	"github.com/juju/version"
 )
 
+// AuditEntrySinkFn defines a function which will send an
+// AuditEntry to a backing store and return an error upon failure.
+type AuditEntrySinkFn func(AuditEntry) error
+
 // AuditEntry represents an auditted event.
 type AuditEntry struct {
 	// JujuServerVersion is the version of the jujud that recorded
