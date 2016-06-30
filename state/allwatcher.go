@@ -144,11 +144,20 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
-		Addresses:                network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses)),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,
 		HasVote:                  m.HasVote,
 		WantsVote:                wantsVote(m.Jobs, m.NoVote),
+	}
+	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
+	for _, addr := range addresses {
+		info.Addresses = append(info.Addresses, multiwatcher.Address{
+			Value:           addr.Value,
+			Type:            string(addr.Type),
+			Scope:           string(addr.Scope),
+			SpaceName:       string(addr.SpaceName),
+			SpaceProviderId: string(addr.SpaceProviderId),
+		})
 	}
 
 	oldInfo := store.Get(info.EntityId())

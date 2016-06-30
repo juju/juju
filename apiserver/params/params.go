@@ -105,16 +105,6 @@ type AddRelation struct {
 	Endpoints []string `json:"endpoints"`
 }
 
-// CharmRelation is a mirror struct for charm.Relation.
-type CharmRelation struct {
-	Name      string `json:"name"`
-	Role      string `json:"role"`
-	Interface string `json:"interface"`
-	Optional  bool   `json:"optional"`
-	Limit     int    `json:"limit"`
-	Scope     string `json:"scope"`
-}
-
 // AddRelationResults holds the results of a AddRelation call. The Endpoints
 // field maps application names to the involved endpoints.
 type AddRelationResults struct {

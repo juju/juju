@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	apiannotations "github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
@@ -119,6 +120,10 @@ func deployBundle(
 		return nil, errors.Annotate(err, "cannot get annotations client")
 	}
 
+	charmsClient, err := serviceDeployer.newCharmsAPIClient()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get charms client")
+	}
 	// Instantiate the bundle handler.
 	h := &bundleHandler{
 		bundleDir:         bundleFilePath,
@@ -128,6 +133,7 @@ func deployBundle(
 		client:            client,
 		serviceClient:     serviceClient,
 		annotationsClient: annotationsClient,
+		charmsClient:      charmsClient,
 		serviceDeployer:   serviceDeployer,
 		bundleStorage:     bundleStorage,
 		resolver:          resolver,
@@ -207,6 +213,9 @@ type bundleHandler struct {
 
 	// client is used to interact with the environment.
 	client *api.Client
+
+	// charmsClient is used to get charm information.
+	charmsClient *charms.Client
 
 	// serviceClient is used to interact with services.
 	serviceClient *application.Client
@@ -347,7 +356,7 @@ func (h *bundleHandler) addService(id string, p bundlechanges.AddApplicationPara
 	for resName, revision := range p.Resources {
 		resources[resName] = fmt.Sprint(revision)
 	}
-	charmInfo, err := h.client.CharmInfo(ch)
+	charmInfo, err := h.charmsClient.CharmInfo(ch)
 	if err != nil {
 		return err
 	}

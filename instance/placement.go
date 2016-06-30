@@ -26,13 +26,13 @@ type Placement struct {
 	// an environment name.
 	//
 	// If Scope is empty, then it must be inferred from the context.
-	Scope string
+	Scope string `json:"scope"`
 
 	// Directive is a scope-specific placement directive.
 	//
 	// For MachineScope or a container scope, this may be empty or
 	// the ID of an existing machine.
-	Directive string
+	Directive string `json:"directive"`
 }
 
 func (p *Placement) String() string {

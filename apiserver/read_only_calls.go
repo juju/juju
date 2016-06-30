@@ -28,7 +28,6 @@ var readOnlyCalls = set.NewStrings(
 	"Charms.List",
 	"Client.AgentVersion",
 	"Client.APIHostPorts",
-	"Client.CharmInfo",
 	"Client.ModelGet",
 	"Client.ModelInfo",
 	"Client.ModelUserInfo",
