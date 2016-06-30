@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
 
@@ -110,6 +109,15 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(elements[2], &d.Entity)
 }
 
+// Address describes a network address.
+type Address struct {
+	Value           string `json:"value"`
+	Type            string `json:"type"`
+	Scope           string `json:"scope"`
+	SpaceName       string `json:"space-name,omitempty"`
+	SpaceProviderId string `json:"space-provider-id,omitempty"`
+}
+
 // MachineInfo holds the information about a machine
 // that is tracked by multiwatcherStore.
 type MachineInfo struct {
@@ -124,7 +132,7 @@ type MachineInfo struct {
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:"hardware-characteristics,omitempty"`
 	Jobs                     []MachineJob                      `json:"jobs"`
-	Addresses                []network.Address                 `json:"addresses"`
+	Addresses                []Address                         `json:"addresses"`
 	HasVote                  bool                              `json:"has-vote"`
 	WantsVote                bool                              `json:"wants-vote"`
 }

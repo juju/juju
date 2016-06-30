@@ -8,10 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -315,26 +313,6 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	}
 
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
-}
-
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	charm, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	info := api.CharmInfo{
-		Revision: charm.Revision(),
-		URL:      curl.String(),
-		Config:   charm.Config(),
-		Meta:     charm.Meta(),
-		Actions:  charm.Actions(),
-	}
-	return info, nil
 }
 
 // ModelInfo returns information about the current model (default
