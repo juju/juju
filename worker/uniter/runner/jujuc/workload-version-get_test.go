@@ -4,6 +4,10 @@
 package jujuc_test
 
 import (
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -45,6 +49,43 @@ func (s *WorkloadVersionGetSuite) TestWorkloadVersionGetNoArguments(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "beastmaster\n")
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+}
+
+func (s *WorkloadVersionGetSuite) TestWorkloadVersionGetFormatJson(c *gc.C) {
+	com := s.createCommand(c, "misere", nil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"--format", "json"})
+	c.Check(code, gc.Equals, 0)
+	c.Check(bufferString(ctx.Stdout), gc.Equals, "\"misere\"\n")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+}
+
+func (s *WorkloadVersionGetSuite) TestWorkloadVersionGetFormatYaml(c *gc.C) {
+	com := s.createCommand(c, "notrumps", nil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"--format", "yaml"})
+	c.Check(code, gc.Equals, 0)
+	c.Check(bufferString(ctx.Stdout), gc.Equals, "notrumps\n")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+}
+
+func (s *WorkloadVersionGetSuite) TestWorkloadVersionGetOutputFile(c *gc.C) {
+	destFile, err := ioutil.TempFile("", "TestWorkloadVersionGetOutputFile")
+	c.Assert(err, jc.ErrorIsNil)
+	err = destFile.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	fileName := destFile.Name()
+	defer os.Remove(fileName)
+
+	com := s.createCommand(c, "clubs", nil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"--output", fileName})
+	c.Check(code, gc.Equals, 0)
+	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+
+	fileContents, err := ioutil.ReadFile(fileName)
+	c.Check(strings.TrimRight(string(fileContents), "\r\n"), gc.Equals, "clubs")
 }
 
 func (s *WorkloadVersionGetSuite) TestWorkloadVersionGetError(c *gc.C) {

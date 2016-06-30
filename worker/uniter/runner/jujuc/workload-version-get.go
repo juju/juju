@@ -9,21 +9,21 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-// WorkloadVersionGetCommand implements the workload-version-get command.
-type WorkloadVersionGetCommand struct {
+type workloadVersionGetCommand struct {
 	cmd.CommandBase
 	ctx Context
 
 	out cmd.Output
 }
 
+// NewWorkloadVersionGetCommand creates a workload-version-get command.
 func NewWorkloadVersionGetCommand(ctx Context) (cmd.Command, error) {
-	cmd := &WorkloadVersionGetCommand{ctx: ctx}
+	cmd := &workloadVersionGetCommand{ctx: ctx}
 	return cmd, nil
 }
 
 // Info is part of the cmd.Command interface.
-func (c *WorkloadVersionGetCommand) Info() *cmd.Info {
+func (c *workloadVersionGetCommand) Info() *cmd.Info {
 	doc := `
 workload-version-get returns the currently-set workload version for
 this unit. It takes no arguments.
@@ -37,17 +37,13 @@ this unit. It takes no arguments.
 }
 
 // SetFlags is part of the cmd.Command interface.
-func (c *WorkloadVersionGetCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *workloadVersionGetCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
-// Init is part of the cmd.Command interface.
-func (c *WorkloadVersionGetCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
-}
-
 // Run is part of the cmd.Command interface.
-func (c *WorkloadVersionGetCommand) Run(ctx *cmd.Context) error {
+func (c *workloadVersionGetCommand) Run(ctx *cmd.Context) error {
 	version, err := c.ctx.UnitWorkloadVersion()
 	if err != nil {
 		return errors.Trace(err)
