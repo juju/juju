@@ -13,22 +13,22 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type WorkloadVersionSetSuite struct {
+type ApplicationVersionSetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&WorkloadVersionSetSuite{})
+var _ = gc.Suite(&ApplicationVersionSetSuite{})
 
-func (s *WorkloadVersionSetSuite) createCommand(c *gc.C, err error) (*Context, cmd.Command) {
+func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*Context, cmd.Command) {
 	hctx := s.GetHookContext(c, -1, "")
 	s.Stub.SetErrors(err)
 
-	com, err := jujuc.NewCommand(hctx, cmdString("workload-version-set"))
+	com, err := jujuc.NewCommand(hctx, cmdString("application-version-set"))
 	c.Assert(err, jc.ErrorIsNil)
 	return hctx, com
 }
 
-func (s *WorkloadVersionSetSuite) TestWorkloadVersionSetNoArguments(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestApplicationVersionSetNoArguments(c *gc.C) {
 	hctx, com := s.createCommand(c, nil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, nil)
@@ -38,7 +38,7 @@ func (s *WorkloadVersionSetSuite) TestWorkloadVersionSetNoArguments(c *gc.C) {
 	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
 
-func (s *WorkloadVersionSetSuite) TestWorkloadVersionSetWithArguments(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestApplicationVersionSetWithArguments(c *gc.C) {
 	hctx, com := s.createCommand(c, nil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"dia de los muertos"})
@@ -48,7 +48,7 @@ func (s *WorkloadVersionSetSuite) TestWorkloadVersionSetWithArguments(c *gc.C) {
 	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "dia de los muertos")
 }
 
-func (s *WorkloadVersionSetSuite) TestWorkloadVersionSetError(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *gc.C) {
 	hctx, com := s.createCommand(c, errors.New("uh oh spaghettio"))
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"cannae"})
@@ -58,17 +58,21 @@ func (s *WorkloadVersionSetSuite) TestWorkloadVersionSetError(c *gc.C) {
 	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
 
-func (s *WorkloadVersionSetSuite) TestHelp(c *gc.C) {
+func (s *ApplicationVersionSetSuite) TestHelp(c *gc.C) {
 
 	var helpTemplate = `
-Usage: workload-version-set <new-version>
+Usage: application-version-set <new-version>
 
 Summary:
-set workload version
+specify which version of the application is deployed
 
 Details:
-workload-version-set updates the workload version for the current unit
-to the value passed to the command.
+application-version-set tells Juju which version of the application
+software is running. This could be a package version number or some
+other useful identifier, such as a Git hash, that indicates the
+version of the deployed software. (It shouldn't be confused with the
+charm revision.) The version set will be displayed in "juju status"
+output for the application.
 `[1:]
 
 	_, com := s.createCommand(c, nil)
