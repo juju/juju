@@ -6,6 +6,7 @@ package action
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/juju/cmd"
@@ -122,8 +123,9 @@ func (c *listCommand) printTabular(ctx *cmd.Context, actions map[string]string, 
 		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+	fmt.Fprintf(tw, "%s\t%s\n", "ACTION", "DESCRIPTION")
 	for _, name := range sortedNames {
-		fmt.Fprintf(tw, "%s\t%s\n", name, actions[name])
+		fmt.Fprintf(tw, "%s\t%s\n", name, strings.TrimSpace(actions[name]))
 	}
 	tw.Flush()
 	return c.out.Write(ctx, string(out.Bytes()))

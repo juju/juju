@@ -92,7 +92,7 @@ var someCharmActions = map[string]params.ActionSpec{
 		},
 	},
 	"no-params": {
-		Description: "An action with no parameters.",
+		Description: "An action with no parameters.\n",
 	},
 }
 
