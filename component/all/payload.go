@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/commands"
@@ -37,9 +36,7 @@ type payloads struct{}
 func (c payloads) registerForServer() error {
 	c.registerState()
 	c.registerPublicFacade()
-
 	c.registerHookContext()
-
 	return nil
 }
 
@@ -61,13 +58,13 @@ func (c payloads) registerPublicFacade() {
 		return
 	}
 
+	// NOTE: facade is also defined in api/facadeversions.go.
 	const version = 1
 	common.RegisterStandardFacade(
 		facadeName,
 		version,
 		c.newPublicFacade,
 	)
-	api.RegisterFacadeVersion(facadeName, version)
 }
 
 type facadeCaller struct {
@@ -145,7 +142,6 @@ func (c payloads) registerHookContextFacade() {
 		c.newHookContextFacade,
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
-	api.RegisterFacadeVersion(payloadsHookContextFacade, version)
 }
 
 type payloadsHookContext struct {
