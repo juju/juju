@@ -3372,31 +3372,31 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE  
-controller  kontroll    dummy  1.2.3    1.2.4              
+MODEL       CONTROLLER  CLOUD  VERSION  UPGRADE-AVAILABLE
+controller  kontroll    dummy  1.2.3    1.2.4
 
-APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS      
-logging                 true     jujucharms  logging    1    ubuntu  
-mysql      maintenance  true     jujucharms  mysql      1    ubuntu  
-wordpress  active       true     jujucharms  wordpress  3    ubuntu  
+APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
+logging                 true     jujucharms  logging    1    ubuntu
+mysql      maintenance  true     jujucharms  mysql      1    ubuntu
+wordpress  active       true     jujucharms  wordpress  3    ubuntu
 
-RELATION           PROVIDES   CONSUMES   TYPE         
-juju-info          logging    mysql      regular      
-logging-dir        logging    wordpress  regular      
-info               mysql      logging    subordinate  
-db                 mysql      wordpress  regular      
-logging-directory  wordpress  logging    subordinate  
+RELATION           PROVIDES   CONSUMES   TYPE
+juju-info          logging    mysql      regular
+logging-dir        logging    wordpress  regular
+info               mysql      logging    subordinate
+db                 mysql      wordpress  regular
+logging-directory  wordpress  logging    subordinate
 
-UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE                         
-mysql/0      maintenance  idle   2               controller-2.dns  installing all the things       
-  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs  
-wordpress/0  active       idle   1               controller-1.dns                                  
-  logging/0  active       idle                   controller-1.dns                                  
+UNIT         WORKLOAD     AGENT  MACHINE  PORTS  PUBLIC-ADDRESS    MESSAGE
+mysql/0      maintenance  idle   2               controller-2.dns  installing all the things
+  logging/1  error        idle                   controller-2.dns  somehow lost in all those logs
+wordpress/0  active       idle   1               controller-1.dns  
+  logging/0  active       idle                   controller-1.dns  
 
-MACHINE  STATE    DNS               INS-ID        SERIES   AZ          
-0        started  controller-0.dns  controller-0  quantal  us-east-1a  
-1        started  controller-1.dns  controller-1  quantal              
-2        started  controller-2.dns  controller-2  quantal              
+MACHINE  STATE    DNS               INS-ID        SERIES   AZ
+0        started  controller-0.dns  controller-0  quantal  us-east-1a
+1        started  controller-1.dns  controller-1  quantal  
+2        started  controller-2.dns  controller-2  quantal  
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
@@ -3438,17 +3438,17 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION  
-                                   
+MODEL  CONTROLLER  CLOUD  VERSION
+                          
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
-foo          false                   0        
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo          false                   0    
 
-UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE                            
-foo/0  maintenance  executing                                  (config-changed) doing some work   
-foo/1  maintenance  executing                                  (backup database) doing some work  
+UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+foo/0  maintenance  executing                                  (config-changed) doing some work
+foo/1  maintenance  executing                                  (backup database) doing some work
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 `[1:])
 }
 
@@ -3504,21 +3504,21 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD  VERSION  
-                                   
+MODEL  CONTROLLER  CLOUD  VERSION
+                          
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS  
-foo          false                   0        
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo          false                   0    
 
-UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE  
-foo/0                                                            
-foo/1                                                            
+UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+foo/0                                                   
+foo/1                                                   
 
-METER  STATUS   MESSAGE                      
-foo/0  strange  warning: stable strangelets  
-foo/1  up       things are looking up        
+METER  STATUS   MESSAGE
+foo/0  strange  warning: stable strangelets
+foo/1  up       things are looking up
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ  
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 `[1:])
 }
 
