@@ -27,9 +27,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-const facadeName = "Payloads"
-
-const payloadsHookContextFacade = facadeName + "HookContext"
+const payloadsHookContextFacade = "PayloadsHookContext"
 
 type payloads struct{}
 
@@ -61,7 +59,7 @@ func (c payloads) registerPublicFacade() {
 	// NOTE: facade is also defined in api/facadeversions.go.
 	const version = 1
 	common.RegisterStandardFacade(
-		facadeName,
+		payload.FacadeName,
 		version,
 		c.newPublicFacade,
 	)
@@ -81,7 +79,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, facadeName, 1)
+	caller := base.NewFacadeCallerForVersion(apiCaller, payload.FacadeName, 1)
 
 	listAPI := client.NewPublicClient(&facadeCaller{
 		FacadeCaller: caller,
