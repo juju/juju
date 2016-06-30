@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,6 +44,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -1066,8 +1068,8 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		NewObserver: newObserverFn(
 			clock.WallClock,
 			jujuversion.Current,
-			agentConfig.Model().String(),
-			st.PutAuditEntryFn(),
+			agentConfig.Model().Id(),
+			newAuditEntrySink(st, logDir),
 			auditErrorHandler,
 		),
 	})
@@ -1078,11 +1080,35 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	return server, nil
 }
 
+func newAuditEntrySink(st *state.State, logDir string) audit.AuditEntrySinkFn {
+	persistFn := st.PutAuditEntryFn()
+	fileSinkFn := audit.NewLogFileSink(logDir)
+	return func(entry audit.AuditEntry) error {
+		// We don't care about auditing anything but user actions.
+		if _, err := names.ParseUserTag(entry.OriginName); err != nil {
+			return nil
+		}
+		// TODO(wallyworld) - Pinger requests should not originate as a user action.
+		if strings.HasPrefix(entry.Operation, "Pinger:") {
+			return nil
+		}
+		persistErr := persistFn(entry)
+		sinkErr := fileSinkFn(entry)
+		if persistErr == nil {
+			return errors.Annotate(sinkErr, "cannot save audit record to file")
+		}
+		if sinkErr == nil {
+			return errors.Annotate(persistErr, "cannot save audit record to database")
+		}
+		return errors.Annotate(persistErr, "cannot save audit record to file or database")
+	}
+}
+
 func newObserverFn(
 	clock clock.Clock,
 	jujuServerVersion version.Number,
 	modelUUID string,
-	persistAuditEntry observer.AuditEntrySinkFn,
+	persistAuditEntry audit.AuditEntrySinkFn,
 	auditErrorHandler observer.ErrorHandler,
 ) observer.ObserverFactory {
 	var connectionID int64

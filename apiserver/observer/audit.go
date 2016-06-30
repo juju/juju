@@ -14,10 +14,6 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
-// PersistAuditEntryFn defines a function which will persist an
-// AuditEntry to a backing store and return an error upon failure.
-type AuditEntrySinkFn func(audit.AuditEntry) error
-
 // Context defines things an Audit observer need know about to operate
 // correctly.
 type AuditContext struct {
@@ -33,7 +29,7 @@ type AuditContext struct {
 type ErrorHandler func(error)
 
 // NewAudit creates a new Audit with the information provided via the Context.
-func NewAudit(ctx *AuditContext, handleAuditEntry AuditEntrySinkFn, errorHandler ErrorHandler) *Audit {
+func NewAudit(ctx *AuditContext, handleAuditEntry audit.AuditEntrySinkFn, errorHandler ErrorHandler) *Audit {
 	return &Audit{
 		jujuServerVersion: ctx.JujuServerVersion,
 		modelUUID:         ctx.ModelUUID,
@@ -48,7 +44,7 @@ type Audit struct {
 	jujuServerVersion version.Number
 	modelUUID         string
 	errorHandler      ErrorHandler
-	handleAuditEntry  AuditEntrySinkFn
+	handleAuditEntry  audit.AuditEntrySinkFn
 
 	// state represents information that's built up as methods on this
 	// type are called. We segregate this to ensure it's clear what
