@@ -11,6 +11,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker"
 )
@@ -31,9 +32,8 @@ type converter struct {
 	machine  machine
 }
 
-// Agent is an interface that can have its password set and be told to restart.
+// Agent is an interface that can have its password set.
 type Agent interface {
-	Restart() error
 	Tag() names.Tag
 }
 
@@ -76,8 +76,8 @@ func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle implements NotifyWatchHandler's Handle method.  If the change means
-// that the machine is now expected to manage the environment, we change its
-// password (to set its password in mongo) and restart the agent.
+// that the machine is now expected to manage the environment,
+// we throw a fatal error to instigate agent restart.
 func (c *converter) Handle(_ <-chan struct{}) error {
 	results, err := c.machine.Jobs()
 	if err != nil {
@@ -86,8 +86,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 	if !multiwatcher.AnyJobNeedsState(results.Jobs...) {
 		return nil
 	}
-
-	return errors.Trace(c.agent.Restart())
+	return &util.FatalError{"bounce agent to pick up new jobs"}
 }
 
 // TearDown implements NotifyWatchHandler's TearDown method.
