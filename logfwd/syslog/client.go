@@ -6,6 +6,7 @@ package syslog
 import (
 	"fmt"
 	"io"
+	"net"
 	"time"
 
 	"github.com/juju/errors"
@@ -115,6 +116,17 @@ func (client Client) Send(rec logfwd.Record) error {
 }
 
 func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
+	appName := rec.Origin.Software.Name + "-" + rec.Origin.ModelUUID
+	if len(appName) > 48 {
+		appName = appName[:48]
+	}
+
+	var hostname rfc5424.Hostname
+	hostname.StaticIP = net.ParseIP(rec.Origin.Hostname)
+	if hostname.StaticIP == nil {
+		hostname.FQDN = rec.Origin.Hostname
+	}
+
 	msg := rfc5424.Message{
 		Header: rfc5424.Header{
 			Priority: rfc5424.Priority{
@@ -122,10 +134,8 @@ func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
 				Facility: rfc5424.FacilityUser,
 			},
 			Timestamp: rfc5424.Timestamp{rec.Timestamp},
-			Hostname: rfc5424.Hostname{
-				FQDN: rec.Origin.Hostname,
-			},
-			AppName: rfc5424.AppName((rec.Origin.Software.Name + "-" + rec.Origin.ModelUUID)[:48]),
+			Hostname:  hostname,
+			AppName:   rfc5424.AppName(appName),
 		},
 		StructuredData: rfc5424.StructuredData{
 			&sdelements.Origin{
