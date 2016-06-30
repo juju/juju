@@ -28,7 +28,9 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-const payloadsHookContextFacade = payload.ComponentName + "-hook-context"
+const facadeName = "Payloads"
+
+const payloadsHookContextFacade = facadeName + "HookContext"
 
 type payloads struct{}
 
@@ -61,11 +63,11 @@ func (c payloads) registerPublicFacade() {
 
 	const version = 1
 	common.RegisterStandardFacade(
-		payload.ComponentName,
+		facadeName,
 		version,
 		c.newPublicFacade,
 	)
-	api.RegisterFacadeVersion(payload.ComponentName, version)
+	api.RegisterFacadeVersion(facadeName, version)
 }
 
 type facadeCaller struct {
@@ -82,7 +84,7 @@ func (payloads) newListAPIClient(cmd *status.ListCommand) (status.ListAPI, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caller := base.NewFacadeCallerForVersion(apiCaller, payload.ComponentName, 1)
+	caller := base.NewFacadeCallerForVersion(apiCaller, facadeName, 1)
 
 	listAPI := client.NewPublicClient(&facadeCaller{
 		FacadeCaller: caller,
@@ -123,7 +125,7 @@ func (c payloads) registerHookContext() {
 }
 
 func (payloads) newUnitFacadeClient(caller base.APICaller) context.APIClient {
-	facadeCaller := base.NewFacadeCallerForVersion(caller, payloadsHookContextFacade, 0)
+	facadeCaller := base.NewFacadeCallerForVersion(caller, payloadsHookContextFacade, 1)
 	return internalclient.NewUnitFacadeClient(facadeCaller)
 }
 
@@ -136,7 +138,7 @@ func (payloads) newHookContextFacade(st *state.State, unit *state.Unit) (interfa
 }
 
 func (c payloads) registerHookContextFacade() {
-	const version = 0
+	const version = 1
 	common.RegisterHookContextFacade(
 		payloadsHookContextFacade,
 		version,

@@ -65,11 +65,11 @@ func (r resources) registerPublicFacade() {
 	}
 
 	common.RegisterStandardFacade(
-		resource.ComponentName,
+		resource.FacadeName,
 		server.Version,
 		resourceadapters.NewPublicFacade,
 	)
-	coreapi.RegisterFacadeVersion(resource.ComponentName, server.Version)
+	coreapi.RegisterFacadeVersion(resource.FacadeName, server.Version)
 
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
