@@ -27,10 +27,10 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"spaces-imported-gate",
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"spaces-imported-gate",
 	}
 	aliveModelWorkers = []string{
 		"charm-revision-updater",
