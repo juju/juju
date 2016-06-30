@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -247,7 +248,12 @@ func (c *upgradeCharmCommand) upgradeResources(client *api.Client, chID charmsto
 // TODO(ericsnow) Move these helpers into handleResources()?
 
 func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *api.Client, cliResources map[string]string) (map[string]charmresource.Meta, error) {
-	meta, err := getMetaResources(cURL, client)
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmsClient := charms.NewClient(root)
+	meta, err := getMetaResources(cURL, charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +269,7 @@ func getUpgradeResources(c APICmd, serviceID string, cURL *charm.URL, client *ap
 	return filtered, nil
 }
 
-func getMetaResources(cURL *charm.URL, client *api.Client) (map[string]charmresource.Meta, error) {
+func getMetaResources(cURL *charm.URL, client *charms.Client) (map[string]charmresource.Meta, error) {
 	// this gets the charm info that was added to the controller using addcharm.
 	charmInfo, err := client.CharmInfo(cURL.String())
 	if err != nil {

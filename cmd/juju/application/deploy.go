@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api"
 	apiannotations "github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
+	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -472,7 +473,12 @@ type deployCharmArgs struct {
 }
 
 func (c *DeployCommand) deployCharm(args deployCharmArgs) (rErr error) {
-	charmInfo, err := args.client.CharmInfo(args.id.URL.String())
+	conn, err := c.NewAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charmsClient := apicharms.NewClient(conn)
+	charmInfo, err := charmsClient.CharmInfo(args.id.URL.String())
 	if err != nil {
 		return err
 	}
@@ -661,6 +667,14 @@ func (d *applicationDeployer) newAnnotationsAPIClient() (*apiannotations.Client,
 		return nil, errors.Trace(err)
 	}
 	return apiannotations.NewClient(root), nil
+}
+
+func (d *applicationDeployer) newCharmsAPIClient() (*apicharms.Client, error) {
+	root, err := d.api.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apicharms.NewClient(root), nil
 }
 
 func (c *applicationDeployer) applicationDeploy(args applicationDeployParams) error {

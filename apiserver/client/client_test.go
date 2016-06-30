@@ -20,7 +20,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -369,96 +368,6 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
-func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
-	var clientCharmInfoTests = []struct {
-		about           string
-		charm           string
-		url             string
-		expectedActions *charm.Actions
-		err             string
-	}{
-		{
-			about: "dummy charm which contains an expectedActions spec",
-			charm: "dummy",
-			url:   "local:quantal/dummy-1",
-			expectedActions: &charm.Actions{
-				ActionSpecs: map[string]charm.ActionSpec{
-					"snapshot": {
-						Description: "Take a snapshot of the database.",
-						Params: map[string]interface{}{
-							"type":        "object",
-							"title":       "snapshot",
-							"description": "Take a snapshot of the database.",
-							"properties": map[string]interface{}{
-								"outfile": map[string]interface{}{
-									"default":     "foo.bz2",
-									"description": "The file to write out to.",
-									"type":        "string",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			about: "retrieves charm info",
-			// Use wordpress for tests so that we can compare Provides and Requires.
-			charm: "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
-				"fakeaction": {
-					Description: "No description",
-					Params: map[string]interface{}{
-						"type":        "object",
-						"title":       "fakeaction",
-						"description": "No description",
-						"properties":  map[string]interface{}{},
-					},
-				},
-			}},
-			url: "local:quantal/wordpress-3",
-		},
-		{
-			about: "invalid URL",
-			charm: "wordpress",
-			url:   "not-valid!",
-			err:   `URL has invalid charm or bundle name: "not-valid!"`,
-		},
-		{
-			about: "invalid schema",
-			charm: "wordpress",
-			url:   "not-valid:your-arguments",
-			err:   `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
-		},
-		{
-			about: "unknown charm",
-			charm: "wordpress",
-			url:   "cs:missing/one-1",
-			err:   `charm "cs:missing/one-1" not found \(not found\)`,
-		},
-	}
-
-	for i, t := range clientCharmInfoTests {
-		c.Logf("test %d. %s", i, t.about)
-		charm := s.AddTestingCharm(c, t.charm)
-		info, err := s.APIState.Client().CharmInfo(t.url)
-		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, t.err)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		expected := &api.CharmInfo{
-			Revision: charm.Revision(),
-			URL:      charm.URL().String(),
-			Config:   charm.Config(),
-			Meta:     charm.Meta(),
-			Actions:  charm.Actions(),
-		}
-		c.Check(info, jc.DeepEquals, expected)
-		c.Check(info.Actions, jc.DeepEquals, t.expectedActions)
-	}
-}
-
 func (s *clientSuite) TestClientModelInfo(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -660,7 +569,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []network.Address{},
+			Addresses:               []multiwatcher.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
 			WantsVote:               true,
