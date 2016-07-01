@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-// RequestNotifier serves as a sink for API server requests and
+// RequestObserver serves as a sink for API server requests and
 // responses.
-type RequestNotifier struct {
+type RequestObserver struct {
 	clock              clock.Clock
 	logger             loggo.Logger
 	apiConnectionCount func() int64
@@ -28,14 +28,13 @@ type RequestNotifier struct {
 	// this type.
 	state struct {
 		websocketConnected time.Time
-		requestStart       time.Time
 		tag                string
 	}
 }
 
-// RequestNotifierContext provides information needed for a
-// RequestNotifier to operate correctly.
-type RequestNotifierContext struct {
+// RequestObservercontext provides information needed for a
+// RequestObserverContext to operate correctly.
+type RequestObserverContext struct {
 
 	// Clock is the clock to use for all time operations on this type.
 	Clock clock.Clock
@@ -44,9 +43,9 @@ type RequestNotifierContext struct {
 	Logger loggo.Logger
 }
 
-// NewRequestNotifier returns a new RequestNotifier.
-func NewRequestNotifier(ctx RequestNotifierContext, id int64) *RequestNotifier {
-	return &RequestNotifier{
+// NewRequestObserver returns a new RPCObserver.
+func NewRequestObserver(ctx RequestObserverContext, id int64) *RequestObserver {
+	return &RequestObserver{
 		clock:  ctx.Clock,
 		logger: ctx.Logger,
 		id:     id,
@@ -54,53 +53,14 @@ func NewRequestNotifier(ctx RequestNotifierContext, id int64) *RequestNotifier {
 }
 
 // Login implements Observer.
-func (n *RequestNotifier) Login(tag string) {
+func (n *RequestObserver) Login(tag string) {
 	n.state.tag = tag
 }
 
-// ServerReques timplements Observer.
-func (n *RequestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
-	n.state.requestStart = n.clock.Now()
-	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if n.logger.IsTraceEnabled() {
-		n.logger.Tracef("<- [%X] %s %s", n.id, n.state.tag, jsoncodec.DumpRequest(hdr, body))
-	} else {
-		n.logger.Debugf("<- [%X] %s %s", n.id, n.state.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
-	}
-}
-
-// ServerReply implements Observer.
-func (n *RequestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
-	if req.Type == "Pinger" && req.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some responses.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if n.logger.IsTraceEnabled() {
-		n.logger.Tracef("-> [%X] %s %s", n.id, n.state.tag, jsoncodec.DumpRequest(hdr, body))
-	} else {
-		n.logger.Debugf(
-			"-> [%X] %s %s %s %s[%q].%s",
-			n.id,
-			n.state.tag,
-			time.Since(n.state.requestStart),
-			jsoncodec.DumpRequest(hdr, "'body redacted'"),
-			req.Type,
-			req.Id,
-			req.Action,
-		)
-	}
-}
-
 // Join implements Observer.
-func (n *RequestNotifier) Join(req *http.Request) {
+func (n *RequestObserver) Join(req *http.Request) {
 	n.state.websocketConnected = n.clock.Now()
+
 	n.logger.Infof(
 		"[%X] API connection from %s",
 		n.id,
@@ -109,11 +69,72 @@ func (n *RequestNotifier) Join(req *http.Request) {
 }
 
 // Leave implements Observer.
-func (n *RequestNotifier) Leave() {
+func (n *RequestObserver) Leave() {
 	n.logger.Infof(
 		"[%X] %s API connection terminated after %v",
 		n.id,
 		n.state.tag,
 		time.Since(n.state.websocketConnected),
 	)
+}
+
+// RPCObserver implements Observer.
+func (n *RequestObserver) RPCObserver() rpc.Observer {
+	return &rpcObserver{
+		clock:  n.clock,
+		logger: n.logger,
+		id:     n.id,
+		tag:    n.state.tag,
+	}
+}
+
+// rpcObserver serves as a sink for RPC requests and responses.
+type rpcObserver struct {
+	clock        clock.Clock
+	logger       loggo.Logger
+	id           int64
+	tag          string
+	requestStart time.Time
+}
+
+// ServerReques timplements rpc.Observer.
+func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
+	n.requestStart = n.clock.Now()
+
+	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
+		return
+	}
+	// TODO(rog) 2013-10-11 remove secrets from some requests.
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	if n.logger.IsTraceEnabled() {
+		n.logger.Tracef("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+	} else {
+		n.logger.Debugf("<- [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, "'params redacted'"))
+	}
+}
+
+// ServerReply implements rpc.Observer.
+func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+	if req.Type == "Pinger" && req.Action == "Ping" {
+		return
+	}
+
+	// TODO(rog) 2013-10-11 remove secrets from some responses.
+	// Until secrets are removed, we only log the body of the requests at trace level
+	// which is below the default level of debug.
+	if n.logger.IsTraceEnabled() {
+		n.logger.Tracef("-> [%X] %s %s", n.id, n.tag, jsoncodec.DumpRequest(hdr, body))
+	} else {
+		n.logger.Debugf(
+			"-> [%X] %s %s %s %s[%q].%s",
+			n.id,
+			n.tag,
+			time.Since(n.requestStart),
+			jsoncodec.DumpRequest(hdr, "'body redacted'"),
+			req.Type,
+			req.Id,
+			req.Action,
+		)
+	}
 }

@@ -62,20 +62,6 @@ func (a *Audit) Login(tag string) {
 	a.state.authenticatedTag = tag
 }
 
-// ServerRequest implements Observer.
-func (a *Audit) ServerRequest(hdr *rpc.Header, body interface{}) {
-	auditEntry := a.boilerplateAuditEntry()
-	//auditEntry.OriginIP =
-	auditEntry.OriginType = "API request"
-	auditEntry.OriginName = a.state.authenticatedTag
-	auditEntry.Operation = rpcRequestToOperation(hdr.Request)
-	auditEntry.Data = map[string]interface{}{"request-body": body}
-	err := a.handleAuditEntry(auditEntry)
-	if err != nil {
-		a.errorHandler(errors.Trace(err))
-	}
-}
-
 // Join implements Observer.
 func (a *Audit) Join(req *http.Request) {
 	a.state.remoteAddress = req.RemoteAddr
@@ -87,22 +73,53 @@ func (a *Audit) Leave() {
 	a.state.authenticatedTag = ""
 }
 
-// ClientRequest implements Observer.
-func (a *Audit) ClientRequest(hdr *rpc.Header, body interface{}) {}
+// RPCObserver implements Observer.
+func (a *Audit) RPCObserver() rpc.Observer {
+	return &AuditRPCObserver{
+		jujuServerVersion: a.jujuServerVersion,
+		modelUUID:         a.modelUUID,
+		errorHandler:      a.errorHandler,
+		handleAuditEntry:  a.handleAuditEntry,
+		authenticatedTag:  a.state.authenticatedTag,
+		remoteAddress:     a.state.remoteAddress,
+	}
+}
+
+// AuditRPCObserver is an observer which will log RPC requests using
+// the function provided.
+type AuditRPCObserver struct {
+	jujuServerVersion version.Number
+	modelUUID         string
+	errorHandler      ErrorHandler
+	handleAuditEntry  audit.AuditEntrySinkFn
+	authenticatedTag  string
+	remoteAddress     string
+}
+
+// ServerRequest implements Observer.
+func (a *AuditRPCObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
+	auditEntry := a.boilerplateAuditEntry()
+	auditEntry.OriginName = a.authenticatedTag
+
+	auditEntry.OriginType = "API request"
+	auditEntry.Operation = rpcRequestToOperation(hdr.Request)
+	auditEntry.Data = map[string]interface{}{"request-body": body}
+	err := a.handleAuditEntry(auditEntry)
+	if err != nil {
+		a.errorHandler(errors.Trace(err))
+	}
+}
 
 // ServerReply implements Observer.
-func (a *Audit) ServerReply(rpc.Request, *rpc.Header, interface{}) {}
+func (a *AuditRPCObserver) ServerReply(rpc.Request, *rpc.Header, interface{}) {}
 
-// ClientReply implements Observer.
-func (a *Audit) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {}
-
-func (a *Audit) boilerplateAuditEntry() audit.AuditEntry {
+func (a *AuditRPCObserver) boilerplateAuditEntry() audit.AuditEntry {
 	return audit.AuditEntry{
 		JujuServerVersion: a.jujuServerVersion,
 		ModelUUID:         a.modelUUID,
 		Timestamp:         time.Now().UTC(),
-		RemoteAddress:     a.state.remoteAddress,
-		OriginName:        a.state.authenticatedTag,
+		RemoteAddress:     a.remoteAddress,
+		OriginName:        a.authenticatedTag,
 	}
 }
 

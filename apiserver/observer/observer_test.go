@@ -11,16 +11,15 @@ import (
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
-	"github.com/juju/juju/rpc"
 )
 
-type observerSuite struct {
+type multiplexerSuite struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&observerSuite{})
+var _ = gc.Suite(&multiplexerSuite{})
 
-func (*observerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.C) {
+func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.C) {
 	callCount := 0
 	factories := []observer.ObserverFactory{
 		func() observer.Observer { callCount++; return nil },
@@ -35,7 +34,7 @@ func (*observerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.C) 
 	c.Check(callCount, gc.Equals, 2)
 }
 
-func (*observerSuite) TestJoin_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		&fakeobserver.Instance{},
 		&fakeobserver.Instance{},
@@ -50,7 +49,7 @@ func (*observerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*observerSuite) TestLeave_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		&fakeobserver.Instance{},
 		&fakeobserver.Instance{},
@@ -64,44 +63,21 @@ func (*observerSuite) TestLeave_CallsAllObservers(c *gc.C) {
 	}
 }
 
-func (*observerSuite) TestServerReply_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		&fakeobserver.Instance{},
 		&fakeobserver.Instance{},
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
-	var (
-		req  rpc.Request
-		hdr  rpc.Header
-		body string
-	)
-	o.ServerReply(req, &hdr, body)
+	o.RPCObserver()
 
 	for _, f := range observers {
-		f.CheckCall(c, 0, "ServerReply", req, &hdr, body)
+		f.CheckCall(c, 0, "RPCObserver")
 	}
 }
 
-func (*observerSuite) TestServerRequest_CallsAllObservers(c *gc.C) {
-	observers := []*fakeobserver.Instance{
-		&fakeobserver.Instance{},
-		&fakeobserver.Instance{},
-	}
-
-	o := observer.NewMultiplexer(observers[0], observers[1])
-	var (
-		hdr  rpc.Header
-		body string
-	)
-	o.ServerRequest(&hdr, body)
-
-	for _, f := range observers {
-		f.CheckCall(c, 0, "ServerRequest", &hdr, body)
-	}
-}
-
-func (*observerSuite) TestLogin_CallsAllObservers(c *gc.C) {
+func (*multiplexerSuite) TestLogin_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
 		&fakeobserver.Instance{},
 		&fakeobserver.Instance{},

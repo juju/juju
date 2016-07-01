@@ -1115,11 +1115,11 @@ func newObserverFn(
 	return observer.ObserverFactoryMultiplexer(
 		func() observer.Observer {
 			logger := loggo.GetLogger("juju.apiserver")
-			ctx := observer.RequestNotifierContext{
+			ctx := observer.RequestObserverContext{
 				Clock:  clock,
 				Logger: logger,
 			}
-			return observer.NewRequestNotifier(ctx, atomic.AddInt64(&connectionID, 1))
+			return observer.NewRequestObserver(ctx, atomic.AddInt64(&connectionID, 1))
 		},
 		func() observer.Observer {
 			ctx := &observer.AuditContext{

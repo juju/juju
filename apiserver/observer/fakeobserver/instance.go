@@ -13,26 +13,19 @@ import (
 	"github.com/juju/testing"
 )
 
+// Instance is a fake Observer used for testing.
 type Instance struct {
 	testing.Stub
 }
 
+// Join implements Observer.
 func (f *Instance) Join(req *http.Request) {
 	f.AddCall(funcName(), req)
 }
 
+// Leave implements Observer.
 func (f *Instance) Leave() {
 	f.AddCall(funcName())
-}
-
-// ServerReply implements Observer.
-func (f *Instance) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
-	f.AddCall(funcName(), req, hdr, body)
-}
-
-// ServerRequest implements Observer.
-func (f *Instance) ServerRequest(hdr *rpc.Header, body interface{}) {
-	f.AddCall(funcName(), hdr, body)
 }
 
 // Login implements Observer.
@@ -40,14 +33,25 @@ func (f *Instance) Login(entityName string) {
 	f.AddCall(funcName(), entityName)
 }
 
-// ClientRequest implements Observer.
-func (f *Instance) ClientRequest(hdr *rpc.Header, body interface{}) {
-	f.AddCall(funcName(), hdr, body)
+// RPCObserver implements Observer.
+func (f *Instance) RPCObserver() rpc.Observer {
+	f.AddCall(funcName())
+	return &RPCInstance{}
 }
 
-// ClientReply implements Observer.
-func (f *Instance) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+// RPCInstance is a fake RPCObserver used for testing.
+type RPCInstance struct {
+	testing.Stub
+}
+
+// ServerReply implements Observer.
+func (f *RPCInstance) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 	f.AddCall(funcName(), req, hdr, body)
+}
+
+// ServerRequest implements Observer.
+func (f *RPCInstance) ServerRequest(hdr *rpc.Header, body interface{}) {
+	f.AddCall(funcName(), hdr, body)
 }
 
 // funcName returns the name of the function/method that called
