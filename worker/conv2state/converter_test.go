@@ -72,7 +72,7 @@ func (s Suite) TestHandle(c *gc.C) {
 	err = conv.Handle(nil)
 	// Since machine has multiwatcher.JobManageEnviron, we expect an error
 	// which will get agent to restart.
-	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs ")
+	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }
 
 func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
