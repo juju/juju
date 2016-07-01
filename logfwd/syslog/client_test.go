@@ -109,7 +109,7 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 			Hostname: rfc5424.Hostname{
 				FQDN: "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
 			},
-			AppName: "jujud-machine-agent-deadbeef-2f18-4fd2-967d-db96",
+			AppName: "jujud-deadbeef-2f18-4fd2-967d-db9663db7bea",
 		},
 		StructuredData: rfc5424.StructuredData{
 			&sdelements.Origin{

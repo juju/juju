@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -116,10 +117,8 @@ func (client Client) Send(rec logfwd.Record) error {
 }
 
 func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
-	appName := rec.Origin.Software.Name + "-" + rec.Origin.ModelUUID
-	if len(appName) > 48 {
-		appName = appName[:48]
-	}
+	swName := strings.Split(rec.Origin.Software.Name, "-")[0]
+	appName := swName + "-" + rec.Origin.ModelUUID
 
 	var hostname rfc5424.Hostname
 	hostname.StaticIP = net.ParseIP(rec.Origin.Hostname)

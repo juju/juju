@@ -26,7 +26,7 @@ func (audit Audit) IsZero() bool {
 
 // Validate ensures that the audit information is correct.
 func (audit Audit) Validate() error {
-	if len(audit.Operation) == 0 {
+	if audit.Operation == "" {
 		return errors.NewNotValid(nil, "empty Operation")
 	}
 
