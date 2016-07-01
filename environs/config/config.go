@@ -689,40 +689,52 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 	return opts
 }
 
+var logFwdSyslogFields = []string{
+	LogFwdSyslogHost,
+	LogFwdSyslogServerCert,
+	LogFwdSyslogCACert,
+	LogFwdSyslogClientCert,
+	LogFwdSyslogClientKey,
+}
+
 // LogFwdSyslog returns the syslog forwarding config.
 func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
-	partial := false
+	values := c.LogFwdSyslogMap()
+
 	var lfCfg syslog.RawConfig
+	for _, field := range logFwdSyslogFields {
+		s := values[field]
+		if s == "" {
+			// A partial config is the same as no config.
+			return nil, false
+		}
 
-	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
-		partial = true
-		lfCfg.Host = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogServerCert]; ok && s != "" {
-		partial = true
-		lfCfg.ExpectedServerCert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
-		partial = true
-		lfCfg.ClientCACert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
-		partial = true
-		lfCfg.ClientCert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
-		partial = true
-		lfCfg.ClientKey = s.(string)
-	}
-
-	if !partial {
-		return nil, false
+		switch field {
+		case LogFwdSyslogHost:
+			lfCfg.Host = s
+		case LogFwdSyslogServerCert:
+			lfCfg.ExpectedServerCert = s
+		case LogFwdSyslogCACert:
+			lfCfg.ClientCACert = s
+		case LogFwdSyslogClientCert:
+			lfCfg.ClientCert = s
+		case LogFwdSyslogClientKey:
+			lfCfg.ClientKey = s
+		}
 	}
 	return &lfCfg, true
+}
+
+// LogFwdSyslogMap returns the syslog forwarding config values.
+func (c *Config) LogFwdSyslogMap() map[string]string {
+	lfCfg := make(map[string]string)
+	for _, field := range logFwdSyslogFields {
+		lfCfg[field] = ""
+		if s, ok := c.defined[field]; ok {
+			lfCfg[field] = s.(string)
+		}
+	}
+	return lfCfg
 }
 
 // AdminSecret returns the administrator password.

@@ -737,6 +737,23 @@ var configTests = []configTest{
 			"syslog-client-key":  testing.ServerKey,
 		}),
 	}, {
+		about:       "no syslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+		}),
+	}, {
+		about:       "partial syslog config values",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"syslog-host":        "localhost:1234",
+			"syslog-client-cert": testing.ServerCert,
+			"syslog-client-key":  testing.ServerKey,
+		}),
+	}, {
 		about:       "Invalid identity URL value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -1006,34 +1023,46 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
 	}
 
+	lfCfgValues := cfg.LogFwdSyslogMap()
+	c.Check(lfCfgValues, gc.HasLen, 5)
+	lfCfgFound := 0
+	for _, field := range []string{
+		"syslog-host",
+		"syslog-server-cert",
+		"syslog-ca-cert",
+		"syslog-client-cert",
+		"syslog-client-key",
+	} {
+		if test.attrs[field] == nil {
+			c.Check(lfCfgValues[field], gc.Equals, "")
+		} else {
+			c.Check(lfCfgValues[field], gc.Equals, test.attrs[field])
+		}
+		if lfCfgValues[field] != "" {
+			lfCfgFound += 1
+		}
+	}
+
 	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
-	if v, ok := test.attrs["syslog-server-cert"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
+	if hasLogCfg {
+		c.Check(lfCfgFound, gc.Equals, 5)
+
+		v := test.attrs["syslog-host"].(string)
+		c.Assert(lfCfg.Host, gc.Equals, v)
+
+		v = test.attrs["syslog-server-cert"].(string)
 		c.Assert(lfCfg.ExpectedServerCert, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ExpectedServerCert, gc.Equals, "")
-	}
-	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
+
+		v = test.attrs["syslog-ca-cert"].(string)
 		c.Assert(lfCfg.ClientCACert, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ClientCACert, gc.Equals, "")
-	}
-	if v, ok := test.attrs["syslog-client-cert"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
+
+		v = test.attrs["syslog-client-cert"].(string)
 		c.Assert(lfCfg.ClientCert, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ClientCert, gc.Equals, "")
-	}
-	if v, ok := test.attrs["syslog-client-key"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
+
+		v = test.attrs["syslog-client-key"].(string)
 		c.Assert(lfCfg.ClientKey, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ClientKey, gc.Equals, "")
+	} else {
+		c.Check(lfCfgFound, gc.Not(gc.Equals), 5)
 	}
 
 	cert, certPresent := controllerCfg.CACert()
