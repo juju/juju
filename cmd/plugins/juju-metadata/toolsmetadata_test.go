@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
@@ -375,5 +375,5 @@ func (s *ToolsMetadataSuite) TestToolsDataSourceHasKey(c *gc.C) {
 	// we want to be able to try to read this signed data
 	// with public key with Juju-known public key for tools.
 	// Bugs #1542127, #1542131
-	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, juju.JujuPublicKey)
+	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, keys.JujuPublicKey)
 }

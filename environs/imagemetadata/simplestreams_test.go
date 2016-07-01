@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/keys"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -110,6 +111,7 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *simplestreamsSuite) TestOfficialSources(c *gc.C) {
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	origKey := imagemetadata.SetSigningPublicKey(sstesting.SignedMetadataPublicKey)
 	defer func() {
 		imagemetadata.SetSigningPublicKey(origKey)

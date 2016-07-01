@@ -24,7 +24,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -39,7 +39,7 @@ type baseProviderSuite struct {
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
-	suite.PatchValue(&juju.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	suite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	storageDir := c.MkDir()
 	toolsDir := filepath.Join(storageDir, "tools")
 	suite.PatchValue(&envtools.DefaultBaseURL, utils.MakeFileURL(toolsDir))
