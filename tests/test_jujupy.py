@@ -1088,7 +1088,7 @@ class TestClientFromConfig(ClientTest):
 
     def test_client_from_config_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            with patch.object(SimpleEnvironment, 'from_config'):
+            with patch.object(JujuData, 'from_config'):
                 client = client_from_config('foo', 'foo/bar/qux')
         vsn.assert_called_once_with(('foo/bar/qux', '--version'))
         self.assertNotEqual(client.full_path, 'foo/bar/qux')
@@ -1097,8 +1097,8 @@ class TestClientFromConfig(ClientTest):
     def test_client_from_config_keep_home(self):
         env = JujuData({}, juju_home='/foo/bar')
         with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
-            with patch.object(SimpleEnvironment, 'from_config',
-                              side_effect=lambda x: SimpleEnvironment(x, {})):
+            with patch.object(JujuData, 'from_config',
+                              side_effect=lambda x: JujuData(x, {})):
                 client_from_config('foo', 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
