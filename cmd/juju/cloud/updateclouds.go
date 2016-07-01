@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/openpgp/clearsign"
 
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/keys"
 )
 
 type updateCloudsCommand struct {
@@ -45,7 +45,7 @@ See also: clouds
 // NewUpdateCloudsCommand returns a command to update cloud information.
 func NewUpdateCloudsCommand() cmd.Command {
 	return &updateCloudsCommand{
-		publicSigningKey: juju.JujuPublicKey,
+		publicSigningKey: keys.JujuPublicKey,
 		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
 	}
 }

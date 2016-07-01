@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package juju
+package keys
 
 // JujuPublicKey is the public key required to
 // authenticate data on http://streams.canonical.com.
