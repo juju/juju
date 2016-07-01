@@ -109,11 +109,6 @@ func NewLogForwarder(stream LogStream, sender SendCloser) (*LogForwarder, error)
 		Work: func() error {
 			defer sender.Close()
 
-			if stream == nil {
-				logger.Debugf("log forwarding not enabled")
-				return nil
-			}
-
 			err := lf.loop()
 			return errors.Trace(err)
 		},
@@ -125,6 +120,13 @@ func NewLogForwarder(stream LogStream, sender SendCloser) (*LogForwarder, error)
 }
 
 func (lf *LogForwarder) loop() error {
+	if lf.stream == nil {
+		logger.Debugf("log forwarding not enabled")
+		// TODO*ericsnow) restart upon config changed
+		<-lf.catacomb.Dying()
+		return nil
+	}
+
 	records := make(chan logfwd.Record)
 	go func() {
 		for {
@@ -143,6 +145,7 @@ func (lf *LogForwarder) loop() error {
 	}()
 
 	for {
+		// TODO*ericsnow) restart upon config changed
 		select {
 		case <-lf.catacomb.Dying():
 			return lf.catacomb.ErrDying()
