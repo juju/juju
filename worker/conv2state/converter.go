@@ -32,7 +32,8 @@ type converter struct {
 	machine  machine
 }
 
-// Agent is an interface that can have its password set.
+// Agent is an interface that exposes machine agent methods required for the
+// conversion worker.
 type Agent interface {
 	Tag() names.Tag
 }
