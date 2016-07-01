@@ -1038,6 +1038,7 @@ class TestClientFromConfig(ClientTest):
             yield '2.0-beta7'
             yield '2.0-beta8'
             yield '2.0-beta9'
+            yield '2.0-beta10'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -1080,6 +1081,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta7', EnvJujuClient2B7)
             test_fc('2.0-beta8', EnvJujuClient2B8)
             test_fc('2.0-beta9', EnvJujuClient)
+            test_fc('2.0-beta10', EnvJujuClient)
             test_fc('2.0-delta1', EnvJujuClient)
             with self.assertRaises(StopIteration):
                 client_from_config('foo', None)
