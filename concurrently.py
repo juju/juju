@@ -9,16 +9,13 @@ import subprocess
 import sys
 import traceback
 
+from utility import configure_logging
+
+
 __metaclass__ = type
 
 
 log = logging.getLogger("concurrently")
-handler = logging.StreamHandler(sys.stderr)
-handler.setFormatter(logging.Formatter(
-    fmt='%(asctime)s %(levelname)s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'))
-log.addHandler(handler)
-
 
 class Task:
 
@@ -98,7 +95,7 @@ def main(argv=None):
     """Run many tasks concurrently."""
     returncode = 254
     args = parse_args(argv)
-    log.setLevel(args.verbose)
+    configure_logging(args.verbose)
     tasks = [Task(t) for t in args.tasks]
     try:
         names = [t.name for t in tasks]
