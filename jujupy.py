@@ -573,17 +573,18 @@ def get_client_class(version):
         client_class = EnvJujuClient26
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
-    elif re.match('^2\.0-alpha1', version):
+    # Ensure alpha/beta number matches precisely
+    elif re.match('^2\.0-alpha1([^\d]|$)', version):
         client_class = EnvJujuClient2A1
-    elif re.match('^2\.0-alpha2', version):
+    elif re.match('^2\.0-alpha2([^\d]|$)', version):
         client_class = EnvJujuClient2A2
-    elif re.match('^2\.0-(alpha3|beta[12])', version):
+    elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
         client_class = EnvJujuClient2B2
-    elif re.match('^2\.0-(beta[3-6])', version):
+    elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
         client_class = EnvJujuClient2B3
-    elif re.match('^2\.0-(beta7)', version):
+    elif re.match('^2\.0-(beta7)([^\d]|$)', version):
         client_class = EnvJujuClient2B7
-    elif re.match('^2\.0-beta8', version):
+    elif re.match('^2\.0-beta8([^\d]|$)', version):
         client_class = EnvJujuClient2B8
     else:
         client_class = EnvJujuClient
@@ -731,7 +732,9 @@ class EnvJujuClient:
 
     def _cmd_model(self, include_e, admin):
         if admin:
-            return self.get_admin_model_name()
+            return '{controller}:{model}'.format(
+                controller=self.env.controller.name,
+                model=self.get_admin_model_name())
         elif self.env is None or not include_e:
             return None
         else:
@@ -856,6 +859,9 @@ class EnvJujuClient:
 
     def make_model_config(self):
         config_dict = make_safe_config(self)
+        agent_metadata_url = config_dict.pop('tools-metadata-url', None)
+        if agent_metadata_url is not None:
+            config_dict.setdefault('agent-metadata-url', agent_metadata_url)
         # Strip unneeded variables.
         return dict((k, v) for k, v in config_dict.items() if k not in {
             'access-key',
@@ -1602,6 +1608,27 @@ class EnvJujuClient:
 
         self.controller_juju('revoke', args)
 
+    def add_storage(self, unit, storage_type, amount="1"):
+        """Add storage instances to service.
+
+        Only type 'disk' is able to add instances.
+        """
+        self.juju('add-storage', (unit, storage_type + "=" + amount))
+
+    def list_storage(self):
+        """Return the storage list."""
+        return self.get_juju_output('list-storage', '--format', 'json')
+
+    def list_storage_pool(self):
+        """Return the list of storage pool."""
+        return self.get_juju_output('list-storage-pools', '--format', 'json')
+
+    def create_storage_pool(self, name, provider, size):
+        """Create storage pool."""
+        self.juju('create-storage-pool',
+                  (name, provider,
+                   'size={}'.format(size)))
+
 
 class EnvJujuClient2B8(EnvJujuClient):
 
@@ -1737,7 +1764,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         return args
 
     def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False):
+               service=None, force=False, storage=None):
         args = [charm]
         if repository is not None:
             args.extend(['--repository', repository])
@@ -1745,6 +1772,8 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             args.extend(['--to', to])
         if service is not None:
             args.extend([service])
+        if storage is not None:
+            args.extend(['--storage', storage])
         return self.juju('deploy', tuple(args))
 
 
@@ -2024,6 +2053,27 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
+
+    def add_storage(self, unit, storage_type, amount="1"):
+        """Add storage instances to service.
+
+        Only type 'disk' is able to add instances.
+        """
+        self.juju('storage add', (unit, storage_type + "=" + amount))
+
+    def list_storage(self):
+        """Return the storage list."""
+        return self.get_juju_output('storage list', '--format', 'json')
+
+    def list_storage_pool(self):
+        """Return the list of storage pool."""
+        return self.get_juju_output('storage pool list', '--format', 'json')
+
+    def create_storage_pool(self, name, provider, size):
+        """Create storage pool."""
+        self.juju('storage pool create',
+                  (name, provider,
+                   'size={}'.format(size)))
 
 
 class EnvJujuClient22(EnvJujuClient1X):

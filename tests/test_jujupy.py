@@ -1189,6 +1189,7 @@ class TestEnvJujuClient(ClientTest):
             yield '2.0-beta7'
             yield '2.0-beta8'
             yield '2.0-beta9'
+            yield '2.0-beta10'
             yield '2.0-delta1'
 
         context = patch.object(
@@ -1260,6 +1261,9 @@ class TestEnvJujuClient(ClientTest):
             self.assertEqual(client.version, '2.0-beta9')
             client = EnvJujuClient.by_version(None)
             self.assertIs(type(client), EnvJujuClient)
+            self.assertEqual(client.version, '2.0-beta10')
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(type(client), EnvJujuClient)
             self.assertEqual(client.version, '2.0-delta1')
             with self.assertRaises(StopIteration):
                 EnvJujuClient.by_version(None)
@@ -1276,6 +1280,16 @@ class TestEnvJujuClient(ClientTest):
         with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
             EnvJujuClient.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
+
+    def test_clone_path_cls(self):
+        client = fake_juju_client()
+        with patch.object(client, 'get_version',
+                          return_value='2.0-beta3') as gv_mock:
+            clone = client.clone_path_cls('a/b/c')
+        self.assertIs(type(clone), EnvJujuClient2B3)
+        gv_mock.assert_called_once_with('a/b/c')
+        self.assertEqual(clone.full_path, os.path.abspath('a/b/c'))
+        self.assertEqual(clone.version, '2.0-beta3')
 
     def test_clone_unchanged(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
@@ -1318,6 +1332,10 @@ class TestEnvJujuClient(ClientTest):
         full = client._full_args('bar', True, ('baz', 'qux'))
         self.assertEqual((
             'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
+        full = client._full_args('bar', True, ('baz', 'qux'), admin=True)
+        self.assertEqual(
+            ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
+            full)
         client.env = None
         full = client._full_args('bar', False, ('baz', 'qux'))
         self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
@@ -1345,15 +1363,26 @@ class TestEnvJujuClient(ClientTest):
                           return_value='controller') as gamn_mock:
             full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
         self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'controller', 'baz', 'qux'),
+            'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
             full)
         gamn_mock.assert_called_once_with()
+
+    def test_make_model_config_prefers_agent_metadata_url(self):
+        env = JujuData('qux', {
+            'agent-metadata-url': 'foo',
+            'tools-metadata-url': 'bar',
+            'type': 'baz',
+            })
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        self.assertEqual({
+            'agent-metadata-url': 'foo',
+            'test-mode': True,
+            }, client.make_model_config())
 
     def test__bootstrap_config(self):
         env = JujuData('foo', {
             'access-key': 'foo',
             'admin-secret': 'foo',
-            'agent-metadata-url': 'frank',
             'agent-stream': 'foo',
             'application-id': 'foo',
             'application-password': 'foo',
@@ -1400,7 +1429,7 @@ class TestEnvJujuClient(ClientTest):
         with client._bootstrap_config() as config_filename:
             with open(config_filename) as f:
                 self.assertEqual({
-                    'agent-metadata-url': 'frank',
+                    'agent-metadata-url': 'steve',
                     'agent-stream': 'foo',
                     'authorized-keys': 'foo',
                     'availability-sets-enabled': 'foo',
@@ -1413,7 +1442,6 @@ class TestEnvJujuClient(ClientTest):
                     'image-metadata-url': 'foo',
                     'prefer-ipv6': 'foo',
                     'test-mode': True,
-                    'tools-metadata-url': 'steve',
                     }, yaml.safe_load(f))
 
     def test_get_cloud_region(self):

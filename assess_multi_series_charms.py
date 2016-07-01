@@ -48,10 +48,10 @@ from jujucharm import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
     temp_dir,
 )
 from assess_heterogeneous_control import check_series
-from utility import JujuAssertionError
 
 
 __metaclass__ = type
