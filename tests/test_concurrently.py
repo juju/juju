@@ -23,6 +23,13 @@ class ConcurrentlyTest(TestCase):
         r_mock.assert_called_once_with([task_one, task_two])
         s_mock.assert_called_once_with([task_one, task_two])
 
+    @patch('sys.stderr')
+    def test_main_error(self, se_mock):
+        with patch('concurrently.run_all', side_effect=ValueError('bad')):
+            returncode = concurrently.main(['-v', 'one=foo a b', 'two=bar c'])
+        self.assertEqual(253, returncode)
+        self.assertIn('ERROR bad', self.log_stream.getvalue())
+
     def test_parse_args(self):
         args = concurrently.parse_args(['-v', 'one=foo a b', 'two=bar c'])
         self.assertEqual(logging.DEBUG, args.verbose)
