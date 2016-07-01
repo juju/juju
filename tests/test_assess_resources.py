@@ -1,3 +1,4 @@
+from contextlib import nested
 import logging
 from argparse import Namespace
 from mock import Mock, patch, call
@@ -21,7 +22,11 @@ from utility import JujuAssertionError
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = parse_args(["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
+        args = parse_args(
+            ["an-env",
+             "/bin/juju",
+             "/tmp/logs",
+             "an-env-mod"])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual("/tmp/logs", args.logs)
@@ -40,7 +45,14 @@ class TestParseArgs(TestCase):
 class TestMain(TestCase):
 
     def test_main(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
+        argv = [
+            "an-env",
+            "/bin/juju",
+            "/tmp/logs",
+            "an-env-mod",
+            "--verbose",
+            ]
+        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_resources.configure_logging",
                    autospec=True) as mock_cl:
