@@ -1277,6 +1277,16 @@ class TestEnvJujuClient(ClientTest):
             EnvJujuClient.by_version(env, 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
+    def test_clone_path_cls(self):
+        client = fake_juju_client()
+        with patch.object(client, 'get_version',
+                          return_value='2.0-beta3') as gv_mock:
+            clone = client.clone_path_cls('a/b/c')
+        self.assertIs(type(clone), EnvJujuClient2B3)
+        gv_mock.assert_called_once_with('a/b/c')
+        self.assertEqual(clone.full_path, os.path.abspath('a/b/c'))
+        self.assertEqual(clone.version, '2.0-beta3')
+
     def test_clone_unchanged(self):
         client1 = EnvJujuClient(JujuData('foo'), '1.27', 'full/path',
                                 debug=True)
