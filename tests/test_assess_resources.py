@@ -1,4 +1,3 @@
-from contextlib import nested
 import logging
 from argparse import Namespace
 from mock import Mock, patch, call
@@ -52,7 +51,6 @@ class TestMain(TestCase):
             "an-env-mod",
             "--verbose",
             ]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_resources.configure_logging",
                    autospec=True) as mock_cl:
