@@ -520,7 +520,8 @@ class TestMultiIndustrialTest(TestCase):
     @staticmethod
     @contextmanager
     def patch_client(by_version):
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=by_version):
+        with patch('industrial_test.client_from_config',
+                   side_effect=by_version):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 with patch.object(EnvJujuClient, 'get_full_path',
@@ -530,12 +531,17 @@ class TestMultiIndustrialTest(TestCase):
     def test_make_industrial_test(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', AttemptSuiteFactory([
             DestroyEnvironmentAttempt]), 'log-dir', 5)
-        with self.patch_client(lambda x, y=None, debug=False: (x, y)):
+        with self.patch_client(
+            lambda x, y=None, debug=False: fake_juju_client(
+                JujuData(x, {}, juju_home=''), full_path=y)):
             industrial = mit.make_industrial_test()
-        self.assertEqual(industrial.old_client, (
-            SimpleEnvironment('foo-env-old', {'name': 'foo-env-old'}), None))
-        self.assertEqual(industrial.new_client, (
-            SimpleEnvironment('foo-env-new', {'name': 'foo-env-new'}),
+        old_client = industrial.old_client
+        self.assertEqual((old_client.env, old_client.full_path), (
+            JujuData('foo-env-old', {'name': 'foo-env-old'}, juju_home=''),
+            None))
+        new_client = industrial.new_client
+        self.assertEqual((new_client.env, new_client.full_path), (
+            JujuData('foo-env-new', {'name': 'foo-env-new'}, juju_home=''),
             'bar-path'))
         self.assertEqual(len(industrial.stage_attempts), 1)
         self.assertEqual([mit.stages], [sa.attempt_list for sa in
@@ -545,14 +551,18 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path',
                                   AttemptSuiteFactory([]), 'log-dir',
                                   new_agent_url='http://example.com')
-        with self.patch_client(lambda x, y=None, debug=False: (x, y)):
+        with self.patch_client(
+                lambda x, y=None, debug=False: fake_juju_client(full_path=y)):
             industrial = mit.make_industrial_test()
         self.assertEqual(
-            industrial.new_client, (
-                SimpleEnvironment('foo-env-new', {
+            (industrial.new_client.env, industrial.new_client.full_path), (
+                JujuData('foo-env-new', {
+                    'type': 'foo',
+                    'default-series': 'angsty',
+                    'region': 'bar',
                     'name': 'foo-env-new',
                     'tools-metadata-url': 'http://example.com',
-                    }),
+                    }, 'foo'),
                 'bar-path')
             )
 
@@ -562,17 +572,18 @@ class TestMultiIndustrialTest(TestCase):
                                   new_agent_url='http://example.com')
 
         def side_effect(x, y=None, debug=False):
-            return debug
+            return fake_juju_client(env=JujuData(x, {}, juju_home='x'),
+                                    full_path=y, debug=debug)
 
         with self.patch_client(side_effect):
             industrial = mit.make_industrial_test()
-        self.assertEqual(industrial.new_client, False)
-        self.assertEqual(industrial.old_client, False)
+        self.assertEqual(industrial.new_client.debug, False)
+        self.assertEqual(industrial.old_client.debug, False)
         mit.debug = True
         with self.patch_client(side_effect):
             industrial = mit.make_industrial_test()
-        self.assertEqual(industrial.new_client, True)
-        self.assertEqual(industrial.old_client, True)
+        self.assertEqual(industrial.new_client.debug, True)
+        self.assertEqual(industrial.old_client.debug, True)
 
     def test_update_results(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path',
@@ -836,34 +847,36 @@ class TestIndustrialTest(JujuPyTestCase):
 
     def test_from_args(self):
         def side_effect(x, y=None, debug=False):
-            return (x, y)
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
-            with patch('jujupy.SimpleEnvironment.from_config',
-                       side_effect=lambda x: SimpleEnvironment(x, {})):
-                industrial = IndustrialTest.from_args(
-                    'foo', 'new-juju-path', [])
+            return fake_juju_client(env=JujuData(x, {}), full_path=y)
+        with patch('industrial_test.client_from_config',
+                   side_effect=side_effect):
+            industrial = IndustrialTest.from_args(
+                'foo', 'new-juju-path', [])
         self.assertIsInstance(industrial, IndustrialTest)
-        self.assertEqual(industrial.old_client, (
-            SimpleEnvironment('foo-old', {'name': 'foo-old'}), None))
-        self.assertEqual(industrial.new_client, (
-            SimpleEnvironment('foo-new', {'name': 'foo-new'}),
+        old_client = industrial.old_client
+        self.assertEqual((old_client.env, old_client.full_path), (
+            JujuData('foo-old', {'name': 'foo-old'}), None))
+        new_client = industrial.new_client
+        self.assertEqual((new_client.env, new_client.full_path), (
+            JujuData('foo-new', {'name': 'foo-new'}),
             'new-juju-path'))
-        self.assertNotEqual(industrial.old_client[0].environment,
-                            industrial.new_client[0].environment)
+        self.assertNotEqual(old_client.env.environment,
+                            new_client.env.environment)
 
     def test_from_args_debug(self):
         def side_effect(x, y=None, debug=False):
-            return debug
-        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            return fake_juju_client(full_path=y, debug=debug)
+        with patch('industrial_test.client_from_config',
+                   side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config'):
                 industrial = IndustrialTest.from_args(
                     'foo', 'new-juju-path', [], debug=False)
-                self.assertEqual(industrial.old_client, False)
-                self.assertEqual(industrial.new_client, False)
+                self.assertEqual(industrial.old_client.debug, False)
+                self.assertEqual(industrial.new_client.debug, False)
                 industrial = IndustrialTest.from_args(
                     'foo', 'new-juju-path', [], debug=True)
-                self.assertEqual(industrial.old_client, True)
-                self.assertEqual(industrial.new_client, True)
+                self.assertEqual(industrial.old_client.debug, True)
+                self.assertEqual(industrial.new_client.debug, True)
 
     def test_run_stages(self):
         old_client = FakeEnvJujuClient('old')
@@ -1849,10 +1862,10 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
         client = fake_juju_client(full_path='c', debug=True)
         puj_attempt = PrepareUpgradeJujuAttempt.factory(['a', 'b', 'c'], None)
 
-        def by_version(env, path, debug):
-            return fake_juju_client(env, path, debug)
+        def by_version(path):
+            return fake_juju_client(client.env, path, client.debug)
 
-        with patch.object(client, 'by_version', by_version):
+        with patch.object(client, 'clone_path_cls', by_version):
             bootstrap_client = puj_attempt.get_bootstrap_client(client)
 
         self.assertIsNot(bootstrap_client, client)
@@ -1868,13 +1881,15 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
         puj_iterator = iter_steps_validate_info(self, puj_attempt,
                                                 future_client)
         with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
-            self.assertEqual({'test_id': 'prepare-upgrade-juju'},
-                             puj_iterator.next())
+            with patch('industrial_test.client_from_config',
+                       return_value=future_client):
+                self.assertEqual({'test_id': 'prepare-upgrade-juju'},
+                                 puj_iterator.next())
         with observable_temp_file() as config_file:
             with patch('subprocess.Popen') as po_mock:
                 self.assertEqual({'test_id': 'prepare-upgrade-juju'},
                                  puj_iterator.next())
-            assert_juju_call(self, po_mock, present_client, (
+            assert_juju_call(self, po_mock, future_client, (
                 'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
                 'steve', 'fake/regionx', '--config', config_file.name,
                 '--agent-version', '2.0-alpha3'))

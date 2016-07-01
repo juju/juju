@@ -15,6 +15,7 @@ from textwrap import dedent
 
 from deploy_stack import (
     BootstrapManager,
+    client_from_config,
     wait_for_state_server_to_shutdown,
     )
 from jujucharm import (
@@ -29,7 +30,6 @@ from jujupy import (
     get_machine_dns_name,
     LXC_MACHINE,
     LXD_MACHINE,
-    SimpleEnvironment,
     uniquify_local,
     )
 from substrate import (
@@ -204,16 +204,13 @@ class IndustrialTest:
         :param stage_attemps: List of stages to attempt.
         :param debug: If True, use juju --debug logging.
         """
-        old_env = SimpleEnvironment.from_config(env)
-        old_env.set_model_name(env + '-old')
-        old_client = EnvJujuClient.by_version(old_env, debug=debug)
-        new_env = SimpleEnvironment.from_config(env)
-        new_env.set_model_name(env + '-new')
+        old_client = client_from_config(env, None, debug=debug)
+        old_client.env.set_model_name(env + '-old')
+        new_client = client_from_config(env, new_juju_path, debug=debug)
+        new_client.env.set_model_name(env + '-new')
         if new_agent_url is not None:
-            new_env.config['tools-metadata-url'] = new_agent_url
-        uniquify_local(new_env)
-        new_client = EnvJujuClient.by_version(new_env, new_juju_path,
-                                              debug=debug)
+            new_client.env.config['tools-metadata-url'] = new_agent_url
+        uniquify_local(new_client.env)
         return cls(old_client, new_client, stage_attempts)
 
     def __init__(self, old_client, new_client, stage_attempts):
@@ -449,8 +446,7 @@ class PrepareUpgradeJujuAttempt(SteppedStageAttempt):
             bootstrap_path = self.bootstrap_paths[client.full_path]
         except KeyError:
             raise CannotUpgradeToClient(client)
-        return client.by_version(
-            client.env, bootstrap_path, client.debug)
+        return client.clone_path_cls(bootstrap_path)
 
     def iter_steps(self, client):
         """Use a BootstrapAttempt with a different client."""
@@ -989,12 +985,11 @@ def maybe_write_json(filename, results):
 
 
 def run_single(args):
-    env = SimpleEnvironment.from_config(args.env)
+    upgrade_client = client_from_config(args.env, juju_path=None,
+                                        debug=args.debug)
+    env = upgrade_client.env
     env.set_model_name(env.environment + '-single')
-    upgrade_client = EnvJujuClient.by_version(
-        env, debug=args.debug)
-    client = EnvJujuClient.by_version(
-        env,  args.new_juju_path, debug=args.debug)
+    client = upgrade_client.clone_path_cls(args.new_juju_path)
     try:
         for suite in args.suite:
             factory = suites[suite]
