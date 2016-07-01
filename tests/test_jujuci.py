@@ -642,9 +642,9 @@ class JujuCITestCase(FakeHomeTestCase):
         config = {'environments': {'local': {'type': 'local'}}}
         with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment', autospec=True) as mock_de:
-                with patch('jujupy.EnvJujuClient.by_version', side_effect=(
-                        lambda env: jujupy.EnvJujuClient(env, '1', None))):
-                    dirty = clean_environment('foo', verbose=False)
+                with patch.object(jujupy.EnvJujuClient, 'get_version'):
+                    with patch('jujupy.get_client_class'):
+                        dirty = clean_environment('foo', verbose=False)
         self.assertFalse(dirty)
         self.assertEqual(0, mock_de.call_count)
 
@@ -652,10 +652,15 @@ class JujuCITestCase(FakeHomeTestCase):
         config = {'environments': {'foo': {'type': 'local'}}}
         with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment', autospec=True) as mock_de:
-                with patch('jujupy.EnvJujuClient.by_version', side_effect=(
-                        lambda env: jujupy.EnvJujuClient(env, '1', None))):
-                    with patch.object(jujupy.JujuData, 'load_yaml'):
-                        dirty = clean_environment('foo', verbose=False)
+                with patch.object(jujupy.EnvJujuClient, 'get_version'):
+                    with patch('jujupy.get_client_class') as gcc_mock:
+                        factory = gcc_mock.return_value
+                        factory.return_value = jujupy.EnvJujuClient(
+                            None, None, None)
+                        with patch.object(jujupy.EnvJujuClient,
+                                          'get_full_path'):
+                            with patch.object(jujupy.JujuData, 'load_yaml'):
+                                dirty = clean_environment('foo', verbose=False)
         self.assertTrue(dirty)
         self.assertEqual(1, mock_de.call_count)
         args, kwargs = mock_de.call_args
