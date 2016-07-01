@@ -271,7 +271,7 @@ func (c *registerCommand) getParameters(ctx *cmd.Context) (*registrationParams, 
 	copy(params.key[:], info.SecretKey)
 
 	// Prompt the user for the controller name.
-	controllerName, err := c.promptControllerName(ctx.Stderr, ctx.Stdin)
+	controllerName, err := c.promptControllerName(info.ControllerName, ctx.Stderr, ctx.Stdin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -370,16 +370,34 @@ func (c *registerCommand) promptNewPassword(stderr io.Writer, stdin io.Reader) (
 	return password, nil
 }
 
-func (c *registerCommand) promptControllerName(stderr io.Writer, stdin io.Reader) (string, error) {
-	fmt.Fprintf(stderr, "Please set a name for this controller: ")
+const errControllerConflicts = `WARNING: the controller proposed %q which clashes with an` +
+	` existing controller. The two controllers are entirely different.
+
+`
+
+func (c *registerCommand) promptControllerName(suggestedName string, stderr io.Writer, stdin io.Reader) (string, error) {
+	_, err := c.store.ControllerByName(suggestedName)
+	if err == nil {
+		fmt.Fprintf(stderr, errControllerConflicts, suggestedName)
+		suggestedName = ""
+	}
+	setMsg := "Please set a name for this controller"
+	if suggestedName != "" {
+		setMsg = setMsg + " (" + suggestedName + ")"
+	}
+	setMsg = setMsg + ":"
+	fmt.Fprintf(stderr, setMsg)
 	defer stderr.Write([]byte{'\n'})
 	name, err := c.readLine(stdin)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	name = strings.TrimSpace(name)
-	if name == "" {
+	if name == "" && suggestedName == "" {
 		return "", errors.NewNotValid(nil, "you must specify a non-empty controller name")
+	}
+	if name == "" && suggestedName != "" {
+		return suggestedName, nil
 	}
 	return name, nil
 }

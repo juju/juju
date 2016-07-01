@@ -60,7 +60,9 @@ Please send this command to bob:
 	context = s.run(c, stdin, args...)
 	c.Check(testing.Stdout(context), gc.Equals, "")
 	c.Check(testing.Stderr(context), gc.Equals, `
-Please set a name for this controller: 
+WARNING: the controller proposed "kontroll" which clashes with an existing controller. The two controllers are entirely different.
+
+Please set a name for this controller:
 Enter a new password: 
 Confirm password: 
 

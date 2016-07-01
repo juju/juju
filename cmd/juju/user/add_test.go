@@ -99,7 +99,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsername(c *gc.C) {
 	expected := `
 User "foobar" added
 Please send this command to foobar:
-    juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
 
 "foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
@@ -117,7 +117,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndACL(c *gc.C) {
 	expected := `
 User "foobar" added
 Please send this command to foobar:
-    juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
 
 "foobar" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
@@ -135,7 +135,7 @@ func (s *UserAddCommandSuite) TestAddUserWithUsernameAndDisplayname(c *gc.C) {
 	expected := `
 User "Foo Bar (foobar)" added
 Please send this command to foobar:
-    juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
 
 "Foo Bar (foobar)" has not been granted access to any models. You can use "juju grant" to grant access.
 `[1:]
@@ -164,7 +164,7 @@ func (s *UserAddCommandSuite) TestAddUserWithModelAccess(c *gc.C) {
 User "foobar" added
 User "foobar" granted read access to model "model"
 Please send this command to foobar:
-    juju register MD0TBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY
+    juju register MEYTBmZvb2JhcjAREw8xMjcuMC4wLjE6MTIzNDUEIFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYEwd0ZXN0aW5n
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expected)
 	c.Assert(testing.Stderr(context), gc.Equals, "")
