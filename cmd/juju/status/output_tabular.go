@@ -78,8 +78,12 @@ func (r *relationFormatter) get(k string) *statusRelation {
 
 func printHelper(tw *tabwriter.Writer) func(...interface{}) {
 	return func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%v\t", v)
+		for i, v := range values {
+			if i != len(values)-1 {
+				fmt.Fprintf(tw, "%v\t", v)
+			} else {
+				fmt.Fprintf(tw, "%v", v)
+			}
 		}
 		fmt.Fprintln(tw)
 	}
