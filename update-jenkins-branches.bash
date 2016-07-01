@@ -70,7 +70,7 @@ if [[ \$(uname) == "Linux" ]]; then
                     /usr/lib/python2.7/dist-packages/lsb_release.py
     fi
 elif [[ \$(uname) == "Darwin" ]]; then
-    ~/juju-ci-tools/pipdeps install
+    ~/juju-ci-tools/pipdeps.py install
 fi
 if [[ -d ~/ci-director ]]; then
     bzr pull -d ~/ci-director
