@@ -165,11 +165,11 @@ func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
 	case loggo.ERROR:
 		msg.Priority.Severity = rfc5424.SeverityError
 	case loggo.WARNING:
-		msg.Priority.Severity = rfc5424.SeverityError
+		msg.Priority.Severity = rfc5424.SeverityWarning
 	case loggo.INFO:
-		msg.Priority.Severity = rfc5424.SeverityError
+		msg.Priority.Severity = rfc5424.SeverityInformational
 	case loggo.DEBUG, loggo.TRACE:
-		msg.Priority.Severity = rfc5424.SeverityError
+		msg.Priority.Severity = rfc5424.SeverityDebug
 	default:
 		return msg, errors.Errorf("unsupported log level %q", rec.Level)
 	}

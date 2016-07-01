@@ -75,7 +75,7 @@ func (s *ClientSuite) TestClose(c *gc.C) {
 	s.stub.CheckCallNames(c, "Close")
 }
 
-func (s *ClientSuite) TestSend(c *gc.C) {
+func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 	tag := names.NewMachineTag("99")
 	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
@@ -143,6 +143,44 @@ func (s *ClientSuite) TestSend(c *gc.C) {
 		},
 		Msg: "(╯°□°)╯︵ ┻━┻",
 	})
+}
+
+func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
+	tag := names.NewMachineTag("99")
+	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
+	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
+	ver := version.MustParse("1.2.3")
+	rec := logfwd.Record{
+		Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
+		Timestamp: time.Unix(12345, 0),
+		Level:     loggo.ERROR,
+		Location: logfwd.SourceLocation{
+			Module:   "juju.x.y",
+			Filename: "x/y/spam.go",
+			Line:     42,
+		},
+		Message: "(╯°□°)╯︵ ┻━┻",
+	}
+	client := syslog.Client{Sender: s.sender}
+
+	levels := map[loggo.Level]rfc5424.Severity{
+		loggo.ERROR:   rfc5424.SeverityError,
+		loggo.WARNING: rfc5424.SeverityWarning,
+		loggo.INFO:    rfc5424.SeverityInformational,
+		loggo.DEBUG:   rfc5424.SeverityDebug,
+		loggo.TRACE:   rfc5424.SeverityDebug,
+	}
+	for level, expected := range levels {
+		c.Logf("trying %s -> %s", level, expected)
+		s.stub.ResetCalls()
+		rec.Level = level
+
+		err := client.Send(rec)
+		c.Assert(err, jc.ErrorIsNil)
+
+		msg := s.stub.Calls()[0].Args[0].(rfc5424.Message)
+		c.Check(msg.Severity, gc.Equals, expected)
+	}
 }
 
 type stubSenderOpener struct {
