@@ -619,7 +619,7 @@ func (s *userManagerSuite) TestDeleteUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 
-	expectedError := fmt.Sprintf("%q not found", jjam.Name())
+	expectedError := fmt.Sprintf("failed to delete user %q: %q user not found", jjam.Name(), jjam.Name())
 	// Make sure the user exists.
 	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
@@ -647,7 +647,7 @@ func (s *userManagerSuite) TestDeleteUser(c *gc.C) {
 	c.Check(len(got.Results), gc.Equals, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
-		Code:    "not found",
+		Code:    "user not found",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -175,7 +175,7 @@ func (api *UserManagerAPI) DeleteUser(entities params.Entities) (params.ErrorRes
 		}
 		err = api.state.DeleteUser(user)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.IsUserNotFound(err) {
 				deletions.Results[i].Error = common.ServerError(err)
 			} else {
 				deletions.Results[i].Error = common.ServerError(
