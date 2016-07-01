@@ -447,8 +447,20 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/lxd/lxd.log'
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
+                ' /etc/network/interfaces'
+                ' /home/ubuntu/ifconfig.log'
                 ),),
             cc_mock.call_args_list[0][0])
+        self.assertEqual(
+            (get_timeout_prefix(120) + (
+                'ssh',
+                '-o', 'User ubuntu',
+                '-o', 'UserKnownHostsFile /dev/null',
+                '-o', 'StrictHostKeyChecking no',
+                '-o', 'PasswordAuthentication no',
+                '10.10.0.1',
+                'ifconfig > /home/ubuntu/ifconfig.log'),),
+            cc_mock.call_args_list[1][0])
         self.assertEqual(
             (get_timeout_prefix(120) + (
                 'scp', '-rC',
@@ -463,8 +475,10 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/lxd/lxd.log',
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
+                '10.10.0.1:/etc/network/interfaces',
+                '10.10.0.1:/home/ubuntu/ifconfig.log',
                 '/foo'),),
-            cc_mock.call_args_list[1][0])
+            cc_mock.call_args_list[2][0])
 
     def test_copy_remote_logs_windows(self):
         remote = remote_from_address('10.10.0.1', series="win2012hvr2")
@@ -488,7 +502,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
         with patch('subprocess.check_output', side_effect=remote_op) as co:
             with patch('deploy_stack.wait_for_port', autospec=True):
                 copy_remote_logs(remote_from_address('10.10.0.1'), '/foo')
-        self.assertEqual(2, co.call_count)
+        self.assertEqual(3, co.call_count)
         self.assertEqual(
             ["DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
              "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
@@ -496,11 +510,19 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/juju/*.log /var/lib/juju/containers/juju-*-lxc-*/ "
              "/var/log/lxd/juju-* "
              "/var/log/lxd/lxd.log "
-             "/var/log/syslog /var/log/mongodb/mongodb.log'",
+             "/var/log/syslog "
+             "/var/log/mongodb/mongodb.log "
+             "/etc/network/interfaces "
+             "/home/ubuntu/ifconfig.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
-             'WARNING Could not retrieve some or all logs:',
-             'WARNING CalledProcessError()'],
+             "DEBUG ssh -o 'User ubuntu' -o 'UserKnownHostsFile /dev/null' "
+             "-o 'StrictHostKeyChecking no' -o 'PasswordAuthentication no' "
+             "10.10.0.1 'ifconfig > /home/ubuntu/ifconfig.log'",
+             'WARNING Could not capture ifconfig state:',
+             'WARNING None', 'WARNING Could not retrieve some or all logs:',
+             'WARNING CalledProcessError()',
+             ],
             self.log_stream.getvalue().splitlines())
 
     def test_get_machines_for_logs(self):
@@ -1374,7 +1396,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual({
             'name': 'bar',
             'default-series': 'wacky',
-            'tools-metadata-url': 'url',
+            'agent-metadata-url': 'url',
             'type': 'foo',
             'region': 'bar',
             'test-mode': True,
