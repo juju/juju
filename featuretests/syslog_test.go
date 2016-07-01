@@ -8,10 +8,13 @@ import (
 	"crypto/x509"
 	"fmt"
 	"regexp"
+	"runtime"
 	"time"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -28,15 +31,30 @@ import (
 
 type syslogSuite struct {
 	agenttest.AgentSuite
-	server   *rfc5424test.Server
-	logsCh   logsender.LogRecordCh
-	received chan rfc5424test.Message
+	server          *rfc5424test.Server
+	logsCh          logsender.LogRecordCh
+	received        chan rfc5424test.Message
+	fakeEnsureMongo *agenttest.FakeEnsureMongo
 }
 
 var _ = gc.Suite(&syslogSuite{})
 
 func (s *syslogSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip(fmt.Sprintf("this test requires state server, therefore does not support %q", runtime.GOOS))
+	}
+	currentSeries := series.HostSeries()
+	osFromSeries, err := series.GetOSFromSeries(currentSeries)
+	c.Assert(err, jc.ErrorIsNil)
+	if osFromSeries != os.Ubuntu {
+		c.Skip(fmt.Sprintf("this test requires state server, therefore does not support OS %q only Ubuntu", osFromSeries.String()))
+	}
 	s.AgentSuite.SetUpTest(c)
+	// TODO(perrito666) 200160701:
+	// This needs to be done to stop the test from trying to install mongo
+	// while running, but it is a huge footprint for such little benefit.
+	// This test should not need JujuConnSuite or AgentSuite.
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 
 	s.received = make(chan rfc5424test.Message, 1)
 	s.server = rfc5424test.NewServer(rfc5424test.HandlerFunc(func(msg rfc5424test.Message) {
