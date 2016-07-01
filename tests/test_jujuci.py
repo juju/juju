@@ -643,7 +643,8 @@ class JujuCITestCase(FakeHomeTestCase):
         with jujupy._temp_env(config, set_home=True):
             with patch('jujuci.destroy_environment', autospec=True) as mock_de:
                 with patch.object(jujupy.EnvJujuClient, 'get_version'):
-                    with patch('jujupy.get_client_class'):
+                    with patch('jujupy.get_client_class') as gcc_mock:
+                        gcc_mock.return_value = jujupy.EnvJujuClient
                         dirty = clean_environment('foo', verbose=False)
         self.assertFalse(dirty)
         self.assertEqual(0, mock_de.call_count)
