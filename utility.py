@@ -25,13 +25,7 @@ try:
 except ImportError:
     from pipes import quote
 
-from jujucharm import (
-    local_charm_path,
-)
-
 quote
-
-local_charm_path
 
 
 # Equivalent of socket.EAI_NODATA when using windows sockets

@@ -10,9 +10,11 @@ import os
 import subprocess
 import sys
 
+from jujucharm import (
+    local_charm_path,
+)
 from remote import remote_from_unit
 from utility import (
-    local_charm_path,
     until_timeout,
 )
 
