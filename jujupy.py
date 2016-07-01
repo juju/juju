@@ -157,10 +157,10 @@ def coalesce_agent_status(agent_item):
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
-    env = SimpleEnvironment.from_config(env_name)
+    client = client_from_config(env_name, juju_path, debug)
     if temp_env_name is not None:
-        env.set_model_name(temp_env_name)
-    return EnvJujuClient.by_version(env, juju_path, debug)
+        client.env.set_model_name(temp_env_name)
+    return client
 
 
 class CannotConnectEnv(subprocess.CalledProcessError):
@@ -560,6 +560,47 @@ class Juju1XBackend(Juju2A2Backend):
                 args)
 
 
+def get_client_class(version):
+    if version.startswith('1.16'):
+        raise Exception('Unsupported juju: %s' % version)
+    elif re.match('^1\.22[.-]', version):
+        client_class = EnvJujuClient22
+    elif re.match('^1\.24[.-]', version):
+        client_class = EnvJujuClient24
+    elif re.match('^1\.25[.-]', version):
+        client_class = EnvJujuClient25
+    elif re.match('^1\.26[.-]', version):
+        client_class = EnvJujuClient26
+    elif re.match('^1\.', version):
+        client_class = EnvJujuClient1X
+    elif re.match('^2\.0-alpha1', version):
+        client_class = EnvJujuClient2A1
+    elif re.match('^2\.0-alpha2', version):
+        client_class = EnvJujuClient2A2
+    elif re.match('^2\.0-(alpha3|beta[12])', version):
+        client_class = EnvJujuClient2B2
+    elif re.match('^2\.0-(beta[3-6])', version):
+        client_class = EnvJujuClient2B3
+    elif re.match('^2\.0-(beta7)', version):
+        client_class = EnvJujuClient2B7
+    elif re.match('^2\.0-beta8', version):
+        client_class = EnvJujuClient2B8
+    else:
+        client_class = EnvJujuClient
+    return client_class
+
+
+def client_from_config(config, juju_path, debug=False):
+    version = EnvJujuClient.get_version(juju_path)
+    client_class = get_client_class(version)
+    env = SimpleEnvironment.from_config(config)
+    if juju_path is None:
+        full_path = EnvJujuClient.get_full_path()
+    else:
+        full_path = os.path.abspath(juju_path)
+    return client_class(env, version, full_path, debug=debug)
+
+
 class EnvJujuClient:
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -650,33 +691,18 @@ class EnvJujuClient:
             full_path = cls.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        if version.startswith('1.16'):
-            raise Exception('Unsupported juju: %s' % version)
-        elif re.match('^1\.22[.-]', version):
-            client_class = EnvJujuClient22
-        elif re.match('^1\.24[.-]', version):
-            client_class = EnvJujuClient24
-        elif re.match('^1\.25[.-]', version):
-            client_class = EnvJujuClient25
-        elif re.match('^1\.26[.-]', version):
-            client_class = EnvJujuClient26
-        elif re.match('^1\.', version):
-            client_class = EnvJujuClient1X
-        elif re.match('^2\.0-alpha1', version):
-            client_class = EnvJujuClient2A1
-        elif re.match('^2\.0-alpha2', version):
-            client_class = EnvJujuClient2A2
-        elif re.match('^2\.0-(alpha3|beta[12])', version):
-            client_class = EnvJujuClient2B2
-        elif re.match('^2\.0-(beta[3-6])', version):
-            client_class = EnvJujuClient2B3
-        elif re.match('^2\.0-(beta7)', version):
-            client_class = EnvJujuClient2B7
-        elif re.match('^2\.0-beta8', version):
-            client_class = EnvJujuClient2B8
-        else:
-            client_class = EnvJujuClient
+        client_class = get_client_class(version)
         return client_class(env, version, full_path, debug=debug)
+
+    def clone_path_cls(self, juju_path):
+        """Clone using the supplied path to determine the class."""
+        version = self.get_version(juju_path)
+        cls = get_client_class(version)
+        if juju_path is None:
+            full_path = self.get_full_path()
+        else:
+            full_path = os.path.abspath(juju_path)
+        return self.clone(version=version, full_path=full_path, cls=cls)
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
