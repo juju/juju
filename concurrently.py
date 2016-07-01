@@ -4,11 +4,20 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from contextlib import contextmanager
+import logging
 import subprocess
 import sys
 import traceback
 
 __metaclass__ = type
+
+
+log = logging.getLogger("concurrently")
+handler = logging.StreamHandler(sys.stderr)
+handler.setFormatter(logging.Formatter(
+    fmt='%(asctime)s %(levelname)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'))
+log.addHandler(handler)
 
 
 class Task:
@@ -19,18 +28,28 @@ class Task:
         self.out_log_name = '{}-out.log'.format(self.name)
         self.err_log_name = '{}-err.log'.format(self.name)
         self.returncode = None
+        self.proc = None
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        return (self.name == other.name and
+                self.command == other.command)
 
     @contextmanager
-    def run(self):
+    def start(self):
         """Yield the running proc, then wait to set the returncode."""
         with open(self.out_log_name, 'ab') as out_log:
             with open(self.err_log_name, 'ab') as err_log:
-                try:
-                    proc = subprocess.Popen(
-                        self.command, stdout=out_log, stderr=err_log)
-                    yield proc
-                finally:
-                    self.returncode = proc.wait()
+                self.proc = subprocess.Popen(
+                    self.command, stdout=out_log, stderr=err_log)
+                log.debug('Started {}'.format(self.name))
+                yield self.proc
+
+    def finish(self):
+        log.debug('Waiting for {} to finish'.format(self.name))
+        self.returncode = self.proc.wait()
+        log.debug('{} finished'.format(self.name))
 
 
 def run_all(tasks):
@@ -42,31 +61,32 @@ def run_all(tasks):
         task = tasks.pop()
     except IndexError:
         return
-    with task.run():
+    with task.start():
         run_all(tasks)
+        task.finish()
 
 
-def summarise_tasks(tasks, verbose=False):
+def summarise_tasks(tasks):
     """Return of sum of tasks returncodes."""
     returncode = sum([t.returncode for t in tasks])
-    if verbose:
-        if returncode == 0:
-            print('SUCCESS')
-        else:
-            print('FAIL')
-            for task in tasks:
-                if task.returncode != 0:
-                    print('  {} failed with {}'.format(
-                          task.name, task.returncode))
+    if returncode == 0:
+        log.debug('SUCCESS')
+    else:
+        log.debug('FAIL')
+        for task in tasks:
+            if task.returncode != 0:
+                log.error('{} failed with {}\nSee {}'.format(
+                          task.name, task.returncode, task.err_log_name))
     return returncode
 
 
 def parse_args(argv=None):
     """Return the parsed args for this program."""
     parser = ArgumentParser(
-        description="Run many processes concurrently.")
+        description="Run many tasks concurrently.")
     parser.add_argument(
-        '-v', '--verbose', action='store_true', default=False,
+        '-v', '--verbose', action='store_const',
+        default=logging.INFO, const=logging.DEBUG,
         help='Increase verbosity.')
     parser.add_argument(
         'tasks', nargs='+', default=[],
@@ -75,19 +95,19 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
-    """Run go test against the content of a tarfile."""
+    """Run many tasks concurrently."""
     returncode = 254
     args = parse_args(argv)
+    log.setLevel(args.verbose)
     tasks = [Task(t) for t in args.tasks]
     try:
-        if args.verbose:
-            names = [t.name for t in tasks]
-            print('Running these tasks {}'.format(names))
+        names = [t.name for t in tasks]
+        log.debug('Running these tasks {}'.format(names))
         run_all(list(tasks))
-        returncode = summarise_tasks(tasks, verbose=args.verbose)
+        returncode = summarise_tasks(tasks)
     except Exception as e:
-        print(str(e))
-        print(traceback.print_exc())
+        log.error(str(e))
+        log.error(traceback.print_exc())
         return 253
     return returncode
 
