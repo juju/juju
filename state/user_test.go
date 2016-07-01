@@ -130,8 +130,8 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
-func (s *UserSuite) TestRemoveUserNonExistent(c *gc.C) {
-	err := s.State.RemoveUser(names.NewUserTag("harvey"))
+func (s *UserSuite) TestDeleteUserNonExistent(c *gc.C) {
+	err := s.State.DeleteUser(names.NewUserTag("harvey"))
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -140,7 +140,7 @@ func isDeletedUserError(err error) bool {
 	return ok
 }
 
-func (s *UserSuite) TestRemoveUserAllUsers(c *gc.C) {
+func (s *UserSuite) TestDeleteUserAllUsers(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "one"})
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "two"})
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "three"})
@@ -155,7 +155,7 @@ func (s *UserSuite) TestRemoveUserAllUsers(c *gc.C) {
 	}
 	c.Check(got, jc.SameContents, []string{"test-admin", "one", "two", "three"})
 
-	s.State.RemoveUser(user.UserTag())
+	s.State.DeleteUser(user.UserTag())
 
 	all, err = s.State.AllUsers(true)
 	got = nil
@@ -168,7 +168,7 @@ func (s *UserSuite) TestRemoveUserAllUsers(c *gc.C) {
 
 }
 
-func (s *UserSuite) TestRemoveUser(c *gc.C) {
+func (s *UserSuite) TestDeleteUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "should fail"})
 
 	// Assert user exists and can authenticate.
@@ -179,8 +179,8 @@ func (s *UserSuite) TestRemoveUser(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(u, jc.DeepEquals, user)
 
-	// Remove the user.
-	err = s.State.RemoveUser(user.UserTag())
+	// Delete the user.
+	err = s.State.DeleteUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
 	// Check that we cannot update last login.

@@ -592,9 +592,9 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	c.Assert(barb.PasswordValid("new-password"), jc.IsFalse)
 }
 
-func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUserBadTag(c *gc.C) {
 	tag := "not-a-tag"
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
 	c.Assert(len(got.Results), gc.Equals, 1)
 	c.Assert(err, gc.Equals, nil)
@@ -603,9 +603,9 @@ func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUserNonExistent(c *gc.C) {
 	tag := "user-harvey"
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
 	c.Assert(len(got.Results), gc.Equals, 1)
 	c.Assert(err, gc.Equals, nil)
@@ -615,7 +615,7 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 
@@ -628,8 +628,8 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	c.Check(ui.Results, gc.HasLen, 1)
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
-	// Remove the user
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	// Delete the user
+	got, err := s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Check(len(got.Results), gc.Equals, 1)
 	var paramErr *params.Error
@@ -642,7 +642,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 
 	// Try again and verify we get the expected error.
-	got, err = s.usermanager.RemoveUser(params.Entities{
+	got, err = s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Check(len(got.Results), gc.Equals, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -652,7 +652,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUserAsNormalUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 	// Create a user to delete jjam.
@@ -676,8 +676,8 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	c.Check(ui.Results, gc.HasLen, 1)
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
-	// Remove jjam as chuck and fail.
-	got, err := usermanager.RemoveUser(params.Entities{
+	// Delete jjam as chuck and fail.
+	got, err := usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Check(len(got.Results), gc.Equals, 1)
 	var paramErr *params.Error
@@ -689,7 +689,7 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUserSelfAsNormalUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "jimmyjam",
@@ -709,8 +709,8 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	c.Check(ui.Results, gc.HasLen, 1)
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
-	// Remove the user as the user
-	got, err := usermanager.RemoveUser(params.Entities{
+	// Delete the user as the user
+	got, err := usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Check(len(got.Results), gc.Equals, 1)
 	var paramErr *params.Error
@@ -722,12 +722,12 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUserAsSelfAdmin(c *gc.C) {
 
-	expectedError := "cannot remove controller owner \"admin\""
+	expectedError := "cannot delete controller owner \"admin\""
 
-	// Remove admin as admin.
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	// Delete admin as admin.
+	got, err := s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
 	c.Check(len(got.Results), gc.Equals, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -736,7 +736,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try again to see if we succeeded.
-	got, err = s.usermanager.RemoveUser(params.Entities{
+	got, err = s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
 	c.Check(len(got.Results), gc.Equals, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -750,7 +750,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 
 }
 
-func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
+func (s *userManagerSuite) TestDeleteUserBulkSharedModels(c *gc.C) {
 	// Create users.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "jimmyjam",
@@ -774,8 +774,8 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	}
 	c.Assert(userNames, jc.SameContents, []string{"admin", jjam.Name(), alice.Name(), bob.Name()})
 
-	// Remove 2 users.
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	// Delete 2 users.
+	got, err := s.usermanager.DeleteUser(params.Entities{
 		Entities: []params.Entity{
 			{Tag: jjam.Tag().String()},
 			{Tag: alice.Tag().String()},
@@ -786,12 +786,12 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// There was a test here to ensure modelusers were removed. However, after
-	// moving to the marked deleted implementation of removeing users we AFAIU
+	// There was a test here to ensure modelusers were deleted. However, after
+	// moving to the marked deleted implementation of deleteing users we AFAIU
 	// don't need this check. Because the apiserver will prevent not permit
 	// calls that involve modelusers if the user no longer exists (is deleted).
 
-	// Also make sure users were removed.
+	// Also make sure users were deleted.
 	err = jjam.Refresh()
 	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 	err = alice.Refresh()

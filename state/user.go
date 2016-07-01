@@ -102,10 +102,10 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	return user, nil
 }
 
-// RemoveUser marks the user as deleted. Which obviates the ability of a user
+// DeleteUser marks the user as deleted. Which obviates the ability of a user
 // to function, but allows the record to remain for historic purposes, e.g.
 // auditing.
-func (st *State) RemoveUser(tag names.UserTag) error {
+func (st *State) DeleteUser(tag names.UserTag) error {
 	name := strings.ToLower(tag.Name())
 
 	u, err := st.User(tag)
@@ -415,7 +415,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 // PasswordValid returns whether the given password is valid for the User. The
 // caller should call user.Refresh before calling this.
 func (u *User) PasswordValid(password string) bool {
-	// If the User is deactivated or deleted, there no point in carrying on.
+	// If the User is deactivated or deleted, there is no point in carrying on.
 	// Since any authentication checks are done very soon after the user is
 	// read from the database, there is a very small timeframe where an user
 	// could be disabled after it has been read but prior to being checked, but

@@ -138,50 +138,54 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	return result, nil
 }
 
-// RemoveUser removes a user.
-func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorResults, error) {
-	removal := params.ErrorResults{
+// DeleteUser permanently removes a user from the current controller for each
+// entity provided. While the user is permanently removed we keep it's
+// information around for auditing purposes.
+// TODO(redir): Add information about getting deleted user information when we
+// add that capability.
+func (api *UserManagerAPI) DeleteUser(entities params.Entities) (params.ErrorResults, error) {
+	deletions := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(entities.Entities))}
 	if err := api.check.ChangeAllowed(); err != nil {
-		return removal, errors.Trace(err)
+		return deletions, errors.Trace(err)
 	}
 
 	// Make sure we have admin.
 	if !api.isAdmin {
-		return removal, common.ErrPerm
+		return deletions, common.ErrPerm
 	}
 	// Get a handle on the controller model.
 	controllerModel, err := api.state.ControllerModel()
 	if err != nil {
-		return removal, errors.Trace(err)
+		return deletions, errors.Trace(err)
 	}
 
 	// Delete the entities.
 	for i, e := range entities.Entities {
 		user, err := names.ParseUserTag(e.Tag)
 		if err != nil {
-			removal.Results[i].Error = common.ServerError(err)
+			deletions.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
 		if controllerModel.Owner().Id() == user.Id() {
-			removal.Results[i].Error = common.ServerError(
-				errors.Errorf("cannot remove controller owner %q", user.Name()))
+			deletions.Results[i].Error = common.ServerError(
+				errors.Errorf("cannot delete controller owner %q", user.Name()))
 			continue
 		}
-		err = api.state.RemoveUser(user)
+		err = api.state.DeleteUser(user)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				removal.Results[i].Error = common.ServerError(err)
+				deletions.Results[i].Error = common.ServerError(err)
 			} else {
-				removal.Results[i].Error = common.ServerError(
-					errors.Annotatef(err, "failed to remove user %q", user.Name()))
+				deletions.Results[i].Error = common.ServerError(
+					errors.Annotatef(err, "failed to delete user %q", user.Name()))
 			}
 			continue
 		}
-		removal.Results[i].Error = nil
+		deletions.Results[i].Error = nil
 	}
-	return removal, nil
+	return deletions, nil
 }
 
 func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
