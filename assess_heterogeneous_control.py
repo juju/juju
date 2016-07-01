@@ -7,6 +7,9 @@ from textwrap import dedent
 from subprocess import CalledProcessError
 import sys
 
+from jujucharm import (
+    local_charm_path,
+)
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
@@ -21,7 +24,6 @@ from deploy_stack import (
 from jujuci import add_credential_args
 from utility import (
     configure_logging,
-    local_charm_path,
 )
 
 

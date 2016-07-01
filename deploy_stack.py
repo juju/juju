@@ -309,6 +309,8 @@ def copy_remote_logs(remote, directory):
             '/var/log/lxd/lxd.log',
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
+            '/etc/network/interfaces',
+            '/home/ubuntu/ifconfig.log',
         ]
 
         try:
@@ -322,6 +324,11 @@ def copy_remote_logs(remote, directory):
         except subprocess.CalledProcessError as e:
             # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not allow access to the juju logs:")
+            logging.warning(e.output)
+        try:
+            remote.run('ifconfig > /home/ubuntu/ifconfig.log')
+        except subprocess.CalledProcessError as e:
+            logging.warning("Could not capture ifconfig state:")
             logging.warning(e.output)
 
     try:
@@ -907,9 +914,9 @@ def safe_print_status(client):
         logging.exception(e)
 
 
-def wait_for_state_server_to_shutdown(host, client, instance_id):
+def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
-    wait_for_port(host, 17070, closed=True)
+    wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
     provider_type = client.env.config.get('type')
     if provider_type == 'openstack':

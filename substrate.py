@@ -61,10 +61,6 @@ def terminate_instances(env, instance_ids):
         with maas_account_from_config(env.config) as substrate:
             substrate.terminate_instances(instance_ids)
         return
-    elif provider_type == 'lxd':
-        with LXDAccount.manager_from_config(env.config) as substrate:
-            substrate.terminate_instances(instance_ids)
-        return
     else:
         with make_substrate_manager(env.config) as substrate:
             if substrate is None:
@@ -297,8 +293,8 @@ def convert_to_azure_ids(client, instance_ids):
         model['name'], model['model-uuid'])
     config = client.env.config
     arm_client = winazurearm.ARMClient(
-        config['subscription_id'], config['client_id'],
-        config['secret'], config['tenant'])
+        config['subscription-id'], config['application-id'],
+        config['application-password'], config['tenant-id'])
     arm_client.init_services()
     resources = winazurearm.list_resources(
         arm_client, glob=resource_group, recursive=True)
@@ -308,6 +304,37 @@ def convert_to_azure_ids(client, instance_ids):
             resources, machine_name, resource_group)
         vm_ids.append(vm.vm_id)
     return vm_ids
+
+
+class AzureARMAccount:
+    """Represent an Azure ARM Account."""
+
+    def __init__(self, arm_client):
+        """Constructor.
+
+        :param arm_client: An instance of winazurearm.ARMClient.
+        """
+        self.arm_client = arm_client
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """A context manager for a Azure RM account.
+
+        In the case of the Juju 1x, the ARM keys must be in the env's config.
+        subscription_id is the same. The PEM for the SMS is ignored.
+        """
+        arm_client = winazurearm.ARMClient(
+            config['subscription-id'], config['application-id'],
+            config['application-password'], config['tenant-id'])
+        arm_client.init_services()
+        yield cls(arm_client)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            winazurearm.delete_instance(
+                self.arm_client, instance_id, resource_group=None)
 
 
 class AzureAccount:
@@ -414,33 +441,36 @@ class MAASAccount:
         self.url = urlparse.urljoin(url, self._API_PATH)
         self.oauth = oauth
 
+    def _maas(self, *args):
+        """Call maas api with given arguments and parse json result."""
+        output = subprocess.check_output(('maas',) + args)
+        return json.loads(output)
+
     def login(self):
         """Login with the maas cli."""
-        subprocess.check_call(
-            ['maas', 'login', self.profile, self.url, self.oauth])
+        subprocess.check_call([
+            'maas', 'login', self.profile, self.url, self.oauth])
 
     def logout(self):
         """Logout with the maas cli."""
-        subprocess.check_call(
-            ['maas', 'logout', self.profile])
+        subprocess.check_call(['maas', 'logout', self.profile])
 
     def _machine_release_args(self, machine_id):
-        return ['maas', self.profile, 'machine', 'release', machine_id]
+        return (self.profile, 'machine', 'release', machine_id)
 
     def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         for instance in instance_ids:
             maas_system_id = instance.split('/')[5]
             log.info('Deleting %s.' % instance)
-            subprocess.check_call(self._machine_release_args(maas_system_id))
+            self._maas(*self._machine_release_args(maas_system_id))
 
     def _list_allocated_args(self):
-        return ['maas', self.profile, 'machines', 'list-allocated']
+        return (self.profile, 'machines', 'list-allocated')
 
     def get_allocated_nodes(self):
         """Return a dict of allocated nodes with the hostname as keys."""
-        data = subprocess.check_output(self._list_allocated_args())
-        nodes = json.loads(data)
+        nodes = self._maas(*self._list_allocated_args())
         allocated = {node['hostname']: node for node in nodes}
         return allocated
 
@@ -462,10 +492,10 @@ class MAAS1Account(MAASAccount):
     _API_PATH = 'api/1.0/'
 
     def _list_allocated_args(self):
-        return ['maas', self.profile, 'nodes', 'list-allocated']
+        return (self.profile, 'nodes', 'list-allocated')
 
     def _machine_release_args(self, machine_id):
-        return ['maas', self.profile, 'node', 'release', machine_id]
+        return (self.profile, 'node', 'release', machine_id)
 
 
 @contextmanager
@@ -521,9 +551,13 @@ def make_substrate_manager(config):
         'rackspace': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
+        'azure-arm': AzureARMAccount.manager_from_config,
         'lxd': LXDAccount.manager_from_config,
     }
-    factory = substrate_factory.get(config['type'])
+    substrate_type = config['type']
+    if substrate_type == 'azure' and 'application-id' in config:
+        substrate_type = 'azure-arm'
+    factory = substrate_factory.get(substrate_type)
     if factory is None:
         yield None
     else:
