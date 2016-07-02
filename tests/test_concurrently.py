@@ -35,3 +35,15 @@ class ConcurrentlyTest(TestCase):
         self.assertEqual(logging.DEBUG, args.verbose)
         self.assertEqual(
             ['one=foo a b', 'two=bar c'], args.tasks)
+
+    def test_summarise_tasks(self):
+        task_one = concurrently.Task('one=foo a')
+        task_one.returncode = 0
+        task_two = concurrently.Task('two=bar b')
+        task_two.returncode = 0
+        tasks = [task_one, task_two]
+        self.assertEqual(0, concurrently.summarise_tasks(tasks))
+        task_one.returncode = 1
+        self.assertEqual(1, concurrently.summarise_tasks(tasks))
+        task_two.returncode = 3
+        self.assertEqual(4, concurrently.summarise_tasks(tasks))
