@@ -64,3 +64,16 @@ class ConcurrentlyTest(TestCase):
         s2_mock.assert_called_once_with()
         f2_mock.assert_called_once_with()
         self.assertEqual([], mutable_tasks)
+
+
+class TaskTest(TestCase):
+
+    def test_init(self):
+        task = concurrently.Task('one=foo a b c')
+        self.assertEqual('one', task.name)
+        self.assertEqual('foo a b c', task.commandline)
+        self.assertEqual(['foo', 'a', 'b', 'c'], task.command)
+        self.assertEqual('one-out.log', task.out_log_name)
+        self.assertEqual('one-err.log', task.err_log_name)
+        self.assertIsNone(task.returncode)
+        self.assertIsNone(task.proc)

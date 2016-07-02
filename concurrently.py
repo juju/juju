@@ -17,6 +17,7 @@ __metaclass__ = type
 
 log = logging.getLogger("concurrently")
 
+
 class Task:
 
     def __init__(self, name_commdline):
