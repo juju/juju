@@ -47,3 +47,20 @@ class ConcurrentlyTest(TestCase):
         self.assertEqual(1, concurrently.summarise_tasks(tasks))
         task_two.returncode = 3
         self.assertEqual(4, concurrently.summarise_tasks(tasks))
+
+    def test_run_all(self):
+        task_one = concurrently.Task('one=foo a')
+        task_two = concurrently.Task('two=bar b')
+        mutable_tasks = [task_one, task_two]
+        with patch.object(task_one, 'finish', autospec=True) as f1_mock:
+            with patch.object(task_one, 'start', autospec=True) as s1_mock:
+                with patch.object(task_two, 'finish',
+                                  autospec=True,) as f2_mock:
+                    with patch.object(task_two, 'start',
+                                      autospec=True) as s2_mock:
+                        concurrently.run_all(mutable_tasks)
+        s1_mock.assert_called_once_with()
+        f1_mock.assert_called_once_with()
+        s2_mock.assert_called_once_with()
+        f2_mock.assert_called_once_with()
+        self.assertEqual([], mutable_tasks)
