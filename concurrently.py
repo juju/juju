@@ -35,7 +35,9 @@ class Task:
         if type(self) != type(other):
             return False
         return (self.name == other.name and
-                self.command == other.command)
+                self.command == other.command and
+                self.out_log_name == other.out_log_name and
+                self.err_log_name == other.err_log_name)
 
     @contextmanager
     def start(self):
@@ -90,6 +92,9 @@ def parse_args(argv=None):
         default=logging.INFO, const=logging.DEBUG,
         help='Increase verbosity.')
     parser.add_argument(
+        '-l', '--log_dir', default='.', type=os.path.expanduser,
+        help='The path to store the logs for each task.')
+    parser.add_argument(
         'tasks', nargs='+', default=[],
         help="one or more tasks to run in the form of name='cmc -opt arg'.")
     return parser.parse_args(argv)
@@ -100,7 +105,7 @@ def main(argv=None):
     returncode = 254
     args = parse_args(argv)
     configure_logging(args.verbose)
-    tasks = [Task(t) for t in args.tasks]
+    tasks = [Task(t, args.log_dir) for t in args.tasks]
     try:
         names = [t.name for t in tasks]
         log.debug('Running these tasks {}'.format(names))

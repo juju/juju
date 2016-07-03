@@ -21,7 +21,7 @@ class ConcurrentlyTest(TestCase):
             with patch('concurrently.summarise_tasks',
                        return_value=0) as s_mock:
                 returncode = concurrently.main(
-                    ['-v', 'one=foo a b', 'two=bar c'])
+                    ['-v', '-l', '.', 'one=foo a b', 'two=bar c'])
         self.assertEqual(0, returncode)
         task_one = concurrently.Task('one=foo a b')
         task_two = concurrently.Task('two=bar c')
@@ -36,8 +36,10 @@ class ConcurrentlyTest(TestCase):
         self.assertIn('ERROR bad', self.log_stream.getvalue())
 
     def test_parse_args(self):
-        args = concurrently.parse_args(['-v', 'one=foo a b', 'two=bar c'])
+        args = concurrently.parse_args(
+            ['-v', '-l', '~/logs', 'one=foo a b', 'two=bar c'])
         self.assertEqual(logging.DEBUG, args.verbose)
+        self.assertEqual(os.path.expanduser('~/logs'), args.log_dir)
         self.assertEqual(
             ['one=foo a b', 'two=bar c'], args.tasks)
 
