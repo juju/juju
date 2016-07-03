@@ -1,10 +1,12 @@
 import logging
 from mock import patch
+import os
 
 import concurrently
 from tests import (
     TestCase,
 )
+from utility import temp_dir
 
 
 class ConcurrentlyTest(TestCase):
@@ -69,11 +71,34 @@ class ConcurrentlyTest(TestCase):
 class TaskTest(TestCase):
 
     def test_init(self):
-        task = concurrently.Task('one=foo a b c')
-        self.assertEqual('one', task.name)
-        self.assertEqual('foo a b c', task.commandline)
-        self.assertEqual(['foo', 'a', 'b', 'c'], task.command)
-        self.assertEqual('one-out.log', task.out_log_name)
-        self.assertEqual('one-err.log', task.err_log_name)
-        self.assertIsNone(task.returncode)
-        self.assertIsNone(task.proc)
+        with temp_dir() as base:
+            task = concurrently.Task('one=foo a b c', log_dir=base)
+            self.assertEqual('one', task.name)
+            self.assertEqual('foo a b c', task.commandline)
+            self.assertEqual(['foo', 'a', 'b', 'c'], task.command)
+            self.assertEqual(
+                os.path.join(base, 'one-out.log'), task.out_log_name)
+            self.assertEqual(
+                os.path.join(base, 'one-err.log'), task.err_log_name)
+            self.assertIsNone(task.returncode)
+            self.assertIsNone(task.proc)
+
+    def test_start(self):
+        with temp_dir() as base:
+            task = concurrently.Task('one=foo a', log_dir=base)
+            with patch('subprocess.Popen',
+                       autospec=True, return_value='proc') as p_mock:
+                with task.start() as proc:
+                    self.assertEqual('proc', proc)
+                    self.assertEqual('proc', task.proc)
+                    self.assertEqual(1, p_mock.call_count)
+                    args, kwargs = p_mock.call_args
+                    self.assertEqual((['foo', 'a'], ), args)
+                    kwargs['stdout'].write('out')
+                    kwargs['stderr'].write('err')
+            self.assertIs(
+                True,
+                os.path.exists(os.path.join(base, 'one-out.log')))
+            self.assertIs(
+                True,
+                os.path.exists(os.path.join(base, 'one-out.log')))

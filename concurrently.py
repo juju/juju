@@ -5,6 +5,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 from contextlib import contextmanager
 import logging
+import os
 import subprocess
 import sys
 import traceback
@@ -20,11 +21,13 @@ log = logging.getLogger("concurrently")
 
 class Task:
 
-    def __init__(self, name_commdline):
+    def __init__(self, name_commdline, log_dir='.'):
         self.name, self.commandline = name_commdline.split('=', 1)
         self.command = self.commandline.split()
-        self.out_log_name = '{}-out.log'.format(self.name)
-        self.err_log_name = '{}-err.log'.format(self.name)
+        self.out_log_name = os.path.join(
+            log_dir, '{}-out.log'.format(self.name))
+        self.err_log_name = os.path.join(
+            log_dir, '{}-err.log'.format(self.name))
         self.returncode = None
         self.proc = None
 
