@@ -1,5 +1,8 @@
 import logging
-from mock import patch
+from mock import (
+    Mock,
+    patch,
+    )
 import os
 
 import concurrently
@@ -102,3 +105,9 @@ class TaskTest(TestCase):
             self.assertIs(
                 True,
                 os.path.exists(os.path.join(base, 'one-out.log')))
+
+    def test_finish(self):
+        task = concurrently.Task('one=foo a')
+        task.proc = Mock(spec=['wait'])
+        task.finish()
+        task.proc.wait.assert_called_once_with()
