@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/logfwd/syslog"
-	"github.com/juju/juju/standards/rfc5424"
-	"github.com/juju/juju/standards/rfc5424/sdelements"
-	"github.com/juju/juju/standards/tls"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/rfc/rfc5424"
+	"github.com/juju/rfc/rfc5424/sdelements"
+	"github.com/juju/rfc/tls"
 )
 
 type ClientSuite struct {
