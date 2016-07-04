@@ -141,21 +141,21 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	}
 
 	out := applicationStatus{
-		Err:             application.Err,
-		Charm:           application.Charm,
-		Series:          application.Series,
-		OS:              strings.ToLower(appOS.String()),
-		CharmOrigin:     charmOrigin,
-		CharmName:       charmName,
-		CharmRev:        charmRev,
-		Exposed:         application.Exposed,
-		Life:            application.Life,
-		Relations:       application.Relations,
-		CanUpgradeTo:    application.CanUpgradeTo,
-		SubordinateTo:   application.SubordinateTo,
-		Units:           make(map[string]unitStatus),
-		StatusInfo:      sf.getServiceStatusInfo(application),
-		WorkloadVersion: application.WorkloadVersion,
+		Err:           application.Err,
+		Charm:         application.Charm,
+		Series:        application.Series,
+		OS:            strings.ToLower(appOS.String()),
+		CharmOrigin:   charmOrigin,
+		CharmName:     charmName,
+		CharmRev:      charmRev,
+		Exposed:       application.Exposed,
+		Life:          application.Life,
+		Relations:     application.Relations,
+		CanUpgradeTo:  application.CanUpgradeTo,
+		SubordinateTo: application.SubordinateTo,
+		Units:         make(map[string]unitStatus),
+		StatusInfo:    sf.getServiceStatusInfo(application),
+		Version:       application.WorkloadVersion,
 	}
 	for k, m := range application.Units {
 		out.Units[k] = sf.formatUnit(unitFormatInfo{
@@ -201,7 +201,6 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		PublicAddress:      info.unit.PublicAddress,
 		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
-		WorkloadVersion:    info.unit.WorkloadVersion,
 	}
 
 	if ms, ok := info.meterStatuses[info.unitName]; ok {

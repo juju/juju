@@ -2410,7 +2410,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"workload-version": "the best!",
+						"version": "the best!",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -2418,8 +2418,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"workload-version": "the best!",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -2472,7 +2471,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"workload-version": "not as good",
+						"version": "not as good",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -2480,8 +2479,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"workload-version": "the best!",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -2494,8 +2492,7 @@ var statusTests = []testCase{
 								"public-address": "controller-1.dns",
 							},
 							"mysql/1": M{
-								"machine":          "2",
-								"workload-version": "not as good",
+								"machine": "2",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
