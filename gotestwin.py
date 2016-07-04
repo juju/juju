@@ -14,15 +14,19 @@ def main():
     scripts = dirname(__file__)
     parser = ArgumentParser()
     parser.add_argument('host', help='The machine to test on.')
-    parser.add_argument('revision', help='The revision-build to test.')
+    parser.add_argument('revision',
+                        help='The revision-build or tarfile to test.')
     parser.add_argument('package', nargs='?', default='github.com/juju/juju',
                         help='The package to test.')
     args = parser.parse_args()
 
-    juju_ci_path = join(scripts, 'jujuci.py')
-    downloaded = subprocess.check_output([
-        juju_ci_path, 'get', '-b', args.revision, 'build-revision', '*.tar.gz',
-        './'])
+    if args.revision.endswith('tar.gz'):
+        downloaded = args.revision
+    else:
+        juju_ci_path = join(scripts, 'jujuci.py')
+        downloaded = subprocess.check_output([
+            juju_ci_path, 'get', '-b', args.revision, 'build-revision',
+            '*.tar.gz', './'])
     (tarfile,) = [basename(l) for l in downloaded.splitlines()]
 
     subprocess.check_call([
