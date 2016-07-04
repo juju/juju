@@ -3351,6 +3351,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", status.StatusActive, "", nil},
 		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
+		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
+		setUnitWorkloadVersion{"mysql/0", "5.7.13"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3372,10 +3375,10 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
 controller  kontroll    dummy         1.2.3    1.2.4
 
-APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
-logging                 true     jujucharms  logging    1    ubuntu
-mysql      maintenance  true     jujucharms  mysql      1    ubuntu
-wordpress  active       true     jujucharms  wordpress  3    ubuntu
+APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
+logging    a bit t               true     jujucharms  logging    1    ubuntu
+mysql      5.7.13   maintenance  true     jujucharms  mysql      1    ubuntu
+wordpress  4.5.3    active       true     jujucharms  wordpress  3    ubuntu
 
 RELATION           PROVIDES   CONSUMES   TYPE
 juju-info          logging    mysql      regular
@@ -3438,8 +3441,8 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo          false                   0    
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo                   false                   0    
 
 UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
 foo/0  maintenance  executing                                  (config-changed) doing some work
@@ -3538,8 +3541,8 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo          false                   0    
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo                   false                   0    
 
 UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
 foo/0                                                   
