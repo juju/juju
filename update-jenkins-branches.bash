@@ -63,8 +63,14 @@ bzr pull -d ~/workspace-runner
 if [[ \$(uname) == "Linux" ]]; then
     cd ~/juju-ci-tools
     make install-deps
+    # The lsb_release package is broken in xenial and yakkety. The py2 module
+    # is missing.
+    if  [[ ! -f /usr/lib/python2.7/dist-packages/lsb_release.py ]]; then
+            sudo cp /usr/lib/python3/dist-packages/lsb_release.py \
+                    /usr/lib/python2.7/dist-packages/lsb_release.py
+    fi
 elif [[ \$(uname) == "Darwin" ]]; then
-    ~/juju-ci-tools/pipdeps install
+    ~/juju-ci-tools/pipdeps.py install
 fi
 if [[ -d ~/ci-director ]]; then
     bzr pull -d ~/ci-director
