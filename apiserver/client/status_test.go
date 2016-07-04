@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -161,8 +163,11 @@ func (s *statusUnitTestSuite) checkWorkloadVersionAggregation(
 	for i, version := range unitVersions {
 		unit, err := application.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetWorkloadVersion(version)
-		c.Assert(err, jc.ErrorIsNil)
+		if version != "<unset>" {
+			time.Sleep(time.Millisecond * 1)
+			err = unit.SetWorkloadVersion(version)
+			c.Assert(err, jc.ErrorIsNil)
+		}
 		units[i] = unit
 	}
 
@@ -174,19 +179,22 @@ func (s *statusUnitTestSuite) checkWorkloadVersionAggregation(
 	c.Check(appStatus.WorkloadVersion, gc.Equals, expectedAppVersion)
 
 	for i, expectedVersion := range unitVersions {
+		if expectedVersion == "<unset>" {
+			expectedVersion = ""
+		}
 		unitStatus, found := appStatus.Units[units[i].Name()]
 		c.Check(found, jc.IsTrue)
 		c.Check(unitStatus.WorkloadVersion, gc.Equals, expectedVersion)
 	}
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionModeWins(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron*",
-		"voltron", "zarkon", "voltron")
+func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "zarkon",
+		"voltron", "voltron", "zarkon")
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionInTie(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron*",
+	s.checkWorkloadVersionAggregation(c, "voltron",
 		"allura", "zarkon", "voltron", "zarkon", "voltron")
 }
 
@@ -194,12 +202,20 @@ func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
 	s.checkWorkloadVersionAggregation(c, "voltron", "voltron", "voltron")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionBlanksNeverWin(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron*", "voltron", "", "", "")
+func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "", "voltron", "")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanBeOverwritten(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "voltron", "voltron", "", "voltron")
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionOnlyBlanks(c *gc.C) {
 	s.checkWorkloadVersionAggregation(c, "", "", "")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
+	s.checkWorkloadVersionAggregation(c, "", "<unset>", "<unset>")
 }
 
 type statusUpgradeUnitSuite struct {
