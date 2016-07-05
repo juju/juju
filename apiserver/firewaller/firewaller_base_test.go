@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
@@ -71,7 +72,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 func (s *firewallerBaseSuite) testFirewallerFailsWithNonEnvironManagerUser(
 	c *gc.C,
-	factory func(_ *state.State, _ *common.Resources, _ common.Authorizer) error,
+	factory func(_ *state.State, _ facade.Resources, _ facade.Authorizer) error,
 ) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
@@ -211,7 +212,7 @@ const (
 
 func (s *firewallerBaseSuite) testWatch(
 	c *gc.C,
-	facade interface {
+	watcher interface {
 		Watch(args params.Entities) (params.NotifyWatchResults, error)
 	},
 	allowUnits bool,
@@ -223,7 +224,7 @@ func (s *firewallerBaseSuite) testWatch(
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := facade.Watch(args)
+	result, err := watcher.Watch(args)
 	c.Assert(err, jc.ErrorIsNil)
 	if allowUnits {
 		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
@@ -264,7 +265,7 @@ func (s *firewallerBaseSuite) testWatch(
 	c.Assert(result.Results[1].NotifyWatcherId, gc.Equals, "1")
 	watcher1 := s.resources.Get("1")
 	defer statetesting.AssertStop(c, watcher1)
-	var watcher2 common.Resource
+	var watcher2 facade.Resource
 	if allowUnits {
 		c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
 		watcher2 = s.resources.Get("2")

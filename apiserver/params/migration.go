@@ -3,6 +3,8 @@
 
 package params
 
+import "time"
+
 // InitiateModelMigrationArgs holds the details required to start one
 // or more model migrations.
 type InitiateModelMigrationArgs struct {
@@ -89,9 +91,10 @@ type MigrationStatus struct {
 // migration, including authentication details for the remote
 // controller.
 type FullMigrationStatus struct {
-	Spec    ModelMigrationSpec `json:"spec"`
-	Attempt int                `json:"attempt"`
-	Phase   string             `json:"phase"`
+	Spec             ModelMigrationSpec `json:"spec"`
+	Attempt          int                `json:"attempt"`
+	Phase            string             `json:"phase"`
+	PhaseChangedTime time.Time          `json:"phase-changed-time"`
 }
 
 // PhasesResults holds the phase of one or more model migrations.

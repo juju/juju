@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -18,16 +19,16 @@ func init() {
 // DiscoverSpacesAPI implements the API used by the discoverspaces worker.
 type DiscoverSpacesAPI struct {
 	st         networkingcommon.NetworkBacking
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewDiscoverSpacesAPI creates a new instance of the DiscoverSpaces API.
-func NewDiscoverSpacesAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
+func NewDiscoverSpacesAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*DiscoverSpacesAPI, error) {
 	return NewDiscoverSpacesAPIWithBacking(networkingcommon.NewStateShim(st), resources, authorizer)
 }
 
-func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (*DiscoverSpacesAPI, error) {
+func NewDiscoverSpacesAPIWithBacking(st networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (*DiscoverSpacesAPI, error) {
 	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -130,13 +131,13 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 type apiRoot struct {
 	state       *state.State
 	resources   *common.Resources
-	authorizer  common.Authorizer
+	authorizer  facade.Authorizer
 	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
 
 // newApiRoot returns a new apiRoot.
-func newApiRoot(st *state.State, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
+func newApiRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
 		resources:   resources,
@@ -185,7 +186,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(r.state, r.resources, r.authorizer, id)
+		obj, err := factory(r.facadeContext(id))
 		if err != nil {
 			return reflect.Value{}, err
 		}
@@ -212,6 +213,39 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		creator:   creator,
 		objMethod: objMethod,
 	}, nil
+}
+
+func (r *apiRoot) facadeContext(id string) *facadeContext {
+	return &facadeContext{
+		r:  r,
+		id: id,
+	}
+}
+
+// facadeContext implements facade.Context
+type facadeContext struct {
+	r  *apiRoot
+	id string
+}
+
+func (ctx *facadeContext) Abort() <-chan struct{} {
+	return nil
+}
+
+func (ctx *facadeContext) Auth() facade.Authorizer {
+	return ctx.r.authorizer
+}
+
+func (ctx *facadeContext) Resources() facade.Resources {
+	return ctx.r.resources
+}
+
+func (ctx *facadeContext) State() *state.State {
+	return ctx.r.state
+}
+
+func (ctx *facadeContext) ID() string {
+	return ctx.id
 }
 
 func lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {

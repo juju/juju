@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
@@ -17,7 +18,7 @@ import (
 func init() {
 	common.RegisterStandardFacade(
 		"Singular", 1,
-		func(st *state.State, _ *common.Resources, auth common.Authorizer) (*Facade, error) {
+		func(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
 			return NewFacade(st, auth)
 		},
 	)
@@ -35,7 +36,7 @@ type Backend interface {
 
 // NewFacade returns a singular-controller API facade, backed by the supplied
 // state, so long as the authorizer represents a controller machine.
-func NewFacade(backend Backend, auth common.Authorizer) (*Facade, error) {
+func NewFacade(backend Backend, auth facade.Authorizer) (*Facade, error) {
 	if !auth.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
@@ -49,7 +50,7 @@ func NewFacade(backend Backend, auth common.Authorizer) (*Facade, error) {
 // Facade allows controller machines to request exclusive rights to administer
 // some specific model for a limited time.
 type Facade struct {
-	auth    common.Authorizer
+	auth    facade.Authorizer
 	model   names.ModelTag
 	claimer lease.Claimer
 }

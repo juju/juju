@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
@@ -38,19 +39,19 @@ type SubnetsAPI interface {
 // subnetsAPI implements the SubnetsAPI interface.
 type subnetsAPI struct {
 	backing    networkingcommon.NetworkBacking
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewAPI creates a new Subnets API server-side facade with a
 // state.State backing.
-func NewAPI(st *state.State, res *common.Resources, auth common.Authorizer) (SubnetsAPI, error) {
+func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (SubnetsAPI, error) {
 	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources *common.Resources, authorizer common.Authorizer) (SubnetsAPI, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (SubnetsAPI, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm

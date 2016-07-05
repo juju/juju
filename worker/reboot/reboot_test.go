@@ -4,8 +4,6 @@
 package reboot_test
 
 import (
-	stdtesting "testing"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fslock"
@@ -17,20 +15,9 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-type machines struct {
-	machine     *state.Machine
-	stateAPI    api.Connection
-	rebootState apireboot.State
-}
 
 type rebootSuite struct {
 	jujutesting.JujuConnSuite
@@ -87,14 +74,14 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
+	worker, err := reboot.NewReboot(s.rebootState, s.lock)
 	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
+	wrk, err := reboot.NewReboot(s.rebootState, s.lock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +89,7 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), s.lock)
+	wrk, err := reboot.NewReboot(s.ctRebootState, s.lock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +99,7 @@ func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
 func (s *rebootSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
 	s.lock.Lock(reboot.RebootMessage)
 
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
+	wrk, err := reboot.NewReboot(s.rebootState, s.lock)
 	c.Assert(err, jc.ErrorIsNil)
 	wrk.Kill()
 	c.Assert(wrk.Wait(), gc.IsNil)

@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
@@ -41,14 +42,14 @@ func init() {
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
 // a signature that can be used with RegisterStandardFacade.
 func NewLeadershipServiceFacade(
-	state *state.State, resources *common.Resources, authorizer common.Authorizer,
+	state *state.State, resources facade.Resources, authorizer facade.Authorizer,
 ) (LeadershipService, error) {
 	return NewLeadershipService(state.LeadershipClaimer(), authorizer)
 }
 
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
-	claimer leadership.Claimer, authorizer common.Authorizer,
+	claimer leadership.Claimer, authorizer facade.Authorizer,
 ) (LeadershipService, error) {
 
 	if !authorizer.AuthUnitAgent() {
@@ -65,7 +66,7 @@ func NewLeadershipService(
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
 	claimer    leadership.Claimer
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // ClaimLeadership is part of the LeadershipService interface.

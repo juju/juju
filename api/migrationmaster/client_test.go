@@ -4,6 +4,8 @@
 package migrationmaster_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -61,6 +63,7 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
+	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
 		out := result.(*params.FullMigrationStatus)
 		*out = params.FullMigrationStatus{
@@ -74,8 +77,9 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 					Password:      "secret",
 				},
 			},
-			Attempt: 3,
-			Phase:   "READONLY",
+			Attempt:          3,
+			Phase:            "READONLY",
+			PhaseChangedTime: timestamp,
 		}
 		return nil
 	})
@@ -84,9 +88,10 @@ func (s *ClientSuite) TestGetMigrationStatus(c *gc.C) {
 	status, err := client.GetMigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
-		ModelUUID: modelUUID,
-		Attempt:   3,
-		Phase:     migration.READONLY,
+		ModelUUID:        modelUUID,
+		Attempt:          3,
+		Phase:            migration.READONLY,
+		PhaseChangedTime: timestamp,
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewModelTag(controllerUUID),
 			Addrs:         []string{"2.2.2.2:2"},

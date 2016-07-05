@@ -7,14 +7,9 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-)
 
-// Resource represents any resource that should be cleaned up when an
-// API connection terminates. The Stop method will be called when
-// that happens.
-type Resource interface {
-	Stop() error
-}
+	"github.com/juju/juju/apiserver/facade"
+)
 
 // Resources holds all the resources for a connection.
 // It allows the registration of resources that will be cleaned
@@ -22,21 +17,25 @@ type Resource interface {
 type Resources struct {
 	mu        sync.Mutex
 	maxId     uint64
-	resources map[string]Resource
+	resources map[string]facade.Resource
+
 	// The stack is used to control the order of destruction.
 	// last registered, first stopped.
+	// XXX(fwereade): is this necessary only because we have
+	// Resource instead of Worker (which would let us kill them all,
+	// and wait for them all, without danger of races)?
 	stack []string
 }
 
 func NewResources() *Resources {
 	return &Resources{
-		resources: make(map[string]Resource),
+		resources: make(map[string]facade.Resource),
 	}
 }
 
 // Get returns the resource for the given id, or
 // nil if there is no such resource.
-func (rs *Resources) Get(id string) Resource {
+func (rs *Resources) Get(id string) facade.Resource {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.resources[id]
@@ -45,7 +44,7 @@ func (rs *Resources) Get(id string) Resource {
 // Register registers the given resource. It returns a unique
 // identifier for the resource which can then be used in
 // subsequent API requests to refer to the resource.
-func (rs *Resources) Register(r Resource) string {
+func (rs *Resources) Register(r facade.Resource) string {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	rs.maxId++
@@ -63,7 +62,7 @@ func (rs *Resources) Register(r Resource) string {
 // replaced, but we don't have a need for that yet.)
 // It is also an error to supply a name that is an integer string, since that
 // collides with the auto-naming from Register.
-func (rs *Resources) RegisterNamed(name string, r Resource) error {
+func (rs *Resources) RegisterNamed(name string, r facade.Resource) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	if _, err := strconv.Atoi(name); err == nil {
@@ -119,7 +118,7 @@ func (rs *Resources) StopAll() {
 			logger.Errorf("error stopping %T resource: %v", r, err)
 		}
 	}
-	rs.resources = make(map[string]Resource)
+	rs.resources = make(map[string]facade.Resource)
 	rs.stack = nil
 }
 
