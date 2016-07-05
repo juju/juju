@@ -704,11 +704,11 @@ class EnvJujuClient:
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=True)
 
-    def _cmd_model(self, include_e, admin):
-        if admin:
+    def _cmd_model(self, include_e, controller):
+        if controller:
             return '{controller}:{model}'.format(
                 controller=self.env.controller.name,
-                model=self.get_admin_model_name())
+                model=self.get_controller_model_name())
         elif self.env is None or not include_e:
             return None
         else:
@@ -717,8 +717,8 @@ class EnvJujuClient:
                 model=self.model_name)
 
     def _full_args(self, command, sudo, args,
-                   timeout=None, include_e=True, admin=False):
-        model = self._cmd_model(include_e, admin)
+                   timeout=None, include_e=True, controller=False):
+        model = self._cmd_model(include_e, controller)
         # sudo is not needed for devel releases.
         return self._backend.full_args(command, args, model, timeout)
 
@@ -924,7 +924,7 @@ class EnvJujuClient:
         <environment> flag will be placed after <command> and before args.
         """
         model = self._cmd_model(kwargs.get('include_e', True),
-                                kwargs.get('admin', False))
+                                kwargs.get('controller', False))
         timeout = kwargs.get('timeout')
         return self._backend.get_juju_output(
             command, args, self.used_feature_flags, self.env.juju_home,
@@ -934,7 +934,7 @@ class EnvJujuClient:
         """Print the status to output."""
         self.juju(self._show_status, ('--format', 'yaml'))
 
-    def get_status(self, timeout=60, raw=False, admin=False, *args):
+    def get_status(self, timeout=60, raw=False, controller=False, *args):
         """Get the current status as a dict."""
         # GZ 2015-12-16: Pass remaining timeout into get_juju_output call.
         for ignored in until_timeout(timeout):
@@ -943,7 +943,8 @@ class EnvJujuClient:
                     return self.get_juju_output(self._show_status, *args)
                 return self.status_class.from_text(
                     self.get_juju_output(
-                        self._show_status, '--format', 'yaml', admin=admin))
+                        self._show_status, '--format', 'yaml',
+                        controller=controller))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(
@@ -995,7 +996,7 @@ class EnvJujuClient:
     def juju(self, command, args, sudo=False, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
-        model = self._cmd_model(include_e, admin=False)
+        model = self._cmd_model(include_e, controller=False)
         return self._backend.juju(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env)
@@ -1018,7 +1019,7 @@ class EnvJujuClient:
           `args`.
 
         """
-        model = self._cmd_model(include_e, admin=False)
+        model = self._cmd_model(include_e, controller=False)
         return self._backend.expect(
             command, args, self.used_feature_flags, self.env.juju_home,
             model, timeout, extra_env)
@@ -1034,7 +1035,7 @@ class EnvJujuClient:
         return stringified_timings
 
     def juju_async(self, command, args, include_e=True, timeout=None):
-        model = self._cmd_model(include_e, admin=False)
+        model = self._cmd_model(include_e, controller=False)
         return self._backend.juju_async(command, args, self.used_feature_flags,
                                         self.env.juju_home, model, timeout)
 
@@ -1252,10 +1253,10 @@ class EnvJujuClient:
         for model in models:
             yield self._acquire_model_client(model['name'])
 
-    def get_admin_model_name(self):
-        """Return the name of the 'admin' model.
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'admin' model does
+        Return the name of the environment when an 'controller' model does
         not exist.
         """
         return 'controller'
@@ -1271,13 +1272,13 @@ class EnvJujuClient:
             env = self.env.clone(model_name=name)
             return self.clone(env=env)
 
-    def get_admin_client(self):
-        """Return a client for the admin model.  May return self.
+    def get_controller_client(self):
+        """Return a client for the controller model.  May return self.
 
         This may be inaccurate for models created using add_model
         rather than bootstrap.
         """
-        return self._acquire_model_client(self.get_admin_model_name())
+        return self._acquire_model_client(self.get_controller_model_name())
 
     def list_controllers(self):
         """List the controllers."""
@@ -1329,7 +1330,7 @@ class EnvJujuClient:
         reporter = GroupReporter(sys.stdout, desired_state)
         try:
             for remaining in until_timeout(timeout):
-                status = self.get_status(admin=True)
+                status = self.get_status(controller=True)
                 states = {}
                 for machine, info in status.iter_machines():
                     status = self.get_controller_member_status(info)
@@ -1637,10 +1638,10 @@ class EnvJujuClient2B8(EnvJujuClient):
 
 class EnvJujuClient2B7(EnvJujuClient2B8):
 
-    def get_admin_model_name(self):
-        """Return the name of the 'admin' model.
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'admin' model does
+        Return the name of the environment when an 'controller' model does
         not exist.
         """
         return 'admin'
@@ -1678,21 +1679,21 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
             args.extend(['--bootstrap-series', bootstrap_series])
         return tuple(args)
 
-    def get_admin_client(self):
-        """Return a client for the admin model.  May return self."""
+    def get_controller_client(self):
+        """Return a client for the controller model.  May return self."""
         return self
 
-    def get_admin_model_name(self):
-        """Return the name of the 'admin' model.
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'admin' model does
+        Return the name of the environment when an 'controller' model does
         not exist.
         """
         models = self.get_models()
         # The dict can be empty because 1.x does not support the models.
         # This is an ambiguous case for the jes feature flag which supports
         # multiple models, but none is named 'admin' by default. Since the
-        # jes case also uses '-e' for models, the env is the admin model.
+        # jes case also uses '-e' for models, the env is the controller model.
         for model in models.get('models', []):
             if 'admin' in model['name']:
                 return 'admin'
@@ -1908,9 +1909,9 @@ class EnvJujuClient1X(EnvJujuClient2A1):
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
 
-    def _cmd_model(self, include_e, admin):
-        if admin:
-            return self.get_admin_model_name()
+    def _cmd_model(self, include_e, controller):
+        if controller:
+            return self.get_controller_model_name()
         elif self.env is None or not include_e:
             return None
         else:

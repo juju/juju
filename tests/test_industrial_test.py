@@ -1439,21 +1439,21 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
-        admin_client = client.get_admin_client()
+        controller_client = client.get_controller_client()
         ensure_av = EnsureAvailabilityAttempt()
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         self.assertEqual(ensure_iter.next(), {
             'test_id': 'ensure-availability-n3'})
         with patch('subprocess.check_call') as cc_mock:
-            with patch.object(client, 'get_admin_client',
-                              return_value=admin_client, autospec=True):
+            with patch.object(client, 'get_controller_client',
+                              return_value=controller_client, autospec=True):
                 self.assertEqual(ensure_iter.next(), {
                     'test_id': 'ensure-availability-n3'})
         assert_juju_call(
             self,
             cc_mock, client,
             ('juju', '--show-log', 'enable-ha', '-m',
-             'steve:{}'.format(admin_client.env.environment), '-n', '3'))
+             'steve:{}'.format(controller_client.env.environment), '-n', '3'))
         status = {
             'machines': {
                 '0': {'controller-member-status': 'has-vote'},
@@ -1462,10 +1462,10 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 },
             'applications': {},
         }
-        with patch_status(admin_client, status) as gs_mock:
+        with patch_status(controller_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
-        gs_mock.assert_called_once_with(admin=True)
+        gs_mock.assert_called_once_with(controller=True)
 
     def test_iter_steps_failure(self):
         client = FakeEnvJujuClient()
@@ -1473,9 +1473,9 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         ensure_iter = iter_steps_validate_info(self, ensure_av, client)
         ensure_iter.next()
         with patch('subprocess.check_call'):
-            admin_client = client.get_admin_client()
-            with patch.object(client, 'get_admin_client',
-                              return_value=admin_client, autospec=True):
+            controller_client = client.get_controller_client()
+            with patch.object(client, 'get_controller_client',
+                              return_value=controller_client, autospec=True):
                 ensure_iter.next()
         status = {
             'machines': {
@@ -1484,7 +1484,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
                 },
             'applications': {},
         }
-        with patch_status(admin_client, status) as gs_mock:
+        with patch_status(controller_client, status) as gs_mock:
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()
@@ -1766,13 +1766,14 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client.env.environment = aws_env.environment
         client.env.config = aws_env.config
         client.env.juju_home = aws_env.juju_home
-        admin_client = client.get_admin_client()
+        controller_client = client.get_controller_client()
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
 
         def check_output(*args, **kwargs):
-            if args == (('juju', '--show-log', 'create-backup', '-m',
-                         'steve:{}'.format(admin_client.env.environment),),):
+            if args == ((
+                    'juju', '--show-log', 'create-backup', '-m',
+                    'steve:{}'.format(controller_client.env.environment),),):
                 return FakePopen('juju-backup-24.tgz', '', 0)
             self.assertEqual([], args)
         initial_status = {
@@ -1783,12 +1784,12 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         }
         iterator = iter_steps_validate_info(self, br_attempt, client)
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        with patch_status(admin_client, initial_status) as gs_mock:
+        with patch_status(controller_client, initial_status) as gs_mock:
             with patch('subprocess.Popen',
                        side_effect=check_output) as co_mock:
                 with patch('subprocess.check_call') as cc_mock:
-                    with patch.object(client, 'get_admin_client',
-                                      return_value=admin_client,
+                    with patch.object(client, 'get_controller_client',
+                                      return_value=controller_client,
                                       autospec=True):
                         with patch('sys.stdout'):
                             self.assertEqual(
@@ -1799,7 +1800,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
             co_mock,
             client,
             ('juju', '--show-log', 'create-backup',
-             '-m', 'steve:{}'.format(admin_client.env.environment)),
+             '-m', 'steve:{}'.format(controller_client.env.environment)),
             0)
         self.assertEqual(
             cc_mock.mock_calls[0],
@@ -1809,7 +1810,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 self.assertEqual(iterator.next(),
                                  {'test_id': 'back-up-restore'})
         pn_mock.assert_called_with('Closed.')
-        with patch.object(admin_client, 'restore_backup') as rb_mock:
+        with patch.object(controller_client, 'restore_backup') as rb_mock:
             self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         rb_mock.assert_called_once_with(
             os.path.abspath('juju-backup-24.tgz'))
@@ -1823,7 +1824,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 },
             'applications': {},
         }
-        with patch_status(admin_client, final_status) as gs_mock:
+        with patch_status(controller_client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
         gs_mock.assert_called_once_with()

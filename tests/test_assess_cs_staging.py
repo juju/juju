@@ -44,7 +44,7 @@ class TestParseArgs(TestCase):
 
 class TestSetCharmStoreIP(TestCase):
 
-    def test_default_as_admin(self):
+    def test_default_as_controller(self):
         client = fake_juju_client_optional_jes(jes_enabled=False)
         client.bootstrap()
         with patch.object(client, 'juju', autospec=True) as juju_mock:
@@ -52,15 +52,15 @@ class TestSetCharmStoreIP(TestCase):
         juju_mock.assert_called_once_with(
             'ssh', ('0', _get_ssh_script('1.2.3.4')))
 
-    def test_separate_admin(self):
+    def test_separate_controller(self):
         client = fake_juju_client()
         client.bootstrap()
-        admin_client = client.get_admin_client()
-        # Force get_admin_client to return the *same* client, instead of an
-        # equivalent one.
-        with patch.object(client, 'get_admin_client',
-                          return_value=admin_client, autospec=True):
-            with patch.object(admin_client, 'juju',
+        controller_client = client.get_controller_client()
+        # Force get_controller_client to return the *same* client, instead of
+        # an equivalent one.
+        with patch.object(client, 'get_controller_client',
+                          return_value=controller_client, autospec=True):
+            with patch.object(controller_client, 'juju',
                               autospec=True) as juju_mock:
                 _set_charm_store_ip(client, '1.2.3.4')
         juju_mock.assert_called_once_with(
