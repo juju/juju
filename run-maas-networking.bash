@@ -14,10 +14,6 @@ USER_AT_HOST="$1"
 TARFILE="$2"
 
 set -x
-if [ -d built ]; then
-  rm -R built
-fi
-mkdir built
 
 cat > temp-config.yaml <<EOT
 install:
