@@ -1023,8 +1023,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
 	}
 
-	lfCfgValues := cfg.LogFwdSyslogMap()
-	c.Check(lfCfgValues, gc.HasLen, 5)
 	lfCfgFound := 0
 	for _, field := range []string{
 		"syslog-host",
@@ -1033,12 +1031,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		"syslog-client-cert",
 		"syslog-client-key",
 	} {
-		if test.attrs[field] == nil {
-			c.Check(lfCfgValues[field], gc.Equals, "")
-		} else {
-			c.Check(lfCfgValues[field], gc.Equals, test.attrs[field])
-		}
-		if lfCfgValues[field] != "" {
+		if s, ok := cfg.AllAttrs()[field]; ok && s != "" {
 			lfCfgFound += 1
 		}
 	}
