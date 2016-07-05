@@ -611,10 +611,10 @@ class EnsureAvailabilityAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'ensure-availability-n3'}
         yield results
-        admin_client = client.get_admin_client()
-        admin_client.enable_ha()
+        controller_client = client.get_controller_client()
+        controller_client.enable_ha()
         yield results
-        admin_client.wait_for_ha()
+        controller_client.wait_for_ha()
         results['result'] = True
         yield results
 
@@ -773,21 +773,22 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'back-up-restore'}
         yield results
-        admin_client = client.get_admin_client()
-        backup_file = admin_client.backup()
+        controller_client = client.get_controller_client()
+        backup_file = controller_client.backup()
         try:
-            status = admin_client.get_status()
+            status = controller_client.get_status()
             instance_id = status.get_instance_id('0')
-            host = get_machine_dns_name(admin_client, '0')
-            terminate_instances(admin_client.env, [instance_id])
+            host = get_machine_dns_name(controller_client, '0')
+            terminate_instances(controller_client.env, [instance_id])
             yield results
-            wait_for_state_server_to_shutdown(host, admin_client, instance_id)
+            wait_for_state_server_to_shutdown(
+                host, controller_client, instance_id)
             yield results
-            with admin_client.restore_backup(backup_file):
+            with controller_client.restore_backup(backup_file):
                 yield results
         finally:
             os.unlink(backup_file)
-        with wait_for_started(admin_client):
+        with wait_for_started(controller_client):
             yield results
         results['result'] = True
         yield results
