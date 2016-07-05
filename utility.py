@@ -112,6 +112,7 @@ def _clean_dir(maybe_dir):
     except OSError as e:
         if e.errno == errno.ENOENT:
             warnings.warn("Not a directory %s" % (maybe_dir,))
+            # we don't raise this error due to tests abusing /tmp/logs
         if e.errno == errno.EEXIST:
             warnings.warn("Directory %s already exists" % (maybe_dir,))
     else:
@@ -328,6 +329,7 @@ def _generate_default_temp_env_name(timestamp):
 
 
 def _generate_default_binary():
+    """Returns GOPATH juju binary if it exists, otherwise /usr/bin/juju"""
     try:
         go_bin = os.getenv('GOPATH') + '/bin/juju'
         if os.path.isfile(go_bin):
