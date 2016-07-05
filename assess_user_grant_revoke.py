@@ -25,7 +25,6 @@ from jujupy import Controller
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    scoped_environ,
     temp_dir,
 )
 
@@ -46,29 +45,28 @@ def register_user(user, client, fake_home):
     """Register `user` for the `client` return the cloned client used."""
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
-    # pexpect has a bug, and doesn't honor env=
     username = user.name
     controller_name = '{}_controller'.format(username)
     token = client.add_user(username, permissions=user.permissions)
     user_client, user_env = create_cloned_environment(
         client, fake_home, controller_name)
 
-    with scoped_environ(user_env):
-        try:
-            child = user_client.expect('register', (token), include_e=False)
-            child.expect('(?i)name .*: ')
-            child.sendline(controller_name)
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                raise JujuAssertionError(
-                    'Registering user failed: pexpect session still alive')
-        except pexpect.TIMEOUT:
+    try:
+        child = user_client.expect(
+            'register', (token), extra_env=user_env, include_e=False)
+        child.expect('(?i)name .*: ')
+        child.sendline(controller_name)
+        child.expect('(?i)password')
+        child.sendline(username + '_password')
+        child.expect('(?i)password')
+        child.sendline(username + '_password')
+        child.expect(pexpect.EOF)
+        if child.isalive():
             raise JujuAssertionError(
-                'Registering user failed: pexpect session timed out')
+                'Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+        raise JujuAssertionError(
+            'Registering user failed: pexpect session timed out')
     return user_client
 
 
