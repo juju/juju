@@ -17,7 +17,7 @@ mkdir artifacts
 
 # run landscape bundle job
 timeout -s INT 60m run_deployer.py --debug $bundle parallel-munna-vmaas \
-    $WORKSPACE/juju-bin/juju artifacts $job_name --upload-tools \
+    $WORKSPACE/juju artifacts $job_name --upload-tools \
    --allow-native-deploy \
    --bundle-verification-script $SCRIPTS/verify_landscape_bundle.py \
    --agent-timeout 1800 --workload-timeout 900
