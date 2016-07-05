@@ -85,9 +85,9 @@ class TestQuickstartTest(FakeHomeTestCase):
         with patch('deploy_stack.get_machine_dns_name',
                    return_value='mocked_name') as dns_mock:
             # Test second yield
-            with patch.object(client, 'get_admin_client') as gac_mock:
+            with patch.object(client, 'get_controller_client') as gcc_mock:
                 step = steps.next()
-        dns_mock.assert_called_once_with(gac_mock.return_value, '0')
+        dns_mock.assert_called_once_with(gcc_mock.return_value, '0')
         self.assertEqual('mocked_name', step['bootstrap_host'])
         with patch.object(client, 'wait_for_deploy_started') as wds_mock:
             # Test third yield
