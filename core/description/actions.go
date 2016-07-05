@@ -21,8 +21,8 @@ type action struct {
 	Name_       string                 `yaml:"name"`
 	Parameters_ map[string]interface{} `yaml:"parameters"`
 	Enqueued_   time.Time              `yaml:"enqueued"`
-	// Can't use omitempty with time.Time, it just doesn't work,
-	// so use a pointer in the struct.
+	// Can't use omitempty with time.Time, it just doesn't work
+	// (nothing is serialised), so use a pointer in the struct.
 	Started_   *time.Time             `yaml:"started,omitempty"`
 	Completed_ *time.Time             `yaml:"completed,omitempty"`
 	Status_    string                 `yaml:"status"`
