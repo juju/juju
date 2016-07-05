@@ -4,6 +4,7 @@
 package syslog_test
 
 import (
+	"net"
 	"time"
 
 	"github.com/juju/loggo"
@@ -81,16 +82,18 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	ver := version.MustParse("1.2.3")
 	ts := time.Unix(12345, 0)
-	rec := logfwd.Record{
-		Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
-		Timestamp: time.Unix(12345, 0),
-		Level:     loggo.ERROR,
+	rec := logfwd.LogRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
+			Timestamp: time.Unix(12345, 0),
+			Message:   "(╯°□°)╯︵ ┻━┻",
+		},
+		Level: loggo.ERROR,
 		Location: logfwd.SourceLocation{
 			Module:   "juju.x.y",
 			Filename: "x/y/spam.go",
 			Line:     42,
 		},
-		Message: "(╯°□°)╯︵ ┻━┻",
 	}
 	client := syslog.Client{Sender: s.sender}
 
@@ -108,7 +111,7 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 			Hostname: rfc5424.Hostname{
 				FQDN: "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
 			},
-			AppName: "jujud-machine-agent-deadbeef-2f18-4fd2-967d-db96",
+			AppName: "jujud-deadbeef-2f18-4fd2-967d-db9663db7bea",
 		},
 		StructuredData: rfc5424.StructuredData{
 			&sdelements.Origin{
@@ -150,16 +153,18 @@ func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
 	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	ver := version.MustParse("1.2.3")
-	rec := logfwd.Record{
-		Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
-		Timestamp: time.Unix(12345, 0),
-		Level:     loggo.ERROR,
+	rec := logfwd.LogRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
+			Timestamp: time.Unix(12345, 0),
+			Message:   "(╯°□°)╯︵ ┻━┻",
+		},
+		Level: loggo.ERROR,
 		Location: logfwd.SourceLocation{
 			Module:   "juju.x.y",
 			Filename: "x/y/spam.go",
 			Line:     42,
 		},
-		Message: "(╯°□°)╯︵ ┻━┻",
 	}
 	client := syslog.Client{Sender: s.sender}
 
@@ -181,6 +186,85 @@ func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
 		msg := s.stub.Calls()[0].Args[0].(rfc5424.Message)
 		c.Check(msg.Severity, gc.Equals, expected)
 	}
+}
+
+func (s *ClientSuite) TestSendAudit(c *gc.C) {
+	tag := names.NewUserTag("bob")
+	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
+	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
+	ver := version.MustParse("1.2.3")
+	origin, err := logfwd.OriginForJuju(tag, cID, mID, ver)
+	c.Assert(err, jc.ErrorIsNil)
+	origin.Hostname = "10.0.0.1"
+	ts := time.Unix(12345, 0)
+	rec := logfwd.AuditRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin:    origin,
+			Timestamp: ts,
+			Message:   "(╯°□°)╯︵ ┻━┻",
+		},
+		Audit: logfwd.Audit{
+			Operation: "Model-1:Get",
+			Args:      map[string]string{"x": "y"},
+		},
+	}
+	client := syslog.Client{Sender: s.sender}
+
+	err = client.Send(rec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.stub.CheckCallNames(c, "Send")
+	s.stub.CheckCall(c, 0, "Send", rfc5424.Message{
+		Header: rfc5424.Header{
+			Priority: rfc5424.Priority{
+				Severity: rfc5424.SeverityInformational,
+				Facility: rfc5424.FacilityUser,
+			},
+			Timestamp: rfc5424.Timestamp{ts},
+			Hostname: rfc5424.Hostname{
+				StaticIP: net.ParseIP("10.0.0.1"),
+			},
+			AppName: "juju-deadbeef-2f18-4fd2-967d-db9663db7bea",
+		},
+		StructuredData: rfc5424.StructuredData{
+			&sdelements.Origin{
+				EnterpriseID: sdelements.OriginEnterpriseID{
+					Number: 28978,
+				},
+				SoftwareName:    "juju",
+				SoftwareVersion: ver,
+			},
+			&sdelements.Private{
+				Name: "model",
+				PEN:  28978,
+				Data: []rfc5424.StructuredDataParam{{
+					Name:  "controller-uuid",
+					Value: "9f484882-2f18-4fd2-967d-db9663db7bea",
+				}, {
+					Name:  "model-uuid",
+					Value: "deadbeef-2f18-4fd2-967d-db9663db7bea",
+				}},
+			},
+			&sdelements.Private{
+				Name: "audit",
+				PEN:  28978,
+				Data: []rfc5424.StructuredDataParam{{
+					Name:  "origin-type",
+					Value: "user",
+				}, {
+					Name:  "origin-name",
+					Value: "bob",
+				}, {
+					Name:  "operation",
+					Value: "Model-1:Get",
+				}, {
+					Name:  "x",
+					Value: "y",
+				}},
+			},
+		},
+		Msg: "(╯°□°)╯︵ ┻━┻",
+	})
 }
 
 type stubSenderOpener struct {

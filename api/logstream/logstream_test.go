@@ -101,27 +101,29 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for record")
 	}
-	c.Check(rec, jc.DeepEquals, logfwd.Record{
-		Origin: logfwd.Origin{
-			ControllerUUID: cUUID,
-			ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
-			Hostname:       "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
-			Type:           logfwd.OriginTypeMachine,
-			Name:           "99",
-			Software: logfwd.Software{
-				PrivateEnterpriseNumber: 28978,
-				Name:    "jujud-machine-agent",
-				Version: version.Current,
+	c.Check(rec, jc.DeepEquals, logfwd.LogRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin: logfwd.Origin{
+				ControllerUUID: cUUID,
+				ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
+				Hostname:       "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
+				Type:           logfwd.OriginTypeMachine,
+				Name:           "99",
+				Software: logfwd.Software{
+					PrivateEnterpriseNumber: 28978,
+					Name:    "jujud-machine-agent",
+					Version: version.Current,
+				},
 			},
+			Timestamp: ts,
+			Message:   "test message",
 		},
-		Timestamp: ts,
-		Level:     loggo.INFO,
+		Level: loggo.INFO,
 		Location: logfwd.SourceLocation{
 			Module:   "api.logstream.test",
 			Filename: "test.go",
 			Line:     42,
 		},
-		Message: "test message",
 	})
 	stub.CheckCallNames(c, "ReadJSON")
 

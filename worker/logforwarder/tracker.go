@@ -56,11 +56,11 @@ func (s *trackingSender) Send(rec logfwd.Record) error {
 	if err := s.SendCloser.Send(rec); err != nil {
 		return errors.Trace(err)
 	}
-	model := rec.Origin.ModelUUID
+	model := rec.Base().Origin.ModelUUID
 	if s.allModels {
 		model = ""
 	}
-	if err := s.tracker.setOne(model, rec.ID); err != nil {
+	if err := s.tracker.setOne(model, rec.Base().ID); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
