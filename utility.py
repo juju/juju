@@ -112,14 +112,8 @@ def _clean_dir(maybe_dir):
     except OSError as e:
         if e.errno == errno.ENOENT:
             warnings.warn("Not a directory %s" % (maybe_dir,))
-            try:
-                os.makedirs(maybe_dir)
-                warnings.warn("Created logging directory %s" % maybe_dir)
-            except OSError as e:
-                warnings.warn("Failed to create logging directory: " +
-                              maybe_dir +
-                              ". Please specify empty folder or try again")
-                raise
+        if e.errno == errno.EEXIST:
+            warnings.warn("Directory %s already exists" % (maybe_dir,))
     else:
         if contents and contents != ["empty"]:
             warnings.warn("Directory %r has existing contents." % (maybe_dir,))
@@ -312,12 +306,35 @@ def _get_test_name_from_filename():
 
 def _generate_default_clean_dir(timestamp):
     """Creates a new unique directory for logging and returns the name"""
-    return ''.join([_get_test_name_from_filename(), timestamp, '_logs'])
+    log_dir = ''.join([_get_test_name_from_filename(), timestamp, '_logs'])
+    log_dir = os.path.join('/tmp', log_dir)
+    try:
+        os.makedirs(log_dir)
+        warnings.warn("Created logging directory %s" % log_dir)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            pass
+        else:
+            warnings.warn("Failed to create logging directory: " +
+                          log_dir +
+                          ". Please specify empty folder or try again")
+            raise
+    return log_dir
 
 
 def _generate_default_temp_env_name(timestamp):
     """Creates a new unique name for environment and returns the name"""
     return ''.join([_get_test_name_from_filename(), timestamp, "_temp_env"])
+
+
+def _generate_default_binary():
+    try:
+        go_bin = os.getenv('GOPATH') + '/bin/juju'
+        if os.path.isfile(go_bin):
+            return go_bin
+    except:
+        pass
+    return '/usr/bin/juju'
 
 
 def add_basic_testing_arguments(parser, using_jes=False):
@@ -352,7 +369,7 @@ def add_basic_testing_arguments(parser, using_jes=False):
         default='lxd')
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary.',
-                        default='/usr/bin/juju')
+                        default=_generate_default_binary())
     parser.add_argument('logs',  nargs='?',  type=_clean_dir,
                         help='A directory in which to store logs.',
                         default=_generate_default_clean_dir(timestamp))
