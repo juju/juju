@@ -142,9 +142,16 @@ func FormatTabular(value interface{}) ([]byte, error) {
 			}
 		}
 
+		// Ensure that we pick a consistent name for peer relations.
+		sortedRelTypes := make([]string, 0, len(app.Relations))
+		for relType := range app.Relations {
+			sortedRelTypes = append(sortedRelTypes, relType)
+		}
+		sort.Strings(sortedRelTypes)
+
 		subs := set.NewStrings(app.SubordinateTo...)
-		for relType, relatedUnits := range app.Relations {
-			for _, related := range relatedUnits {
+		for _, relType := range sortedRelTypes {
+			for _, related := range app.Relations[relType] {
 				relations.add(related, appName, relType, subs.Contains(related))
 			}
 		}
