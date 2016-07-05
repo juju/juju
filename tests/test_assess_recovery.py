@@ -64,9 +64,9 @@ class TestAssessRecovery(TestCase):
         client.bootstrap()
 
         def terminate(env, instance_ids):
+            model = client._backend.controller_state.controller_model
             for instance_id in instance_ids:
-                admin_model = client._backend.controller_state.admin_model
-                admin_model.remove_state_server(instance_id)
+                model.remove_state_server(instance_id)
 
         with patch('assess_recovery.wait_for_state_server_to_shutdown',
                    autospec=True):
@@ -93,19 +93,19 @@ class TestAssessRecovery(TestCase):
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha-backup', 'trusty')
 
-    def test_admin_model_backup(self):
+    def test_controller_model_backup(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'backup', 'trusty')
 
-    def test_admin_model_ha(self):
+    def test_controller_model_ha(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):
             assess_recovery(bs_manager, 'ha', 'trusty')
 
-    def test_admin_model_ha_backup(self):
+    def test_controller_model_ha_backup(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={})
         with self.assess_recovery_cxt(client):

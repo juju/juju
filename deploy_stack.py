@@ -701,8 +701,8 @@ class BootstrapManager:
         try:
             try:
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(self.client.get_admin_client(),
-                                                '0')
+                    host = get_machine_dns_name(
+                        self.client.get_controller_client(), '0')
                     if host is None:
                         raise ValueError('Could not get machine 0 host')
                     self.known_hosts['0'] = host
@@ -743,7 +743,7 @@ class BootstrapManager:
         # be accurate for a model created by create_environment.
         if not self._should_dump():
             return
-        admin_client = self.client.get_admin_client()
+        controller_client = self.client.get_controller_client()
         if not self.jes_enabled:
             clients = [self.client]
         else:
@@ -751,13 +751,13 @@ class BootstrapManager:
                 clients = list(self.client.iter_model_clients())
             except Exception:
                 # Even if the controller is unreachable, we may still be able
-                # to gather some logs.  admin_client and self.client are all
-                # we have knowledge of.
-                clients = [admin_client]
-                if self.client is not admin_client:
+                # to gather some logs. The controller_client and self.client
+                # instances are all we have knowledge of.
+                clients = [controller_client]
+                if self.client is not controller_client:
                     clients.append(self.client)
         for client in clients:
-            if client.env.environment == admin_client.env.environment:
+            if client.env.environment == controller_client.env.environment:
                 known_hosts = self.known_hosts
                 if self.jes_enabled:
                     runtime_config = self.client.get_cache_path()
