@@ -82,16 +82,18 @@ func (s *ClientSuite) TestSendLogFull(c *gc.C) {
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	ver := version.MustParse("1.2.3")
 	ts := time.Unix(12345, 0)
-	rec := logfwd.Record{
-		Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
-		Timestamp: time.Unix(12345, 0),
-		Level:     loggo.ERROR,
+	rec := logfwd.LogRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
+			Timestamp: time.Unix(12345, 0),
+			Message:   "(╯°□°)╯︵ ┻━┻",
+		},
+		Level: loggo.ERROR,
 		Location: logfwd.SourceLocation{
 			Module:   "juju.x.y",
 			Filename: "x/y/spam.go",
 			Line:     42,
 		},
-		Message: "(╯°□°)╯︵ ┻━┻",
 	}
 	client := syslog.Client{Sender: s.sender}
 
@@ -151,16 +153,18 @@ func (s *ClientSuite) TestSendLogLevels(c *gc.C) {
 	cID := "9f484882-2f18-4fd2-967d-db9663db7bea"
 	mID := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	ver := version.MustParse("1.2.3")
-	rec := logfwd.Record{
-		Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
-		Timestamp: time.Unix(12345, 0),
-		Level:     loggo.ERROR,
+	rec := logfwd.LogRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin:    logfwd.OriginForMachineAgent(tag, cID, mID, ver),
+			Timestamp: time.Unix(12345, 0),
+			Message:   "(╯°□°)╯︵ ┻━┻",
+		},
+		Level: loggo.ERROR,
 		Location: logfwd.SourceLocation{
 			Module:   "juju.x.y",
 			Filename: "x/y/spam.go",
 			Line:     42,
 		},
-		Message: "(╯°□°)╯︵ ┻━┻",
 	}
 	client := syslog.Client{Sender: s.sender}
 
@@ -193,15 +197,16 @@ func (s *ClientSuite) TestSendAudit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	origin.Hostname = "10.0.0.1"
 	ts := time.Unix(12345, 0)
-	rec := logfwd.Record{
-		Origin:    origin,
-		Timestamp: ts,
-		Level:     loggo.INFO,
+	rec := logfwd.AuditRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin:    origin,
+			Timestamp: ts,
+			Message:   "(╯°□°)╯︵ ┻━┻",
+		},
 		Audit: logfwd.Audit{
 			Operation: "Model-1:Get",
 			Args:      map[string]string{"x": "y"},
 		},
-		Message: "(╯°□°)╯︵ ┻━┻",
 	}
 	client := syslog.Client{Sender: s.sender}
 

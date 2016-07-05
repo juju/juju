@@ -26,7 +26,7 @@ type LogForwarderSuite struct {
 	stub   *testing.Stub
 	stream *stubStream
 	sender *stubSender
-	rec    logfwd.Record
+	rec    logfwd.LogRecord
 }
 
 var _ = gc.Suite(&LogForwarderSuite{})
@@ -37,28 +37,30 @@ func (s *LogForwarderSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.stream = newStubStream(s.stub)
 	s.sender = newStubSender(s.stub)
-	s.rec = logfwd.Record{
-		Origin: logfwd.Origin{
-			ControllerUUID: "feebdaed-2f18-4fd2-967d-db9663db7bea",
-			ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
-			Hostname:       "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
-			Type:           logfwd.OriginTypeMachine,
-			Name:           "99",
-			Software: logfwd.Software{
-				PrivateEnterpriseNumber: 28978,
-				Name:    "jujud-machine-agent",
-				Version: version.Current,
+	s.rec = logfwd.LogRecord{
+		BaseRecord: logfwd.BaseRecord{
+			Origin: logfwd.Origin{
+				ControllerUUID: "feebdaed-2f18-4fd2-967d-db9663db7bea",
+				ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",
+				Hostname:       "machine-99.deadbeef-2f18-4fd2-967d-db9663db7bea",
+				Type:           logfwd.OriginTypeMachine,
+				Name:           "99",
+				Software: logfwd.Software{
+					PrivateEnterpriseNumber: 28978,
+					Name:    "jujud-machine-agent",
+					Version: version.Current,
+				},
 			},
+			ID:        10,
+			Timestamp: time.Now(),
+			Message:   "test message",
 		},
-		ID:        10,
-		Timestamp: time.Now(),
-		Level:     loggo.INFO,
+		Level: loggo.INFO,
 		Location: logfwd.SourceLocation{
 			Module:   "api.logstream.test",
 			Filename: "test.go",
 			Line:     42,
 		},
-		Message: "test message",
 	}
 }
 
@@ -188,7 +190,7 @@ func (s *stubStream) Next() (logfwd.Record, error) {
 	s.stub.AddCall("Next")
 	s.waitCh <- struct{}{}
 	if err := s.stub.NextErr(); err != nil {
-		return logfwd.Record{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	rec := <-s.ReturnNext

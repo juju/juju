@@ -9,6 +9,32 @@ import (
 	"github.com/juju/errors"
 )
 
+// AuditRecord holds all the information for a single log record.
+type AuditRecord struct {
+	BaseRecord
+
+	// Audit holds controller activity audit info.
+	Audit Audit
+}
+
+// Kind implements Record by returning RecordKindAudit.
+func (rec AuditRecord) Kind() RecordKind {
+	return RecordKindAudit
+}
+
+// Validate ensures that the record is correct.
+func (rec AuditRecord) Validate() error {
+	if err := rec.BaseRecord.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := rec.Audit.Validate(); err != nil {
+		return errors.Annotate(err, "invalid Audit")
+	}
+
+	return nil
+}
+
 // Audit holds audit information about an externally-initiated
 // operation in the controller/model.
 type Audit struct {

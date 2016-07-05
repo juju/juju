@@ -12,6 +12,49 @@ import (
 	"github.com/juju/juju/logfwd"
 )
 
+type AuditRecordSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&AuditRecordSuite{})
+
+func (s *AuditRecordSuite) TestValidateValid(c *gc.C) {
+	rec := validAuditRecord
+	c.Logf("%#v", rec)
+
+	err := rec.Validate()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *AuditRecordSuite) TestValidateZero(c *gc.C) {
+	var rec logfwd.AuditRecord
+
+	err := rec.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *AuditRecordSuite) TestValidateBadRecord(c *gc.C) {
+	rec := validAuditRecord
+	rec.Origin.Name = "..."
+
+	err := rec.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `invalid Origin: invalid Name "...": bad user name`)
+}
+
+func (s *AuditRecordSuite) TestValidateBadAudit(c *gc.C) {
+	rec := validAuditRecord
+	rec.Audit.Args = map[string]string{"": "..."}
+
+	err := rec.Validate()
+
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, `invalid Audit: empty arg name not allowed`)
+}
+
 type AuditSuite struct {
 	testing.IsolationSuite
 }
@@ -118,4 +161,16 @@ func (s *AuditSuite) TestValidateEmptyArgValue(c *gc.C) {
 	err := audit.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
+}
+
+var validAudit = logfwd.Audit{
+	Operation: "spam",
+	Args: map[string]string{
+		"x": "y",
+	},
+}
+
+var validAuditRecord = logfwd.AuditRecord{
+	BaseRecord: validBaseRecord,
+	Audit:      validAudit,
 }

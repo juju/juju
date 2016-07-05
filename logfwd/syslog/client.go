@@ -117,6 +117,68 @@ func (client Client) Send(rec logfwd.Record) error {
 }
 
 func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
+	msg, err := messageFromBaseRecord(rec.Base())
+	if err != nil {
+		return msg, errors.Trace(err)
+	}
+	origin := rec.Base().Origin
+
+	switch rec.Kind() {
+	case logfwd.RecordKindLog:
+		severity, err := severityFromLogLevel(rec.(logfwd.LogRecord).Level)
+		if err != nil {
+			return msg, errors.Trace(err)
+		}
+		msg.Priority.Severity = severity
+
+		loc := rec.(logfwd.LogRecord).Location
+		msg.StructuredData = append(msg.StructuredData, &sdelements.Private{
+			Name: "log",
+			PEN:  sdelements.PrivateEnterpriseNumber(origin.Software.PrivateEnterpriseNumber),
+			Data: []rfc5424.StructuredDataParam{{
+				Name:  "module",
+				Value: rfc5424.StructuredDataParamValue(loc.Module),
+			}, {
+				Name:  "source",
+				Value: rfc5424.StructuredDataParamValue(fmt.Sprintf("%s:%d", loc.Filename, loc.Line)),
+			}},
+		})
+	case logfwd.RecordKindAudit:
+		msg.Priority.Severity = rfc5424.SeverityInformational
+
+		audit := rec.(logfwd.AuditRecord).Audit
+		elem := &sdelements.Private{
+			Name: "audit",
+			PEN:  sdelements.PrivateEnterpriseNumber(origin.Software.PrivateEnterpriseNumber),
+			Data: []rfc5424.StructuredDataParam{{
+				Name:  "origin-type",
+				Value: rfc5424.StructuredDataParamValue(origin.Type.String()),
+			}, {
+				Name:  "origin-name",
+				Value: rfc5424.StructuredDataParamValue(origin.Name),
+			}, {
+				Name:  "operation",
+				Value: rfc5424.StructuredDataParamValue(audit.Operation),
+			}},
+		}
+		for name, value := range audit.Args {
+			elem.Data = append(elem.Data, rfc5424.StructuredDataParam{
+				Name:  rfc5424.StructuredDataName(name),
+				Value: rfc5424.StructuredDataParamValue(value),
+			})
+		}
+		msg.StructuredData = append(msg.StructuredData, elem)
+	default:
+		return msg, errors.Errorf("unsupported record kind %q", rec.Kind())
+	}
+
+	if err := msg.Validate(); err != nil {
+		return msg, errors.Trace(err)
+	}
+	return msg, nil
+}
+
+func messageFromBaseRecord(rec logfwd.BaseRecord) (rfc5424.Message, error) {
 	swName := strings.Split(rec.Origin.Software.Name, "-")[0]
 	appName := swName + "-" + rec.Origin.ModelUUID
 
@@ -159,57 +221,20 @@ func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
 		Msg: rec.Message,
 	}
 
-	if rec.Audit.IsZero() {
-		msg.StructuredData = append(msg.StructuredData, &sdelements.Private{
-			Name: "log",
-			PEN:  sdelements.PrivateEnterpriseNumber(rec.Origin.Software.PrivateEnterpriseNumber),
-			Data: []rfc5424.StructuredDataParam{{
-				Name:  "module",
-				Value: rfc5424.StructuredDataParamValue(rec.Location.Module),
-			}, {
-				Name:  "source",
-				Value: rfc5424.StructuredDataParamValue(fmt.Sprintf("%s:%d", rec.Location.Filename, rec.Location.Line)),
-			}},
-		})
-	} else {
-		elem := &sdelements.Private{
-			Name: "audit",
-			PEN:  sdelements.PrivateEnterpriseNumber(rec.Origin.Software.PrivateEnterpriseNumber),
-			Data: []rfc5424.StructuredDataParam{{
-				Name:  "origin-type",
-				Value: rfc5424.StructuredDataParamValue(rec.Origin.Type.String()),
-			}, {
-				Name:  "origin-name",
-				Value: rfc5424.StructuredDataParamValue(rec.Origin.Name),
-			}, {
-				Name:  "operation",
-				Value: rfc5424.StructuredDataParamValue(rec.Audit.Operation),
-			}},
-		}
-		for name, value := range rec.Audit.Args {
-			elem.Data = append(elem.Data, rfc5424.StructuredDataParam{
-				Name:  rfc5424.StructuredDataName(name),
-				Value: rfc5424.StructuredDataParamValue(value),
-			})
-		}
-		msg.StructuredData = append(msg.StructuredData, elem)
-	}
-
-	switch rec.Level {
-	case loggo.ERROR:
-		msg.Priority.Severity = rfc5424.SeverityError
-	case loggo.WARNING:
-		msg.Priority.Severity = rfc5424.SeverityWarning
-	case loggo.INFO:
-		msg.Priority.Severity = rfc5424.SeverityInformational
-	case loggo.DEBUG, loggo.TRACE:
-		msg.Priority.Severity = rfc5424.SeverityDebug
-	default:
-		return msg, errors.Errorf("unsupported log level %q", rec.Level)
-	}
-
-	if err := msg.Validate(); err != nil {
-		return msg, errors.Trace(err)
-	}
 	return msg, nil
+}
+
+func severityFromLogLevel(level loggo.Level) (rfc5424.Severity, error) {
+	switch level {
+	case loggo.ERROR:
+		return rfc5424.SeverityError, nil
+	case loggo.WARNING:
+		return rfc5424.SeverityWarning, nil
+	case loggo.INFO:
+		return rfc5424.SeverityInformational, nil
+	case loggo.DEBUG, loggo.TRACE:
+		return rfc5424.SeverityDebug, nil
+	default:
+		return -1, errors.Errorf("unsupported log level %q", level)
+	}
 }
