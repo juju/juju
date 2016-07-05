@@ -14,6 +14,7 @@ job_name=verify-mass-networking
 bundle=cs:~landscape/bundle/landscape-scalable
 tar -xf $TARFILE -C $WORKSPACE
 mkdir artifacts
+chmod +x juju jujud
 
 # run landscape bundle job
 timeout -s INT 60m run_deployer.py --debug $bundle parallel-munna-vmaas \
