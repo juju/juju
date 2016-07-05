@@ -690,38 +690,41 @@ func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
 }
 
 // LogFwdSyslog returns the syslog forwarding config.
+//
+// Note: A partial config is the same as no config.
 func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
-	partial := false
 	var lfCfg syslog.RawConfig
 
-	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
-		partial = true
+	if s, ok := c.defined[LogFwdSyslogHost]; !ok {
+		return nil, false
+	} else {
 		lfCfg.Host = s.(string)
 	}
 
-	if s, ok := c.defined[LogFwdSyslogServerCert]; ok && s != "" {
-		partial = true
+	if s, ok := c.defined[LogFwdSyslogServerCert]; !ok {
+		return nil, false
+	} else {
 		lfCfg.ExpectedServerCert = s.(string)
 	}
 
-	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
-		partial = true
+	if s, ok := c.defined[LogFwdSyslogCACert]; !ok {
+		return nil, false
+	} else {
 		lfCfg.ClientCACert = s.(string)
 	}
 
-	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
-		partial = true
+	if s, ok := c.defined[LogFwdSyslogClientCert]; !ok {
+		return nil, false
+	} else {
 		lfCfg.ClientCert = s.(string)
 	}
 
-	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
-		partial = true
+	if s, ok := c.defined[LogFwdSyslogClientKey]; !ok {
+		return nil, false
+	} else {
 		lfCfg.ClientKey = s.(string)
 	}
 
-	if !partial {
-		return nil, false
-	}
 	return &lfCfg, true
 }
 
