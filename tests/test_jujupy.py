@@ -125,11 +125,21 @@ class FakeControllerState:
     def __init__(self):
         self.state = 'not-bootstrapped'
         self.models = {}
+        self.users = {}
+        self.name = ''
 
     def add_model(self, name):
         state = FakeEnvironmentState()
         state.name = name
         self.models[name] = state
+        state.controller = self
+        state.controller.state = 'created'
+        return state
+
+    def add_user(self, name, permission):
+        state = FakeEnvironmentState()
+        state.name = name
+        self.users[name] = {'state':state, 'permission':permission}
         state.controller = self
         state.controller.state = 'created'
         return state
@@ -436,6 +446,47 @@ class FakeBackend:
                        self.controller_state.models.values()]
         return {'models': [{'name': n} for n in model_names]}
 
+    def add_user(self, name, permission):
+        self.controller_state.users.update(
+            {name: {'state':'', 'permission':permission}})
+        return 'token'
+
+    def list_users(self):
+        user_names = [name for name in
+                       self.controller_state.users.keys()]
+        user_list = []
+        for n in user_names:
+            if n == 'admin':
+                append_dict = {'user-name': n, 'display-name':n}
+            else:
+                append_dict = {'user-name': n, 'display-name':''}
+            user_list.append(append_dict)
+        return user_list
+
+    def show_user(self):
+        user_name = self.controller_state.name
+        if user_name == 'admin':
+            user_status = {'user-name': user_name, 'display-name':user_name}
+        else:
+            user_status = {'user-name': user_name, 'display-name':''}
+        return user_status
+
+    def list_shares(self):
+        user_names = [name for name in
+                      self.controller_state.users.keys()]
+        permissions = [user['permission'] for user in
+                      self.controller_state.users.values()]
+        share_list = {}
+        for i in xrange(len(user_names)):
+            name = user_names[i]+'@local'
+            share_list[name] = {'display-name': user_names[i],
+                                'access': permissions[i]}
+            if name != 'admin@local':
+                share_list[name].pop('display-name')
+            else:
+                share_list[name]['access'] = 'admin'
+        return share_list
+
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
         if model is not None:
@@ -562,6 +613,12 @@ class FakeBackend:
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         if command == 'list-models':
             return yaml.safe_dump(self.list_models())
+        if command == 'list-users':
+            return json.dumps(self.list_users())
+        if command == 'list-shares':
+            return json.dumps(self.list_shares())
+        if command == 'show-user':
+            return json.dumps(self.show_user())
         if command == 'add-user':
             permissions = 'read'
             if set(["--acl", "write"]).issubset(args):

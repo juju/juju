@@ -1603,6 +1603,18 @@ class EnvJujuClient:
                   (name, provider,
                    'size={}'.format(size)))
 
+    def disable_user(self, user_name):
+        """Disable an user"""
+        self.juju('disable-user', (user_name,), include_e=False)
+
+    def enable_user(self, user_name):
+        """Enable an user"""
+        self.juju('enable-user', (user_name,), include_e=False)
+
+    def logout_user(self):
+        """Logout an user"""
+        self.juju('logout', (), include_e=False)
+
 
 class EnvJujuClient2B8(EnvJujuClient):
 
