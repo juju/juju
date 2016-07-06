@@ -54,7 +54,7 @@ def register_user(user, client, fake_home):
     try:
         child = user_client.expect(
             'register', (token), extra_env=user_env, include_e=False)
-        child.expect('(?i)name .*: ')
+        child.expect('(?i)name')
         child.sendline(controller_name)
         child.expect('(?i)password')
         child.sendline(username + '_password')
