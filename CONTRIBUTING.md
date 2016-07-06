@@ -16,12 +16,12 @@ Quick links
 * code review: http://reviews.vapour.ws/
 
 Documentation:
-* https://juju.ubuntu.com/docs/
+* https://jujucharms.com/docs/
 * overview: http://blog.labix.org/2013/06/25/the-heart-of-juju
 * [other docs](doc/)
 
 Community:
-* https://juju.ubuntu.com/community/
+* https://jujucharms.com/community/
 * juju: https://lists.ubuntu.com/mailman/listinfo/juju
 * juju-dev: https://lists.ubuntu.com/mailman/listinfo/juju-dev
 * [#juju on freenode](http://webchat.freenode.net/?channels=juju)
@@ -408,7 +408,7 @@ interacting beyond the workflow and the
 
 Take a look at the community page:
 
- https://juju.ubuntu.com/community/
+ https://jujucharms.com/community/
 
 juju has two channels on IRC (freenode.net):
 
