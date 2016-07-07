@@ -371,7 +371,6 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
 
-        #self.assertEqual(args.logs, '')
         logs_arg = args.logs.split("/")
         logs_ts = logs_arg[4]
         self.assertEqual(logs_arg[1:4], ['tmp', 'test_utility', 'logs'])
@@ -428,7 +427,7 @@ class TestAddBasicTestingArguments(TestCase):
             self.assertEqual(len(warned), 1)
             self.assertRegexpMatches(
                 str(warned[0].message),
-                r"^Directory '.*' has existing contents.$")
+                r"^Directory .* has existing contents.$")
         self.assertEqual("", self.log_stream.getvalue())
 
     def test_no_warn_on_empty_logs(self):

@@ -111,18 +111,19 @@ def _clean_dir(maybe_dir):
         contents = os.listdir(maybe_dir)
     except OSError as e:
         if e.errno == errno.ENOENT:
-            warnings.warn("Not a directory %s" % (maybe_dir,))
             # we don't raise this error due to tests abusing /tmp/logs
+            warnings.warn('Not a directory {}'.format(maybe_dir))
         if e.errno == errno.EEXIST:
-            warnings.warn("Directory %s already exists" % (maybe_dir,))
+            warnings.warn('Directory {} already exists'.format(maybe_dir))
     else:
         if contents and contents != ["empty"]:
-            warnings.warn("Directory %r has existing contents." % (maybe_dir,))
+            warnings.warn(
+                'Directory {} has existing contents.'.format(maybe_dir))
     return maybe_dir
 
 
 def pause(seconds):
-    print_now('Sleeping for %d seconds.' % seconds)
+    print_now('Sleeping for {:d} seconds.'.format(seconds))
     sleep(seconds)
 
 
@@ -201,7 +202,7 @@ def wait_for_port(host, port, closed=False, timeout=30):
         except socket.gaierror as e:
             print_now(str(e))
         except Exception as e:
-            print_now('Unexpected %r: %s' % (type(e), e))
+            print_now('Unexpected {!r}: {}'.format((type(e), e)))
             raise
         else:
             conn.close()
@@ -311,7 +312,7 @@ def _generate_default_clean_dir(timestamp):
                            'logs', timestamp)
     try:
         os.makedirs(log_dir)
-        warnings.warn("Created logging directory %s" % log_dir)
+        warnings.warn('"Created logging directory {}'.format(log_dir))
     except OSError as e:
         if e.errno == errno.EEXIST:
             pass
@@ -325,8 +326,7 @@ def _generate_default_clean_dir(timestamp):
 
 def _generate_default_temp_env_name(timestamp):
     """Creates a new unique name for environment and returns the name"""
-    return '{}_{}_temp_env'.format(_get_test_name_from_filename(),
-                                              timestamp)
+    return '{}_{}_temp_env'.format(_get_test_name_from_filename(), timestamp)
 
 
 def _generate_default_binary():
