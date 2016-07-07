@@ -4,6 +4,7 @@
 package syslog
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/standards/rfc5424"
 	"github.com/juju/juju/standards/rfc5424/sdelements"
-	"github.com/juju/juju/standards/tls"
 )
 
 // Sender exposes the underlying functionality needed by Client.
@@ -27,14 +27,14 @@ type Sender interface {
 
 // SenderOpener supports opening a syslog connection.
 type SenderOpener interface {
-	DialFunc(cfg tls.Config, timeout time.Duration) (rfc5424.DialFunc, error)
+	DialFunc(cfg *tls.Config, timeout time.Duration) (rfc5424.DialFunc, error)
 
 	Open(host string, cfg rfc5424.ClientConfig, dial rfc5424.DialFunc) (Sender, error)
 }
 
 type senderOpener struct{}
 
-func (senderOpener) DialFunc(cfg tls.Config, timeout time.Duration) (rfc5424.DialFunc, error) {
+func (senderOpener) DialFunc(cfg *tls.Config, timeout time.Duration) (rfc5424.DialFunc, error) {
 	dial, err := rfc5424.TLSDialFunc(cfg, timeout)
 	return dial, errors.Trace(err)
 }
@@ -76,15 +76,11 @@ func OpenForSender(cfg RawConfig, opener SenderOpener) (*Client, error) {
 }
 
 func open(cfg RawConfig, opener SenderOpener) (Sender, error) {
-	tlsCfg := tls.Config{
-		RawCert: tls.RawCert{
-			CertPEM:   cfg.ClientCert,
-			KeyPEM:    cfg.ClientKey,
-			CACertPEM: cfg.ClientCACert,
-		},
-		//ServerName: "",
-		ExpectedServerCertPEM: cfg.ExpectedServerCert,
+	tlsCfg, err := cfg.tlsConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "constructing TLS config")
 	}
+
 	var timeout time.Duration
 	dial, err := opener.DialFunc(tlsCfg, timeout)
 	if err != nil {

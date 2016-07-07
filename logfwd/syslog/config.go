@@ -4,21 +4,12 @@
 package syslog
 
 import (
-	"fmt"
+	"crypto/tls"
+	"crypto/x509"
 	"net"
-	"regexp"
-	"strings"
-	"time"
 
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/network"
-)
-
-const (
-	// TLSPort is the TCP port used for syslog-over-TLS.
-	TLSPort = 6514
 )
 
 // RawConfig holds the raw configuration data for a connection to a
@@ -32,18 +23,15 @@ type RawConfig struct {
 	// be used.
 	Host string
 
-	// ExpectedServerCert is the TLS certificate that the server must
-	// use when the client connects.
-	ExpectedServerCert string
-
-	// CACert is the CA cert PEM to use for the client cert.
-	ClientCACert string
+	// CACert is the TLS CA certificate (x.509, PEM-encoded) to use
+	// for validating the server certificate when connecting.
+	CACert string
 
 	// ClientCert is the TLS certificate (x.509, PEM-encoded) to use
 	// when connecting.
 	ClientCert string
 
-	// ClientCert is the TLS private key (x.509, PEM-encoded) to use
+	// ClientKey is the TLS private key (x.509, PEM-encoded) to use
 	// when connecting.
 	ClientKey string
 }
@@ -54,96 +42,39 @@ func (cfg RawConfig) Validate() error {
 		return errors.Trace(err)
 	}
 
-	if err := cfg.validateSSL(); err != nil {
-		return errors.Trace(err)
+	if _, err := cfg.tlsConfig(); err != nil {
+		return errors.Annotate(err, "validating TLS config")
 	}
 
 	return nil
 }
 
 func (cfg RawConfig) validateHost() error {
-	if cfg.Host == "" {
-		return errors.NewNotValid(nil, "empty Host")
-	}
-
-	hostport, err := parseHost(cfg.Host)
+	host, _, err := net.SplitHostPort(cfg.Host)
 	if err != nil {
-		return errors.NewNotValid(err, "bad Host")
+		host = cfg.Host
 	}
-	if hostport.Type == network.HostName && hostport.Value == "" {
-		return errors.NewNotValid(nil, "empty hostname in Host")
+	if host == "" {
+		return errors.NotValidf("Host %q", cfg.Host)
 	}
-
 	return nil
 }
 
-// TODO(ericsnow) network.ParseHostPort() should do this for us...
-
-var hostRE = regexp.MustCompile(`^.*:\d+$`)
-
-func parseHost(host string) (*network.HostPort, error) {
-	if _, _, err := net.SplitHostPort(host); err != nil {
-		if hostRE.MatchString(host) {
-			return nil, errors.Trace(err)
-		}
-		host = fmt.Sprintf("%s:%d", host, TLSPort)
-	}
-
-	hostport, err := network.ParseHostPort(host)
+func (cfg RawConfig) tlsConfig() (*tls.Config, error) {
+	clientCert, err := tls.X509KeyPair([]byte(cfg.ClientCert), []byte(cfg.ClientKey))
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "parsing client key pair")
 	}
 
-	if hostport.Type == network.HostName {
-		// network.ParseHostPort() *should* do this for us, but currently does not.
-		// TODO(ericsnow) This needs better criteria.
-		if strings.ContainsAny(hostport.Value, "#") {
-			return nil, errors.Errorf("invalid domain name %q", hostport.Value)
-		}
+	caCert, err := cert.ParseCert(cfg.CACert)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing CA certificate")
 	}
+	rootCAs := x509.NewCertPool()
+	rootCAs.AddCert(caCert)
 
-	return hostport, nil
-}
-
-func (cfg RawConfig) validateSSL() error {
-	// Check the server cert.
-	if cfg.ExpectedServerCert == "" {
-		return errors.NewNotValid(nil, "empty ExpectedServerCert")
-	}
-	if _, err := cert.ParseCert(cfg.ExpectedServerCert); err != nil {
-		err = errors.NewNotValid(err, "")
-		return errors.Annotate(err, "invalid ExpectedServerCert")
-	}
-
-	// Check the client cert and key.
-	if cfg.ClientCert == "" {
-		return errors.NewNotValid(nil, "empty ClientCert")
-	}
-	if cfg.ClientKey == "" {
-		return errors.NewNotValid(nil, "empty ClientKey")
-	}
-	if _, _, err := cert.ParseCertAndKey(cfg.ClientCert, cfg.ClientKey); err != nil {
-		if _, err := cert.ParseCert(cfg.ClientCert); err != nil {
-			err = errors.NewNotValid(err, "")
-			return errors.Annotate(err, "invalid ClientCert")
-		}
-		err = errors.NewNotValid(err, "bad key or key does not match certificate")
-		return errors.Annotate(err, "invalid ClientKey")
-	}
-
-	// Check the client CA cert.
-	if cfg.ClientCACert == "" {
-		return errors.NewNotValid(nil, "empty ClientCACert")
-	}
-	if _, err := cert.ParseCert(cfg.ClientCACert); err != nil {
-		err = errors.NewNotValid(err, "")
-		return errors.Annotate(err, "invalid ClientCACert")
-	}
-
-	if err := cert.Verify(cfg.ClientCert, cfg.ClientCACert, time.Now()); err != nil {
-		err = errors.NewNotValid(err, "cert does not match CA cert")
-		return errors.Annotate(err, "invalid ClientCert")
-	}
-
-	return nil
+	return &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      rootCAs,
+	}, nil
 }
