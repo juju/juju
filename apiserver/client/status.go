@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -610,9 +609,7 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
-	// Default to the earliest time possible.
-	var zeroTime time.Time
-	lastVersionStatus := status.StatusInfo{Since: &zeroTime}
+	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
 		statuses, err := unit.WorkloadVersionHistory().StatusHistory(
 			status.StatusHistoryFilter{Size: 1},
@@ -621,11 +618,12 @@ func (context *statusContext) processApplication(service *state.Application) par
 			processedStatus.Err = err
 			return processedStatus
 		}
-		if len(statuses) > 0 && statuses[0].Since.After(*lastVersionStatus.Since) {
-			lastVersionStatus = statuses[0]
-		}
+		versions = append(versions, statuses[0])
 	}
-	processedStatus.WorkloadVersion = lastVersionStatus.Message
+	sort.Sort(bySince(versions))
+	if len(versions) > 0 {
+		processedStatus.WorkloadVersion = versions[len(versions)-1].Message
+	}
 
 	return processedStatus
 }
@@ -868,3 +866,14 @@ func processLife(entity lifer) string {
 	}
 	return ""
 }
+
+type bySince []status.StatusInfo
+
+// Len implements sort.Interface.
+func (s bySince) Len() int { return len(s) }
+
+// Swap implements sort.Interface.
+func (s bySince) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
+
+// Less implements sort.Interface.
+func (s bySince) Less(a, b int) bool { return s[a].Since.Before(*s[b].Since) }
