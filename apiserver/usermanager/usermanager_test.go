@@ -610,7 +610,7 @@ func (s *userManagerSuite) TestDeleteUserNonExistent(c *gc.C) {
 	c.Assert(len(got.Results), gc.Equals, 1)
 	c.Assert(err, gc.Equals, nil)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
-		Message: "user \"harvey\" not found",
+		Message: "failed to delete user \"harvey\": user \"harvey\" not found",
 		Code:    "not found",
 	})
 }
@@ -619,14 +619,7 @@ func (s *userManagerSuite) TestDeleteUser(c *gc.C) {
 	// Create a user to delete.
 	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 
-	expectedError := fmt.Sprintf("failed to delete user %q: %q user not found", jjam.Name(), jjam.Name())
-	// Make sure the user exists.
-	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
-		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
-	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(ui.Results, gc.HasLen, 1)
-	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
+	expectedError := fmt.Sprintf("%q user not found", jjam.Name())
 
 	// Delete the user
 	got, err := s.usermanager.DeleteUser(params.Entities{
@@ -786,12 +779,7 @@ func (s *userManagerSuite) TestDeleteUserBulkSharedModels(c *gc.C) {
 	c.Check(got.Results[1].Error, jc.DeepEquals, paramErr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// There was a test here to ensure modelusers were deleted. However, after
-	// moving to the marked deleted implementation of deleteing users we AFAIU
-	// don't need this check. Because the apiserver will prevent not permit
-	// calls that involve modelusers if the user no longer exists (is deleted).
-
-	// Also make sure users were deleted.
+	// Make sure users were deleted.
 	err = jjam.Refresh()
 	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 	err = alice.Refresh()
