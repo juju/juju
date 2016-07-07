@@ -23,10 +23,10 @@ from deploy_stack import (
     BootstrapManager,
 )
 
+from jujupy import Controller
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    scoped_environ,
     temp_dir,
 )
 
@@ -34,6 +34,8 @@ __metaclass__ = type
 
 
 log = logging.getLogger("assess_user_grant_revoke")
+
+User = namedtuple('User', ['name', 'permissions', 'expect'])
 
 
 user_list_1 = [{"user-name":"admin","display-name":"admin"}]
@@ -91,19 +93,21 @@ def register_user(user, client, fake_home):
     """Register `user` for the `client` return the cloned client used."""
     # needs support to passing register command with arguments
     # refactor once supported, bug 1573099
-    # pexpect has a bug, and doesn't honor env=
     username = user.name
+    controller_name = '{}_controller'.format(username)
     try:
         token = client._backend.add_user(username, permission=user.permissions)
     except Exception:
         token = client.add_user(username, permissions=user.permissions)
         pass
     user_client, user_env = create_cloned_environment(
-        client, fake_home)
+        client, fake_home, controller_name)
+
     try:
         with scoped_environ(user_env):
             try:
-                child = user_client.expect('register', (token,), include_e=False)
+                child = user_client.expect(
+                    'register', (token), extra_env=user_env, include_e=False)
                 child.expect('(?i)name')
                 child.sendline(username + '_controller')
                 child.expect('(?i)password')
@@ -122,9 +126,11 @@ def register_user(user, client, fake_home):
     return user_client
 
 
-def create_cloned_environment(client, cloned_juju_home):
+def create_cloned_environment(client, cloned_juju_home, controller_name):
     user_client = client.clone(env=client.env.clone())
     user_client.env.juju_home = cloned_juju_home
+    # New user names the controller.
+    user_client.env.controller = Controller(controller_name)
     user_client_env = user_client._shell_environ()
     return user_client, user_client_env
 
@@ -250,9 +256,8 @@ def assess_logout_login(admin_client, user_client, user, fake_home):
 
 def assess_user_grant_revoke(admin_client):
     log.debug("Creating Users")
-    user = namedtuple('user', ['name', 'permissions', 'expect'])
-    read_user = user('readuser', 'read', [True, False, False, False])
-    write_user = user('adminuser', 'write', [True, True, True, False])
+    read_user = User('readuser', 'read', [True, False, False, False])
+    write_user = User('adminuser', 'write', [True, True, True, False])
     users = [read_user, write_user]
     user_list = list_users(admin_client)
     share_list = list_shares(admin_client)

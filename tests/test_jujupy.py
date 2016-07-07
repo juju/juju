@@ -103,11 +103,11 @@ def check_juju_output(func):
     return wrapper
 
 
-class AdminOperation(Exception):
+class ControllerOperation(Exception):
 
     def __init__(self, operation):
-        super(AdminOperation, self).__init__(
-            'Operation "{}" can only be performed on admin models.'.format(
+        super(ControllerOperation, self).__init__(
+            'Operation "{}" is only valid on controller models.'.format(
                 operation))
 
 
@@ -144,19 +144,19 @@ class FakeControllerState:
         state.controller.state = 'created'
         return state
 
-    def require_admin(self, operation, name):
-        if name != self.admin_model.name:
-            raise AdminOperation(operation)
+    def require_controller(self, operation, name):
+        if name != self.controller_model.name:
+            raise ControllerOperation(operation)
 
-    def bootstrap(self, model_name, config, separate_admin):
+    def bootstrap(self, model_name, config, separate_controller):
         default_model = self.add_model(model_name)
         default_model.name = model_name
-        if separate_admin:
-            admin_model = default_model.controller.add_model('controller')
+        if separate_controller:
+            controller_model = default_model.controller.add_model('controller')
         else:
-            admin_model = default_model
-        self.admin_model = admin_model
-        admin_model.state_servers.append(admin_model.add_machine())
+            controller_model = default_model
+        self.controller_model = controller_model
+        controller_model.state_servers.append(controller_model.add_machine())
         self.state = 'bootstrapped'
         default_model.model_config = copy.deepcopy(config)
         self.models[default_model.name] = default_model
@@ -244,7 +244,7 @@ class FakeEnvironmentState:
         self.controller.state = 'model-destroyed'
 
     def restore_backup(self):
-        self.controller.require_admin('restore', self.name)
+        self.controller.require_controller('restore', self.name)
         if len(self.state_servers) > 0:
             exc = subprocess.CalledProcessError('Operation not permitted', 1,
                                                 2)
@@ -252,7 +252,7 @@ class FakeEnvironmentState:
             raise exc
 
     def enable_ha(self):
-        self.controller.require_admin('enable-ha', self.name)
+        self.controller.require_controller('enable-ha', self.name)
         for n in range(2):
             self.state_servers.append(self.add_machine())
 
@@ -430,13 +430,13 @@ class FakeBackend:
             for x in range(parsed.count):
                 model_state.add_machine()
 
-    def get_admin_model_name(self):
-        return self.controller_state.admin_model.name
+    def get_controller_model_name(self):
+        return self.controller_state.controller_model.name
 
     def make_controller_dict(self, controller_name):
-        admin_model = self.controller_state.admin_model
-        server_id = list(admin_model.state_servers)[0]
-        server_hostname = admin_model.machine_host_names[server_id]
+        controller_model = self.controller_state.controller_model
+        server_id = list(controller_model.state_servers)[0]
+        server_hostname = controller_model.machine_host_names[server_id]
         api_endpoint = '{}:23'.format(server_hostname)
         return {controller_name: {'details': {'api-endpoints': [
             api_endpoint]}}}
@@ -636,7 +636,7 @@ class FakeBackend:
             # subset of YAML, so emit JSON.
             return json.dumps(status_dict)
         if command == 'create-backup':
-            self.controller_state.require_admin('backup', model)
+            self.controller_state.require_controller('backup', model)
             return 'juju-backup-0.tar.gz'
         return ''
 
@@ -715,8 +715,8 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
 
 class FakeJujuClientOptionalJES(EnvJujuClient):
 
-    def get_admin_model_name(self):
-        return self._backend.controller_state.admin_model.name
+    def get_controller_model_name(self):
+        return self._backend.controller_state.controller_model.name
 
 
 class TestErroredUnit(TestCase):
@@ -1285,7 +1285,7 @@ class TestEnvJujuClient(ClientTest):
         full = client._full_args('bar', True, ('baz', 'qux'))
         self.assertEqual((
             'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'), admin=True)
+        full = client._full_args('bar', True, ('baz', 'qux'), controller=True)
         self.assertEqual(
             ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
             full)
@@ -1309,12 +1309,13 @@ class TestEnvJujuClient(ClientTest):
              'baz', 'qux'),
             full)
 
-    def test_full_args_admin(self):
+    def test_full_args_controller(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
-        with patch.object(client, 'get_admin_model_name',
+        with patch.object(client, 'get_controller_model_name',
                           return_value='controller') as gamn_mock:
-            full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+            full = client._full_args('bar', False, ('baz', 'qux'),
+                                     controller=True)
         self.assertEqual((
             'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
             full)
@@ -1650,7 +1651,7 @@ class TestEnvJujuClient(ClientTest):
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
         gjo_mock.assert_called_once_with(
-            'show-status', '--format', 'yaml', admin=False)
+            'show-status', '--format', 'yaml', controller=False)
         self.assertEqual(Status, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -2284,7 +2285,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertIs(client, model_clients[0])
         self.assertEqual('bar', model_clients[1].env.environment)
 
-    def test_get_admin_model_name(self):
+    def test_get_controller_model_name(self):
         models = {
             'models': [
                 {'name': 'controller', 'model-uuid': 'aaaa'},
@@ -2294,11 +2295,11 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models',
                           return_value=models) as gm_mock:
-            admin_name = client.get_admin_model_name()
+            controller_name = client.get_controller_model_name()
         self.assertEqual(0, gm_mock.call_count)
-        self.assertEqual('controller', admin_name)
+        self.assertEqual('controller', controller_name)
 
-    def test_get_admin_model_name_without_admin(self):
+    def test_get_controller_model_name_without_controller(self):
         models = {
             'models': [
                 {'name': 'bar', 'model-uuid': 'aaaa'},
@@ -2307,23 +2308,23 @@ class TestEnvJujuClient(ClientTest):
         }
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value=models):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('controller', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('controller', controller_name)
 
-    def test_get_admin_model_name_no_models(self):
+    def test_get_controller_model_name_no_models(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value={}):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('controller', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('controller', controller_name)
 
-    def test_get_admin_client(self):
+    def test_get_controller_client(self):
         client = EnvJujuClient(
             JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
-        admin_client = client.get_admin_client()
-        admin_env = admin_client.env
-        self.assertEqual('controller', admin_env.environment)
+        controller_client = client.get_controller_client()
+        controller_env = controller_client.env
+        self.assertEqual('controller', controller_env.environment)
         self.assertEqual(
-            {'bar': 'baz', 'name': 'controller'}, admin_env.config)
+            {'bar': 'baz', 'name': 'controller'}, controller_env.config)
 
     def test_list_controllers(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -2366,18 +2367,18 @@ class TestEnvJujuClient(ClientTest):
               api-endpoints: ['[::1]:17070', '[fe80::216:3eff:0:9dc7]:17070']
         """
         client = EnvJujuClient(JujuData('foo', {}), None, None)
-        admin_client = client.get_admin_client()
+        controller_client = client.get_controller_client()
         client.env.controller.name = 'bar'
-        with patch.object(admin_client, 'get_juju_output',
+        with patch.object(controller_client, 'get_juju_output',
                           return_value=data) as gjo:
-            endpoint = admin_client.get_controller_endpoint()
+            endpoint = controller_client.get_controller_endpoint()
         gjo.assert_called_once_with('show-controller', 'bar',
                                     include_e=False)
         self.assertEqual('::1', endpoint)
 
     def test_get_controller_members(self):
         status = Status.from_text("""\
-            model: admin
+            model: controller
             machines:
               "0":
                 dns-name: 10.0.0.0
@@ -2427,7 +2428,7 @@ class TestEnvJujuClient(ClientTest):
 
     def test_get_controller_members_one(self):
         status = Status.from_text("""\
-            model: admin
+            model: controller
             machines:
               "0":
                 dns-name: 10.0.0.0
@@ -2475,7 +2476,7 @@ class TestEnvJujuClient(ClientTest):
                           return_value=value) as gjo_mock:
             client.wait_for_ha()
         gjo_mock.assert_called_once_with(
-            'show-status', '--format', 'yaml', admin=True)
+            'show-status', '--format', 'yaml', controller=True)
 
     def test_wait_for_ha_no_has_vote(self):
         value = yaml.safe_dump({
@@ -3323,7 +3324,7 @@ class TestEnvJujuClient2B8(ClientTest):
 
 class TestEnvJujuClient2B7(ClientTest):
 
-    def test_get_admin_model_name(self):
+    def test_get_controller_model_name(self):
         models = {
             'models': [
                 {'name': 'admin', 'model-uuid': 'aaaa'},
@@ -3333,11 +3334,11 @@ class TestEnvJujuClient2B7(ClientTest):
         client = EnvJujuClient2B7(JujuData('foo'), None, None)
         with patch.object(client, 'get_models',
                           return_value=models) as gm_mock:
-            admin_name = client.get_admin_model_name()
+            controller_name = client.get_controller_model_name()
         self.assertEqual(0, gm_mock.call_count)
-        self.assertEqual('admin', admin_name)
+        self.assertEqual('admin', controller_name)
 
-    def test_get_admin_model_name_without_admin(self):
+    def test_get_controller_model_name_without_controller(self):
         models = {
             'models': [
                 {'name': 'bar', 'model-uuid': 'aaaa'},
@@ -3346,22 +3347,23 @@ class TestEnvJujuClient2B7(ClientTest):
         }
         client = EnvJujuClient2B7(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value=models):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('admin', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('admin', controller_name)
 
-    def test_get_admin_model_name_no_models(self):
+    def test_get_controller_model_name_no_models(self):
         client = EnvJujuClient2B7(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value={}):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('admin', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('admin', controller_name)
 
-    def test_get_admin_client(self):
+    def test_get_controller_client(self):
         client = EnvJujuClient2B7(
             JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
-        admin_client = client.get_admin_client()
-        admin_env = admin_client.env
-        self.assertEqual('admin', admin_env.environment)
-        self.assertEqual({'bar': 'baz', 'name': 'admin'}, admin_env.config)
+        controller_client = client.get_controller_client()
+        controller_env = controller_client.env
+        self.assertEqual('admin', controller_env.environment)
+        self.assertEqual({'bar': 'baz', 'name': 'admin'},
+                         controller_env.config)
 
 
 class TestEnvJujuClient2B3(ClientTest):
@@ -3488,7 +3490,7 @@ class TestEnvJujuClient2B2(ClientTest):
                 config = yaml.safe_load(config_file)
         self.assertEqual({'test-mode': True}, config)
 
-    def test_get_admin_model_name(self):
+    def test_get_controller_model_name(self):
         models = {
             'models': [
                 {'name': 'admin', 'model-uuid': 'aaaa'},
@@ -3498,11 +3500,11 @@ class TestEnvJujuClient2B2(ClientTest):
         client = EnvJujuClient2B2(JujuData('foo'), None, None)
         with patch.object(client, 'get_models',
                           return_value=models) as gm_mock:
-            admin_name = client.get_admin_model_name()
+            controller_name = client.get_controller_model_name()
         gm_mock.assert_called_once_with()
-        self.assertEqual('admin', admin_name)
+        self.assertEqual('admin', controller_name)
 
-    def test_get_admin_model_name_without_admin(self):
+    def test_get_controller_model_name_without_controller(self):
         models = {
             'models': [
                 {'name': 'bar', 'model-uuid': 'aaaa'},
@@ -3511,14 +3513,14 @@ class TestEnvJujuClient2B2(ClientTest):
         }
         client = EnvJujuClient2B2(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value=models):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('foo', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('foo', controller_name)
 
-    def test_get_admin_model_name_no_models(self):
+    def test_get_controller_model_name_no_models(self):
         client = EnvJujuClient2B2(JujuData('foo'), None, None)
         with patch.object(client, 'get_models', return_value={}):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('foo', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('foo', controller_name)
 
 
 class TestEnvJujuClient2A2(TestCase):
@@ -3747,10 +3749,10 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual((
             'bin', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
-    def test_full_args_admin(self):
+    def test_full_args_controller(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'), admin=True)
+        full = client._full_args('bar', False, ('baz', 'qux'), controller=True)
         self.assertEqual((
             'bin', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
@@ -4044,7 +4046,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value=output_text) as gjo_mock:
             result = client.get_status()
         gjo_mock.assert_called_once_with(
-            'status', '--format', 'yaml', admin=False)
+            'status', '--format', 'yaml', controller=False)
         self.assertEqual(ServiceStatus, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
@@ -4086,7 +4088,7 @@ class TestEnvJujuClient1X(ClientTest):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
 
-    def test_get_status_admin(self):
+    def test_get_status_controller(self):
         output_text = """\
             - a
             - b
@@ -4096,9 +4098,9 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, None, None)
         with patch.object(client, 'get_juju_output',
                           return_value=output_text) as gjo_mock:
-            client.get_status(admin=True)
+            client.get_status(controller=True)
         gjo_mock.assert_called_once_with(
-            'status', '--format', 'yaml', admin=True)
+            'status', '--format', 'yaml', controller=True)
 
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
@@ -5108,18 +5110,18 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertIs(client, model_clients[0])
         self.assertEqual('bar', model_clients[1].env.environment)
 
-    def test_get_admin_model_name_no_models(self):
+    def test_get_controller_model_name_no_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
         with patch.object(client, 'get_models', return_value={}):
-            admin_name = client.get_admin_model_name()
-        self.assertEqual('foo', admin_name)
+            controller_name = client.get_controller_model_name()
+        self.assertEqual('foo', controller_name)
 
-    def test_get_admin_client(self):
+    def test_get_controller_client(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), {'bar': 'baz'},
                                  'myhome')
-        admin_client = client.get_admin_client()
-        self.assertIs(client, admin_client)
+        controller_client = client.get_controller_client()
+        self.assertIs(client, controller_client)
 
     def test_list_controllers(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
