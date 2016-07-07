@@ -306,21 +306,23 @@ def _get_test_name_from_filename():
         return 'unknown_test'
 
 
-def _generate_default_clean_dir(timestamp):
+def _generate_default_clean_dir(timestamp, help_arg):
     """Creates a new unique directory for logging and returns the name"""
     log_dir = os.path.join('/tmp', _get_test_name_from_filename(),
                            'logs', timestamp)
-    try:
-        os.makedirs(log_dir)
-        warnings.warn('"Created logging directory {}'.format(log_dir))
-    except OSError as e:
-        if e.errno == errno.EEXIST:
-            pass
-        else:
-            warnings.warn('Failed to create logging directory: ' +
-                          log_dir +
-                          ". Please specify empty folder or try again")
-            raise
+    # don't generate directory if help is run
+    if not help_arg:
+        try:
+            os.makedirs(log_dir)
+            warnings.warn('"Created logging directory {}'.format(log_dir))
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                warnings.warn('Failed to create logging directory: ' +
+                              log_dir +
+                              ". Please specify empty folder or try again")
+                raise
     return log_dir
 
 
@@ -365,6 +367,13 @@ def add_basic_testing_arguments(parser, using_jes=False):
     # Optional postional arguments
     # generate timestamp for use with default args
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    # Control default actions if help is invoked
+    if ['-h'] or ['--help'] in sys.argv:
+        help_arg = True
+    else:
+        help_arg = False
+
     parser.add_argument(
         'env', nargs='?',
         help='The juju environment to base the temp test environment on.',
@@ -379,7 +388,8 @@ def add_basic_testing_arguments(parser, using_jes=False):
                         ' this will generate a directory named after the test'
                         ' and under /tmp, with a timestamp of the run. '
                         ' /tmp/test_name/logs/timestamp',
-                        default=_generate_default_clean_dir(timestamp))
+                        default=_generate_default_clean_dir(timestamp,
+                                                            help_arg))
     parser.add_argument('temp_env_name', nargs='?',
                         help='A temporary test environment name. By default, '
                         ' this will generate an enviroment name using the '
