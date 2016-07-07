@@ -371,11 +371,11 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(args.env, 'lxd')
         self.assertEqual(args.juju_bin, '/usr/bin/juju')
 
-        logs_arg = args.logs.split("_")
-        logs_ts = logs_arg[2]
-        self.assertEqual(logs_arg[0:2], ['/tmp/test', 'utility'])
+        #self.assertEqual(args.logs, '')
+        logs_arg = args.logs.split("/")
+        logs_ts = logs_arg[4]
+        self.assertEqual(logs_arg[1:4], ['tmp', 'test_utility', 'logs'])
         self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
-        self.assertEqual(logs_arg[3], 'logs')
 
         temp_env_name_arg = args.temp_env_name.split("_")
         temp_env_name_ts = temp_env_name_arg[2]
@@ -471,8 +471,8 @@ class TestAddBasicTestingArguments(TestCase):
                 self.assertEqual(len(warned), 1)
                 self.assertRegexpMatches(
                     str(warned[0].message),
-                    r"Failed to create logging directory: /tmp/test_utility_" +
-                    ".*_logs. Please specify empty folder or try again")
+                    r"Failed to create logging directory: /tmp/test_utility/" +
+                    "logs/.*. Please specify empty folder or try again")
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
