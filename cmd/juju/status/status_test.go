@@ -3376,7 +3376,7 @@ MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
 controller  kontroll    dummy         1.2.3    1.2.4
 
 APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
-logging    a bit t               true     jujucharms  logging    1    ubuntu
+logging    a bi...               true     jujucharms  logging    1    ubuntu
 mysql      5.7.13   maintenance  true     jujucharms  mysql      1    ubuntu
 wordpress  4.5.3    active       true     jujucharms  wordpress  3    ubuntu
 

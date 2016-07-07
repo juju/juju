@@ -99,6 +99,9 @@ func getTabWriter(out io.Writer) *tabwriter.Writer {
 // their superior.
 func FormatTabular(value interface{}) ([]byte, error) {
 	const maxVersionWidth = 7
+	const ellipsis = "..."
+	const truncatedWidth = maxVersionWidth - len(ellipsis)
+
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
@@ -136,7 +139,7 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		version := app.Version
 		// Don't let a long version push out the version column.
 		if len(version) > maxVersionWidth {
-			version = version[:maxVersionWidth]
+			version = version[:truncatedWidth] + ellipsis
 		}
 		p(appName,
 			version,
