@@ -316,7 +316,7 @@ def _generate_default_clean_dir(timestamp):
         if e.errno == errno.EEXIST:
             pass
         else:
-            warnings.warn("Failed to create logging directory: " +
+            warnings.warn('Failed to create logging directory: ' +
                           log_dir +
                           ". Please specify empty folder or try again")
             raise
@@ -325,8 +325,8 @@ def _generate_default_clean_dir(timestamp):
 
 def _generate_default_temp_env_name(timestamp):
     """Creates a new unique name for environment and returns the name"""
-    return ''.join([_get_test_name_from_filename(), "_",
-                    timestamp, "_temp_env"])
+    return '{}_{}_temp_env'.format(_get_test_name_from_filename(),
+                                              timestamp)
 
 
 def _generate_default_binary():
