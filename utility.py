@@ -118,7 +118,7 @@ def _clean_dir(maybe_dir):
     else:
         if contents and contents != ["empty"]:
             warnings.warn(
-                'Directory {} has existing contents.'.format(maybe_dir))
+                'Directory {!r} has existing contents.'.format(maybe_dir))
     return maybe_dir
 
 

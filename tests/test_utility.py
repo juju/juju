@@ -427,7 +427,7 @@ class TestAddBasicTestingArguments(TestCase):
             self.assertEqual(len(warned), 1)
             self.assertRegexpMatches(
                 str(warned[0].message),
-                r"^Directory .* has existing contents.$")
+                r"^Directory '.*' has existing contents.$")
         self.assertEqual("", self.log_stream.getvalue())
 
     def test_no_warn_on_empty_logs(self):
