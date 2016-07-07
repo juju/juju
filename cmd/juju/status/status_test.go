@@ -3452,6 +3452,40 @@ MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 `[1:])
 }
 
+func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
+	status := formattedStatus{
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Relations: map[string][]string{
+					"coordinator":  {"foo"},
+					"frobulator":   {"foo"},
+					"encapsulator": {"foo"},
+					"catchulator":  {"foo"},
+					"perforator":   {"foo"},
+					"deliverator":  {"foo"},
+					"replicator":   {"foo"},
+				},
+			},
+		},
+	}
+	out, err := FormatTabular(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(out), gc.Equals, `
+MODEL  CONTROLLER  CLOUD  VERSION
+                          
+
+APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo          false                   0    
+
+RELATION    PROVIDES  CONSUMES  TYPE
+replicator  foo       foo       peer
+
+UNIT  WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
+
+MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+`[1:])
+}
+
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
