@@ -41,11 +41,13 @@ user_list_2 = copy.deepcopy(user_list_1)
 user_list_2.append({"user-name":"readuser","display-name":""})
 user_list_3 = copy.deepcopy(user_list_2)
 user_list_3.append({"user-name":"adminuser","display-name":""})
+user_list_3.remove({"user-name":"readuser","display-name":""})
 share_list_1 = {"admin@local": {"display-name": "admin", "access": "admin"}}
 share_list_2 = copy.deepcopy(share_list_1)
 share_list_2["readuser@local"] = {"access": "read"}
 share_list_3 = copy.deepcopy(share_list_2)
 share_list_3["adminuser@local"] = {"access": "write"}
+share_list_3.pop("readuser@local")
 
 
 
@@ -209,16 +211,16 @@ def assess_change_password(client, user, fake_home):
 def assess_disable_enable(admin_client, users):
     admin_client.disable_user(users[-1].name)
     user_list = list_users(admin_client)
-    if sorted(user_list) != sorted(user_list_2):
-        raise JujuAssertionError(user_list)
-    admin_client.disable_user(users[-2].name)
-    user_list = list_users(admin_client)
     if sorted(user_list) != sorted(user_list_1):
         raise JujuAssertionError(user_list)
-    admin_client.enable_user(users[-2].name)
-    user_list = list_users(admin_client)
-    if sorted(user_list) != sorted(user_list_2):
-        raise JujuAssertionError(user_list)
+    # admin_client.disable_user(users[-2].name)
+    # user_list = list_users(admin_client)
+    # if sorted(user_list) != sorted(user_list_1):
+    #     raise JujuAssertionError(user_list)
+    # admin_client.enable_user(users[-2].name)
+    # user_list = list_users(admin_client)
+    # if sorted(user_list) != sorted(user_list_2):
+    #     raise JujuAssertionError(user_list)
     admin_client.enable_user(users[-1].name)
     user_list = list_users(admin_client)
     if sorted(user_list) != sorted(user_list_3):
@@ -271,7 +273,8 @@ def assess_user_grant_revoke(admin_client):
             if user.name == 'adminuser':
                 assess_disable_enable(admin_client, users)
                 assess_logout_login(admin_client, user_client, user, fake_home)
-                assert_user_permissions(user, user_client, admin_client)
+            assert_user_permissions(user, user_client, admin_client)
+
 
 
 def parse_args(argv):
