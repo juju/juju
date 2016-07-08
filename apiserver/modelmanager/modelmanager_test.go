@@ -142,15 +142,14 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	c.Assert(uuid, gc.Not(gc.Equals), s.st.controllerModel.cfg.UUID())
 
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":            "foo",
-		"type":            "dummy",
-		"authorized-keys": s.st.controllerModel.cfg.AuthorizedKeys(),
-		"uuid":            uuid,
-		"agent-version":   jujuversion.Current.String(),
-		"bar":             "baz",
-		"controller":      false,
-		"broken":          "",
-		"secret":          "pork",
+		"name":          "foo",
+		"type":          "dummy",
+		"uuid":          uuid,
+		"agent-version": jujuversion.Current.String(),
+		"bar":           "baz",
+		"controller":    false,
+		"broken":        "",
+		"secret":        "pork",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - we need to separate controller and model schemas

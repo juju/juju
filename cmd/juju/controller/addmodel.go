@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -221,6 +222,15 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	// "Added '<model>' model [on <cloud>/<region>] [with credential '<credential>'] for user '<user namePart>'"
 	ctx.Infof(messageFormat, messageArgs...)
 
+	if _, ok := attrs[config.AuthorizedKeysKey]; !ok {
+		// It is not an error to have no authorized-keys when adding a
+		// model, though this should never happen since we generate
+		// juju-specific SSH keys.
+		ctx.Infof(`
+No SSH authorized-keys were found. You must use "juju add-ssh-key"
+before "juju ssh", "juju scp", or "juju debug-hooks" will work.`)
+	}
+
 	return nil
 }
 
@@ -233,9 +243,14 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to parse config")
 	}
-	stringParams, ok := coercedValues.(map[string]interface{})
+	attrs, ok := coercedValues.(map[string]interface{})
 	if !ok {
 		return nil, errors.New("params must contain a YAML map with string keys")
 	}
-	return stringParams, nil
+	if err := common.FinalizeAuthorizedKeys(ctx, attrs); err != nil {
+		if errors.Cause(err) != common.ErrNoAuthorizedKeys {
+			return nil, errors.Trace(err)
+		}
+	}
+	return attrs, nil
 }

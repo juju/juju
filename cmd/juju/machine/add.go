@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/machinemanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -214,12 +215,17 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		logger.Infof("manual provisioning")
+		authKeys, err := common.ReadAuthorizedKeys(ctx, "")
+		if err != nil {
+			return errors.Annotate(err, "reading authorized-keys")
+		}
 		args := manual.ProvisionMachineArgs{
-			Host:   c.Placement.Directive,
-			Client: client,
-			Stdin:  ctx.Stdin,
-			Stdout: ctx.Stdout,
-			Stderr: ctx.Stderr,
+			Host:           c.Placement.Directive,
+			Client:         client,
+			Stdin:          ctx.Stdin,
+			Stdout:         ctx.Stdout,
+			Stderr:         ctx.Stderr,
+			AuthorizedKeys: authKeys,
 			UpdateBehavior: &params.UpdateBehavior{
 				config.EnableOSRefreshUpdate(),
 				config.EnableOSUpgrade(),

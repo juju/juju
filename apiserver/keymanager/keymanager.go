@@ -145,7 +145,7 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// Write out the new keys.
 	keyStr := strings.Join(sshKeys, "\n")
-	attrs := map[string]interface{}{config.AuthKeysConfig: keyStr}
+	attrs := map[string]interface{}{config.AuthorizedKeysKey: keyStr}
 	// TODO(waigani) 2014-03-17 bug #1293324
 	// Pass in validation to ensure SSH keys
 	// have not changed underfoot
