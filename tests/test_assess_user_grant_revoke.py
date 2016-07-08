@@ -226,7 +226,7 @@ class TestAssess(TestCase):
                         user.name + '_password',
                         pexpect.EOF],
                     [
-                        '(?i)name .*: ',
+                        '(?i)name',
                         '(?i)password',
                         '(?i)password',
                         pexpect.EOF])
