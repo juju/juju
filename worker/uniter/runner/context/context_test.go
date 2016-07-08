@@ -135,6 +135,21 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsTrue)
 }
 
+func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	// No workload version set yet.
+	result, err := ctx.UnitWorkloadVersion()
+	c.Assert(result, gc.Equals, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ctx.SetUnitWorkloadVersion("Pipey")
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err = ctx.UnitWorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "Pipey")
+}
+
 func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	unitStatus, err := ctx.UnitStatus()

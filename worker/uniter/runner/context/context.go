@@ -791,3 +791,40 @@ func (ctx *HookContext) killCharmHook() error {
 func (ctx *HookContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
 	return ctx.unit.NetworkConfig(bindingName)
 }
+
+// UnitWorkloadVersion returns the version of the workload reported by
+// the current unit.
+func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: ctx.unit.Tag().String()}},
+	}
+	err := ctx.state.Facade().FacadeCall("WorkloadVersion", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}
+
+// SetUnitWorkloadVersion sets the current unit's workload version to
+// the specified value.
+func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
+	var result params.ErrorResults
+	args := params.EntityWorkloadVersions{
+		Entities: []params.EntityWorkloadVersion{
+			{Tag: ctx.unit.Tag().String(), WorkloadVersion: version},
+		},
+	}
+	err := ctx.state.Facade().FacadeCall("SetWorkloadVersion", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
