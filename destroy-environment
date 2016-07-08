@@ -14,12 +14,11 @@ def main():
     no_failures = True
     for env_name in sys.argv[1:]:
         try:
-            env = jujupy.SimpleEnvironment.from_config(env_name)
+            client = jujupy.client_from_config(env_name, None)
         except NoSuchEnvironment as e:
             no_failures = False
             sys.stderr.write(str(e) + '\n')
             continue
-        client = jujupy.EnvJujuClient.by_version(env)
         destroy_environment(client, os.environ.get('JOB_NAME'))
     sys.exit(0 if no_failures else 1)
 
