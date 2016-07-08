@@ -66,21 +66,21 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 }
 
 type applicationStatus struct {
-	Err             error                 `json:"-" yaml:",omitempty"`
-	Charm           string                `json:"charm" yaml:"charm"`
-	Series          string                `json:"series"`
-	OS              string                `json:"os"`
-	CharmOrigin     string                `json:"charm-origin" yaml:"charm-origin"`
-	CharmName       string                `json:"charm-name" yaml:"charm-name"`
-	CharmRev        int                   `json:"charm-rev" yaml:"charm-rev"`
-	CanUpgradeTo    string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
-	Exposed         bool                  `json:"exposed" yaml:"exposed"`
-	Life            string                `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo      statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
-	Relations       map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
-	SubordinateTo   []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
-	Units           map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
-	WorkloadVersion string                `json:"workload-version,omitempty" yaml:"workload-version,omitempty"`
+	Err           error                 `json:"-" yaml:",omitempty"`
+	Charm         string                `json:"charm" yaml:"charm"`
+	Series        string                `json:"series"`
+	OS            string                `json:"os"`
+	CharmOrigin   string                `json:"charm-origin" yaml:"charm-origin"`
+	CharmName     string                `json:"charm-name" yaml:"charm-name"`
+	CharmRev      int                   `json:"charm-rev" yaml:"charm-rev"`
+	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	Exposed       bool                  `json:"exposed" yaml:"exposed"`
+	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo    statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
+	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
+	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
+	Version       string                `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 type applicationStatusNoMarshal applicationStatus
@@ -110,12 +110,11 @@ type unitStatus struct {
 	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
-	Charm           string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
-	Machine         string                `json:"machine,omitempty" yaml:"machine,omitempty"`
-	OpenedPorts     []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
-	PublicAddress   string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
-	Subordinates    map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
-	WorkloadVersion string                `json:"workload-version,omitempty" yaml:"workload-version,omitempty"`
+	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
+	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
+	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
 type statusInfoContents struct {

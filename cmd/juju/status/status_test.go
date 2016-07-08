@@ -4,6 +4,7 @@
 package status
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -2410,7 +2411,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"workload-version": "the best!",
+						"version": "the best!",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -2418,8 +2419,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"workload-version": "the best!",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -2472,7 +2472,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"workload-version": "not as good",
+						"version": "not as good",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",
@@ -2480,8 +2480,7 @@ var statusTests = []testCase{
 						},
 						"units": M{
 							"mysql/0": M{
-								"machine":          "1",
-								"workload-version": "the best!",
+								"machine": "1",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -2494,8 +2493,7 @@ var statusTests = []testCase{
 								"public-address": "controller-1.dns",
 							},
 							"mysql/1": M{
-								"machine":          "2",
-								"workload-version": "not as good",
+								"machine": "2",
 								"workload-status": M{
 									"current": "unknown",
 									"message": "Waiting for agent initialization to finish",
@@ -3354,6 +3352,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setAgentStatus{"logging/0", status.StatusIdle, "", nil},
 		setUnitStatus{"logging/0", status.StatusActive, "", nil},
 		setAgentStatus{"logging/1", status.StatusError, "somehow lost in all those logs", nil},
+		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
+		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
+		setUnitWorkloadVersion{"mysql/0", "5.7.13"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3375,10 +3376,10 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 MODEL       CONTROLLER  CLOUD/REGION  VERSION  UPGRADE-AVAILABLE
 controller  kontroll    dummy         1.2.3    1.2.4
 
-APP        STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
-logging                 true     jujucharms  logging    1    ubuntu
-mysql      maintenance  true     jujucharms  mysql      1    ubuntu
-wordpress  active       true     jujucharms  wordpress  3    ubuntu
+APP        VERSION  STATUS       EXPOSED  ORIGIN      CHARM      REV  OS
+logging    a bi...               true     jujucharms  logging    1    ubuntu
+mysql      5.7.13   maintenance  true     jujucharms  mysql      1    ubuntu
+wordpress  4.5.3    active       true     jujucharms  wordpress  3    ubuntu
 
 RELATION           PROVIDES   CONSUMES   TYPE
 juju-info          logging    mysql      regular
@@ -3441,8 +3442,8 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo          false                   0    
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo                   false                   0    
 
 UNIT   WORKLOAD     AGENT      MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
 foo/0  maintenance  executing                                  (config-changed) doing some work
@@ -3470,20 +3471,12 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 	}
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD/REGION  VERSION
-                                 
-
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo          false                   0    
-
-RELATION    PROVIDES  CONSUMES  TYPE
-replicator  foo       foo       peer
-
-UNIT  WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
-
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ
-`[1:])
+	sections, err := splitTableSections(out)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sections["RELATION"], gc.DeepEquals, []string{
+		"RELATION    PROVIDES  CONSUMES  TYPE",
+		"replicator  foo       foo       peer",
+	})
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
@@ -3541,8 +3534,8 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 MODEL  CONTROLLER  CLOUD/REGION  VERSION
                                  
 
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo          false                   0    
+APP  VERSION  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
+foo                   false                   0    
 
 UNIT   WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
 foo/0                                                   
@@ -4069,4 +4062,31 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{},
 	})
+}
+
+type tableSections map[string][]string
+
+func sectionTitle(lines []string) string {
+	return strings.SplitN(lines[0], " ", 2)[0]
+}
+
+func splitTableSections(tableData []byte) (tableSections, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(tableData))
+	result := make(tableSections)
+	var current []string
+	for scanner.Scan() {
+		if line := scanner.Text(); line == "" && current != nil {
+			result[sectionTitle(current)] = current
+			current = nil
+		} else if line != "" {
+			current = append(current, line)
+		}
+	}
+	if scanner.Err() != nil {
+		return nil, scanner.Err()
+	}
+	if current != nil {
+		result[sectionTitle(current)] = current
+	}
+	return result, nil
 }
