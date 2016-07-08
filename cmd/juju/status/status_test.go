@@ -4,6 +4,7 @@
 package status
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -3470,20 +3471,12 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 	}
 	out, err := FormatTabular(status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `
-MODEL  CONTROLLER  CLOUD/REGION  VERSION
-                                 
-
-APP  STATUS  EXPOSED  ORIGIN  CHARM  REV  OS
-foo          false                   0    
-
-RELATION    PROVIDES  CONSUMES  TYPE
-replicator  foo       foo       peer
-
-UNIT  WORKLOAD  AGENT  MACHINE  PORTS  PUBLIC-ADDRESS  MESSAGE
-
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ
-`[1:])
+	sections, err := splitTableSections(out)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sections["RELATION"], gc.DeepEquals, []string{
+		"RELATION    PROVIDES  CONSUMES  TYPE",
+		"replicator  foo       foo       peer",
+	})
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
@@ -4069,4 +4062,31 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{},
 	})
+}
+
+type tableSections map[string][]string
+
+func sectionTitle(lines []string) string {
+	return strings.SplitN(lines[0], " ", 2)[0]
+}
+
+func splitTableSections(tableData []byte) (tableSections, error) {
+	scanner := bufio.NewScanner(bytes.NewReader(tableData))
+	result := make(tableSections)
+	var current []string
+	for scanner.Scan() {
+		if line := scanner.Text(); line == "" && current != nil {
+			result[sectionTitle(current)] = current
+			current = nil
+		} else if line != "" {
+			current = append(current, line)
+		}
+	}
+	if scanner.Err() != nil {
+		return nil, scanner.Err()
+	}
+	if current != nil {
+		result[sectionTitle(current)] = current
+	}
+	return result, nil
 }
