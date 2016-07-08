@@ -76,6 +76,10 @@ for super_cmd in [SYSTEM, CONTROLLER]:
 log = logging.getLogger("jujupy")
 
 
+class IncompatibleConfigClass(Exception):
+    """Raised when a client is initialised with the wrong config class."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -1926,7 +1930,7 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
     @classmethod
     def _get_env(cls, env):
         if isinstance(env, JujuData):
-            raise ValueError(
+            raise IncompatibleConfigClass(
                 'JujuData cannot be used with {}'.format(cls.__name__))
         return env
 

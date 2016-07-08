@@ -58,6 +58,7 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    IncompatibleConfigClass,
     jes_home_path,
     JESByDefault,
     JESNotSupported,
@@ -3577,7 +3578,8 @@ class TestEnvJujuClient2A2(TestCase):
     def test_raise_on_juju_data(self):
         env = JujuData('foo', {'type': 'bar'}, 'baz')
         with self.assertRaisesRegexp(
-                ValueError, 'JujuData cannot be used with EnvJujuClient2A2'):
+                IncompatibleConfigClass,
+                'JujuData cannot be used with EnvJujuClient2A2'):
             EnvJujuClient2A2(env, '1.25', 'full_path')
 
     def test__shell_environ_juju_home(self):
