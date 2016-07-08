@@ -72,7 +72,7 @@ def run_all(tasks):
 
 def summarise_tasks(tasks):
     """Return of sum of tasks returncodes."""
-    returncode = sum([t.returncode for t in tasks])
+    returncode = max([t.returncode for t in tasks])
     if returncode == 0:
         log.debug('SUCCESS')
     else:
