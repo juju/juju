@@ -63,8 +63,7 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	 * anything done to it, it hasn't been socket activated yet, and lxdbr0
 	 * won't exist. So, we rely on this poke to get lxdbr0 started.
 	 */
-	_, err = client.ServerStatus()
-	if err != nil {
+	if _, err := client.ServerStatus(); err != nil {
 		return cfg, errors.Trace(err)
 	}
 
@@ -74,7 +73,7 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	}
 
 	// Update the server config and authorized certs.
-	serverCert, err := prepareRemote(client, *remote.Cert)
+	serverCert, err := prepareRemote(client, remote.Cert)
 	if err != nil {
 		return cfg, errors.Trace(err)
 	}
@@ -88,7 +87,7 @@ func (cfg Config) UsingTCPRemote() (Config, error) {
 	return cfg, nil
 }
 
-func prepareRemote(client *Client, newCert Cert) (string, error) {
+func prepareRemote(client *Client, newCert *Cert) (string, error) {
 	// Make sure the LXD service is configured to listen to local https
 	// requests, rather than only via the Unix socket.
 	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,
@@ -99,8 +98,12 @@ func prepareRemote(client *Client, newCert Cert) (string, error) {
 		return "", errors.Trace(err)
 	}
 
+	if newCert == nil {
+		return "", nil
+	}
+
 	// Make sure the LXD service will allow our certificate to connect
-	if err := client.AddCert(newCert); err != nil {
+	if err := client.AddCert(*newCert); err != nil {
 		return "", errors.Trace(err)
 	}
 

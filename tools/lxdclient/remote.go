@@ -7,10 +7,7 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	lxdshared "github.com/lxc/lxd/shared"
-
-	"github.com/juju/juju/network"
 )
 
 const (
@@ -190,21 +187,7 @@ func (r Remote) UsingTCP() (Remote, error) {
 		return r, nil
 	}
 
-	// TODO: jam 2016-02-25 This should be updated for systems that are
-	// 	 space aware, as we may not be just using the default LXC
-	// 	 bridge.
-	addr, err := utils.GetAddressForInterface(network.DefaultLXDBridge)
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	r.Host = addr
-
-	r, err = r.WithDefaults()
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-
 	// TODO(ericsnow) Change r.Name if "local"? Prepend "juju-"?
 
-	return r, nil
+	return r.WithDefaults()
 }

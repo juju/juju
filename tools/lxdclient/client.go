@@ -20,6 +20,7 @@ import (
 	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 )
 
@@ -38,12 +39,10 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 		result.WriteString(": ")
 	}
 
-	/* This is sort of a hack, but it's enforced in the LXD code itself as
-	 * well. LXD's logging framework forces us to pass things as "string"
-	 * for one argument and then a "context object" as the next argument.
-	 * So, we do some basic rendering here to make it look slightly less
-	 * ugly.
-	 */
+	// This is sort of a hack, but it's enforced in the LXD code itself as well.
+	// LXD's logging framework forces us to pass things as "string" for one
+	// argument and then a "context object" as the next argument. So, we do some
+	// basic rendering here to make it look slightly less ugly.
 	var key string
 	for i, entry := range ctx {
 		if i != 0 {
@@ -96,11 +95,16 @@ type Client struct {
 	*profileClient
 	*instanceClient
 	*imageClient
-	baseURL string
+	baseURL                  string
+	defaultProfileBridgeName string
 }
 
 func (c Client) String() string {
 	return fmt.Sprintf("Client(%s)", c.baseURL)
+}
+
+func (c Client) DefaultProfileBridgeName() string {
+	return c.defaultProfileBridgeName
 }
 
 // Connect opens an API connection to LXD and returns a high-level
@@ -110,20 +114,32 @@ func Connect(cfg Config) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	remote := cfg.Remote.ID()
+	remoteID := cfg.Remote.ID()
 
 	raw, err := newRawClient(cfg.Remote)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	// If this is the LXD provider on the localhost, let's do an extra check to
+	// make sure the default profile has a correctly configured bridge, and
+	// which one is it.
+	var bridgeName string
+	if remoteID == remoteIDForLocal {
+		bridgeName, err = verifyDefaultProfileBridgeConfig(raw)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	conn := &Client{
-		serverConfigClient: &serverConfigClient{raw},
-		certClient:         &certClient{raw},
-		profileClient:      &profileClient{raw},
-		instanceClient:     &instanceClient{raw, remote},
-		imageClient:        &imageClient{raw, connectToRaw},
-		baseURL:            raw.BaseURL,
+		serverConfigClient:       &serverConfigClient{raw},
+		certClient:               &certClient{raw},
+		profileClient:            &profileClient{raw},
+		instanceClient:           &instanceClient{raw, remoteID},
+		imageClient:              &imageClient{raw, connectToRaw},
+		baseURL:                  raw.BaseURL,
+		defaultProfileBridgeName: bridgeName,
 	}
 	return conn, nil
 }
@@ -229,39 +245,60 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		}
 	}
 
-	/* If this is the LXD provider on the localhost, let's do an extra
-	 * check to make sure that lxdbr0 is configured.
-	 */
-	if remote.ID() == remoteIDForLocal {
-		profile, err := client.ProfileConfig("default")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	return client, nil
+}
 
-		/* If the default profile doesn't have eth0 in it, then the
-		 * user has messed with it, so let's just use whatever they set up.
-		 *
-		 * Otherwise, if it looks like it's pointing at our lxdbr0,
-		 * let's check and make sure that is configured.
-		 */
-		eth0, ok := profile.Devices["eth0"]
-		if ok && eth0["type"] == "nic" && eth0["nictype"] == "bridged" && eth0["parent"] == "lxdbr0" {
-			conf, err := ioutil.ReadFile(LXDBridgeFile)
-			if err != nil {
-				if !os.IsNotExist(err) {
-					return nil, errors.Trace(err)
-				} else {
-					return nil, bridgeConfigError("lxdbr0 configured but no config file found at " + LXDBridgeFile)
-				}
-			}
+// verifyDefaultProfileBridgeConfig takes a LXD API client and extracts the
+// network bridge configured on the "default" profile. Additionally, if the
+// default "lxdbr0" bridge is used, its configuration in LXDBridgeFile is also
+// inspected to make sure it has a chance to work.
+func verifyDefaultProfileBridgeConfig(client *lxd.Client) (string, error) {
+	const (
+		defaultProfileName = "default"
+		configTypeKey      = "type"
+		configTypeNic      = "nic"
+		configNicTypeKey   = "nictype"
+		configBridged      = "bridged"
+		configEth0         = "eth0"
+		configParentKey    = "parent"
+	)
 
-			if err = checkLXDBridgeConfiguration(string(conf)); err != nil {
-				return nil, errors.Trace(err)
-			}
+	config, err := client.ProfileConfig(defaultProfileName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// If the default profile doesn't have eth0 in it, then the
+	// user has messed with it, so let's just use whatever they set up.
+	//
+	// Otherwise, if it looks like it's pointing at bridge, and it is the
+	// default "lxdbr0", verify that is configured correctly.
+	eth0, ok := config.Devices[configEth0]
+	if !ok || eth0[configTypeKey] != configTypeNic || eth0[configNicTypeKey] != configBridged {
+		return "", errors.Errorf("unexpected LXD %q profile config: %+v", defaultProfileName, config)
+	}
+
+	bridgeName := eth0[configParentKey]
+	logger.Infof(`LXD "default" profile uses network bridge %q`, bridgeName)
+
+	if bridgeName != network.DefaultLXDBridge {
+		return bridgeName, nil
+	}
+
+	bridgeConfig, err := ioutil.ReadFile(LXDBridgeFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return "", errors.Trace(err)
+		} else {
+			return "", bridgeConfigError("lxdbr0 configured but no config file found at " + LXDBridgeFile)
 		}
 	}
 
-	return client, nil
+	if err := checkLXDBridgeConfiguration(string(bridgeConfig)); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return bridgeName, nil
 }
 
 func bridgeConfigError(err string) error {
@@ -288,11 +325,10 @@ func checkLXDBridgeConfiguration(conf string) error {
 			}
 		} else if strings.HasPrefix(line, "LXD_BRIDGE=") {
 			name := strings.Trim(line[len("LXD_BRIDGE="):], " \"")
-			/* If we're here, we want lxdbr0 to be configured
-			 * because the default profile that juju will use says
-			 * lxdbr0. So let's fail if it doesn't.
-			 */
-			if name != "lxdbr0" {
+			// If we're here, we want the bridge to be configured because the
+			// default profile that juju will use says lxdbr0. So let's fail if
+			// it doesn't.
+			if name != network.DefaultLXDBridge {
 				return bridgeConfigError(fmt.Sprintf(LXDBridgeFile+" has a bridge named %s, not lxdbr0", name))
 			}
 		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") || strings.HasPrefix(line, "LXD_IPV6_ADDR=") {

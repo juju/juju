@@ -215,11 +215,7 @@ func (c *environConfig) clientConfig() (lxdclient.Config, error) {
 	cfg := lxdclient.Config{
 		Remote: remote,
 	}
-	cfg, err := cfg.WithDefaults()
-	if err != nil {
-		return cfg, errors.Trace(err)
-	}
-	return cfg, nil
+	return cfg.WithDefaults()
 }
 
 // TODO(ericsnow) Switch to a DI testing approach and eliminiate this var.
