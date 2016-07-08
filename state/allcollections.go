@@ -142,11 +142,14 @@ func allCollections() collectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
+		// This collection holds cloud definitions.
+		cloudsC: {global: true},
+
 		// This collection holds users' cloud credentials.
 		cloudCredentialsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"owner"},
+				Key: []string{"owner", "cloud"},
 			}},
 		},
 
@@ -386,6 +389,7 @@ const (
 	charmsC                  = "charms"
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudsC                  = "clouds"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"

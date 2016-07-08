@@ -40,6 +40,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
+	c.Check(status.Model.Cloud, gc.Equals, "dummy")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]

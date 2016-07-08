@@ -150,11 +150,11 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{ModelTag: modelTag, CloudName: "dummy"})
 
-	// Check that the model's credential name is as
-	// expected, and the owner's cloud credentials
-	// are initialised.
+	// Check that the model's cloud and credential names are as
+	// expected, and the owner's cloud credentials are initialised.
+	c.Assert(model.Cloud(), gc.Equals, "dummy")
 	c.Assert(model.CloudCredential(), gc.Equals, "some-credential")
-	cloudCredentials, err := s.State.CloudCredentials(model.Owner())
+	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudCredentials, jc.DeepEquals, cloudCredentialsIn)
 }

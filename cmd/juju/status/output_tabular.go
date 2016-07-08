@@ -111,8 +111,13 @@ func FormatTabular(value interface{}) ([]byte, error) {
 		p(values...)
 	}
 
-	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD", "VERSION"}
-	values := []interface{}{fs.Model.Name, fs.Model.Controller, fs.Model.Cloud, fs.Model.Version}
+	cloudRegion := fs.Model.Cloud
+	if fs.Model.CloudRegion != "" {
+		cloudRegion += "/" + fs.Model.CloudRegion
+	}
+
+	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD/REGION", "VERSION"}
+	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	if fs.Model.AvailableVersion != "" {
 		header = append(header, "UPGRADE-AVAILABLE")
 		values = append(values, fs.Model.AvailableVersion)

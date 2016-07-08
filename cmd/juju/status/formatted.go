@@ -26,12 +26,11 @@ type errorStatus struct {
 }
 
 type modelStatus struct {
-	Name       string `json:"name"`
-	Controller string `json:"controller"`
-	Cloud      string `json:"cloud"`
-	// TODO(thumper) 2016-06-10
-	// add region info when available
-	Version          string `json:"version"`
+	Name             string `json:"name" yaml:"name"`
+	Controller       string `json:"controller" yaml:"controller"`
+	Cloud            string `json:"cloud" yaml:"cloud"`
+	CloudRegion      string `json:"region,omitempty" yaml:"region,omitempty"`
+	Version          string `json:"version" yaml:"version"`
 	AvailableVersion string `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 }
 

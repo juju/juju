@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -61,6 +61,9 @@ type modelDoc struct {
 	Owner         string        `bson:"owner"`
 	ServerUUID    string        `bson:"server-uuid"`
 	MigrationMode MigrationMode `bson:"migration-mode"`
+
+	// Cloud is the name of the cloud to which the model is deployed.
+	Cloud string `bson:"cloud"`
 
 	// CloudRegion is the name of the cloud region to which the model is
 	// deployed. This will be empty for clouds that do not support regions.
@@ -217,11 +220,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	// Ensure that the cloud region is valid, or if one is not specified,
 	// that the cloud does not support regions.
-	controllerCloud, err := st.Cloud()
+	controllerCloud, err := st.Cloud(args.CloudName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
+	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudName, args.CloudRegion)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -230,12 +233,12 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	// specified, that the cloud supports the "empty" authentication
 	// type.
 	owner := args.Owner
-	cloudCredentials, err := st.CloudCredentials(owner)
+	cloudCredentials, err := st.CloudCredentials(owner, args.CloudName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	assertCloudCredentialOp, err := validateCloudCredential(
-		controllerCloud, cloudCredentials, args.CloudCredential, owner,
+		controllerCloud, args.CloudName, cloudCredentials, args.CloudCredential, owner,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -312,15 +315,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 // validateCloudRegion validates the given region name against the
 // provided Cloud definition, and returns a txn.Op to include in a
 // transaction to assert the same.
-func validateCloudRegion(controllerCloud cloud.Cloud, regionName string) (txn.Op, error) {
+func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (txn.Op, error) {
 	// Ensure that the cloud region is valid, or if one is not specified,
 	// that the cloud does not support regions.
 	assertCloudRegionOp := txn.Op{
-		C:  controllersC,
-		Id: controllerCloudKey,
+		C:  cloudsC,
+		Id: cloudName,
 	}
 	if regionName != "" {
-		region, err := cloud.RegionByName(controllerCloud.Regions, regionName)
+		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
 		if err != nil {
 			return txn.Op{}, errors.Trace(err)
 		}
@@ -328,7 +331,7 @@ func validateCloudRegion(controllerCloud cloud.Cloud, regionName string) (txn.Op
 			{"regions." + region.Name, bson.D{{"$exists", true}}},
 		}
 	} else {
-		if len(controllerCloud.Regions) > 0 {
+		if len(cloud.Regions) > 0 {
 			return txn.Op{}, errors.NotValidf("missing CloudRegion")
 		}
 		assertCloudRegionOp.Assert = bson.D{
@@ -343,8 +346,9 @@ func validateCloudRegion(controllerCloud cloud.Cloud, regionName string) (txn.Op
 // and returns a txn.Op to include in a transaction to assert the
 // same.
 func validateCloudCredential(
-	controllerCloud cloud.Cloud,
-	cloudCredentials map[string]cloud.Credential,
+	cloud jujucloud.Cloud,
+	cloudName string,
+	cloudCredentials map[string]jujucloud.Credential,
 	cloudCredentialName string,
 	cloudCredentialOwner names.UserTag,
 ) (txn.Op, error) {
@@ -354,13 +358,13 @@ func validateCloudCredential(
 		}
 		return txn.Op{
 			C:      cloudCredentialsC,
-			Id:     cloudCredentialDocID(cloudCredentialOwner, cloudCredentialName),
+			Id:     cloudCredentialDocID(cloudCredentialOwner, cloudName, cloudCredentialName),
 			Assert: txn.DocExists,
 		}, nil
 	}
 	var hasEmptyAuth bool
-	for _, authType := range controllerCloud.AuthTypes {
-		if authType != cloud.EmptyAuthType {
+	for _, authType := range cloud.AuthTypes {
+		if authType != jujucloud.EmptyAuthType {
 			continue
 		}
 		hasEmptyAuth = true
@@ -370,9 +374,9 @@ func validateCloudCredential(
 		return txn.Op{}, errors.NotValidf("missing CloudCredential")
 	}
 	return txn.Op{
-		C:      controllersC,
-		Id:     controllerCloudKey,
-		Assert: bson.D{{"auth-types", string(cloud.EmptyAuthType)}},
+		C:      cloudsC,
+		Id:     cloudName,
+		Assert: bson.D{{"auth-types", string(jujucloud.EmptyAuthType)}},
 	}, nil
 }
 
@@ -408,6 +412,11 @@ func (m *Model) ControllerUUID() string {
 // Name returns the human friendly name of the model.
 func (m *Model) Name() string {
 	return m.doc.Name
+}
+
+// Cloud returns the name of the cloud to which the model is deployed.
+func (m *Model) Cloud() string {
+	return m.doc.Cloud
 }
 
 // CloudRegion returns the name of the cloud region to which the model is deployed.
@@ -922,7 +931,7 @@ func ensureDestroyable(st *State) error {
 // an model document with the given name and UUID.
 func createModelOp(
 	owner names.UserTag,
-	name, uuid, server, cloudRegion, cloudCredential string,
+	name, uuid, server, cloudName, cloudRegion, cloudCredential string,
 	migrationMode MigrationMode,
 ) txn.Op {
 	doc := &modelDoc{
@@ -932,6 +941,7 @@ func createModelOp(
 		Owner:           owner.Canonical(),
 		ServerUUID:      server,
 		MigrationMode:   migrationMode,
+		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredential,
 	}

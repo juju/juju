@@ -166,14 +166,16 @@ func (p InitializeParams) Validate() error {
 	if err := validateCloud(p.Cloud); err != nil {
 		return errors.Annotate(err, "validating cloud")
 	}
-	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
+	if _, err := validateCloudRegion(p.Cloud, p.CloudName, p.ControllerModelArgs.CloudRegion); err != nil {
 		return errors.Annotate(err, "validating controller model cloud region")
 	}
-	if _, err := validateCloudCredentials(p.Cloud, p.CloudCredentials); err != nil {
+	if _, err := validateCloudCredentials(p.Cloud, p.CloudName, p.CloudCredentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
 	if _, err := validateCloudCredential(
-		p.Cloud, p.CloudCredentials,
+		p.Cloud,
+		p.CloudName,
+		p.CloudCredentials,
 		p.ControllerModelArgs.CloudCredential,
 		p.ControllerModelArgs.Owner,
 	); err != nil {
@@ -261,7 +263,9 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	}
 	if len(args.CloudCredentials) > 0 {
 		credentialsOps := updateCloudCredentialsOps(
-			args.ControllerModelArgs.Owner, args.CloudCredentials,
+			args.ControllerModelArgs.Owner,
+			args.CloudName,
+			args.CloudCredentials,
 		)
 		ops = append(ops, credentialsOps...)
 	}
@@ -338,7 +342,7 @@ func (st *State) modelSetupOps(args ModelArgs, ControllerInheritedConfig map[str
 			args.Owner,
 			args.Config.Name(),
 			modelUUID, controllerUUID,
-			args.CloudRegion, args.CloudCredential,
+			args.CloudName, args.CloudRegion, args.CloudCredential,
 			args.MigrationMode,
 		),
 		createUniqueOwnerModelNameOp(args.Owner, args.Config.Name()),
