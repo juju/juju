@@ -620,9 +620,9 @@ func (context *statusContext) processApplication(service *state.Application) par
 		}
 		versions = append(versions, statuses[0])
 	}
-	sort.Sort(bySince(versions))
 	if len(versions) > 0 {
-		processedStatus.WorkloadVersion = versions[len(versions)-1].Message
+		sort.Sort(bySinceDescending(versions))
+		processedStatus.WorkloadVersion = versions[0].Message
 	}
 
 	return processedStatus
@@ -867,13 +867,13 @@ func processLife(entity lifer) string {
 	return ""
 }
 
-type bySince []status.StatusInfo
+type bySinceDescending []status.StatusInfo
 
 // Len implements sort.Interface.
-func (s bySince) Len() int { return len(s) }
+func (s bySinceDescending) Len() int { return len(s) }
 
 // Swap implements sort.Interface.
-func (s bySince) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
+func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
 
 // Less implements sort.Interface.
-func (s bySince) Less(a, b int) bool { return s[a].Since.Before(*s[b].Since) }
+func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
