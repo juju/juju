@@ -451,6 +451,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	var apiPort int
 	if args.InstanceConfig.Controller != nil {
 		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+	} else {
+		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
 	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
