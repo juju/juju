@@ -100,84 +100,96 @@ For cs:trusty/mysql
   trusty/mysql
 
 For cs:~user/trusty/mysql
-  cs:~user/mysql
+  ~user/mysql
 
 For cs:bundle/mediawiki-single
   mediawiki-single
   bundle/mediawiki-single
 
-The current series for charms is determined first by the default-series model
+The current series for charms is determined first by the 'default-series' model
 setting, followed by the preferred series for the charm in the charm store.
 
-In these cases, a versioned charm URL will be expanded as expected (for example,
-mysql-33 becomes cs:precise/mysql-33).
+In these cases, a versioned charm URL will be expanded as expected (for
+example, mysql-33 becomes cs:precise/mysql-33).
 
-Charms may also be deployed from a user specified path. In this case, the
-path to the charm is specified along with an optional series.
+Charms may also be deployed from a user specified path. In this case, the path
+to the charm is specified along with an optional series.
 
-   juju deploy /path/to/charm --series trusty
+  juju deploy /path/to/charm --series trusty
 
-If series is not specified, the charm's default series is used. The default series
-for a charm is the first one specified in the charm metadata. If the specified series
-is not supported by the charm, this results in an error, unless --force is used.
+If '--series' is not specified, the charm's default series is used. The default
+series for a charm is the first one specified in the charm metadata. If the
+specified series is not supported by the charm, this results in an error,
+unless '--force' is used.
 
-   juju deploy /path/to/charm --series wily --force
+  juju deploy /path/to/charm --series wily --force
 
 Local bundles are specified with a direct path to a bundle.yaml file.
 For example:
 
   juju deploy /path/to/bundle/openstack/bundle.yaml
 
-<application name>, if omitted, will be derived from <charm name>.
+If an 'application name' is not provided, the application name used is the
+'charm or bundle' name.
 
-Constraints can be specified when using deploy by specifying the --constraints
-flag.  When used with deploy, application-specific constraints are set so that later
-machines provisioned with add-unit will use the same constraints (unless changed
-by set-constraints).
+Constraints can be specified by specifying the '--constraints' option. If the
+application is later scaled out with ` + "`juju add-unit`" + `, provisioned machines
+will use the same constraints (unless changed by ` + "`juju set-constraints`" + `).
 
-Resources may be uploaded at deploy time by specifying the --resource flag.
-Following the resource flag should be name=filepath pair.  This flag may be
-repeated more than once to upload more than one resource.
+Resources may be uploaded by specifying the '--resource' option followed by a
+name=filepath pair. This option may be repeated more than once to upload more
+than one resource.
 
   juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
-Where bar and baz are resources named in the metadata for the foo charm.
+Where 'bar' and 'baz' are resources named in the metadata for the 'foo' charm.
 
-Charms can be deployed to a specific machine using the --to argument.
+When using a placement directive to deploy to an existing machine or container
+('--to' option), the ` + "`juju status`" + ` command should be used for guidance. A few
+placement directives are provider-dependent (e.g.: 'zone').
 
-In more complex scenarios, Juju's network spaces are used to partition the cloud
-networking layer into sets of subnets. Instances hosting units inside the
+In more complex scenarios, Juju's network spaces are used to partition the
+cloud networking layer into sets of subnets. Instances hosting units inside the
 same space can communicate with each other without any firewalls. Traffic
 crossing space boundaries could be subject to firewall and access restrictions.
-Using spaces as deployment targets, rather than their individual subnets allows
-Juju to perform automatic distribution of units across availability zones to
-support high availability for applications. Spaces help isolate applications and their
-units, both for security purposes and to manage both traffic segregation and
-congestion.
+Using spaces as deployment targets, rather than their individual subnets,
+allows Juju to perform automatic distribution of units across availability zones
+to support high availability for applications. Spaces help isolate applications
+and their units, both for security purposes and to manage both traffic
+segregation and congestion.
 
-When deploying an application or adding machines, the "spaces" constraint can be
-used to define a comma-delimited list of required and forbidden spaces
-(the latter prefixed with "^", similar to the "tags" constraint).
+When deploying an application or adding machines, the 'spaces' constraint can
+be used to define a comma-delimited list of required and forbidden spaces (the
+latter prefixed with "^", similar to the 'tags' constraint).
 
 
 Examples:
-   juju deploy mysql --to 23       (deploy to machine 23)
-   juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on host machine 24)
-   juju deploy mysql --to lxd:25   (deploy to a new lxd container on host machine 25)
-   juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
+    juju deploy mysql --to 23       (deploy to machine 23)
+    juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on machine 24)
+    juju deploy mysql --to lxd:25   (deploy to a new lxd container on machine 25)
+    juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
 
-   juju deploy mysql -n 5 --constraints mem=8G
-   (deploy 5 instances of mysql with at least 8 GB of RAM each)
+    juju deploy mysql --to zone=us-east-1a
+    (provider-dependent; deploy to a specific AZ)
 
-   juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
-   (deploy 2 instances of haproxy on cloud instances being part of the dmz
-    space but not of the cmd and the database space)
+    juju deploy mysql --to host.maas
+    (deploy to a specific MAAS node)
 
-See Also:
-   juju help spaces
-   juju help constraints
-   juju help set-constraints
-   juju help get-constraints
+    juju deploy mysql -n 5 --constraints mem=8G
+    (deploy 5 units to machines with at least 8 GB of memory)
+
+    juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
+    (deploy 2 units to machines that are part of the 'dmz' space but not of the
+    'cmd' or the 'database' spaces)
+
+See also:
+    spaces
+    constraints
+    add-unit
+    set-config
+    get-config
+    set-constraints
+    get-constraints
 `
 
 // DeployStep is an action that needs to be taken during charm deployment.
