@@ -7,6 +7,7 @@ from contextlib import contextmanager
 import logging
 import os
 import subprocess
+import shlex
 import sys
 import traceback
 
@@ -23,7 +24,7 @@ class Task:
 
     def __init__(self, name_commdline, log_dir='.'):
         self.name, self.commandline = name_commdline.split('=', 1)
-        self.command = self.commandline.split()
+        self.command = shlex.split(self.commandline)
         self.out_log_name = os.path.join(
             log_dir, '{}-out.log'.format(self.name))
         self.err_log_name = os.path.join(
