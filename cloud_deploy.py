@@ -13,8 +13,6 @@ from jujucharm import (
 from jujupy import (
     CannotConnectEnv,
     client_from_config,
-    EnvJujuClient,
-    SimpleEnvironment,
 )
 from substrate import (
     LIBVIRT_DOMAIN_RUNNING,
