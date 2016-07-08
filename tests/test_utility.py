@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import socket
+from tempfile import mkdtemp
 from time import time
 import warnings
 
@@ -361,6 +362,38 @@ class TestGetDebArch(TestCase):
 
 class TestAddBasicTestingArguments(TestCase):
 
+    def test_no_args(self):
+        cmd_line = []
+        parser = add_basic_testing_arguments(ArgumentParser())
+        with patch('utility.os.makedirs'):
+            with patch('utility.os.getenv', return_value=''):
+                args = parser.parse_args(cmd_line)
+        self.assertEqual(args.env, 'lxd')
+        self.assertEqual(args.juju_bin, '/usr/bin/juju')
+
+        logs_arg = args.logs.split("/")
+        logs_ts = logs_arg[4]
+        self.assertEqual(logs_arg[1:4], ['tmp', 'test_utility', 'logs'])
+        self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
+
+        temp_env_name_arg = args.temp_env_name.split("_")
+        temp_env_name_ts = temp_env_name_arg[2]
+        self.assertEqual(temp_env_name_arg[0:2], ['test', 'utility'])
+        self.assertTrue(temp_env_name_ts,
+                        datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
+        self.assertEqual(temp_env_name_arg[3:5], ['temp', 'env'])
+
+        self.assertEqual(logs_ts, temp_env_name_ts)
+
+    def test_default_binary(self):
+        cmd_line = []
+        with patch('utility.os.makedirs'):
+            with patch('utility.os.getenv', return_value='/tmp'):
+                with patch('utility.os.path.isfile', return_value=True):
+                    parser = add_basic_testing_arguments(ArgumentParser())
+                    args = parser.parse_args(cmd_line)
+        self.assertEqual(args.juju_bin, '/tmp/bin/juju')
+
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser())
@@ -407,6 +440,38 @@ class TestAddBasicTestingArguments(TestCase):
                 parser.parse_args(cmd_line)
             self.assertEqual(warned, [])
         self.assertEqual("", self.log_stream.getvalue())
+
+    def test_warn_on_nonexistent_directory_creation(self):
+        with warnings.catch_warnings(record=True) as warned:
+            log_dir = mkdtemp()
+            os.rmdir(log_dir)
+            cmd_line = ['local', '/foo/juju', log_dir, 'testtest']
+            parser = add_basic_testing_arguments(ArgumentParser())
+            parser.parse_args(cmd_line)
+            self.assertEqual(len(warned), 1)
+            self.assertRegexpMatches(
+                str(warned[0].message),
+                r"Not a directory " + log_dir)
+            self.assertEqual("", self.log_stream.getvalue())
+
+    def test_warn_on_directory_creation_failure(self):
+        with warnings.catch_warnings(record=True) as warned:
+            with patch('utility.os.makedirs', side_effect=OSError):
+                cmd_line = []
+                try:
+                    parser = add_basic_testing_arguments(ArgumentParser())
+                    parser.parse_args(cmd_line)
+                except OSError:
+                    # we catch our thrown OSError
+                    pass
+                else:
+                    self.fail('No exception thrown after' +
+                              ' directory creation failure')
+                self.assertEqual(len(warned), 1)
+                self.assertRegexpMatches(
+                    str(warned[0].message),
+                    r"Failed to create logging directory: /tmp/test_utility/" +
+                    "logs/.*. Please specify empty folder or try again")
 
     def test_debug(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
