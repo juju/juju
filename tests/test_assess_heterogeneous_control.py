@@ -94,6 +94,20 @@ class TestGetClients(TestCase):
                                                            True, 'quxx')
         self.assertIs(initial, teardown)
 
+    def test_old_released(self):
+        boo = {
+            ('foo', '--version'): '2.1',
+            ('bar', '--version'): '2.0',
+            ('juju', '--version'): '1.18',
+            ('which', 'juju'): '/usr/bun/juju'
+            }
+        with _temp_env({'environments': {'baz': {}}}):
+            with patch('subprocess.check_output', lambda x: boo[x]):
+                with patch('jujupy.JujuData.load_yaml'):
+                    initial, other, teardown = get_clients('foo', 'bar', 'baz',
+                                                           True, 'quxx')
+        self.assertIs(initial, teardown)
+
     def test_get_clients_no_agent(self):
         with _temp_env({'environments': {'baz': {}}}):
             with patch('subprocess.check_output', return_value='1.18.73'):
