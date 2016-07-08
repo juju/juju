@@ -4,6 +4,8 @@
 package client_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -154,53 +156,76 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 	}
 }
 
-func (s *statusUnitTestSuite) checkWorkloadVersionAggregation(
-	c *gc.C, expectedAppVersion string, unitVersions ...string) {
-	application := s.MakeApplication(c, nil)
+func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
+	unit, err := application.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	// Ensure that the timestamp on this version record is different
+	// from the previous one.
+	// TODO(babbageclunk): when Application and Unit have clocks, change
+	// that instead of sleeping (lp:1558657)
+	time.Sleep(time.Millisecond * 1)
+	err = unit.SetWorkloadVersion(version)
+	c.Assert(err, jc.ErrorIsNil)
+	return unit
+}
 
-	units := make([]*state.Unit, len(unitVersions))
-	for i, version := range unitVersions {
-		unit, err := application.AddUnit()
-		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetWorkloadVersion(version)
-		c.Assert(err, jc.ErrorIsNil)
-		units[i] = unit
-	}
-
+func (s *statusUnitTestSuite) checkAppVersion(c *gc.C, application *state.Application, expectedVersion string) params.ApplicationStatus {
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, found := status.Applications[application.Name()]
 	c.Assert(found, jc.IsTrue)
-	c.Check(appStatus.WorkloadVersion, gc.Equals, expectedAppVersion)
-
-	for i, expectedVersion := range unitVersions {
-		unitStatus, found := appStatus.Units[units[i].Name()]
-		c.Check(found, jc.IsTrue)
-		c.Check(unitStatus.WorkloadVersion, gc.Equals, expectedVersion)
-	}
+	c.Check(appStatus.WorkloadVersion, gc.Equals, expectedVersion)
+	return appStatus
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionModeWins(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron*",
-		"voltron", "zarkon", "voltron")
+func checkUnitVersion(c *gc.C, appStatus params.ApplicationStatus, unit *state.Unit, expectedVersion string) {
+	unitStatus, found := appStatus.Units[unit.Name()]
+	c.Check(found, jc.IsTrue)
+	c.Check(unitStatus.WorkloadVersion, gc.Equals, expectedVersion)
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionInTie(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron*",
-		"allura", "zarkon", "voltron", "zarkon", "voltron")
+func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
+	application := s.MakeApplication(c, nil)
+	unit1 := addUnitWithVersion(c, application, "voltron")
+	unit2 := addUnitWithVersion(c, application, "voltron")
+	unit3 := addUnitWithVersion(c, application, "zarkon")
+
+	appStatus := s.checkAppVersion(c, application, "zarkon")
+	checkUnitVersion(c, appStatus, unit1, "voltron")
+	checkUnitVersion(c, appStatus, unit2, "voltron")
+	checkUnitVersion(c, appStatus, unit3, "zarkon")
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron", "voltron", "voltron")
+	application := s.MakeApplication(c, nil)
+	unit1 := addUnitWithVersion(c, application, "voltron")
+
+	appStatus := s.checkAppVersion(c, application, "voltron")
+	checkUnitVersion(c, appStatus, unit1, "voltron")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionBlanksNeverWin(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "voltron*", "voltron", "", "", "")
+func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
+	application := s.MakeApplication(c, nil)
+	unit1 := addUnitWithVersion(c, application, "voltron")
+	unit2 := addUnitWithVersion(c, application, "")
+
+	appStatus := s.checkAppVersion(c, application, "")
+	checkUnitVersion(c, appStatus, unit1, "voltron")
+	checkUnitVersion(c, appStatus, unit2, "")
 }
 
-func (s *statusUnitTestSuite) TestWorkloadVersionOnlyBlanks(c *gc.C) {
-	s.checkWorkloadVersionAggregation(c, "", "", "")
+func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *gc.C) {
+	application := s.MakeApplication(c, nil)
+	s.checkAppVersion(c, application, "")
+}
+
+func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
+	application := s.MakeApplication(c, nil)
+	unit, err := application.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	appStatus := s.checkAppVersion(c, application, "")
+	checkUnitVersion(c, appStatus, unit, "")
 }
 
 type statusUpgradeUnitSuite struct {

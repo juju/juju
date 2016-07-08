@@ -2472,7 +2472,7 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"workload-version": "not as good*",
+						"workload-version": "not as good",
 						"application-status": M{
 							"current": "unknown",
 							"message": "Waiting for agent initialization to finish",

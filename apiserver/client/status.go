@@ -585,8 +585,9 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.Err = err
 		return processedStatus
 	}
+	units := context.units[service.Name()]
 	if service.IsPrincipal() {
-		processedStatus.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
+		processedStatus.Units = context.processUnits(units, serviceCharmURL.String())
 		applicationStatus, err := service.Status()
 		if err != nil {
 			processedStatus.Err = err
@@ -597,14 +598,24 @@ func (context *statusContext) processApplication(service *state.Application) par
 		processedStatus.Status.Data = applicationStatus.Data
 		processedStatus.Status.Since = applicationStatus.Since
 
-		processedStatus.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
+		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
-	versions := make([]string, 0, len(processedStatus.Units))
-	for _, unit := range processedStatus.Units {
-		versions = append(versions, unit.WorkloadVersion)
+	versions := make([]status.StatusInfo, 0, len(units))
+	for _, unit := range units {
+		statuses, err := unit.WorkloadVersionHistory().StatusHistory(
+			status.StatusHistoryFilter{Size: 1},
+		)
+		if err != nil {
+			processedStatus.Err = err
+			return processedStatus
+		}
+		versions = append(versions, statuses[0])
 	}
-	processedStatus.WorkloadVersion = combineUnitVersions(versions)
+	if len(versions) > 0 {
+		sort.Sort(bySinceDescending(versions))
+		processedStatus.WorkloadVersion = versions[0].Message
+	}
 
 	return processedStatus
 }
@@ -848,67 +859,13 @@ func processLife(entity lifer) string {
 	return ""
 }
 
-// versionCounts stores the different versions reported by units, with
-// their counts so that we can find the most common one.
-type versionCounts struct {
-	versions []string
-	counts   map[string]int
-}
+type bySinceDescending []status.StatusInfo
 
 // Len implements sort.Interface.
-func (v *versionCounts) Len() int { return len(v.versions) }
+func (s bySinceDescending) Len() int { return len(s) }
 
 // Swap implements sort.Interface.
-func (v *versionCounts) Swap(a, b int) {
-	v.versions[a], v.versions[b] = v.versions[b], v.versions[a]
-}
+func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
 
 // Less implements sort.Interface.
-func (v *versionCounts) Less(a, b int) bool {
-	// We want the items to sort so that the most frequent versions are
-	// earliest, and within that in lexicographic order.
-	val1 := v.versions[a]
-	val2 := v.versions[b]
-
-	// The empty string should come last - we only pick it if there
-	// aren't any other values.
-	switch {
-	case val1 == "":
-		return false
-	case val2 == "":
-		return true
-	}
-
-	count1 := v.counts[val1]
-	count2 := v.counts[val2]
-	if count1 == count2 {
-		// With the same counts, sort alphabetically.
-		return val1 < val2
-	}
-	// Higher counts are "less" - they come earlier in the slice.
-	return count1 > count2
-}
-
-// combineUnitVersions determines the application's version from its
-// units' versions. If they're different, it picks the most common one
-// and indicates that the unit versions are mixed with a *.
-func combineUnitVersions(unitVersions []string) string {
-	if len(unitVersions) == 0 {
-		return ""
-	}
-
-	vc := versionCounts{counts: make(map[string]int)}
-	for _, version := range unitVersions {
-		vc.counts[version]++
-		if vc.counts[version] == 1 {
-			vc.versions = append(vc.versions, version)
-		}
-	}
-
-	sort.Sort(&vc)
-	result := vc.versions[0]
-	if vc.Len() > 1 {
-		result += "*"
-	}
-	return result
-}
+func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
