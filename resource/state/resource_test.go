@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/utils/clock"
 )
 
 var _ = gc.Suite(&ResourceSuite{})
@@ -611,6 +612,7 @@ func (s *ResourceSuite) TestUnitSetterEOF(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       newUnit(s.stub, "some-application/0"),
 		resource:   newUploadResource(c, "res", "res"),
+		clock:      clock.WallClock,
 	}
 	// have to try to read non-zero data, or bytes.buffer will happily return
 	// nil.
@@ -629,6 +631,7 @@ func (s *ResourceSuite) TestUnitSetterNoEOF(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       newUnit(s.stub, "some-application/0"),
 		resource:   newUploadResource(c, "res", "res"),
+		clock:      clock.WallClock,
 	}
 	// read less than the full buffer
 	p := make([]byte, 3)
@@ -647,6 +650,7 @@ func (s *ResourceSuite) TestUnitSetterSetUnitErr(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       newUnit(s.stub, "some-application/0"),
 		resource:   newUploadResource(c, "res", "res"),
+		clock:      clock.WallClock,
 	}
 
 	s.stub.SetErrors(errors.Errorf("oops!"))
@@ -669,6 +673,7 @@ func (s *ResourceSuite) TestUnitSetterErr(c *gc.C) {
 		persist:    &stubPersistence{stub: s.stub},
 		unit:       newUnit(s.stub, "some-application/0"),
 		resource:   newUploadResource(c, "res", "res"),
+		clock:      clock.WallClock,
 	}
 	expected := errors.Errorf("some-err")
 	s.stub.SetErrors(expected)

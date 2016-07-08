@@ -443,7 +443,7 @@ func (u *unitSetter) Read(p []byte) (n int, err error) {
 	} else {
 		u.progress += int64(n)
 		if time.Since(u.lastProgressUpdate) > time.Second {
-			u.lastProgressUpdate = time.Now()
+			u.lastProgressUpdate = u.clock.Now()
 			if err := u.persist.SetUnitResourceProgress(u.unit.Name(), u.pending, u.progress); err != nil {
 				logger.Errorf("failed to track progress: %v", err)
 			}
