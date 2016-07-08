@@ -7,11 +7,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"regexp"
+	"runtime"
 	"time"
 
 	"github.com/juju/loggo"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -24,28 +29,68 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 type syslogSuite struct {
 	agenttest.AgentSuite
-	server   *rfc5424test.Server
-	logsCh   logsender.LogRecordCh
-	received chan rfc5424test.Message
+	server          *rfc5424test.Server
+	logsCh          logsender.LogRecordCh
+	received        chan rfc5424test.Message
+	fakeEnsureMongo *agenttest.FakeEnsureMongo
 }
 
 var _ = gc.Suite(&syslogSuite{})
 
-func (s *syslogSuite) SetUpTest(c *gc.C) {
-	s.AgentSuite.SetUpTest(c)
+func (s *syslogSuite) SetUpSuite(c *gc.C) {
+	// Tailing logs requires a replica set. Restart mongo with a
+	// replicaset before initialising AgentSuite.
+	mongod := gitjujutesting.MgoServer
+	mongod.Params = []string{"--replSet", "juju"}
+	mongod.Restart()
 
-	s.received = make(chan rfc5424test.Message, 1)
+	info := mongod.DialInfo()
+	args := peergrouper.InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: mongod.Addr(),
+	}
+	err := peergrouper.InitiateMongoServer(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AgentSuite.SetUpSuite(c)
+	s.AddCleanup(func(*gc.C) {
+		mongod.Params = nil
+		mongod.Restart()
+	})
+}
+
+func (s *syslogSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip(fmt.Sprintf("this test requires a controller, therefore does not support %q", runtime.GOOS))
+	}
+	currentSeries := series.HostSeries()
+	osFromSeries, err := series.GetOSFromSeries(currentSeries)
+	c.Assert(err, jc.ErrorIsNil)
+	if osFromSeries != os.Ubuntu {
+		c.Skip(fmt.Sprintf("this test requires a controller, therefore does not support OS %q only Ubuntu", osFromSeries.String()))
+	}
+	s.AgentSuite.SetUpTest(c)
+	// TODO(perrito666) 200160701:
+	// This needs to be done to stop the test from trying to install mongo
+	// while running, but it is a huge footprint for such little benefit.
+	// This test should not need JujuConnSuite or AgentSuite.
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
+
+	done := make(chan struct{})
+	s.received = make(chan rfc5424test.Message)
 	s.server = rfc5424test.NewServer(rfc5424test.HandlerFunc(func(msg rfc5424test.Message) {
 		select {
 		case s.received <- msg:
-		default:
+		case <-done:
 		}
 	}))
 	s.AddCleanup(func(*gc.C) { s.server.Close() })
+	s.AddCleanup(func(*gc.C) { close(done) })
 
 	serverCert, err := tls.X509KeyPair(
 		[]byte(coretesting.ServerCert),
@@ -62,9 +107,13 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	}
 	s.server.StartTLS()
 
+	// We must use "localhost", as the certificate does not
+	// have any IP SANs.
+	port := s.server.Listener.Addr().(*net.TCPAddr).Port
+	addr := net.JoinHostPort("localhost", fmt.Sprint(port))
+
 	err = s.State.UpdateModelConfig(map[string]interface{}{
-		"syslog-host":        s.server.Listener.Addr().String(),
-		"syslog-server-cert": coretesting.ServerCert,
+		"syslog-host":        addr,
 		"syslog-ca-cert":     coretesting.CACert,
 		"syslog-client-cert": coretesting.ServerCert,
 		"syslog-client-key":  coretesting.ServerKey,
@@ -143,10 +192,10 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 
 	// Ensure that a specific log record gets forwarded.
 	rec := s.newRecord("something happened!")
-	rec.Time = time.Date(2015, time.June, 1, 23, 2, 1, 23, time.UTC)
+	rec.Time = time.Date(2099, time.June, 1, 23, 2, 1, 23, time.UTC)
 	s.sendRecord(c, rec)
 	msg := s.popMessagesUntil(c, `something happened!`)
-	expected := `<11>1 2015-06-01T23:02:01.000000023Z machine-0.%s jujud-machine-agent-%s - - [origin enterpriseID="28978" sofware="jujud-machine-agent" swVersion="%s"][model@28978 controller-uuid="%s" model-uuid="%s"][log@28978 module="juju.featuretests.syslog" source="syslog_test.go:99999"] something happened!`
+	expected := `<11>1 2099-06-01T23:02:01.000000023Z machine-0.%s jujud-machine-agent-%s - - [origin enterpriseID="28978" sofware="jujud-machine-agent" swVersion="%s"][model@28978 controller-uuid="%s" model-uuid="%s"][log@28978 module="juju.featuretests.syslog" source="syslog_test.go:99999"] something happened!`
 	modelID := coretesting.ModelTag.Id()
 	ctlrID := modelID
 	c.Check(msg.Message, gc.Equals, fmt.Sprintf(expected, modelID, modelID[:28], version.Current, ctlrID, modelID))

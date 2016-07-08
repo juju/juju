@@ -653,31 +653,17 @@ var configTests = []configTest{
 		}),
 		err: `resource-tags: expected "key=value", got "a"`,
 	}, {
-		about:       "Invalid syslog server cert",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"syslog-host":        "localhost:1234",
-			"syslog-server-cert": invalidCACert,
-			"syslog-ca-cert":     caCert,
-			"syslog-client-cert": caCert,
-			"syslog-client-key":  caKey,
-		}),
-		err: `invalid "syslog-server-cert": asn1: syntax error: data truncated`,
-	}, {
 		about:       "Invalid syslog ca cert format",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
-			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     "abc",
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
 		}),
-		err: `invalid "syslog-ca-cert": no certificates found`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: no certificates found`,
 	}, {
 		about:       "Invalid syslog ca cert",
 		useDefaults: config.UseDefaults,
@@ -685,45 +671,41 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
-			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     invalidCACert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey,
 		}),
-		err: `invalid "syslog-ca-cert": asn1: syntax error: data truncated`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: asn1: syntax error: data truncated`,
 	}, {
 		about:       "invalid syslog cert",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"syslog-host":        "10.0.0.1:12345",
-			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": invalidCACert,
 			"syslog-client-key":  caKey,
 		}),
-		err: `invalid "syslog-client-cert": asn1: syntax error: data truncated`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: asn1: syntax error: data truncated`,
 	}, {
 		about:       "invalid syslog key",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"syslog-host":        "10.0.0.1:12345",
-			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  invalidCAKey,
 		}),
-		err: `invalid "syslog-client-key": bad key or key does not match certificate: crypto/tls: failed to parse private key`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: crypto/tls: failed to parse private key`,
 	}, {
 		about:       "Mismatched syslog cert and key",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"syslog-host":        "10.0.0.1:12345",
-			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
 			"syslog-client-key":  caKey2,
 		}),
-		err: `invalid "syslog-client-key": bad key or key does not match certificate: crypto/tls: private key does not match public key`,
+		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: crypto/tls: private key does not match public key`,
 	}, {
 		about:       "Valid syslog config values",
 		useDefaults: config.UseDefaults,
@@ -731,7 +713,6 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"syslog-host":        "localhost:1234",
-			"syslog-server-cert": caCert2,
 			"syslog-ca-cert":     testing.CACert,
 			"syslog-client-cert": testing.ServerCert,
 			"syslog-client-key":  testing.ServerKey,
@@ -1007,19 +988,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 
 	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
-	if v, ok := test.attrs["syslog-server-cert"].(string); v != "" {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Assert(lfCfg.ExpectedServerCert, gc.Equals, v)
-	} else if ok {
-		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ExpectedServerCert, gc.Equals, "")
-	}
 	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
 		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Assert(lfCfg.ClientCACert, gc.Equals, v)
+		c.Assert(lfCfg.CACert, gc.Equals, v)
 	} else if ok {
 		c.Assert(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.ClientCACert, gc.Equals, "")
+		c.Check(lfCfg.CACert, gc.Equals, "")
 	}
 	if v, ok := test.attrs["syslog-client-cert"].(string); v != "" {
 		c.Assert(hasLogCfg, jc.IsTrue)

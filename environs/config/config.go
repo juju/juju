@@ -125,10 +125,6 @@ const (
 	// LogFwdSyslogHost sets the hostname:port of the syslog server.
 	LogFwdSyslogHost = "syslog-host"
 
-	// LogFwdSyslogServerCert sets the expected server certificate for
-	// syslog forwarding.
-	LogFwdSyslogServerCert = "syslog-server-cert"
-
 	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
 	// server certificate.
 	LogFwdSyslogCACert = "syslog-ca-cert"
@@ -448,24 +444,7 @@ func Validate(cfg, old *Config) error {
 
 	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
 		if err := lfCfg.Validate(); err != nil {
-			// Clean up the error messages a bit.
-			msg := err.Error()
-			var field string
-			switch {
-			case strings.Contains(msg, "Host"):
-				field = LogFwdSyslogHost
-			case strings.Contains(msg, "ExpectedServerCert"):
-				field = LogFwdSyslogServerCert
-			case strings.Contains(msg, "ClientCACert"):
-				field = LogFwdSyslogCACert
-			case strings.Contains(msg, "ClientCert"):
-				field = LogFwdSyslogClientCert
-			case strings.Contains(msg, "ClientKey"):
-				field = LogFwdSyslogClientKey
-			default:
-				return errors.Annotate(err, "invalid syslog forwarding config")
-			}
-			return errors.Annotatef(errors.Cause(err), "invalid %q", field)
+			return errors.Annotate(err, "invalid syslog forwarding config")
 		}
 	}
 
@@ -699,14 +678,9 @@ func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
 		lfCfg.Host = s.(string)
 	}
 
-	if s, ok := c.defined[LogFwdSyslogServerCert]; ok && s != "" {
-		partial = true
-		lfCfg.ExpectedServerCert = s.(string)
-	}
-
 	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
 		partial = true
-		lfCfg.ClientCACert = s.(string)
+		lfCfg.CACert = s.(string)
 	}
 
 	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
@@ -1003,7 +977,6 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	LogFwdSyslogHost:             schema.Omit,
-	LogFwdSyslogServerCert:       schema.Omit,
 	LogFwdSyslogCACert:           schema.Omit,
 	LogFwdSyslogClientCert:       schema.Omit,
 	LogFwdSyslogClientKey:        schema.Omit,
@@ -1416,13 +1389,8 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	LogFwdSyslogServerCert: {
-		Description: `The expected syslog server certificate in PEM format.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 	LogFwdSyslogCACert: {
-		Description: `The certificate of the CA that signed the syslog certificate, in PEM format.`,
+		Description: `The certificate of the CA that signed the syslog server certificate, in PEM format.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

@@ -21,11 +21,10 @@ var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       coretesting.CACert,
-		ClientCert:         coretesting.ServerCert,
-		ClientKey:          coretesting.ServerKey,
+		Host:       "a.b.c:9876",
+		CACert:     coretesting.CACert,
+		ClientCert: coretesting.ServerCert,
+		ClientKey:  coretesting.ServerKey,
 	}
 
 	err := cfg.Validate()
@@ -35,11 +34,10 @@ func (s *ConfigSuite) TestRawValidateFull(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateWithoutPort(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       coretesting.CACert,
-		ClientCert:         coretesting.ServerCert,
-		ClientKey:          coretesting.ServerKey,
+		Host:       "a.b.c",
+		CACert:     coretesting.CACert,
+		ClientCert: coretesting.ServerCert,
+		ClientKey:  coretesting.ServerKey,
 	}
 
 	err := cfg.Validate()
@@ -57,286 +55,158 @@ func (s *ConfigSuite) TestRawValidateZeroValue(c *gc.C) {
 
 func (s *ConfigSuite) TestRawValidateMissingHost(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		Host:       "",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty Host`)
+	c.Check(err, gc.ErrorMatches, `Host "" not valid`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingHostname(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               ":9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		Host:       ":9876",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty hostname in Host`)
-}
-
-func (s *ConfigSuite) TestRawValidateBadHostname(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "###:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `bad Host: invalid domain name "###"`)
-}
-
-func (s *ConfigSuite) TestRawValidateMissingPort(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "a.b.c:",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `bad Host: cannot parse "a.b.c:" port: strconv.ParseInt: parsing "": invalid syntax`)
-}
-
-func (s *ConfigSuite) TestRawValidateBadPort(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "a.b.c:xyz",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `bad Host: cannot parse "a.b.c:xyz" port: strconv.ParseInt: parsing "xyz": invalid syntax`)
-}
-
-func (s *ConfigSuite) TestRawValidateMissingServerCert(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: "",
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty ExpectedServerCert`)
-}
-
-func (s *ConfigSuite) TestRawValidateBadServerCert(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: invalidCert,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ExpectedServerCert: asn1: syntax error: data truncated`)
-}
-
-func (s *ConfigSuite) TestRawValidateBadServerCertFormat(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: "abc",
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ExpectedServerCert: no certificates found`)
+	c.Check(err, gc.ErrorMatches, `Host ":9876" not valid`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingCACert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       "",
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		Host:       "a.b.c:9876",
+		CACert:     "",
+		ClientCert: validCert,
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty ClientCACert`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: no certificates found`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCACert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       invalidCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		Host:       "a.b.c:9876",
+		CACert:     invalidCACert,
+		ClientCert: validCert,
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientCACert: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: asn1: syntax error: data truncated`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCACertFormat(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       "abc",
-		ClientCert:         validCert,
-		ClientKey:          validKey,
+		Host:       "a.b.c:9876",
+		CACert:     "abc",
+		ClientCert: validCert,
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientCACert: no certificates found`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing CA certificate: no certificates found`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingCert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         "",
-		ClientKey:          validKey,
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: "",
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty ClientCert`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in certificate input`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCert(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         invalidCert,
-		ClientKey:          validKey,
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: invalidCert,
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientCert: asn1: syntax error: data truncated`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: asn1: syntax error: data truncated`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadCertFormat(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         "abc",
-		ClientKey:          validKey,
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: "abc",
+		ClientKey:  validKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientCert: no certificates found`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in certificate input`)
 }
 
 func (s *ConfigSuite) TestRawValidateMissingKey(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          "",
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  "",
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `empty ClientKey`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in key input`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadKey(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          invalidKey,
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  invalidKey,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: failed to parse private key`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to parse private key`)
 }
 
 func (s *ConfigSuite) TestRawValidateBadKeyFormat(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          "abc",
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  "abc",
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: failed to find any PEM data in key input`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: failed to find any PEM data in key input`)
 }
 
 func (s *ConfigSuite) TestRawValidateCertKeyMismatch(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       validCACert,
-		ClientCert:         validCert,
-		ClientKey:          validKey2,
+		Host:       "a.b.c:9876",
+		CACert:     validCACert,
+		ClientCert: validCert,
+		ClientKey:  validKey2,
 	}
 
 	err := cfg.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, `invalid ClientKey: bad key or key does not match certificate: crypto/tls: private key does not match public key`)
-}
-
-func (s *ConfigSuite) TestRawValidateCACertMismatch(c *gc.C) {
-	cfg := syslog.RawConfig{
-		Host:               "a.b.c",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       coretesting.OtherCACert,
-		ClientCert:         coretesting.ServerCert,
-		ClientKey:          coretesting.ServerKey,
-	}
-
-	err := cfg.Validate()
-
-	c.Check(err, gc.ErrorMatches, `invalid ClientCert: cert does not match CA cert: x509: certificate signed by unknown authority \(possibly because of "crypto/rsa: verification error" while trying to verify candidate authority certificate "juju-generated CA for model \\"juju testing\\""\)`)
+	c.Check(err, gc.ErrorMatches, `validating TLS config: parsing client key pair: crypto/tls: private key does not match public key`)
 }
 
 var validCACert = `
@@ -377,20 +247,6 @@ sVCHJRQWKK+vw3oaEvPKvkPiV5ui0C8CIGNsvybuo8ald5IKCw5huRlFeIxSo36k
 m3OVCXc6zfwVAiBnTUe7WcivPNZqOC6TAZ8dYvdWo4Ifz3jjpEfymjid1wIgBIJv
 ERPyv2NQqIFQZIyzUP7LVRIWfpFFOo9/Ww/7s5Y=
 -----END RSA PRIVATE KEY-----
-`[1:]
-
-var validCert2 = `
------BEGIN CERTIFICATE-----
-MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMDhaFw0yMjExMDkxNjQ2MDhaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWjALBgkqhkiG9w0BAQEDSwAw
-SAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC+fJALJj+
-C2NhuvOv9xImxOl3Hg8fFPCXCtcCAwEAAaNmMGQwDgYDVR0PAQH/BAQDAgCkMBIG
-A1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0OBBYEFOsX/ZCqKzWCAaTTVcWsWKT5Msow
-MB8GA1UdIwQYMBaAFOsX/ZCqKzWCAaTTVcWsWKT5MsowMAsGCSqGSIb3DQEBBQNB
-AAVV57jetEzJQnjgBzhvx/UwauFn78jGhXfV5BrQmxIb4SF4DgSCFstPwUQOAr8h
-XXzJqBQH92KYmp+y3YXDoMQ=
------END CERTIFICATE-----
 `[1:]
 
 var validKey2 = `

@@ -4,14 +4,12 @@
 package rfc5424
 
 import (
-	stdtls "crypto/tls"
+	"crypto/tls"
 	"io"
 	"net"
 	"time"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/standards/tls"
 )
 
 const (
@@ -42,23 +40,13 @@ func dialTimeoutFunc(timeout time.Duration) DialFunc {
 // TLSDialFunc returns a dial function that opens a TLS connection. If
 // the address passed to the returned func does not include a port then
 // the default syslog TLS port (6514) will be used.
-func TLSDialFunc(cfg tls.Config, timeout time.Duration) (DialFunc, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func TLSDialFunc(cfg *tls.Config, timeout time.Duration) (DialFunc, error) {
 	dial := func(network, address string) (Conn, error) {
-		if network != "tcp" {
-			return nil, errors.Errorf("unsupported network %q", network)
-		}
 		if _, _, err := net.SplitHostPort(address); err != nil {
 			address = net.JoinHostPort(address, defaultSyslogTLSPort)
 		}
-		conn, err := tls.DialTCP(tls.DialOpts{
-			Address:        address,
-			TLSConfig:      cfg,
-			ConnectTimeout: timeout,
-		})
+		dialer := &net.Dialer{Timeout: timeout}
+		conn, err := tls.DialWithDialer(dialer, network, address, cfg)
 		if err != nil {
 			return nil, errors.Annotate(err, "dialing TLS")
 		}
@@ -126,7 +114,7 @@ func (client Client) serialize(msg Message) []byte {
 	}
 
 	switch client.conn.(type) {
-	case *net.TCPConn, *stdtls.Conn:
+	case *net.TCPConn, *tls.Conn:
 		msgStr += "\n"
 	case *net.UDPConn:
 		// For now do nothing.

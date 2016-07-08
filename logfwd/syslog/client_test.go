@@ -4,6 +4,8 @@
 package syslog_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"time"
 
 	"github.com/juju/loggo"
@@ -17,7 +19,6 @@ import (
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/standards/rfc5424"
 	"github.com/juju/juju/standards/rfc5424/sdelements"
-	"github.com/juju/juju/standards/tls"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -39,11 +40,10 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 
 func (s *ClientSuite) TestOpen(c *gc.C) {
 	cfg := syslog.RawConfig{
-		Host:               "a.b.c:9876",
-		ExpectedServerCert: validCert2,
-		ClientCACert:       coretesting.CACert,
-		ClientCert:         coretesting.ServerCert,
-		ClientKey:          coretesting.ServerKey,
+		Host:       "a.b.c:9876",
+		CACert:     coretesting.CACert,
+		ClientCert: coretesting.ServerCert,
+		ClientKey:  coretesting.ServerKey,
 	}
 	senderOpener := &stubSenderOpener{
 		stub:       s.stub,
@@ -54,14 +54,16 @@ func (s *ClientSuite) TestOpen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "DialFunc", "Open")
-	tlsConfig := tls.Config{
-		RawCert: tls.RawCert{
-			CertPEM:   coretesting.ServerCert,
-			KeyPEM:    coretesting.ServerKey,
-			CACertPEM: coretesting.CACert,
-		},
-		ExpectedServerCertPEM: validCert2,
+
+	clientCert, err := tls.X509KeyPair([]byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
+	c.Assert(err, jc.ErrorIsNil)
+	rootCAs := x509.NewCertPool()
+	rootCAs.AddCert(coretesting.CACertX509)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      rootCAs,
 	}
+
 	s.stub.CheckCall(c, 0, "DialFunc", tlsConfig, time.Duration(0))
 	c.Check(client.Sender, gc.Equals, s.sender)
 }
@@ -190,7 +192,7 @@ type stubSenderOpener struct {
 	ReturnOpen     syslog.Sender
 }
 
-func (s *stubSenderOpener) DialFunc(cfg tls.Config, timeout time.Duration) (rfc5424.DialFunc, error) {
+func (s *stubSenderOpener) DialFunc(cfg *tls.Config, timeout time.Duration) (rfc5424.DialFunc, error) {
 	s.stub.AddCall("DialFunc", cfg, timeout)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
