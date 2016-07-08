@@ -88,6 +88,13 @@ class TaskTest(TestCase):
             self.assertIsNone(task.returncode)
             self.assertIsNone(task.proc)
 
+    def test_init_quoted_args(self):
+        with temp_dir() as base:
+            task = concurrently.Task('one=foo a "b c"', log_dir=base)
+            self.assertEqual('one', task.name)
+            self.assertEqual('foo a "b c"', task.commandline)
+            self.assertEqual(['foo', 'a', 'b c'], task.command)
+
     def test_start(self):
         with temp_dir() as base:
             task = concurrently.Task('one=foo a', log_dir=base)
