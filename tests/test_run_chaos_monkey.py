@@ -12,7 +12,6 @@ from chaos import MonkeyRunner
 from jujupy import (
     EnvJujuClient,
     JujuData,
-    SimpleEnvironment,
     )
 from run_chaos_monkey import (
     get_args,

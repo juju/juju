@@ -20,7 +20,6 @@ from chaos import (
 from jujupy import (
     EnvJujuClient,
     JujuData,
-    SimpleEnvironment,
     )
 from remote import SSHRemote
 from tests import FakeHomeTestCase
