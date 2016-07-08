@@ -29,14 +29,6 @@ from test_jujupy import (
     )
 
 
-def fake_EnvJujuClient_by_version(env, path=None, debug=None):
-    return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
-
-
-def fake_SimpleEnvironment_from_config(name):
-    return SimpleEnvironment(name, {})
-
-
 class TestBackgroundChaos(FakeHomeTestCase):
 
     def test_background_chaos(self):

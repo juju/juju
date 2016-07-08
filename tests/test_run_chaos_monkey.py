@@ -20,14 +20,6 @@ from run_chaos_monkey import (
     )
 
 
-def fake_EnvJujuClient_by_version(env, path=None, debug=None):
-    return EnvJujuClient(env=env, version='1.2.3.4', full_path=path)
-
-
-def fake_SimpleEnvironment_from_config(name):
-    return SimpleEnvironment(name, {})
-
-
 class TestRunChaosMonkey(TestCase):
 
     def test_get_args(self):
