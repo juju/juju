@@ -265,7 +265,7 @@ type cloudinitTest struct {
 }
 
 func minimalModelConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Delete("authorized-keys"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 	return cfg

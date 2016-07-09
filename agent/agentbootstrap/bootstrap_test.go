@@ -230,8 +230,9 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
-	// Check that the hosted model has been added, and model constraints
-	// set.
+	// Check that the hosted model has been added, model constraints
+	// set, and its config contains the same authorized-keys as the
+	// controller model.
 	hostedModelSt, err := st.ForModel(names.NewModelTag(hostedModelUUID))
 	c.Assert(err, jc.ErrorIsNil)
 	defer hostedModelSt.Close()
@@ -246,6 +247,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)
+	c.Assert(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")

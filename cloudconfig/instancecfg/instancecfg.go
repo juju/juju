@@ -722,9 +722,6 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
 ) error {
-	if authorizedKeys == "" {
-		return fmt.Errorf("model configuration has no authorized-keys")
-	}
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
 		icfg.AgentEnvironment = make(map[string]string)

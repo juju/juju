@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -133,11 +134,14 @@ func InitializeState(
 
 	// Create the initial hosted model, with the model config passed to
 	// bootstrap, which contains the UUID, name for the hosted model,
-	// and any user supplied config.
+	// and any user supplied config. We also copy the authorized-keys
+	// from the controller model.
 	attrs := make(map[string]interface{})
 	for k, v := range args.HostedModelConfig {
 		attrs[k] = v
 	}
+	attrs[config.AuthorizedKeysKey] = args.ControllerModelConfig.AuthorizedKeys()
+
 	// TODO(axw) we shouldn't be adding credentials to model config.
 	if args.ControllerCloudCredential != nil {
 		for k, v := range args.ControllerCloudCredential.Attributes() {
