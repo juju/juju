@@ -207,8 +207,14 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	query = append(query, bson.D{
 		{"deleted", bson.D{{"$ne", true}}},
 		{"deleted", bson.D{{"$exists", false}}}}...)
+
+	// As above, in the case that a user previously existed and doesn't have a
+	// deactivated attribute, we make sure the query checks for the existence
+	// of the attribute, and if it exists that it is not true.
 	if !includeDeactivated {
-		query = append(query, bson.DocElem{"deactivated", false})
+		query = append(query, bson.D{
+			{"deactivated", bson.D{{"$ne", true}}},
+			{"deactivated", bson.D{{"$exists", false}}}}...)
 	}
 	iter := users.Find(query).Iter()
 	defer iter.Close()
@@ -236,7 +242,7 @@ type userDoc struct {
 	DocID        string    `bson:"_id"`
 	Name         string    `bson:"name"`
 	DisplayName  string    `bson:"displayname"`
-	Deactivated  bool      `bson:"deactivated"`
+	Deactivated  bool      `bson:"deactivated,omitempty"`
 	Deleted      bool      `bson:"deleted,omitempty"` // Deleted users are marked deleted but not removed.
 	SecretKey    []byte    `bson:"secretkey,omitempty"`
 	PasswordHash string    `bson:"passwordhash"`
