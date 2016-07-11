@@ -9,6 +9,11 @@ from azure.mgmt.compute import (
     )
 import azure.mgmt.resource.subscriptions
 from msrestazure.azure_exceptions import CloudError
+from simplestreams.generate_simplestreams import items2content_trees
+from simplestreams.json2streams import Item
+from simplestreams import util
+
+from make_aws_image_streams import write_juju_streams
 
 
 def get_credentials(azure_dict):
@@ -20,31 +25,21 @@ def get_credentials(azure_dict):
         )
 
 
-def get_client(azure_dict, credentials, sub):
-    return ComputeManagementClient(get_credentials(azure_dict), azure_dict['subscription-id'])
-
-
-def get_publishers(client, region):
-    vm_images = client.virtual_machine_images
-    vm_images.list_publishers('westus')
-    return dict((p.name, p) for p in vm_images.list_publishers('westus'))
-
-
-def get_images(client, region, region_name):
-    #publishers = get_publishers(client, region)
+def get_image_versions(client, region):
     MS_VSTUDIO = 'MicrosoftVisualStudio'
     MS_SERVER = 'MicrosoftWindowsServer'
     WINDOWS = 'Windows'
     WINDOWS_SERVER = 'WindowsServer'
     image_spec = {
         'win81': (MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
-#        'win10': (MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
-#        'win2012': (MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
-#        'win2012r2': (MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
-#        'centos7': ('OpenLogic', 'CentOS', '7.1'),
+        'win10': (MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
+        'win2012': (MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
+        'win2012r2': (MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
+        'centos7': ('OpenLogic', 'CentOS', '7.1'),
 #        'asdf': ('Canonical', 'UbuntuServer', '16.04.0-LTS'),
     }
     stanzas = []
+    items = []
     for name, spec in image_spec.items():
         try:
             versions = client.virtual_machine_images.list(region, *spec)
@@ -53,14 +48,37 @@ def get_images(client, region, region_name):
                             region=region))
             continue
         for version in versions:
-            stanzas.append({
-                'content_id': 'com.ubuntu.cloud:released:azure',
-                'region': region_name,
-                'virt': 'Hyper-V',
-                'version': version.name,
-                'id': version.id,
-            })
-    return stanzas
+            yield version
+
+
+def make_item(version, region_name, endpoint):
+    return Item(
+        'com.ubuntu.cloud:released:azure',
+        'com.ubuntu.cloud:windows',
+        version.name, version.location, {
+            'virt': 'Hyper-V',
+            'region': region_name,
+            'id': version.id,
+            'label': 'release',
+            'endpoint': endpoint
+            }
+        )
+
+
+def write_streams(credentials, subscription_id, out_dir):
+    sub_client = azure.mgmt.resource.subscriptions.SubscriptionClient(
+        credentials)
+    client = ComputeManagementClient(credentials, subscription_id)
+    items = []
+    for region in sub_client.subscriptions.list_locations(subscription_id):
+        for version in get_image_versions(client, region.name):
+            items.append(make_item(version, region.display_name,
+                                   client.config.base_url))
+    updated = util.timestamp()
+    data = {'updated': updated, 'datatype': 'image-ids'}
+    trees = items2content_trees(items, data)
+    write_juju_streams(out_dir, trees, updated, [
+        'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
 
 
 
@@ -70,14 +88,7 @@ def main():
     azure_dict = cred_dict['credentials']['azure']['credentials']
     subscription_id = azure_dict['subscription-id']
     credentials = get_credentials(azure_dict)
-    sub_client = azure.mgmt.resource.subscriptions.SubscriptionClient(
-        credentials)
-    client = ComputeManagementClient(credentials, subscription_id)
-    images = []
-    for region in sub_client.subscriptions.list_locations(subscription_id):
-        images.extend(get_images(client, region.name, region.display_name))
-    with open('stanzas.json', 'w') as stanza_file:
-        json.dump(images, stanza_file, indent=2, sort_keys=True)
+    write_streams(credentials, subscription_id, 'outdir')
 
 
 if __name__ == '__main__':
