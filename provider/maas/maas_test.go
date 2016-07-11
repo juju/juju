@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
@@ -53,9 +52,6 @@ func (s *baseProviderSuite) SetUpSuite(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		restoreFinishBootstrap()
 		restoreTimeouts()
-	})
-	s.PatchValue(&nodeDeploymentTimeout, func(*maasEnviron) time.Duration {
-		return coretesting.ShortWait
 	})
 }
 

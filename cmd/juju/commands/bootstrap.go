@@ -630,6 +630,8 @@ to clean up the model.`[1:])
 		credentialName = detectedCredentialName
 	}
 
+	sshOpts := environ.Config().BootstrapSSHOpts()
+
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:          c.Constraints,
 		BootstrapConstraints:      bootstrapConstraints,
@@ -649,6 +651,11 @@ to clean up the model.`[1:])
 		ControllerInheritedConfig: inheritedControllerAttrs,
 		HostedModelConfig:         hostedModelConfig,
 		GUIDataSourceBaseURL:      guiDataSourceBaseURL,
+		DialOpts: environs.BootstrapDialOpts{
+			Timeout:        sshOpts.Timeout,
+			RetryDelay:     sshOpts.RetryDelay,
+			AddressesDelay: sshOpts.AddressesDelay,
+		},
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")

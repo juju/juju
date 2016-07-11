@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"path"
-	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -127,56 +125,6 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
 	})
-}
-
-func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
-	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"authorized-keys": "we-are-the-keys",
-		"admin-secret":    "lisboan-pork",
-		"agent-version":   "1.2.3",
-		"controller":      false,
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	oldAttrs := cfg.AllAttrs()
-	icfg := &instancecfg.InstanceConfig{
-		Bootstrap: &instancecfg.BootstrapConfig{},
-		Controller: &instancecfg.ControllerConfig{
-			Config: testing.FakeControllerBootstrapConfig(),
-		},
-	}
-	err = instancecfg.FinishInstanceConfig(icfg, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(icfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
-	c.Check(icfg.DisableSSLHostnameVerification, jc.IsFalse)
-	password := "lisboan-pork"
-	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
-		Password: password, CACert: testing.CACert,
-		ModelTag: testing.ModelTag,
-	})
-	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
-		Password: password, Info: mongo.Info{CACert: testing.CACert},
-	})
-	controllerCfg := icfg.Controller.Config
-	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
-	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
-	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
-	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, testing.FakeControllerBootstrapConfig()["ca-private-key"])
-
-	delete(oldAttrs, "admin-secret")
-	c.Check(icfg.Bootstrap.ControllerModelConfig.AllAttrs(), jc.DeepEquals, oldAttrs)
-	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
-	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
-	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Check(err, jc.ErrorIsNil)
-
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
-	c.Assert(err, jc.ErrorIsNil)
-	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
-	c.Assert(err, jc.ErrorIsNil)
-	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
-	c.Assert(err, gc.NotNil)
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {

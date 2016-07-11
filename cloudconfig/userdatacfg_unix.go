@@ -298,6 +298,7 @@ func (w *unixConfigure) configureBootstrap() error {
 	bootstrapAgentArgs := []string{
 		featureFlags + w.icfg.JujuTools() + "/jujud",
 		"bootstrap-state",
+		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),
 		loggingOption,
 		shquote(bootstrapParamsFile),

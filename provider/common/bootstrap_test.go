@@ -245,7 +245,7 @@ func (neverAddresses) Addresses() ([]network.Address, error) {
 	return nil, nil
 }
 
-var testSSHTimeout = config.SSHTimeoutOpts{
+var testSSHTimeout = environs.BootstrapDialOpts{
 	Timeout:        coretesting.ShortWait,
 	RetryDelay:     1 * time.Millisecond,
 	AddressesDelay: 1 * time.Millisecond,

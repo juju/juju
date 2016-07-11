@@ -49,7 +49,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	}
 	if fwmode != config.FwNone {
 		interrupted := make(chan os.Signal, 1)
-		timeout := config.SSHTimeoutOpts{
+		timeout := environs.BootstrapDialOpts{
 			Timeout:        time.Minute * 5,
 			RetryDelay:     time.Second * 5,
 			AddressesDelay: time.Second * 20,

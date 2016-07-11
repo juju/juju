@@ -256,6 +256,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Trace(err)
 	}
 
+	sshOpts := env.Config().BootstrapSSHOpts()
+
 	bootVers := version.Current
 	var cred *cloud.Credential
 	if params.Credential.AuthType() != cloud.EmptyAuthType {
@@ -274,6 +276,11 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		HostedModelConfig:   hostedModelConfig,
 		BootstrapSeries:     meta.Series,
 		AgentVersion:        &bootVers,
+		DialOpts: environs.BootstrapDialOpts{
+			Timeout:        sshOpts.Timeout,
+			RetryDelay:     sshOpts.RetryDelay,
+			AddressesDelay: sshOpts.AddressesDelay,
+		},
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")

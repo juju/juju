@@ -611,7 +611,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s", s.bootstrapParamsFile)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -627,15 +627,8 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 
-	cfg, err := s.bootstrapParams.ControllerModelConfig.Apply(map[string]interface{}{
-		"bootstrap-timeout": "13",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapParams.ControllerModelConfig = cfg
-	s.writeBootstrapParamsFile(c)
-
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s", s.bootstrapParamsFile)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -797,8 +790,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version":     jujuversion.Current.String(),
-			"bootstrap-timeout": "123",
+			"agent-version": jujuversion.Current.String(),
 		},
 	).Delete("admin-secret", "ca-private-key")
 	cfg, err := config.New(config.NoDefaults, attrs)
