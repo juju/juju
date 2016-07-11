@@ -6,19 +6,20 @@ package remotestate_test
 import (
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type WatcherSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 
 	st         *mockState
 	leadership *mockLeadershipTracker
@@ -555,12 +556,12 @@ func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 // for a specific number is very likely to start failing intermittently
 // again, as in lp:1604955, if the SUT undergoes even subtle changes.
 func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(coretesting.LongWait)
 	for i := 0; ; i++ {
 		c.Logf("waiting for alarm %d", i)
 		select {
 		case <-s.clock.Alarms():
-		case <-time.After(testing.ShortWait):
+		case <-time.After(coretesting.ShortWait):
 			return
 		case <-timeout:
 			c.Fatalf("never stopped setting alarms")

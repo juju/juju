@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Azure/go-autorest/autorest"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -112,7 +113,7 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 		}
 	}
 	if config.RetryClock == nil {
-		config.RetryClock = testing.NewClock(time.Time{})
+		config.RetryClock = jujutesting.NewClock(time.Time{})
 	}
 	environProvider, err := azure.NewProvider(config)
 	c.Assert(err, jc.ErrorIsNil)

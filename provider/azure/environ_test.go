@@ -85,13 +85,13 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.sender = nil
 	s.requests = nil
-	s.retryClock = mockClock{Clock: testing.NewClock(time.Time{})}
+	s.retryClock = mockClock{Clock: gitjujutesting.NewClock(time.Time{})}
 
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
 		RequestInspector: requestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
-		RetryClock: &testing.AutoAdvancingClock{
+		RetryClock: &gitjujutesting.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
 	})
@@ -536,7 +536,7 @@ func assertRequestBody(c *gc.C, req *http.Request, expect interface{}) {
 
 type mockClock struct {
 	gitjujutesting.Stub
-	*testing.Clock
+	*gitjujutesting.Clock
 }
 
 func (c *mockClock) After(d time.Duration) <-chan time.Time {

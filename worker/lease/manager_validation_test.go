@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -59,7 +58,7 @@ func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Client:    NewClient(nil, nil),
 		Secretary: struct{ lease.Secretary }{},
-		Clock:     coretesting.NewClock(time.Now()),
+		Clock:     testing.NewClock(time.Now()),
 	})
 	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -69,7 +68,7 @@ func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Client:    NewClient(nil, nil),
-		Clock:     coretesting.NewClock(time.Now()),
+		Clock:     testing.NewClock(time.Now()),
 		Secretary: struct{ lease.Secretary }{},
 		MaxSleep:  -time.Nanosecond,
 	})
@@ -80,7 +79,7 @@ func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
 
 func (s *ValidationSuite) TestClaim_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		err := manager.Claim("INVALID", "bar/0", time.Minute)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -89,7 +88,7 @@ func (s *ValidationSuite) TestClaim_LeaseName(c *gc.C) {
 
 func (s *ValidationSuite) TestClaim_HolderName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		err := manager.Claim("foo", "INVALID", time.Minute)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease for holder "INVALID": name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -98,7 +97,7 @@ func (s *ValidationSuite) TestClaim_HolderName(c *gc.C) {
 
 func (s *ValidationSuite) TestClaim_Duration(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		err := manager.Claim("foo", "bar/0", time.Second)
 		c.Check(err, gc.ErrorMatches, `cannot claim lease for 1s: time not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -107,7 +106,7 @@ func (s *ValidationSuite) TestClaim_Duration(c *gc.C) {
 
 func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		token := manager.Token("INVALID", "bar/0")
 		err := token.Check(nil)
 		c.Check(err, gc.ErrorMatches, `cannot check lease "INVALID": name not valid`)
@@ -117,7 +116,7 @@ func (s *ValidationSuite) TestToken_LeaseName(c *gc.C) {
 
 func (s *ValidationSuite) TestToken_HolderName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		token := manager.Token("foo", "INVALID")
 		err := token.Check(nil)
 		c.Check(err, gc.ErrorMatches, `cannot check holder "INVALID": name not valid`)
@@ -144,7 +143,7 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		token := manager.Token("redis", "redis/0")
 		err := token.Check(&expectKey)
 		cause := errors.Cause(err)
@@ -154,7 +153,7 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 
 func (s *ValidationSuite) TestWaitUntilExpired_LeaseName(c *gc.C) {
 	fix := &Fixture{}
-	fix.RunTest(c, func(manager *lease.Manager, _ *coretesting.Clock) {
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
 		err := manager.WaitUntilExpired("INVALID")
 		c.Check(err, gc.ErrorMatches, `cannot wait for lease "INVALID" expiry: name not valid`)
 		c.Check(err, jc.Satisfies, errors.IsNotValid)

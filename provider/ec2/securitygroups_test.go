@@ -41,7 +41,7 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, coretesting.NewClock(time.Time{}))
+	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, testing.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
@@ -50,14 +50,14 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *gc.C
 	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
 		return nil, &amzec2.Error{Code: "InvalidGroup.NotFound"}
 	}
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, coretesting.NewClock(time.Time{}))
+	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, testing.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 	t0 := time.Time{}
-	clock := autoAdvancingClock{coretesting.NewClock(t0)}
+	clock := autoAdvancingClock{testing.NewClock(t0)}
 	count := 0
 	maxCalls := 4
 	expectedTimes := []time.Time{
@@ -86,7 +86,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 }
 
 type autoAdvancingClock struct {
-	*coretesting.Clock
+	*testing.Clock
 }
 
 func (c autoAdvancingClock) After(d time.Duration) <-chan time.Time {

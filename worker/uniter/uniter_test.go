@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/clock"
@@ -45,7 +46,7 @@ type UniterSuite struct {
 
 var _ = gc.Suite(&UniterSuite{})
 
-var leaseClock *coretesting.Clock
+var leaseClock *jujutesting.Clock
 
 // This guarantees that we get proper platform
 // specific error directly from their source
@@ -72,7 +73,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	zone, err := time.LoadLocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = coretesting.NewClock(now)
+	leaseClock = jujutesting.NewClock(now)
 	oldGetClock := state.GetClock
 	state.GetClock = func() clock.Clock {
 		return leaseClock
@@ -91,7 +92,7 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	zone, err := time.LoadLocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = coretesting.NewClock(now)
+	leaseClock = jujutesting.NewClock(now)
 	state.GetClock = func() clock.Clock {
 		return leaseClock
 	}
