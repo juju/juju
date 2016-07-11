@@ -71,9 +71,9 @@ def run_all(tasks):
 
 
 def summarise_tasks(tasks):
-    """Return of sum of tasks returncodes."""
-    returncode = max([t.returncode for t in tasks])
-    if returncode == 0:
+    """Log summary of results and returns the number of tasks that failed."""
+    failed_count = sum(t.returncode != 0 for t in tasks)
+    if not failed_count:
         log.debug('SUCCESS')
     else:
         log.debug('FAIL')
@@ -81,7 +81,7 @@ def summarise_tasks(tasks):
             if task.returncode != 0:
                 log.error('{} failed with {}\nSee {}'.format(
                           task.name, task.returncode, task.err_log_name))
-    return returncode
+    return failed_count
 
 
 def parse_args(argv=None):
@@ -103,7 +103,6 @@ def parse_args(argv=None):
 
 def main(argv=None):
     """Run many tasks concurrently."""
-    returncode = 254
     args = parse_args(argv)
     configure_logging(args.verbose)
     tasks = [Task(t, args.log_dir) for t in args.tasks]
@@ -111,12 +110,10 @@ def main(argv=None):
         names = [t.name for t in tasks]
         log.debug('Running these tasks {}'.format(names))
         run_all(list(tasks))
-        returncode = summarise_tasks(tasks)
-    except Exception as e:
-        log.error(str(e))
-        log.error(traceback.print_exc())
-        return 253
-    return returncode
+    except Exception:
+        log.exception("Script failed while running tasks")
+        return 126
+    return min(100, summarise_tasks(tasks))
 
 
 if __name__ == '__main__':
