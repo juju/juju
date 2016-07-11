@@ -65,16 +65,13 @@ class TestMain(TestCase):
                    autospec=True) as mock_cl:
             with patch("assess_mixed_images.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch("jujupy.SimpleEnvironment.from_config",
-                           return_value=client.env) as mock_e:
-                    with patch("jujupy.EnvJujuClient.by_version",
-                               return_value=client) as mock_c:
-                        with patch("assess_mixed_images.assess_mixed_images",
-                                   autospec=True) as mock_assess:
-                            main(argv)
+                with patch("deploy_stack.client_from_config",
+                           return_value=client) as mock_c:
+                    with patch("assess_mixed_images.assess_mixed_images",
+                               autospec=True) as mock_assess:
+                        main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(client.env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 

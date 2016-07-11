@@ -1,4 +1,4 @@
-from contextlib import nested
+from contextlib import contextmanager
 import logging
 from mock import patch
 import StringIO
@@ -40,12 +40,14 @@ class TestMain(TestCase):
             '/tmp/credentials_file',
             '--verbose',
             ]
-        with nested(
-            patch.object(arc, 'configure_logging', autospec=True),
-            patch.object(arc, 'assess_charmstore_resources', autospec=True),
-        ) as (mock_cl, mock_cs_assess):
-            with EnvironmentVariable('JUJU_REPOSITORY', ''):
-                arc.main(argv)
+        with patch.object(
+                arc, 'configure_logging', autospec=True) as mock_cl:
+            with patch.object(
+                    arc,
+                    'assess_charmstore_resources',
+                    autospec=True) as mock_cs_assess:
+                with EnvironmentVariable('JUJU_REPOSITORY', ''):
+                    arc.main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_cs_assess.assert_called_once_with(
             '/usr/bin/charm', '/tmp/credentials_file')
@@ -95,12 +97,7 @@ class TestCharmstoreDetails(TestCase):
         username = 'username'
         password = 'securepassword'
         api_url = 'https://www.jujugui.org'
-        with nested(
-            EnvironmentVariable('CS_EMAIL', email),
-            EnvironmentVariable('CS_USERNAME', username),
-            EnvironmentVariable('CS_PASSWORD', password),
-            EnvironmentVariable('CS_API_URL', api_url)
-        ):
+        with set_charmstore_envvar(email, username, password, api_url):
             with NamedTemporaryFile() as tmp_file:
                 results = arc.get_charmstore_details(tmp_file.name)
         self.assertEqual(results.email, email)
@@ -118,12 +115,7 @@ class TestCharmstoreDetails(TestCase):
         username = 'username-env'
         password = 'password-env'
         api_url = 'https://www.jujugui.org-env'
-        with nested(
-            EnvironmentVariable('CS_EMAIL', email),
-            EnvironmentVariable('CS_USERNAME', username),
-            EnvironmentVariable('CS_PASSWORD', password),
-            EnvironmentVariable('CS_API_URL', api_url)
-        ):
+        with set_charmstore_envvar(email, username, password, api_url):
             with NamedTemporaryFile() as tmp_file:
                 tmp_file.write(cred_details)
                 tmp_file.seek(0)
@@ -132,6 +124,15 @@ class TestCharmstoreDetails(TestCase):
         self.assertEqual(results.username, username)
         self.assertEqual(results.password, password)
         self.assertEqual(results.api_url, api_url)
+
+
+@contextmanager
+def set_charmstore_envvar(email, username, password, api_url):
+    with EnvironmentVariable('CS_EMAIL', email):
+        with EnvironmentVariable('CS_USERNAME', username):
+            with EnvironmentVariable('CS_PASSWORD', password):
+                with EnvironmentVariable('CS_API_URL', api_url):
+                    yield
 
 
 class TestSplitLineDetails(TestCase):
