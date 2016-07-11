@@ -210,6 +210,7 @@ iface eth0 inet static
 const networkStaticExpected = `auto lo
 iface lo inet loopback
 
+auto eth0
 iface eth0 inet manual
 
 auto test-br-eth0
@@ -228,6 +229,7 @@ iface eth0 inet dhcp`
 const networkDHCPExpected = `auto lo
 iface lo inet loopback
 
+auto eth0
 iface eth0 inet manual
 
 auto test-br-eth0
@@ -252,6 +254,7 @@ iface eth1 inet static
 const networkDualNICExpected = `auto lo
 iface lo inet loopback
 
+auto eth0
 iface eth0 inet manual
 
 auto test-br-eth0
@@ -261,6 +264,7 @@ iface test-br-eth0 inet static
     gateway 4.3.2.1
     bridge_ports eth0
 
+auto eth1
 iface eth1 inet manual
 
 auto test-br-eth1
@@ -286,6 +290,7 @@ iface eth0:1 inet static
 const networkWithAliasExpected = `auto lo
 iface lo inet loopback
 
+auto eth0
 iface eth0 inet manual
 
 auto test-br-eth0
@@ -320,6 +325,7 @@ dns-nameserver 192.168.1.142`
 const networkDHCPWithAliasExpected = `auto lo
 iface lo inet loopback
 
+auto eth0
 iface eth0 inet manual
 
 auto test-br-eth0
@@ -356,7 +362,8 @@ iface eth1 inet manual
 dns-nameservers 10.17.20.200
 dns-search maas`
 
-const networkMultipleStaticWithAliasesExpected = `iface eth0 inet manual
+const networkMultipleStaticWithAliasesExpected = `auto eth0
+iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet static
@@ -470,18 +477,21 @@ iface eth10:2 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
-const networkMultipleAliasesExpected = `iface eth0 inet manual
+const networkMultipleAliasesExpected = `auto eth0
+iface eth0 inet manual
 
 auto test-br-eth0
 iface test-br-eth0 inet dhcp
     bridge_ports eth0
 
+auto eth1
 iface eth1 inet manual
 
 auto test-br-eth1
 iface test-br-eth1 inet dhcp
     bridge_ports eth1
 
+auto eth10
 iface eth10 inet manual
 
 auto test-br-eth10
@@ -634,6 +644,7 @@ iface eth3 inet manual
     mtu 1500
     bond-mode active-backup
 
+auto eth4
 iface eth4 inet manual
 
 auto juju-br-eth4
@@ -642,6 +653,7 @@ iface juju-br-eth4 inet static
     mtu 1500
     bridge_ports eth4
 
+auto eth5
 iface eth5 inet manual
 
 auto juju-br-eth5
@@ -649,6 +661,7 @@ iface juju-br-eth5 inet dhcp
     mtu 1500
     bridge_ports eth5
 
+auto eth6
 iface eth6 inet manual
 
 auto juju-br-eth6
@@ -744,7 +757,8 @@ iface eth1.3 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
-const networkVLANExpected = `iface eth0 inet manual
+const networkVLANExpected = `auto eth0
+iface eth0 inet manual
 
 auto vlan-br-eth0
 iface vlan-br-eth0 inet static
@@ -757,6 +771,7 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
+auto eth0.2
 iface eth0.2 inet manual
     address 192.168.2.3/24
     vlan-raw-device eth0
@@ -769,6 +784,7 @@ iface vlan-br-eth0.2 inet static
     mtu 1500
     bridge_ports eth0.2
 
+auto eth1.3
 iface eth1.3 inet manual
     address 192.168.3.3/24
     vlan-raw-device eth1
@@ -839,7 +855,8 @@ iface eth1.2670 inet static
 dns-nameservers 10.245.168.2
 dns-search dellstack`
 
-const networkVLANWithMultipleNameserversExpected = `iface eth0 inet manual
+const networkVLANWithMultipleNameserversExpected = `auto eth0
+iface eth0 inet manual
 
 auto br-eth0
 iface br-eth0 inet static
@@ -861,6 +878,7 @@ auto eth3
 iface eth3 inet manual
     mtu 1500
 
+auto eth1.2667
 iface eth1.2667 inet manual
     address 10.245.184.2/24
     vlan-raw-device eth1
@@ -875,6 +893,7 @@ iface br-eth1.2667 inet static
     bridge_ports eth1.2667
     dns-nameservers 10.245.168.2
 
+auto eth1.2668
 iface eth1.2668 inet manual
     address 10.245.185.1/24
     vlan-raw-device eth1
@@ -889,6 +908,7 @@ iface br-eth1.2668 inet static
     bridge_ports eth1.2668
     dns-nameservers 10.245.168.2
 
+auto eth1.2669
 iface eth1.2669 inet manual
     address 10.245.186.1/24
     vlan-raw-device eth1
@@ -903,6 +923,7 @@ iface br-eth1.2669 inet static
     bridge_ports eth1.2669
     dns-nameservers 10.245.168.2
 
+auto eth1.2670
 iface eth1.2670 inet manual
     address 10.245.187.2/24
     vlan-raw-device eth1
@@ -1013,6 +1034,7 @@ iface br-bond0 inet static
     bridge_ports bond0
     dns-nameservers 10.17.20.200
 
+auto bond0.2
 iface bond0.2 inet manual
     address 192.168.2.102/24
     vlan-raw-device bond0
@@ -1025,6 +1047,7 @@ iface br-bond0.2 inet static
     mtu 1500
     bridge_ports bond0.2
 
+auto bond0.3
 iface bond0.3 inet manual
     address 192.168.3.101/24
     vlan-raw-device bond0
@@ -1062,7 +1085,8 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
-const networkVLANWithInactiveDeviceExpected = `iface eth0 inet manual
+const networkVLANWithInactiveDeviceExpected = `auto eth0
+iface eth0 inet manual
 
 auto br-eth0
 iface br-eth0 inet static
@@ -1076,6 +1100,7 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
+auto eth1.2
 iface eth1.2 inet manual
     vlan-raw-device eth1
     mtu 1500
@@ -1111,7 +1136,8 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
-const networkVLANWithActiveDHCPDeviceExpected = `iface eth0 inet manual
+const networkVLANWithActiveDHCPDeviceExpected = `auto eth0
+iface eth0 inet manual
 
 auto br-eth0
 iface br-eth0 inet static
@@ -1121,6 +1147,7 @@ iface br-eth0 inet static
     bridge_ports eth0
     dns-nameservers 10.17.20.200
 
+auto eth1
 iface eth1 inet manual
 
 auto br-eth1
@@ -1128,6 +1155,7 @@ iface br-eth1 inet dhcp
     mtu 1500
     bridge_ports eth1
 
+auto eth1.2
 iface eth1.2 inet manual
     vlan-raw-device eth1
     mtu 1500
@@ -1182,7 +1210,8 @@ iface eth3 inet static
 dns-search ubuntu juju
 dns-search dellstack ubuntu dellstack`
 
-const networkWithMultipleDNSValuesExpected = `iface eth0 inet manual
+const networkWithMultipleDNSValuesExpected = `auto eth0
+iface eth0 inet manual
 
 auto br-eth0
 iface br-eth0 inet static
@@ -1192,6 +1221,7 @@ iface br-eth0 inet static
     bridge_ports eth0
     dns-nameservers 10.245.168.2 192.168.1.1
 
+auto eth1
 iface eth1 inet manual
 
 auto br-eth1
@@ -1202,6 +1232,7 @@ iface br-eth1 inet static
     bridge_ports eth1
     dns-sortlist 192.168.1.0/24 10.245.168.0/21
 
+auto eth2
 iface eth2 inet manual
 
 auto br-eth2
@@ -1212,6 +1243,7 @@ iface br-eth2 inet static
     bridge_ports eth2
     dns-search juju ubuntu dellstack
 
+auto eth3
 iface eth3 inet manual
 
 auto br-eth3
@@ -1246,7 +1278,8 @@ dns-nameservers
 dns-search
 dns-sortlist`
 
-const networkWithEmptyDNSValuesExpected = `iface eth0 inet manual
+const networkWithEmptyDNSValuesExpected = `auto eth0
+iface eth0 inet manual
 
 auto br-eth0
 iface br-eth0 inet static
@@ -1255,6 +1288,7 @@ iface br-eth0 inet static
     mtu 1500
     bridge_ports eth0
 
+auto eth1
 iface eth1 inet manual
 
 auto br-eth1
@@ -1552,6 +1586,7 @@ iface br-eth0 inet static
     gateway 4.3.2.1
     bridge_ports eth0
 
+auto eth1
 iface eth1 inet manual
 
 auto br-eth1
