@@ -118,11 +118,15 @@ class TestRunChaosMonkey(FakeHomeTestCase):
                 monkey_runner = MonkeyRunner('foo', client, service='ser1')
                 with patch('jujupy.GroupReporter._write', autospec=True):
                     monkey_runner.deploy_chaos_monkey()
-        assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'deploy', '-m', 'foo', 'local:chaos-monkey'),
+        assert_juju_call(
+            self,
+            cc_mock,
+            client,
+            ('juju', '--show-log', 'deploy',
+             '-m', 'foo:foo', 'local:chaos-monkey'),
             0)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'add-relation', '-m', 'foo', 'ser1',
+            'juju', '--show-log', 'add-relation', '-m', 'foo:foo', 'ser1',
             'chaos-monkey'), 1)
         self.assertEqual(cc_mock.call_count, 2)
         self.assertEqual(gjo_mock.call_count, 2)
@@ -328,7 +332,7 @@ class TestUnleashOnce(FakeHomeTestCase):
         expected = ['abcd' * 9, '1234' * 9]
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', admin=False),
+                call('show-status', '--format', 'yaml', controller=False),
                 call('run-action', 'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120'),
                 call('run-action', 'chaos-monkey/0', 'start', 'mode=single',
@@ -344,7 +348,7 @@ class TestUnleashOnce(FakeHomeTestCase):
             monkey_runner.unleash_once()
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', admin=False),
+                call('show-status', '--format', 'yaml', controller=False),
                 call('run-action',
                      'chaos-monkey/1', 'start', 'mode=single',
                      'enablement-timeout=120',

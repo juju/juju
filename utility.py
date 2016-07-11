@@ -25,13 +25,7 @@ try:
 except ImportError:
     from pipes import quote
 
-from jujucharm import (
-    local_charm_path,
-)
-
 quote
-
-local_charm_path
 
 
 # Equivalent of socket.EAI_NODATA when using windows sockets
@@ -516,3 +510,11 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
+
+
+def wait_for_removed_services(client, charm):
+    """Timeout until the remove process ends"""
+    for ignored in until_timeout(60):
+        status = client.get_status()
+        if charm not in status.get_applications():
+            break

@@ -23,6 +23,7 @@ if [[ -n \$(df -h | grep /mnt | tr -s ' ' |  cut -d ' ' -f 4 | grep G) ]]; then
         sudo cp -rp /var/lib/jenkins /mnt
         sudo mv /var/lib/jenkins /var/lib/jenkins.old
         sudo ln -s /mnt/jenkins /var/lib/jenkins
+        sudo chown -h jenkins:jenkins /var/lib/jenkins
     fi
     if [[ ! -d /mnt/lxc ]]; then
         sudo cp -rp /var/lib/lxc /mnt
@@ -33,6 +34,7 @@ if [[ -n \$(df -h | grep /mnt | tr -s ' ' |  cut -d ' ' -f 4 | grep G) ]]; then
         sudo cp -rp /var/lib/lxd /mnt
         sudo mv /var/lib/lxd /var/lib/lxd.old
         sudo ln -s /mnt/lxd /var/lib/lxd
+        sudo chown -h lxd:lxd /var/lib/lxd
     fi
 fi
 EOT
@@ -47,6 +49,7 @@ cat ./.ssh/authorized_keys | sudo tee -a /var/lib/jenkins/.ssh/authorized_keys
 sudo chmod 700 /var/lib/jenkins/.ssh/
 sudo chmod 600 ./.ssh/authorized_keys
 sudo chown -R jenkins:jenkins /var/lib/jenkins/.ssh
+sudo usermod -a -G lxd jenkins
 EOT
 
 # Install ssh rules for juju to repeatedly create instances.

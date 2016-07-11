@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import platform
 import subprocess
 import sys
 
@@ -16,6 +17,19 @@ import utility
 
 BUCKET = "juju-pip-archives"
 PREFIX = "juju-ci-tools/"
+REQUIREMENTS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                            "requirements.txt")
+MAC_WIN_REQS = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                            "mac-win-requirements.txt")
+OBSOLETE = os.path.join(os.path.realpath(os.path.dirname(__file__)),
+                        "obsolete-requirements.txt")
+
+
+def get_requirements():
+    if platform.dist()[0] in ('Ubuntu', 'debian'):
+        return REQUIREMENTS
+    else:
+        return MAC_WIN_REQS
 
 
 def s3_anon():
@@ -36,36 +50,61 @@ def s3_auth_with_rc(cloud_city):
     return boto.s3.connection.S3Connection(access_key, secret_key)
 
 
-def run_pip_install(extra_args, verbose=False):
+def run_pip_install(extra_args, requirements, verbose=False):
     """Run pip install in a subprocess with given additional arguments."""
     cmd = ["pip"]
     if not verbose:
         cmd.append("-q")
-    requirements = os.path.join(os.path.realpath(os.path.dirname(__file__)),
-                                "requirements.txt")
     cmd.extend(["install", "-r", requirements])
     cmd.extend(extra_args)
     subprocess.check_call(cmd)
 
 
-def command_install(bucket, verbose=False):
+def run_pip_uninstall(obsolete_requirements):
+    """Run pip uninstall for each package version in obsolete_requirements.
+
+    pip uninstall the package without regard to its version. In most cases,
+    calling install with a new package version implicitly upgrades.
+    There are only a few package version that cannot by upgraded, they must
+    be removed before install. This function uninstalls packages only when
+    their version matches the obsolete.
+
+    The obsolete_requirements entries must match the output of pip list. eg:
+        azure (0.8.0)
+        bibbel (1.2.3)
+    """
+    pip_cmd = ['pip']
+    list_cmd = pip_cmd + ['list']
+    installed_packages = set(subprocess.check_output(list_cmd).splitlines())
+    with open(obsolete_requirements, 'r') as o_file:
+        obsolete_packages = o_file.read().splitlines()
+    removable = installed_packages.intersection(obsolete_packages)
+    for package_version in removable:
+        package, version = package_version.split()
+        uninstall_cmd = pip_cmd + ['uninstall', '-y', package]
+        subprocess.check_call(uninstall_cmd)
+
+
+def command_install(bucket, requirements, verbose=False):
     with utility.temp_dir() as archives_dir:
         for key in bucket.list(prefix=PREFIX):
             archive = key.name[len(PREFIX):]
             key.get_contents_to_filename(os.path.join(archives_dir, archive))
         archives_url = "file://" + archives_dir
+        run_pip_uninstall(OBSOLETE)
         run_pip_install(["--user", "--no-index", "--find-links", archives_url],
-                        verbose=verbose)
+                        requirements, verbose=verbose)
 
 
-def command_update(s3, verbose=False):
+def command_update(s3, requirements, verbose=False):
     bucket = s3.lookup(BUCKET)
     if bucket is None:
         if verbose:
             print("Creating bucket {}".format(BUCKET))
         bucket = s3.create_bucket(BUCKET, policy="public-read")
     with utility.temp_dir() as archives_dir:
-        run_pip_install(["--download", archives_dir], verbose=verbose)
+        run_pip_install(
+            ["--download", archives_dir], requirements, verbose=verbose)
         for archive in os.listdir(archives_dir):
             filename = os.path.join(archives_dir, archive)
             key = boto.s3.key.Key(bucket)
@@ -94,6 +133,9 @@ def get_parser(argv0):
     parser.add_argument(
         "--cloud-city", default="~/cloud-city", type=os.path.expanduser,
         help="Location of cloud-city repository for credentials.")
+    parser.add_argument(
+        "--requirements", default=get_requirements(), type=os.path.expanduser,
+        help="Location requirements file to use.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("install", help="Download deps from S3 and install.")
     subparsers.add_parser(
@@ -111,11 +153,11 @@ def main(argv):
         parser.error("Need cloud-city credentials to modify S3 cache.")
     s3 = s3_auth_with_rc(args.cloud_city) if use_auth else s3_anon()
     if args.command == "update":
-        command_update(s3, args.verbose)
+        command_update(s3, args.requirements, args.verbose)
     else:
         bucket = s3.get_bucket(BUCKET)
         if args.command == "install":
-            command_install(bucket, args.verbose)
+            command_install(bucket, args.requirements, args.verbose)
         elif args.command == "list":
             command_list(bucket, args.verbose)
         elif args.command == "delete":

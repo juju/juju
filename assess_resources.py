@@ -11,11 +11,13 @@ from tempfile import NamedTemporaryFile
 from deploy_stack import (
     BootstrapManager,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    local_charm_path,
 )
 
 
@@ -23,10 +25,10 @@ __metaclass__ = type
 log = logging.getLogger("assess_resources")
 
 
-def _resource_info(name, fingerprint, size):
+def _resource_info(name, fingerprint, size, service_app_id):
     data = {}
     data['resourceid'] = "dummy-resource/{}".format(name)
-    data['serviceid'] = 'dummy-resource'
+    data[service_app_id] = 'dummy-resource'
     data['name'] = name
     data['type'] = 'file'
     data['description'] = '{} resource.'.format(name)
@@ -43,7 +45,12 @@ def verify_status(status, resource_id, name, fingerprint, size):
     resources = status['resources']
     for resource in resources:
         if resource['expected']['resourceid'] == resource_id:
-            expected_values = _resource_info(name, fingerprint, size)
+            if 'serviceid' in resource['unit']:
+                service_app_id = 'serviceid'
+            else:
+                service_app_id = 'applicationId'
+            expected_values = _resource_info(name, fingerprint,
+                                             size, service_app_id)
             if resource['expected'] != expected_values:
                 raise JujuAssertionError(
                     'Unexpected resource list values: {} Expected: {}'.format(
@@ -146,6 +153,7 @@ def parse_args(argv):
                         help='The time to wait for agents to start')
     parser.add_argument('--resource-timeout', type=int, default=1800,
                         help='The time to wait for agents to start')
+
     return parser.parse_args(argv)
 
 

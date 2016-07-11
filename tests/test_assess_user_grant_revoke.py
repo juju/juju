@@ -93,7 +93,6 @@ class TestMain(TestCase):
 
     def test_main(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
-        env = object()
         client = Mock(spec=["is_jes_enabled"])
         with patch("assess_user_grant_revoke.BootstrapManager.booted_context",
                    autospec=True) as mock_bc:
@@ -101,14 +100,11 @@ class TestMain(TestCase):
                        autospec=True) as mock_assess:
                 with patch("assess_user_grant_revoke.configure_logging",
                            autospec=True) as mock_cl:
-                        with patch("jujupy.SimpleEnvironment.from_config",
-                                   return_value=env) as mock_e:
-                            with patch("jujupy.EnvJujuClient.by_version",
+                            with patch("deploy_stack.client_from_config",
                                        return_value=client) as mock_c:
                                 main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_e.assert_called_once_with("an-env")
-        mock_c.assert_called_once_with(env, "/bin/juju", debug=False)
+        mock_c.assert_called_once_with("an-env", "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 
@@ -200,12 +196,18 @@ class TestAssess(TestCase):
         fake_client = make_fake_client()
         fake_client.bootstrap()
         fake_client_environ = fake_client._shell_environ()
-        cloned, cloned_environ = create_cloned_environment(fake_client,
-                                                           'fakehome')
+        controller_name = 'user_controller'
+        cloned, cloned_environ = create_cloned_environment(
+            fake_client,
+            'fakehome',
+            controller_name
+        )
         self.assertIs(fake_client.__class__, type(cloned))
         self.assertEqual(cloned.env.juju_home, 'fakehome')
         self.assertNotEqual(cloned_environ, fake_client_environ)
         self.assertEqual(cloned_environ['JUJU_DATA'], 'fakehome')
+        self.assertEqual(cloned.env.controller.name, controller_name)
+        self.assertEqual(fake_client.env.controller.name, 'name')
 
     def test_register_user(self):
         FakeUser = namedtuple('user', ['name', 'permissions'])
@@ -224,7 +226,7 @@ class TestAssess(TestCase):
                         user.name + '_password',
                         pexpect.EOF],
                     [
-                        '(?i)name .*: ',
+                        '(?i)name',
                         '(?i)password',
                         '(?i)password',
                         pexpect.EOF])

@@ -29,7 +29,9 @@ from jujuconfig import (
     translate_to_env,
 )
 from jujupy import (
+    client_from_config,
     EnvJujuClient,
+    get_client_class,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
@@ -306,8 +308,11 @@ def copy_remote_logs(remote, directory):
             # TODO(gz): Also capture kvm container logs?
             '/var/lib/juju/containers/juju-*-lxc-*/',
             '/var/log/lxd/juju-*',
+            '/var/log/lxd/lxd.log',
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
+            '/etc/network/interfaces',
+            '/home/ubuntu/ifconfig.log',
         ]
 
         try:
@@ -321,6 +326,11 @@ def copy_remote_logs(remote, directory):
         except subprocess.CalledProcessError as e:
             # The juju log dir is not created until after cloud-init succeeds.
             logging.warning("Could not allow access to the juju logs:")
+            logging.warning(e.output)
+        try:
+            remote.run('ifconfig > /home/ubuntu/ifconfig.log')
+        except subprocess.CalledProcessError as e:
+            logging.warning("Could not capture ifconfig state:")
             logging.warning(e.output)
 
     try:
@@ -336,9 +346,7 @@ def copy_remote_logs(remote, directory):
 
 
 def assess_juju_run(client):
-    responses = client.get_juju_output('run', '--format', 'json', '--service',
-                                       'dummy-source,dummy-sink', 'uname')
-    responses = json.loads(responses)
+    responses = client.run(('uname',), ['dummy-source', 'dummy-sink'])
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
             raise ValueError('juju run on machine %s returned %d: %s' % (
@@ -352,8 +360,9 @@ def assess_juju_run(client):
 
 
 def assess_upgrade(old_client, juju_path):
-    client = EnvJujuClient.by_version(old_client.env, juju_path,
-                                      old_client.debug)
+    version = EnvJujuClient.get_version(juju_path)
+    client_class = get_client_class(version)
+    client = old_client.clone(cls=client_class, version=version)
     upgrade_juju(client)
     if client.env.config['type'] == 'maas':
         timeout = 1200
@@ -479,13 +488,13 @@ class BootstrapManager:
 
     @classmethod
     def from_args(cls, args):
-        env = SimpleEnvironment.from_config(args.env)
         if args.juju_bin == 'FAKE':
+            env = SimpleEnvironment.from_config(args.env)
             from tests.test_jujupy import fake_juju_client  # Circular imports
             client = fake_juju_client(env=env)
         else:
-            client = EnvJujuClient.by_version(env, args.juju_bin,
-                                              debug=args.debug)
+            client = client_from_config(args.env, args.juju_bin,
+                                        debug=args.debug)
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
@@ -635,6 +644,54 @@ class BootstrapManager:
                 raise
 
     @contextmanager
+    def existing_bootstrap_context(self, machines, omit_config=None):
+        """ Context for bootstrapping a state server that shares the
+        environment with an existing bootstrap environment.
+
+        Using this context makes it possible to boot multiple simultaneous
+        environments that share a JUJU_HOME.
+
+        """
+        bootstrap_host = self.known_hosts.get('0')
+        kwargs = dict(
+            series=self.series, bootstrap_host=bootstrap_host,
+            agent_url=self.agent_url, agent_stream=self.agent_stream,
+            region=self.region)
+        if omit_config is not None:
+            for key in omit_config:
+                kwargs.pop(key.replace('-', '_'), None)
+        update_env(self.client.env, self.temp_env_name, **kwargs)
+        ssh_machines = list(machines)
+        if bootstrap_host is not None:
+            ssh_machines.append(bootstrap_host)
+        for machine in ssh_machines:
+            logging.info('Waiting for port 22 on %s' % machine)
+            wait_for_port(machine, 22, timeout=120)
+
+        try:
+            try:
+                yield
+            # If an exception is raised that indicates an error, log it
+            # before tearing down so that the error is closely tied to
+            # the failed operation.
+            except Exception as e:
+                logging.exception(e)
+                if getattr(e, 'output', None):
+                    print_now('\n')
+                    print_now(e.output)
+                raise LoggedException(e)
+        except:
+            # If run from a windows machine may not have ssh to get
+            # logs
+            if self.bootstrap_host is not None and _can_run_ssh():
+                remote = remote_from_address(self.bootstrap_host,
+                                             series=self.series)
+                copy_remote_logs(remote, self.log_dir)
+                archive_logs(self.log_dir)
+            self.tear_down()
+            raise
+
+    @contextmanager
     def runtime_context(self, addable_machines):
         """Context for running non-bootstrap operations.
 
@@ -644,8 +701,8 @@ class BootstrapManager:
         try:
             try:
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(self.client.get_admin_client(),
-                                                '0')
+                    host = get_machine_dns_name(
+                        self.client.get_controller_client(), '0')
                     if host is None:
                         raise ValueError('Could not get machine 0 host')
                     self.known_hosts['0'] = host
@@ -662,7 +719,10 @@ class BootstrapManager:
             safe_print_status(self.client)
             raise
         else:
-            self.client.show_status()
+            self.client.list_controllers()
+            self.client.list_models()
+            for m_client in self.client.iter_model_clients():
+                m_client.show_status()
         finally:
             try:
                 self.dump_all_logs()
@@ -683,7 +743,7 @@ class BootstrapManager:
         # be accurate for a model created by create_environment.
         if not self._should_dump():
             return
-        admin_client = self.client.get_admin_client()
+        controller_client = self.client.get_controller_client()
         if not self.jes_enabled:
             clients = [self.client]
         else:
@@ -691,13 +751,13 @@ class BootstrapManager:
                 clients = list(self.client.iter_model_clients())
             except Exception:
                 # Even if the controller is unreachable, we may still be able
-                # to gather some logs.  admin_client and self.client are all
-                # we have knowledge of.
-                clients = [admin_client]
-                if self.client is not admin_client:
+                # to gather some logs. The controller_client and self.client
+                # instances are all we have knowledge of.
+                clients = [controller_client]
+                if self.client is not controller_client:
                     clients.append(self.client)
         for client in clients:
-            if client.env.environment == admin_client.env.environment:
+            if client.env.environment == controller_client.env.environment:
                 known_hosts = self.known_hosts
                 if self.jes_enabled:
                     runtime_config = self.client.get_cache_path()
@@ -738,6 +798,24 @@ class BootstrapManager:
         try:
             with self.top_context() as machines:
                 with self.bootstrap_context(
+                        machines, omit_config=self.client.bootstrap_replaces):
+                    self.client.bootstrap(
+                        upload_tools, bootstrap_series=self.series)
+                with self.runtime_context(machines):
+                    self.client.list_controllers()
+                    self.client.list_models()
+                    for m_client in self.client.iter_model_clients():
+                        m_client.show_status()
+                    yield machines
+        except LoggedException:
+            sys.exit(1)
+
+    @contextmanager
+    def existing_booted_context(self, upload_tools):
+        try:
+            with self.top_context() as machines:
+                # Existing does less things as there is no pre-cleanup needed.
+                with self.existing_bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
                         upload_tools, bootstrap_series=self.series)
@@ -795,8 +873,7 @@ def _deploy_job(args, charm_series, series):
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     # GZ 2016-01-22: When upgrading, could make sure to tear down with the
     # newer client instead, this will be required for major version upgrades?
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(args.env), start_juju_path, args.debug)
+    client = client_from_config(args.env, start_juju_path, args.debug)
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()
@@ -809,7 +886,6 @@ def _deploy_job(args, charm_series, series):
             # The win and osx client tests only verify the client
             # can bootstrap and call the state-server.
             return
-        client.show_status()
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,
                                        args.logs, args.with_chaos)
@@ -834,14 +910,15 @@ def _deploy_job(args, charm_series, series):
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        client.show_status()
+        for m_client in client.iter_model_clients():
+            m_client.show_status()
     except Exception as e:
         logging.exception(e)
 
 
-def wait_for_state_server_to_shutdown(host, client, instance_id):
+def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
-    wait_for_port(host, 17070, closed=True)
+    wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
     provider_type = client.env.config.get('type')
     if provider_type == 'openstack':

@@ -13,7 +13,7 @@ FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
 ROBUST="false"
-REVISION_BUILD=${revision_build:-}
+REVISION_BUILD="none"
 USE_PPA=""
 INSTALL_DEPS=""
 USE_TMPFS="false"
@@ -66,6 +66,12 @@ while [[ "${1-}" != "" ]]; do
     esac
     shift
 done
+
+
+if [[ $IS_LOCAL == "false" && $REVISION_BUILD == "none" ]]; then
+    echo "You must use either the --local or --revision-build option."
+    exit 1
+fi
 
 
 if [[ $IS_LOCAL == "false" ]]; then
@@ -147,8 +153,12 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
     export TMPDIR=/mnt/tmp
 fi
-tar -xzf $tarfile_basename
 export GOPATH=\$HOME/$juju_version
+if [[ -d \$GOPATH ]]; then
+    echo "Cleaning up files unpacked into the GOPATH by a previous test."
+    rm -r \$GOPATH
+fi
+tar -xzf $tarfile_basename
 if [[ -d \$HOME/goroot ]]; then
     export GOROOT=\$HOME/goroot
 fi

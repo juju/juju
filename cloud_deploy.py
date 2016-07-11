@@ -7,6 +7,9 @@ import subprocess
 import sys
 from time import sleep
 
+from jujucharm import (
+    local_charm_path,
+)
 from jujupy import (
     CannotConnectEnv,
     EnvJujuClient,
@@ -18,7 +21,6 @@ from substrate import (
     stop_libvirt_domain,
     verify_libvirt_domain,
 )
-from utility import local_charm_path
 
 
 __metaclass__ = type
