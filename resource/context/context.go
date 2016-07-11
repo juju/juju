@@ -147,6 +147,10 @@ func (deps contextDeps) Copy(target io.Writer, source io.Reader) error {
 	return err
 }
 
+func (deps contextDeps) FingerprintMatches(filename string, expected charmresource.Fingerprint) (bool, error) {
+	return FingerprintMatcher{}.FingerprintMatches(filename, expected)
+}
+
 func (deps contextDeps) Join(path ...string) string {
 	return filepath.Join(path...)
 }
