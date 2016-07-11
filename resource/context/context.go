@@ -148,21 +148,7 @@ func (deps contextDeps) Copy(target io.Writer, source io.Reader) error {
 }
 
 func (deps contextDeps) FingerprintMatches(filename string, expected charmresource.Fingerprint) (bool, error) {
-	file, err := os.Open(filename)
-	if os.IsNotExist(errors.Cause(err)) {
-		return false, nil
-	}
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	defer file.Close()
-
-	fp, err := charmresource.GenerateFingerprint(file)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	matches := (fp.String() == expected.String())
-	return matches, nil
+	return FingerprintMatcher{}.FingerprintMatches(filename, expected)
 }
 
 func (deps contextDeps) Join(path ...string) string {
