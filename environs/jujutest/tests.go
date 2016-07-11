@@ -55,16 +55,16 @@ func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
 	return e
 }
 
-// PrepareParams returns the environs.PrepareParams that will be used to call
-// environs.Prepare.
-func (t *Tests) PrepareParams(c *gc.C) environs.PrepareParams {
+// PrepareParams returns the bootstrap.PrepareParams that will be used to call
+// bootstrap.Prepare.
+func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
 	testConfigCopy := t.TestConfig.Merge(nil)
 
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
-	return environs.PrepareParams{
+	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 		BaseConfig:       testConfigCopy,
 		Credential:       credential,
@@ -81,8 +81,8 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 }
 
 // PrepareWithParams prepares an instance of the testing environment.
-func (t *Tests) PrepareWithParams(c *gc.C, params environs.PrepareParams) environs.Environ {
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
+func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.BaseConfig))
 	c.Assert(e, gc.NotNil)
 	return e
@@ -92,7 +92,7 @@ func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attr
 	args := t.PrepareParams(c)
 	args.BaseConfig = coretesting.Attrs(args.BaseConfig).Merge(badConfig)
 
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.ErrorMatches, errorMatches)
 	c.Assert(e, gc.IsNil)
 	return err

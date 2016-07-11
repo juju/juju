@@ -138,7 +138,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	args := t.prepareForBootstrapParams(c)
-	e, err := environs.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -146,12 +146,12 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
-func (t *LiveTests) prepareForBootstrapParams(c *gc.C) environs.PrepareParams {
+func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 	credential := t.Credential
 	if credential.AuthType() == "" {
 		credential = cloud.NewEmptyCredential()
 	}
-	return environs.PrepareParams{
+	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 		BaseConfig:       t.TestConfig,
 		Credential:       credential,
@@ -799,7 +799,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	})
 	args := t.prepareForBootstrapParams(c)
 	args.BaseConfig = dummyCfg
-	dummyenv, err := environs.Prepare(envtesting.BootstrapContext(c),
+	dummyenv, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		args,
 	)
@@ -813,7 +813,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"default-series": other.Series,
 	})
 	args.BaseConfig = attrs
-	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		t.ControllerStore,
 		args)
 	c.Assert(err, jc.ErrorIsNil)

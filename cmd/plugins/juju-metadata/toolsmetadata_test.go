@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -53,10 +54,10 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 		"conroller":       true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 			ControllerName:   cfg.Name(),
 			BaseConfig:       cfg.AllAttrs(),

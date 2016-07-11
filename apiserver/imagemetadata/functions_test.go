@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/imagemetadata"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -32,10 +33,10 @@ func (s *funcSuite) SetUpTest(c *gc.C) {
 	s.baseImageMetadataSuite.SetUpTest(c)
 
 	var err error
-	s.env, err = environs.Prepare(
+	s.env, err = bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerBootstrapConfig(),
 			ControllerName:   "dummycontroller",
 			BaseConfig:       mockConfig(),

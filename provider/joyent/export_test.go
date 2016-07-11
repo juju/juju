@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -210,10 +211,10 @@ func CredentialsAttributes(attrs testing.Attrs) map[string]string {
 
 // MakeConfig creates a functional environConfig for a test.
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerBootstrapConfig(),
 			BaseConfig:       attrs,
 			ControllerName:   attrs["name"].(string),

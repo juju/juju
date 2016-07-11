@@ -8,7 +8,7 @@ Bootstrapping starts with the CLI command `bootstrap`.  That is found in
 The first step of bootstrap is to create an Environ instance which is named.
 This Environ instance has the model configuration (the *config.Config instance).
 Initially this will check in the default config store, which is $JUJU_HOME/models.
-This calls through to environs.PrepareForName in environs/open.go.  This makes sure that the
+This calls through to bootstrap.PrepareForName in environs/open.go.  This makes sure that the
 model configuration contains an admin secret, a CA cert, and a UUID.
 
 It is at this time that the initial .jenv file is written out to $JUJU_DATA/models.

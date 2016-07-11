@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -43,9 +44,9 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			"agent-metadata-url": toolsMetadataURL,
 		})
 	}
-	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 			ControllerName:   attrs["name"].(string),
 			BaseConfig:       attrs,
