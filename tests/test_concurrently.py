@@ -7,6 +7,7 @@ import os
 
 import concurrently
 from tests import (
+    parse_error,
     TestCase,
 )
 from utility import temp_dir
@@ -17,8 +18,8 @@ class ConcurrentlyTest(TestCase):
     log_level = logging.ERROR
 
     def test_main(self):
-        with patch('concurrently.run_all') as r_mock:
-            with patch('concurrently.summarise_tasks',
+        with patch('concurrently.run_all', autospec=True) as r_mock:
+            with patch('concurrently.summarise_tasks', autospec=True,
                        return_value=0) as s_mock:
                 returncode = concurrently.main(
                     ['-v', '-l', '.', 'one=foo a b', 'two=bar c'])
@@ -28,13 +29,28 @@ class ConcurrentlyTest(TestCase):
         r_mock.assert_called_once_with([task_one, task_two])
         s_mock.assert_called_once_with([task_one, task_two])
 
-    @patch('sys.stderr')
-    def test_main_error(self, se_mock):
+    def test_main_error(self):
         with patch('concurrently.run_all', side_effect=ValueError('bad')):
             returncode = concurrently.main(['-v', 'one=foo a b', 'two=bar c'])
         self.assertEqual(126, returncode)
         self.assertIn('ERROR Script failed', self.log_stream.getvalue())
         self.assertIn('ValueError: bad', self.log_stream.getvalue())
+
+    def test_bad_task_missing_name(self):
+        with patch('concurrently.run_all', autospec=True) as r_mock:
+            with parse_error(self) as err_stream:
+                concurrently.main(['-v', 'bad'])
+            self.assertIn(
+                "invalid TaskDefinition value: 'bad'", err_stream.getvalue())
+        self.assertEqual('', self.log_stream.getvalue())
+
+    def test_bad_task_bad_lex(self):
+        with patch('concurrently.run_all', autospec=True) as r_mock:
+            with parse_error(self) as err_stream:
+                concurrently.main(['-v', 'wrong="command'])
+            self.assertIn(
+                "invalid TaskDefinition value: 'wrong=", err_stream.getvalue())
+        self.assertEqual('', self.log_stream.getvalue())
 
     def test_max_failure_returncode(self):
         """With many tasks the return code is clamped to under 127."""
@@ -54,7 +70,7 @@ class ConcurrentlyTest(TestCase):
         self.assertEqual(logging.DEBUG, args.verbose)
         self.assertEqual(os.path.expanduser('~/logs'), args.log_dir)
         self.assertEqual(
-            ['one=foo a b', 'two=bar c'], args.tasks)
+            [('one', ['foo', 'a', 'b']), ('two', ['bar', 'c'])], args.tasks)
 
     def test_summarise_tasks(self):
         task_one = concurrently.Task('one=foo a')
@@ -101,7 +117,6 @@ class TaskTest(TestCase):
         with temp_dir() as base:
             task = concurrently.Task('one=foo a b c', log_dir=base)
             self.assertEqual('one', task.name)
-            self.assertEqual('foo a b c', task.commandline)
             self.assertEqual(['foo', 'a', 'b', 'c'], task.command)
             self.assertEqual(
                 os.path.join(base, 'one-out.log'), task.out_log_name)
@@ -114,7 +129,6 @@ class TaskTest(TestCase):
         with temp_dir() as base:
             task = concurrently.Task('one=foo a "b c"', log_dir=base)
             self.assertEqual('one', task.name)
-            self.assertEqual('foo a "b c"', task.commandline)
             self.assertEqual(['foo', 'a', 'b c'], task.command)
 
     def test_start(self):

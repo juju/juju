@@ -20,11 +20,20 @@ __metaclass__ = type
 log = logging.getLogger("concurrently")
 
 
+class TaskDefinition(tuple):
+
+    def __new__(cls, name_commandline):
+        name, commandline = name_commandline.split('=', 1)
+        command = shlex.split(commandline)
+        return tuple.__new__(cls, (name, command))
+
+
 class Task:
 
-    def __init__(self, name_commdline, log_dir='.'):
-        self.name, self.commandline = name_commdline.split('=', 1)
-        self.command = shlex.split(self.commandline)
+    def __init__(self, task_definition, log_dir='.'):
+        if not isinstance(task_definition, TaskDefinition):
+            task_definition = TaskDefinition(task_definition)
+        self.name, self.command = task_definition
         self.out_log_name = os.path.join(
             log_dir, '{}-out.log'.format(self.name))
         self.err_log_name = os.path.join(
@@ -96,7 +105,7 @@ def parse_args(argv=None):
         '-l', '--log_dir', default='.', type=os.path.expanduser,
         help='The path to store the logs for each task.')
     parser.add_argument(
-        'tasks', nargs='+', default=[],
+        'tasks', nargs='+', default=[], type=TaskDefinition,
         help="one or more tasks to run in the form of name='cmc -opt arg'.")
     return parser.parse_args(argv)
 
