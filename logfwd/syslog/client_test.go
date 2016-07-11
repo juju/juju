@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/rfc/rfc5424"
+	"github.com/juju/rfc/rfc5424/sdelements"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -17,8 +19,6 @@ import (
 
 	"github.com/juju/juju/logfwd"
 	"github.com/juju/juju/logfwd/syslog"
-	"github.com/juju/juju/standards/rfc5424"
-	"github.com/juju/juju/standards/rfc5424/sdelements"
 	coretesting "github.com/juju/juju/testing"
 )
 

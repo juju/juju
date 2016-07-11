@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/rfc/rfc5424"
+	"github.com/juju/rfc/rfc5424/sdelements"
 
 	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/standards/rfc5424"
-	"github.com/juju/juju/standards/rfc5424/sdelements"
 )
 
 // Sender exposes the underlying functionality needed by Client.

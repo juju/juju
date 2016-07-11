@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/rfc/rfc5424/rfc5424test"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/os"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/cert"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/standards/rfc5424/rfc5424test"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -43,6 +43,7 @@ type syslogSuite struct {
 var _ = gc.Suite(&syslogSuite{})
 
 func (s *syslogSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
 	// Tailing logs requires a replica set. Restart mongo with a
 	// replicaset before initialising AgentSuite.
 	mongod := gitjujutesting.MgoServer
