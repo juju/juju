@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import socket
+import sys
 from tempfile import mkdtemp
 from time import time
 import warnings
@@ -445,17 +446,21 @@ class TestAddBasicTestingArguments(TestCase):
         """Special case help should not generate a directory or warning"""
         with warnings.catch_warnings(record=True) as warned:
             with patch('utility.os.makedirs') as dir_mock:
-                cmd_line = ['-h']
-                parser = add_basic_testing_arguments(ArgumentParser())
-                parser.parse_args(cmd_line)
-                self.assertEqual(warned, [])
+                with patch('utility.sys.exit'):
+                    cmd_line = ['-h']
+                    with patch.object(sys, 'argv', cmd_line):
+                        parser = add_basic_testing_arguments(ArgumentParser())
+                        parser.parse_args(cmd_line)
+                        self.assertEqual(warned, [])
 
-                cmd_line = ['--help']
-                parser = add_basic_testing_arguments(ArgumentParser())
-                parser.parse_args(cmd_line)
-                self.assertEqual(warned, [])
+                    cmd_line = ['--help']
+                    with patch.object(sys, 'argv', cmd_line):
+                        parser = add_basic_testing_arguments(ArgumentParser())
+                        parser.parse_args(cmd_line)
+                        self.assertEqual(warned, [])
 
-                self.assertEqual(dir_mock.call_count, 0)
+                    self.assertEqual(len(warned), 0)
+                    self.assertEqual(dir_mock.call_count, 0)
 
         self.assertEqual("", self.log_stream.getvalue())
 
