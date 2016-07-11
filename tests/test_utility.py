@@ -376,12 +376,12 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(logs_arg[1:4], ['tmp', 'test_utility', 'logs'])
         self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
 
-        temp_env_name_arg = args.temp_env_name.split("_")
-        temp_env_name_ts = temp_env_name_arg[2]
-        self.assertEqual(temp_env_name_arg[0:2], ['test', 'utility'])
+        temp_env_name_arg = args.temp_env_name.split("-")
+        temp_env_name_ts = temp_env_name_arg[1]
+        self.assertEqual(temp_env_name_arg[0:1], ['testutility'])
         self.assertTrue(temp_env_name_ts,
                         datetime.strptime(temp_env_name_ts, "%Y%m%d%H%M%S"))
-        self.assertEqual(temp_env_name_arg[3:5], ['temp', 'env'])
+        self.assertEqual(temp_env_name_arg[2:4], ['temp', 'env'])
 
         self.assertEqual(logs_ts, temp_env_name_ts)
 
@@ -440,6 +440,25 @@ class TestAddBasicTestingArguments(TestCase):
                 parser.parse_args(cmd_line)
             self.assertEqual(warned, [])
         self.assertEqual("", self.log_stream.getvalue())
+
+    def test_no_warn_on_help(self):
+        """Special case help should not generate a directory or warning"""
+        with warnings.catch_warnings(record=True) as warned:
+            with patch('utility.os.makedirs') as dir_mock:
+                cmd_line = ['-h']
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
+                self.assertEqual(warned, [])
+
+                cmd_line = ['--help']
+                parser = add_basic_testing_arguments(ArgumentParser())
+                parser.parse_args(cmd_line)
+                self.assertEqual(warned, [])
+
+                self.assertEqual(dir_mock.call_count, 0)
+
+        self.assertEqual("", self.log_stream.getvalue())
+
 
     def test_warn_on_nonexistent_directory_creation(self):
         with warnings.catch_warnings(record=True) as warned:

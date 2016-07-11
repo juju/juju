@@ -328,7 +328,9 @@ def _generate_default_clean_dir(timestamp, help_arg):
 
 def _generate_default_temp_env_name(timestamp):
     """Creates a new unique name for environment and returns the name"""
-    return '{}_{}_temp_env'.format(_get_test_name_from_filename(), timestamp)
+    # we need to sanitize the name
+    test_name = re.sub('[^a-zA-Z]', '', _get_test_name_from_filename())
+    return '{}-{}-temp-env'.format(test_name, timestamp)
 
 
 def _generate_default_binary():
@@ -369,7 +371,8 @@ def add_basic_testing_arguments(parser, using_jes=False):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
     # Control default actions if help is invoked
-    if ['-h'] or ['--help'] in sys.argv:
+    args_list = sys.argv
+    if any(help_called in ['-h', '--help'] for help_called in args_list):
         help_arg = True
     else:
         help_arg = False
