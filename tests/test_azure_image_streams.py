@@ -1,12 +1,15 @@
 from unittest import TestCase
 
 from mock import (
+    call,
     Mock,
     patch,
     )
 
 from azure_image_streams import (
     get_azure_credentials,
+    get_image_versions,
+    IMAGE_SPEC,
     make_item,
     )
 from simplestreams.json2streams import Item
@@ -78,3 +81,27 @@ class TestMakeItem(TestCase):
                 'endpoint': 'http://example.org',
                 'release': 'win95',
             }), item)
+
+
+class TestGetImageVersions(TestCase):
+
+    def test_get_image_versions(self):
+        client = Mock(spec=['config', 'virtual_machine_images'])
+        version_1 = Mock()
+        version_1.name = '1'
+        version_2 = Mock()
+        version_2.name = '2'
+        client.virtual_machine_images.list.return_value = [version_1,
+                                                           version_2]
+        items = list(get_image_versions(client, 'region1', 'Region 1'))
+        expected_items = []
+        expected_calls = []
+        for spec in IMAGE_SPEC:
+            expected_calls.append(call('region1', *spec[1:]))
+            expected_items.append(
+                make_item(version_1, spec, 'Region 1', client.config.base_url))
+            expected_items.append(
+                make_item(version_2, spec, 'Region 1', client.config.base_url))
+        self.assertEqual(expected_items, items)
+        self.assertEqual(expected_calls,
+                         client.virtual_machine_images.list.mock_calls)

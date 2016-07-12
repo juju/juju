@@ -23,6 +23,13 @@ MS_VSTUDIO = 'MicrosoftVisualStudio'
 MS_SERVER = 'MicrosoftWindowsServer'
 WINDOWS = 'Windows'
 WINDOWS_SERVER = 'WindowsServer'
+IMAGE_SPEC = [
+    ('win81', MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
+    ('win10', MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
+    ('win2012', MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
+    ('win2012r2', MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
+    ('centos7', 'OpenLogic', 'CentOS', '7.1'),
+]
 
 
 def get_azure_credentials(all_credentials):
@@ -37,15 +44,8 @@ def get_azure_credentials(all_credentials):
 
 
 def get_image_versions(client, region, region_name):
-    image_spec = [
-        ('win81', MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
-        ('win10', MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
-        ('win2012', MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
-        ('win2012r2', MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
-        ('centos7', 'OpenLogic', 'CentOS', '7.1'),
-    ]
     endpoint = client.config.base_url
-    for full_spec in image_spec:
+    for full_spec in IMAGE_SPEC:
         spec = full_spec[1:]
         try:
             versions = client.virtual_machine_images.list(region, *spec)
