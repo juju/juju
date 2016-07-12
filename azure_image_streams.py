@@ -103,7 +103,7 @@ def main():
         all_credentials = yaml.safe_load(creds_file)['credentials']
     items = make_azure_items(all_credentials)
     items.extend(make_aws_items(all_credentials))
-    write_streams(items, 'outdir')
+    write_streams(items, streams)
 
 
 if __name__ == '__main__':
