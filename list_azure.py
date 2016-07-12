@@ -25,7 +25,7 @@ def get_credentials(azure_dict):
         )
 
 
-def get_image_versions(client, region):
+def get_image_versions(client, region, region_name):
     MS_VSTUDIO = 'MicrosoftVisualStudio'
     MS_SERVER = 'MicrosoftWindowsServer'
     WINDOWS = 'Windows'
@@ -36,11 +36,11 @@ def get_image_versions(client, region):
         'win2012': (MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
         'win2012r2': (MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
         'centos7': ('OpenLogic', 'CentOS', '7.1'),
-#        'asdf': ('Canonical', 'UbuntuServer', '16.04.0-LTS'),
     }
     stanzas = []
     items = []
-    for name, spec in image_spec.items():
+    endpoint = client.config.base_url
+    for release, spec in image_spec.items():
         try:
             versions = client.virtual_machine_images.list(region, *spec)
         except CloudError:
@@ -48,19 +48,22 @@ def get_image_versions(client, region):
                             region=region))
             continue
         for version in versions:
-            yield version
+            yield make_item(version, spec, release, region_name, endpoint)
 
 
-def make_item(version, region_name, endpoint):
+def make_item(version, spec, release, region_name, endpoint):
+    URN = ':'.join(spec + (version.name,))
     return Item(
         'com.ubuntu.cloud:released:azure',
         'com.ubuntu.cloud:windows',
         version.name, version.location, {
+            'arch': 'amd64',
             'virt': 'Hyper-V',
             'region': region_name,
-            'id': version.id,
+            'id': URN,
             'label': 'release',
-            'endpoint': endpoint
+            'endpoint': endpoint,
+            'release': release,
             }
         )
 
@@ -71,9 +74,8 @@ def write_streams(credentials, subscription_id, out_dir):
     client = ComputeManagementClient(credentials, subscription_id)
     items = []
     for region in sub_client.subscriptions.list_locations(subscription_id):
-        for version in get_image_versions(client, region.name):
-            items.append(make_item(version, region.display_name,
-                                   client.config.base_url))
+        items.extend(get_image_versions(
+            client, region.name, region.display_name))
     updated = util.timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
