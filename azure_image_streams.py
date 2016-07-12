@@ -19,6 +19,12 @@ from make_aws_image_streams import (
     )
 
 
+MS_VSTUDIO = 'MicrosoftVisualStudio'
+MS_SERVER = 'MicrosoftWindowsServer'
+WINDOWS = 'Windows'
+WINDOWS_SERVER = 'WindowsServer'
+
+
 def get_azure_credentials(all_credentials):
     azure_dict = all_credentials['azure']['credentials']
     subscription_id = azure_dict['subscription-id']
@@ -31,19 +37,16 @@ def get_azure_credentials(all_credentials):
 
 
 def get_image_versions(client, region, region_name):
-    MS_VSTUDIO = 'MicrosoftVisualStudio'
-    MS_SERVER = 'MicrosoftWindowsServer'
-    WINDOWS = 'Windows'
-    WINDOWS_SERVER = 'WindowsServer'
-    image_spec = {
-        'win81': (MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
-        'win10': (MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
-        'win2012': (MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
-        'win2012r2': (MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
-        'centos7': ('OpenLogic', 'CentOS', '7.1'),
-    }
+    image_spec = [
+        ('win81', MS_VSTUDIO, WINDOWS, '8.1-Enterprise-N'),
+        ('win10', MS_VSTUDIO, WINDOWS, '10-Enterprise-N'),
+        ('win2012', MS_SERVER, WINDOWS_SERVER, '2012-Datacenter'),
+        ('win2012r2', MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
+        ('centos7', 'OpenLogic', 'CentOS', '7.1'),
+    ]
     endpoint = client.config.base_url
-    for release, spec in image_spec.items():
+    for full_spec in image_spec:
+        spec = full_spec[1:]
         try:
             versions = client.virtual_machine_images.list(region, *spec)
         except CloudError:
@@ -51,13 +54,13 @@ def get_image_versions(client, region, region_name):
                             region=region))
             continue
         for version in versions:
-            yield make_item(version, spec, release, region_name, endpoint)
+            yield make_item(version, full_spec, region_name, endpoint)
 
 
-def make_item(version, spec, release, region_name, endpoint):
-    URN = ':'.join(spec + (version.name,))
+def make_item(version, full_spec, region_name, endpoint):
+    URN = ':'.join(full_spec[1:] + (version.name,))
     product_name = (
-        'com.ubuntu.cloud:server:centos7:amd64' if spec[1] == 'CentOS'
+        'com.ubuntu.cloud:server:centos7:amd64' if full_spec[2] == 'CentOS'
         else 'com.ubuntu.cloud:windows')
     return Item(
         'com.ubuntu.cloud:released:azure',
@@ -69,7 +72,7 @@ def make_item(version, spec, release, region_name, endpoint):
             'id': URN,
             'label': 'release',
             'endpoint': endpoint,
-            'release': release,
+            'release': full_spec[0],
             }
         )
 

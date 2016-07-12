@@ -41,11 +41,11 @@ class TestMakeItem(TestCase):
         version = Mock(location='usns')
         version.name = 'pete'
         offer = 'CentOS' if centos else 'bar'
-        spec = ('foo', offer, 'baz')
         release = 'win95'
+        full_spec = (release, 'foo', offer, 'baz')
         region_name = 'US Northsouth'
         endpoint = 'http://example.org'
-        return make_item(version, spec, release, region_name, endpoint)
+        return make_item(version, full_spec, region_name, endpoint)
 
     def test_make_item(self):
         item = self.make_item()
