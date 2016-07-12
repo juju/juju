@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -264,4 +265,37 @@ func isRemoved(st *state.State, name string) func(*gc.C) bool {
 
 func stop(c *gc.C, w worker.Worker) {
 	c.Assert(worker.Stop(w), gc.IsNil)
+}
+
+type fakeContext struct {
+	deployer.Context
+	agentConfig agent.Config
+}
+
+func (ctx *fakeContext) IsUnitInstalled(unitName string) (bool, error) {
+	return true, nil
+}
+
+func (ctx *fakeContext) DeployedUnits() ([]string, error) {
+	return []string{}, nil
+}
+
+func (ctx *fakeContext) AgentConfig() agent.Config {
+	return ctx.agentConfig
+}
+
+func (s *deployerSuite) TestDeployFailsWhenUnitAlreadyInstalled(c *gc.C) {
+	// Add a new unit and assign to machine
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make deployer with our mocked out context
+	ctx := &fakeContext{agentConfig: agentConfig(s.machine.Tag(), s.dataDir, s.logDir)}
+	dep := deployer.NewDeployer(s.deployerState, ctx)
+
+	err = dep.Wait()
+	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is already installed`)
 }

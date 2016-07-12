@@ -32,6 +32,10 @@ type fakeContext struct {
 	inited      chan struct{}
 }
 
+func (ctx *fakeContext) IsUnitInstalled(unitName string) (bool, error) {
+	return false, nil
+}
+
 func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
 	ctx.mu.Lock()
 	ctx.deployed.Add(unitName)
