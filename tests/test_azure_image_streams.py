@@ -37,14 +37,18 @@ class TestGetAzureCredentials(TestCase):
 
 class TestMakeItem(TestCase):
 
-    def test_make_item(self):
+    def make_item(self, centos=False):
         version = Mock(location='usns')
         version.name = 'pete'
-        spec = ('foo', 'bar', 'baz')
+        offer = 'CentOS' if centos else 'bar'
+        spec = ('foo', offer, 'baz')
         release = 'win95'
         region_name = 'US Northsouth'
         endpoint = 'http://example.org'
-        item = make_item(version, spec, release, region_name, endpoint)
+        return make_item(version, spec, release, region_name, endpoint)
+
+    def test_make_item(self):
+        item = self.make_item()
         self.assertEqual(Item(
             'com.ubuntu.cloud:released:azure',
             'com.ubuntu.cloud:windows',
@@ -54,6 +58,22 @@ class TestMakeItem(TestCase):
                 'virt': 'Hyper-V',
                 'region': 'US Northsouth',
                 'id': 'foo:bar:baz:pete',
+                'label': 'release',
+                'endpoint': 'http://example.org',
+                'release': 'win95',
+            }), item)
+
+    def test_make_item_centos(self):
+        item = self.make_item(centos=True)
+        self.assertEqual(Item(
+            'com.ubuntu.cloud:released:azure',
+            'com.ubuntu.cloud:server:centos7:amd64',
+            'pete',
+            'usns', {
+                'arch': 'amd64',
+                'virt': 'Hyper-V',
+                'region': 'US Northsouth',
+                'id': 'foo:CentOS:baz:pete',
                 'label': 'release',
                 'endpoint': 'http://example.org',
                 'release': 'win95',

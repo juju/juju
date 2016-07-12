@@ -56,9 +56,12 @@ def get_image_versions(client, region, region_name):
 
 def make_item(version, spec, release, region_name, endpoint):
     URN = ':'.join(spec + (version.name,))
+    product_name = (
+        'com.ubuntu.cloud:server:centos7:amd64' if spec[1] == 'CentOS'
+        else 'com.ubuntu.cloud:windows')
     return Item(
         'com.ubuntu.cloud:released:azure',
-        'com.ubuntu.cloud:windows',
+        product_name,
         version.name, version.location, {
             'arch': 'amd64',
             'virt': 'Hyper-V',
