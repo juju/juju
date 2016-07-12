@@ -16,13 +16,15 @@ from simplestreams import util
 from make_aws_image_streams import write_juju_streams
 
 
-def get_credentials(azure_dict):
+def get_credentials(cred_dict):
+    azure_dict = cred_dict['credentials']['azure']['credentials']
+    subscription_id = azure_dict['subscription-id']
     return ServicePrincipalCredentials(
         client_id=azure_dict['application-id'],
         secret=azure_dict['application-password'],
         tenant=azure_dict['tenant-id'],
         subscription_id=azure_dict['subscription-id'],
-        )
+        ), subscription_id
 
 
 def get_image_versions(client, region, region_name):
@@ -68,7 +70,8 @@ def make_item(version, spec, release, region_name, endpoint):
         )
 
 
-def write_streams(credentials, subscription_id, out_dir):
+def make_azure_items(cred_dict):
+    credentials, subscription_id = get_credentials(cred_dict)
     sub_client = azure.mgmt.resource.subscriptions.SubscriptionClient(
         credentials)
     client = ComputeManagementClient(credentials, subscription_id)
@@ -76,6 +79,10 @@ def write_streams(credentials, subscription_id, out_dir):
     for region in sub_client.subscriptions.list_locations(subscription_id):
         items.extend(get_image_versions(
             client, region.name, region.display_name))
+    return items
+
+
+def write_streams(items, out_dir):
     updated = util.timestamp()
     data = {'updated': updated, 'datatype': 'image-ids'}
     trees = items2content_trees(items, data)
@@ -83,14 +90,11 @@ def write_streams(credentials, subscription_id, out_dir):
         'path', 'sha256', 'md5', 'size', 'virt', 'root_store'])
 
 
-
 def main():
     with open('/home/abentley/canonical/cloud-city/credentials.yaml') as f:
         cred_dict = yaml.safe_load(f)
-    azure_dict = cred_dict['credentials']['azure']['credentials']
-    subscription_id = azure_dict['subscription-id']
-    credentials = get_credentials(azure_dict)
-    write_streams(credentials, subscription_id, 'outdir')
+    items = make_azure_items(cred_dict)
+    write_streams(items, 'outdir')
 
 
 if __name__ == '__main__':
