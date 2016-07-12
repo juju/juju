@@ -45,7 +45,7 @@ const (
 
 	// DefaultBootstrapSSHTimeout is the amount of time to wait
 	// contacting a controller, in seconds.
-	DefaultBootstrapSSHTimeout int = 600
+	DefaultBootstrapSSHTimeout int = 1200
 
 	// DefaultBootstrapSSHRetryDelay is the amount of time between
 	// attempts to connect to an address, in seconds.

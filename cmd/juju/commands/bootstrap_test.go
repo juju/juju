@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -415,6 +416,20 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 	c.Assert(utils.IsValidUUIDString(bootstrap.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
 	c.Assert(bootstrap.args.HostedModelConfig["name"], gc.Equals, "mymodel")
 	c.Assert(bootstrap.args.HostedModelConfig["foo"], gc.Equals, "bar")
+}
+
+func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(
+		c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade",
+		"--config", "bootstrap-timeout=99",
+	)
+	c.Assert(bootstrap.args.DialOpts.Timeout, gc.Equals, 99*time.Second)
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {

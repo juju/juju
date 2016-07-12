@@ -151,7 +151,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		envConfig := env.Config()
@@ -166,7 +166,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
+		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
 }
@@ -181,6 +181,7 @@ var FinishBootstrap = func(
 	env environs.Environ,
 	inst instance.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
+	opts environs.BootstrapDialOpts,
 ) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
@@ -191,7 +192,7 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
-		instanceConfig.Bootstrap.ControllerModelConfig.BootstrapSSHOpts(),
+		opts,
 	)
 	if err != nil {
 		return err
@@ -413,8 +414,8 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
-	globalTimeout := time.After(timeout.Timeout)
+func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, opts environs.BootstrapDialOpts) (addr string, err error) {
+	globalTimeout := time.After(opts.Timeout)
 	pollAddresses := time.NewTimer(0)
 
 	// checker checks each address in a loop, in parallel,
@@ -425,7 +426,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 		client:          client,
 		stderr:          stdErr,
 		active:          make(map[network.Address]chan struct{}),
-		checkDelay:      timeout.RetryDelay,
+		checkDelay:      opts.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.wg.Wait()
@@ -435,7 +436,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 	for {
 		select {
 		case <-pollAddresses.C:
-			pollAddresses.Reset(timeout.AddressesDelay)
+			pollAddresses.Reset(opts.AddressesDelay)
 			if err := inst.Refresh(); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
 			}
@@ -448,7 +449,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 			checker.Close()
 			lastErr := checker.Wait()
 			format := "waited for %v "
-			args := []interface{}{timeout.Timeout}
+			args := []interface{}{opts.Timeout}
 			if len(checker.active) == 0 {
 				format += "without getting any addresses"
 			} else {

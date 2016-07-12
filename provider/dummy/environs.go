@@ -689,7 +689,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		if e.ecfg().controller() {
 			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {

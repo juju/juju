@@ -11,6 +11,7 @@ import (
 	"path"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -170,6 +171,9 @@ type BootstrapConfig struct {
 
 	// GUI is the Juju GUI archive to be installed in the new instance.
 	GUI *coretools.GUIArchive
+
+	// Timeout is the amount of time to wait for bootstrap to complete.
+	Timeout time.Duration
 
 	// StateServingInfo holds the information for serving the state.
 	// This is only specified for bootstrap; controllers started
@@ -682,8 +686,8 @@ func NewBootstrapInstanceConfig(
 	cons, modelCons constraints.Value,
 	series, publicImageSigningKey string,
 ) (*InstanceConfig, error) {
-	// For a bootstrap instance, FinishInstanceConfig will provide the
-	// state.Info and the api.Info. The machine id must *always* be "0".
+	// For a bootstrap instance, the caller must provide the state.Info
+	// and the api.Info. The machine id must *always* be "0".
 	icfg, err := NewInstanceConfig("0", agent.BootstrapNonce, "", series, true, nil)
 	if err != nil {
 		return nil, err
@@ -739,8 +743,8 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 
 // FinishInstanceConfig sets fields on a InstanceConfig that can be determined by
 // inspecting a plain config.Config and the machine constraints at the last
-// moment before bootstrapping. It assumes that the supplied Config comes from
-// an environment that has passed through all the validation checks in the
+// moment before creating the user-data. It assumes that the supplied Config comes
+// from an environment that has passed through all the validation checks in the
 // Bootstrap func, and that has set an agent-version (via finding the tools to,
 // use for bootstrap, or otherwise).
 // TODO(fwereade) This function is not meant to be "good" in any serious way:
@@ -749,7 +753,6 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 // redeeming feature.
 func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
-
 	if err := PopulateInstanceConfig(
 		icfg,
 		cfg.Type(),
@@ -763,7 +766,6 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	); err != nil {
 		return errors.Trace(err)
 	}
-
 	if icfg.Controller != nil {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sense for controller
@@ -771,57 +773,6 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		// Unfortunately, AgentEnvironment can only take strings as values
 		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", icfg.Controller.Config.NumaCtlPreference())
 	}
-
-	// The following settings are only appropriate at bootstrap time.
-	if icfg.Bootstrap == nil {
-		return nil
-	}
-	if icfg.APIInfo != nil || icfg.Controller.MongoInfo != nil {
-		return errors.New("machine configuration already has api/state info")
-	}
-	controllerCfg := icfg.Controller.Config
-	caCert, hasCACert := controllerCfg.CACert()
-	if !hasCACert {
-		return errors.New("controller configuration has no ca-cert")
-	}
-	caPrivateKey, hasCAPrivateKey := controllerCfg.CAPrivateKey()
-	if !hasCAPrivateKey {
-		return errors.New("controller configuration has no ca-private-key")
-	}
-	password := cfg.AdminSecret()
-	if password == "" {
-		return errors.New("model configuration has no admin-secret")
-	}
-	icfg.APIInfo = &api.Info{
-		Password: password,
-		CACert:   caCert,
-		ModelTag: names.NewModelTag(cfg.UUID()),
-	}
-	icfg.Controller.MongoInfo = &mongo.MongoInfo{
-		Password: password, Info: mongo.Info{CACert: caCert},
-	}
-
-	// These really are directly relevant to running a controller.
-	// Initially, generate a controller certificate with no host IP
-	// addresses in the SAN field. Once the controller is up and the
-	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := controller.GenerateControllerCertAndKey(caCert, caPrivateKey, nil)
-	if err != nil {
-		return errors.Annotate(err, "cannot generate controller certificate")
-	}
-	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
-		StatePort:    controllerCfg.StatePort(),
-		APIPort:      controllerCfg.APIPort(),
-		Cert:         string(cert),
-		PrivateKey:   string(key),
-		CAPrivateKey: caPrivateKey,
-	}
-	if icfg.Bootstrap.ControllerModelConfig, err = bootstrapConfig(cfg); err != nil {
-		return errors.Trace(err)
-	}
-	// We never want to save the root CA provide key to the cloud.
-	delete(icfg.Controller.Config, controller.CAPrivateKey)
-
 	return nil
 }
 
@@ -837,21 +788,4 @@ func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, 
 		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags
-}
-
-// bootstrapConfig returns a copy of the supplied configuration with the
-// admin-secret attribute removed. If the resulting config is not suitable
-// for bootstrapping an environment, an error is returned.
-func bootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	m := cfg.AllAttrs()
-	// We never want to push admin-secret to the cloud.
-	delete(m, config.AdminSecretKey)
-	cfg, err := config.New(config.NoDefaults, m)
-	if err != nil {
-		return nil, err
-	}
-	if _, ok := cfg.AgentVersion(); !ok {
-		return nil, fmt.Errorf("model configuration has no agent-version")
-	}
-	return cfg, nil
 }

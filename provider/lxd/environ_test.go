@@ -71,7 +71,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	s.Common.BootstrapResult = &environs.BootstrapResult{
 		Arch:   "amd64",
 		Series: "trusty",
-		Finalize: func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
+		Finalize: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 			return nil
 		},
 	}

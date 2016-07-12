@@ -1217,7 +1217,7 @@ var validationTests = []validationTest{{
 }, {
 	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
 	new:   testing.Attrs{"bootstrap-timeout": 5},
-	err:   `cannot change bootstrap-timeout from 600 to 5`,
+	err:   `cannot change bootstrap-timeout from 1200 to 5`,
 }, {
 	about: "Cannot change uuid",
 	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},

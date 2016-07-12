@@ -5,7 +5,6 @@ package maas_test
 
 import (
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
@@ -166,60 +165,6 @@ func (*environSuite) TestDestroyWithEmptyAgentName(c *gc.C) {
 
 	err = env.Destroy()
 	c.Assert(err, gc.ErrorMatches, "unsafe destruction")
-}
-
-func (*environSuite) TestProviderDefaultBootstrapTimeoutSet(c *gc.C) {
-	attrs := coretesting.FakeConfig()
-	attrs["type"] = "maas"
-	attrs["maas-server"] = "http://maas.testing.invalid"
-	attrs["maas-oauth"] = "a:b:c"
-	attrs["maas-agent-name"] = ""
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envConfig := env.Config()
-	c.Assert(envConfig.BootstrapSSHOpts().Timeout, gc.Equals, time.Duration(config.DefaultBootstrapSSHTimeout*2)*time.Second)
-}
-
-func (*environSuite) TestUserSpecifiedBootstrapTimeoutOverridesProviderDefault(c *gc.C) {
-	expectedTimeout := 2400
-
-	attrs := coretesting.FakeConfig()
-	attrs["type"] = "maas"
-	attrs["maas-server"] = "http://maas.testing.invalid"
-	attrs["maas-oauth"] = "a:b:c"
-	attrs["maas-agent-name"] = ""
-	attrs["bootstrap-timeout"] = expectedTimeout
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envConfig := env.Config()
-	c.Assert(envConfig.BootstrapSSHOpts().Timeout, gc.Equals, time.Duration(expectedTimeout)*time.Second)
-}
-
-func (*environSuite) TestUserSpecifiedBootstrapTimeoutLessThanProviderDefault(c *gc.C) {
-	expectedTimeout := 600
-
-	attrs := coretesting.FakeConfig()
-	attrs["type"] = "maas"
-	attrs["maas-server"] = "http://maas.testing.invalid"
-	attrs["maas-oauth"] = "a:b:c"
-	attrs["maas-agent-name"] = ""
-	attrs["bootstrap-timeout"] = expectedTimeout
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envConfig := env.Config()
-	c.Assert(envConfig.BootstrapSSHOpts().Timeout, gc.Equals, time.Duration(expectedTimeout)*time.Second)
 }
 
 func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.C) {

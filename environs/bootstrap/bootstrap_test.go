@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -38,6 +41,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -610,6 +614,53 @@ func (s *bootstrapSuite) TestPublicKeyEnvVar(c *gc.C) {
 	c.Assert(env.instanceConfig.Controller.PublicImageSigningKey, gc.Equals, "publickey")
 }
 
+func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
+	path := filepath.Join(c.MkDir(), "key")
+	ioutil.WriteFile(path, []byte("publickey"), 0644)
+	s.PatchEnvironment("JUJU_STREAMS_PUBLICKEY_FILE", path)
+
+	password := "lisboan-pork"
+	env := newEnviron("foo", useDefaultKeys, nil)
+	cfg, err := env.Config().Apply(map[string]interface{}{
+		"admin-secret": password,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env.cfg = cfg
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	icfg := env.instanceConfig
+
+	c.Check(icfg.APIInfo, jc.DeepEquals, &api.Info{
+		Password: password,
+		CACert:   coretesting.CACert,
+		ModelTag: coretesting.ModelTag,
+	})
+	c.Check(icfg.Controller.MongoInfo, jc.DeepEquals, &mongo.MongoInfo{
+		Password: password, Info: mongo.Info{CACert: coretesting.CACert},
+	})
+	controllerCfg := icfg.Controller.Config
+	c.Check(controllerCfg["ca-private-key"], gc.IsNil)
+	c.Check(icfg.Bootstrap.StateServingInfo.StatePort, gc.Equals, controllerCfg.StatePort())
+	c.Check(icfg.Bootstrap.StateServingInfo.APIPort, gc.Equals, controllerCfg.APIPort())
+	c.Check(icfg.Bootstrap.StateServingInfo.CAPrivateKey, gc.Equals, coretesting.CAKey)
+
+	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
+	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
+	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
+	c.Check(err, jc.ErrorIsNil)
+
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	err = cert.Verify(srvCertPEM, coretesting.CACert, time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+	err = cert.Verify(srvCertPEM, coretesting.CACert, time.Now().AddDate(9, 0, 0))
+	c.Assert(err, jc.ErrorIsNil)
+	err = cert.Verify(srvCertPEM, coretesting.CACert, time.Now().AddDate(10, 0, 1))
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
 
@@ -770,7 +821,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
-	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		e.finalizerCount++
 		e.instanceConfig = icfg
 		return nil

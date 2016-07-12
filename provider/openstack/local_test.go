@@ -330,6 +330,7 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		env environs.Environ,
 		inst instance.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
+		_ environs.BootstrapDialOpts,
 	) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)
@@ -366,6 +367,7 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		env environs.Environ,
 		inst instance.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
+		_ environs.BootstrapDialOpts,
 	) error {
 		addr, err := inst.Addresses()
 		c.Assert(err, jc.ErrorIsNil)

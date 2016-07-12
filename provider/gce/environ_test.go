@@ -65,7 +65,7 @@ func (s *environSuite) TestConfig(c *gc.C) {
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.FakeCommon.Arch = "amd64"
 	s.FakeCommon.Series = "trusty"
-	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
+	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 		return nil
 	}
 	s.FakeCommon.BSFinalizer = finalizer
