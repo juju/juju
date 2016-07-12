@@ -16,15 +16,15 @@ from simplestreams import util
 from make_aws_image_streams import write_juju_streams
 
 
-def get_credentials(cred_dict):
-    azure_dict = cred_dict['credentials']['azure']['credentials']
+def get_azure_credentials(all_credentials):
+    azure_dict = all_credentials['credentials']['azure']['credentials']
     subscription_id = azure_dict['subscription-id']
-    return ServicePrincipalCredentials(
+    return subscription_id, ServicePrincipalCredentials(
         client_id=azure_dict['application-id'],
         secret=azure_dict['application-password'],
         tenant=azure_dict['tenant-id'],
         subscription_id=azure_dict['subscription-id'],
-        ), subscription_id
+        )
 
 
 def get_image_versions(client, region, region_name):
@@ -71,7 +71,7 @@ def make_item(version, spec, release, region_name, endpoint):
 
 
 def make_azure_items(cred_dict):
-    credentials, subscription_id = get_credentials(cred_dict)
+    credentials, subscription_id = get_azure_credentials(all_credentials)
     sub_client = azure.mgmt.resource.subscriptions.SubscriptionClient(
         credentials)
     client = ComputeManagementClient(credentials, subscription_id)
