@@ -21,9 +21,9 @@ type ManifoldConfig struct {
 	StateName     string
 	APICallerName string
 
-	// OpenSink are the functions that opens the underlying log sinks
+	// Sinks are the named functions that opens the underlying log sinks
 	// to which log records will be forwarded.
-	SinkOpeners []LogSinkFn
+	Sinks []LogSinkSpec
 
 	// OpenLogStream is the function that will be used to for the
 	// log stream.
@@ -45,7 +45,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 	openForwarder := config.OpenLogForwarder
 	if openForwarder == nil {
-		openForwarder = openLogForwarder
+		openForwarder = NewLogForwarder
 	}
 
 	return dependency.Manifold{
@@ -60,15 +60,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			agentFacade := apiagent.NewState(apiCaller)
-			modelConfig, err := agentFacade.ModelConfig()
+			controllerCfg, err := agentFacade.ControllerConfig()
 			if err != nil {
-				return nil, errors.Annotate(err, "cannot read environment config")
+				return nil, errors.Annotate(err, "cannot read controller config")
 			}
 
 			orchestrator, err := newOrchestratorForController(OrchestratorArgs{
-				Config:           modelConfig,
+				ControllerUUID:   controllerCfg.ControllerUUID(),
+				LogForwardConfig: agentFacade,
 				Caller:           apiCaller,
-				SinkOpeners:      config.SinkOpeners,
+				Sinks:            config.Sinks,
 				OpenLogStream:    openLogStream,
 				OpenLogForwarder: openForwarder,
 			})

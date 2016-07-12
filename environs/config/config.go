@@ -125,6 +125,9 @@ const (
 	// is primarily for enabling Juju to work cleanly in a closed network.
 	CloudImageBaseURL = "cloudimg-base-url"
 
+	// LogForwardEnabled determines whether the log forward functionality is enabled.
+	LogForwardEnabled = "logforward-enabled"
+
 	// LogFwdSyslogHost sets the hostname:port of the syslog server.
 	LogFwdSyslogHost = "syslog-host"
 
@@ -650,6 +653,11 @@ func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
 	partial := false
 	var lfCfg syslog.RawConfig
 
+	if s, ok := c.defined[LogForwardEnabled]; ok {
+		partial = true
+		lfCfg.Enabled = s.(bool)
+	}
+
 	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
 		partial = true
 		lfCfg.Host = s.(string)
@@ -952,6 +960,7 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-timeout":          schema.Omit,
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
+	LogForwardEnabled:            schema.Omit,
 	LogFwdSyslogHost:             schema.Omit,
 	LogFwdSyslogCACert:           schema.Omit,
 	LogFwdSyslogClientCert:       schema.Omit,
@@ -1347,8 +1356,13 @@ global or per instance security groups.`,
 		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
+	LogForwardEnabled: {
+		Description: `Whether syslog forwarding is enabled.`,
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
 	LogFwdSyslogHost: {
-		Description: `LogFwdSyslogHost specifies the hostname:port of the syslog server.`,
+		Description: `The hostname:port of the syslog server.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

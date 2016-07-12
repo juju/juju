@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/environs/config"
 )
 
 type orchestrator struct {
@@ -17,15 +16,18 @@ type orchestrator struct {
 // OrchestratorArgs holds the info needed to open a log forwarding
 // orchestration worker.
 type OrchestratorArgs struct {
-	// Config is the model config that will be used.
-	Config *config.Config
+	// ControllerUUID is the UUID of the controller for which we will forward logs.
+	ControllerUUID string
+
+	// LogForwardConfig is the API used to access log forward config.
+	LogForwardConfig LogForwardConfig
 
 	// Caller is the API caller that will be used.
 	Caller base.APICaller
 
-	// SinkOpeners are the functions that open the underlying log sinks
+	// Sinks are the named functions that open the underlying log sinks
 	// to which log records will be forwarded.
-	SinkOpeners []LogSinkFn
+	Sinks []LogSinkSpec
 
 	// OpenLogStream is the function that will be used to for the
 	// log stream.
@@ -36,23 +38,22 @@ type OrchestratorArgs struct {
 }
 
 func newOrchestratorForController(args OrchestratorArgs) (*orchestrator, error) {
-	controllerUUID := args.Config.UUID() // This won't work for per-model forwarding.
-
 	// For now we work with only 1 forwarder. Later we can have a proper
 	// orchestrator that spawns a sub-worker for each log sink.
-	if len(args.SinkOpeners) == 0 {
+	if len(args.Sinks) == 0 {
 		return nil, nil
 	}
-	if len(args.SinkOpeners) > 1 {
+	if len(args.Sinks) > 1 {
 		return nil, errors.Errorf("multiple log forwarding targets not supported (yet)")
 	}
 	lf, err := args.OpenLogForwarder(OpenLogForwarderArgs{
-		AllModels:      true,
-		ControllerUUID: controllerUUID,
-		Config:         args.Config,
-		Caller:         args.Caller,
-		OpenSink:       args.SinkOpeners[0],
-		OpenLogStream:  args.OpenLogStream,
+		AllModels:        true,
+		ControllerUUID:   args.ControllerUUID,
+		LogForwardConfig: args.LogForwardConfig,
+		Caller:           args.Caller,
+		Name:             args.Sinks[0].Name,
+		OpenSink:         args.Sinks[0].OpenFn,
+		OpenLogStream:    args.OpenLogStream,
 	})
 	return &orchestrator{lf}, errors.Annotate(err, "opening log forwarder")
 }

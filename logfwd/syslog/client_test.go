@@ -40,6 +40,7 @@ func (s *ClientSuite) SetUpTest(c *gc.C) {
 
 func (s *ClientSuite) TestOpen(c *gc.C) {
 	cfg := syslog.RawConfig{
+		Enabled:    true,
 		Host:       "a.b.c:9876",
 		CACert:     coretesting.CACert,
 		ClientCert: coretesting.ServerCert,

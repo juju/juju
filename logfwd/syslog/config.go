@@ -15,6 +15,9 @@ import (
 // RawConfig holds the raw configuration data for a connection to a
 // syslog forwarding target.
 type RawConfig struct {
+	// Enabled is true if the log forwarding feature is enabled.
+	Enabled bool
+
 	// Host is the host-port of the syslog host. The format is:
 	//
 	//   [domain-or-ip-addr] or [domain-or-ip-addr][:port]

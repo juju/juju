@@ -636,6 +636,7 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
+			"logforward-enabled": true,
 			"syslog-host":        "localhost:1234",
 			"syslog-ca-cert":     "abc",
 			"syslog-client-cert": caCert,
@@ -648,6 +649,7 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
+			"logforward-enabled": true,
 			"syslog-host":        "localhost:1234",
 			"syslog-ca-cert":     invalidCACert,
 			"syslog-client-cert": caCert,
@@ -658,6 +660,7 @@ var configTests = []configTest{
 		about:       "invalid syslog cert",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logforward-enabled": true,
 			"syslog-host":        "10.0.0.1:12345",
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": invalidCACert,
@@ -668,6 +671,7 @@ var configTests = []configTest{
 		about:       "invalid syslog key",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logforward-enabled": true,
 			"syslog-host":        "10.0.0.1:12345",
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
@@ -678,6 +682,7 @@ var configTests = []configTest{
 		about:       "Mismatched syslog cert and key",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"logforward-enabled": true,
 			"syslog-host":        "10.0.0.1:12345",
 			"syslog-ca-cert":     caCert,
 			"syslog-client-cert": caCert,
@@ -690,6 +695,7 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
+			"logforward-enabled": true,
 			"syslog-host":        "localhost:1234",
 			"syslog-ca-cert":     testing.CACert,
 			"syslog-client-cert": testing.ServerCert,
@@ -951,6 +957,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
 
 	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
+	if v, ok := test.attrs["logforward-enabled"].(bool); ok {
+		c.Assert(hasLogCfg, jc.IsTrue)
+		c.Assert(lfCfg.Enabled, gc.Equals, v)
+	}
 	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
 		c.Assert(hasLogCfg, jc.IsTrue)
 		c.Assert(lfCfg.CACert, gc.Equals, v)

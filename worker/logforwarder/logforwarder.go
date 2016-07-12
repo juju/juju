@@ -5,9 +5,11 @@ package logforwarder
 
 import (
 	"io"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -45,9 +47,11 @@ type sender interface {
 // LogForwarder is a worker that forwards log records from a source
 // to a sender.
 type LogForwarder struct {
-	catacomb catacomb.Catacomb
-	stream   LogStream
-	sender   sender
+	catacomb  catacomb.Catacomb
+	args      OpenLogForwarderArgs
+	enabledCh chan bool
+	mu        sync.Mutex
+	enabled   bool
 }
 
 // OpenLogForwarderArgs holds the info needed to open a LogForwarder.
@@ -58,11 +62,14 @@ type OpenLogForwarderArgs struct {
 	// ControllerUUID identifies the controller.
 	ControllerUUID string
 
-	// Config is the logging config that will be used.
-	Config LoggingConfig
+	// LogForwardConfig is the API used to access log forwarding config.
+	LogForwardConfig LogForwardConfig
 
 	// Caller is the API caller that will be used.
 	Caller base.APICaller
+
+	// Name is the name given to the log sink.
+	Name string
 
 	// OpenSink is the function that opens the underlying log sink that
 	// will be wrapped.
@@ -73,44 +80,93 @@ type OpenLogForwarderArgs struct {
 	OpenLogStream LogStreamFn
 }
 
-func openLogForwarder(args OpenLogForwarderArgs) (*LogForwarder, error) {
+// processNewConfig acts on a new syslog forward config change.
+func (lf *LogForwarder) processNewConfig(currentSender SendCloser) (SendCloser, error) {
+	lf.mu.Lock()
+	defer lf.mu.Unlock()
+
+	closeExisting := func() error {
+		lf.enabled = false
+		// If we are already sending, close the current sender.
+		if currentSender != nil {
+			return currentSender.Close()
+		}
+		return nil
+	}
+
+	// Get the new config and set up log forwarding if enabled.
+	cfg, ok, err := lf.args.LogForwardConfig.LogForwardConfig()
+	if err != nil {
+		closeExisting()
+		return nil, errors.Trace(err)
+	}
+	if !ok || !cfg.Enabled {
+		logger.Infof("config change - log forwarding not enabled")
+		return nil, closeExisting()
+	}
+	// If the config is not valid, we don't want to exit with an error
+	// and bounce the worker; we'll just log the issue and wait for another
+	// config change to come through.
+	// We'll continue sending using the current sink.
+	if err := cfg.Validate(); err != nil {
+		logger.Errorf("invalid log forward config change: %v", err)
+		return currentSender, nil
+	}
+
+	// Shutdown the existing sink since we need to now create a new one.
+	if err := closeExisting(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	sink, err := OpenTrackingSink(TrackingSinkArgs{
-		AllModels: args.AllModels,
-		Config:    args.Config,
-		Caller:    args.Caller,
-		OpenSink:  args.OpenSink,
+		Name:      lf.args.Name,
+		AllModels: lf.args.AllModels,
+		Config:    cfg,
+		Caller:    lf.args.Caller,
+		OpenSink:  lf.args.OpenSink,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	lf.enabledCh <- true
+	return sink, nil
+}
 
-	streamCfg := params.LogStreamConfig{
-		AllModels: args.AllModels,
-		Sink:      sink.Name,
-	}
-	stream, err := args.OpenLogStream(args.Caller, streamCfg, args.ControllerUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
+// waitForEnabled returns true if streaming is enabled.
+// Otherwise if blocks and waits for enabled to be true.
+func (lf *LogForwarder) waitForEnabled() (bool, error) {
+	lf.mu.Lock()
+	enabled := lf.enabled
+	lf.mu.Unlock()
+	if enabled {
+		return true, nil
 	}
 
-	lf, err := NewLogForwarder(stream, sink)
-	return lf, errors.Trace(err)
+	select {
+	case <-lf.catacomb.Dying():
+		return false, tomb.ErrDying
+	case enabled = <-lf.enabledCh:
+	}
+	lf.mu.Lock()
+	defer lf.mu.Unlock()
+
+	if !lf.enabled && enabled {
+		logger.Infof("log forward enabled, starting to stream logs to syslog sink")
+	}
+	lf.enabled = enabled
+	return enabled, nil
 }
 
 // NewLogForwarder returns a worker that forwards logs received from
 // the stream to the sender.
-func NewLogForwarder(stream LogStream, sender SendCloser) (*LogForwarder, error) {
+func NewLogForwarder(args OpenLogForwarderArgs) (*LogForwarder, error) {
 	lf := &LogForwarder{
-		stream: stream,
-		sender: sender,
+		args:      args,
+		enabledCh: make(chan bool, 1),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &lf.catacomb,
 		Work: func() error {
-			defer sender.Close()
-
-			err := lf.loop()
-			return errors.Trace(err)
+			return errors.Trace(lf.loop())
 		},
 	})
 	if err != nil {
@@ -120,37 +176,75 @@ func NewLogForwarder(stream LogStream, sender SendCloser) (*LogForwarder, error)
 }
 
 func (lf *LogForwarder) loop() error {
-	if lf.stream == nil {
-		logger.Debugf("log forwarding not enabled")
-		// TODO*ericsnow) restart upon config changed
-		<-lf.catacomb.Dying()
-		return nil
+	configWatcher, err := lf.args.LogForwardConfig.WatchForLogForwardConfigChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := lf.catacomb.Add(configWatcher); err != nil {
+		return errors.Trace(err)
 	}
 
 	records := make(chan logfwd.Record)
+	defer close(records)
+	var stream LogStream
 	go func() {
 		for {
-			rec, err := lf.stream.Next()
+			enabled, err := lf.waitForEnabled()
+			if err == tomb.ErrDying {
+				return
+			}
+			if !enabled {
+				continue
+			}
+			// Lazily create log streamer if needed.
+			if stream == nil {
+				streamCfg := params.LogStreamConfig{
+					AllModels: lf.args.AllModels,
+					Sink:      lf.args.Name,
+				}
+				stream, err = lf.args.OpenLogStream(lf.args.Caller, streamCfg, lf.args.ControllerUUID)
+				if err != nil {
+					lf.catacomb.Kill(errors.Annotate(err, "creating log stream"))
+					break
+				}
+
+			}
+			rec, err := stream.Next()
 			if err != nil {
 				lf.catacomb.Kill(errors.Annotate(err, "getting next log record"))
 				break
 			}
-
 			select {
 			case <-lf.catacomb.Dying():
-				break
+				return
 			case records <- rec: // Wait until the last one is sent.
 			}
 		}
 	}()
 
+	var sender SendCloser
+	defer func() {
+		if sender != nil {
+			sender.Close()
+		}
+	}()
+
 	for {
-		// TODO*ericsnow) restart upon config changed
 		select {
 		case <-lf.catacomb.Dying():
 			return lf.catacomb.ErrDying()
+		case _, ok := <-configWatcher.Changes():
+			if !ok {
+				return errors.New("syslog configuration watcher closed")
+			}
+			if sender, err = lf.processNewConfig(sender); err != nil {
+				return errors.Trace(err)
+			}
 		case rec := <-records:
-			if err := lf.sender.Send(rec); err != nil {
+			if sender == nil {
+				continue
+			}
+			if err := sender.Send(rec); err != nil {
 				return errors.Trace(err)
 			}
 		}
