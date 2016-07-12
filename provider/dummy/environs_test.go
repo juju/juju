@@ -112,10 +112,10 @@ func (s *suite) TearDownTest(c *gc.C) {
 }
 
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerBootstrapConfig(),
 			BaseConfig:       s.TestConfig,
 			ControllerName:   s.TestConfig["name"].(string),

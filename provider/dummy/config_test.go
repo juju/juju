@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -29,9 +29,9 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		ctx, jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerBootstrapConfig(),
 			BaseConfig:       attrs,
 			ControllerName:   attrs["name"].(string),
@@ -92,9 +92,9 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		ctx := envtesting.BootstrapContext(c)
-		env, err := environs.Prepare(
+		env, err := bootstrap.Prepare(
 			ctx, jujuclienttesting.NewMemStore(),
-			environs.PrepareParams{
+			bootstrap.PrepareParams{
 				ControllerConfig: testing.FakeControllerBootstrapConfig(),
 				ControllerName:   cfg.Name(),
 				BaseConfig:       cfg.AllAttrs(),

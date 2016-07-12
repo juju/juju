@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -97,9 +98,9 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	jujuversion.Current = s.origCurrentVersion
 	dummy.Reset(c)
 	attrs = dummy.SampleConfig().Merge(attrs)
-	env, err := environs.Prepare(envtesting.BootstrapContext(c),
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 			ControllerName:   attrs["name"].(string),
 			BaseConfig:       attrs,

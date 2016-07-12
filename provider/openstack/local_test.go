@@ -415,7 +415,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs := s.TestConfig.Merge(coretesting.Attrs{"use-floating-ip": false})
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		s.ControllerStore,
 		prepareParams(attrs, s.cred),
@@ -1340,7 +1340,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	var err error
-	s.env, err = environs.Prepare(
+	s.env, err = bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		prepareParams(attrs, s.cred),
@@ -1913,8 +1913,8 @@ func (t *localServerSuite) TestTagInstance(c *gc.C) {
 	assertMetadata(extraKey, extraValue)
 }
 
-func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) environs.PrepareParams {
-	return environs.PrepareParams{
+func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
+	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 		BaseConfig:       attrs,
 		ControllerName:   attrs["name"].(string),
@@ -1989,7 +1989,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(imageStorage, s.cred)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, storageDir)
 
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		prepareParams(attrs, s.cred),

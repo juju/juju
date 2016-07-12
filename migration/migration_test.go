@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/migration"
@@ -48,10 +48,10 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 	// is one that isn't registered as a valid provider. For our tests here we
 	// need a real registered provider, so we use the dummy provider.
 	// NOTE: make a better test provider.
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(testing.Context(c)),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerBootstrapConfig(),
 			ControllerName:   "dummycontroller",
 			BaseConfig:       dummy.SampleConfig(),

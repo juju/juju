@@ -264,10 +264,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	ctx := testing.Context(c)
 	s.ControllerConfig = testing.FakeControllerBootstrapConfig()
-	environ, err := environs.Prepare(
+	environ, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: s.ControllerConfig,
 			BaseConfig:       cfg.AllAttrs(),
 			Credential:       cloud.NewEmptyCredential(),

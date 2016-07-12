@@ -91,7 +91,7 @@ func (s *NewAPIClientSuite) bootstrapModel(c *gc.C) (environs.Environ, jujuclien
 
 	ctx := envtesting.BootstrapContext(c)
 
-	env, err := environs.Prepare(ctx, store, environs.PrepareParams{
+	env, err := bootstrap.Prepare(ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 		ControllerName:   controllerName,
 		BaseConfig:       dummy.SampleConfig(),

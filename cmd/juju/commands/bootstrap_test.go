@@ -205,7 +205,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	op, ok := <-opc
 	c.Assert(ok, gc.Equals, true)
 	opBootstrap := op.(dummy.OpBootstrap)
-	c.Check(opBootstrap.Env, gc.Equals, environs.ControllerModelName)
+	c.Check(opBootstrap.Env, gc.Equals, bootstrap.ControllerModelName)
 	c.Check(opBootstrap.Args.ModelConstraints, gc.DeepEquals, test.constraints)
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
@@ -214,7 +214,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
-	c.Check(opFinalizeBootstrap.Env, gc.Equals, environs.ControllerModelName)
+	c.Check(opFinalizeBootstrap.Env, gc.Equals, bootstrap.ControllerModelName)
 	c.Check(opFinalizeBootstrap.InstanceConfig.ToolsList(), gc.Not(gc.HasLen), 0)
 	if test.upload != "" {
 		c.Check(opFinalizeBootstrap.InstanceConfig.AgentVersion().String(), gc.Equals, test.upload)
@@ -230,7 +230,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 
-	controllerModel, err := s.store.ModelByName(controllerName, "admin@local", environs.ControllerModelName)
+	controllerModel, err := s.store.ModelByName(controllerName, "admin@local", bootstrap.ControllerModelName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerModel.ModelUUID, gc.Equals, controller.ControllerUUID)
 
@@ -241,7 +241,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(bootstrapConfig.Cloud, gc.Equals, "dummy")
 	c.Assert(bootstrapConfig.Credential, gc.Equals, "")
 	c.Assert(bootstrapConfig.Config, jc.DeepEquals, map[string]interface{}{
-		"name":            environs.ControllerModelName,
+		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
 		"default-series":  "raring",
 		"authorized-keys": "public auth key\n",
@@ -296,7 +296,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-mips64",
 	hostArch: "mips64",
 	args:     []string{"--upload-tools"},
-	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, environs.ControllerModelName),
+	err:      fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
 }, {
 	info:     "--upload-tools always bumps build number",
 	version:  "1.2.3.4-raring-amd64",
@@ -531,10 +531,10 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 		return nil
 	})
 
-	s.PatchValue(&environsPrepare, func(
+	s.PatchValue(&bootstrapPrepare, func(
 		environs.BootstrapContext,
 		jujuclient.ClientStore,
-		environs.PrepareParams,
+		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
 		return nil, fmt.Errorf("mock-prepare")
 	})
@@ -573,10 +573,10 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, controller, mo
 
 func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	s.PatchValue(&environsPrepare, func(
+	s.PatchValue(&bootstrapPrepare, func(
 		environs.BootstrapContext,
 		jujuclient.ClientStore,
-		environs.PrepareParams,
+		bootstrap.PrepareParams,
 	) (environs.Environ, error) {
 		s.writeControllerModelAccountInfo(c, "foo", "bar", "foobar@local")
 		return nil, fmt.Errorf("mock-prepare")
@@ -772,7 +772,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 		"--auto-upgrade",
 	)
 	c.Assert(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, environs.ControllerModelName)
+	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, bootstrap.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, gc.NotNil)
 	c.Assert(icfg.AgentVersion().String(), gc.Equals, "1.7.3.1-raring-"+arch.HostArch())
@@ -822,7 +822,7 @@ Creating Juju controller "devcontroller" on dummy-cloud/region-1
 Bootstrapping model %q
 Starting new instance for initial controller
 Building tools to upload (1.7.3.1-raring-%s)
-`[1:], environs.ControllerModelName, arch.HostArch()))
+`[1:], bootstrap.ControllerModelName, arch.HostArch()))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap model: cannot upload bootstrap tools: an error")
 }
 
@@ -1011,11 +1011,11 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
-	var prepareParams environs.PrepareParams
-	s.PatchValue(&environsPrepare, func(
+	var prepareParams bootstrap.PrepareParams
+	s.PatchValue(&bootstrapPrepare, func(
 		ctx environs.BootstrapContext,
 		stor jujuclient.ClientStore,
-		params environs.PrepareParams,
+		params bootstrap.PrepareParams,
 	) (environs.Environ, error) {
 		prepareParams = params
 		return nil, fmt.Errorf("mock-prepare")

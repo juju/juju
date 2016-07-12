@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -164,10 +165,10 @@ func (s *imageMetadataUpdateSuite) TestUpdateFromPublishedImagesForProviderWithN
 	// testingEnvConfig prepares an environment configuration using
 	// the dummy provider since it doesn't implement simplestreams.HasRegion.
 	s.state.environConfig = func() (*config.Config, error) {
-		env, err := environs.Prepare(
+		env, err := bootstrap.Prepare(
 			modelcmd.BootstrapContext(testing.Context(c)),
 			jujuclienttesting.NewMemStore(),
-			environs.PrepareParams{
+			bootstrap.PrepareParams{
 				ControllerConfig: testing.FakeControllerBootstrapConfig(),
 				ControllerName:   "dummycontroller",
 				BaseConfig:       dummy.SampleConfig(),

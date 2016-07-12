@@ -316,7 +316,7 @@ func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
 	t.prepareWithParamsAndBootstrapWithVPCID(c, params, emptyVPCID)
 }
 
-func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, params environs.PrepareParams, expectedVPCID string) {
+func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, params bootstrap.PrepareParams, expectedVPCID string) {
 	env := t.PrepareWithParams(c, params)
 	unknownAttrs := env.Config().UnknownAttrs()
 	vpcID, ok := unknownAttrs["vpc-id"]
@@ -1468,10 +1468,10 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	}
 	t.srv.startServer(c)
 
-	env, err := environs.Prepare(
+	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
 			BaseConfig:       localConfigAttrs,
 			Credential: cloud.NewCredential(

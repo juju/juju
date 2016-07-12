@@ -265,7 +265,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 }
 
 var (
-	environsPrepare            = environs.Prepare
+	bootstrapPrepare           = bootstrap.Prepare
 	environsDestroy            = environs.Destroy
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
@@ -429,7 +429,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Create an environment config from the cloud and credentials.
 	configAttrs := map[string]interface{}{
 		"type":         cloud.Type,
-		"name":         environs.ControllerModelName,
+		"name":         bootstrap.ControllerModelName,
 		config.UUIDKey: controllerUUID.String(),
 	}
 	for k, v := range cloud.Config {
@@ -489,9 +489,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		controllerConfig[attr] = cfgValue
 	}
 
-	environ, err := environsPrepare(
+	environ, err := bootstrapPrepare(
 		modelcmd.BootstrapContext(ctx), store,
-		environs.PrepareParams{
+		bootstrap.PrepareParams{
 			BaseConfig:           configAttrs,
 			ControllerConfig:     controllerConfig,
 			ControllerName:       c.controllerName,
