@@ -18,6 +18,7 @@ var readOnlyCalls = set.NewStrings(
 	"Action.ListRunning",
 	"Action.ListCompleted",
 	"Action.ApplicationsCharmsActions",
+	"AllWatcher.Next",
 	"Annotations.Get",
 	"Application.GetConstraints",
 	"Application.CharmRelations",
@@ -50,6 +51,7 @@ var readOnlyCalls = set.NewStrings(
 	// TODO: add controller work.
 	"KeyManager.ListKeys",
 	"ModelManager.ModelInfo",
+	"Pinger.Ping",
 	"Spaces.ListSpaces",
 	"Storage.ListStorageDetails",
 	"Storage.ListFilesystems",
