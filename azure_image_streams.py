@@ -1,7 +1,5 @@
-from datetime import datetime
 import logging
 import yaml
-import json
 
 # Tested on Azure 2.0 API
 from azure.common.credentials import ServicePrincipalCredentials
@@ -44,8 +42,6 @@ def get_image_versions(client, region, region_name):
         'win2012r2': (MS_SERVER, WINDOWS_SERVER, '2012-R2-Datacenter'),
         'centos7': ('OpenLogic', 'CentOS', '7.1'),
     }
-    stanzas = []
-    items = []
     endpoint = client.config.base_url
     for release, spec in image_spec.items():
         try:
