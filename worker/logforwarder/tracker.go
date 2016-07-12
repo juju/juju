@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	logfwdapi "github.com/juju/juju/api/logfwd"
 	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/logfwd/syslog"
 )
 
 // TrackingSinkArgs holds the args to OpenTrackingSender.
@@ -18,10 +19,13 @@ type TrackingSinkArgs struct {
 	AllModels bool
 
 	// Config is the logging config that will be used.
-	Config LoggingConfig
+	Config *syslog.RawConfig
 
 	// Caller is the API caller that will be used.
 	Caller base.APICaller
+
+	// Name is the name given to the log sink.
+	Name string
 
 	// OpenSink is the function that opens the underlying log sink that
 	// will be wrapped.
@@ -39,9 +43,8 @@ func OpenTrackingSink(args TrackingSinkArgs) (*LogSink, error) {
 	return &LogSink{
 		&trackingSender{
 			SendCloser: sink,
-			tracker:    newLastSentTracker(sink.Name, args.Caller),
+			tracker:    newLastSentTracker(args.Name, args.Caller),
 		},
-		sink.Name,
 	}, nil
 }
 

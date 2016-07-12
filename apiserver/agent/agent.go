@@ -26,6 +26,7 @@ type AgentAPIV2 struct {
 	*common.PasswordChanger
 	*common.RebootFlagClearer
 	*common.ModelWatcher
+	*common.ControllerConfigAPI
 
 	st   *state.State
 	auth common.Authorizer
@@ -42,11 +43,12 @@ func NewAgentAPIV2(st *state.State, resources *common.Resources, auth common.Aut
 		return auth.AuthOwner, nil
 	}
 	return &AgentAPIV2{
-		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
-		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
-		ModelWatcher:      common.NewModelWatcher(st, resources, auth),
-		st:                st,
-		auth:              auth,
+		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
+		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
+		ModelWatcher:        common.NewModelWatcher(st, resources, auth),
+		ControllerConfigAPI: common.NewControllerConfig(st),
+		st:                  st,
+		auth:                auth,
 	}, nil
 }
 

@@ -404,9 +404,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		logForwarderName: ifFullyUpgraded(logforwarder.Manifold(logforwarder.ManifoldConfig{
 			StateName:     stateName,
 			APICallerName: apiCallerName,
-			SinkOpeners: []logforwarder.LogSinkFn{
-				sinks.OpenSyslog,
-			},
+			Sinks: []logforwarder.LogSinkSpec{{
+				Name:   "juju-log-forward",
+				OpenFn: sinks.OpenSyslog,
+			}},
 		})),
 	}
 }
