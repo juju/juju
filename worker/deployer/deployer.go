@@ -50,6 +50,10 @@ type Context interface {
 	// AgentConfig returns the agent config for the machine agent that is
 	// running the deployer.
 	AgentConfig() agent.Config
+
+	// IsUnitInstalled returns whether or not the service for the specified
+	// unit is installed.
+	IsUnitInstalled(unitName string) (bool, error)
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
@@ -142,9 +146,21 @@ func (d *Deployer) changed(unitName string) error {
 // panic if it observes inconsistent internal state.
 func (d *Deployer) deploy(unit *apideployer.Unit) error {
 	unitName := unit.Name()
-	if d.deployed.Contains(unit.Name()) {
-		panic("must not re-deploy a deployed unit")
+	if d.deployed.Contains(unitName) {
+		return fmt.Errorf("must not re-deploy deployed unit %q", unitName)
 	}
+
+	// Bug 1577949: Check that the unit is not already installed before
+	// setting its password
+	installed, err := d.ctx.IsUnitInstalled(unitName)
+	if err != nil {
+		return errors.Annotatef(err, "unable to determine if unit %q is instaled", unitName)
+	}
+
+	if installed {
+		return fmt.Errorf("unit %q is already installed", unitName)
+	}
+
 	logger.Infof("deploying unit %q", unitName)
 	initialPassword, err := utils.RandomPassword()
 	if err != nil {
