@@ -147,7 +147,7 @@ func (d *Deployer) changed(unitName string) error {
 func (d *Deployer) deploy(unit *apideployer.Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unitName) {
-		return fmt.Errorf("must not re-deploy deployed unit %q", unitName)
+		return errors.Errorf("must not re-deploy deployed unit %q", unitName)
 	}
 
 	// Bug 1577949: Check that the unit is not already installed before
@@ -158,7 +158,7 @@ func (d *Deployer) deploy(unit *apideployer.Unit) error {
 	}
 
 	if installed {
-		return fmt.Errorf("unit %q is already installed", unitName)
+		return errors.Errorf("unit %q is already installed", unitName)
 	}
 
 	logger.Infof("deploying unit %q", unitName)

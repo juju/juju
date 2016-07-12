@@ -296,18 +296,6 @@ func (s *deployerSuite) TestDeployFailsWhenUnitAlreadyInstalled(c *gc.C) {
 	ctx := &fakeContext{agentConfig: agentConfig(s.machine.Tag(), s.dataDir, s.logDir)}
 	dep := deployer.NewDeployer(s.deployerState, ctx)
 
-	// Wait for the worker to error out.
-	done := make(chan error)
-	go func() {
-		done <- dep.Wait()
-	}()
-
-	select {
-	case err := <-done:
-		c.Check(err, gc.ErrorMatches, `unit "wordpress/0" is already installed`)
-	case <-time.After(coretesting.ShortWait):
-		c.Errorf("timed out waiting for worker to error")
-		dep.Kill()
-	}
-
+	err = dep.Wait()
+	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is already installed`)
 }
