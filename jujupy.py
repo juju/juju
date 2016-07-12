@@ -471,7 +471,7 @@ class Juju2Backend:
             raise subprocess.CalledProcessError(retcode, full_args)
 
     def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None):
+                        juju_home, model=None, timeout=None, user_name=None):
         args = self.full_args(command, args, model, timeout)
         env = self.shell_environ(used_feature_flags, juju_home)
         log.debug(args)
@@ -926,9 +926,15 @@ class EnvJujuClient:
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
         timeout = kwargs.get('timeout')
-        return self._backend.get_juju_output(
-            command, args, self.used_feature_flags, self.env.juju_home,
-            model, timeout)
+        try:
+            username = self.env.user_name
+            return self._backend.get_juju_output(
+                command, args, self.used_feature_flags, self.env.juju_home,
+                model, timeout, user_name=username)
+        except Exception:
+            return self._backend.get_juju_output(
+                command, args, self.used_feature_flags, self.env.juju_home,
+                model, timeout)
 
     def show_status(self):
         """Print the status to output."""

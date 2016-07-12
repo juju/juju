@@ -172,12 +172,6 @@ class TestAssess(TestCase):
 
     def test_user_grant_revoke(self):
         fake_client = make_fake_client()
-        fake_client._backend.controller_state.users['admin'] = {
-            'state': '',
-            'permission': 'write'
-        }
-        fake_client._backend.controller_state.name = 'admin'
-        fake_client._backend.controller_state.shares = ['admin']
         fake_client.bootstrap()
         assert_read_calls = [True, False, True, True]
         assert_write_calls = [False, False, True, False]
@@ -245,7 +239,7 @@ class TestAssess(TestCase):
                         user.name + '_password',
                         pexpect.EOF],
                     [
-                        '(?i)name .*: ',
+                        '(?i)name',
                         '(?i)password',
                         '(?i)password',
                         pexpect.EOF])
@@ -254,4 +248,5 @@ class TestAssess(TestCase):
         with patch(
                 'assess_user_grant_revoke.create_cloned_environment',
                 return_value=(fake_client, {})):
-            register_user(user, fake_client, '/tmp/dir/path')
+            with patch('assess_user_grant_revoke.assign_user_name'):
+                register_user(user, fake_client, '/tmp/dir/path')

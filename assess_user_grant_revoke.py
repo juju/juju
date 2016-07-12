@@ -38,17 +38,17 @@ log = logging.getLogger("assess_user_grant_revoke")
 User = namedtuple('User', ['name', 'permissions', 'expect'])
 
 
-user_list_1 = [{"user-name": "admin", "display-name": "admin"}]
-user_list_2 = copy.deepcopy(user_list_1)
-user_list_2.append({"user-name": "readuser", "display-name": ""})
-user_list_3 = copy.deepcopy(user_list_2)
-user_list_3.append({"user-name": "adminuser", "display-name": ""})
-share_list_1 = {"admin@local": {"display-name": "admin", "access": "admin"}}
-share_list_2 = copy.deepcopy(share_list_1)
-share_list_2["readuser@local"] = {"access": "read"}
-share_list_3 = copy.deepcopy(share_list_2)
-share_list_3["adminuser@local"] = {"access": "write"}
-share_list_3.pop("readuser@local")
+user_list_admin = [{"user-name": "admin", "display-name": "admin"}]
+user_list_admin_read = copy.deepcopy(user_list_admin)
+user_list_admin_read.append({"user-name": "readuser", "display-name": ""})
+user_list_all = copy.deepcopy(user_list_admin_read)
+user_list_all.append({"user-name": "adminuser", "display-name": ""})
+share_list_admin = {"admin@local": {"display-name": "admin", "access": "admin"}}
+share_list_admin_read = copy.deepcopy(share_list_admin)
+share_list_admin_read["readuser@local"] = {"access": "read"}
+share_list_all = copy.deepcopy(share_list_admin_read)
+share_list_all["adminuser@local"] = {"access": "write"}
+share_list_all.pop("readuser@local")
 
 
 # This needs refactored out to utility
@@ -60,12 +60,10 @@ def list_users(client):
     """Test listing all the users"""
     users_list = json.loads(client.get_juju_output('list-users', '--format',
                                                    'json', include_e=False))
-    try:
-        for user in users_list:
-            user.pop("date-created")
-            user.pop("last-connection")
-    except Exception:
-        pass
+    for user in users_list:
+        """Pop date-created and last-connection if existed for comparison"""
+        user.pop("date-created", None)
+        user.pop("last-connection", None)
     return users_list
 
 
@@ -73,11 +71,9 @@ def list_shares(client):
     """Test listing users' shares"""
     share_list = json.loads(client.get_juju_output('list-shares', '--format',
                                                    'json', include_e=False))
-    try:
-        for key, value in share_list.iteritems():
-            value.pop("last-connection")
-    except Exception:
-        pass
+    for key, value in share_list.iteritems():
+        """Pop last-connection if existed for comparison"""
+        value.pop("last-connection", None)
     return share_list
 
 
@@ -85,12 +81,15 @@ def show_user(client):
     """Test showing a user's status"""
     user_status = json.loads(client.get_juju_output('show-user', '--format',
                                                     'json', include_e=False))
-    try:
-        user_status.pop("date-created")
-        user_status.pop("last-connection")
-    except Exception:
-        pass
+    """Pop date-created and last-connection if existed for comparison"""
+    user_status.pop("date-created", None)
+    user_status.pop("last-connection", None)
     return user_status
+
+
+def assign_user_name(client, user_name):
+    """Assign the name of current user to the user Environment"""
+    client.env.user_name = user_name
 
 
 def register_user(user, client, fake_home):
@@ -99,34 +98,28 @@ def register_user(user, client, fake_home):
     # refactor once supported, bug 1573099
     username = user.name
     controller_name = '{}_controller'.format(username)
-    try:
-        token = client._backend.add_user(username,
-                                         permissions=user.permissions)
-    except Exception:
-        token = client.add_user(username, permissions=user.permissions)
-        pass
+
+    token = client.add_user(username, permissions=user.permissions)
     user_client, user_env = create_cloned_environment(
         client, fake_home, controller_name)
 
     try:
-        try:
-            child = user_client.expect(
-                'register', (token), extra_env=user_env, include_e=False)
-            child.expect('(?i)name')
-            child.sendline(username + '_controller')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                raise JujuAssertionError(
-                    'Registering user failed: pexpect session still alive')
-        except pexpect.TIMEOUT:
+        child = user_client.expect(
+            'register', (token), extra_env=user_env, include_e=False)
+        child.expect('(?i)name')
+        child.sendline(username + '_controller')
+        child.expect('(?i)password')
+        child.sendline(username + '_password')
+        child.expect('(?i)password')
+        child.sendline(username + '_password')
+        child.expect(pexpect.EOF)
+        if child.isalive() is True:
             raise JujuAssertionError(
-                'Registering user failed: pexpect session timed out')
-    except Exception:
-        pass
+                'Registering user failed: pexpect session still alive')
+    except pexpect.TIMEOUT:
+        raise JujuAssertionError(
+            'Registering user failed: pexpect session timed out')
+    assign_user_name(user_client, username)
     return user_client
 
 
@@ -141,7 +134,7 @@ def create_cloned_environment(client, cloned_juju_home, controller_name):
 
 
 def assert_read(client, permission):
-    """Test if the user has or hasn't the read permission"""
+    """Test if the user has or doesn't have the read permission"""
     if permission:
         try:
             client.show_status()
@@ -175,36 +168,32 @@ def assert_write(client, permission):
             raise JujuAssertionError('User deployed without write permission')
 
 
-def assert_user_permissions(user, user_client, admin_client):
-    """Test if users' permissions are within expected"""
+def assert_user_permissions(user, user_client, controller_client):
+    """Test if users' permissions are within expectations"""
     expect = iter(user.expect)
     assert_read(user_client, expect.next())
     assert_write(user_client, expect.next())
 
     log.debug("Revoking %s permission from %s" % (user.permissions, user.name))
-    try:
-        admin_client._backend.revoke(user.name, permissions=user.permissions)
-    except Exception:
-        admin_client.revoke(user.name, permissions=user.permissions)
-        pass
+    controller_client.revoke(user.name, permissions=user.permissions)
 
     assert_read(user_client, expect.next())
     assert_write(user_client, expect.next())
 
 
-def assert_users_shares(admin_client, client, user):
+def assert_users_shares(controller_client, client, user):
     """Test if user_list and share_list are expected"""
     if user.name == 'readuser':
-        user_list_expected = user_list_2
-        share_list_expected = share_list_2
+        user_list_expected = user_list_admin_read
+        share_list_expected = share_list_admin_read
     else:
-        user_list_expected = user_list_3
-        share_list_expected = share_list_3
-    user_list = list_users(admin_client)
-    share_list = list_shares(admin_client)
+        user_list_expected = user_list_all
+        share_list_expected = share_list_all
+    user_list = list_users(controller_client)
+    share_list = list_shares(controller_client)
     if sorted(user_list) != sorted(user_list_expected):
         raise JujuAssertionError(user_list)
-    if sorted(share_list) != sorted(share_list_expected):
+    if set(share_list) != set(share_list_expected):
         raise JujuAssertionError(share_list)
 
 
@@ -230,28 +219,28 @@ def assess_change_password(client, user, fake_home):
             'Changing user password failed: pexpect session timed out')
 
 
-def assess_disable_enable(admin_client, users):
+def assess_disable_enable(controller_client, users):
     """Test disabling and enabling users"""
-    admin_client.disable_user(users[-1].name)
-    user_list = list_users(admin_client)
-    if sorted(user_list) != sorted(user_list_2):
+    controller_client.disable_user(users[-1].name)
+    user_list = list_users(controller_client)
+    if sorted(user_list) != sorted(user_list_admin_read):
         raise JujuAssertionError(user_list)
-    admin_client.enable_user(users[-1].name)
-    user_list = list_users(admin_client)
-    if sorted(user_list) != sorted(user_list_3):
+    controller_client.enable_user(users[-1].name)
+    user_list = list_users(controller_client)
+    if sorted(user_list) != sorted(user_list_all):
         raise JujuAssertionError(user_list)
 
 
-def assess_logout_login(admin_client, user_client, user, fake_home):
+def assess_logout_login(controller_client, user_client, user, fake_home):
     """Test users' login and logout"""
     user_client.logout_user()
-    user_list = list_users(admin_client)
-    if sorted(user_list) != sorted(user_list_3):
+    user_list = list_users(controller_client)
+    if sorted(user_list) != sorted(user_list_all):
         raise JujuAssertionError(user_list)
     username = user.name
     controller_name = '{}_controller'.format(username)
     client, user_env = create_cloned_environment(
-        admin_client, fake_home, controller_name)
+        controller_client, fake_home, controller_name)
     try:
         child = client.expect('login', (user.name,),
                               extra_env=user_env, include_e=False)
@@ -266,32 +255,33 @@ def assess_logout_login(admin_client, user_client, user, fake_home):
             'Login user failed: pexpect session timed out')
 
 
-def assess_user_grant_revoke(admin_client):
+def assess_user_grant_revoke(controller_client):
     """Test multi-users functionality"""
+    assign_user_name(controller_client, 'admin')
     log.debug("Creating Users")
     read_user = User('readuser', 'read', [True, False, False, False])
     write_user = User('adminuser', 'write', [True, True, True, False])
     users = [read_user, write_user]
-    user_list = list_users(admin_client)
-    share_list = list_shares(admin_client)
-    user_status = show_user(admin_client)
-    if sorted(user_list) != sorted(user_list_1):
+    user_list = list_users(controller_client)
+    share_list = list_shares(controller_client)
+    user_status = show_user(controller_client)
+    if sorted(user_list) != sorted(user_list_admin):
         raise JujuAssertionError(user_list)
-    if share_list != share_list_1:
+    if share_list != share_list_admin:
         raise JujuAssertionError(share_list)
-    if user_status != user_list_1[0]:
+    if user_status != user_list_admin[0]:
         raise JujuAssertionError(user_status)
     for user in users:
         log.debug("Testing %s" % user.name)
         with temp_dir() as fake_home:
             user_client = register_user(
-                user, admin_client, fake_home)
-            assert_users_shares(admin_client, user_client, user)
+                user, controller_client, fake_home)
+            assert_users_shares(controller_client, user_client, user)
             assess_change_password(user_client, user, fake_home)
             if user.name == 'adminuser':
-                assess_disable_enable(admin_client, users)
-                assess_logout_login(admin_client, user_client, user, fake_home)
-            assert_user_permissions(user, user_client, admin_client)
+                assess_disable_enable(controller_client, users)
+                assess_logout_login(controller_client, user_client, user, fake_home)
+            assert_user_permissions(user, user_client, controller_client)
 
 
 def parse_args(argv):

@@ -125,9 +125,13 @@ class FakeControllerState:
     def __init__(self):
         self.state = 'not-bootstrapped'
         self.models = {}
-        self.users = {}
-        self.shares = []
-        self.name = ''
+        self.users = {
+            'admin': {
+                'state': '',
+                'permission': 'write'
+            }
+        }
+        self.shares = ['admin']
 
     def add_model(self, name):
         state = FakeEnvironmentState()
@@ -139,7 +143,6 @@ class FakeControllerState:
 
     def add_user(self, name, permission):
         state = FakeEnvironmentState()
-        state.name = name
         self.users[name] = {'state': state, 'permission': permission}
         self.shares.append(name)
         state.controller = self
@@ -448,11 +451,6 @@ class FakeBackend:
                        self.controller_state.models.values()]
         return {'models': [{'name': n} for n in model_names]}
 
-    def add_user(self, name, permissions):
-        self.controller_state.users.update(
-            {name: {'state': '', 'permission': permissions}})
-        self.controller_state.shares.append(name)
-        return 'token'
 
     def list_users(self):
         user_names = [name for name in
@@ -466,8 +464,9 @@ class FakeBackend:
             user_list.append(append_dict)
         return user_list
 
-    def show_user(self):
-        user_name = self.controller_state.name
+    def show_user(self, user_name):
+        if user_name is None:
+            raise JujuAssertionError("No user specified")
         if user_name == 'admin':
             user_status = {'user-name': user_name, 'display-name': user_name}
         else:
@@ -482,7 +481,7 @@ class FakeBackend:
                 permissions.append(value['permission'])
         share_list = {}
         for i in xrange(len(share_names)):
-            name = share_names[i]+'@local'
+            name = share_names[i] + '@local'
             share_list[name] = {'display-name': share_names[i],
                                 'access': permissions[i]}
             if name != 'admin@local':
@@ -490,10 +489,6 @@ class FakeBackend:
             else:
                 share_list[name]['access'] = 'admin'
         return share_list
-
-    def revoke(self, user_name, permissions):
-        if self.controller_state.users[user_name]['permission'] == permissions:
-            self.controller_state.shares.remove(user_name)
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
@@ -590,6 +585,12 @@ class FakeBackend:
                 parser.add_argument('model_name')
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
+            if command == 'revoke':
+                user_name = args[2]
+                permissions = args[5]
+                if self.controller_state.users[user_name]['permission'] == permissions:
+                    self.controller_state.shares.remove(user_name)
+                    self.controller_state.users[user_name]['permission'] = ''
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
@@ -600,7 +601,7 @@ class FakeBackend:
 
     @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags,
-                        juju_home, model=None, timeout=None):
+                        juju_home, model=None, timeout=None, user_name=None):
         if 'service' in command:
             raise Exception('No service')
         self._log_command(command, args, model, logging.DEBUG)
@@ -626,7 +627,7 @@ class FakeBackend:
         if command == 'list-shares':
             return json.dumps(self.list_shares())
         if command == 'show-user':
-            return json.dumps(self.show_user())
+            return json.dumps(self.show_user(user_name))
         if command == 'add-user':
             permissions = 'read'
             if set(["--acl", "write"]).issubset(args):
@@ -636,6 +637,9 @@ class FakeBackend:
             info_string = \
                 'User "{}" added\nUser "{}"granted {} access to model "{}\n"' \
                 .format(username, username, permissions, model)
+            self.controller_state.users.update(
+                {username: {'state': '', 'permission': permissions}})
+            self.controller_state.shares.append(username)
             register_string = get_user_register_command_info(username)
             return info_string + register_string
         if command == 'show-status':
