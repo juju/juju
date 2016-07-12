@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 import yaml
 import json
@@ -13,11 +14,15 @@ from simplestreams.generate_simplestreams import items2content_trees
 from simplestreams.json2streams import Item
 from simplestreams import util
 
-from make_aws_image_streams import write_juju_streams
+from make_aws_image_streams import (
+    get_parameters,
+    make_aws_items,
+    write_juju_streams,
+    )
 
 
 def get_azure_credentials(all_credentials):
-    azure_dict = all_credentials['credentials']['azure']['credentials']
+    azure_dict = all_credentials['azure']['credentials']
     subscription_id = azure_dict['subscription-id']
     return subscription_id, ServicePrincipalCredentials(
         client_id=azure_dict['application-id'],
@@ -70,8 +75,8 @@ def make_item(version, spec, release, region_name, endpoint):
         )
 
 
-def make_azure_items(cred_dict):
-    credentials, subscription_id = get_azure_credentials(all_credentials)
+def make_azure_items(all_credentials):
+    subscription_id, credentials = get_azure_credentials(all_credentials)
     sub_client = azure.mgmt.resource.subscriptions.SubscriptionClient(
         credentials)
     client = ComputeManagementClient(credentials, subscription_id)
@@ -91,9 +96,11 @@ def write_streams(items, out_dir):
 
 
 def main():
-    with open('/home/abentley/canonical/cloud-city/credentials.yaml') as f:
-        cred_dict = yaml.safe_load(f)
-    items = make_azure_items(cred_dict)
+    streams, creds_filename = get_parameters()
+    with open(creds_filename) as creds_file:
+        all_credentials = yaml.safe_load(creds_file)['credentials']
+    items = make_azure_items(all_credentials)
+    items.extend(make_aws_items(all_credentials))
     write_streams(items, 'outdir')
 
 

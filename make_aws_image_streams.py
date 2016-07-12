@@ -231,6 +231,14 @@ def write_juju_streams(out_d, trees, updated, sticky):
     return out_filenames
 
 
+def make_aws_items(all_credentials):
+    credentials = make_aws_credentials(all_credentials['aws'])
+    china_credentials = make_aws_credentials(all_credentials['aws-china'])
+    now = datetime.utcnow()
+    return [make_item(i, now) for i in
+            iter_centos_images(credentials, china_credentials)]
+
+
 def main():
     streams, creds_filename = get_parameters()
     with open(creds_filename) as creds_file:
