@@ -103,7 +103,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 }
 
 // DeleteUser marks the user as deleted. Which obviates the ability of a user
-// to function, but allows the record to remain for historic purposes, e.g.
+// to function, but allows the record to remain retain provenance, i.e.
 // auditing.
 func (st *State) DeleteUser(tag names.UserTag) error {
 	name := strings.ToLower(tag.Name())
@@ -508,7 +508,8 @@ func (e DeletedUserError) Error() string {
 	return fmt.Sprintf("user %q deleted", e.UserName)
 }
 
-// Deleted refreshes the user to ensure it wasn't deleted.
+// ensureNotDeleted refreshes the user to ensure it wasn't deleted since we
+// acquired it.
 func (u *User) ensureNotDeleted() error {
 	if err := u.Refresh(); err != nil {
 		return errors.Trace(err)

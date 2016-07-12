@@ -140,7 +140,7 @@ func isDeletedUserError(err error) bool {
 	return ok
 }
 
-func (s *UserSuite) TestAllUsers_SkipsDeletedUsers(c *gc.C) {
+func (s *UserSuite) TestAllUsersSkipsDeletedUsers(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "one"})
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "two"})
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "three"})
