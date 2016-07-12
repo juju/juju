@@ -71,6 +71,11 @@ type JujuConnSuite struct {
 	// added to the suite's environment configuration.
 	ConfigAttrs map[string]interface{}
 
+	// ControllerConfigAttrs can be set up before SetUpTest
+	// is invoked. Any attributes set here will be added to
+	// the suite's controller configuration.
+	ControllerConfigAttrs map[string]interface{}
+
 	// TODO: JujuConnSuite should not be concerned both with JUJU_DATA and with
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
@@ -263,7 +268,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.ControllerStore = jujuclient.NewFileClientStore()
 
 	ctx := testing.Context(c)
-	s.ControllerConfig = testing.FakeControllerBootstrapConfig()
+	s.ControllerConfig = testing.FakeControllerConfig()
+	for key, value := range s.ControllerConfigAttrs {
+		s.ControllerConfig[key] = value
+	}
 	environ, err := bootstrap.Prepare(
 		modelcmd.BootstrapContext(ctx),
 		s.ControllerStore,
@@ -273,6 +281,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 			Credential:       cloud.NewEmptyCredential(),
 			ControllerName:   ControllerName,
 			CloudName:        "dummy",
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -306,6 +315,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
+		AdminSecret:  AdminSecret,
+		CAPrivateKey: testing.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -319,7 +330,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
-	apiInfo.Password = environ.Config().AdminSecret()
+	apiInfo.Password = AdminSecret
 	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -382,7 +393,7 @@ var redialStrategy = utils.AttemptStrategy{
 // The environment must have already been bootstrapped.
 func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
 	config := environ.Config()
-	password := config.AdminSecret()
+	password := AdminSecret
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
@@ -529,7 +540,6 @@ func (s *JujuConnSuite) sampleConfig() testing.Attrs {
 	}
 	attrs := s.DummyConfig.Merge(testing.Attrs{
 		"name":          "controller",
-		"admin-secret":  AdminSecret,
 		"agent-version": jujuversion.Current.String(),
 	})
 	// Add any custom attributes required.

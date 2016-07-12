@@ -35,7 +35,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	})
 
 	os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.VSphereProvider)
-	_, err := s.Env.Bootstrap(nil, environs.BootstrapParams{ControllerConfig: testing.FakeControllerBootstrapConfig()})
+	_, err := s.Env.Bootstrap(nil, environs.BootstrapParams{ControllerConfig: testing.FakeControllerConfig()})
 	c.Assert(err, gc.ErrorMatches, "Bootstrap called")
 }
 

@@ -127,10 +127,11 @@ func testConfig(c *gc.C) *config.Config {
 		envtesting.BootstrapContext(c),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
-			ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
 			BaseConfig:       attrs,
 			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

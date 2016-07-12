@@ -32,10 +32,11 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	env, err := bootstrap.Prepare(
 		ctx, jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			ControllerConfig: testing.FakeControllerConfig(),
 			BaseConfig:       attrs,
 			ControllerName:   attrs["name"].(string),
 			CloudName:        "dummy",
+			AdminSecret:      AdminSecret,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,7 +74,7 @@ var firewallModeTests = []struct {
 	}, {
 		// Invalid mode.
 		configFirewallMode: "invalid",
-		errorMsg:           `firewall-mode: expected one of \[instance global none ], got "invalid"`,
+		errorMsg:           `firewall-mode: expected one of \[instance global none], got "invalid"`,
 	},
 }
 
@@ -95,10 +96,11 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 		env, err := bootstrap.Prepare(
 			ctx, jujuclienttesting.NewMemStore(),
 			bootstrap.PrepareParams{
-				ControllerConfig: testing.FakeControllerBootstrapConfig(),
+				ControllerConfig: testing.FakeControllerConfig(),
 				ControllerName:   cfg.Name(),
 				BaseConfig:       cfg.AllAttrs(),
 				CloudName:        "dummy",
+				AdminSecret:      AdminSecret,
 			},
 		)
 		if test.errorMsg != "" {

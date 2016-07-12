@@ -9,6 +9,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -138,6 +139,8 @@ type restoreBootstrapParams struct {
 	CloudRegion      string
 	CredentialName   string
 	Credential       cloud.Credential
+	AdminSecret      string
+	CAPrivateKey     string
 }
 
 // getEnviron returns the environ for the specified controller, or
@@ -168,7 +171,6 @@ func (c *restoreCommand) getEnviron(
 	controllerCfg := controller.Config{
 		controller.ControllerUUIDKey: params.ControllerUUID,
 		controller.CACertKey:         meta.CACert,
-		controller.CAPrivateKey:      meta.CAPrivateKey,
 	}
 
 	// We may have previous controller metadata. We need to update that so it
@@ -204,7 +206,6 @@ func (c *restoreCommand) getEnviron(
 	// Also set the admin secret and ca cert info.
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"provisioner-safe-mode": true,
-		"admin-secret":          adminSecret,
 	})
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
@@ -216,6 +217,7 @@ func (c *restoreCommand) getEnviron(
 		CloudRegion:      config.CloudRegion,
 		CredentialName:   config.Credential,
 		Credential:       params.Credentials,
+		AdminSecret:      adminSecret,
 	}, err
 }
 
@@ -256,8 +258,6 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Trace(err)
 	}
 
-	sshOpts := env.Config().BootstrapSSHOpts()
-
 	bootVers := version.Current
 	var cred *cloud.Credential
 	if params.Credential.AuthType() != cloud.EmptyAuthType {
@@ -276,10 +276,12 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		HostedModelConfig:   hostedModelConfig,
 		BootstrapSeries:     meta.Series,
 		AgentVersion:        &bootVers,
+		AdminSecret:         params.AdminSecret,
+		CAPrivateKey:        meta.CAPrivateKey,
 		DialOpts: environs.BootstrapDialOpts{
-			Timeout:        sshOpts.Timeout,
-			RetryDelay:     sshOpts.RetryDelay,
-			AddressesDelay: sshOpts.AddressesDelay,
+			Timeout:        time.Second * bootstrap.DefaultBootstrapSSHTimeout,
+			RetryDelay:     time.Second * bootstrap.DefaultBootstrapSSHRetryDelay,
+			AddressesDelay: time.Second * bootstrap.DefaultBootstrapSSHAddressesDelay,
 		},
 	}
 	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
@@ -292,8 +294,8 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
-	controllerCfg := controller.ControllerConfig(env.Config().AllAttrs())
-	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), controllerCfg.APIPort(), env)
+	apiPort := params.ControllerConfig.APIPort()
+	err = common.SetBootstrapEndpointAddress(store, c.ControllerName(), apiPort, env)
 	if err != nil {
 		return errors.Trace(err)
 	}

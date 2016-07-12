@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -167,8 +166,6 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 		},
 		nil)
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
-		attr := environ.Config().AllAttrs()
-		c.Assert(attr["ca-cert"], gc.Equals, testing.CACert)
 		return errors.New("failed to bootstrap new controller")
 	})
 
@@ -200,8 +197,8 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 		CloudRegion:            "a-region",
 		CACert:                 testing.CACert,
 		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-		APIEndpoints:           []string{"10.0.0.1:100"},
-		UnresolvedAPIEndpoints: []string{"10.0.0.1:100"},
+		APIEndpoints:           []string{"10.0.0.1:17777"},
+		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
 	})
 }
 
@@ -231,10 +228,4 @@ func (f fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 func (f fakeEnviron) AllInstances() ([]instance.Instance, error) {
 	return []instance.Instance{fakeInstance{id: "1"}}, nil
-}
-
-func (f fakeEnviron) Config() *config.Config {
-	attrs := testing.FakeConfig().Merge(map[string]interface{}{"api-port": "100"})
-	cfg, _ := config.New(config.NoDefaults, attrs)
-	return cfg
 }

@@ -71,13 +71,12 @@ const (
 // These are stub config values for use in tests.
 var (
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":            "lxd",
-		"remote-url":      "",
-		"client-cert":     "",
-		"client-key":      "",
-		"server-cert":     "",
-		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
+		"type":        "lxd",
+		"remote-url":  "",
+		"client-cert": "",
+		"client-key":  "",
+		"server-cert": "",
+		"uuid":        "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
 	})
 )
 
@@ -158,7 +157,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// nothing
 	}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerBootstrapConfig(), cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{

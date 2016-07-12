@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
@@ -52,10 +51,11 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 		modelcmd.BootstrapContext(testing.Context(c)),
 		jujuclienttesting.NewMemStore(),
 		bootstrap.PrepareParams{
-			ControllerConfig: testing.FakeControllerBootstrapConfig(),
+			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
 			BaseConfig:       dummy.SampleConfig(),
 			CloudName:        "dummy",
+			AdminSecret:      "admin-secret",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,48 +324,6 @@ type fakePrecheckBackend struct {
 
 func (f *fakePrecheckBackend) NeedsCleanup() (bool, error) {
 	return f.cleanupNeeded, f.cleanupError
-}
-
-type InternalSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&InternalSuite{})
-
-type stateGetter struct {
-	cfg *config.Config
-}
-
-func (e *stateGetter) Model() (*state.Model, error) {
-	return &state.Model{}, nil
-}
-
-func (s *stateGetter) ModelConfig() (*config.Config, error) {
-	return s.cfg, nil
-}
-
-func (s *InternalSuite) TestUpdateConfigFromProvider(c *gc.C) {
-	controllerModelConfig := testing.CustomModelConfig(c, testing.Attrs{
-		"type": "dummy",
-	})
-	configAttrs := testing.FakeConfig()
-	configAttrs["type"] = "dummy"
-	// Fake the "state-id" so the provider thinks it is prepared already.
-	configAttrs["state-id"] = "42"
-	// We need to specify a valid provider type, so we use dummy.
-	// The dummy provider grabs the UUID from the controller config
-	// and returns it in the map with the key "controller-uuid", similar
-	// to what the azure provider will need to do.
-	model := description.NewModel(description.ModelArgs{
-		Owner:  names.NewUserTag("test-admin"),
-		Config: configAttrs,
-	})
-
-	err := migration.UpdateConfigFromProvider(model, &stateGetter{controllerModelConfig}, controllerModelConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelConfig := model.Config()
-	c.Assert(modelConfig["controller-uuid"], gc.Equals, controllerModelConfig.UUID())
 }
 
 type CharmInternalSuite struct {

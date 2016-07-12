@@ -272,56 +272,30 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 }
 
 func (s *InitializeSuite) TestModelConfigWithAdminSecret(c *gc.C) {
-	// admin-secret blocks Initialize.
-	good := testing.ModelConfig(c)
-	badUpdateAttrs := map[string]interface{}{"admin-secret": "foo"}
-	bad, err := good.Apply(badUpdateAttrs)
-	owner := names.NewLocalUserTag("initialize-admin")
-	controllerCfg := testing.FakeControllerConfig()
-	controllerCfg["controller-uuid"] = good.UUID()
+	update := map[string]interface{}{"admin-secret": "foo"}
+	remove := []string{}
+	s.testBadModelConfig(c, update, remove, "admin-secret should never be written to the state")
+}
 
-	args := state.InitializeParams{
-		ControllerConfig: controllerCfg,
-		ControllerModelArgs: state.ModelArgs{
-			CloudName: "dummy",
-			Owner:     owner,
-			Config:    bad,
-		},
-		CloudName: "dummy",
-		Cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
-		MongoInfo:     statetesting.NewMongoInfo(),
-		MongoDialOpts: mongotest.DialOpts(),
-	}
-	_, err = state.Initialize(args)
-	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
-
-	// admin-secret blocks UpdateModelConfig.
-	args.ControllerModelArgs.Config = good
-	st, err := state.Initialize(args)
-	c.Assert(err, jc.ErrorIsNil)
-	st.Close()
-
-	s.openState(c, st.ModelTag())
-	err = s.State.UpdateModelConfig(badUpdateAttrs, nil, nil)
-	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
-
-	// ModelConfig remains inviolate.
-	cfg, err := s.State.ModelConfig()
-	goodAttrs := good.AllAttrs()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), jc.DeepEquals, goodAttrs)
+func (s *InitializeSuite) TestModelConfigWithCAPrivateKey(c *gc.C) {
+	update := map[string]interface{}{"ca-private-key": "foo"}
+	remove := []string{}
+	s.testBadModelConfig(c, update, remove, "ca-private-key should never be written to the state")
 }
 
 func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
-	// admin-secret blocks Initialize.
+	update := map[string]interface{}{}
+	remove := []string{"agent-version"}
+	s.testBadModelConfig(c, update, remove, "agent-version must always be set in state")
+}
+
+func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interface{}, remove []string, expect string) {
 	good := testing.ModelConfig(c)
-	attrs := good.AllAttrs()
-	delete(attrs, "agent-version")
-	bad, err := config.New(config.NoDefaults, attrs)
+	bad, err := good.Apply(update)
 	c.Assert(err, jc.ErrorIsNil)
+	bad, err = bad.Remove(remove)
+	c.Assert(err, jc.ErrorIsNil)
+
 	owner := names.NewLocalUserTag("initialize-admin")
 	controllerCfg := testing.FakeControllerConfig()
 	controllerCfg["controller-uuid"] = good.UUID()
@@ -342,7 +316,7 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 		MongoDialOpts: mongotest.DialOpts(),
 	}
 	_, err = state.Initialize(args)
-	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
+	c.Assert(err, gc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
 	st, err := state.Initialize(args)
@@ -350,8 +324,8 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 	st.Close()
 
 	s.openState(c, st.ModelTag())
-	err = s.State.UpdateModelConfig(map[string]interface{}{}, []string{"agent-version"}, nil)
-	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
+	err = s.State.UpdateModelConfig(update, remove, nil)
+	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
 	cfg, err := s.State.ModelConfig()
@@ -363,7 +337,8 @@ func (s *InitializeSuite) TestModelConfigWithoutAgentVersion(c *gc.C) {
 
 func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	badAttrNames := []string{
-		config.AdminSecretKey,
+		"admin-secret",
+		"ca-private-key",
 		config.AgentVersionKey,
 	}
 	for _, attr := range controller.ControllerOnlyConfigAttributes {

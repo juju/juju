@@ -42,7 +42,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		return s.innerEnviron.Bootstrap(ctx, args)
 	})
 	s.environ.Bootstrap(nil, environs.BootstrapParams{
-		ControllerConfig: testing.FakeControllerBootstrapConfig(),
+		ControllerConfig: testing.FakeControllerConfig(),
 	})
 	c.Check(s.innerEnviron.Pop().name, gc.Equals, "Bootstrap")
 }

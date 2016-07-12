@@ -167,7 +167,7 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	bootstrapSeries := "utopic"
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		BootstrapSeries:  bootstrapSeries,
 		AvailableTools: tools.List{
 			&tools.Tools{
@@ -215,7 +215,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	ctx := envtesting.BootstrapContext(c)
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{

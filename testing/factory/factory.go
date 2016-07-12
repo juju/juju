@@ -571,17 +571,13 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	// as the initial model, or things will break elsewhere.
 	currentCfg, err := factory.st.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := factory.st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name":       params.Name,
-		"uuid":       uuid.String(),
-		"type":       currentCfg.Type(),
-		"state-port": controllerCfg.StatePort(),
-		"api-port":   controllerCfg.APIPort(),
+		"name": params.Name,
+		"uuid": uuid.String(),
+		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewModel(state.ModelArgs{
 		CloudName:       params.CloudName,

@@ -48,6 +48,10 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const (
+	AdminSecret = "admin-secret"
+)
+
 // LiveTests contains tests that are designed to run against a live server
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
@@ -152,13 +156,14 @@ func (t *LiveTests) prepareForBootstrapParams(c *gc.C) bootstrap.PrepareParams {
 		credential = cloud.NewEmptyCredential()
 	}
 	return bootstrap.PrepareParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		BaseConfig:       t.TestConfig,
 		Credential:       credential,
 		CloudEndpoint:    t.CloudEndpoint,
 		CloudRegion:      t.CloudRegion,
 		ControllerName:   t.TestConfig["name"].(string),
 		CloudName:        t.TestConfig["type"].(string),
+		AdminSecret:      AdminSecret,
 	}
 }
 
@@ -175,7 +180,7 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		}}
 	}
 	return bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		CloudName:        t.TestConfig["type"].(string),
 		Cloud: cloud.Cloud{
 			Type:      t.TestConfig["type"].(string),
@@ -186,6 +191,8 @@ func (t *LiveTests) bootstrapParams() bootstrap.BootstrapParams {
 		CloudRegion:         t.CloudRegion,
 		CloudCredential:     &credential,
 		CloudCredentialName: "credential",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        coretesting.CAKey,
 	}
 }
 
@@ -479,7 +486,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	apiInfo, err := environs.APIInfo(model.Tag().Id(), model.Tag().Id(), caCert, controllerCfg.APIPort(), t.Env)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = owner
-	apiInfo.Password = t.Env.Config().AdminSecret()
+	apiInfo.Password = AdminSecret
 	apiState, err := api.Open(apiInfo, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()

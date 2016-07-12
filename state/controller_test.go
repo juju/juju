@@ -28,7 +28,7 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
-		if !optional(controllerAttr) && controllerAttr != controller.CAPrivateKey {
+		if !optional(controllerAttr) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(v, gc.Not(gc.Equals), "")
 		}

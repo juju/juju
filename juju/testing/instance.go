@@ -187,7 +187,7 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 	}
 	if isController {
 		instanceConfig.Controller = &instancecfg.ControllerConfig{
-			Config: testing.FakeControllerBootstrapConfig(),
+			Config: testing.FakeControllerConfig(),
 			MongoInfo: &mongo.MongoInfo{
 				Info: mongo.Info{
 					Addrs:  []string{"127.0.0.1:1234"},

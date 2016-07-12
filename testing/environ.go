@@ -50,14 +50,6 @@ func FakeControllerConfig() controller.Config {
 	}
 }
 
-// FakeControllerBootstrapConfig() returns an environment configuration
-// for a fake provider with all required attributes set for bootstrap.
-func FakeControllerBootstrapConfig() controller.Config {
-	cfg := FakeControllerConfig()
-	cfg["ca-private-key"] = CAKey
-	return cfg
-}
-
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
@@ -67,7 +59,6 @@ func FakeConfig() Attrs {
 		"uuid":                      ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              "fish",
 		"ssl-hostname-verification": true,
 		"development":               false,
 		"default-series":            series.LatestLts(),

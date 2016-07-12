@@ -78,7 +78,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerBootstrapConfig(),
+		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)

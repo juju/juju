@@ -17,8 +17,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/description"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/storage"
@@ -59,40 +57,11 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 		return nil, nil, errors.Trace(err)
 	}
 
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	controllerModelConfig, err := controllerModel.Config()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	if err := updateConfigFromProvider(model, st, controllerModelConfig); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	dbModel, dbState, err := st.Import(model)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	return dbModel, dbState, nil
-}
-
-func updateConfigFromProvider(model description.Model, getter environs.EnvironConfigGetter, controllerModelConfig *config.Config) error {
-	provider, err := environs.GetEnviron(getter, environs.New)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	updater, ok := provider.(environs.MigrationConfigUpdater)
-	if !ok {
-		return nil
-	}
-
-	model.UpdateConfig(updater.MigrationConfigUpdate(controllerModelConfig))
-	return nil
 }
 
 // UploadBackend define the methods on *state.State that are needed for

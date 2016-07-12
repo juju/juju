@@ -82,7 +82,6 @@ func SampleConfig() testing.Attrs {
 		"uuid":                      testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              testing.DefaultMongoPassword,
 		"ssl-hostname-verification": true,
 		"development":               false,
 		"default-series":            series.LatestLts(),
@@ -653,10 +652,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return nil, err
 	}
-	password := e.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("admin-secret is required for bootstrap")
-	}
 	if _, ok := args.ControllerConfig.CACert(); !ok {
 		return nil, fmt.Errorf("no CA certificate in controller configuration")
 	}
@@ -730,10 +725,10 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
 				return err
 			}
-			if err := st.SetAdminMongoPassword(password); err != nil {
+			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
 				return err
 			}
-			if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
+			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
 				return err
 			}
 			env, err := st.Model()
@@ -747,8 +742,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// We log this out for test purposes only. No one in real life can use
 			// a dummy provider for anything other than testing, so logging the password
 			// here is fine.
-			logger.Debugf("setting password for %q to %q", owner.Name(), password)
-			owner.SetPassword(password)
+			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
+			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
 			estate.apiStatePool = state.NewStatePool(st)
 
@@ -1531,11 +1526,4 @@ func delay() {
 
 func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
-}
-
-// MigrationConfigUpdate implements MigrationConfigUpdater.
-func (*environ) MigrationConfigUpdate(controllerModelConfig *config.Config) map[string]interface{} {
-	return map[string]interface{}{
-		"controller-uuid": controllerModelConfig.UUID(),
-	}
 }

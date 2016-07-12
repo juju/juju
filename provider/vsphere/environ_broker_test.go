@@ -57,7 +57,7 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 
 	cons := constraints.Value{}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(coretesting.FakeControllerBootstrapConfig(), cons, cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(coretesting.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = instanceConfig.SetTools(coretools.List{

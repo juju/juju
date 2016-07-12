@@ -35,7 +35,6 @@ func (f *fakeControllerAccessor) ControllerConfig() (controller.Config, error) {
 	return map[string]interface{}{
 		controller.ControllerUUIDKey: testing.ModelTag.Id(),
 		controller.CACertKey:         testing.CACert,
-		controller.CAPrivateKey:      testing.CAKey,
 		controller.ApiPort:           4321,
 		controller.StatePort:         1234,
 	}, nil
@@ -54,7 +53,6 @@ func (*controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(map[string]interface{}(result.Config), jc.DeepEquals, map[string]interface{}{
 		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
 		"controller-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"state-port":      1234,
 		"api-port":        4321,
