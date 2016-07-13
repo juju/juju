@@ -297,8 +297,6 @@ class TestWriteItemStreams(TestCase):
 
     def test_write_item_streams(self):
         now = datetime(2001, 2, 3)
-        credentials = {'name': 'aws'}
-        china_credentials = {'name': 'aws-cn'}
         east_image = make_mock_image(region_name='us-east-1')
         west_image = make_mock_image(region_name='us-west-1')
         items = [make_item(west_image, now), make_item(east_image, now)]
