@@ -418,8 +418,15 @@ func (t *logTailer) processCollection() error {
 	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
 	// and the tests only run one mongod process, including _id
 	// guarantees getting log messages in a predictable order.
+	//
+	// Important: it is critical that the sort on _id is done
+	// separately from the sort on {model, time}. Combining the sort
+	// fields means that MongoDB won't use the indexes that are in
+	// place, which risks hitting MongoDB's 32MB sort limit.  See
+	// https://pad.lv/1590605.
+	//
 	// TODO(ericsnow) Sort only by _id once it is a sequential int.
-	iter := query.Sort("t", "_id").Iter()
+	iter := query.Sort("e", "t").Sort("_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
 		rec, err := logDocToRecord(doc)
@@ -689,7 +696,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 		// NOTE: this assumes that there are no more logs being added
 		// for the time range being pruned (which should be true for
 		// any realistic minimum log collection size).
-		tsQuery := logsColl.Find(bson.M{"e": modelUUID}).Sort("t")
+		tsQuery := logsColl.Find(bson.M{"e": modelUUID}).Sort("e", "t")
 		tsQuery = tsQuery.Skip(toRemove)
 		tsQuery = tsQuery.Select(bson.M{"t": 1})
 		var doc bson.M
