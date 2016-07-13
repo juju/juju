@@ -236,7 +236,7 @@ def make_aws_items(all_credentials):
 
 
 def main():
-    streams, creds_filename, azure = get_parameters()
+    streams, creds_filename = get_parameters()
     with open(creds_filename) as creds_file:
         all_credentials = yaml.safe_load(creds_file)['credentials']
     items = make_aws_items(all_credentials)
