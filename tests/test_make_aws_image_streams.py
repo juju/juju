@@ -15,6 +15,7 @@ from make_aws_image_streams import (
     iter_region_connection,
     get_parameters,
     make_aws_credentials,
+    make_aws_items,
     make_item,
     make_item_name,
     write_item_streams,
@@ -175,7 +176,7 @@ def make_mock_image(region_name='us-northeast-3'):
     return image
 
 
-class TetMakeItem(TestCase):
+class TestMakeItem(TestCase):
 
     def test_happy_path(self):
         image = make_mock_image()
@@ -267,6 +268,38 @@ class TestMakeItemName(TestCase):
 def load_json(parent, filename):
     with open(os.path.join(parent, 'streams', 'v1', filename)) as f:
         return json.load(f)
+
+
+class TestMakeAwsItems(TestCase):
+
+    def test_happy_path(self):
+        now = datetime(2001, 2, 3)
+        east_conn = Mock()
+        east_image = make_mock_image(region_name='us-east-1')
+        east_conn.get_all_images.return_value = [east_image]
+        west_conn = Mock()
+        west_image = make_mock_image(region_name='us-west-1')
+        west_conn.get_all_images.return_value = [west_image]
+        all_credentials = {
+            'aws': {'credentials': {
+                'access-key': 'foo',
+                'secret-key': 'bar',
+                }},
+            'aws-china': {'credentials': {
+                'access-key': 'baz',
+                'secret-key': 'qux',
+                }},
+            }
+        now = datetime(2001, 2, 3)
+        credentials = make_aws_credentials(all_credentials['aws'])
+        china_credentials = make_aws_credentials(all_credentials['aws-china'])
+        with patch('make_aws_image_streams.iter_region_connection',
+                   return_value=[east_conn, west_conn],
+                   autospec=True) as irc_mock:
+            items = make_aws_items(all_credentials, now)
+        irc_mock.assert_called_once_with(credentials, china_credentials)
+        self.assertEqual([make_item(east_image, now),
+                          make_item(west_image, now)], items)
 
 
 class TestWriteItemStreams(TestCase):

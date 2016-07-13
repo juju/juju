@@ -229,10 +229,9 @@ def write_juju_streams(out_d, trees, updated, sticky):
     return out_filenames
 
 
-def make_aws_items(all_credentials):
+def make_aws_items(all_credentials, now):
     credentials = make_aws_credentials(all_credentials['aws'])
     china_credentials = make_aws_credentials(all_credentials['aws-china'])
-    now = datetime.utcnow()
     return [make_item(i, now) for i in
             iter_centos_images(credentials, china_credentials)]
 
@@ -241,7 +240,8 @@ def main():
     streams, creds_filename, azure = get_parameters()
     with open(creds_filename) as creds_file:
         all_credentials = yaml.safe_load(creds_file)['credentials']
-    items = make_aws_items(all_credentials)
+    now = datetime.utcnow()
+    items = make_aws_items(all_credentials, now)
     if azure:
         # Avoid breakage for aws streams if azure libs not installed.
         from azure_image_streams import make_azure_items
